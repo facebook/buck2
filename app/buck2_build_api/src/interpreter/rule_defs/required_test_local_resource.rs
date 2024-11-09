@@ -70,19 +70,19 @@ pub fn register_required_test_local_resource(builder: &mut GlobalsBuilder) {
 fn required_test_local_resource_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     /// Local resource type
-    fn name<'v>(this: &'v StarlarkRequiredTestLocalResource) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkRequiredTestLocalResource) -> starlark::Result<&'v str> {
         Ok(&this.name)
     }
 
     #[starlark(attribute)]
     /// Is this resource type needed for test listing?
-    fn listing<'v>(this: &'v StarlarkRequiredTestLocalResource) -> anyhow::Result<bool> {
+    fn listing<'v>(this: &'v StarlarkRequiredTestLocalResource) -> starlark::Result<bool> {
         Ok(this.listing)
     }
 
     #[starlark(attribute)]
     /// Is this resource type needed for test execution?
-    fn execution<'v>(this: &'v StarlarkRequiredTestLocalResource) -> anyhow::Result<bool> {
+    fn execution<'v>(this: &'v StarlarkRequiredTestLocalResource) -> starlark::Result<bool> {
         Ok(this.execution)
     }
 }

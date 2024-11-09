@@ -158,13 +158,13 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(
         this: &Dependency,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>> {
+    ) -> starlark::Result<ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>> {
         Ok(this.label)
     }
 
     // TODO(nga): should return provider collection.
     #[starlark(attribute)]
-    fn providers<'v>(this: &Dependency) -> anyhow::Result<Vec<FrozenValue>> {
+    fn providers<'v>(this: &Dependency) -> starlark::Result<Vec<FrozenValue>> {
         Ok(this
             .provider_collection
             .providers

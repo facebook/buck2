@@ -119,7 +119,9 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(node.label)
     /// ```
     #[starlark(attribute)]
-    fn label(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
+    fn label(
+        this: &StarlarkConfiguredTargetNode,
+    ) -> starlark::Result<StarlarkConfiguredTargetLabel> {
         Ok(StarlarkConfiguredTargetLabel::new(this.0.label().dupe()))
     }
 
@@ -132,7 +134,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(target_node.buildfile_path)
     /// ```
     #[starlark(attribute)]
-    fn buildfile_path(this: &StarlarkConfiguredTargetNode) -> anyhow::Result<StarlarkFileNode> {
+    fn buildfile_path(this: &StarlarkConfiguredTargetNode) -> starlark::Result<StarlarkFileNode> {
         Ok(StarlarkFileNode(this.0.buildfile_path().path()))
     }
 
@@ -388,7 +390,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn rule_type<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_type().to_string().as_str()))
     }
 
@@ -407,7 +409,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn rule_kind<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
 
@@ -525,7 +527,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn oncall<'v>(
         this: &'v StarlarkConfiguredTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneOr<StringValue<'v>>> {
+    ) -> starlark::Result<NoneOr<StringValue<'v>>> {
         match this.0.oncall() {
             Some(oncall) => Ok(NoneOr::Other(heap.alloc_str_intern(oncall))),
             None => Ok(NoneOr::None),
@@ -609,8 +611,8 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(attrs.name.type)
     /// ```
     #[starlark(attribute)]
-    fn r#type<'v>(this: &StarlarkConfiguredAttr) -> anyhow::Result<&'v str> {
-        this.0.starlark_type()
+    fn r#type<'v>(this: &StarlarkConfiguredAttr) -> starlark::Result<&'v str> {
+        Ok(this.0.starlark_type()?)
     }
 
     /// Returns the value of this attribute. The value here is not fully resolved like in rules.

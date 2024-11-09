@@ -565,19 +565,19 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn definition<'v>(
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
-    ) -> anyhow::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
-        this.typed.definition()
+    ) -> starlark::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
+        Ok(this.typed.definition()?)
     }
 
     #[starlark(attribute)]
-    fn value<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> anyhow::Result<Value<'v>> {
+    fn value<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> starlark::Result<Value<'v>> {
         Ok(match this.typed.node.as_ref() {
             Some(node) => node.value,
             None => Value::new_none(),
         })
     }
     #[starlark(attribute)]
-    fn children<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> anyhow::Result<Vec<Value<'v>>> {
+    fn children<'v>(this: ValueOf<'v, &'v TransitiveSet<'v>>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(this.typed.children.to_vec())
     }
 }

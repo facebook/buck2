@@ -76,8 +76,8 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn basename<'v>(
         this: &'v dyn StarlarkArtifactLike,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
-        this.basename(heap)
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(this.basename(heap)?)
     }
 
     /// The file extension of this artifact. e.g. for an artifact at foo/bar.sh,
@@ -86,14 +86,14 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn extension<'v>(
         this: &'v dyn StarlarkArtifactLike,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
-        this.extension(heap)
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(this.extension(heap)?)
     }
 
     /// Whether the artifact represents a source file
     #[starlark(attribute)]
-    fn is_source<'v>(this: &'v dyn StarlarkArtifactLike) -> anyhow::Result<bool> {
-        this.is_source()
+    fn is_source<'v>(this: &'v dyn StarlarkArtifactLike) -> starlark::Result<bool> {
+        Ok(this.is_source()?)
     }
 
     /// The `Label` of the rule that originally created this artifact. May also be None in
@@ -102,7 +102,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn owner<'v>(
         this: &'v dyn StarlarkArtifactLike,
-    ) -> anyhow::Result<NoneOr<StarlarkConfiguredProvidersLabel>> {
+    ) -> starlark::Result<NoneOr<StarlarkConfiguredProvidersLabel>> {
         Ok(NoneOr::from_option(this.owner()?))
     }
 
@@ -112,8 +112,8 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn short_path<'v>(
         this: &'v dyn StarlarkArtifactLike,
         heap: &Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
-        this.short_path(heap)
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(this.short_path(heap)?)
     }
 
     /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is

@@ -36,12 +36,12 @@ impl<'v> StarlarkValue<'v> for StarlarkConfiguration {
 #[starlark_module]
 fn configuration_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn name<'v>(this: &'v StarlarkConfiguration) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkConfiguration) -> starlark::Result<&'v str> {
         Ok(this.0.short_name())
     }
 
     #[starlark(attribute)]
-    fn hash<'v>(this: &StarlarkConfiguration) -> anyhow::Result<&'v str> {
+    fn hash<'v>(this: &StarlarkConfiguration) -> starlark::Result<&'v str> {
         Ok(this.0.output_hash().as_str())
     }
 }

@@ -106,7 +106,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(node.attrs.name.type)
     /// ```
     #[starlark(attribute)]
-    fn r#type<'v>(this: &StarlarkCoercedAttr) -> anyhow::Result<&'v str> {
+    fn r#type<'v>(this: &StarlarkCoercedAttr) -> starlark::Result<&'v str> {
         Ok(this.0.starlark_type()?)
     }
 

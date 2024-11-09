@@ -573,7 +573,7 @@ impl ProviderCodegen {
                     #(
                         #[starlark(attribute)]
                         fn #field_names<'v>(this: & #name)
-                                -> anyhow::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
+                                -> starlark::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
                         {
                             Ok(this.#field_names.to_value())
                         }

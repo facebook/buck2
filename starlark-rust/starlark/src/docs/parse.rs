@@ -76,7 +76,7 @@ pub enum DocStringKind {
     /// fn add_some_value(builder: &mut MethodsBuilder) {
     ///     /// attr1 is an attribute that does nothing interesting.
     ///     #[starlark(attribute)]
-    ///     fn attr1<'v>(this: Value<'v>) -> anyhow::Result<String> {
+    ///     fn attr1<'v>(this: Value<'v>) -> starlark::Result<String> {
     ///         let _ = this;
     ///         Ok("attr1".to_owned())
     ///     }

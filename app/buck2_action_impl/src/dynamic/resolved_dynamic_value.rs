@@ -60,7 +60,7 @@ fn resolved_dynamic_value_methods(method: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn providers<'v>(
         this: ValueTyped<'v, StarlarkResolvedDynamicValue>,
-    ) -> anyhow::Result<FrozenValueTyped<'static, FrozenProviderCollection>> {
+    ) -> starlark::Result<FrozenValueTyped<'static, FrozenProviderCollection>> {
         Ok(this.value)
     }
 }

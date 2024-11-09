@@ -165,7 +165,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn promise<'v>(
         this: &StarlarkAnonTarget<'v>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         Ok(this.promise)
     }
 }
@@ -213,7 +213,7 @@ fn anon_targets_methods(builder: &mut MethodsBuilder) {
     fn anon_targets<'v>(
         this: &StarlarkAnonTargets<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(AllocList(
             this.anon_targets.iter().map(|a| heap.alloc(a.clone())),
         )))
@@ -223,7 +223,7 @@ fn anon_targets_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn promise<'v>(
         this: &StarlarkAnonTargets<'v>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         Ok(this.promise)
     }
 }

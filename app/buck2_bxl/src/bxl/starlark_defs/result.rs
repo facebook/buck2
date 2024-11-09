@@ -69,7 +69,7 @@ impl<'v> StarlarkValue<'v> for StarlarkError {
 fn error_methods(builder: &mut MethodsBuilder) {
     /// The error message
     #[starlark(attribute)]
-    fn message<'v>(this: &'v StarlarkError) -> anyhow::Result<String> {
+    fn message<'v>(this: &'v StarlarkError) -> starlark::Result<String> {
         Ok(format!("{:?}", this.err))
     }
 }

@@ -79,7 +79,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(target_node.attrs.my_attr)
     /// ```
     #[starlark(attribute)]
-    fn attrs<'v>(this: StarlarkTargetNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn attrs<'v>(this: StarlarkTargetNode, heap: &Heap) -> starlark::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
         let special_attrs_iter = this.0.special_attrs();
         let attrs = attrs_iter
@@ -160,7 +160,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(target_node.label)
     /// ```
     #[starlark(attribute)]
-    fn label(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkTargetLabel> {
+    fn label(this: &StarlarkTargetNode) -> starlark::Result<StarlarkTargetLabel> {
         Ok(this.0.label().dupe().into())
     }
 
@@ -173,7 +173,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(target_node.buildfile_path)
     /// ```
     #[starlark(attribute)]
-    fn buildfile_path(this: &StarlarkTargetNode) -> anyhow::Result<StarlarkFileNode> {
+    fn buildfile_path(this: &StarlarkTargetNode) -> starlark::Result<StarlarkFileNode> {
         Ok(StarlarkFileNode(this.0.buildfile_path().path()))
     }
 
@@ -190,7 +190,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn rule_type<'v>(
         this: &'v StarlarkTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_type().to_string().as_str()))
     }
 
@@ -209,7 +209,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn rule_kind<'v>(
         this: &'v StarlarkTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
 
@@ -225,7 +225,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn oncall<'v>(
         this: &'v StarlarkTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneOr<StringValue<'v>>> {
+    ) -> starlark::Result<NoneOr<StringValue<'v>>> {
         match this.0.oncall() {
             None => Ok(NoneOr::None),
             Some(oncall) => Ok(NoneOr::Other(heap.alloc_str_intern(oncall))),

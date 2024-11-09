@@ -74,13 +74,13 @@ impl Display for StackFrame {
 fn stack_frame_methods(builder: &mut MethodsBuilder) {
     /// Returns the name of the entry on the call-stack.
     #[starlark(attribute)]
-    fn func_name(this: &StackFrame) -> anyhow::Result<String> {
+    fn func_name(this: &StackFrame) -> starlark::Result<String> {
         Ok(this.name.clone())
     }
 
     /// Returns a path of the module from which the entry was called, or [`None`] for native Rust functions.
     #[starlark(attribute)]
-    fn module_path(this: &StackFrame) -> anyhow::Result<NoneOr<String>> {
+    fn module_path(this: &StackFrame) -> starlark::Result<NoneOr<String>> {
         match this.location {
             Some(ref location) => Ok(NoneOr::Other(location.file.filename().to_owned())),
             None => Ok(NoneOr::None),

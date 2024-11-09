@@ -116,7 +116,7 @@ impl<'a> UnpackValue<'a> for StarlarkActionQueryNode {
 fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the attributes from the action query node. Returns a struct.
     #[starlark(attribute)]
-    fn attrs<'v>(this: StarlarkActionQueryNode, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn attrs<'v>(this: StarlarkActionQueryNode, heap: &Heap) -> starlark::Result<Value<'v>> {
         let mut result = Vec::new();
         this.0.attrs_for_each(|k, v| {
             result.push((k.to_owned(), StarlarkActionAttr(v.to_owned())));
@@ -156,7 +156,7 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
 
     /// Gets the kind of action query node, either analysis or action kind.
     #[starlark(attribute)]
-    fn rule_type(this: &StarlarkActionQueryNode) -> anyhow::Result<String> {
+    fn rule_type(this: &StarlarkActionQueryNode) -> starlark::Result<String> {
         Ok(this.0.rule_type().to_string())
     }
 }

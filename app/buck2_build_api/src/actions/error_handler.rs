@@ -98,13 +98,13 @@ impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext {
 fn action_error_context_methods(builder: &mut MethodsBuilder) {
     /// The stderr of the failed action.
     #[starlark(attribute)]
-    fn stderr<'v>(this: &'v StarlarkActionErrorContext) -> anyhow::Result<&'v str> {
+    fn stderr<'v>(this: &'v StarlarkActionErrorContext) -> starlark::Result<&'v str> {
         Ok(&this.stderr)
     }
 
     /// The stdout of the failed action.
     #[starlark(attribute)]
-    fn stdout<'v>(this: &'v StarlarkActionErrorContext) -> anyhow::Result<&'v str> {
+    fn stdout<'v>(this: &'v StarlarkActionErrorContext) -> starlark::Result<&'v str> {
         Ok(&this.stdout)
     }
 
@@ -211,14 +211,14 @@ fn action_error_location_methods(builder: &mut MethodsBuilder) {
     /// The file of the error location. This is only needed for action error handler
     /// unit testing.
     #[starlark(attribute)]
-    fn file<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<&'v str> {
+    fn file<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<&'v str> {
         Ok(&this.file)
     }
 
     /// The line of the error location. This is only needed for action error handler
     /// unit testing.
     #[starlark(attribute)]
-    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> anyhow::Result<NoneOr<u64>> {
+    fn line<'v>(this: &'v StarlarkActionErrorLocation) -> starlark::Result<NoneOr<u64>> {
         Ok(NoneOr::from_option(this.line))
     }
 }
@@ -298,14 +298,14 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     /// The category name of this sub error. This function is only needed for action
     /// error handler unit testing.
     #[starlark(attribute)]
-    fn category<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<&'v str> {
+    fn category<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<&'v str> {
         Ok(&this.category)
     }
 
     /// The optional message associated with this sub error.  This function is only
     /// needed for action error handler unit testing.
     #[starlark(attribute)]
-    fn message<'v>(this: &'v StarlarkActionSubError) -> anyhow::Result<NoneOr<&'v str>> {
+    fn message<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<&'v str>> {
         Ok(match &this.message {
             Some(message) => NoneOr::Other(message.as_str()),
             None => NoneOr::None,
@@ -317,7 +317,7 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn locations<'v>(
         this: &'v StarlarkActionSubError,
-    ) -> anyhow::Result<NoneOr<Vec<StarlarkActionErrorLocation>>> {
+    ) -> starlark::Result<NoneOr<Vec<StarlarkActionErrorLocation>>> {
         match &this.locations {
             None => Ok(NoneOr::None),
             Some(locations) => Ok(NoneOr::Other(locations.items.cloned())),

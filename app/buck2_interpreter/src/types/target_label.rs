@@ -109,22 +109,25 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
 #[starlark_module]
 fn label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn package<'v>(this: &StarlarkTargetLabel, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn package<'v>(
+        this: &StarlarkTargetLabel,
+        heap: &'v Heap,
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.label.pkg().cell_relative_path().as_str()))
     }
 
     #[starlark(attribute)]
-    fn name<'v>(this: &StarlarkTargetLabel) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &StarlarkTargetLabel) -> starlark::Result<&'v str> {
         Ok(this.label.name().as_str())
     }
 
     #[starlark(attribute)]
-    fn cell<'v>(this: &'v StarlarkTargetLabel) -> anyhow::Result<&'v str> {
+    fn cell<'v>(this: &'v StarlarkTargetLabel) -> starlark::Result<&'v str> {
         Ok(this.label.pkg().cell_name().as_str())
     }
 
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkTargetLabel) -> anyhow::Result<StarlarkCellPath> {
+    fn path<'v>(this: &StarlarkTargetLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.pkg().to_cell_path()))
     }
 
@@ -221,22 +224,22 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     fn package<'v>(
         this: &StarlarkConfiguredTargetLabel,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.label.pkg().cell_relative_path().as_str()))
     }
 
     #[starlark(attribute)]
-    fn name<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &StarlarkConfiguredTargetLabel) -> starlark::Result<&'v str> {
         Ok(this.label.name().as_str())
     }
 
     #[starlark(attribute)]
-    fn cell<'v>(this: &'v StarlarkConfiguredTargetLabel) -> anyhow::Result<&'v str> {
+    fn cell<'v>(this: &'v StarlarkConfiguredTargetLabel) -> starlark::Result<&'v str> {
         Ok(this.label.pkg().cell_name().as_str())
     }
 
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<StarlarkCellPath> {
+    fn path<'v>(this: &StarlarkConfiguredTargetLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.pkg().to_cell_path()))
     }
 

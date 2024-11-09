@@ -45,7 +45,7 @@ fn test_other_attributes_in_atributes(methods: &mut MethodsBuilder) {
     fn test_attribute(
         // TODO(nga): this marker is no-op.
         #[allow(unused_variables)] this: u32,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         Ok(NoneType)
     }
 }

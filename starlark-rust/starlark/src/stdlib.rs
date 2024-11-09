@@ -239,7 +239,7 @@ mod tests {
         #[starlark_module]
         fn methods(builder: &mut MethodsBuilder) {
             #[starlark(attribute)]
-            fn invert1(this: Bool2) -> anyhow::Result<Bool2> {
+            fn invert1(this: Bool2) -> starlark::Result<Bool2> {
                 Ok(Bool2(!this.0))
             }
 

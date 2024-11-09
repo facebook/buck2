@@ -293,10 +293,11 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn attrs<'v>(
         this: RefAnalysisContext,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
-        this.0
+    ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
+        Ok(this
+            .0
             .attrs
-            .context("`attrs` is not available for `dynamic_output` or BXL")
+            .context("`attrs` is not available for `dynamic_output` or BXL")?)
     }
 
     /// Returns an `actions` value containing functions to define actual actions that are run.
@@ -304,7 +305,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn actions<'v>(
         this: RefAnalysisContext,
-    ) -> anyhow::Result<ValueTyped<'v, AnalysisActions<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, AnalysisActions<'v>>> {
         Ok(this.0.actions)
     }
 
@@ -313,7 +314,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(
         this: RefAnalysisContext,
-    ) -> anyhow::Result<NoneOr<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
+    ) -> starlark::Result<NoneOr<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
         Ok(NoneOr::from_option(this.0.label))
     }
 
@@ -323,10 +324,11 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn plugins<'v>(
         this: RefAnalysisContext,
-    ) -> anyhow::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
-        this.0
+    ) -> starlark::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
+        Ok(this
+            .0
             .plugins
-            .context("`plugins` is not available for `dynamic_output` or BXL")
+            .context("`plugins` is not available for `dynamic_output` or BXL")?)
     }
 }
 

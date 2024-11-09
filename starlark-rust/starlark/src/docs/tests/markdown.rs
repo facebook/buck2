@@ -233,12 +233,12 @@ impl<'v> StarlarkValue<'v> for Obj {
 fn object(builder: &mut MethodsBuilder) {
     /// Docs for attr1
     #[starlark(attribute)]
-    fn attr1<'v>(this: Value<'v>) -> anyhow::Result<String> {
+    fn attr1<'v>(this: Value<'v>) -> starlark::Result<String> {
         Ok("attr1".to_owned())
     }
 
     #[starlark(attribute)]
-    fn attr2<'v>(this: Value<'v>) -> anyhow::Result<String> {
+    fn attr2<'v>(this: Value<'v>) -> starlark::Result<String> {
         Ok("attr2".to_owned())
     }
 

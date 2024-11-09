@@ -146,12 +146,12 @@ impl<'v, V: ValueLike<'v>> serde::Serialize for EnumValueGen<V> {
 #[starlark_module]
 fn enum_value_methods(methods: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn index(this: &EnumValue) -> anyhow::Result<i32> {
+    fn index(this: &EnumValue) -> starlark::Result<i32> {
         Ok(this.index)
     }
 
     #[starlark(attribute)]
-    fn value<'v>(this: &EnumValue<'v>) -> anyhow::Result<Value<'v>> {
+    fn value<'v>(this: &EnumValue<'v>) -> starlark::Result<Value<'v>> {
         Ok(this.value.to_value())
     }
 }

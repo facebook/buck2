@@ -132,14 +132,14 @@ fn transitive_set_json_projection_methods(builder: &mut MethodsBuilder) {
     fn projection_name<'v>(
         this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str(this.typed.projection_name()?))
     }
 
     #[starlark(attribute)]
     fn transitive_set<'v>(
         this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         Ok(this.typed.transitive_set)
     }
 }

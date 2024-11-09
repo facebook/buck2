@@ -109,20 +109,20 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     fn package<'v>(
         this: &'v StarlarkConfiguredProvidersLabel,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.label.target().pkg().cell_relative_path().as_str()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `world`
     #[starlark(attribute)]
-    fn name<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> starlark::Result<&'v str> {
         Ok(this.label.target().name().as_str())
     }
 
     #[starlark(attribute)]
     fn sub_target<'v>(
         this: &'v StarlarkConfiguredProvidersLabel,
-    ) -> anyhow::Result<NoneOr<Vec<&'v str>>> {
+    ) -> starlark::Result<NoneOr<Vec<&'v str>>> {
         Ok(match this.label.name() {
             ProvidersName::Default => NoneOr::None,
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
@@ -141,20 +141,20 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode/buck2/hello`
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<StarlarkCellPath> {
+    fn path<'v>(this: &StarlarkConfiguredProvidersLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.target().pkg().to_cell_path()))
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode`
     #[starlark(attribute)]
-    fn cell<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> anyhow::Result<&'v str> {
+    fn cell<'v>(this: &'v StarlarkConfiguredProvidersLabel) -> starlark::Result<&'v str> {
         Ok(this.label.target().pkg().cell_name().as_str())
     }
 
     /// Obtain a reference to this target label's cell root. This can be used as if it were an
     /// artifact in places that expect one, such as `cmd_args().relative_to`.
     #[starlark(attribute)]
-    fn cell_root<'v>(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<CellRoot> {
+    fn cell_root<'v>(this: &StarlarkConfiguredProvidersLabel) -> starlark::Result<CellRoot> {
         Ok(CellRoot::new(this.label.target().pkg().cell_name()))
     }
 
@@ -163,7 +163,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn project_root<'v>(
         this: &StarlarkConfiguredProvidersLabel,
-    ) -> anyhow::Result<StarlarkProjectRoot> {
+    ) -> starlark::Result<StarlarkProjectRoot> {
         Ok(StarlarkProjectRoot)
     }
 
@@ -244,12 +244,12 @@ where
 #[starlark_module]
 fn label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn name<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkProvidersLabel) -> starlark::Result<&'v str> {
         Ok(this.label.target().name().as_str())
     }
 
     #[starlark(attribute)]
-    fn sub_target<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<NoneOr<Vec<&'v str>>> {
+    fn sub_target<'v>(this: &'v StarlarkProvidersLabel) -> starlark::Result<NoneOr<Vec<&'v str>>> {
         Ok(match this.label.name() {
             ProvidersName::Default => NoneOr::None,
             ProvidersName::NonDefault(flavor) => match flavor.as_ref() {
@@ -267,12 +267,12 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkProvidersLabel) -> anyhow::Result<StarlarkCellPath> {
+    fn path<'v>(this: &StarlarkProvidersLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.target().pkg().to_cell_path()))
     }
 
     #[starlark(attribute)]
-    fn cell<'v>(this: &'v StarlarkProvidersLabel) -> anyhow::Result<&'v str> {
+    fn cell<'v>(this: &'v StarlarkProvidersLabel) -> starlark::Result<&'v str> {
         let cell = this.label.target().pkg().cell_name().as_str();
         Ok(cell)
     }

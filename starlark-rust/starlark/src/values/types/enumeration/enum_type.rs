@@ -357,7 +357,7 @@ where
 #[starlark_module]
 fn enum_type_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn r#type<'v>(this: Value, heap: &Heap) -> anyhow::Result<Value<'v>> {
+    fn r#type<'v>(this: Value, heap: &Heap) -> starlark::Result<Value<'v>> {
         let this = EnumType::from_value(this).unwrap();
         let ty_enum_type = match this {
             Either::Left(x) => x.ty_enum_data(),

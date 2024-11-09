@@ -146,21 +146,23 @@ fn validation_spec_methods(builder: &mut MethodsBuilder) {
     fn name<'v>(
         this: &'v StarlarkValidationSpec,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.name()))
     }
 
     #[starlark(attribute)]
     /// Is validation optional.
-    fn optional<'v>(this: &'v StarlarkValidationSpec) -> anyhow::Result<bool> {
+    fn optional<'v>(this: &'v StarlarkValidationSpec) -> starlark::Result<bool> {
         Ok(this.optional())
     }
 
     #[starlark(attribute)]
     /// Artifact which is the result of running a validation.
-    fn validation_result<'v>(this: &'v StarlarkValidationSpec) -> anyhow::Result<StarlarkArtifact> {
-        let artifact = this.validation_result.unpack().into_anyhow_result()?;
-        artifact.0.get_bound_starlark_artifact()
+    fn validation_result<'v>(
+        this: &'v StarlarkValidationSpec,
+    ) -> starlark::Result<StarlarkArtifact> {
+        let artifact = this.validation_result.unpack()?;
+        Ok(artifact.0.get_bound_starlark_artifact()?)
     }
 }
 

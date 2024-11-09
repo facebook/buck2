@@ -723,7 +723,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// The output can be compared for equality and have its `len` requested to see whether
     /// there are any inputs, but is otherwise mostly opaque.
     #[starlark(attribute)]
-    fn inputs<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCommandLineInputs> {
+    fn inputs<'v>(this: Value<'v>) -> starlark::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         cmd_args(this).visit_artifacts(&mut visitor)?;
         Ok(StarlarkCommandLineInputs {
@@ -736,7 +736,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     fn outputs<'v>(
         this: Value<'v>,
         heap: &Heap,
-    ) -> anyhow::Result<Vec<StarlarkOutputArtifact<'v>>> {
+    ) -> starlark::Result<Vec<StarlarkOutputArtifact<'v>>> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         cmd_args(this).visit_artifacts(&mut visitor)?;
         let mut outputs = Vec::with_capacity(visitor.outputs.len());

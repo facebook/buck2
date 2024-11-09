@@ -94,7 +94,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     #[starlark(attribute)]
-    fn output<'v>(this: &'v BxlContext) -> anyhow::Result<ValueTyped<'v, OutputStream>> {
+    fn output<'v>(this: &'v BxlContext) -> starlark::Result<ValueTyped<'v, OutputStream>> {
         let output_stream = this
             .data
             .context_type
@@ -636,7 +636,9 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This attribute is not available on the bxl context within the a dynamic lambda.
     #[starlark(attribute)]
-    fn cli_args<'v>(this: &BxlContext<'v>) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
+    fn cli_args<'v>(
+        this: &BxlContext<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
         let cli_args = this
             .data
             .context_type
@@ -649,7 +651,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
     /// Returns the `bxl.Filesystem` for performing a basic set of filesystem operations within bxl
     #[starlark(attribute)]
-    fn fs<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<BxlFilesystem<'v>> {
+    fn fs<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> starlark::Result<BxlFilesystem<'v>> {
         Ok(BxlFilesystem::new(this))
     }
 
@@ -765,7 +767,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
     /// Lazy/batch/error handling operations.
     #[starlark(attribute)]
-    fn lazy<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> anyhow::Result<StarlarkLazyCtx<'v>> {
+    fn lazy<'v>(this: ValueTyped<'v, BxlContext<'v>>) -> starlark::Result<StarlarkLazyCtx<'v>> {
         Ok(StarlarkLazyCtx::new(this))
     }
 
@@ -773,7 +775,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn target_platform<'v>(
         this: &'v BxlContext<'v>,
-    ) -> anyhow::Result<NoneOr<StarlarkTargetLabel>> {
+    ) -> starlark::Result<NoneOr<StarlarkTargetLabel>> {
         Ok(NoneOr::from_option(
             this.global_cfg_options()
                 .target_platform
@@ -784,7 +786,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
     /// The modfiers from the bxl invocation. It is from the `--modifier` flag.
     #[starlark(attribute)]
-    fn modifiers<'v>(this: &'v BxlContext<'v>) -> anyhow::Result<Vec<String>> {
+    fn modifiers<'v>(this: &'v BxlContext<'v>) -> starlark::Result<Vec<String>> {
         Ok((*this.global_cfg_options().cli_modifiers).clone())
     }
 }

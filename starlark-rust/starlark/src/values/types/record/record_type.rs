@@ -353,7 +353,7 @@ where
 #[starlark_module]
 fn record_type_methods(methods: &mut MethodsBuilder) {
     #[starlark(attribute)]
-    fn r#type<'v>(this: ValueTypedComplex<'v, RecordType<'v>>) -> anyhow::Result<&'v str> {
+    fn r#type<'v>(this: ValueTypedComplex<'v, RecordType<'v>>) -> starlark::Result<&'v str> {
         let ty_record_type = match this.unpack() {
             Either::Left(x) => x.ty_record_data.get(),
             Either::Right(x) => x.ty_record_data.as_ref(),

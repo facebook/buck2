@@ -45,7 +45,7 @@ use crate::values::ValueLike;
 fn object_docs_1(_: &mut MethodsBuilder) {
     /// Returns the string "foo"
     #[starlark(attribute)]
-    fn foo(this: &TestExample) -> anyhow::Result<String> {
+    fn foo(this: &TestExample) -> starlark::Result<String> {
         Ok("foo".to_owned())
     }
 }

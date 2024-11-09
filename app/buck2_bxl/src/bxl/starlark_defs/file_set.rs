@@ -179,13 +179,13 @@ impl<'v> StarlarkValue<'v> for StarlarkFileNode {
 pub(crate) fn file_node_methods(methods: &mut MethodsBuilder) {
     /// The cell relative path as a string.
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkFileNode) -> anyhow::Result<&'v str> {
+    fn path<'v>(this: &StarlarkFileNode) -> starlark::Result<&'v str> {
         Ok(this.0.path().as_str())
     }
 
     /// The cell name for the file_node.
     #[starlark(attribute)]
-    fn cell<'v>(this: &StarlarkFileNode) -> anyhow::Result<&'v str> {
+    fn cell<'v>(this: &StarlarkFileNode) -> starlark::Result<&'v str> {
         Ok(this.0.cell().as_str())
     }
 }

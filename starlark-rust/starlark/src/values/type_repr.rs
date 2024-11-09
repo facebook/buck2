@@ -133,8 +133,8 @@ impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Eit
 /// Derive macros generate a reference to this method to be able to get the `type_repr` of types
 /// they can't name
 #[doc(hidden)]
-pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr>(
-    _f: fn(Value<'v>, &'v Heap) -> anyhow::Result<T>,
+pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr, E>(
+    _f: fn(Value<'v>, &'v Heap) -> Result<T, E>,
 ) -> Ty {
     T::starlark_type_repr()
 }
