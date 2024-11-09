@@ -10,8 +10,6 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
-use std::io;
-use std::io::ErrorKind;
 use std::path::Path;
 use std::thread;
 
@@ -638,20 +636,11 @@ impl<'a> LspContext for BuckLspContext<'a> {
                         let path = self.import_path(path).await?;
 
                         self.with_dice_ctx(|mut dice_ctx| async move {
-                            match DiceFileComputations::read_file(
+                            DiceFileComputations::read_file_if_exists(
                                 &mut dice_ctx,
                                 path.borrow().path().as_ref(),
                             )
                             .await
-                            {
-                                Ok(s) => Ok(Some(s)),
-                                Err(e) => match e.downcast_ref::<io::Error>() {
-                                    Some(inner_e) if inner_e.kind() == ErrorKind::NotFound => {
-                                        Ok(None)
-                                    }
-                                    _ => Err(e),
-                                },
-                            }
                         })
                         .await
                     }
