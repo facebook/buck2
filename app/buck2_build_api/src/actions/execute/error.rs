@@ -40,3 +40,11 @@ impl From<anyhow::Error> for ExecuteError {
         Self::Error { error }
     }
 }
+
+impl From<buck2_error::Error> for ExecuteError {
+    fn from(error: buck2_error::Error) -> Self {
+        Self::Error {
+            error: error.into(),
+        }
+    }
+}

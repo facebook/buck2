@@ -16,6 +16,7 @@ use anyhow::Context as _;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_directory::directory::directory::Directory;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -46,7 +47,7 @@ impl ArtifactGroupValues {
         for (artifact, value) in values.iter() {
             let path = artifact
                 .resolve_path(artifact_fs)
-                .context("Invalid artifact")?;
+                .buck_error_context_anyhow("Invalid artifact")?;
             insert_artifact(&mut builder, path.as_ref(), value)?;
         }
 

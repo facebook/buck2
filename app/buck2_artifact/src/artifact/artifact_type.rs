@@ -169,8 +169,8 @@ impl Artifact {
 }
 
 impl ArtifactDyn for Artifact {
-    fn resolve_path(&self, fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf> {
-        self.get_path().resolve(fs)
+    fn resolve_path(&self, fs: &ArtifactFs) -> buck2_error::Result<ProjectRelativePathBuf> {
+        Ok(self.get_path().resolve(fs)?)
     }
 
     fn requires_materialization(&self, fs: &ArtifactFs) -> bool {
@@ -355,15 +355,13 @@ impl DeclaredArtifact {
     /// When we freeze `DeclaredArtifact`, we then just call `get_bound_artifact()`, and `expect`
     /// it to be valid. We have the `ensure_bound` method to make sure that we can return
     /// a friendlier message to users because `freeze()` does not return error messages
-    pub fn ensure_bound(self) -> anyhow::Result<BoundBuildArtifact> {
+    pub fn ensure_bound(self) -> buck2_error::Result<BoundBuildArtifact> {
         let borrow = self.artifact.borrow();
 
         let artifact = match &*borrow {
             DeclaredArtifactKind::Bound(built) => built.dupe(),
             DeclaredArtifactKind::Unbound(unbound) => {
-                return Err(anyhow::anyhow!(ArtifactErrors::UnboundArtifact(
-                    unbound.dupe()
-                )));
+                return Err(ArtifactErrors::UnboundArtifact(unbound.dupe()).into());
             }
         };
 
@@ -440,7 +438,7 @@ impl From<DeclaredArtifact> for OutputArtifact {
 }
 
 impl OutputArtifact {
-    pub fn bind(&self, key: ActionKey) -> anyhow::Result<BoundBuildArtifact> {
+    pub fn bind(&self, key: ActionKey) -> buck2_error::Result<BoundBuildArtifact> {
         match &mut *self.0.artifact.borrow_mut() {
             DeclaredArtifactKind::Bound(a) => {
                 // NOTE: If the artifact was already bound to the same action, we leave it alone.
@@ -448,10 +446,7 @@ impl OutputArtifact {
                 // the projected artifacts and then try to bind each of them, but the same
                 // underlying artifact is the one that gets bound.
                 if *a.key() != key {
-                    return Err(anyhow::anyhow!(ArtifactErrors::DuplicateBind(
-                        a.dupe(),
-                        key
-                    )));
+                    return Err(ArtifactErrors::DuplicateBind(a.dupe(), key).into());
                 }
             }
             a => take_mut::take(a, |artifact| match artifact {
@@ -476,8 +471,8 @@ impl OutputArtifact {
         })
     }
 
-    pub fn ensure_output_type(&self, output_type: OutputType) -> anyhow::Result<()> {
-        output_type.check_path(self, self.0.output_type())
+    pub fn ensure_output_type(&self, output_type: OutputType) -> buck2_error::Result<()> {
+        Ok(output_type.check_path(self, self.0.output_type())?)
     }
 }
 
@@ -494,7 +489,7 @@ impl Deref for OutputArtifact {
 pub struct UnboundArtifact(BuildArtifactPath, OutputType);
 
 impl UnboundArtifact {
-    fn bind(self, key: ActionKey) -> anyhow::Result<BuildArtifact> {
+    fn bind(self, key: ActionKey) -> buck2_error::Result<BuildArtifact> {
         BuildArtifact::new(self.0, key, self.1)
     }
 }
@@ -609,7 +604,7 @@ mod tests {
     use crate::deferred::key::DeferredHolderKey;
 
     #[test]
-    fn artifact_binding() -> anyhow::Result<()> {
+    fn artifact_binding() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
         let declared = DeclaredArtifact::new(
@@ -653,7 +648,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_artifact() -> anyhow::Result<()> {
+    fn resolve_artifact() -> buck2_error::Result<()> {
         let source = SourceArtifact::new(SourcePath::testing_new("cell//pkg", "src.cpp"));
 
         let project_fs =
@@ -677,7 +672,7 @@ mod tests {
     }
 
     #[test]
-    fn writes_files() -> anyhow::Result<()> {
+    fn writes_files() -> buck2_error::Result<()> {
         let project_root = ProjectRootTemp::new().unwrap();
         let project_fs = project_root.path();
 
@@ -734,7 +729,7 @@ mod tests {
     }
 
     #[test]
-    fn test_short_path() -> anyhow::Result<()> {
+    fn test_short_path() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 

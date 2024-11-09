@@ -1230,9 +1230,9 @@ impl DeclaredDepFiles {
 
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
-            let path = dep_file
-                .resolve_path(fs)
-                .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
+            let path = dep_file.resolve_path(fs).map_err(|e| {
+                MaterializeDepFilesError::MaterializationFailed { source: e.into() }
+            })?;
             paths.push(path);
         }
 

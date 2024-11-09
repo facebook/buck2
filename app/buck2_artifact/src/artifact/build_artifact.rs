@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_data::ToProtoMessage;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use derive_more::Display;
@@ -37,9 +37,9 @@ impl BuildArtifact {
         path: BuildArtifactPath,
         key: ActionKey,
         output_type: OutputType,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if key.holder_key().owner() != path.owner() {
-            return Err(internal_error_anyhow!("BaseDeferredKey mismatch"));
+            return Err(internal_error!("BaseDeferredKey mismatch"));
         }
         Ok(BuildArtifact {
             path,
