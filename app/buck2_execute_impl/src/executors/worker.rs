@@ -191,7 +191,6 @@ async fn spawn_worker(
     forkserver: ForkserverClient,
     dispatcher: EventDispatcher,
     graceful_shutdown_timeout_s: Option<u32>,
-    check_child_liveness: bool,
 ) -> Result<WorkerHandle, WorkerInitError> {
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
     let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_spec.id);
@@ -295,11 +294,7 @@ async fn spawn_worker(
     let (child_exited_observer, child_exited_guard) = LivelinessGuard::create();
     tokio::spawn(async move {
         drop(check_exit.await);
-        if check_child_liveness {
-            drop(child_exited_guard);
-        } else {
-            child_exited_guard.forget();
-        }
+        drop(child_exited_guard);
     });
 
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
@@ -319,17 +314,15 @@ pub struct WorkerPool {
     workers: Arc<parking_lot::Mutex<HashMap<WorkerId, WorkerFuture>>>,
     brokers: Arc<parking_lot::Mutex<HashMap<WorkerId, Arc<HostSharingBroker>>>>,
     graceful_shutdown_timeout_s: Option<u32>,
-    check_child_liveness: bool,
 }
 
 impl WorkerPool {
-    pub fn new(graceful_shutdown_timeout_s: Option<u32>, check_child_liveness: bool) -> WorkerPool {
+    pub fn new(graceful_shutdown_timeout_s: Option<u32>) -> WorkerPool {
         tracing::info!("Creating new WorkerPool");
         WorkerPool {
             workers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
             brokers: Arc::new(parking_lot::Mutex::new(HashMap::default())),
             graceful_shutdown_timeout_s,
-            check_child_liveness,
         }
     }
 
@@ -365,7 +358,6 @@ impl WorkerPool {
             let root = root.clone();
             let env: Vec<(OsString, OsString)> = env.into_iter().collect();
             let graceful_shutdown_timeout_s = self.graceful_shutdown_timeout_s;
-            let check_child_liveness = self.check_child_liveness;
             let fut = async move {
                 match spawn_worker(
                     &worker_spec,
@@ -374,7 +366,6 @@ impl WorkerPool {
                     forkserver,
                     dispatcher,
                     graceful_shutdown_timeout_s,
-                    check_child_liveness,
                 )
                 .await
                 {

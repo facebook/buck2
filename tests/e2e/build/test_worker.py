@@ -130,25 +130,9 @@ async def test_worker_exit_handled(buck: Buck) -> None:
     await expect_failure(
         buck.build(
             *worker_args,
-            "-c",
-            "build.persistent_worker_check_child_liveness=true",
             package + ":gen_worker_init_self_destruct",
         ),
         stderr_regex="Worker exited while running command",
-    )
-
-
-@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
-async def test_worker_exit_not_handled(buck: Buck) -> None:
-    await expect_failure(
-        asyncio.wait_for(
-            buck.build(
-                *worker_args,
-                package + ":gen_worker_init_self_destruct",
-            ),
-            20,
-        ),
-        exception=asyncio.TimeoutError,
     )
 
 

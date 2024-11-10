@@ -645,13 +645,6 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             })?
             .or(Some(10));
 
-        let persistent_worker_check_child_liveness = root_config
-            .parse::<bool>(BuckconfigKeyRef {
-                section: "build",
-                property: "persistent_worker_check_child_liveness",
-            })?
-            .unwrap_or(false);
-
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
@@ -699,10 +692,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             ..Default::default()
         };
 
-        let worker_pool = Arc::new(WorkerPool::new(
-            persistent_worker_shutdown_timeout_s,
-            persistent_worker_check_child_liveness,
-        ));
+        let worker_pool = Arc::new(WorkerPool::new(persistent_worker_shutdown_timeout_s));
 
         let critical_path_backend = root_config
             .parse(BuckconfigKeyRef {
