@@ -96,7 +96,6 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     additional_linker_flags = ["-fuse-ld=lld"] if os == "linux" and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
 
     if os == "windows":
-        linker_type = LinkerType("windows")
         binary_extension = "exe"
         object_file_extension = "obj"
         static_library_extension = "lib"
@@ -113,10 +112,8 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
         shared_library_versioned_name_format = "{}.so.{}"
 
         if os == "macos":
-            linker_type = LinkerType("darwin")
             pic_behavior = PicBehavior("always_enabled")
         else:
-            linker_type = LinkerType("gnu")
             pic_behavior = PicBehavior("supported")
 
     if cxx_tools_info.compiler_type == "clang":
@@ -137,7 +134,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 archiver_supports_argfiles = archiver_supports_argfiles,
                 generate_linker_maps = False,
                 lto_mode = LtoMode("none"),
-                type = linker_type,
+                type = cxx_tools_info.linker_type,
                 link_binaries_locally = True,
                 link_libraries_locally = True,
                 archive_objects_locally = True,
@@ -156,7 +153,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 shared_library_versioned_name_format = shared_library_versioned_name_format,
                 static_library_extension = static_library_extension,
                 force_full_hybrid_if_capable = False,
-                is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.link_flags),
+                is_pdb_generated = is_pdb_generated(cxx_tools_info.linker_type, ctx.attrs.link_flags),
                 link_ordering = ctx.attrs.link_ordering,
             ),
             bolt_enabled = False,
