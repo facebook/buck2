@@ -276,24 +276,40 @@ def _args_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _get_codesigned_paths_from_spec(
-    bundle_path: CodesignedPath, args: argparse.Namespace, spec: List[BundleSpecItem]
+def _get_codesigned_paths_for_spec_item(
+    bundle_path: CodesignedPath, args: argparse.Namespace, item: BundleSpecItem
 ) -> List[CodesignedPath]:
-    return [
+    if not item.codesign_on_copy:
+        return []
+
+    codesigned_paths = [
         CodesignedPath(
-            path=bundle_path.path / i.dst,
+            path=bundle_path.path / item.dst,
             entitlements=(
-                Path(i.codesign_entitlements) if i.codesign_entitlements else None
+                Path(item.codesign_entitlements) if item.codesign_entitlements else None
             ),
             flags=(
-                i.codesign_flags_override
-                if (i.codesign_flags_override is not None)
+                item.codesign_flags_override
+                if (item.codesign_flags_override is not None)
                 else args.codesign_args
             ),
         )
-        for i in spec
-        if i.codesign_on_copy
     ]
+
+    return codesigned_paths
+
+
+def _get_codesigned_paths_from_spec(
+    bundle_path: CodesignedPath, args: argparse.Namespace, spec: List[BundleSpecItem]
+) -> List[CodesignedPath]:
+    codesigned_paths = []
+    for item in spec:
+        codesigned_paths += _get_codesigned_paths_for_spec_item(
+            bundle_path=bundle_path,
+            args=args,
+            item=item,
+        )
+    return codesigned_paths
 
 
 def _main() -> None:
