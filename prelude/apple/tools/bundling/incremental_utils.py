@@ -84,6 +84,7 @@ def should_assemble_incrementally(
             ),
             incremental_context=incremental_context,
             codesign_flags_override=i.codesign_flags_override,
+            extra_codesign_paths=i.extra_codesign_paths,
         )
         for i in spec
         if i.codesign_on_copy
@@ -98,7 +99,7 @@ def should_assemble_incrementally(
     )
     if not codesign_on_copy_paths_are_compatible:
         logging.getLogger(__name__).info(
-            f"Decided not to assemble incrementally — there is at least one artifact `{list(codesigned_on_copy_paths_from_previous_build_which_are_present_in_current_build - current_codesigned_on_copy_items)[0]}` that was code signed on copy in previous build which is present in current run and not code signed on copy (or codesigned but with a different set of entitlements and flags)."
+            f"Decided not to assemble incrementally — there is at least one artifact `{list(codesigned_on_copy_paths_from_previous_build_which_are_present_in_current_build - current_codesigned_on_copy_items)[0]}` that was code signed on copy in previous build which is present in current run and not code signed on copy (or codesigned but with a different set of entitlements, flags or extra paths.)."
         )
     return codesign_on_copy_paths_are_compatible
 
@@ -202,6 +203,7 @@ def codesigned_on_copy_item(
     entitlements: Optional[Path],
     incremental_context: IncrementalContext,
     codesign_flags_override: Optional[List[str]],
+    extra_codesign_paths: Optional[List[str]],
 ) -> CodesignedOnCopy:
     if entitlements is not None:
         digest = incremental_context.metadata.get(entitlements)
@@ -215,4 +217,5 @@ def codesigned_on_copy_item(
         path=path,
         entitlements_digest=digest,
         codesign_flags_override=codesign_flags_override,
+        extra_codesign_paths=extra_codesign_paths,
     )

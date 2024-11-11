@@ -29,6 +29,10 @@
     {
       "path": "Resources/qux.txt",
       "codesign_flags_override": ["--deep", "--force"]
+    },
+    {
+      "path": "Resources/Parent.framework",
+      "extra_codesign_paths": ["Frameworks/Base.framework"]
     }
   ],
   "codesign_identity": "Johny Appleseed",
@@ -40,5 +44,5 @@
   "swift_stdlib_paths": [
     "Frameworks/libswiftCore.dylib"
   ],
-  "version": 7
+  "version": 8
 }

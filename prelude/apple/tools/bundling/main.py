@@ -599,6 +599,7 @@ def _write_incremental_state(
                 ),
                 incremental_context=incremental_context,
                 codesign_flags_override=i.codesign_flags_override,
+                extra_codesign_paths=i.extra_codesign_paths,
             )
             for i in spec
             if i.codesign_on_copy
