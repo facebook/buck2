@@ -143,34 +143,28 @@ impl BuildTargetResult {
                             errors: Vec::new(),
                         }));
                 }
-                ConfiguredBuildEventVariant::Execution(
-                    ConfiguredBuildEventExecutionVariant::Validation { result },
-                ) => {
-                    if let Err(e) = result {
-                        build_failed = true;
-                        res.get_mut(label.as_ref())
-                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for `{}`", label))?
-                             .as_mut()
-                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?
-                             .errors
-                             .push(e);
-                        if fail_fast {
-                            break;
+                ConfiguredBuildEventVariant::Execution(execution_variant) => {
+                    let is_err = {
+                        let results = res.get_mut(label.as_ref())
+                            .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                            .as_mut()
+                            .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?;
+                        match execution_variant {
+                            ConfiguredBuildEventExecutionVariant::Validation { result } => {
+                                if let Err(e) = result {
+                                    results.errors.push(e);
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            ConfiguredBuildEventExecutionVariant::BuildOutput { index, output } => {
+                                let is_err = output.is_err();
+                                results.outputs.push((index, output));
+                                is_err
+                            }
                         }
-                    }
-                }
-                ConfiguredBuildEventVariant::Execution(
-                    ConfiguredBuildEventExecutionVariant::BuildOutput { index, output },
-                ) => {
-                    let is_err = output.is_err();
-
-                    res.get_mut(label.as_ref())
-                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {}", label))?
-                         .as_mut()
-                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?
-                         .outputs
-                         .push((index, output));
-
+                    };
                     if is_err {
                         build_failed = true;
                         if fail_fast {
