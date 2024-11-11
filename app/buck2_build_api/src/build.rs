@@ -158,13 +158,13 @@ impl BuildTargetResult {
                         }
                     }
                 }
-                ConfiguredBuildEventVariant::Output { index, output } => {
+                ConfiguredBuildEventVariant::Execution { index, output } => {
                     let is_err = output.is_err();
 
                     res.get_mut(label.as_ref())
-                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Output before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {}", label))?
                          .as_mut()
-                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Output for a skipped target: `{}`", label))?
+                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?
                          .outputs
                          .push((index, output));
 
@@ -257,7 +257,7 @@ pub enum ConfiguredBuildEventVariant {
         run_args: Option<Vec<String>>,
         target_rule_type_name: String,
     },
-    Output {
+    Execution {
         output: buck2_error::Result<ProviderArtifacts>,
         /// Ensure a stable ordering of outputs.
         index: usize,
@@ -514,7 +514,7 @@ async fn build_configured_label_inner<'a>(
             let providers_label = providers_label.dupe();
             move |(index, output)| ConfiguredBuildEvent {
                 label: providers_label.dupe(),
-                variant: ConfiguredBuildEventVariant::Output { index, output },
+                variant: ConfiguredBuildEventVariant::Execution { index, output },
             }
         });
 
