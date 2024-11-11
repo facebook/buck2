@@ -158,7 +158,9 @@ impl BuildTargetResult {
                         }
                     }
                 }
-                ConfiguredBuildEventVariant::Execution { index, output } => {
+                ConfiguredBuildEventVariant::Execution(
+                    ConfiguredBuildEventExecutionVariant::BuildOutput { index, output },
+                ) => {
                     let is_err = output.is_err();
 
                     res.get_mut(label.as_ref())
@@ -251,17 +253,21 @@ impl BuildTargetResult {
     }
 }
 
+pub enum ConfiguredBuildEventExecutionVariant {
+    BuildOutput {
+        output: buck2_error::Result<ProviderArtifacts>,
+        /// Ensure a stable ordering of outputs.
+        index: usize,
+    },
+}
+
 pub enum ConfiguredBuildEventVariant {
     SkippedIncompatible,
     Prepared {
         run_args: Option<Vec<String>>,
         target_rule_type_name: String,
     },
-    Execution {
-        output: buck2_error::Result<ProviderArtifacts>,
-        /// Ensure a stable ordering of outputs.
-        index: usize,
-    },
+    Execution(ConfiguredBuildEventExecutionVariant),
     Validation {
         result: buck2_error::Result<()>,
     },
@@ -514,7 +520,9 @@ async fn build_configured_label_inner<'a>(
             let providers_label = providers_label.dupe();
             move |(index, output)| ConfiguredBuildEvent {
                 label: providers_label.dupe(),
-                variant: ConfiguredBuildEventVariant::Execution { index, output },
+                variant: ConfiguredBuildEventVariant::Execution(
+                    ConfiguredBuildEventExecutionVariant::BuildOutput { index, output },
+                ),
             }
         });
 
