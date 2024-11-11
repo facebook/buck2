@@ -8,7 +8,6 @@
  */
 
 use std::sync::Arc;
-use std::time::Instant;
 
 use buck2_cli_proto::new_generic::CompleteRequest;
 use buck2_cli_proto::new_generic::NewGenericRequest;
@@ -23,7 +22,6 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::FlushingBuckdClient;
-use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::invocation_roots::InvocationRoots;
@@ -34,7 +32,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use clap::ArgMatches;
 use futures::future::BoxFuture;
 use futures::FutureExt;
-use tokio::time;
 
 use super::path_sanitizer::PathSanitizer;
 use super::results::CompletionResults;
@@ -52,7 +49,6 @@ pub(crate) struct CompleteTargetCommand {
     package: String,
     partial_target: String,
 
-    deadline: Instant,
     callback: CompleteCallback,
 }
 
@@ -61,7 +57,6 @@ impl CompleteTargetCommand {
         cwd: &AbsNormPath,
         package: String,
         partial_target: String,
-        deadline: Instant,
         callback: CompleteCallback,
     ) -> Self {
         let target_cfg = TargetCfgOptions::default();
@@ -70,7 +65,6 @@ impl CompleteTargetCommand {
             cwd: cwd.to_owned(),
             package,
             partial_target,
-            deadline,
             callback,
         }
     }
@@ -99,13 +93,11 @@ impl StreamingCommand for CompleteTargetCommand {
             .expect("Failed to create target completer");
         let task = completer.complete(&self.package, &self.partial_target);
 
-        let remaining_time = self.deadline.saturating_duration_since(Instant::now());
-        match time::timeout(remaining_time, task).await {
-            Ok(CommandOutcome::Success(completions)) => {
+        match task.await {
+            CommandOutcome::Success(completions) => {
                 (self.callback)(CommandOutcome::Success(completions))
             }
-            Ok(CommandOutcome::Failure(err)) => err,
-            Err(_) => ExitResult::status(ExitCode::Timeout),
+            CommandOutcome::Failure(err) => err,
         }
     }
 

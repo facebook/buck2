@@ -14,10 +14,10 @@ mod results;
 mod target;
 
 use std::time::Duration;
-use std::time::Instant;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
+use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_core::buck2_env_anyhow;
@@ -84,13 +84,23 @@ impl CompleteCommand {
             drop(fs_util::write(lockfile, ""));
         }
 
-        let res = ctx.with_runtime(|ctx| self.exec_no_lockfile(matches, ctx));
+        let timeout = Duration::from_millis(self.timeout_ms);
+
+        let res = ctx.with_runtime(|ctx| {
+            let fut = self.exec_no_lockfile(matches, ctx);
+            // Note: This `async` block is necessary - tokio timeout futures care about being
+            // created within the context of a tokio runtime.
+            async move { tokio::time::timeout(timeout, fut).await }
+        });
 
         if let Some(lockfile) = lockfile {
             drop(fs_util::remove_file(lockfile));
         }
 
-        res
+        match res {
+            Ok(val) => val,
+            Err(_) => ExitResult::status(ExitCode::Timeout),
+        }
     }
 
     async fn exec_no_lockfile(
@@ -98,10 +108,6 @@ impl CompleteCommand {
         matches: &ArgMatches,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
-        let start = Instant::now();
-        let time_limit = Duration::from_millis(self.timeout_ms);
-        let deadline = start + time_limit;
-
         let cwd = ctx.working_dir.path();
         let exit_result = match self.partial_target.split(':').collect::<Vec<_>>()[..] {
             // Package completion is performed locally and called here directly
@@ -116,7 +122,6 @@ impl CompleteCommand {
                     cwd,
                     given_package.to_owned(),
                     given_partial_target.to_owned(),
-                    deadline,
                     print_completions,
                 );
                 completer.exec_async(matches, ctx).await
