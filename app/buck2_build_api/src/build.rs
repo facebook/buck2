@@ -148,9 +148,9 @@ impl BuildTargetResult {
                     if let Err(e) = result {
                         build_failed = true;
                         res.get_mut(label.as_ref())
-                             .with_internal_error_anyhow(|| format!("BuildEventVariant::Validation before BuildEventVariant::Prepared for `{}`", label))?
+                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Validation before ConfiguredBuildEventVariant::Prepared for `{}`", label))?
                              .as_mut()
-                             .with_internal_error_anyhow(|| format!("BuildEventVariant::Validation for a skipped target: `{}`", label))?
+                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Validation for a skipped target: `{}`", label))?
                              .errors
                              .push(e);
                         if fail_fast {
@@ -162,9 +162,9 @@ impl BuildTargetResult {
                     let is_err = output.is_err();
 
                     res.get_mut(label.as_ref())
-                         .with_internal_error_anyhow(|| format!("BuildEventVariant::Output before BuildEventVariant::Prepared for {}", label))?
+                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Output before ConfiguredBuildEventVariant::Prepared for {}", label))?
                          .as_mut()
-                         .with_internal_error_anyhow(|| format!("BuildEventVariant::Output for a skipped target: `{}`", label))?
+                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Output for a skipped target: `{}`", label))?
                          .outputs
                          .push((index, output));
 
@@ -179,9 +179,9 @@ impl BuildTargetResult {
                     configured_graph_size,
                 } => {
                     res.get_mut(label.as_ref())
-                         .with_internal_error_anyhow(|| format!("BuildEventVariant::GraphSize before BuildEventVariant::Prepared for {}", label))?
+                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::GraphSize before ConfiguredBuildEventVariant::Prepared for {}", label))?
                          .as_mut()
-                         .with_internal_error_anyhow(|| format!("BuildEventVariant::GraphSize for a skipped target: `{}`", label))?
+                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::GraphSize for a skipped target: `{}`", label))?
                          .configured_graph_size = Some(configured_graph_size);
                 }
                 ConfiguredBuildEventVariant::Error { err } => {
