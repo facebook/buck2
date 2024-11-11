@@ -144,13 +144,15 @@ impl BuildTargetResult {
                             errors: Vec::new(),
                         }));
                 }
-                ConfiguredBuildEventVariant::Validation { result } => {
+                ConfiguredBuildEventVariant::Execution(
+                    ConfiguredBuildEventExecutionVariant::Validation { result },
+                ) => {
                     if let Err(e) = result {
                         build_failed = true;
                         res.get_mut(label.as_ref())
-                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Validation before ConfiguredBuildEventVariant::Prepared for `{}`", label))?
+                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for `{}`", label))?
                              .as_mut()
-                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Validation for a skipped target: `{}`", label))?
+                             .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?
                              .errors
                              .push(e);
                         if fail_fast {
@@ -259,6 +261,9 @@ pub enum ConfiguredBuildEventExecutionVariant {
         /// Ensure a stable ordering of outputs.
         index: usize,
     },
+    Validation {
+        result: buck2_error::Result<()>,
+    },
 }
 
 pub enum ConfiguredBuildEventVariant {
@@ -268,9 +273,6 @@ pub enum ConfiguredBuildEventVariant {
         target_rule_type_name: String,
     },
     Execution(ConfiguredBuildEventExecutionVariant),
-    Validation {
-        result: buck2_error::Result<()>,
-    },
     GraphSize {
         configured_graph_size: buck2_error::Result<MaybeCompatible<u64>>,
     },
@@ -489,7 +491,9 @@ async fn build_configured_label_inner<'a>(
             let providers_label = providers_label.dupe();
             move |result| ConfiguredBuildEvent {
                 label: providers_label,
-                variant: ConfiguredBuildEventVariant::Validation { result },
+                variant: ConfiguredBuildEventVariant::Execution(
+                    ConfiguredBuildEventExecutionVariant::Validation { result },
+                ),
             }
         })
     };
