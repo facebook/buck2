@@ -14,7 +14,7 @@ buck2_e2e_test(
     deps = [
         "fbcode//buck2/tests/e2e_util:assert_occurrences",
         "fbcode//buck2/tests/e2e_util:utils",
-        "fbsource//third-party/pypi/aiohttp:aiohttp",
+        "fbsource//third-party/pypi/aiohttp:aiohttp",  # @autodeps2-fixme-manual
     ],
 )
 

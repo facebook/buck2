@@ -50,6 +50,6 @@ buck2_e2e_test(
     test_with_deployed_buck2 = True,
     use_compiled_buck2_client_and_tpx = True,
     deps = [
-        "//remote_execution/client_lib/wrappers/python:py_re_client_lib",
+        "//remote_execution/client_lib/wrappers/python:py_re_client_lib",  # @autodeps2-fixme-manual
     ],
 )
