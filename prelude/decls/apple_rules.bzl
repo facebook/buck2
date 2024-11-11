@@ -941,6 +941,9 @@ prebuilt_apple_framework = prelude_rule(
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
+            "extra_codesign_paths": attrs.list(attrs.string(), default = [], doc = """
+                A list of extra paths, relative to the framework root, that will be codesigned.
+                """),
         }
     ),
 )

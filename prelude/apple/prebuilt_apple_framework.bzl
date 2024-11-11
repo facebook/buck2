@@ -150,6 +150,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
             bundle_type = AppleBundleTypeDefault,
             skip_copying_swift_stdlib = True,
             contains_watchapp = None,
+            extra_codesign_paths = ctx.attrs.extra_codesign_paths,
         ))
 
         if ctx.attrs.modular:
@@ -287,5 +288,6 @@ def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_dir
         bundle_type = AppleBundleTypeDefault,
         skip_copying_swift_stdlib = True,
         contains_watchapp = None,
+        extra_codesign_paths = ctx.attrs.extra_codesign_paths,
     ))
     return providers
