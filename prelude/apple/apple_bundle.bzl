@@ -63,7 +63,7 @@ load(
     "AppleBundleTypeDefault",
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
-load(":apple_code_signing_types.bzl", "CodeSignConfiguration")
+load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "get_code_signing_configuration_attr_value")
 load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
@@ -129,7 +129,7 @@ def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
 
 def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo, focused_targets_labels: list[Label] = []) -> Artifact:
     # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
-    code_signing_configuration = CodeSignConfiguration(ctx.attrs._code_signing_configuration)
+    code_signing_configuration = get_code_signing_configuration_attr_value(ctx)
     if code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
         apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
         adhoc_codesign_tool = apple_tools.adhoc_codesign_tool

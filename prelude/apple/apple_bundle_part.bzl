@@ -11,7 +11,7 @@ load("@prelude//utils:utils.bzl", "value_or")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_types.bzl", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles")
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
-load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
+load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType", "get_code_signing_configuration_attr_value")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
 load(":apple_error_handler.bzl", "apple_build_error_handler")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -77,7 +77,7 @@ def assemble_bundle(
     codesign_args = []
 
     codesign_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].codesign
-    code_signing_configuration = CodeSignConfiguration(ctx.attrs._code_signing_configuration)
+    code_signing_configuration = get_code_signing_configuration_attr_value(ctx)
     if code_signing_configuration == CodeSignConfiguration("dry-run"):
         codesign_configuration_args = ["--codesign-configuration", "dry-run"]
         codesign_tool = tools.dry_codesign_tool
