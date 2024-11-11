@@ -18,7 +18,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -26,7 +25,7 @@ use dice::LinearRecomputeDiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
-use futures::stream;
+use futures::future::Either;
 use futures::stream::BoxStream;
 use futures::stream::FuturesUnordered;
 use futures::stream::Stream;
@@ -476,35 +475,13 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
-    let validation_result = {
-        async fn linear_validate(
-            ctx: &LinearRecomputeDiceComputations<'_>,
-            target: ConfiguredTargetLabel,
-        ) -> Result<(), buck2_error::Error> {
-            let mut ctx = ctx.get();
-            VALIDATION_IMPL
-                .get()?
-                .validate_target_node_transitively(&mut ctx, target)
-                .await
-        }
-        linear_validate(&ctx, providers_label.target().dupe()).map({
-            let providers_label = providers_label.dupe();
-            move |result| ConfiguredBuildEvent {
-                label: providers_label,
-                variant: ConfiguredBuildEventVariant::Execution(
-                    ConfiguredBuildEventExecutionVariant::Validation { result },
-                ),
-            }
-        })
-    };
-
     let outputs = outputs
         .into_iter()
         .enumerate()
         .map({
             |(index, (output, provider_type))| {
                 let materialization = materialization.dupe();
-                async move {
+                Either::Left(async move {
                     let res =
                         match materialize_artifact_group(&mut ctx.get(), &output, &materialization)
                             .await
@@ -515,20 +492,33 @@ async fn build_configured_label_inner<'a>(
                             }),
                             Err(e) => Err(buck2_error::Error::from(e)),
                         };
-                    (index, res)
-                }
+                    ConfiguredBuildEventExecutionVariant::BuildOutput { index, output: res }
+                })
             }
         })
-        .collect::<FuturesUnordered<_>>()
-        .map({
-            let providers_label = providers_label.dupe();
-            move |(index, output)| ConfiguredBuildEvent {
-                label: providers_label.dupe(),
-                variant: ConfiguredBuildEventVariant::Execution(
-                    ConfiguredBuildEventExecutionVariant::BuildOutput { index, output },
-                ),
-            }
-        });
+        .collect::<FuturesUnordered<_>>();
+
+    let validation_result = {
+        let validation_impl = VALIDATION_IMPL.get()?;
+        let mut ctx = ctx.get();
+        let target = providers_label.target().dupe();
+        Either::Right(async move {
+            let result = validation_impl
+                .validate_target_node_transitively(&mut ctx, target)
+                .await;
+            ConfiguredBuildEventExecutionVariant::Validation { result }
+        })
+    };
+
+    outputs.push(validation_result);
+
+    let outputs = outputs.map({
+        let providers_label = providers_label.dupe();
+        move |result| ConfiguredBuildEvent {
+            label: providers_label.dupe(),
+            variant: ConfiguredBuildEventVariant::Execution(result),
+        }
+    });
 
     let stream = futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
         label: providers_label.dupe(),
@@ -537,8 +527,7 @@ async fn build_configured_label_inner<'a>(
             target_rule_type_name,
         },
     }))
-    .chain(outputs)
-    .chain(stream::once(validation_result));
+    .chain(outputs);
 
     if opts.want_configured_graph_size {
         let stream = stream.chain(futures::stream::once(async move {

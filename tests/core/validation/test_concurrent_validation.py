@@ -18,15 +18,14 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 @buck_test()
 async def test_validation_concurrent(buck: Buck) -> None:
     # There are 2 actions — slow build action and fast validation action.
-    # Check that validation indeed waits for a slow DefaultInfo artifact to be built and doesn't fail the build first.
-    # TODO(akozhevnikov): Fix that behavior
+    # Check that validation doesn't wait for a slow DefaultInfo artifact to be built and fails the build first.
     await expect_failure(
         buck.build(
             ":plate",
             "-c",
             f"test.cache_buster={_random_string()}",
         ),
-        stderr_regex="Slow action finally failed",
+        stderr_regex="Validation for `.+` failed",
     )
 
 
