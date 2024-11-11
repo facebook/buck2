@@ -315,6 +315,7 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
         source = bundle,
         destination = destination,
         codesign_on_copy = codesign_on_copy,
+        extra_codesign_paths = bundle_info.extra_codesign_paths,
     )
 
 def _bundle_parts_for_dirs(generated_dirs: list[Artifact], destination: AppleBundleDestination, copy_contents_only: bool) -> list[AppleBundlePart]:
