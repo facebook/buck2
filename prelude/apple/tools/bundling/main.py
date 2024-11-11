@@ -282,19 +282,31 @@ def _get_codesigned_paths_for_spec_item(
     if not item.codesign_on_copy:
         return []
 
+    entitlements = (
+        Path(item.codesign_entitlements) if item.codesign_entitlements else None
+    )
+    flags = (
+        item.codesign_flags_override
+        if (item.codesign_flags_override is not None)
+        else args.codesign_args
+    )
     codesigned_paths = [
         CodesignedPath(
             path=bundle_path.path / item.dst,
-            entitlements=(
-                Path(item.codesign_entitlements) if item.codesign_entitlements else None
-            ),
-            flags=(
-                item.codesign_flags_override
-                if (item.codesign_flags_override is not None)
-                else args.codesign_args
-            ),
+            entitlements=entitlements,
+            flags=flags,
         )
     ]
+
+    extra_codesign_paths = item.extra_codesign_paths or []
+    for extra_codesign_path in extra_codesign_paths:
+        codesigned_paths.append(
+            CodesignedPath(
+                path=bundle_path.path / item.dst / extra_codesign_path,
+                entitlements=entitlements,
+                flags=flags,
+            )
+        )
 
     return codesigned_paths
 

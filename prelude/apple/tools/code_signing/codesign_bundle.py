@@ -569,7 +569,27 @@ def _spawn_codesign_process(
     return _spawn_process(command=command, tmp_dir=tmp_dir, stack=stack)
 
 
-def _codesign_paths(
+def _codesign_paths_serially(
+    paths: List[CodesignedPath],
+    identity_fingerprint: str,
+    tmp_dir: str,
+    codesign_command_factory: ICodesignCommandFactory,
+    platform: ApplePlatform,
+) -> None:
+    with ExitStack() as stack:
+        for path in paths:
+            p = _spawn_codesign_process(
+                path=path,
+                identity_fingerprint=identity_fingerprint,
+                tmp_dir=tmp_dir,
+                codesign_command_factory=codesign_command_factory,
+                stack=stack,
+            )
+            p.process.wait()
+            p.check_result()
+
+
+def _codesign_paths_in_parallel(
     paths: List[CodesignedPath],
     identity_fingerprint: str,
     tmp_dir: str,
@@ -592,6 +612,56 @@ def _codesign_paths(
             p.process.wait()
     for p in processes:
         p.check_result()
+
+
+def _can_codesign_paths_in_parallel(codesigned_paths: List[CodesignedPath]) -> bool:
+    # To enable parallel signing, there must be no nesting of any codesigned paths,
+    # as codesigning must be performed "inside out" - deeper items signed first,
+    # as parent items need to seal the contained items as part of their signature.
+    #
+    # To detect nesting, we reverse sort all paths and only need to check
+    # neighboring elements. For example, imagine the following elements:
+    # `a/b/c`
+    # `a/b`
+    # `b`
+    # `c`
+    #
+    # For each element, check if the element is a prefix of the previous element.
+    # In the example above, checking if `a/b` is a prefix of `a/b/c` means its
+    # unsafe to codesign in parallel.
+    paths = sorted([str(path.path) for path in codesigned_paths], reverse=True)
+    for index, current_path in enumerate(paths):
+        if index == 0:
+            continue
+        previous_path = paths[index - 1]
+        if previous_path.startswith(current_path):
+            _LOGGER.warn(
+                f"Found overlapping codesigned paths: {previous_path}, {current_path}"
+            )
+            return False
+    return True
+
+
+def _codesign_paths(
+    paths: List[CodesignedPath],
+    identity_fingerprint: str,
+    tmp_dir: str,
+    codesign_command_factory: ICodesignCommandFactory,
+    platform: ApplePlatform,
+) -> None:
+    can_codesign_in_parallel = _can_codesign_paths_in_parallel(paths)
+    signing_function = (
+        _codesign_paths_in_parallel
+        if can_codesign_in_parallel
+        else _codesign_paths_serially
+    )
+    signing_function(
+        paths=paths,
+        identity_fingerprint=identity_fingerprint,
+        tmp_dir=tmp_dir,
+        codesign_command_factory=codesign_command_factory,
+        platform=platform,
+    )
 
 
 def _filter_out_fast_adhoc_paths(
