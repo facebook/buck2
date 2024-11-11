@@ -95,9 +95,10 @@ def _cxx_toolchain_override(ctx):
     sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]) if ctx.attrs.sanitizer_runtime_files != None else None
     linker_info = LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
-        archiver_type = base_linker_info.archiver_type,
+        archiver_flags = value_or(ctx.attrs.archiver_flags, base_linker_info.archiver_flags),
+        archiver_type = value_or(ctx.attrs.archiver_type, base_linker_info.archiver_type),
         archiver_supports_argfiles = value_or(ctx.attrs.archiver_supports_argfiles, base_linker_info.archiver_supports_argfiles),
-        archive_contents = base_linker_info.archive_contents,
+        archive_contents = value_or(ctx.attrs.archive_contents, base_linker_info.archive_contents),
         archive_objects_locally = value_or(ctx.attrs.archive_objects_locally, base_linker_info.archive_objects_locally),
         binary_extension = base_linker_info.binary_extension,
         generate_linker_maps = value_or(ctx.attrs.generate_linker_maps, base_linker_info.generate_linker_maps),
@@ -190,9 +191,12 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
     attrs = {
         "additional_c_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "additional_cxx_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
+        "archive_contents": attrs.option(attrs.string(), default = None),
         "archive_objects_locally": attrs.option(attrs.bool(), default = None),
         "archiver": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "archiver_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "archiver_supports_argfiles": attrs.option(attrs.bool(), default = None),
+        "archiver_type": attrs.option(attrs.string(), default = None),
         "as_compiler": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "as_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "as_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
