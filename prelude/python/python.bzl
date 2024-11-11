@@ -15,7 +15,8 @@ PythonLibraryManifests = record(
     label = field(Label),
     srcs = field([ManifestInfo, None]),
     src_types = field([ManifestInfo, None], None),
-    resources = field([(ManifestInfo, list[ArgLike]), None]),
+    default_resources = field([(ManifestInfo, list[ArgLike]), None]),
+    standalone_resources = field([(ManifestInfo, list[ArgLike]), None]),
     bytecode = field([dict[PycInvalidationMode, ManifestInfo], None]),
     dep_manifest = field([ManifestInfo, None]),
     extensions = field([dict[str, typing.Any], None]),
@@ -42,25 +43,46 @@ def _dep_artifacts(value: PythonLibraryManifests):
     return value.dep_manifest.artifacts
 
 def _hidden_resources(value: PythonLibraryManifests):
-    if value.resources == None:
+    if value.default_resources == None:
         return []
-    return value.resources[1]
+    return value.default_resources[1]
 
 def _has_hidden_resources(children: list[bool], value: [PythonLibraryManifests, None]):
     if value:
-        if value.resources and len(value.resources[1]) > 0:
+        if value.default_resources and len(value.default_resources[1]) > 0:
             return True
     return any(children)
 
 def _resource_manifests(value: PythonLibraryManifests):
-    if value.resources == None:
+    if value.default_resources == None:
         return []
-    return value.resources[0].manifest
+    return value.default_resources[0].manifest
 
 def _resource_artifacts(value: PythonLibraryManifests):
-    if value.resources == None:
+    if value.default_resources == None:
         return []
-    return [a for a, _ in value.resources[0].artifacts]
+    return [a for a, _ in value.default_resources[0].artifacts]
+
+def _standalone_hidden_resources(value: PythonLibraryManifests):
+    if value.standalone_resources == None:
+        return []
+    return value.standalone_resources[1]
+
+def _standalone_has_hidden_resources(children: list[bool], value: [PythonLibraryManifests, None]):
+    if value:
+        if value.standalone_resources and len(value.standalone_resources[1]) > 0:
+            return True
+    return any(children)
+
+def _standalone_resource_manifests(value: PythonLibraryManifests):
+    if value.standalone_resources == None:
+        return []
+    return value.standalone_resources[0].manifest
+
+def _standalone_resource_artifacts(value: PythonLibraryManifests):
+    if value.standalone_resources == None:
+        return []
+    return [a for a, _ in value.standalone_resources[0].artifacts]
 
 def _source_manifests(value: PythonLibraryManifests):
     if value.srcs == None:
@@ -102,6 +124,9 @@ args_projections = {
     "source_manifests": _source_manifests,
     "source_type_artifacts": _source_type_artifacts,
     "source_type_manifests": _source_type_manifests,
+    "standalone_hidden_resources": _standalone_hidden_resources,
+    "standalone_resource_artifacts": _standalone_resource_artifacts,
+    "standalone_resource_manifests": _standalone_resource_manifests,
 }
 args_projections.update({
     "{}_artifacts".format(prefix): _bytecode_artifacts(mode)
@@ -119,6 +144,7 @@ PythonLibraryManifestsTSet = transitive_set(
     },
     reductions = {
         "has_hidden_resources": _has_hidden_resources,
+        "standalone_has_hidden_resources": _standalone_has_hidden_resources,
     },
 )
 
@@ -136,9 +162,37 @@ def info_to_interface(info: PythonLibraryInfo) -> PythonLibraryInterface:
         extension_shared_libraries = lambda: traverse_shared_library_info(info.extension_shared_libraries),
         iter_manifests = lambda: info.manifests.traverse(),
         manifests = lambda: manifests_to_interface(info.manifests),
-        has_hidden_resources = lambda: info.manifests.reduce("has_hidden_resources"),
-        hidden_resources = lambda: [info.manifests.project_as_args("hidden_resources")],
     )
+
+def _get_resource_manifests(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+    if standalone:
+        return [manifests.project_as_args("standalone_resource_manifests")]
+    else:
+        return [manifests.project_as_args("resource_manifests")]
+
+def _get_resource_artifacts(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+    if standalone:
+        return [manifests.project_as_args("standalone_resource_artifacts")]
+    else:
+        return [manifests.project_as_args("resource_artifacts")]
+
+def _get_hidden_resources(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+    if standalone:
+        return [manifests.project_as_args("standalone_hidden_resources")]
+    else:
+        return [manifests.project_as_args("hidden_resources")]
+
+def _get_resource_artifacts_with_path(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+    if standalone:
+        return [(a, p) for m in manifests.traverse() if m != None and m.standalone_resources != None for a, p in m.standalone_resources[0].artifacts]
+    else:
+        return [(a, p) for m in manifests.traverse() if m != None and m.default_resources != None for a, p in m.default_resources[0].artifacts]
+
+def _get_has_hidden_resources(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+    if standalone:
+        return manifests.reduce("standalone_has_hidden_resources")
+    else:
+        return manifests.reduce("has_hidden_resources")
 
 def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibraryManifestsInterface:
     return PythonLibraryManifestsInterface(
@@ -151,7 +205,9 @@ def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibra
         bytecode_manifests = lambda mode: [manifests.project_as_args("{}_manifests".format(_BYTECODE_PROJ_PREFIX[mode]))],
         bytecode_artifacts = lambda mode: [manifests.project_as_args("{}_artifacts".format(_BYTECODE_PROJ_PREFIX[mode]))],
         bytecode_artifacts_with_paths = lambda mode: [(a, p) for m in manifests.traverse() if m != None and m.bytecode != None for a, p in m.bytecode[mode].artifacts],
-        resource_manifests = lambda: [manifests.project_as_args("resource_manifests")],
-        resource_artifacts = lambda: [manifests.project_as_args("resource_artifacts")],
-        resource_artifacts_with_paths = lambda: [(a, p) for m in manifests.traverse() if m != None and m.resources != None for a, p in m.resources[0].artifacts],
+        resource_manifests = lambda standalone: _get_resource_manifests(standalone, manifests),
+        resource_artifacts = lambda standalone: _get_resource_artifacts(standalone, manifests),
+        resource_artifacts_with_paths = lambda standalone: _get_resource_artifacts_with_path(standalone, manifests),
+        has_hidden_resources = lambda standalone: _get_has_hidden_resources(standalone, manifests),
+        hidden_resources = lambda standalone: _get_hidden_resources(standalone, manifests),
     )

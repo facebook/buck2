@@ -119,7 +119,8 @@ def create_python_library_info(
         src_types: [ManifestInfo, None] = None,
         bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
         dep_manifest: [ManifestInfo, None] = None,
-        resources: [(ManifestInfo, list[ArgLike]), None] = None,
+        default_resources: [(ManifestInfo, list[ArgLike]), None] = None,
+        standalone_resources: [(ManifestInfo, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject], None] = None,
         deps: list[PythonLibraryInfo] = [],
         shared_libraries: list[SharedLibraryInfo] = [],
@@ -145,7 +146,8 @@ def create_python_library_info(
         label = label,
         srcs = srcs,
         src_types = src_types,
-        resources = resources,
+        default_resources = default_resources,
+        standalone_resources = standalone_resources,
         dep_manifest = dep_manifest,
         bytecode = bytecode,
         extensions = extensions,
@@ -228,17 +230,28 @@ def _attr_resources(ctx: AnalysisContext) -> dict[str, Artifact | Dependency]:
         all_resources.update(from_named_set(resources))
     return all_resources
 
-def py_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
+def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict[str, ArtifactOutputs]):
     """
     Return the resources provided by this rule, as a map of resource name to
     a tuple of the resource artifact and any "other" outputs exposed by it.
     """
+    resources = _attr_resources(ctx)
+    standalone_artifacts = {}
+    for key, value in resources.items():
+        resource = value
+        if type(value) != "artifact" and DefaultInfo in value:
+            if "standalone" in value[DefaultInfo].sub_targets:
+                resource = value[DefaultInfo].sub_targets["standalone"][DefaultInfo].default_outputs[0]
+        standalone_artifacts[key] = resource
+    standalone_resources = unpack_artifact_map(standalone_artifacts)
+    default_resources = unpack_artifact_map(_attr_resources(ctx))
 
-    return unpack_artifact_map(_attr_resources(ctx))
+    return default_resources, standalone_resources
 
 def py_resources(
         ctx: AnalysisContext,
-        resources: dict[str, ArtifactOutputs]) -> (ManifestInfo, list[ArgLike]):
+        resources: dict[str, ArtifactOutputs],
+        suffix: str = "") -> (ManifestInfo, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
     """
@@ -252,7 +265,7 @@ def py_resources(
                 d[paths.join(paths.dirname(name), o.basename)] = o
             else:
                 hidden.append(o)
-    manifest = create_manifest_for_source_map(ctx, "resources", d)
+    manifest = create_manifest_for_source_map(ctx, "resources{}".format(suffix), d)
     return manifest, dedupe(hidden)
 
 def _src_types(srcs: dict[str, Artifact], type_stubs: dict[str, Artifact]) -> dict[str, Artifact]:
@@ -286,7 +299,9 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     srcs = _attr_srcs(ctx)
     qualified_srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
-    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
+    default_resources_map, standalone_resources_map = py_attr_resources(ctx)
+    standalone_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, standalone_resources_map)
+    default_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, default_resources_map)
     type_stubs = qualify_srcs(ctx.label, ctx.attrs.base_module, from_named_set(ctx.attrs.type_stubs))
     src_types = _src_types(qualified_srcs, type_stubs)
 
@@ -309,14 +324,16 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     raw_deps.extend(flatten(
         get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
     ))
-    resource_manifest = py_resources(ctx, resources) if resources else None
+    default_resource_manifest = py_resources(ctx, default_resources) if default_resources else None
+    standalone_resource_manifest = py_resources(ctx, standalone_resources, "_standalone") if standalone_resources else None
     deps, shared_libraries = gather_dep_libraries(raw_deps)
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
         srcs = src_manifest,
         src_types = src_type_manifest,
-        resources = resource_manifest,
+        default_resources = default_resource_manifest,
+        standalone_resources = standalone_resource_manifest,
         bytecode = bytecode,
         dep_manifest = dep_manifest,
         deps = deps,
@@ -351,7 +368,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     manifests = (
                         [("lib/python", src_manifest)] if src_manifest != None else []
                     ) + (
-                        [("lib/python", resource_manifest[0])] if resource_manifest != None else []
+                        [("lib/python", default_resource_manifest[0])] if default_resource_manifest != None else []
                     ),
                 ),
                 manifest = ctx.actions.write_json(
