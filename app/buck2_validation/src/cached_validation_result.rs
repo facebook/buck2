@@ -79,7 +79,7 @@ impl ValidationFailedUserFacingError {
         validation_result_path: AbsNormPathBuf,
     ) -> Self {
         let short_message = message.map(|x| {
-            const MAX_CACHED_LENGTH: usize = 600;
+            const MAX_CACHED_LENGTH: usize = 2000;
             // Shortened message as we don't want to store too much data in DICE
             shorten_message(x, MAX_CACHED_LENGTH)
         });
