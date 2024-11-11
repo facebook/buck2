@@ -84,7 +84,7 @@ impl CompleteCommand {
             drop(fs_util::write(lockfile, ""));
         }
 
-        let res = self.exec_no_lockfile(matches, ctx);
+        let res = ctx.with_runtime(|ctx| self.exec_no_lockfile(matches, ctx));
 
         if let Some(lockfile) = lockfile {
             drop(fs_util::remove_file(lockfile));
@@ -93,7 +93,11 @@ impl CompleteCommand {
         res
     }
 
-    fn exec_no_lockfile(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    async fn exec_no_lockfile(
+        self,
+        matches: &ArgMatches,
+        ctx: ClientCommandContext<'_>,
+    ) -> ExitResult {
         let start = Instant::now();
         let time_limit = Duration::from_millis(self.timeout_ms);
         let deadline = start + time_limit;
@@ -103,10 +107,8 @@ impl CompleteCommand {
             // Package completion is performed locally and called here directly
             [given_partial_package] => {
                 let roots = &ctx.paths()?.roots;
-                let completer = futures::executor::block_on(PackageCompleter::new(cwd, roots))?;
-                print_completions(futures::executor::block_on(
-                    completer.complete(given_partial_package),
-                ))
+                let completer = PackageCompleter::new(cwd, roots).await?;
+                print_completions(completer.complete(given_partial_package).await)
             }
             // Target completion requires a round-trip to the daemon, so we spin up a new command
             [given_package, given_partial_target] => {
@@ -117,7 +119,7 @@ impl CompleteCommand {
                     deadline,
                     print_completions,
                 );
-                completer.exec(matches, ctx)
+                completer.exec_async(matches, ctx).await
             }
             _ => ExitResult::bail(
                 "Malformed target string (expected [[cell]//][path/to/package][:target_name])",
