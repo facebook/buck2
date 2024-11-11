@@ -14,7 +14,7 @@ buck2_e2e_test(
         "darwin",
     ],
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -27,7 +27,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -40,7 +40,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -53,7 +53,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -66,7 +66,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -105,7 +105,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -118,7 +118,7 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
 
@@ -131,6 +131,6 @@ buck2_e2e_test(
         "PRELUDE": "$(location prelude//:prelude)",
     },
     deps = [
-        "//buck2/tests/e2e_util:utils",
+        "//buck2/tests/e2e_util:utils",  # @autodeps2-fixme-manual
     ],
 )
