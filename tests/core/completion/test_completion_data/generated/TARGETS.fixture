@@ -1,0 +1,20 @@
+load(":defs.bzl", "no_labels", "with_labels", "with_weird_labels")
+
+no_labels(
+    name = "t_no_labels",
+)
+
+with_labels(
+    name = "t_generated",
+    labels = ["abcd", "generated"],
+)
+
+with_labels(
+    name = "t_not_generated",
+    labels = ["gen", "erated"],
+)
+
+with_weird_labels(
+    name = "t_not_generated2",
+    labels = "generated",
+)

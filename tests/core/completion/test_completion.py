@@ -223,3 +223,26 @@ completion_test(
     input="run :sometarget -- d",
     expected=["dir1/", "dir2/"],
 )
+
+completion_test(
+    name="test_generated_target_handling",
+    input="build //generated:t_",
+    expected=[
+        "//generated:t_no_labels",
+        "//generated:t_not_generated",
+        "//generated:t_not_generated2",
+    ],
+    shells=["bash", "zsh"],
+)
+
+completion_test(
+    name="test_generated_target_handling",
+    input="build //generated:t_",
+    expected=[
+        "//generated:t_not_generated",
+        "//generated:t_not_generated2",
+        "//generated:t_no_labels",
+    ],
+    # FIXME(JakobDegen): Why is this different from above?
+    shells=["fish"],
+)
