@@ -318,8 +318,7 @@ def python_executable(
         ctx: AnalysisContext,
         main: EntryPoint,
         srcs: dict[str, Artifact],
-        default_resources: dict[str, ArtifactOutputs],
-        standalone_resources: dict[str, ArtifactOutputs] | None,
+        resources: dict[str, ArtifactOutputs],
         compile: bool,
         allow_cache_upload: bool) -> PexProviders:
     # Returns a three tuple: the Python binary, all its potential runtime files,
@@ -358,19 +357,11 @@ def python_executable(
     if python_toolchain.emit_dependency_metadata and srcs:
         dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, srcs)
 
-    all_default_resources = {}
-    all_standalone_resources = {}
-    cxx_extra_resources = {}
+    all_resources = {}
+    all_resources.update(resources)
     for cxx_resources in gather_resources(ctx.label, deps = raw_deps).values():
         for name, resource in cxx_resources.items():
-            cxx_extra_resources[paths.join("__cxx_resources__", name)] = resource
-    all_default_resources.update(cxx_extra_resources)
-    all_standalone_resources.update(cxx_extra_resources)
-
-    if default_resources:
-        all_default_resources.update(default_resources)
-    if standalone_resources:
-        all_standalone_resources.update(standalone_resources)
+            all_resources[paths.join("__cxx_resources__", name)] = resource
 
     library_info = create_python_library_info(
         ctx.actions,
@@ -378,8 +369,7 @@ def python_executable(
         srcs = src_manifest,
         src_types = src_manifest,
         dep_manifest = dep_manifest,
-        default_resources = py_resources(ctx, all_default_resources) if all_default_resources else None,
-        standalone_resources = py_resources(ctx, all_standalone_resources, "_standalone") if all_standalone_resources else None,
+        resources = py_resources(ctx, all_resources) if all_resources else None,
         bytecode = bytecode_manifest,
         deps = python_deps,
         shared_libraries = shared_deps,
@@ -796,6 +786,8 @@ def _convert_python_library_to_executable(
         ) if extensions else None,
     )
 
+    hidden_resources = library.hidden_resources() if library.has_hidden_resources() else None
+
     # Build the PEX.
     pex = make_py_package(
         ctx = ctx,
@@ -806,6 +798,7 @@ def _convert_python_library_to_executable(
         pex_modules = pex_modules,
         shared_libraries = shared_libs,
         main = main,
+        hidden_resources = hidden_resources,
         allow_cache_upload = allow_cache_upload,
         debuginfo_files = debuginfo_files,
     )
@@ -849,16 +842,13 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.main != None:
         srcs[ctx.attrs.main.short_path] = ctx.attrs.main
     srcs = qualify_srcs(ctx.label, ctx.attrs.base_module, srcs)
-    default_resources_map, standalone_resources_map = py_attr_resources(ctx)
-    standalone_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, standalone_resources_map)
-    default_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, default_resources_map)
+    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
 
     pex = python_executable(
         ctx,
         main,
         srcs,
-        default_resources,
-        standalone_resources,
+        resources,
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
     )
