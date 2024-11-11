@@ -28,6 +28,7 @@ class BundleSpecItem:
     codesign_on_copy: bool = False
     codesign_entitlements: Optional[str] = None
     codesign_flags_override: Optional[List[str]] = None
+    extra_codesign_paths: Optional[List[str]] = None
 
     def __eq__(self: BundleSpecItem, other: Optional[BundleSpecItem]) -> bool:
         return (
@@ -37,6 +38,7 @@ class BundleSpecItem:
             and self.codesign_on_copy == other.codesign_on_copy
             and self.codesign_entitlements == other.codesign_entitlements
             and self.codesign_flags_override == other.codesign_flags_override
+            and self.extra_codesign_paths == other.extra_codesign_paths
         )
 
     def __ne__(self: BundleSpecItem, other: BundleSpecItem) -> bool:
@@ -52,6 +54,11 @@ class BundleSpecItem:
                 (
                     tuple(self.codesign_flags_override)
                     if self.codesign_flags_override is not None
+                    else hash(None)
+                ),
+                (
+                    tuple(self.extra_codesign_paths)
+                    if self.extra_codesign_paths is not None
                     else hash(None)
                 ),
             )
@@ -82,6 +89,17 @@ class BundleSpecItem:
                 else (
                     self.codesign_flags_override is None
                     and other.codesign_flags_override is not None
+                )
+            )
+            or (
+                self.extra_codesign_paths < other.extra_codesign_paths
+                if (
+                    self.extra_codesign_paths is not None
+                    and other.extra_codesign_paths is not None
+                )
+                else (
+                    self.extra_codesign_paths is None
+                    and other.extra_codesign_paths is not None
                 )
             )
         )

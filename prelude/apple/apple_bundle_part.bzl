@@ -37,6 +37,8 @@ AppleBundlePart = record(
     codesign_entitlements = field(Artifact | None, None),
     # If present, override the codesign flags with these flags, when this part is code signed separately.
     codesign_flags_override = field([list[str], None], None),
+    # If present, additional paths to be codesigned when copying.
+    extra_codesign_paths = field([list[str], None], None),
 )
 
 SwiftStdlibArguments = record(
@@ -299,6 +301,8 @@ def _bundle_spec_json(ctx: AnalysisContext, parts: list[AppleBundlePart], codesi
                 part_spec["codesign_entitlements"] = part.codesign_entitlements
             if part.codesign_flags_override:
                 part_spec["codesign_flags_override"] = part.codesign_flags_override
+            if part.extra_codesign_paths:
+                part_spec["extra_codesign_paths"] = part.extra_codesign_paths
         specs.append(part_spec)
 
     return ctx.actions.write_json("bundle_spec.json", specs, pretty = True)
