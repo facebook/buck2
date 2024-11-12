@@ -15,11 +15,12 @@ File uploads are performed using the same ByteStream API the RBE protocol uses.
 
 #### Tools using BEP
 
-The biggest advantage in adopting this protocol is the number of already existing tools already able to process it.
+The biggest advantage in adopting this protocol is the number of already existing tools already able to process it. Anectodally there are various internal users, especially large corporations, using BEP to create integrations and tools of all kinds (eg: [Salesforce's talk during 'Build Meetup 2021'](https://youtu.be/qboJOW1vZLA?si=w7uC-ZxhGtHHM_m6)). This, combined with the already existing similarities with Bazel, could be a driver for adoption. Furtheremore, there are some commercial and free-OSS options available:
+- [EngFlow (commercial)](https://www.engflow.com/)
+- [BuildBuddy]: [limited free OSS offering](https://github.com/buildbuddy-io/buildbuddy) and [fully featured commercial](https://www.buildbuddy.io/)
+- [Bzl and stackb's build UI](https://bzl.io/)
 
 ## Open problems
-
-### Reliability
 
 ### Sync Vs Async event stream
 
