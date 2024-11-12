@@ -72,6 +72,7 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
+load("@prelude//tests:test_toolchain.bzl", "test_toolchain_labels")
 load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_info",
@@ -778,7 +779,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
             type = "gtest",
             command = command,
             env = ctx.attrs.env,
-            labels = ctx.attrs.labels,
+            labels = ctx.attrs.labels + test_toolchain_labels(ctx.attrs._test_toolchain),
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
             executor_overrides = executor_overrides,
