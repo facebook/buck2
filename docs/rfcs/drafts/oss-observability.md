@@ -20,7 +20,7 @@ File uploads are performed using the same ByteStream API the RBE protocol uses.
 The biggest advantage in adopting this protocol is the number of already existing tools already able to process it. Anectodally there are various internal users, especially large corporations, using BEP to create integrations and tools of all kinds (eg: [Salesforce's talk during 'Build Meetup 2021'](https://youtu.be/qboJOW1vZLA?si=w7uC-ZxhGtHHM_m6)). This, combined with the already existing similarities with Bazel, could be a driver for adoption. Furtheremore, there are some commercial and free-OSS options available:
 - [EngFlow (commercial)](https://www.engflow.com/)
 - BuildBuddy: [limited free OSS offering](https://github.com/buildbuddy-io/buildbuddy) and [fully featured commercial](https://www.buildbuddy.io/)
-- [Bzl and stackb's build UI](https://bzl.io/)
+- [Bzl and stackb's build UI (commercial)](https://bzl.io/)
 
 ## Open problems
 
@@ -60,6 +60,10 @@ The protocol is by nature very generic and the first iteration could be complete
 - [TestResult](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L682)
 - [TestSummary](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L781C9-L781C20)
 
+Additionally, as part of `Phase 1` we would need to implement the client itself, a basic streaming strategy (which to begin with could be the simple sync approach discussed in `Sync VS Async`) and provide an invocation-id to correlate events that may be sent to different servers into a single invocation (this is very similar to Buck2's trace id and could in fact be the same, but we should make it possible for the user to provide it when invoking the CLI and/or print it visibly in the logs).
+
+Once this is done, I suggest we look into async uploads and add a `buck2 flush events` command to wait for all events (or those of a specific invocation) to be flushed out.
+
 ## Links
 
 - [BEP explaination](https://bazel.build/remote/bep)
@@ -71,3 +75,4 @@ The protocol is by nature very generic and the first iteration could be complete
 
 - BES (Build Event Service): refers to the generic service used to send/receive build events by Bazel
 - BEP (Build Event Protocol): refers to the combination of BES and Bazel specific events
+- Invocation: a single execution of a Buck2/Bazel command. An invocation usually contains a single build or execution of a command, but may contain many in case of multiple retries. Initially, build and invocations overlap 
