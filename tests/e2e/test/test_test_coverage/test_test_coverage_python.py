@@ -147,6 +147,42 @@ async def test_python_coverage_filtering_by_file_with_opt_mode(buck: Buck) -> No
 
 
 @buck_test(inplace=True)
+async def test_python_standalone_xar_coverage_filtering_by_file(buck: Buck) -> None:
+    file_to_collect_coverage = (
+        "fbcode/testinfra/playground/python/simple/simple_test.py"
+    )
+    result = await python_collect_coverage_for(
+        buck,
+        folder_filter=[],
+        file_filter=[file_to_collect_coverage],
+        target="fbcode//testinfra/playground/python/simple:simple_standalone_xar_test",
+        mode="@fbcode//mode/opt",
+    )
+
+    assert set(result.using_new_testpilot_interface_paths) == {
+        file_to_collect_coverage
+    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+
+
+@buck_test(inplace=True)
+async def test_python_standalone_zip_coverage_filtering_by_file(buck: Buck) -> None:
+    file_to_collect_coverage = (
+        "fbcode/testinfra/playground/python/simple/simple_test.py"
+    )
+    result = await python_collect_coverage_for(
+        buck,
+        folder_filter=[],
+        file_filter=[file_to_collect_coverage],
+        target="fbcode//testinfra/playground/python/simple:simple_standalone_test",
+        mode="@fbcode//mode/opt",
+    )
+
+    assert set(result.using_new_testpilot_interface_paths) == {
+        file_to_collect_coverage
+    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+
+
+@buck_test(inplace=True)
 async def test_python_coverage_filtering_by_file_on_cinder_target(buck: Buck) -> None:
     file_to_collect_coverage = (
         "fbcode/buck2/tests/targets/rules/python/coverage/test.py"
