@@ -68,7 +68,8 @@ impl StreamingCommand for ExplainCommand {
         let mut logs = logs
             .into_iter()
             .filter(|l| match l.command_from_filename().ok() {
-                Some(c) => c == "build" || c == "test" || c == "run" || c == "install",
+                // Support only build commands for now
+                Some(c) => c == "build",
                 None => false,
             });
 
