@@ -121,6 +121,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::IoStorageFull => rank!(input),
         ErrorTag::IoPermissionDenied => rank!(input),
         ErrorTag::IoEdenMountDoesNotExist => rank!(input),
+        ErrorTag::IoEdenFileNotFound => rank!(input), // user likely specified non-existing path
         ErrorTag::ProjectMissingPath => rank!(input),
         ErrorTag::StarlarkFail => rank!(input),
         ErrorTag::StarlarkStackOverflow => rank!(input),

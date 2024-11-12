@@ -443,7 +443,7 @@ impl_has_error_handling_strategy!(GetSHA1Error);
 fn eden_error_kind_tag(e: &EdenError) -> Option<ErrorTag> {
     let tag = match e {
         EdenError::PosixError { code, .. } => match *code {
-            libc::ENOENT => ErrorTag::IoNotFound,
+            libc::ENOENT => ErrorTag::IoEdenFileNotFound,
             libc::EACCES | libc::EPERM => ErrorTag::IoPermissionDenied,
             libc::ETIMEDOUT => ErrorTag::IoTimeout,
             libc::EBUSY => ErrorTag::IoExecutableFileBusy,
