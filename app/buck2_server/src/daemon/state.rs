@@ -22,13 +22,17 @@ use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::init::DaemonStartupConfig;
+use buck2_common::init::ResourceControlConfig;
 use buck2_common::init::SystemWarningConfig;
 use buck2_common::init::Timeout;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::memory_tracker::MemoryTracker;
+use buck2_common::systemd::SystemdCreationDecision;
+use buck2_common::systemd::SystemdRunner;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
@@ -596,8 +600,7 @@ impl DaemonState {
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
 
-            // TODO(akozhevnikov): Properly initialize memory tracker
-            let memory_tracker = None;
+            let memory_tracker = Self::create_memory_tracker(root_config).await?;
 
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
             // tokio::task::spawn(watchman_query.sync());
@@ -626,6 +629,39 @@ impl DaemonState {
             }))
         })
         .await?
+    }
+
+    async fn create_memory_tracker(
+        root_config: &LegacyBuckConfig,
+    ) -> anyhow::Result<Option<Arc<MemoryTracker>>> {
+        let resource_control_config = ResourceControlConfig::from_config(root_config)?;
+        if resource_control_config
+            .hybrid_execution_memory_limit_gibibytes
+            .is_none()
+        {
+            Ok(None)
+        } else {
+            let creation = SystemdRunner::creation_decision(&resource_control_config);
+            match creation {
+                SystemdCreationDecision::Create => {
+                    #[cfg(unix)]
+                    {
+                        Ok(Some(MemoryTracker::start_tracking().await?))
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        use buck2_error::internal_error_anyhow;
+
+                        Err(internal_error_anyhow!(
+                            "Not expected for resource control creation decision to be positive on non-unix."
+                        ))
+                    }
+                }
+                SystemdCreationDecision::SkipNotNeeded
+                | SystemdCreationDecision::SkipPreferredButNotRequired { .. }
+                | SystemdCreationDecision::SkipRequiredButUnavailable { .. } => Ok(None),
+            }
+        }
     }
 
     fn create_materializer(

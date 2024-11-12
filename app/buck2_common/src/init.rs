@@ -232,6 +232,9 @@ pub struct ResourceControlConfig {
     /// is that all the processes are killed by OOMKiller.
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
     pub memory_max: Option<String>,
+    /// If provided and above the threshold, hybrid executor will stop scheduling local actions.
+    /// The corresponding buckconfig is `buck2_resource_control.hybrid_execution_memory_limit_gibibytes`.
+    pub hybrid_execution_memory_limit_gibibytes: Option<u64>,
 }
 
 #[derive(
@@ -289,7 +292,15 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_max",
             })?;
-            Ok(Self { status, memory_max })
+            let hybrid_execution_high_memory_gibibytes = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "hybrid_execution_high_memory_gibibytes",
+            })?;
+            Ok(Self {
+                status,
+                memory_max,
+                hybrid_execution_memory_limit_gibibytes: hybrid_execution_high_memory_gibibytes,
+            })
         }
     }
 

@@ -7,7 +7,28 @@
  * of this source tree.
  */
 
-use allocative::Allocative;
+#[cfg(unix)]
+pub(crate) mod memory_tracker {
+    use std::sync::Arc;
 
-#[derive(Allocative)]
-pub struct MemoryTracker {}
+    use allocative::Allocative;
+
+    #[derive(Allocative)]
+    pub struct MemoryTracker {}
+
+    impl MemoryTracker {
+        pub async fn start_tracking() -> anyhow::Result<Arc<Self>> {
+            Ok(Arc::new(MemoryTracker {}))
+        }
+    }
+}
+
+#[cfg(not(unix))]
+pub(crate) mod memory_tracker {
+    use allocative::Allocative;
+
+    #[derive(Allocative)]
+    pub struct MemoryTracker {}
+}
+
+pub use memory_tracker::*;

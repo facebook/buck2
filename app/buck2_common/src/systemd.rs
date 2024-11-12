@@ -39,7 +39,7 @@ enum SystemdNotAvailableReason {
     UnsupportedPlatform,
 }
 
-enum SystemdCreationDecision {
+pub enum SystemdCreationDecision {
     SkipNotNeeded,
     SkipPreferredButNotRequired { e: buck2_error::Error },
     SkipRequiredButUnavailable { e: buck2_error::Error },
@@ -83,7 +83,7 @@ impl SystemdRunner {
         }
     }
 
-    fn creation_decision(config: &ResourceControlConfig) -> SystemdCreationDecision {
+    pub fn creation_decision(config: &ResourceControlConfig) -> SystemdCreationDecision {
         if config.status == ResourceControlStatus::Off {
             return SystemdCreationDecision::SkipNotNeeded;
         }
