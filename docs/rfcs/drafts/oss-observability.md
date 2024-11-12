@@ -90,7 +90,9 @@ There are multiple ways in which this proposal can be implemented:
 2. Buck2 implements the BES protocol but sends BuckEvent events but a shim can be built inside Buck2 to turn these events into Bazel's BEP events
 3. Same as above but the shim lives outside of Buck2, so as far as Buck2 is concerned it sends Buck2 BuckEvent via BES
 4. Same as 2 but we implement a new API that is BES-like, but not BES
-5. Same as 3 but we implement a new API that is BES-like, but not BES  
+5. Same as 3 but we implement a new API that is BES-like, but not BES
+
+My current preference is for approach 1 as it is the simplest, but alternatively my second favourite option is 3.
 
 ## Links
 
