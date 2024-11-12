@@ -24,6 +24,8 @@ async def test_exit_code_build_success(buck: Buck) -> None:
 
 @buck_test()
 async def test_exit_code_build_fail(buck: Buck) -> None:
+    # TODO(nga): check non-existing command
+    # TODO(nga): check local vs RE
     await expect_failure(buck.build(":build_fail"), exit_code=ExitCodeV2.USER_ERROR)
 
 
