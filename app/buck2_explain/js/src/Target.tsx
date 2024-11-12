@@ -9,7 +9,7 @@
 
 import React, {useContext} from 'react'
 import {DataContext} from './App'
-import {ConfiguredTargetNode, TargetValueType, TargetField, TargetValue} from './fbs/explain'
+import {ConfiguredTargetNode, TargetValueType, TargetValue} from './fbs/explain'
 import {Link} from './Router'
 import {formatTargetLabel} from './formatTargetLabel'
 
@@ -52,96 +52,6 @@ function List(props: {attr: (i: number) => string; length: number}): JSX.Element
       <ul>{items}</ul>
     </div>
   )
-}
-
-function ListAttr(props: {
-  getItem: (i: number) => TargetValue | null
-  length: number
-}): JSX.Element {
-  const {getItem, length} = props
-  if (length === 0) {
-    return <span></span>
-  }
-
-  const items: JSX.Element[] = []
-  for (let i = 0; i < props.length; i++) {
-    items.push(
-      <li key={i}>
-        <Attr value={getItem(i)} />
-      </li>,
-    )
-  }
-  return (
-    <div className="content">
-      <ul>{items}</ul>
-    </div>
-  )
-}
-
-function DictAttr(props: {
-  getItem: (i: number) => TargetValue | null
-  length: number
-}): JSX.Element {
-  const {getItem, length} = props
-  if (length === 0) {
-    return <span>[]</span>
-  }
-
-  const items: JSX.Element[] = []
-  for (let i = 0; i < props.length; i++) {
-    let value = getItem(i)
-    items.push(
-      <li key={i}>
-        <Attr value={value?.key()} />:
-        <Attr value={value} />
-      </li>,
-    )
-  }
-  return <ul>&#123;{items}&#125;</ul>
-}
-
-function Attr(props: {value: TargetValue | null | undefined}): JSX.Element {
-  const {value} = props
-  if (value == null) {
-    return <>null value</>
-  }
-  const valueType = value?.type()
-  if (valueType == null) {
-    return <>null value type</>
-  }
-  switch (valueType) {
-    case TargetValueType.Bool:
-      return <>{value.boolValue()?.toString()}</>
-    case TargetValueType.Int:
-      return <>{value.intValue()?.toString()}</>
-    case TargetValueType.String:
-      // TODO iguridi: update this once we have ConfiguredTargetLabel type
-      return <PossibleLink value={value.stringValue() || ''} />
-    case TargetValueType.List:
-      return <ListAttr getItem={i => value.listValue(i)} length={value.listValueLength()} />
-    case TargetValueType.Dict:
-      return <DictAttr getItem={i => value.dictValue(i)} length={value.dictValueLength()} />
-  }
-}
-
-function Attrs(props: {attr: (i: number) => TargetField | null; length: number}): JSX.Element {
-  const items: JSX.Element[] = []
-  for (let i = 0; i < props.length; i++) {
-    const attr = props.attr(i)
-    if (attr == null) {
-      continue
-    }
-    const row = (
-      <tr key={i}>
-        <td>{attr.name()}</td>
-        <td>
-          <Attr value={attr.value()} />
-        </td>
-      </tr>
-    )
-    items.push(row)
-  }
-  return <>{items}</>
 }
 
 export function Target(props: {target: ConfiguredTargetNode; tab: string | null}) {
@@ -272,7 +182,6 @@ function TargetAttrs(props: {target: ConfiguredTargetNode}) {
           <td>execution_platform</td>
           <td>{target.executionPlatform()}</td>
         </tr>
-        <Attrs attr={i => target.attrs(i)} length={target.attrsLength()} />
       </tbody>
     </table>
   )

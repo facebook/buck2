@@ -27,11 +27,6 @@ table TargetValue {
   dict_value: [TargetValue];
 }
 
-table TargetField {
-  name: string;
-  value: TargetValue (required);
-}
-
 table ConfiguredTargetLabel {
   target_label: string;
   cfg: string;
@@ -47,9 +42,6 @@ table ConfiguredTargetNode {
     oncall: string;
     target_configuration: string;
     execution_platform: string;
-    plugins: [string];
-    // user attrs
-    attrs: [TargetField];
     // extras
     label: ConfiguredTargetLabel;
     srcs: long;
