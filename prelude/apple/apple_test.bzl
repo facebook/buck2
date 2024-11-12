@@ -30,6 +30,7 @@ load(
     "SharedLibraryFlagOverrides",
 )
 load("@prelude//ide_integrations:xcode.bzl", "XcodeDataInfoKeys")
+load("@prelude//tests:test_toolchain.bzl", "test_toolchain_labels")
 load(
     "@prelude//utils:dicts.bzl",
     "flatten_x",
@@ -252,7 +253,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         type = "custom",  # We inherit a label via the macro layer that overrides this.
         command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
         env = flatten_x([ctx.attrs.env or {}, env]),
-        labels = labels,
+        labels = labels + test_toolchain_labels(ctx.attrs._test_toolchain),
         use_project_relative_paths = True,
         run_from_project_root = True,
         contacts = ctx.attrs.contacts,
