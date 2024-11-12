@@ -108,7 +108,7 @@ fn outputter<'a, W: Write + Send + 'a>(
     let output = match compression {
         Compression::Uncompressed => output,
         Compression::Gzip => Box::new(GzEncoder::new(output, Default::default())),
-        Compression::Zstd => Box::new(zstd::Encoder::new(output, 0)?),
+        Compression::Zstd => Box::new(zstd::Encoder::new(output, 9)?),
     };
     Ok((output_type, output))
 }
