@@ -10,11 +10,11 @@
 use std::collections::HashMap;
 use std::pin::Pin;
 
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_futures::cancellable_future::CancellationObserver;

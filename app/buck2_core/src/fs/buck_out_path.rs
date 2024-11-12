@@ -17,10 +17,10 @@ use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
 
-use crate::base_deferred_key::BaseDeferredKey;
 use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -317,13 +317,13 @@ mod tests {
     use dupe::Dupe;
     use regex::Regex;
 
-    use crate::base_deferred_key::BaseDeferredKey;
     use crate::category::CategoryRef;
     use crate::cells::cell_root_path::CellRootPathBuf;
     use crate::cells::name::CellName;
     use crate::cells::paths::CellRelativePath;
     use crate::cells::CellResolver;
     use crate::configuration::data::ConfigurationData;
+    use crate::deferred::base_deferred_key::BaseDeferredKey;
     use crate::fs::artifact_path_resolver::ArtifactFs;
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;

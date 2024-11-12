@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 

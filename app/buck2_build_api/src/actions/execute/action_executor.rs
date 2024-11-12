@@ -678,15 +678,15 @@ mod tests {
     use buck2_artifact::artifact::artifact_type::Artifact;
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
-    use buck2_artifact::deferred::key::DeferredHolderKey;
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::io::fs::FsIoProvider;
-    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::category::CategoryRef;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+    use buck2_core::deferred::key::DeferredHolderKey;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
     use buck2_core::execution_types::executor_config::CommandGenerationOptions;
     use buck2_core::execution_types::executor_config::PathSeparatorKind;

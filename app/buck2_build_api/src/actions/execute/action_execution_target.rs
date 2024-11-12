@@ -9,8 +9,8 @@
 
 use std::fmt::Write;
 
-use buck2_core::base_deferred_key::BaseDeferredKey;
 use buck2_core::category::CategoryRef;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
 use buck2_data::ToProtoMessage;
 use buck2_execute::execute::target::CommandExecutionTarget;

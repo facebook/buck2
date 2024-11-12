@@ -23,7 +23,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
 use buck2_build_api::validation::transitive_validations::TransitiveValidations;
 use buck2_build_api::validation::transitive_validations::TransitiveValidationsData;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;

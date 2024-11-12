@@ -10,13 +10,13 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use dupe::Dupe;
 
-use crate::dynamic::DynamicLambdaResultsKey;
+use crate::configuration::data::ConfigurationData;
+use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::deferred::dynamic::DynamicLambdaResultsKey;
+use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
+use crate::target::configured_target_label::ConfiguredTargetLabel;
 
 /// The base key. We can actually get rid of this and just use 'DeferredKey' if rule analysis is an
 /// 'Deferred' itself. This is used to construct the composed 'DeferredKey::Deferred' or

@@ -25,14 +25,14 @@ use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallback
 use buck2_action_impl::dynamic::dynamic_actions_callable::DynamicActionsCallbackReturnType;
 use buck2_action_impl::dynamic::new_dynamic_actions_callable;
 use buck2_action_impl::dynamic::params::FrozenDynamicLambdaParams;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
-use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_error::buck2_error;

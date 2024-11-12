@@ -31,7 +31,7 @@ pub struct DynamicActionsActionKey {
 }
 
 impl DynamicActionsActionKey {
-    pub fn new(key: &str) -> buck2_error::Result<DynamicActionsActionKey> {
+    pub(crate) fn new(key: &str) -> buck2_error::Result<DynamicActionsActionKey> {
         Ok(DynamicActionsActionKey {
             key: ArcS::try_from(key).internal_error("Action key must be a valid file name")?,
         })

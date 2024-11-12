@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;

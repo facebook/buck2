@@ -10,11 +10,10 @@
 use std::fmt::Write;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
-
-use crate::deferred::key::DeferredHolderKey;
 
 /// A key to look up an 'Action' from the 'ActionAnalysisResult'.
 /// Since 'Action's are registered as 'Deferred's

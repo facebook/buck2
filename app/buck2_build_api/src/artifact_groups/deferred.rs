@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_artifact::deferred::key::DeferredHolderKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;

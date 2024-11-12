@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
-use buck2_core::base_deferred_key::BaseDeferredKeyBxl;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use dice::DiceComputations;

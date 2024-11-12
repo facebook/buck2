@@ -9,15 +9,15 @@
 
 use allocative::Allocative;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_artifact::dynamic::DynamicLambdaIndex;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::analysis::registry::AnalysisValueStorage;
 use buck2_build_api::analysis::registry::FrozenAnalysisValueStorage;
 use buck2_build_api::dynamic::storage::DynamicLambdaParamStorages;
 use buck2_build_api::dynamic::storage::DynamicLambdaParamsStorage;
 use buck2_build_api::dynamic::storage::FrozenDynamicLambdaParamsStorage;
 use buck2_build_api::dynamic::storage::DYNAMIC_LAMBDA_PARAMS_STORAGES;
+use buck2_core::deferred::dynamic::DynamicLambdaIndex;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_error::internal_error_anyhow;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;

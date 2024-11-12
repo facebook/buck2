@@ -11,13 +11,13 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::deferred::calculation::lookup_deferred_holder;
 use buck2_build_api::dynamic::calculation::DynamicLambdaCalculation;
 use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
 use buck2_build_api::dynamic::calculation::DYNAMIC_LAMBDA_CALCULATION_IMPL;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use dice::CancellationContext;
 use dice::Demand;
 use dice::DiceComputations;

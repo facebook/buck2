@@ -21,7 +21,7 @@ pub mod unpack_artifact;
 
 use std::fmt::Debug;
 
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum ArtifactError {

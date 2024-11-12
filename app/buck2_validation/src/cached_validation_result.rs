@@ -11,7 +11,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use dupe::Dupe;
 

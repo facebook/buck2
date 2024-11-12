@@ -10,11 +10,11 @@
 use std::fmt::Write;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key::BaseDeferredKey;
-use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use dupe::Dupe;
 
+use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
+use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 
 /// The base key. We can actually get rid of this and just use 'DeferredKey' if rule analysis is an
 /// 'Deferred' itself. This is used to construct the composed 'DeferredKey::Deferred' or

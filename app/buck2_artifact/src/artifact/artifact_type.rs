@@ -18,7 +18,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -495,7 +495,8 @@ impl UnboundArtifact {
 }
 
 pub mod testing {
-    use buck2_core::base_deferred_key::BaseDeferredKey;
+    use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+    use buck2_core::deferred::key::DeferredHolderKey;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -507,7 +508,6 @@ pub mod testing {
     use crate::artifact::artifact_type::DeclaredArtifact;
     use crate::artifact::artifact_type::DeclaredArtifactKind;
     use crate::artifact::build_artifact::BuildArtifact;
-    use crate::deferred::key::DeferredHolderKey;
 
     pub trait ArtifactTestingExt {
         fn testing_is_bound(&self) -> bool;
@@ -571,11 +571,12 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use buck2_core::base_deferred_key::BaseDeferredKey;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
     use buck2_core::cells::name::CellName;
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+    use buck2_core::deferred::key::DeferredHolderKey;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
@@ -601,7 +602,6 @@ mod tests {
     use crate::artifact::artifact_type::DeclaredArtifactKind;
     use crate::artifact::build_artifact::BuildArtifact;
     use crate::artifact::source_artifact::SourceArtifact;
-    use crate::deferred::key::DeferredHolderKey;
 
     #[test]
     fn artifact_binding() -> buck2_error::Result<()> {

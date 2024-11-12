@@ -14,7 +14,7 @@ use allocative::Allocative;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::OwnedActionAttr;
 use buck2_build_api::actions::RegisteredAction;
-use buck2_core::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use derive_more::Display;

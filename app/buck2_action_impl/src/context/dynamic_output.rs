@@ -14,8 +14,6 @@ use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_artifact::deferred::key::DeferredHolderKey;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
 use buck2_build_api::dynamic_value::DynamicValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
@@ -23,6 +21,8 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifac
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::environment::MethodsBuilder;

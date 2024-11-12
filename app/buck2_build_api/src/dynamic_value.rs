@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use buck2_artifact::dynamic::DynamicLambdaResultsKey;
+use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use dupe::Dupe;
 
 #[derive(
