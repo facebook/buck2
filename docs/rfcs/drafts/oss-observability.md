@@ -3,7 +3,9 @@
 ## Context
 
 In large organizations building software is a fundamental part of a developer's journey and can significantly impact productivity. As such, being able to monitor and debug builds is a fundamental ability every user and power-user must have. 
-This ability is further limited by the remote nature of CI builds where instances are usually remote and most of the times inaccessible due to security requirements (see SLSA L2 and above).
+This ability is further limited by the remote nature of CI builds where instances are usually remote and most of the times inaccessible due to security requirements (see [SLSA L2 and above](https://slsa.dev/spec/v1.0/levels#build-l2)).
+
+Meta already seems to support an internal version of this based on thrift.
 
 ## Prior Art
 
@@ -34,12 +36,35 @@ All these options are **NOT** mutually exclusive and do in fact combine quite we
 
 ### Using bazel's events or creating custom new ones?
 
-As previously mentioned, were we to adopt BEP, then there'd still be an open question: should buck2 reuse Bazel's events or should we create new ones? There are [some generalization efforts](https://github.com/bazelbuild/remote-apis/issues/318) happening at the moment, however Bazel and Buck2 share lots of similarities. Enough that all events are almost perfectly applicable to Buck2, though less useful at times, like with command line options. On the other hand, a new set of events would perfectly describe a buck2 build, but would be prone to more issues initially and would require a bigger investment upfront in terms of design and development. Alternatively, we could start with a smaller subset of Bazel events that are equivalent in Buck2 and then proceed to add the additional events needed to properly express the unique behaviours of a Buck2 build.
+As previously mentioned, were we to adopt BES, then there'd still be an open question: should buck2 reuse Bazel's events or should we create new ones? There are [some generalization efforts](https://github.com/bazelbuild/remote-apis/issues/318) happening at the moment, however Bazel and Buck2 share lots of similarities. Enough that all events are almost perfectly applicable to Buck2, though less useful at times, like with command line options. On the other hand, a new set of events would perfectly describe a buck2 build, but would be prone to more issues initially and would require a bigger investment upfront in terms of design and development. Alternatively, we could start with a smaller subset of Bazel events that are equivalent in Buck2 and then proceed to add the additional events needed to properly express the unique behaviours of a Buck2 build.
 
 ## Proposal
+
+Since this observability stack will be needed exclusively by the community, I reckon adopting an already existing generic protocol would be the best option. This way contributions on each end would benefit the other and the support and development burden can be implicitly shared by the contributors of the protocol. In this case, as it's probably already obvious in the document, said protocol I am referring to is BES. 
+
+The protocol is by nature very generic and the first iteration could be completely based on a subset of events Bazel uses that apply to Buck2:
+
+- [Progress](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L291C9-L291C17)
+- [Aborted](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L309)
+- [BuildStarted](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L361)
+- [BuildFinished](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L852C9-L852C22)
+- [UnstructuredCommandLine](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L406)
+- [PatternExpanded](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L462)
+- [TargetConfigured](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L494C9-L494C25)
+- [NamedSetOfFiles](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L539C9-L539C24)
+- [TargetComplete](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L623C9-L623C23)
+- [TargetSummary](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L843C9-L843C22)
+- [TestResult](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L682)
+- [TestSummary](https://github.com/bazelbuild/bazel/blob/38ad73402b213b2a623d0953500b1cfc47c0e851/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto#L781C9-L781C20)
 
 ## Links
 
 - [BEP explaination](https://bazel.build/remote/bep)
 - [Bazel's BEP events and glossary](https://bazel.build/remote/bep-glossary)
-- 
+- [BES proto definition](https://github.com/googleapis/googleapis/blob/master/google/devtools/build/v1/publish_build_event.proto)
+- [Bazel's events proto definition](https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/buildeventstream/proto/build_event_stream.proto)
+
+## Glossary
+
+- BES (Build Event Service): refers to the generic service used to send/receive build events by Bazel
+- BEP (Build Event Protocol): refers to the combination of BES and Bazel specific events
