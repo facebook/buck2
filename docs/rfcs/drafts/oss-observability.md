@@ -15,6 +15,25 @@ Bazel provides multiple tools to monitor and debug various aspects of a build, b
 
 File uploads are performed using the same ByteStream API the RBE protocol uses.
 
+### Open Telemetry / Prometheus
+
+- [gitlab-ci-pipelines-exporter](https://github.com/mvisonneau/gitlab-ci-pipelines-exporter)
+- [opentelemetry-gradle-plugin](https://github.com/craigatk/opentelemetry-gradle-plugin)
+- [otel-export-trace-action](https://github.com/inception-health/otel-export-trace-action)
+- [gitlab-honeycomb-buildevents-webhooks-sink](https://github.com/zoidyzoidzoid/gitlab-honeycomb-buildevents-webhooks-sink)
+- [opentelemetry-gradle-plugin](https://github.com/craigatk/opentelemetry-gradle-plugin)
+
+There are a variety of other build systems and CIs that instead of implementing their own telemetry, rely on a more standardised approach using OTEL or Prometheus. Though this is potentially a good idea in terms of maintainability, it does not come with build debugging tooling out of the box, unlike BES. 
+
+## Buck2's existing BuckEvent
+
+Buck2 already has a `BuckEvent` it defines. This could be transformed into a format supported by other APIs or a new API and combined with other options described in this document.
+
+## Others
+
+- [Chromium Siso's ResultStore](https://github.com/googleapis/googleapis/blob/master/google/devtools/resultstore/v2/resultstore_upload.proto)
+- [Reclient's Event](https://github.com/bazelbuild/reclient/blob/ed0afeddb1b5f0d001a6c8578f000217f06534dc/internal/pkg/event/event.go#L19)
+
 #### Tools using BEP
 
 The biggest advantage in adopting this protocol is the number of already existing tools already able to process it. Anectodally there are various internal users, especially large corporations, using BEP to create integrations and tools of all kinds (eg: [Salesforce's talk during 'Build Meetup 2021'](https://youtu.be/qboJOW1vZLA?si=w7uC-ZxhGtHHM_m6)). This, combined with the already existing similarities with Bazel, could be a driver for adoption. Furtheremore, there are some commercial and free-OSS options available:
