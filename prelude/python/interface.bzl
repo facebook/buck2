@@ -26,14 +26,6 @@ PythonLibraryInterface = record(
     # efficient calls, such as using t-sets projections.
     # PythonLibraryManifestsInterface
     manifests = field(typing.Callable),
-
-    # Returns whether this Python library includes hidden resources.
-    # bool
-    has_hidden_resources = field(typing.Callable),
-
-    # Converts the hidden resources in this Python library to arguments.
-    # _arglike of hidden resources
-    hidden_resources = field(typing.Callable),
 )
 
 PythonLibraryManifestsInterface = record(
@@ -73,6 +65,8 @@ PythonLibraryManifestsInterface = record(
     # [_arglike] of resource artifacts
     resource_artifacts = field(typing.Callable),
     resource_artifacts_with_paths = field(typing.Callable),
+    hidden_resources = field(typing.Callable),
+    has_hidden_resources = field(typing.Callable),
 )
 
 # Entry point for Python binaries. First component designates if the second
