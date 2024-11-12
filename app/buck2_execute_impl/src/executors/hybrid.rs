@@ -17,6 +17,7 @@ use buck2_common::liveliness_observer::CancelledLivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
+use buck2_common::memory_tracker::MemoryTracker;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
@@ -57,6 +58,7 @@ pub struct HybridExecutor<R> {
     pub low_pass_filter: Arc<LowPassFilter>,
     pub re_max_input_files_bytes: u64,
     pub fallback_tracker: Arc<FallbackTracker>,
+    pub memory_tracker: Option<Arc<MemoryTracker>>,
 }
 
 impl<R> HybridExecutor<R>

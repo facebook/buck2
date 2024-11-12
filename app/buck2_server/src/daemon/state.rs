@@ -28,6 +28,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::memory_tracker::MemoryTracker;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
@@ -183,6 +184,9 @@ pub struct DaemonStateData {
 
     /// Config used to display system warnings
     pub system_warning_config: SystemWarningConfig,
+
+    /// Tracks memory usage. Used to make scheduling decisions.
+    pub memory_tracker: Option<Arc<MemoryTracker>>,
 }
 
 impl DaemonStateData {
@@ -592,6 +596,9 @@ impl DaemonState {
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
 
+            // TODO(akozhevnikov): Properly initialize memory tracker
+            let memory_tracker = None;
+
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
             // tokio::task::spawn(watchman_query.sync());
             Ok(Arc::new(DaemonStateData {
@@ -615,6 +622,7 @@ impl DaemonState {
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 tags,
                 system_warning_config,
+                memory_tracker,
             }))
         })
         .await?

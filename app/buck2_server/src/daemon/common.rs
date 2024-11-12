@@ -15,6 +15,7 @@ use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
+use buck2_common::memory_tracker::MemoryTracker;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
@@ -96,6 +97,7 @@ pub struct CommandExecutorFactory {
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
+    memory_tracker: Option<Arc<MemoryTracker>>,
 }
 
 impl CommandExecutorFactory {
@@ -116,6 +118,7 @@ impl CommandExecutorFactory {
         paranoid: Option<ParanoidDownloader>,
         materialize_failed_inputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
+        memory_tracker: Option<Arc<MemoryTracker>>,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new(
             re_connection
@@ -141,6 +144,7 @@ impl CommandExecutorFactory {
             cache_upload_permission_checker,
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
+            memory_tracker,
         }
     }
 
@@ -335,6 +339,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             let executor_preference = self.strategy.hybrid_preference();
                             let low_pass_filter = self.low_pass_filter.dupe();
                             let fallback_tracker = self.fallback_tracker.dupe();
+                            let memory_tracker = self.memory_tracker.dupe();
 
                             if self.paranoid.is_some() {
                                 let executor_preference = executor_preference
@@ -354,6 +359,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                     re_max_input_files_bytes,
                                     low_pass_filter,
                                     fallback_tracker,
+                                    memory_tracker,
                                 }))
                             } else {
                                 Some(Arc::new(HybridExecutor {
@@ -364,6 +370,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                     re_max_input_files_bytes,
                                     low_pass_filter,
                                     fallback_tracker,
+                                    memory_tracker,
                                 }))
                             }
                         }

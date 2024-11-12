@@ -729,6 +729,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             self.cmd_ctx.base_context.daemon.paranoid.dupe(),
             self.materialize_failed_inputs,
             override_use_case,
+            self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
