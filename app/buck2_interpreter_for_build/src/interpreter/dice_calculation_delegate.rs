@@ -149,9 +149,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     async fn get_legacy_buck_config_for_starlark(
         &mut self,
     ) -> anyhow::Result<OpaqueLegacyBuckConfigOnDice> {
-        self.ctx
+        Ok(self
+            .ctx
             .get_legacy_config_on_dice(self.build_file_cell.name())
-            .await
+            .await?)
     }
 
     async fn parse_file(&mut self, starlark_path: StarlarkPath<'_>) -> anyhow::Result<ParseResult> {
@@ -465,7 +466,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
     ) -> anyhow::Result<PackageListing> {
-        span_async_simple(
+        Ok(span_async_simple(
             buck2_data::LoadPackageStart {
                 path: package.as_cell_path().to_string(),
             },
@@ -474,7 +475,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 path: package.as_cell_path().to_string(),
             },
         )
-        .await
+        .await?)
     }
 
     pub async fn eval_build_file(

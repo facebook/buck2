@@ -34,7 +34,7 @@ enum ResolveState {
 }
 
 impl ResolvedItems {
-    fn start_resolving(&mut self, section: &str, key: &str) -> anyhow::Result<()> {
+    fn start_resolving(&mut self, section: &str, key: &str) -> buck2_error::Result<()> {
         let section_values = match self.0.get_mut(section) {
             Some(v) => v,
             None => {
@@ -47,7 +47,7 @@ impl ResolvedItems {
             .insert(key.to_owned(), ResolveState::Resolving)
             .is_some()
         {
-            return Err(anyhow::anyhow!(self.cycle_error(section, key)));
+            return Err(self.cycle_error(section, key).into());
         }
 
         self.1.push((section.to_owned(), key.to_owned()));
@@ -86,7 +86,7 @@ impl ResolvedItems {
             })
     }
 
-    fn drain_to(self, value: &mut BTreeMap<String, SectionBuilder>) -> anyhow::Result<()> {
+    fn drain_to(self, value: &mut BTreeMap<String, SectionBuilder>) -> buck2_error::Result<()> {
         assert!(self.1.is_empty(), "All values should have been resolved.");
         for (section, items) in self.0.into_iter() {
             let result_section = value.get_mut(&section).unwrap_or_else(
@@ -115,7 +115,7 @@ pub struct ConfigResolver {
 impl ConfigResolver {
     pub fn resolve(
         values: BTreeMap<String, SectionBuilder>,
-    ) -> anyhow::Result<SortedMap<String, LegacyBuckConfigSection>> {
+    ) -> buck2_error::Result<SortedMap<String, LegacyBuckConfigSection>> {
         let mut resolver = Self { values };
         resolver.resolve_all()?;
         Ok(SortedMap::from_iter(
@@ -123,7 +123,7 @@ impl ConfigResolver {
         ))
     }
 
-    fn resolve_all(&mut self) -> anyhow::Result<()> {
+    fn resolve_all(&mut self) -> buck2_error::Result<()> {
         // First, identify all the values that need to be resolved and mark all the others as literals.
         let mut to_resolve = Vec::new();
         for (section_name, section) in &mut self.values {
@@ -156,7 +156,7 @@ impl ConfigResolver {
         resolved_items: &'a mut ResolvedItems,
         section: &str,
         key: &str,
-    ) -> anyhow::Result<&'a str> {
+    ) -> buck2_error::Result<&'a str> {
         let raw_value = match self.values.get(section).and_then(|e| e.values.get(key)) {
             None => return Ok(""),
             Some(v) => match &v.resolved_value {
@@ -183,7 +183,7 @@ impl ConfigResolver {
         &self,
         resolved_items: &mut ResolvedItems,
         raw_value: &str,
-    ) -> anyhow::Result<String> {
+    ) -> buck2_error::Result<String> {
         let mut resolved = String::new();
         let mut last = 0;
 

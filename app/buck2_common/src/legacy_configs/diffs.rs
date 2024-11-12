@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn test_diff_metrics_equal_configs() -> anyhow::Result<()> {
+    fn test_diff_metrics_equal_configs() -> buck2_error::Result<()> {
         let config_args = vec![ConfigOverride::flag_no_cell("apple.key=value1")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
 
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn test_diff_metrics_with_empty() -> anyhow::Result<()> {
+    fn test_diff_metrics_with_empty() -> buck2_error::Result<()> {
         let key = "key";
         let value = "value1";
         let limit_key = "config_diff_size_limit";
@@ -353,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn test_diff_metrics_only_changed() -> anyhow::Result<()> {
+    fn test_diff_metrics_only_changed() -> buck2_error::Result<()> {
         let key1 = "key1";
         let value1 = "value1";
         let key2 = "key2";
@@ -405,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn test_diff_metrics_size_exceeded() -> anyhow::Result<()> {
+    fn test_diff_metrics_size_exceeded() -> buck2_error::Result<()> {
         let key1 = "key1";
         let value1 = "value1";
         let key2 = "key2";

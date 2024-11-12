@@ -44,7 +44,7 @@ struct CellPackageBoundaryExceptions {
 }
 
 impl CellPackageBoundaryExceptions {
-    fn new(s: &str) -> anyhow::Result<Self> {
+    fn new(s: &str) -> buck2_error::Result<Self> {
         let mut prefix_to_subpaths = HashMap::new();
         let mut allow_everything = false;
         for path_str in s.split(',') {

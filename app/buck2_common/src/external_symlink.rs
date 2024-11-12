@@ -44,11 +44,12 @@ impl ExternalSymlink {
     pub fn new(
         abs_target: PathBuf,
         remaining_path: ForwardRelativePathBuf,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let abs_target = match abs_target.into_os_string().into_string() {
             Ok(string) => string,
             Err(os_string) => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    [],
                     "Found external symlink that's not utf-8. Lossy representation: {}",
                     os_string.to_string_lossy()
                 ));
@@ -79,7 +80,7 @@ impl ExternalSymlink {
 
     /// Returns a new `ExternalSymlink` with its target being the full target
     /// of `self` (i.e. `{self.target}/{self.remaining_path}`).
-    pub fn with_full_target(self: &Arc<Self>) -> anyhow::Result<Arc<Self>> {
+    pub fn with_full_target(self: &Arc<Self>) -> buck2_error::Result<Arc<Self>> {
         if !self.remaining_path.is_empty() {
             Ok(Arc::new(Self::new(
                 self.to_path_buf(),

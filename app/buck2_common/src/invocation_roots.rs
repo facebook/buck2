@@ -11,8 +11,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use allocative::Allocative;
-use anyhow::Context as _;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -41,14 +40,14 @@ pub struct InvocationRoots {
 }
 
 impl InvocationRoots {
-    pub fn common_buckd_dir(&self) -> anyhow::Result<AbsNormPathBuf> {
+    pub fn common_buckd_dir(&self) -> buck2_error::Result<AbsNormPathBuf> {
         Ok(home_buck_dir()?.join(FileName::unchecked_new("buckd")))
     }
 
-    pub fn paranoid_info_path(&self) -> anyhow::Result<AbsPathBuf> {
+    pub fn paranoid_info_path(&self) -> buck2_error::Result<AbsPathBuf> {
         // Used in tests
-        if let Some(p) = buck2_env_anyhow!("BUCK2_PARANOID_PATH")? {
-            return AbsPathBuf::try_from(p.to_owned());
+        if let Some(p) = buck2_env!("BUCK2_PARANOID_PATH")? {
+            return Ok(AbsPathBuf::try_from(p.to_owned())?);
         }
 
         Ok(self
@@ -105,7 +104,7 @@ fn get_roots(from: &Path) -> (Option<PathBuf>, Option<PathBuf>) {
     (project_root, cell_root)
 }
 
-pub fn find_invocation_roots(from: &Path) -> anyhow::Result<InvocationRoots> {
+pub fn find_invocation_roots(from: &Path) -> buck2_error::Result<InvocationRoots> {
     match get_roots(from) {
         (Some(project_root), Some(cell_root)) => Ok(InvocationRoots {
             cell_root: AbsNormPathBuf::try_from(cell_root)?,
@@ -146,11 +145,12 @@ pub fn get_invocation_paths_result(from: &Path, isolation: FileNameBuf) -> Invoc
 ///
 /// 2. Keep user-owned .buckd directory, use some other mechanism to move ownership of
 ///    output directories between different buckd instances.
-pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
-    fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
-        let home = dirs::home_dir().context("Expected a HOME directory to be available")?;
-        let home = AbsNormPathBuf::new(home)
-            .buck_error_context_anyhow("Expected an absolute HOME directory")?;
+pub(crate) fn home_buck_dir() -> buck2_error::Result<&'static AbsNormPath> {
+    fn find_dir() -> buck2_error::Result<AbsNormPathBuf> {
+        let home =
+            dirs::home_dir().buck_error_context("Expected a HOME directory to be available")?;
+        let home =
+            AbsNormPathBuf::new(home).buck_error_context("Expected an absolute HOME directory")?;
         Ok(home.join(FileName::new(".buck")?))
     }
 

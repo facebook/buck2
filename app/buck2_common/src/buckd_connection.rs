@@ -11,7 +11,7 @@ use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use gazebo::prelude::StrExt;
 
 pub const BUCK_AUTH_TOKEN_HEADER: &str = "x-buck-auth-token";
@@ -40,16 +40,16 @@ impl Display for ConnectionType {
 }
 
 impl ConnectionType {
-    pub fn parse(endpoint: &str) -> anyhow::Result<ConnectionType> {
+    pub fn parse(endpoint: &str) -> buck2_error::Result<ConnectionType> {
         let (protocol, endpoint) = endpoint.split1(":");
         match protocol {
             "uds" => Ok(ConnectionType::Uds {
                 unix_socket: Path::new(endpoint).to_path_buf(),
             }),
             "tcp" => Ok(ConnectionType::Tcp {
-                port: endpoint
-                    .parse()
-                    .with_context(|| format!("port number is incorrect in `{}`", endpoint))?,
+                port: endpoint.parse().with_buck_error_context(|| {
+                    format!("port number is incorrect in `{}`", endpoint)
+                })?,
             }),
             _ => Err(ConnectionTypeError::ParseError(endpoint.to_owned()).into()),
         }

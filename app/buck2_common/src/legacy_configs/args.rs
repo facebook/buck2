@@ -9,7 +9,6 @@
 
 use std::path::Path;
 
-use anyhow::Context;
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -17,6 +16,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 
 use crate::legacy_configs::configs::parse_config_section_and_key;
 use crate::legacy_configs::configs::ConfigArgumentParseError;
@@ -56,7 +56,7 @@ pub(crate) struct ResolvedConfigFlag {
 fn resolve_config_flag_arg(
     cell: Option<CellRootPathBuf>,
     raw_arg: &str,
-) -> anyhow::Result<ResolvedConfigFlag> {
+) -> buck2_error::Result<ResolvedConfigFlag> {
     let (raw_section_and_key, raw_value) = raw_arg
         .split_once('=')
         .ok_or_else(|| ConfigArgumentParseError::NoEqualsSeparator(raw_arg.to_owned()))?;
@@ -82,7 +82,7 @@ async fn resolve_config_file_arg(
     project_filesystem: &ProjectRoot,
     cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<ResolvedConfigFile> {
+) -> buck2_error::Result<ResolvedConfigFile> {
     if let Some(cell_path) = cell {
         let proj_path = cell_path.as_project_relative_path().join_normalized(arg)?;
         return Ok(ResolvedConfigFile::Project(proj_path));
@@ -113,11 +113,11 @@ pub(crate) async fn resolve_config_args(
     project_fs: &ProjectRoot,
     cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
-) -> anyhow::Result<Vec<ResolvedLegacyConfigArg>> {
+) -> buck2_error::Result<Vec<ResolvedLegacyConfigArg>> {
     let mut resolved_args = Vec::new();
 
     for u in args {
-        let config_type = ConfigType::from_i32(u.config_type).with_context(|| {
+        let config_type = ConfigType::from_i32(u.config_type).with_buck_error_context(|| {
             format!(
                 "Unknown ConfigType enum value `{}` when trying to deserialize",
                 u.config_type
@@ -148,7 +148,7 @@ mod tests {
     use super::resolve_config_flag_arg;
 
     #[test]
-    fn test_argument_pair() -> anyhow::Result<()> {
+    fn test_argument_pair() -> buck2_error::Result<()> {
         // Valid Formats
 
         let normal_pair = resolve_config_flag_arg(None, "apple.key=value")?;

@@ -133,7 +133,7 @@ mod tests {
     use crate::local_resource_state::LocalResourceState;
 
     #[tokio::test]
-    async fn test_canary() -> anyhow::Result<()> {
+    async fn test_canary() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
         let specs = vec![

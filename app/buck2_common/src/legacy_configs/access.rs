@@ -10,7 +10,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use gazebo::eq_chain;
 
 use crate::legacy_configs::configs::ConfigValue;
@@ -34,7 +34,7 @@ enum ConfigValueError {
 }
 
 impl LegacyBuckConfigView for &LegacyBuckConfig {
-    fn get(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+    fn get(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<Arc<str>>> {
         Ok(LegacyBuckConfig::get(self, key).map(|v| v.to_owned().into()))
     }
 }
@@ -94,15 +94,15 @@ impl LegacyBuckConfig {
         })
     }
 
-    fn parse_impl<T: FromStr>(key: BuckconfigKeyRef, value: &str) -> anyhow::Result<T>
+    fn parse_impl<T: FromStr>(key: BuckconfigKeyRef, value: &str) -> buck2_error::Result<T>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         let BuckconfigKeyRef { section, property } = key;
         value
             .parse()
-            .map_err(anyhow::Error::from)
-            .with_context(|| ConfigValueError::ParseFailed {
+            .map_err(buck2_error::Error::from)
+            .with_buck_error_context(|| ConfigValueError::ParseFailed {
                 section: section.to_owned(),
                 key: property.to_owned(),
                 value: value.to_owned(),
@@ -110,13 +110,13 @@ impl LegacyBuckConfig {
             })
     }
 
-    pub fn parse<T: FromStr>(&self, key: BuckconfigKeyRef) -> anyhow::Result<Option<T>>
+    pub fn parse<T: FromStr>(&self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<T>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         self.get_config_value(key)
             .map(|s| {
-                Self::parse_impl(key, s.as_str()).with_context(|| {
+                Self::parse_impl(key, s.as_str()).with_buck_error_context(|| {
                     format!("Defined {}", s.source.as_legacy_buck_config_location())
                 })
             })
@@ -126,16 +126,19 @@ impl LegacyBuckConfig {
     pub fn parse_value<T: FromStr>(
         key: BuckconfigKeyRef,
         value: Option<&str>,
-    ) -> anyhow::Result<Option<T>>
+    ) -> buck2_error::Result<Option<T>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         value.map(|s| Self::parse_impl(key, s)).transpose()
     }
 
-    pub fn parse_list<T: FromStr>(&self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Vec<T>>>
+    pub fn parse_list<T: FromStr>(
+        &self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Vec<T>>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         Self::parse_list_value(key, self.get(key))
     }
@@ -143,9 +146,9 @@ impl LegacyBuckConfig {
     pub fn parse_list_value<T: FromStr>(
         key: BuckconfigKeyRef,
         value: Option<&str>,
-    ) -> anyhow::Result<Option<Vec<T>>>
+    ) -> buck2_error::Result<Option<Vec<T>>>
     where
-        anyhow::Error: From<<T as FromStr>::Err>,
+        buck2_error::Error: From<<T as FromStr>::Err>,
     {
         /// A wrapper type so we can use .parse() on this.
         struct ParseList<T>(Vec<T>);

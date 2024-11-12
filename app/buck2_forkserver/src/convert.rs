@@ -9,6 +9,7 @@
 
 use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
+use buck2_error::AnyhowContextForError;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 

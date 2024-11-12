@@ -12,7 +12,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::fs_util::IoError;
@@ -75,7 +74,7 @@ impl FsIoProvider {
         &self,
         path: ProjectRelativePathBuf,
         options: ReadUncheckedOptions,
-    ) -> anyhow::Result<RawPathMetadata<ProjectRelativePathBuf>> {
+    ) -> buck2_error::Result<RawPathMetadata<ProjectRelativePathBuf>> {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
@@ -103,7 +102,7 @@ impl IoProvider for FsIoProvider {
     async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         let path = self.fs.resolve(&path);
 
         // Don't want to totally saturate the executor with these so that some other work can progress.
@@ -120,7 +119,7 @@ impl IoProvider for FsIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden couple hundred is probably
         // good (current plan in that impl is to allow multiple batches of 128 dirs at a time).
@@ -136,7 +135,7 @@ impl IoProvider for FsIoProvider {
             let mut entries = Vec::new();
 
             for entry in dir_entries {
-                let e = entry.context("Error accessing directory entry")?;
+                let e = entry.buck_error_context("Error accessing directory entry")?;
                 let file_name = e.file_name();
                 let file_name = file_name
                     .to_str()
@@ -147,16 +146,16 @@ impl IoProvider for FsIoProvider {
                 });
             }
 
-            anyhow::Ok(entries)
+            buck2_error::Ok(entries)
         })
         .await?
-        .context("Error listing directory")
+        .buck_error_context("Error listing directory")
     }
 
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
@@ -171,7 +170,7 @@ impl IoProvider for FsIoProvider {
         .await?
     }
 
-    async fn settle(&self) -> anyhow::Result<()> {
+    async fn settle(&self) -> buck2_error::Result<()> {
         Ok(())
     }
 
@@ -179,7 +178,7 @@ impl IoProvider for FsIoProvider {
         "fs"
     }
 
-    async fn eden_version(&self) -> anyhow::Result<Option<String>> {
+    async fn eden_version(&self) -> buck2_error::Result<Option<String>> {
         Ok(None)
     }
 
@@ -209,7 +208,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
     root: P,
     relpath: &ForwardRelativePath,
     file_digest_config: FileDigestConfig,
-) -> anyhow::Result<Option<RawPathMetadata<ForwardRelativePathBuf>>> {
+) -> buck2_error::Result<Option<RawPathMetadata<ForwardRelativePathBuf>>> {
     let root = root.as_ref();
 
     let mut relpath_components = relpath.iter();
@@ -247,7 +246,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
     }
 
     // If we get here that means we never hit a symlink. So, the metadata we have
-    let meta = meta.context("Attempted to access empty path")?;
+    let meta = meta.buck_error_context("Attempted to access empty path")?;
     let meta = convert_metadata(&curr, meta, file_digest_config)?;
 
     if cfg!(test) {
@@ -262,12 +261,14 @@ fn convert_metadata(
     path: &PathAndAbsPath,
     meta: std::fs::Metadata,
     file_digest_config: FileDigestConfig,
-) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
+) -> buck2_error::Result<RawPathMetadata<ForwardRelativePathBuf>> {
     let meta = if meta.is_dir() {
         RawPathMetadata::Directory
     } else {
         let digest = FileDigest::from_file(&path.abspath, file_digest_config)
-            .with_context(|| format!("Error collecting file digest for `{}`", path.path))?;
+            .with_buck_error_context(|| {
+                format!("Error collecting file digest for `{}`", path.path)
+            })?;
         let digest = TrackedFileDigest::new(digest, file_digest_config.as_cas_digest_config());
         RawPathMetadata::File(FileMetadata {
             digest,
@@ -285,7 +286,7 @@ enum ExactPathMetadata {
 }
 
 impl ExactPathMetadata {
-    fn from_exact_path(curr: &PathAndAbsPath) -> anyhow::Result<Self> {
+    fn from_exact_path(curr: &PathAndAbsPath) -> buck2_error::Result<Self> {
         Ok(
             match fs_util::symlink_metadata_if_exists(&curr.abspath)
                 .map_err(IoError::categorize_for_source_file)?
@@ -303,7 +304,7 @@ impl ExactPathMetadata {
                             .parent()
                             .expect("We pushed a component to this so it cannot be empty")
                             .join_system(&dest)
-                            .with_buck_error_context_anyhow(|| {
+                            .with_buck_error_context(|| {
                                 format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
                             })?;
 
@@ -329,7 +330,7 @@ impl ExactPathSymlinkMetadata {
         self,
         curr: PathAndAbsPath,
         rest: ForwardRelativePathBuf,
-    ) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
+    ) -> buck2_error::Result<RawPathMetadata<ForwardRelativePathBuf>> {
         Ok(match self {
             Self::ExternalSymlink(link_path) => RawPathMetadata::Symlink {
                 at: curr.path,
@@ -359,7 +360,7 @@ fn read_unchecked<P: AsRef<AbsPath>>(
     relpath: ForwardRelativePathBuf,
     file_digest_config: FileDigestConfig,
     options: ReadUncheckedOptions,
-) -> anyhow::Result<RawPathMetadata<ForwardRelativePathBuf>> {
+) -> buck2_error::Result<RawPathMetadata<ForwardRelativePathBuf>> {
     let abspath = root.as_ref().join(relpath.as_path());
 
     let curr = PathAndAbsPath {
@@ -402,7 +403,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read_not_symlink() -> anyhow::Result<()> {
+    fn test_read_not_symlink() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
         let root = AbsPath::new(t.path())?;
 
@@ -421,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_symlink() -> anyhow::Result<()> {
+    fn test_read_symlink() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
 
         unix::fs::symlink("y/z", t.path().join("x"))?;
@@ -437,7 +438,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_symlink_in_dir() -> anyhow::Result<()> {
+    fn test_read_symlink_in_dir() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
         let t = AbsPath::new(t.path())?;
 
@@ -455,7 +456,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_symlink_remaining_path() -> anyhow::Result<()> {
+    fn test_read_symlink_remaining_path() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
 
         unix::fs::symlink("y", t.path().join("x"))?;
@@ -471,7 +472,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_symlink_out_of_project() -> anyhow::Result<()> {
+    fn test_read_symlink_out_of_project() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
 
         unix::fs::symlink("../y", t.path().join("x"))?;
@@ -485,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_unchecked_symlink() -> anyhow::Result<()> {
+    fn test_read_unchecked_symlink() -> buck2_error::Result<()> {
         let t = TempDir::new()?;
         let root = AbsPath::new(t.path())?;
         let digest_config = FileDigestConfig::source(CasDigestConfig::testing_default());

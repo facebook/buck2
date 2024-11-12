@@ -294,11 +294,13 @@ mod tests {
 
     fn cell_configs(cwd: &Path) -> anyhow::Result<BuckConfigBasedCells> {
         let cwd_roots = find_invocation_roots(cwd)?;
-        futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
-            &cwd_roots.project_root,
-            &[],
-            &cwd_roots.project_root.relativize(&AbsNormPath::new(cwd)?)?,
-        ))
+        Ok(futures::executor::block_on(
+            BuckConfigBasedCells::parse_with_config_args(
+                &cwd_roots.project_root,
+                &[],
+                &cwd_roots.project_root.relativize(&AbsNormPath::new(cwd)?)?,
+            ),
+        )?)
     }
 
     macro_rules! testy {

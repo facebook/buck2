@@ -518,7 +518,7 @@ impl<Kind: CasDigestKind> CasDigest<Kind> {
         kind: DigestAlgorithmFamily,
         digest: &[u8],
         size: u64,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(match kind {
             DigestAlgorithmFamily::Sha1 => Self::new_sha1(digest.try_into()?, size),
             DigestAlgorithmFamily::Sha256 => Self::new_sha256(digest.try_into()?, size),
@@ -628,14 +628,14 @@ impl<Kind: CasDigestKind> CasDigest<Kind> {
         digester.finalize()
     }
 
-    pub fn from_reader<R: Read>(reader: R, config: CasDigestConfig) -> anyhow::Result<Self> {
+    pub fn from_reader<R: Read>(reader: R, config: CasDigestConfig) -> buck2_error::Result<Self> {
         Self::from_reader_for_algorithm(reader, config.preferred_algorithm())
     }
 
     pub fn from_reader_for_algorithm<R: Read>(
         mut reader: R,
         algorithm: DigestAlgorithm,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut digester = Self::digester_for_algorithm(algorithm);
 
         // Buffer size chosen based on benchmarks at D26176645

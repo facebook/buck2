@@ -551,9 +551,9 @@ async fn test_targets(
                 });
 
                 driver.push_pattern(
-                    pattern
-                        .convert_pattern()
-                        .context("Test with explicit configuration pattern is not supported yet")?,
+                    pattern.convert_pattern().buck_error_context(
+                        "Test with explicit configuration pattern is not supported yet",
+                    )?,
                     skip_incompatible_targets,
                 );
 

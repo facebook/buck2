@@ -192,11 +192,11 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
         &mut self,
         key: BuckconfigKeyRef,
     ) -> anyhow::Result<Option<Arc<str>>> {
-        self.buckconfig.lookup(self.ctx, key)
+        Ok(self.buckconfig.lookup(self.ctx, key)?)
     }
 
     fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
-        self.root_buckconfig.lookup(self.ctx, key)
+        Ok(self.root_buckconfig.lookup(self.ctx, key)?)
     }
 }
 

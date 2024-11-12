@@ -193,7 +193,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         match self.get_entry_at_path_if_exists(path)? {
             Some(DirectoryEntry::Leaf(leaf)) => {
                 Ok(Some(String::from_utf8(leaf.contents.to_vec())?))
@@ -209,7 +209,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_dir(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let dir = match self.get_entry_at_path(path)? {
             DirectoryEntry::Dir(dir) => dir,
             DirectoryEntry::Leaf(_) => {
@@ -234,7 +234,7 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_path_metadata_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         match self.get_entry_at_path_if_exists(path)? {
             Some(DirectoryEntry::Leaf(leaf)) => {
                 Ok(Some(RawPathMetadata::File(leaf.metadata.clone())))

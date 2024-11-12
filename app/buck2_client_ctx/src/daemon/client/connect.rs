@@ -224,9 +224,9 @@ async fn get_channel(
 ) -> anyhow::Result<Channel> {
     match endpoint {
         ConnectionType::Uds { unix_socket } => {
-            get_channel_uds(&unix_socket, change_to_parent_dir).await
+            Ok(get_channel_uds(&unix_socket, change_to_parent_dir).await?)
         }
-        ConnectionType::Tcp { port } => get_channel_tcp(Ipv4Addr::LOCALHOST, port).await,
+        ConnectionType::Tcp { port } => Ok(get_channel_tcp(Ipv4Addr::LOCALHOST, port).await?),
     }
 }
 

@@ -12,7 +12,7 @@ use std::net::Ipv4Addr;
 use std::path::Path;
 use std::time::Duration;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use futures::Future;
 use tokio::time::Instant;
 use tonic::transport::Channel;
@@ -24,7 +24,7 @@ pub static UDS_DAEMON_FILENAME: &str = "buckd.uds";
 pub async fn get_channel_uds(
     unix_socket: &Path,
     change_to_parent_dir: bool,
-) -> anyhow::Result<Channel> {
+) -> buck2_error::Result<Channel> {
     use buck2_core::fs::fs_util;
 
     use crate::home_buck_tmp::home_buck_tmp_dir;
@@ -40,7 +40,7 @@ pub async fn get_channel_uds(
 
         let r = get_channel_uds_no_symlink(symlink.path())
             .await
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 format!(
                     "Failed to connect to unix domain socket `{}` using symlink `{}`",
                     unix_socket.display(),
@@ -54,7 +54,7 @@ pub async fn get_channel_uds(
     } else {
         get_channel_uds_no_symlink(unix_socket)
             .await
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 format!(
                     "Failed to connect to unix domain socket `{}`",
                     unix_socket.display()
@@ -64,7 +64,7 @@ pub async fn get_channel_uds(
 }
 
 #[cfg(unix)]
-async fn get_channel_uds_no_symlink(connect_to: &Path) -> anyhow::Result<Channel> {
+async fn get_channel_uds_no_symlink(connect_to: &Path) -> buck2_error::Result<Channel> {
     use tonic::codegen::http::Uri;
     use tower::service_fn;
 
@@ -77,24 +77,28 @@ async fn get_channel_uds_no_symlink(connect_to: &Path) -> anyhow::Result<Channel
         .connect_with_connector(service_fn(move |_: Uri| {
             let io = io
                 .take()
-                .with_context(|| "Cannot reconnect after connection loss to uds");
+                .with_buck_error_context_anyhow(|| "Cannot reconnect after connection loss to uds");
             futures::future::ready(io)
         }))
         .await?)
 }
 
 #[cfg(windows)]
-pub async fn get_channel_uds(_unix_filename: &Path, _chg_dir: bool) -> anyhow::Result<Channel> {
-    Err(anyhow::Error::msg(
+pub async fn get_channel_uds(
+    _unix_filename: &Path,
+    _chg_dir: bool,
+) -> buck2_error::Result<Channel> {
+    Err(buck2_error::buck2_error!(
+        [],
         "Unix domain sockets are not supported on Windows",
     ))
 }
 
-pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> anyhow::Result<Channel> {
+pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> buck2_error::Result<Channel> {
     Endpoint::try_from(format!("http://{}:{}", socket_addr, port))?
         .connect()
         .await
-        .with_context(|| format!("failed to connect to port {}", port))
+        .with_buck_error_context(|| format!("failed to connect to port {}", port))
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -154,6 +158,8 @@ pub async fn retrying<L, E, Fut: Future<Output = Result<L, E>>, F: FnMut() -> Fu
 mod tests {
     use std::time::Duration;
 
+    use buck2_error::buck2_error;
+
     use crate::client_utils::retrying;
     use crate::client_utils::RetryError;
 
@@ -165,9 +171,9 @@ mod tests {
             Duration::from_millis(1),
             Duration::from_millis(1),
             Duration::from_millis(1),
-            || async { Err(anyhow::anyhow!("test")) },
+            || async { Err(buck2_error::buck2_error!([], "test")) },
         );
-        let result: Result<(), RetryError<anyhow::Error>> = future.await;
+        let result: Result<(), RetryError<buck2_error::Error>> = future.await;
         assert!(result.is_err());
     }
 }

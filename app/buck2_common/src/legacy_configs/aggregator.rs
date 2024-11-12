@@ -61,7 +61,7 @@ impl CellsAggregator {
         // This is order sensitive
         cells: Vec<(CellName, CellRootPathBuf)>,
         root_aliases: HashMap<NonEmptyCellAlias, NonEmptyCellAlias>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut path_rmap = HashMap::new();
         let mut infos = HashMap::new();
         let mut combined_aliases = HashMap::new();
@@ -103,7 +103,10 @@ impl CellsAggregator {
         })
     }
 
-    pub(crate) fn resolve_root_alias(&self, alias: NonEmptyCellAlias) -> anyhow::Result<CellName> {
+    pub(crate) fn resolve_root_alias(
+        &self,
+        alias: NonEmptyCellAlias,
+    ) -> buck2_error::Result<CellName> {
         self.root_aliases
             .get(&alias)
             .copied()
@@ -114,11 +117,11 @@ impl CellsAggregator {
         &mut self,
         cell: CellName,
         origin: ExternalCellOrigin,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let info = self
             .cell_infos
             .get_mut(&cell)
-            .internal_error_anyhow("cell name is not a cell")?;
+            .internal_error("cell name is not a cell")?;
         if info.external.is_some() {
             return Err(CellError::DuplicateExternalCell(cell).into());
         }
@@ -126,7 +129,7 @@ impl CellsAggregator {
         Ok(())
     }
 
-    pub(crate) fn make_cell_resolver(self) -> anyhow::Result<CellResolver> {
+    pub(crate) fn make_cell_resolver(self) -> buck2_error::Result<CellResolver> {
         let all_cell_roots_for_nested_cells: Vec<_> = self
             .cell_infos
             .iter()
@@ -150,7 +153,7 @@ impl CellsAggregator {
 
         let root_cell_alias_resolver = CellAliasResolver::new(self.root_cell, self.root_aliases)?;
 
-        Ok(CellResolver::new(instances, root_cell_alias_resolver)?)
+        CellResolver::new(instances, root_cell_alias_resolver)
     }
 }
 
@@ -159,7 +162,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_duplicate_paths() -> anyhow::Result<()> {
+    fn test_duplicate_paths() -> buck2_error::Result<()> {
         let root = CellName::testing_new("root");
         let root_path = CellRootPathBuf::new(ProjectRelativePath::empty().to_owned());
         let other1 = CellName::testing_new("other1");

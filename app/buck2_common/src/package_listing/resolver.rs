@@ -20,11 +20,11 @@ pub trait PackageListingResolver: Send + Sync {
     async fn get_enclosing_package(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<PackageLabel>;
+    ) -> buck2_error::Result<PackageLabel>;
 
     async fn get_enclosing_packages(
         &mut self,
         path: CellPathRef<'async_trait>,
         enclosing_path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Vec<PackageLabel>>;
+    ) -> buck2_error::Result<Vec<PackageLabel>>;
 }

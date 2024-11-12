@@ -337,7 +337,7 @@ impl<'a> BuckLspContext<'a> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize_any(abs_path)?;
         let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+            .with_dice_ctx(|mut dice_ctx| async move { Ok(dice_ctx.get_cell_resolver().await?) })
             .await?;
         let cell_path = cell_resolver.get_cell_path(&relative_path)?;
 
@@ -363,7 +363,7 @@ impl<'a> BuckLspContext<'a> {
         // to get a ProjectRelativePath. We already guaranteed that things start with a '/'
         // (rooted from `starlark:`, see LspUrl), so just drop it.
         let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+            .with_dice_ctx(|mut dice_ctx| async move { Ok(dice_ctx.get_cell_resolver().await?) })
             .await?;
 
         let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
@@ -447,7 +447,9 @@ impl<'a> BuckLspContext<'a> {
         match ForwardRelativePath::new(literal) {
             Ok(package_relative) => {
                 let cell_resolver = self
-                    .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
+                    .with_dice_ctx(
+                        |mut dice_ctx| async move { Ok(dice_ctx.get_cell_resolver().await?) },
+                    )
                     .await?;
                 let relative_path =
                     cell_resolver.resolve_path(current_package.join(package_relative).as_ref())?;
@@ -636,11 +638,11 @@ impl<'a> LspContext for BuckLspContext<'a> {
                         let path = self.import_path(path).await?;
 
                         self.with_dice_ctx(|mut dice_ctx| async move {
-                            DiceFileComputations::read_file_if_exists(
+                            Ok(DiceFileComputations::read_file_if_exists(
                                 &mut dice_ctx,
                                 path.borrow().path().as_ref(),
                             )
-                            .await
+                            .await?)
                         })
                         .await
                     }

@@ -41,8 +41,8 @@ enum SystemdNotAvailableReason {
 
 enum SystemdCreationDecision {
     SkipNotNeeded,
-    SkipPreferredButNotRequired { e: anyhow::Error },
-    SkipRequiredButUnavailable { e: anyhow::Error },
+    SkipPreferredButNotRequired { e: buck2_error::Error },
+    SkipRequiredButUnavailable { e: buck2_error::Error },
     Create,
 }
 
@@ -105,7 +105,7 @@ impl SystemdRunner {
         config: &ResourceControlConfig,
         parent_slice: &str,
         slice_inherit: bool,
-    ) -> anyhow::Result<Option<Self>> {
+    ) -> buck2_error::Result<Option<Self>> {
         let decision = Self::creation_decision(config);
         match decision {
             SystemdCreationDecision::SkipNotNeeded => Ok(None),
@@ -163,7 +163,7 @@ fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailable
     }
 }
 
-fn is_available() -> anyhow::Result<()> {
+fn is_available() -> buck2_error::Result<()> {
     if !cfg!(target_os = "linux") {
         return Err(SystemdNotAvailableReason::UnsupportedPlatform.into());
     }
@@ -247,12 +247,7 @@ mod tests {
     #[cfg(not(target_os = "linux"))]
     #[test]
     fn test_always_unavailable_on_nonlinux() {
-        assert!(matches!(
-            is_available()
-                .unwrap_err()
-                .downcast::<SystemdNotAvailableReason>()
-                .unwrap(),
-            SystemdNotAvailableReason::UnsupportedPlatform
-        ));
+        let _error = buck2_error::Error::from(SystemdNotAvailableReason::UnsupportedPlatform);
+        assert!(matches!(is_available().unwrap_err(), _error));
     }
 }

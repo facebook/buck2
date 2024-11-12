@@ -140,7 +140,7 @@ impl Forkserver for UnixForkserverService {
             let timeout = timeout
                 .map(|t| t.try_into_duration())
                 .transpose()
-                .context("Invalid timeout")?;
+                .buck_error_context_anyhow("Invalid timeout")?;
 
             let exe = maybe_absolutize_exe(exe, cwd)?;
             let systemd_context = self.systemd_runner.as_ref().zip(action_digest);

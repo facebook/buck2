@@ -27,7 +27,7 @@ const DEFAULT_BUILDFILES: &[&str] = &["BUCK.v2", "BUCK"];
 /// Deal with the `buildfile.name` key (and `name_v2`)
 pub fn parse_buildfile_name(
     mut config: impl LegacyBuckConfigView,
-) -> anyhow::Result<Vec<FileNameBuf>> {
+) -> buck2_error::Result<Vec<FileNameBuf>> {
     // For buck2, we support a slightly different mechanism for setting the buildfile to
     // assist with easier migration from v1 to v2.
     // First, we check the key `buildfile.name_v2`, if this is provided, we use it.
@@ -70,7 +70,7 @@ pub trait HasBuildfiles {
     fn get_buildfiles(
         &mut self,
         cell: CellName,
-    ) -> impl Future<Output = anyhow::Result<Arc<[FileNameBuf]>>>;
+    ) -> impl Future<Output = buck2_error::Result<Arc<[FileNameBuf]>>>;
 }
 
 #[derive(
@@ -107,8 +107,8 @@ impl Key for BuildfilesKey {
 }
 
 impl HasBuildfiles for DiceComputations<'_> {
-    async fn get_buildfiles(&mut self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
-        Ok(self.compute(&BuildfilesKey(cell)).await??)
+    async fn get_buildfiles(&mut self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
+        self.compute(&BuildfilesKey(cell)).await?
     }
 }
 
@@ -134,7 +134,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_buildfiles() -> anyhow::Result<()> {
+    async fn test_buildfiles() -> buck2_error::Result<()> {
         let mut file_ops = TestConfigParserFileOps::new(&[
             (
                 ".buckconfig",

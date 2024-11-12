@@ -180,7 +180,7 @@ impl EdenIoProvider {
                         .fs
                         .read_unchecked(path.clone(), options)
                         .await
-                        .with_context(|| {
+                        .with_buck_error_context(|| {
                             format!(
                                 "Eden returned that `{}` was a symlink, but it was not.  \
                                 This path may have changed during the build",
@@ -315,7 +315,7 @@ impl IoProvider for EdenIoProvider {
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         match self.read_path_metadata_if_exists_impl(&path).await {
             Ok(PathMetadataResult::Result(res)) => Ok(res),
             Ok(PathMetadataResult::Error(err)) => {
@@ -338,14 +338,14 @@ impl IoProvider for EdenIoProvider {
                     _ => Err(err.into()),
                 }
             }
-            Err(err) => Err(err).tag_anyhow(ErrorTag::IoEden),
+            Err(err) => Err(err).tag(ErrorTag::IoEden),
         }
     }
 
     async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         // Don't tag as IoEden because it uses regular file I/O.
         self.fs.read_file_if_exists_impl(path).await
     }
@@ -353,11 +353,11 @@ impl IoProvider for EdenIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
-        self.read_dir_impl(path).await.tag_anyhow(ErrorTag::IoEden)
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+        self.read_dir_impl(path).await.tag(ErrorTag::IoEden)
     }
 
-    async fn settle(&self) -> anyhow::Result<()> {
+    async fn settle(&self) -> buck2_error::Result<()> {
         let _guard = IoCounterKey::EdenSettle.guard();
 
         let root = self.manager.get_mount_point();
@@ -377,15 +377,15 @@ impl IoProvider for EdenIoProvider {
             })
             .await
             .context("Error synchronizing Eden working copy")
-            .tag_anyhow(ErrorTag::IoEden)
+            .tag(ErrorTag::IoEden)
     }
 
     fn name(&self) -> &'static str {
         "eden"
     }
 
-    async fn eden_version(&self) -> anyhow::Result<Option<String>> {
-        self.manager.get_eden_version().await
+    async fn eden_version(&self) -> buck2_error::Result<Option<String>> {
+        Ok(self.manager.get_eden_version().await?)
     }
 
     fn project_root(&self) -> &ProjectRoot {

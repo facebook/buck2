@@ -20,7 +20,7 @@ pub enum InvocationPathsResult {
 }
 
 impl InvocationPathsResult {
-    pub fn get_result(self) -> anyhow::Result<InvocationPaths> {
+    pub fn get_result(self) -> buck2_error::Result<InvocationPaths> {
         match self {
             InvocationPathsResult::OtherError(e) => Err(e.into()),
             InvocationPathsResult::Paths(paths) => Ok(paths),

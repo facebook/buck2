@@ -20,13 +20,16 @@
 mod imp {
     use std::env;
 
+    use buck2_error::buck2_error;
+
     /// Output the current state of the heap to the filename specified.
     /// Intended to be used for debugging purposes.
     /// Requires MALLOC_CONF=prof:true to be set in environment variables
     /// when run, though must be built without MALLOC_CONF=prof:true.
-    pub fn write_heap_to_file(filename: &str) -> anyhow::Result<()> {
+    pub fn write_heap_to_file(filename: &str) -> buck2_error::Result<()> {
         if !memory::is_using_jemalloc() {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                [],
                 "not using jemalloc; are you building with @//mode/dev or @//mode/dbgo?"
             ));
         }
@@ -34,12 +37,14 @@ mod imp {
         let prof_enabled: bool = memory::mallctl_read("opt.prof")?;
         if !prof_enabled {
             if env::var_os("MALLOC_CONF").is_some() {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    [],
                     "the environment variable MALLOC_CONF is set, but profiling is not enabled. MALLOC_CONF must contain prof:true to enable the profiler"
                 ));
             }
 
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                [],
                 "profiling is not enabled for this process; you must set the environment variable MALLOC_CONF to contain at least prof:true in order to profile"
             ));
         }
@@ -50,8 +55,8 @@ mod imp {
     }
 
     /// Dump allocator stats from JEMalloc. Intended for debug purposes
-    pub fn allocator_stats(options: &str) -> anyhow::Result<String> {
-        allocator_stats::malloc_stats(options)
+    pub fn allocator_stats(options: &str) -> buck2_error::Result<String> {
+        Ok(allocator_stats::malloc_stats(options)?)
     }
 
     /// Enables background threads for jemalloc. See [here](http://jemalloc.net/jemalloc.3.html#background_thread) for
@@ -59,7 +64,7 @@ mod imp {
     /// doing it synchronously.
     ///
     /// This function has no effect if not using jemalloc.
-    pub fn enable_background_threads() -> anyhow::Result<()> {
+    pub fn enable_background_threads() -> buck2_error::Result<()> {
         if memory::is_using_jemalloc() {
             memory::mallctl_write("background_thread", true)?;
         }
@@ -73,22 +78,25 @@ mod imp {
 
 #[cfg(not(fbcode_build))]
 mod imp {
+    use buck2_error::buck2_error;
 
-    pub fn write_heap_to_file(_filename: &str) -> anyhow::Result<()> {
+    pub fn write_heap_to_file(_filename: &str) -> buck2_error::Result<()> {
         // TODO(swgillespie) the `jemalloc_ctl` crate is probably capable of doing this
         // and we already link against it
-        Err(anyhow::anyhow!(
+        Err(buck2_error::buck2_error!(
+            [],
             "not implemented: heap dump for Cargo builds"
         ))
     }
 
-    pub fn allocator_stats(_: &str) -> anyhow::Result<String> {
-        Err(anyhow::anyhow!(
+    pub fn allocator_stats(_: &str) -> buck2_error::Result<String> {
+        Err(buck2_error::buck2_error!(
+            [],
             "not implemented: allocator stats  for Cargo builds"
         ))
     }
 
-    pub fn enable_background_threads() -> anyhow::Result<()> {
+    pub fn enable_background_threads() -> buck2_error::Result<()> {
         Ok(())
     }
 

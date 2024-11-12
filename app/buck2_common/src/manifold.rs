@@ -105,7 +105,7 @@ pub enum UploadError {
     #[error("File not found")]
     FileNotFound,
     #[error(transparent)]
-    Other(anyhow::Error),
+    Other(buck2_error::Error),
 }
 
 impl From<io::Error> for UploadError {
@@ -160,7 +160,7 @@ pub struct ManifoldClient {
 }
 
 impl ManifoldClient {
-    pub async fn new() -> anyhow::Result<Self> {
+    pub async fn new() -> buck2_error::Result<Self> {
         let client = HttpClientBuilder::internal().await?.build();
         let manifold_url = log_upload_url(client.supports_vpnless()).map(|s| s.to_owned());
 
@@ -176,7 +176,7 @@ impl ManifoldClient {
         manifold_bucket_path: &str,
         buf: bytes::Bytes,
         ttl: Ttl,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let manifold_url = match &self.manifold_url {
             None => return Ok(()),
             Some(x) => x,
@@ -220,7 +220,7 @@ impl ManifoldClient {
         manifold_bucket_path: &str,
         buf: bytes::Bytes,
         offset: u64,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let manifold_url = match &self.manifold_url {
             None => return Ok(()),
             Some(x) => x,
@@ -252,7 +252,7 @@ impl ManifoldClient {
         path: &str,
         ttl: Ttl,
         read: &mut R,
-    ) -> anyhow::Result<()>
+    ) -> buck2_error::Result<()>
     where
         R: AsyncRead + Unpin,
     {
@@ -267,7 +267,7 @@ impl ManifoldClient {
             first = false;
             upload.write(chunk.into()).await?;
         }
-        anyhow::Ok(())
+        buck2_error::Ok(())
     }
 
     pub fn start_chunked_upload<'a>(
@@ -301,7 +301,7 @@ pub struct ManifoldChunkedUploader<'a> {
 }
 
 impl<'a> ManifoldChunkedUploader<'a> {
-    pub async fn write(&mut self, chunk: Bytes) -> anyhow::Result<()> {
+    pub async fn write(&mut self, chunk: Bytes) -> buck2_error::Result<()> {
         let len = u64::try_from(chunk.len())?;
 
         if self.position == 0 {

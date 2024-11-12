@@ -42,7 +42,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         ctx: &mut DiceComputations<'_>,
         cell_name: CellName,
         origin: ExternalCellOrigin,
-    ) -> anyhow::Result<Arc<dyn FileOpsDelegate>> {
+    ) -> buck2_error::Result<Arc<dyn FileOpsDelegate>> {
         match origin {
             ExternalCellOrigin::Bundled(cell_name) => {
                 Ok(bundled::get_file_ops_delegate(ctx, cell_name).await? as _)
@@ -53,8 +53,8 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         }
     }
 
-    fn check_bundled_cell_exists(&self, cell_name: CellName) -> anyhow::Result<()> {
-        bundled::find_bundled_data(cell_name).map(|_| ())
+    fn check_bundled_cell_exists(&self, cell_name: CellName) -> buck2_error::Result<()> {
+        Ok(bundled::find_bundled_data(cell_name).map(|_| ())?)
     }
 
     async fn expand(
@@ -63,7 +63,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         cell: CellName,
         origin: ExternalCellOrigin,
         path: &CellRootPath,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let dest_path = path.as_project_relative_path().to_buf();
         let io = ctx.global_data().get_io_provider();
 

@@ -15,6 +15,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use buck2_common::kill_util::try_terminate_process_gracefully;
+use buck2_error::AnyhowContextForError;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;

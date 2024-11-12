@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use anyhow::Context as _;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
+use buck2_error::BuckErrorContext;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncReadExt;
 
@@ -18,8 +18,8 @@ pub struct ChunkReader {
 }
 
 impl ChunkReader {
-    pub fn new() -> anyhow::Result<Self> {
-        let chunk_size = buck2_env_anyhow!(
+    pub fn new() -> buck2_error::Result<Self> {
+        let chunk_size = buck2_env!(
             "BUCK2_TEST_MANIFOLD_CHUNK_BYTES",
             type=u64,
             applicability=testing,
@@ -28,7 +28,7 @@ impl ChunkReader {
         Ok(ChunkReader { chunk_size })
     }
 
-    pub async fn read<R>(&self, reader: &mut R) -> Result<Vec<u8>, anyhow::Error>
+    pub async fn read<R>(&self, reader: &mut R) -> Result<Vec<u8>, buck2_error::Error>
     where
         R: AsyncRead + Unpin,
     {
@@ -37,7 +37,7 @@ impl ChunkReader {
         let len = reader
             .read_to_end(&mut buf)
             .await
-            .context("Error reading chunk")?;
+            .buck_error_context("Error reading chunk")?;
         buf.truncate(len);
         Ok(buf)
     }

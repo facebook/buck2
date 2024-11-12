@@ -67,7 +67,7 @@ impl<R, E> CycleGuardResult<R, E> {
 pub struct CycleGuard<D: CycleAdapterDescriptor>(Option<Arc<CycleAdapterGuard<D>>>);
 
 impl<D: CycleAdapterDescriptor> CycleGuard<D> {
-    pub fn new(ctx: &DiceComputations<'_>) -> anyhow::Result<Self> {
+    pub fn new(ctx: &DiceComputations<'_>) -> buck2_error::Result<Self> {
         Ok(Self(ctx.cycle_guard()?))
     }
 

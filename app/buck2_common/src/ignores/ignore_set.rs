@@ -46,7 +46,7 @@ impl IgnoreSet {
     /// a '/**'.
     ///
     /// Always ignores `buck-out` if it is a `root_cell`.
-    pub fn from_ignore_spec(spec: &str, root_cell: bool) -> anyhow::Result<Self> {
+    pub fn from_ignore_spec(spec: &str, root_cell: bool) -> buck2_error::Result<Self> {
         // TODO(cjhopman): There's opportunity to greatly improve the performance of IgnoreSet by
         // constructing special cases for a couple of common patterns we see in ignore specs. We
         // know that these can get large wins in some places where we've done this same ignore (watchman, buck1's ignores).

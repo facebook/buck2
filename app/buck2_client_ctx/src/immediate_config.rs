@@ -26,6 +26,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_error::AnyhowContextForError;
 use prost::Message;
 
 /// Limited view of the root config. This does not follow includes.

@@ -29,25 +29,25 @@ use crate::legacy_configs::dice::HasLegacyConfigs;
 
 #[async_trait]
 pub trait HasCellResolver {
-    async fn get_cell_resolver(&mut self) -> anyhow::Result<CellResolver>;
+    async fn get_cell_resolver(&mut self) -> buck2_error::Result<CellResolver>;
 
-    async fn is_cell_resolver_key_set(&mut self) -> anyhow::Result<bool>;
+    async fn is_cell_resolver_key_set(&mut self) -> buck2_error::Result<bool>;
 
     async fn get_cell_alias_resolver(
         &mut self,
         cell: CellName,
-    ) -> anyhow::Result<CellAliasResolver>;
+    ) -> buck2_error::Result<CellAliasResolver>;
 
     async fn get_cell_alias_resolver_for_dir(
         &mut self,
         dir: &ProjectRelativePath,
-    ) -> anyhow::Result<CellAliasResolver>;
+    ) -> buck2_error::Result<CellAliasResolver>;
 }
 
 pub trait SetCellResolver {
-    fn set_cell_resolver(&mut self, cell_resolver: CellResolver) -> anyhow::Result<()>;
+    fn set_cell_resolver(&mut self, cell_resolver: CellResolver) -> buck2_error::Result<()>;
 
-    fn set_none_cell_resolver(&mut self) -> anyhow::Result<()>;
+    fn set_none_cell_resolver(&mut self) -> buck2_error::Result<()>;
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -72,27 +72,27 @@ impl InjectedKey for CellResolverKey {
 
 #[async_trait]
 impl HasCellResolver for DiceComputations<'_> {
-    async fn get_cell_resolver(&mut self) -> anyhow::Result<CellResolver> {
+    async fn get_cell_resolver(&mut self) -> buck2_error::Result<CellResolver> {
         self.compute(&CellResolverKey).await?.ok_or_else(|| {
             panic!("Tried to retrieve CellResolverKey from the graph, but key has None value")
         })
     }
 
-    async fn is_cell_resolver_key_set(&mut self) -> anyhow::Result<bool> {
+    async fn is_cell_resolver_key_set(&mut self) -> buck2_error::Result<bool> {
         Ok(self.compute(&CellResolverKey).await?.is_some())
     }
 
     async fn get_cell_alias_resolver(
         &mut self,
         cell: CellName,
-    ) -> anyhow::Result<CellAliasResolver> {
+    ) -> buck2_error::Result<CellAliasResolver> {
         Ok(self.compute(&CellAliasResolverKey(cell)).await??)
     }
 
     async fn get_cell_alias_resolver_for_dir(
         &mut self,
         dir: &ProjectRelativePath,
-    ) -> anyhow::Result<CellAliasResolver> {
+    ) -> buck2_error::Result<CellAliasResolver> {
         let cell = self.get_cell_resolver().await?.find(dir)?;
         self.get_cell_alias_resolver(cell).await
     }
@@ -135,11 +135,11 @@ impl Key for CellAliasResolverKey {
 }
 
 impl SetCellResolver for DiceTransactionUpdater {
-    fn set_cell_resolver(&mut self, cell_resolver: CellResolver) -> anyhow::Result<()> {
+    fn set_cell_resolver(&mut self, cell_resolver: CellResolver) -> buck2_error::Result<()> {
         Ok(self.changed_to(vec![(CellResolverKey, Some(cell_resolver))])?)
     }
 
-    fn set_none_cell_resolver(&mut self) -> anyhow::Result<()> {
+    fn set_none_cell_resolver(&mut self) -> buck2_error::Result<()> {
         Ok(self.changed_to(vec![(CellResolverKey, None)])?)
     }
 }

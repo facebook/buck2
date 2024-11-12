@@ -1226,7 +1226,7 @@ impl DaemonApi for BuckdServer {
         self.check_if_accepting_requests()?;
 
         let response = memory::allocator_stats(&req.into_inner().options)
-            .context("Failed to retrieve allocator stats");
+            .buck_error_context("Failed to retrieve allocator stats");
 
         match response {
             Ok(response) => Ok(Response::new(UnstableAllocatorStatsResponse { response })),

@@ -38,6 +38,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
 use buck2_error::internal_error_anyhow;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::INTERNER;
@@ -284,7 +285,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         let project_path = self.resolve(path);
         (&self.io as &dyn IoProvider)
             .read_file_if_exists(project_path)
@@ -294,12 +295,12 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_dir(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let project_path = self.resolve(path);
         let mut entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
             .await
-            .with_context(|| format!("Error listing dir `{}`", path))?;
+            .with_buck_error_context(|| format!("Error listing dir `{}`", path))?;
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
@@ -310,13 +311,13 @@ impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_path_metadata_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         let project_path = self.resolve(path);
 
         let Some(metadata) = (&self.io as &dyn IoProvider)
             .read_path_metadata_if_exists(project_path)
             .await
-            .with_context(|| format!("Error accessing metadata for path `{}`", path))?
+            .with_buck_error_context(|| format!("Error accessing metadata for path `{}`", path))?
         else {
             return Ok(None);
         };

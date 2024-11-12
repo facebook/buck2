@@ -20,8 +20,8 @@ use crate::invocation_roots::home_buck_dir;
 /// `~/.buck/tmp` after old files removed.
 ///
 /// We use this directory when we need tmp dir with short file names (to connect to unix socket).
-pub fn home_buck_tmp_dir() -> anyhow::Result<&'static AbsNormPath> {
-    fn remove_old_files(tmp_dir: &AbsNormPath) -> anyhow::Result<()> {
+pub fn home_buck_tmp_dir() -> buck2_error::Result<&'static AbsNormPath> {
+    fn remove_old_files(tmp_dir: &AbsNormPath) -> buck2_error::Result<()> {
         let mut now = None;
 
         for entry in fs_util::read_dir(&tmp_dir)? {
@@ -44,7 +44,7 @@ pub fn home_buck_tmp_dir() -> anyhow::Result<&'static AbsNormPath> {
         Ok(())
     }
 
-    fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
+    fn find_dir() -> buck2_error::Result<AbsNormPathBuf> {
         let home_buck_dir = home_buck_dir()?;
         let tmp_dir = home_buck_dir.join(FileName::new("tmp")?);
         fs_util::create_dir_all(&tmp_dir)?;

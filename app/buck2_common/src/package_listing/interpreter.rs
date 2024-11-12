@@ -46,7 +46,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
     async fn get_enclosing_package(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<PackageLabel> {
+    ) -> buck2_error::Result<PackageLabel> {
         let buildfile_candidates =
             DiceFileComputations::buildfiles(&mut self.ctx, path.cell()).await?;
         if let Some(path) = path.parent() {
@@ -70,7 +70,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
         &mut self,
         path: CellPathRef<'async_trait>,
         enclosing_path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Vec<PackageLabel>> {
+    ) -> buck2_error::Result<Vec<PackageLabel>> {
         let buildfile_candidates =
             DiceFileComputations::buildfiles(&mut self.ctx, path.cell()).await?;
         if let Some(path) = path.parent() {
@@ -127,19 +127,19 @@ pub enum GatherPackageListingError {
         path: CellPath,
         node_type: String,
     },
-    Anyhow {
+    Error {
         package: CellPath,
         #[source]
-        error: anyhow::Error,
+        error: buck2_error::Error,
     },
 }
 
 impl GatherPackageListingError {
-    fn anyhow<E: Into<anyhow::Error>>(
+    fn error<E: Into<buck2_error::Error>>(
         package_path: CellPathRef<'_>,
         err: E,
     ) -> GatherPackageListingError {
-        GatherPackageListingError::Anyhow {
+        GatherPackageListingError::Error {
             package: package_path.to_owned(),
             error: err.into(),
         }
@@ -170,9 +170,9 @@ impl GatherPackageListingError {
                     node_type,
                 }
             }
-            ReadDirError::Anyhow(e) => GatherPackageListingError::Anyhow {
+            ReadDirError::Error(e) => GatherPackageListingError::Error {
                 package: package_path.to_owned(),
-                error: e.into(),
+                error: e,
             },
         }
     }
@@ -212,7 +212,7 @@ impl std::fmt::Display for GatherPackageListingError {
              missing `TARGETS` file (also missing alternatives `TARGETS.v2`, `BUCK`, `BUCK.v2`)
 
          error loading package `fbsource//foo/target/x/y/lmnop:`
-              ... # just display the anyhow error for now
+              ... # just display the buck2_error for now
         */
 
         let prefix = "package `";
@@ -225,8 +225,8 @@ impl std::fmt::Display for GatherPackageListingError {
         };
 
         let (package, submessage) = match self {
-            GatherPackageListingError::Anyhow { package, .. } => {
-                // in this case we return the anyhow as our source and we're just displayed as context
+            GatherPackageListingError::Error { package, .. } => {
+                // in this case we return the buck2_error as our source and we're just displayed as context
                 write!(f, "gathering package listing for `{}`", &package)?;
                 return Ok(());
             }
@@ -498,7 +498,7 @@ async fn gather_package_listing_impl(
     let cell_path = root.as_cell_path();
     let buildfile_candidates = DiceFileComputations::buildfiles(ctx, root.cell_name())
         .await
-        .map_err(|e| GatherPackageListingError::anyhow(cell_path, e))?;
+        .map_err(|e| GatherPackageListingError::error(cell_path, e))?;
     Ok(Directory::gather(
         ctx,
         &buildfile_candidates,

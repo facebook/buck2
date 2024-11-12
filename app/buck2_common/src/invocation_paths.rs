@@ -54,7 +54,7 @@ pub struct InvocationPaths {
 }
 
 impl InvocationPaths {
-    pub fn daemon_dir(&self) -> anyhow::Result<DaemonDir> {
+    pub fn daemon_dir(&self) -> buck2_error::Result<DaemonDir> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
             use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;

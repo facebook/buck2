@@ -38,6 +38,7 @@ use buck2_error::classify::best_error;
 use buck2_error::classify::best_tag;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
+use buck2_error::AnyhowContextForError;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_event_observer::action_stats;
 use buck2_event_observer::action_stats::ActionStats;

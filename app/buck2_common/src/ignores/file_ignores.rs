@@ -49,21 +49,20 @@ impl FileIgnoreResult {
     /// Converts the FileIgnoreResult to a Result<()> where any ignored case is converted to an Err
     /// with appropriate message. This should be used when it would be an error to interact with an
     /// ignored file.
-    pub fn into_result(self) -> anyhow::Result<()> {
+    pub fn into_result(self) -> buck2_error::Result<()> {
         match self {
             FileIgnoreResult::Ok => Ok(()),
             FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByPattern { path, pattern }) => {
-                Err(anyhow::anyhow!(FileOpsError::ReadIgnoredDir(
+                Err(FileOpsError::ReadIgnoredDir(
                     path,
-                    format!("file is matched by pattern `{}`", pattern)
-                )))
+                    format!("file is matched by pattern `{}`", pattern),
+                )
+                .into())
             }
-            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell { path, cell_name }) => {
-                Err(anyhow::anyhow!(FileOpsError::ReadIgnoredDir(
-                    path,
-                    format!("file is part of cell `{}`", cell_name)
-                )))
-            }
+            FileIgnoreResult::Ignored(FileIgnoreReason::IgnoredByCell { path, cell_name }) => Err(
+                FileOpsError::ReadIgnoredDir(path, format!("file is part of cell `{}`", cell_name))
+                    .into(),
+            ),
         }
     }
 
@@ -91,7 +90,7 @@ impl CellFileIgnores {
         ignore_spec: &str,
         nested_cells: NestedCells,
         root_cell: bool,
-    ) -> anyhow::Result<CellFileIgnores> {
+    ) -> buck2_error::Result<CellFileIgnores> {
         Ok(CellFileIgnores {
             ignores: IgnoreSet::from_ignore_spec(ignore_spec, root_cell)?,
             cell_ignores: nested_cells,
@@ -130,7 +129,7 @@ mod tests {
     use crate::ignores::file_ignores::CellFileIgnores;
 
     #[test]
-    fn file_ignores() -> anyhow::Result<()> {
+    fn file_ignores() -> buck2_error::Result<()> {
         let cells = &[
             (
                 CellName::testing_new("root"),

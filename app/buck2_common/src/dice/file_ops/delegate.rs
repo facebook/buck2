@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
@@ -20,6 +19,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
@@ -70,18 +70,18 @@ pub trait FileOpsDelegate: Send + Sync {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<String>>;
+    ) -> buck2_error::Result<Option<String>>;
 
     /// Return the list of file outputs, sorted.
     async fn read_dir(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Vec<RawDirEntry>>;
+    ) -> buck2_error::Result<Vec<RawDirEntry>>;
 
     async fn read_path_metadata_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<RawPathMetadata>>;
+    ) -> buck2_error::Result<Option<RawPathMetadata>>;
 
     fn eq_token(&self) -> PartialEqAny;
 }
@@ -105,8 +105,8 @@ impl IoFileOpsDelegate {
         cell_root.as_project_relative_path().join(path)
     }
 
-    fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath> {
-        Ok(self.cells.get_cell_path(path)?)
+    fn get_cell_path(&self, path: &ProjectRelativePath) -> buck2_error::Result<CellPath> {
+        self.cells.get_cell_path(path)
     }
 
     fn io_provider(&self) -> &dyn IoProvider {
@@ -119,7 +119,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_file_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         let project_path = self.resolve(path);
         self.io_provider().read_file_if_exists(project_path).await
     }
@@ -127,13 +127,13 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_dir(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let project_path = self.resolve(path);
         let mut entries = self
             .io_provider()
             .read_dir(project_path)
             .await
-            .with_context(|| format!("Error listing dir `{}`", path))?;
+            .with_buck_error_context(|| format!("Error listing dir `{}`", path))?;
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
@@ -144,14 +144,14 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_path_metadata_if_exists(
         &self,
         path: &'async_trait CellRelativePath,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         let project_path = self.resolve(path);
 
         let res = self
             .io_provider()
             .read_path_metadata_if_exists(project_path)
             .await
-            .with_context(|| format!("Error accessing metadata for path `{}`", path))?;
+            .with_buck_error_context(|| format!("Error accessing metadata for path `{}`", path))?;
         res.map(|meta| meta.try_map(|path| Ok(Arc::new(self.get_cell_path(&path)?))))
             .transpose()
     }
@@ -253,12 +253,12 @@ impl FileOpsDelegateWithIgnores {
     pub async fn read_file_if_exists(
         &self,
         path: &CellRelativePath,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         self.delegate.read_file_if_exists(path).await
     }
 
     /// Return the list of file outputs, sorted.
-    pub async fn read_dir(&self, path: &CellRelativePath) -> anyhow::Result<ReadDirOutput> {
+    pub async fn read_dir(&self, path: &CellRelativePath) -> buck2_error::Result<ReadDirOutput> {
         // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
         self.check_ignores(UncheckedCellRelativePath::new(path))
             .into_result()?;
@@ -280,7 +280,7 @@ impl FileOpsDelegateWithIgnores {
 
             let cell_relative_path = UncheckedCellRelativePath::unchecked_new(cell_relative_path);
             let is_ignored = self.check_ignores(cell_relative_path).is_ignored();
-            anyhow::Ok(is_ignored)
+            buck2_error::Ok(is_ignored)
         };
 
         // Filter out any entries that are ignored.
@@ -317,11 +317,14 @@ impl FileOpsDelegateWithIgnores {
     pub async fn read_path_metadata_if_exists(
         &self,
         path: &CellRelativePath,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         self.delegate.read_path_metadata_if_exists(path).await
     }
 
-    pub async fn is_ignored(&self, path: &CellRelativePath) -> anyhow::Result<FileIgnoreResult> {
+    pub async fn is_ignored(
+        &self,
+        path: &CellRelativePath,
+    ) -> buck2_error::Result<FileIgnoreResult> {
         Ok(self.check_ignores(UncheckedCellRelativePath::new(path)))
     }
 }

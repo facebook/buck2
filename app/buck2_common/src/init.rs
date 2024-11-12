@@ -12,7 +12,8 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use anyhow::Context;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
+use buck2_error::BuckErrorContext;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -59,7 +60,7 @@ pub struct HttpConfig {
 }
 
 impl HttpConfig {
-    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         let connect_timeout_ms = config.parse(BuckconfigKeyRef {
             section: "http",
             property: "connect_timeout_ms",
@@ -160,7 +161,7 @@ pub struct SystemWarningConfig {
 }
 
 impl SystemWarningConfig {
-    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         let memory_pressure_threshold_percent = config.parse(BuckconfigKeyRef {
             section: "buck2_system_warning",
             property: "memory_pressure_threshold_percent",
@@ -200,12 +201,13 @@ impl SystemWarningConfig {
         })
     }
 
-    pub fn serialize(&self) -> anyhow::Result<String> {
-        serde_json::to_string(&self).context("Error serializing SystemWarningConfig")
+    pub fn serialize(&self) -> buck2_error::Result<String> {
+        serde_json::to_string(&self).buck_error_context("Error serializing SystemWarningConfig")
     }
 
-    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
-        serde_json::from_str::<Self>(s).context("Error deserializing SystemWarningConfig")
+    pub fn deserialize(s: &str) -> buck2_error::Result<Self> {
+        serde_json::from_str::<Self>(s)
+            .buck_error_context("Error deserializing SystemWarningConfig")
     }
 }
 
@@ -254,20 +256,24 @@ pub enum ResourceControlStatus {
 }
 
 impl FromStr for ResourceControlStatus {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "off" => Ok(Self::Off),
             "if_available" => Ok(Self::IfAvailable),
             "required" => Ok(Self::Required),
-            _ => Err(anyhow::anyhow!("Invalid resource control status: `{}`", s)),
+            _ => Err(buck2_error::buck2_error!(
+                [],
+                "Invalid resource control status: `{}`",
+                s
+            )),
         }
     }
 }
 
 impl ResourceControlConfig {
-    pub fn from_config(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
-        if let Some(env_conf) = buck2_env_anyhow!(
+    pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+        if let Some(env_conf) = buck2_env!(
             "BUCK2_TEST_RESOURCE_CONTROL_CONFIG",
             applicability = testing,
         )? {
@@ -287,8 +293,8 @@ impl ResourceControlConfig {
         }
     }
 
-    pub fn serialize(&self) -> anyhow::Result<String> {
-        serde_json::to_string(&self).context("Error serializing ResourceControlConfig")
+    pub fn serialize(&self) -> buck2_error::Result<String> {
+        serde_json::to_string(&self).buck_error_context("Error serializing ResourceControlConfig")
     }
 
     pub fn deserialize(s: &str) -> anyhow::Result<Self> {
@@ -318,7 +324,7 @@ pub struct DaemonStartupConfig {
 }
 
 impl DaemonStartupConfig {
-    pub fn new(config: &LegacyBuckConfig) -> anyhow::Result<Self> {
+    pub fn new(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         // Intepreted client side because we need the value here.
         Ok(Self {
             daemon_buster: config
@@ -351,8 +357,8 @@ impl DaemonStartupConfig {
         })
     }
 
-    pub fn serialize(&self) -> anyhow::Result<String> {
-        serde_json::to_string(&self).context("Error serializing DaemonStartupConfig")
+    pub fn serialize(&self) -> buck2_error::Result<String> {
+        serde_json::to_string(&self).buck_error_context("Error serializing DaemonStartupConfig")
     }
 
     pub fn deserialize(s: &str) -> anyhow::Result<Self> {

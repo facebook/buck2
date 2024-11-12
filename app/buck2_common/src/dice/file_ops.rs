@@ -54,25 +54,25 @@ impl DiceFileComputations {
     pub async fn read_dir(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<ReadDirOutput> {
+    ) -> buck2_error::Result<ReadDirOutput> {
         ctx.compute(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::Yes,
         })
         .await?
-        .map_err(anyhow::Error::from)
+        .map_err(buck2_error::Error::from)
     }
 
     pub async fn read_dir_include_ignores(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<ReadDirOutput> {
+    ) -> buck2_error::Result<ReadDirOutput> {
         ctx.compute(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::No,
         })
         .await?
-        .map_err(anyhow::Error::from)
+        .map_err(buck2_error::Error::from)
     }
 
     /// Like read_dir, but with extended error information. This may add additional dice dependencies.
@@ -89,7 +89,7 @@ impl DiceFileComputations {
     pub async fn read_file_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         let file_ops = get_delegated_file_ops(ctx, path.cell(), CheckIgnores::No).await?;
         let () = ctx.compute(&ReadFileKey(Arc::new(path.to_owned()))).await?;
         // FIXME(JakobDegen): We intentionally avoid storing the result of this function in dice.
@@ -102,7 +102,7 @@ impl DiceFileComputations {
     pub async fn read_file(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<String> {
+    ) -> buck2_error::Result<String> {
         Self::read_file_if_exists(ctx, path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
@@ -112,17 +112,17 @@ impl DiceFileComputations {
     pub async fn read_path_metadata_if_exists(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         ctx.compute(&PathMetadataKey(path.to_owned()))
             .await?
-            .map_err(anyhow::Error::from)
+            .map_err(buck2_error::Error::from)
     }
 
     /// Does not check if the path is ignored
     pub async fn read_path_metadata(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<RawPathMetadata> {
+    ) -> buck2_error::Result<RawPathMetadata> {
         Self::read_path_metadata_if_exists(ctx, path)
             .await?
             .ok_or_else(|| FileOpsError::FileNotFound(path.to_string()).into())
@@ -131,7 +131,7 @@ impl DiceFileComputations {
     pub async fn is_ignored(
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
-    ) -> anyhow::Result<FileIgnoreResult> {
+    ) -> buck2_error::Result<FileIgnoreResult> {
         get_delegated_file_ops(ctx, path.cell(), CheckIgnores::Yes)
             .await?
             .is_ignored(path.path())
@@ -141,7 +141,7 @@ impl DiceFileComputations {
     pub async fn buildfiles<'a>(
         ctx: &mut DiceComputations<'_>,
         cell: CellName,
-    ) -> anyhow::Result<Arc<[FileNameBuf]>> {
+    ) -> buck2_error::Result<Arc<[FileNameBuf]>> {
         ctx.get_buildfiles(cell).await
     }
 }
@@ -180,7 +180,7 @@ impl FileChangeTracker {
         }
     }
 
-    pub fn write_to_dice(mut self, ctx: &mut DiceTransactionUpdater) -> anyhow::Result<()> {
+    pub fn write_to_dice(mut self, ctx: &mut DiceTransactionUpdater) -> buck2_error::Result<()> {
         // See comment on `maybe_modified_dirs`
         for p in self.paths_to_dirty.clone() {
             if let Some(dir) = p.0.parent() {
@@ -375,25 +375,28 @@ impl FileOps for DiceFileOps<'_, '_> {
     async fn read_file_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         DiceFileComputations::read_file_if_exists(&mut self.0.get(), path).await
     }
 
-    async fn read_dir(&self, path: CellPathRef<'async_trait>) -> anyhow::Result<ReadDirOutput> {
+    async fn read_dir(
+        &self,
+        path: CellPathRef<'async_trait>,
+    ) -> buck2_error::Result<ReadDirOutput> {
         DiceFileComputations::read_dir(&mut self.0.get(), path).await
     }
 
     async fn read_path_metadata_if_exists(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Option<RawPathMetadata>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata>> {
         DiceFileComputations::read_path_metadata_if_exists(&mut self.0.get(), path).await
     }
 
     async fn is_ignored(
         &self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<FileIgnoreResult> {
+    ) -> buck2_error::Result<FileIgnoreResult> {
         DiceFileComputations::is_ignored(&mut self.0.get(), path).await
     }
 
@@ -403,7 +406,7 @@ impl FileOps for DiceFileOps<'_, '_> {
         PartialEqAny::always_false()
     }
 
-    async fn buildfiles<'a>(&self, cell: CellName) -> anyhow::Result<Arc<[FileNameBuf]>> {
+    async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
         DiceFileComputations::buildfiles(&mut self.0.get(), cell).await
     }
 }

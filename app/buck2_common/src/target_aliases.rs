@@ -128,7 +128,8 @@ impl BuckConfigTargetAliasResolver {
 
 #[async_trait]
 pub trait HasTargetAliasResolver {
-    async fn target_alias_resolver(&mut self) -> anyhow::Result<BuckConfigTargetAliasResolver>;
+    async fn target_alias_resolver(&mut self)
+    -> buck2_error::Result<BuckConfigTargetAliasResolver>;
 }
 
 #[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Allocative)]
@@ -158,7 +159,9 @@ impl Key for TargetAliasResolverKey {
 
 #[async_trait]
 impl HasTargetAliasResolver for DiceComputations<'_> {
-    async fn target_alias_resolver(&mut self) -> anyhow::Result<BuckConfigTargetAliasResolver> {
+    async fn target_alias_resolver(
+        &mut self,
+    ) -> buck2_error::Result<BuckConfigTargetAliasResolver> {
         Ok(self.compute(&TargetAliasResolverKey()).await??)
     }
 }
@@ -173,7 +176,7 @@ mod tests {
     use crate::target_aliases::BuckConfigTargetAliasResolver;
 
     #[test]
-    fn test_aliases() -> anyhow::Result<()> {
+    fn test_aliases() -> buck2_error::Result<()> {
         let config = legacy_configs::configs::testing::parse(
             &[(
                 "config",

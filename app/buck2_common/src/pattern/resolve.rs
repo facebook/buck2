@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::display_precise_pattern;
 use buck2_core::pattern::pattern::PackageSpec;
@@ -66,7 +65,7 @@ where
 }
 
 impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
-    pub fn convert_pattern<U: PatternType>(self) -> anyhow::Result<ResolvedPattern<U>> {
+    pub fn convert_pattern<U: PatternType>(self) -> buck2_error::Result<ResolvedPattern<U>> {
         let mut specs = IndexMap::with_capacity(self.specs.len());
         for (package, spec) in self.specs {
             let spec = match spec {
@@ -78,7 +77,7 @@ impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
                                 display_precise_pattern(&package, target_name.as_ref(), &extra)
                                     .to_string(),
                             ))?;
-                        anyhow::Ok((target_name, extra))
+                        buck2_error::Ok((target_name, extra))
                     })?)
                 }
                 PackageSpec::All => PackageSpec::All,
@@ -96,7 +95,7 @@ impl ResolveTargetPatterns {
     pub async fn resolve<P: PatternType>(
         ctx: &mut DiceComputations<'_>,
         patterns: &[ParsedPattern<P>],
-    ) -> anyhow::Result<ResolvedPattern<P>> {
+    ) -> buck2_error::Result<ResolvedPattern<P>> {
         ctx.with_linear_recompute(|ctx| async move {
             resolve_target_patterns_impl(patterns, &DiceFileOps(&ctx)).await
         })
@@ -107,7 +106,7 @@ impl ResolveTargetPatterns {
 async fn resolve_target_patterns_impl<P: PatternType>(
     patterns: &[ParsedPattern<P>],
     file_ops: &dyn FileOps,
-) -> anyhow::Result<ResolvedPattern<P>> {
+) -> buck2_error::Result<ResolvedPattern<P>> {
     let mut resolved = ResolvedPattern::new();
     for pattern in patterns {
         match pattern {
@@ -120,7 +119,7 @@ async fn resolve_target_patterns_impl<P: PatternType>(
             ParsedPattern::Recursive(cell_path) => {
                 let roots = find_package_roots(cell_path.clone(), file_ops)
                     .await
-                    .context("Error resolving recursive target pattern.")?;
+                    .buck_error_context("Error resolving recursive target pattern.")?;
                 for package in roots {
                     resolved.add_package(package);
                 }
@@ -167,7 +166,7 @@ mod tests {
     }
 
     impl TestPatternResolver {
-        fn new(cells: &[(&str, &str)], files: &[&str]) -> anyhow::Result<Self> {
+        fn new(cells: &[(&str, &str)], files: &[&str]) -> buck2_error::Result<Self> {
             let resolver = {
                 let cells: Vec<_> = cells
                     .iter()
@@ -198,7 +197,7 @@ mod tests {
             Ok(TestPatternResolver { resolver, file_ops })
         }
 
-        async fn resolve<T>(&self, patterns: &[&str]) -> anyhow::Result<ResolvedPattern<T>>
+        async fn resolve<T>(&self, patterns: &[&str]) -> buck2_error::Result<ResolvedPattern<T>>
         where
             T: PatternType,
         {
@@ -252,7 +251,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_simple_specs_targets() -> anyhow::Result<()> {
+    async fn test_simple_specs_targets() -> buck2_error::Result<()> {
         let tester = TestPatternResolver::new(&[("root", ""), ("child", "child/cell")], &[])?;
         tester
             .resolve::<TargetPatternExtra>(&[])
@@ -282,7 +281,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_simple_specs_providers() -> anyhow::Result<()> {
+    async fn test_simple_specs_providers() -> buck2_error::Result<()> {
         let tester = TestPatternResolver::new(&[("root", ""), ("child", "child/cell")], &[])?;
         tester
             .resolve::<ProvidersPatternExtra>(&[])

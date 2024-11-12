@@ -102,7 +102,7 @@ pub(crate) enum ConfigArgumentParseError {
 pub fn parse_config_section_and_key(
     raw_section_and_key: &str,
     raw_arg_in_err: Option<&str>, // Used in error strings to preserve the original config argument, not just section and key
-) -> anyhow::Result<ConfigSectionAndKey> {
+) -> buck2_error::Result<ConfigSectionAndKey> {
     let raw_arg = raw_arg_in_err.unwrap_or(raw_section_and_key);
     let (raw_section, raw_key) = raw_section_and_key
         .split_once('.')
@@ -114,15 +114,11 @@ pub fn parse_config_section_and_key(
     if trimmed_section.find(char::is_whitespace).is_some()
         || raw_key.find(char::is_whitespace).is_some()
     {
-        return Err(anyhow::anyhow!(
-            ConfigArgumentParseError::WhitespaceInKeyOrValue(raw_arg.to_owned())
-        ));
+        return Err(ConfigArgumentParseError::WhitespaceInKeyOrValue(raw_arg.to_owned()).into());
     }
 
     if trimmed_section.is_empty() || raw_key.is_empty() {
-        return Err(anyhow::anyhow!(ConfigArgumentParseError::MissingData(
-            raw_arg.to_owned()
-        )));
+        return Err(ConfigArgumentParseError::MissingData(raw_arg.to_owned()).into());
     }
 
     Ok(ConfigSectionAndKey {
@@ -274,7 +270,7 @@ impl LegacyBuckConfig {
         config_paths: &[ConfigPath],
         file_ops: &mut dyn ConfigParserFileOps,
         follow_includes: bool,
-    ) -> anyhow::Result<LegacyConfigParser> {
+    ) -> buck2_error::Result<LegacyConfigParser> {
         let mut parser = LegacyConfigParser::new();
         for main_config_file in config_paths {
             parser
@@ -291,7 +287,7 @@ impl LegacyBuckConfig {
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[ResolvedLegacyConfigArg],
         follow_includes: bool,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         for main_config_file in main_config_files {
             parser
                 .parse_file(&main_config_file, None, follow_includes, file_ops)
@@ -333,7 +329,7 @@ pub mod testing {
     use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::file_ops::ConfigDirEntry;
 
-    pub fn parse(data: &[(&str, &str)], path: &str) -> anyhow::Result<LegacyBuckConfig> {
+    pub fn parse(data: &[(&str, &str)], path: &str) -> buck2_error::Result<LegacyBuckConfig> {
         parse_with_config_args(data, path, &[])
     }
 
@@ -341,7 +337,7 @@ pub mod testing {
         data: &[(&str, &str)],
         cell_path: &str,
         config_args: &[ConfigOverride],
-    ) -> anyhow::Result<LegacyBuckConfig> {
+    ) -> buck2_error::Result<LegacyBuckConfig> {
         let mut file_ops = TestConfigParserFileOps::new(data)?;
         let path = ProjectRelativePath::new(cell_path)?;
         futures::executor::block_on(async {
@@ -370,7 +366,7 @@ pub mod testing {
     }
 
     impl TestConfigParserFileOps {
-        pub fn new(data: &[(&str, &str)]) -> anyhow::Result<Self> {
+        pub fn new(data: &[(&str, &str)]) -> buck2_error::Result<Self> {
             let mut holder_data = HashMap::new();
             for (file, content) in data {
                 holder_data.insert(
@@ -388,7 +384,7 @@ pub mod testing {
         async fn read_file_lines_if_exists(
             &mut self,
             path: &ConfigPath,
-        ) -> anyhow::Result<
+        ) -> buck2_error::Result<
             Option<
                 Box<
                     (
@@ -420,7 +416,10 @@ pub mod testing {
             Ok(Some(Box::new(file.lines())))
         }
 
-        async fn read_dir(&mut self, _path: &ConfigPath) -> anyhow::Result<Vec<ConfigDirEntry>> {
+        async fn read_dir(
+            &mut self,
+            _path: &ConfigPath,
+        ) -> buck2_error::Result<Vec<ConfigDirEntry>> {
             // This is only used for listing files in `buckconfig.d` directories, which we can just
             // say are always empty in tests
             Ok(Vec::new())
@@ -491,7 +490,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_simple() -> anyhow::Result<()> {
+    fn test_simple() -> buck2_error::Result<()> {
         let config = parse(
             &[(
                 "config",
@@ -556,7 +555,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_comments() -> anyhow::Result<()> {
+    fn test_comments() -> buck2_error::Result<()> {
         let config = parse(
             &[(
                 "config",
@@ -577,7 +576,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_references() -> anyhow::Result<()> {
+    fn test_references() -> buck2_error::Result<()> {
         let config = parse(
             &[(
                 "config",
@@ -616,7 +615,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_reference_cycle() -> anyhow::Result<()> {
+    fn test_reference_cycle() -> buck2_error::Result<()> {
         let res = parse(
             &[(
                 "config",
@@ -655,7 +654,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_includes() -> anyhow::Result<()> {
+    fn test_includes() -> buck2_error::Result<()> {
         let config = parse(
             &[
                 (
@@ -734,7 +733,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_config_args_ordering() -> anyhow::Result<()> {
+    fn test_config_args_ordering() -> buck2_error::Result<()> {
         let config_args = vec![
             ConfigOverride::flag_no_cell("apple.key=value1"),
             ConfigOverride::flag_no_cell("apple.key=value2"),
@@ -746,7 +745,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_config_args_empty() -> anyhow::Result<()> {
+    fn test_config_args_empty() -> buck2_error::Result<()> {
         let config_args = vec![ConfigOverride::flag_no_cell("apple.key=")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value_is_empty(&config, "apple", "key");
@@ -755,7 +754,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_config_args_overwrite_config_file() -> anyhow::Result<()> {
+    fn test_config_args_overwrite_config_file() -> buck2_error::Result<()> {
         let config_args = vec![ConfigOverride::flag_no_cell("apple.key=value2")];
         let config = parse_with_config_args(
             &[(
@@ -784,7 +783,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_section_and_key() -> anyhow::Result<()> {
+    fn test_section_and_key() -> buck2_error::Result<()> {
         // Valid Formats
 
         let normal_section_and_key = parse_config_section_and_key("apple.key", None)?;
@@ -810,7 +809,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_config_file_args_overwrite_config_file() -> anyhow::Result<()> {
+    fn test_config_file_args_overwrite_config_file() -> buck2_error::Result<()> {
         let config_args = vec![
             ConfigOverride::flag_no_cell("apple.key=value3"),
             ConfigOverride::file("cli-config", Some(CellRootPathBuf::testing_new(""))),
@@ -854,7 +853,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_config_args_cell_in_value() -> anyhow::Result<()> {
+    fn test_config_args_cell_in_value() -> buck2_error::Result<()> {
         let config_args = vec![ConfigOverride::flag_no_cell("apple.key=foo//value1")];
         let config = parse_with_config_args(&[("config", indoc!(r#""#))], "config", &config_args)?;
         assert_config_value(&config, "apple", "key", "foo//value1");

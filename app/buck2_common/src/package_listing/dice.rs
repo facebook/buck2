@@ -85,7 +85,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
     async fn get_enclosing_package(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<PackageLabel> {
+    ) -> buck2_error::Result<PackageLabel> {
         InterpreterPackageListingResolver::new(self.0)
             .get_enclosing_package(path)
             .await
@@ -95,7 +95,7 @@ impl<'c, 'd> PackageListingResolver for DicePackageListingResolver<'c, 'd> {
         &mut self,
         path: CellPathRef<'async_trait>,
         enclosing_violation_path: CellPathRef<'async_trait>,
-    ) -> anyhow::Result<Vec<PackageLabel>> {
+    ) -> buck2_error::Result<Vec<PackageLabel>> {
         InterpreterPackageListingResolver::new(self.0)
             .get_enclosing_packages(path, enclosing_violation_path)
             .await
@@ -106,7 +106,9 @@ impl DicePackageListingResolver<'_, '_> {
     pub async fn resolve_package_listing(
         &mut self,
         package: PackageLabel,
-    ) -> anyhow::Result<PackageListing> {
-        self.resolve(package).await.map_err(anyhow::Error::from)
+    ) -> buck2_error::Result<PackageListing> {
+        self.resolve(package)
+            .await
+            .map_err(buck2_error::Error::from)
     }
 }

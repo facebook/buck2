@@ -116,7 +116,7 @@ impl IoProvider for TracingIoProvider {
     async fn read_file_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<String>> {
+    ) -> buck2_error::Result<Option<String>> {
         let res = self.io.read_file_if_exists_impl(path.clone()).await?;
         if res.is_some() {
             self.add_project_path(path);
@@ -133,7 +133,7 @@ impl IoProvider for TracingIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let entries = self.io.read_dir_impl(path.clone()).await?;
         self.add_project_path(path.clone());
         for entry in entries.iter() {
@@ -146,7 +146,7 @@ impl IoProvider for TracingIoProvider {
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
+    ) -> buck2_error::Result<Option<RawPathMetadata<ProjectRelativePathBuf>>> {
         let res = self
             .io
             .read_path_metadata_if_exists_impl(path.clone())
@@ -167,7 +167,7 @@ impl IoProvider for TracingIoProvider {
         Ok(res)
     }
 
-    async fn settle(&self) -> anyhow::Result<()> {
+    async fn settle(&self) -> buck2_error::Result<()> {
         self.io.settle().await
     }
 
@@ -175,7 +175,7 @@ impl IoProvider for TracingIoProvider {
         self.io.name()
     }
 
-    async fn eden_version(&self) -> anyhow::Result<Option<String>> {
+    async fn eden_version(&self) -> buck2_error::Result<Option<String>> {
         self.io.eden_version().await
     }
 
