@@ -83,6 +83,15 @@ Additionally, as part of `Phase 1` we would need to implement the client itself,
 
 Once this is done, I suggest we look into async uploads and add a `buck2 flush events` command to wait for all events (or those of a specific invocation) to be flushed out.
 
+### Approaches
+
+There are multiple ways in which this proposal can be implemented:
+1. Buck2 directly sends Bazel's BEP events and implements the BES protocol
+2. Buck2 implements the BES protocol but sends BuckEvent events but a shim can be built inside Buck2 to turn these events into Bazel's BEP events
+3. Same as above but the shim lives outside of Buck2, so as far as Buck2 is concerned it sends Buck2 BuckEvent via BES
+4. Same as 2 but we implement a new API that is BES-like, but not BES
+5. Same as 3 but we implement a new API that is BES-like, but not BES  
+
 ## Links
 
 - [BEP explaination](https://bazel.build/remote/bep)
