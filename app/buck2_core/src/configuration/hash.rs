@@ -37,7 +37,7 @@ impl ConfigurationHash {
         ConfigurationHash(format!("{:0>16x}", value))
     }
 
-    pub(crate) fn from_str(value: &str) -> anyhow::Result<ConfigurationHash> {
+    pub(crate) fn from_str(value: &str) -> buck2_error::Result<ConfigurationHash> {
         if value.len() != 16 {
             return Err(ConfigurationHashError::Invalid(value.to_owned()).into());
         }

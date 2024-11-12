@@ -27,6 +27,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 use dupe::Dupe;
 
@@ -155,11 +156,11 @@ impl BuckConfigBasedCells {
         )
         .await?;
 
-        CellAliasResolver::new_for_non_root_cell(
+        Ok(CellAliasResolver::new_for_non_root_cell(
             cell_name,
             self.cell_resolver.root_cell_cell_alias_resolver(),
             BuckConfigBasedCells::get_cell_aliases_from_config(&config)?,
-        )
+        )?)
     }
 
     pub async fn parse_with_config_args(
@@ -293,7 +294,7 @@ impl BuckConfigBasedCells {
                 let alias_path = CellRootPathBuf::new(
                     root_path.as_project_relative_path()
                         .join_normalized(RelativePath::new(alias_path.as_str()))
-                        .with_context(|| {
+                        .with_buck_error_context_anyhow(|| {
                             format!(
                                 "expected alias path to be a relative path, but found `{}` for `{}`",
                                 alias_path.as_str(),

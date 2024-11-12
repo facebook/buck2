@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -21,6 +20,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
@@ -126,7 +126,7 @@ impl Materializer for ImmediateMaterializer {
                     // Make sure `path` is a prefix of `dest`, so we don't
                     // materialize anything outside `path`.
                     copied_artifact.dest.strip_prefix(&path)
-                        .with_context(|| format!(
+                        .with_buck_error_context_anyhow(|| format!(
                             "declare_copy: artifact at `{}` copies into `{}`. This is a bug in Buck, not a user error.",
                             path,
                             &copied_artifact.dest,

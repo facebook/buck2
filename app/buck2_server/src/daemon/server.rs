@@ -1454,7 +1454,7 @@ impl DaemonApi for BuckdServer {
             self.0
                 .log_reload_handle
                 .update_log_filter(&req.log_filter)
-                .context("Error updating daemon log filter")
+                .buck_error_context("Error updating daemon log filter")
                 .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
         }
 

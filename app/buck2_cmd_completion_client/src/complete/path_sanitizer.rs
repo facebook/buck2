@@ -182,7 +182,7 @@ impl PathSanitizer {
             .get(cell)?
             .path()
             .as_forward_relative_path();
-        self.project_root_dir().join_normalized(root_to_cell)
+        Ok(self.project_root_dir().join_normalized(root_to_cell)?)
     }
 
     /// Checks whether a given path str is properly a member of the given cell
@@ -215,13 +215,14 @@ impl PathSanitizer {
     }
 
     fn resolve_alias(&self, dir: &str) -> anyhow::Result<CellName> {
-        self.alias_resolver.resolve(dir)
+        Ok(self.alias_resolver.resolve(dir)?)
     }
 
     fn resolve_cell(&self, path: &AbsNormPath) -> anyhow::Result<CellName> {
         let project_relative = &self.relative_to_project(path)?;
-        self.cell_resovler
-            .find::<ProjectRelativePath>(project_relative)
+        Ok(self
+            .cell_resovler
+            .find::<ProjectRelativePath>(project_relative)?)
     }
 
     fn relative_to_cell(&self, dir: &AbsNormPath) -> anyhow::Result<CellRelativePathBuf> {
@@ -236,7 +237,7 @@ impl PathSanitizer {
         &'a self,
         dir: &'a AbsNormPath,
     ) -> anyhow::Result<Cow<ProjectRelativePath>> {
-        self.project_root().relativize(dir)
+        Ok(self.project_root().relativize(dir)?)
     }
 }
 
@@ -283,7 +284,7 @@ mod tests {
 
     fn abs_path_from_root(relative: &str) -> anyhow::Result<AbsNormPathBuf> {
         let root = in_root()?;
-        root.join_normalized(relative)
+        Ok(root.join_normalized(relative)?)
     }
 
     fn abs_str_from_root(relative: &str) -> anyhow::Result<String> {

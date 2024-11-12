@@ -90,7 +90,7 @@ static INTERNER: Interner<HashedConfigurationPlatform, BuckHasher> = Interner::n
 
 impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.
-    pub fn from_platform(label: String, data: ConfigurationDataData) -> anyhow::Result<Self> {
+    pub fn from_platform(label: String, data: ConfigurationDataData) -> buck2_error::Result<Self> {
         let label = BoundConfigurationLabel::new(label)?;
         Ok(Self::from_data(HashedConfigurationPlatform::new(
             ConfigurationPlatform::Bound(label, data),
@@ -176,7 +176,7 @@ impl ConfigurationData {
     ///
     /// This can only find configurations that have otherwise already been encountered by
     /// the current daemon process.
-    pub fn lookup_bound(cfg: BoundConfigurationId) -> anyhow::Result<Self> {
+    pub fn lookup_bound(cfg: BoundConfigurationId) -> buck2_error::Result<Self> {
         match INTERNER.get(ConfigurationHashRef(cfg.hash.as_str())) {
             Some(found_cfg) => {
                 let found_cfg = ConfigurationData(found_cfg);
@@ -196,18 +196,18 @@ impl ConfigurationData {
     pub fn get_constraint_value(
         &self,
         key: &ConstraintKey,
-    ) -> anyhow::Result<Option<&ConstraintValue>> {
+    ) -> buck2_error::Result<Option<&ConstraintValue>> {
         Ok(self.data()?.constraints.get(key))
     }
 
-    pub fn label(&self) -> anyhow::Result<&str> {
+    pub fn label(&self) -> buck2_error::Result<&str> {
         match &self.0.configuration_platform {
             ConfigurationPlatform::Bound(label, _) => Ok(label.as_str()),
             _ => Err(ConfigurationError::NotBound(self.to_string()).into()),
         }
     }
 
-    pub fn data(&self) -> anyhow::Result<&ConfigurationDataData> {
+    pub fn data(&self) -> buck2_error::Result<&ConfigurationDataData> {
         match &self.0.configuration_platform {
             ConfigurationPlatform::Builtin(BuiltinPlatform::UnspecifiedExec) => {
                 Err(ConfigurationError::UnspecifiedExec.into())
@@ -406,7 +406,7 @@ mod tests {
     /// doesn't. If we have a legit reason to update the config hash, we can update the hash here,
     /// but this will ensure we a) know and b) don't do it by accident.
     #[test]
-    fn test_stable_output_hash() -> anyhow::Result<()> {
+    fn test_stable_output_hash() -> buck2_error::Result<()> {
         let configuration = ConfigurationData::from_platform(
             "cfg_for//:testing_exec".to_owned(),
             ConfigurationDataData {

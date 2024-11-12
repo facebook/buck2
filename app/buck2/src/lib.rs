@@ -54,6 +54,7 @@ use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_util::threads::thread_spawn_scoped;
@@ -71,7 +72,8 @@ pub mod panic;
 pub mod process_context;
 
 fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
-    FileNameBuf::try_from(s.to_owned()).context("isolation dir must be a directory name")
+    FileNameBuf::try_from(s.to_owned())
+        .buck_error_context_anyhow("isolation dir must be a directory name")
 }
 
 /// Options of `buck2` command, before subcommand.

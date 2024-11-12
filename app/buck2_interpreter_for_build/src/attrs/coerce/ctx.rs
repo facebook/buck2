@@ -164,13 +164,13 @@ impl BuildAttrCoercionContext {
     }
 
     pub fn parse_pattern<P: PatternType>(&self, value: &str) -> anyhow::Result<ParsedPattern<P>> {
-        ParsedPattern::parsed_opt_absolute(
+        Ok(ParsedPattern::parsed_opt_absolute(
             value,
             self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
             self.cell_name,
             &self.cell_resolver,
             &self.cell_alias_resolver,
-        )
+        )?)
     }
 
     fn coerce_label_no_cache(&self, value: &str) -> anyhow::Result<ProvidersLabel> {

@@ -10,7 +10,6 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
@@ -18,6 +17,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;
@@ -293,13 +293,14 @@ fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> anyhow::Result<P
             .items
             .into_iter()
             .map(|name| {
-                ProviderName::new(name)
-                    .context("for parameter `subtarget_name`")
-                    .map_err(|e| anyhow::anyhow!(e))
+                ProviderName::new(name).buck_error_context_anyhow("for parameter `subtarget_name`")
             })
             .collect::<anyhow::Result<Vec<_>>>()?,
         SubtargetNameArg::Str(str) => {
-            vec![ProviderName::new(str.to_owned()).context("for parameter `subtarget_name`")?]
+            vec![
+                ProviderName::new(str.to_owned())
+                    .buck_error_context_anyhow("for parameter `subtarget_name`")?,
+            ]
         }
     };
 

@@ -9,7 +9,6 @@
 
 use std::future::Future;
 
-use anyhow::Context as _;
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen as GrpcPreemptibleWhen;
@@ -20,6 +19,7 @@ use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_core::error::buck2_hard_error_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -251,7 +251,7 @@ impl<'a> ClientCommandContext<'a> {
                 .working_dir
                 .path()
                 .to_str()
-                .context(CurrentDirIsNotUtf8)?
+                .buck_error_context_anyhow(CurrentDirIsNotUtf8.to_string())?
                 .to_owned(),
             config_overrides: Default::default(),
             host_platform: Default::default(),

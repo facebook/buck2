@@ -38,6 +38,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
+use buck2_error::buck2_error;
 use buck2_error::AnyhowContextForError;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
@@ -751,7 +752,8 @@ impl DaemonState {
         if let Some(working_directory) = &self.working_directory {
             let res = working_directory.is_stale().and_then(|stale| {
                 if stale {
-                    Err(anyhow::anyhow!(
+                    Err(buck2_error!(
+                        [],
                         "Buck appears to be running in a stale working directory \
                          This will likely lead to failed or slow builds. \
                          To remediate, restart Buck2."

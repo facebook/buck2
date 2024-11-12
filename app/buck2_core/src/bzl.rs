@@ -43,7 +43,7 @@ impl ImportPath {
     /// We evaluate `bzl` files multiple times: for each cell we evaluate `bzl` file again.
     /// We want to stop doing that.
     /// This function is for call sites where we don't care about the build file cell.
-    pub fn new_same_cell(path: CellPath) -> anyhow::Result<Self> {
+    pub fn new_same_cell(path: CellPath) -> buck2_error::Result<Self> {
         let build_file_cell = BuildFileCell::new(path.cell());
         Self::new_with_build_file_cells(path, build_file_cell)
     }
@@ -51,7 +51,7 @@ impl ImportPath {
     pub fn new_with_build_file_cells(
         path: CellPath,
         build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if path.parent().is_none() {
             return Err(ImportPathError::Invalid(path).into());
         }
@@ -74,7 +74,7 @@ impl ImportPath {
     pub fn new_hack_for_lsp(
         path: CellPath,
         build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if path.parent().is_none() {
             return Err(ImportPathError::Invalid(path).into());
         }

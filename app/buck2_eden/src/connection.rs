@@ -26,6 +26,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use dupe::Dupe;
 use edenfs::BinaryHash;
@@ -96,7 +97,7 @@ impl EdenConnectionManager {
 
         let rel_project_root = canon_project_root
             .strip_prefix(&canon_eden_mount)
-            .with_context(|| {
+            .with_buck_error_context_anyhow(|| {
                 format!(
                     "Eden root {} was not a prefix of the project root {}",
                     canon_eden_mount, canon_project_root

@@ -64,7 +64,7 @@ impl TargetHashOptions {
                         let path = AbsPath::new(Path::new(&path))?;
                         cell_resolver.get_cell_path_from_abs_path(path, fs)
                     })
-                    .collect::<anyhow::Result<_>>()?;
+                    .collect::<buck2_error::Result<_>>()?;
                 TargetHashesFileMode::PathsOnly(modified_paths)
             }
             TargetHashFileMode::PathsAndContents => TargetHashesFileMode::PathsAndContents,

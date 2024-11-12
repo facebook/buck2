@@ -47,11 +47,11 @@ impl ConfigPath {
 
     pub(crate) fn join_to_parent_normalized(&self, rel: &RelativePath) -> anyhow::Result<Self> {
         match self {
-            ConfigPath::Project(path) => path
+            ConfigPath::Project(path) => Ok(path
                 .parent()
                 .context("file has no parent")?
                 .join_normalized(rel)
-                .map(ConfigPath::Project),
+                .map(ConfigPath::Project)?),
             ConfigPath::Global(path) => Ok(ConfigPath::Global(
                 path.parent()
                     .context("file has no parent")?

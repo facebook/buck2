@@ -23,6 +23,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::RelativePath;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorContext;
 use buck2_util::future::try_join_all;
 use derive_more::Add;
 use faccess::PathExt;
@@ -122,9 +123,11 @@ async fn build_dir_from_disk(
 
         let filename = filename
             .to_str()
-            .context("Filename is not UTF-8")
-            .and_then(|f| FileNameBuf::try_from(f.to_owned()))
-            .with_context(|| format!("Invalid filename: {}", disk_path.clone().display()))?;
+            .buck_error_context_anyhow("Filename is not UTF-8")
+            .and_then(|f| Ok(FileNameBuf::try_from(f.to_owned())?))
+            .with_buck_error_context_anyhow(|| {
+                format!("Invalid filename: {}", disk_path.clone().display())
+            })?;
 
         let mut child_disk_path = disk_path.clone();
         child_disk_path.push(&filename);
@@ -211,10 +214,11 @@ fn create_symlink(
         let directory_path = path
             .parent()
             .context(format!("failed to get parent of {}", path.display()))?;
-        let canonical_path = fs_util::canonicalize(directory_path).context(format!(
-            "failed to get canonical path of {}",
-            directory_path.display()
-        ))?;
+        let canonical_path =
+            fs_util::canonicalize(directory_path).buck_error_context_anyhow(format!(
+                "failed to get canonical path of {}",
+                directory_path.display()
+            ))?;
         if !canonical_path.starts_with(project_root) {
             let normalized_target = symlink_target
                 .to_str()

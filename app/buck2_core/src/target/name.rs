@@ -59,7 +59,7 @@ enum TargetNameError {
 
 impl TargetName {
     #[inline]
-    pub fn new(name: &str) -> anyhow::Result<Self> {
+    pub fn new(name: &str) -> buck2_error::Result<Self> {
         TargetNameRef::new(name)?;
         Ok(Self(ThinArcStr::from(name)))
     }
@@ -68,7 +68,7 @@ impl TargetName {
         TargetName::new(name).unwrap()
     }
 
-    fn bad_name_error(name: &str) -> anyhow::Error {
+    fn bad_name_error(name: &str) -> buck2_error::Error {
         if let Some((_, p)) = name.split_once('[') {
             if p.contains(']') {
                 return TargetNameError::FoundProvidersLabel(name.to_owned()).into();
@@ -77,7 +77,7 @@ impl TargetName {
         TargetNameError::InvalidName(name.to_owned()).into()
     }
 
-    fn verify(name: &str) -> anyhow::Result<()> {
+    fn verify(name: &str) -> buck2_error::Result<()> {
         const VALID_CHARS: &str =
             r"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_,.=-\/~@!+$";
         const SET: AsciiCharSet = AsciiCharSet::new(VALID_CHARS);
@@ -165,7 +165,7 @@ pub struct TargetNameRef(str);
 
 impl TargetNameRef {
     #[inline]
-    pub fn new(name: &str) -> anyhow::Result<&TargetNameRef> {
+    pub fn new(name: &str) -> buck2_error::Result<&TargetNameRef> {
         TargetName::verify(name)?;
         Ok(TargetNameRef::unchecked_new(name))
     }

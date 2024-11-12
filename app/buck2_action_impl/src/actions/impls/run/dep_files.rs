@@ -42,6 +42,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory_selector::DirectorySelector;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::digest::CasDigestToReExt;
@@ -1300,7 +1301,7 @@ impl DeclaredDepFiles {
 
                     // On windows, valid dep files can contain backslashes in paths, normalize them.
                     let path = ForwardRelativePathNormalizer::normalize_path(line)
-                        .context("Invalid line encountered in dep file")?;
+                        .buck_error_context_anyhow("Invalid line encountered in dep file")?;
                     selector.select(path.as_ref());
                 }
             };

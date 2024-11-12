@@ -168,7 +168,7 @@ impl TargetLabel {
         cell_name: CellName,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<TargetLabel> {
+    ) -> buck2_error::Result<TargetLabel> {
         let (target_label, TargetPatternExtra) =
             ParsedPattern::<TargetPatternExtra>::parse_precise(
                 label,

@@ -15,7 +15,7 @@
 use std::panic;
 use std::panic::PanicInfo;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use fbinit::FacebookInit;
 
 /// Initializes the panic hook.
@@ -40,7 +40,7 @@ pub fn initialize() -> anyhow::Result<()> {
             options,
         );
     }))
-    .context("Error initializing soft errors")?;
+    .buck_error_context_anyhow("Error initializing soft errors")?;
     Ok(())
 }
 

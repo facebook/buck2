@@ -315,7 +315,7 @@ impl DefaultIoHandler {
                             zstd::bulk::decompress(&write.compressed_data, write.decompressed_size)
                                 .context("Error decompressing data")?;
                         stat.total_bytes = write.decompressed_size as u64;
-                        self.fs.write_file(&path, data, write.is_executable)
+                        Ok(self.fs.write_file(&path, data, write.is_executable)?)
                     })
                     .await?;
             }

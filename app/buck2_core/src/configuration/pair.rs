@@ -53,7 +53,7 @@ impl Configuration {
     }
 
     #[inline]
-    pub fn check_no_exec_cfg(&self) -> anyhow::Result<ConfigurationNoExec> {
+    pub fn check_no_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
         if self.exec_cfg().is_some() {
             return Err(ConfigurationError::HasExecCfg.into());
         }

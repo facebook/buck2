@@ -146,11 +146,11 @@ impl CellsAggregator {
                     nested_cells,
                 )
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
         let root_cell_alias_resolver = CellAliasResolver::new(self.root_cell, self.root_aliases)?;
 
-        CellResolver::new(instances, root_cell_alias_resolver)
+        Ok(CellResolver::new(instances, root_cell_alias_resolver)?)
     }
 }
 

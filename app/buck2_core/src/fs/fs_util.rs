@@ -20,7 +20,9 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Context as _;
+#[cfg(windows)]
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
@@ -70,7 +72,7 @@ fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
 }
 
 impl IoError {
-    pub fn categorize_for_source_file(self) -> anyhow::Error {
+    pub fn categorize_for_source_file(self) -> buck2_error::Error {
         if self.e.kind() == io::ErrorKind::NotFound {
             buck2_error::Error::from(self)
                 .context(buck2_error::Tier::Input)
@@ -100,8 +102,8 @@ macro_rules! make_error {
     }};
 }
 
-macro_rules! make_anyhow_error {
-    ($val:expr, $context:expr $(,)?) => {{ ($val).with_context(|| $context) }};
+macro_rules! make_buck2_error {
+    ($val:expr, $context:expr $(,)?) => {{ ($val).with_buck_error_context(|| $context) }};
 }
 
 fn if_exists<T>(r: io::Result<T>) -> io::Result<Option<T>> {
@@ -112,13 +114,13 @@ fn if_exists<T>(r: io::Result<T>) -> io::Result<Option<T>> {
     }
 }
 
-pub fn symlink<P, Q>(original: P, link: Q) -> anyhow::Result<()>
+pub fn symlink<P, Q>(original: P, link: Q) -> buck2_error::Result<()>
 where
     P: AsRef<Path>,
     Q: AsRef<AbsPath>,
 {
     let _guard = IoCounterKey::Symlink.guard();
-    make_anyhow_error!(
+    make_buck2_error!(
         symlink_impl(original.as_ref(), link.as_ref()),
         format!(
             "symlink(original={}, link={})",
@@ -129,25 +131,26 @@ where
 }
 
 #[cfg(unix)]
-fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
+fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
     std::os::unix::fs::symlink(original, link.as_maybe_relativized()).map_err(|e| e.into())
 }
 
 /// Create symlink on Windows.
 #[cfg(windows)]
-fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
+fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
     use std::io::ErrorKind;
 
     use common_path::common_path;
 
-    fn permission_check(result: io::Result<()>) -> anyhow::Result<()> {
+    fn permission_check(result: io::Result<()>) -> buck2_error::Result<()> {
         match result {
             // Standard issue on Windows machines, so hint at the resolution, as it is not obvious.
             // Unfortunately this doesn't have an `ErrorKind`, so have to do it with substring matching.
-            Err(e) if e.to_string().contains("privilege is not held") => Err(anyhow::anyhow!(e)
-                .context(
+            Err(e) if e.to_string().contains("privilege is not held") => {
+                Err(buck2_error::buck2_error!([], "{}", e.to_string()).context(
                     "Perhaps you need to turn on 'Developer Mode' in Windows to enable symlinks.",
-                )),
+                ))
+            }
             Err(e) => Err(e.into()),
             Ok(_) => Ok(()),
         }
@@ -161,7 +164,9 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
     } else {
         Cow::Owned(
             link.parent()
-                .ok_or_else(|| anyhow::anyhow!("Expected path with a parent in symlink target"))?
+                .ok_or_else(|| {
+                    buck2_error::buck2_error!([], "Expected path with a parent in symlink target")
+                })?
                 .join(original),
         )
     };
@@ -184,7 +189,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
             let from_common = target_abspath.strip_prefix(&common_path)?;
             let common_canonicalized = common_path
                 .canonicalize()
-                .context(format!("Failed to get canonical path of {:?}", common_path))?;
+                .buck_error_context(format!("Failed to get canonical path of {:?}", common_path))?;
             common_canonicalized.join(from_common)
         } else {
             target_abspath
@@ -205,9 +210,9 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> anyhow::Result<()> {
     }
 }
 
-pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
     assert_cwd_is_not_set()?;
-    make_anyhow_error!(
+    make_buck2_error!(
         env::set_current_dir(path.as_ref()),
         format!("set_current_dir({})", P::as_ref(&path).display()),
     )
@@ -420,7 +425,7 @@ pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> Res
     )
 }
 
-pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<()> {
+pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
     let path = path.as_ref();
 
     #[cfg(unix)]
@@ -521,7 +526,7 @@ pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<Vec<u8>>, IoE
     )
 }
 
-pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<AbsNormPathBuf> {
+pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<AbsNormPathBuf> {
     let _guard = IoCounterKey::Canonicalize.guard();
     let path = make_error!(
         dunce::canonicalize(path.as_ref()),
@@ -532,7 +537,7 @@ pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<AbsNormPathBuf
 
 pub fn canonicalize_if_exists<P: AsRef<AbsPath>>(
     path: P,
-) -> anyhow::Result<Option<AbsNormPathBuf>> {
+) -> buck2_error::Result<Option<AbsNormPathBuf>> {
     let _guard = IoCounterKey::Canonicalize.guard();
     let path = make_error!(
         if_exists(dunce::canonicalize(path.as_ref())),
@@ -542,7 +547,7 @@ pub fn canonicalize_if_exists<P: AsRef<AbsPath>>(
 }
 
 /// Convert Windows UNC path to regular path.
-pub fn simplified(path: &AbsPath) -> anyhow::Result<&AbsPath> {
+pub fn simplified(path: &AbsPath) -> buck2_error::Result<&AbsPath> {
     let path = dunce::simplified(path.as_ref());
     // This should not fail, but better not panic.
     AbsPath::new(path)
@@ -563,15 +568,15 @@ pub struct DiskSpaceStats {
 
 /// Free and total disk space on given path. Path does not have to be disk root.
 /// When the path does not exist, the behavior is not specified.
-pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<DiskSpaceStats> {
+pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskSpaceStats> {
     #[cfg(not(windows))]
-    fn disk_space_stats_impl(path: &Path) -> anyhow::Result<DiskSpaceStats> {
+    fn disk_space_stats_impl(path: &Path) -> buck2_error::Result<DiskSpaceStats> {
         use std::ffi::CString;
         use std::mem::MaybeUninit;
         use std::os::unix::ffi::OsStrExt;
 
         let path_c = CString::new(path.as_os_str().as_bytes())
-            .with_context(|| format!("Failed to convert path to CString: {:?}", path))?;
+            .with_buck_error_context(|| format!("Failed to convert path to CString: {:?}", path))?;
         let mut statvfs = unsafe { MaybeUninit::<libc::statvfs>::zeroed().assume_init() };
         unsafe {
             let r = libc::statvfs(path_c.as_ptr(), &mut statvfs);
@@ -587,7 +592,7 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<DiskSpaceS
         let fr_size = u64::from(statvfs.f_frsize);
         let free_space = u64::from(statvfs.f_bavail)
             .checked_mul(fr_size)
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 format!(
                     "Multiplication overflow for statvfs free space for `{}`",
                     path.display()
@@ -596,7 +601,7 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<DiskSpaceS
 
         let total_space = u64::from(statvfs.f_blocks)
             .checked_mul(fr_size)
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 format!(
                     "Multiplication overflow for statvfs total space for `{}`",
                     path.display()
@@ -609,7 +614,7 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> anyhow::Result<DiskSpaceS
     }
 
     #[cfg(windows)]
-    fn disk_space_stats_impl(path: &Path) -> anyhow::Result<DiskSpaceStats> {
+    fn disk_space_stats_impl(path: &Path) -> buck2_error::Result<DiskSpaceStats> {
         use std::mem::MaybeUninit;
         use std::ptr;
 
@@ -733,7 +738,7 @@ pub fn open_file_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<FileRead
 // converting backslashes which means windows paths end up failing. RelativePathBuf doesn't have
 // this problem and we can easily coerce it into a RelativePath.
 // TODO(T143971518) Avoid RelativePath usage in buck2
-pub fn relative_path_from_system(path: &Path) -> anyhow::Result<Cow<'_, RelativePath>> {
+pub fn relative_path_from_system(path: &Path) -> buck2_error::Result<Cow<'_, RelativePath>> {
     let res = if cfg!(windows) {
         Cow::Owned(RelativePathBuf::from_path(path)?)
     } else {
@@ -769,7 +774,7 @@ mod tests {
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
     #[test]
-    fn if_exists_read_dir() -> anyhow::Result<()> {
+    fn if_exists_read_dir() -> buck2_error::Result<()> {
         let binding = std::env::temp_dir();
         let existing_path = AbsNormPath::new(&binding)?;
         let res = read_dir_if_exists(existing_path)?;
@@ -781,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    fn create_and_remove_symlink_dir() -> anyhow::Result<()> {
+    fn create_and_remove_symlink_dir() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = tempdir.path().join("root");
         let root = AbsPath::new(&root)?;
@@ -806,7 +811,7 @@ mod tests {
     }
 
     #[test]
-    fn create_and_remove_symlink_file() -> anyhow::Result<()> {
+    fn create_and_remove_symlink_file() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = tempdir.path().join("root");
         let root = AbsPath::new(&root)?;
@@ -831,7 +836,7 @@ mod tests {
     }
 
     #[test]
-    fn test_symlink_with_target_length_over_max_path() -> anyhow::Result<()> {
+    fn test_symlink_with_target_length_over_max_path() -> buck2_error::Result<()> {
         // In Windows, the maximum length of a path is 260.
         // To allow extended path lengths, canonicalize the paths
         // so that they are prefixed with '\\?'
@@ -870,7 +875,7 @@ mod tests {
     }
 
     #[test]
-    fn symlink_to_file_which_doesnt_exist() -> anyhow::Result<()> {
+    fn symlink_to_file_which_doesnt_exist() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let symlink_path = root.join("symlink");
@@ -882,7 +887,7 @@ mod tests {
     }
 
     #[test]
-    fn symlink_to_symlinked_dir() -> anyhow::Result<()> {
+    fn symlink_to_symlinked_dir() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let dir_path = root.join("dir");
@@ -900,7 +905,7 @@ mod tests {
     }
 
     #[test]
-    fn relative_symlink_to_nonexistent_file() -> anyhow::Result<()> {
+    fn relative_symlink_to_nonexistent_file() -> buck2_error::Result<()> {
         // tmp -- dir1 (exists) -- file1 (doesn't exist)
         //     \
         //      \ symlink1 to dir1/file1
@@ -916,7 +921,7 @@ mod tests {
     }
 
     #[test]
-    fn relative_symlink_to_nonexistent_dir() -> anyhow::Result<()> {
+    fn relative_symlink_to_nonexistent_dir() -> buck2_error::Result<()> {
         // tmp -- dir1 (doesn't exists) -- file1 (doesn't exist)
         //     \
         //      \ dir2 -- relative_symlink1 to ../dir1/file1
@@ -939,7 +944,7 @@ mod tests {
     }
 
     #[test]
-    fn relative_symlink_from_symlinked_dir_windows() -> anyhow::Result<()> {
+    fn relative_symlink_from_symlinked_dir_windows() -> buck2_error::Result<()> {
         use crate::fs::fs_util::read_link;
 
         if !cfg!(windows) {
@@ -1018,7 +1023,7 @@ mod tests {
     }
 
     #[test]
-    fn absolute_symlink_to_nonexistent_file_in_nonexistent_dir() -> anyhow::Result<()> {
+    fn absolute_symlink_to_nonexistent_file_in_nonexistent_dir() -> buck2_error::Result<()> {
         // tmp -- dir1 (doesn't exists) -- file1 (doesn't exist)
         //     \
         //      \ symlink1 to /tmp/dir1/file1
@@ -1034,7 +1039,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_file_removes_symlink_to_directory() -> anyhow::Result<()> {
+    fn remove_file_removes_symlink_to_directory() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let symlink_path = root.join("symlink_dir");
@@ -1054,7 +1059,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_file_does_not_remove_directory() -> anyhow::Result<()> {
+    fn remove_file_does_not_remove_directory() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let dir_path = root.join("dir");
@@ -1065,7 +1070,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_file_broken_symlink() -> anyhow::Result<()> {
+    fn remove_file_broken_symlink() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let symlink_path = tempdir.path().join("symlink");
         let symlink_path = AbsPath::new(&symlink_path)?;
@@ -1079,7 +1084,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_file_non_existing_file() -> anyhow::Result<()> {
+    fn remove_file_non_existing_file() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let file_path = root.join("file_doesnt_exist");
@@ -1088,7 +1093,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_all_nonexistent() -> anyhow::Result<()> {
+    fn remove_all_nonexistent() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         remove_all(root.join("nonexistent"))?;
@@ -1096,7 +1101,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_all_regular() -> anyhow::Result<()> {
+    fn remove_all_regular() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let path = root.join("file");
@@ -1107,7 +1112,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_all_dir() -> anyhow::Result<()> {
+    fn remove_all_dir() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let path = root.join("dir");
@@ -1119,11 +1124,11 @@ mod tests {
     }
 
     #[test]
-    fn remove_all_broken_symlink() -> anyhow::Result<()> {
-        fn ls(path: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    fn remove_all_broken_symlink() -> buck2_error::Result<()> {
+        fn ls(path: &Path) -> buck2_error::Result<Vec<PathBuf>> {
             let mut entries = fs::read_dir(path)?
                 .map(|entry| Ok(entry.map(|entry| entry.path())?))
-                .collect::<anyhow::Result<Vec<_>>>()?;
+                .collect::<buck2_error::Result<Vec<_>>>()?;
             entries.sort();
             Ok(entries)
         }
@@ -1146,7 +1151,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn remove_all_path_contains_regular_file() -> anyhow::Result<()> {
+    fn remove_all_path_contains_regular_file() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let regular_file = root.join("foo");
@@ -1157,7 +1162,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_dir_all_does_not_remove_file() -> anyhow::Result<()> {
+    fn remove_dir_all_does_not_remove_file() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let file_path = root.join("file");
@@ -1192,7 +1197,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_to_string_if_exists() -> anyhow::Result<()> {
+    fn test_read_to_string_if_exists() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let f1 = root.join("f1");
@@ -1209,7 +1214,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_if_exists() -> anyhow::Result<()> {
+    fn test_read_if_exists() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let f1 = root.join("f1");
@@ -1227,7 +1232,7 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn test_windows_relative_path() -> anyhow::Result<()> {
+    fn test_windows_relative_path() -> buck2_error::Result<()> {
         assert_eq!(
             fs_util::relative_path_from_system(Path::new("foo\\bar"))?,
             RelativePath::new("foo/bar")
@@ -1237,7 +1242,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn test_relative_path() -> anyhow::Result<()> {
+    fn test_relative_path() -> buck2_error::Result<()> {
         assert_eq!(
             fs_util::relative_path_from_system(Path::new("foo/bar"))?,
             RelativePath::new("foo/bar")
@@ -1264,7 +1269,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn test_remove_all_removes_readonly_path() -> anyhow::Result<()> {
+    fn test_remove_all_removes_readonly_path() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let path = root.join("foo/bar/link");
@@ -1279,7 +1284,7 @@ mod tests {
     }
 
     #[test]
-    fn test_create_file_if_not_exists() -> anyhow::Result<()> {
+    fn test_create_file_if_not_exists() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let path = root.join("foo.txt");
@@ -1289,7 +1294,7 @@ mod tests {
     }
 
     #[test]
-    fn test_disk_space_stats() -> anyhow::Result<()> {
+    fn test_disk_space_stats() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let root = AbsPath::new(tempdir.path())?;
         let disk_space = fs_util::disk_space_stats(&root)?;

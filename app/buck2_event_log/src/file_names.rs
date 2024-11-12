@@ -38,9 +38,9 @@ pub(crate) fn get_logfile_name(
     let extension = encoding.extensions[0];
 
     // Sort order matters here: earliest builds are lexicographically first and deleted first.
-    Ok(FileNameBuf::try_from(format!(
+    FileNameBuf::try_from(format!(
         "{time_str}_{command_name}_{trace_id}_events{extension}"
-    ))?)
+    ))
 }
 
 pub(crate) async fn remove_old_logs(logdir: &AbsNormPath) {

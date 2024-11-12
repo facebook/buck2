@@ -24,6 +24,7 @@ use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_error::BuckErrorContext;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
@@ -152,7 +153,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             let re_dependencies = remote_execution_dependencies
                 .into_iter()
                 .map(RemoteExecutorDependency::parse)
-                .collect::<anyhow::Result<Vec<RemoteExecutorDependency>>>()?;
+                .collect::<buck2_error::Result<Vec<RemoteExecutorDependency>>>()?;
 
             let re_use_case = if remote_execution_use_case.is_none() {
                 None
@@ -293,7 +294,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 .into_option()
                 .map(|s| s.parse())
                 .transpose()
-                .context(CommandExecutorConfigErrors::InvalidField(
+                .buck_error_context(CommandExecutorConfigErrors::InvalidField(
                     "remote_output_paths",
                 ))?
                 .unwrap_or_default();

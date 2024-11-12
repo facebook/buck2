@@ -51,7 +51,7 @@ impl CellInstance {
         path: CellRootPathBuf,
         external: Option<ExternalCellOrigin>,
         nested_cells: NestedCells,
-    ) -> anyhow::Result<CellInstance> {
+    ) -> buck2_error::Result<CellInstance> {
         if external.is_some()
             && let Some(nested) = nested_cells.check_empty()
         {
@@ -88,7 +88,7 @@ impl CellInstance {
     }
 
     #[inline]
-    pub fn expect_non_external(&self, context: &'static str) -> anyhow::Result<()> {
+    pub fn expect_non_external(&self, context: &'static str) -> buck2_error::Result<()> {
         match self.0.external {
             Some(_) => Err(CellInstanceError::ExpectedNonExternalCell(self.name(), context).into()),
             None => Ok(()),

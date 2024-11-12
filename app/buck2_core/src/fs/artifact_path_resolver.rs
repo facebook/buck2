@@ -49,14 +49,17 @@ impl ArtifactFs {
         self.buck_out_path_resolver.resolve_gen(path)
     }
 
-    pub fn resolve_cell_path(&self, path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve_cell_path(
+        &self,
+        path: CellPathRef,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.cell_resolver.resolve_path(path)
     }
 
     pub fn resolve_source(
         &self,
         source_artifact_path: SourcePathRef,
-    ) -> anyhow::Result<ProjectRelativePathBuf> {
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let cell_resolver = self.cell_resolver();
         if let Some(origin) = cell_resolver
             .get(source_artifact_path.package().cell_name())?

@@ -38,7 +38,7 @@ pub struct PlatformInfoGen<V: ValueLifetimeless> {
 
 impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
     pub fn to_configuration(&self) -> anyhow::Result<ConfigurationData> {
-        ConfigurationData::from_platform(
+        Ok(ConfigurationData::from_platform(
             self.label
                 .to_value()
                 .get()
@@ -48,7 +48,7 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
             ConfigurationInfo::from_value(self.configuration.get().to_value())
                 .expect("type checked during construction")
                 .to_configuration_data()?,
-        )
+        )?)
     }
 }
 

@@ -84,7 +84,7 @@ impl<'v> BxlFilesystem<'v> {
     }
 
     fn cell(&self) -> buck2_error::Result<&CellInstance> {
-        Ok(self.ctx.cell_resolver().get(self.ctx.cell_name())?)
+        self.ctx.cell_resolver().get(self.ctx.cell_name())
     }
 }
 
@@ -127,7 +127,7 @@ impl<'v> BxlFilesystem<'v> {
             .async_ctx
             .borrow_mut()
             .via(|dice| async { expr.get(dice, self.cell()?).await }.boxed_local())?;
-        Ok(self.artifact_fs().resolve_cell_path(cell_path.as_ref())?)
+        self.artifact_fs().resolve_cell_path(cell_path.as_ref())
     }
 }
 

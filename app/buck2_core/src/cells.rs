@@ -93,7 +93,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::*;
@@ -154,7 +154,7 @@ impl CellAliasResolver {
     pub fn new(
         current: CellName,
         mut aliases: HashMap<NonEmptyCellAlias, CellName>,
-    ) -> anyhow::Result<CellAliasResolver> {
+    ) -> buck2_error::Result<CellAliasResolver> {
         let current_as_alias = NonEmptyCellAlias::new(current.as_str().to_owned())?;
         if let Some(alias_target) = aliases.insert(current_as_alias, current) {
             if alias_target != current {
@@ -171,7 +171,7 @@ impl CellAliasResolver {
         current: CellName,
         root_aliases: &CellAliasResolver,
         alias_list: impl IntoIterator<Item = (NonEmptyCellAlias, NonEmptyCellAlias)>,
-    ) -> anyhow::Result<CellAliasResolver> {
+    ) -> buck2_error::Result<CellAliasResolver> {
         let mut aliases: HashMap<_, _> = root_aliases
             .mappings()
             .map(|(x, y)| (x.to_owned(), y))
@@ -186,12 +186,12 @@ impl CellAliasResolver {
     }
 
     /// resolves a 'CellAlias' into its corresponding 'CellName'
-    pub fn resolve(&self, alias: &str) -> anyhow::Result<CellName> {
+    pub fn resolve(&self, alias: &str) -> buck2_error::Result<CellName> {
         if alias.is_empty() {
             return Ok(self.current);
         }
         self.aliases.get(alias).duped().ok_or_else(|| {
-            anyhow::Error::from(CellError::UnknownCellAlias(
+            buck2_error::Error::from(CellError::UnknownCellAlias(
                 CellAlias::new(alias.to_owned()),
                 self.current,
                 self.aliases.keys().cloned().collect(),
@@ -227,7 +227,7 @@ impl CellResolver {
     pub fn new(
         cells: Vec<CellInstance>,
         root_cell_alias_resolver: CellAliasResolver,
-    ) -> anyhow::Result<CellResolver> {
+    ) -> buck2_error::Result<CellResolver> {
         let mut path_mappings: SequenceTrie<FileNameBuf, CellName> = SequenceTrie::new();
         let mut root_cell = None;
         for cell in &cells {
@@ -269,9 +269,9 @@ impl CellResolver {
     }
 
     /// Get a `Cell` from the `CellMap`
-    pub fn get(&self, cell: CellName) -> anyhow::Result<&CellInstance> {
+    pub fn get(&self, cell: CellName) -> buck2_error::Result<&CellInstance> {
         self.0.cells.get(&cell).ok_or_else(|| {
-            anyhow::Error::from(CellError::UnknownCellName(
+            buck2_error::Error::from(CellError::UnknownCellName(
                 cell,
                 self.0.cells.keys().copied().collect(),
             ))
@@ -301,13 +301,13 @@ impl CellResolver {
     pub fn find<P: AsRef<ProjectRelativePath> + ?Sized>(
         &self,
         path: &P,
-    ) -> anyhow::Result<CellName> {
+    ) -> buck2_error::Result<CellName> {
         self.0
             .path_mappings
             .get_ancestor(path.as_ref().iter())
             .copied()
             .ok_or_else(|| {
-                anyhow::Error::from(CellError::UnknownCellPath(
+                buck2_error::Error::from(CellError::UnknownCellPath(
                     path.as_ref().to_buf(),
                     self.0
                         .path_mappings
@@ -321,7 +321,7 @@ impl CellResolver {
     pub fn get_cell_path<P: AsRef<ProjectRelativePath> + ?Sized>(
         &self,
         path: &P,
-    ) -> anyhow::Result<CellPath> {
+    ) -> buck2_error::Result<CellPath> {
         let path = path.as_ref();
         let cell = self.find(path)?;
         let instance = self.get(cell)?;
@@ -333,7 +333,7 @@ impl CellResolver {
         &self,
         path: &AbsPath,
         fs: &ProjectRoot,
-    ) -> anyhow::Result<CellPath> {
+    ) -> buck2_error::Result<CellPath> {
         let abs_path = AbsPath::new(path)?;
         self.get_cell_path(&fs.relativize_any(abs_path)?)
     }
@@ -375,9 +375,12 @@ impl CellResolver {
     ///     ProjectRelativePathBuf::unchecked_new("my/cell/some/path".into()),
     /// );
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
-    pub fn resolve_path(&self, cell_path: CellPathRef) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve_path(
+        &self,
+        cell_path: CellPathRef,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         Ok(self.get(cell_path.cell())?.path().join(cell_path.path()))
     }
 
@@ -470,13 +473,13 @@ impl CellResolver {
     pub(crate) fn resolve_path_crossing_cell_boundaries<'a>(
         &self,
         mut path: CellPathRef<'a>,
-    ) -> anyhow::Result<CellPathRef<'a>> {
+    ) -> buck2_error::Result<CellPathRef<'a>> {
         let mut rem: u32 = 1000;
         loop {
             // Sanity check. Should never happen.
             rem = rem
                 .checked_sub(1)
-                .context("Overflow computing cell boundaries")?;
+                .buck_error_context("Overflow computing cell boundaries")?;
 
             let nested_cells = self.get(path.cell())?.nested_cells();
             match nested_cells.matches_checked(path.path()) {
@@ -497,7 +500,7 @@ mod tests {
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     #[test]
-    fn test_of_names_and_paths() -> anyhow::Result<()> {
+    fn test_of_names_and_paths() -> buck2_error::Result<()> {
         use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
         let cell_resolver = CellResolver::testing_with_name_and_path(
@@ -513,7 +516,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cells() -> anyhow::Result<()> {
+    fn test_cells() -> buck2_error::Result<()> {
         let cell1_path = CellRootPath::new(ProjectRelativePath::new("my/cell1")?);
         let cell2_path = CellRootPath::new(ProjectRelativePath::new("cell2")?);
         let cell3_path = CellRootPath::new(ProjectRelativePath::new("my/cell3")?);

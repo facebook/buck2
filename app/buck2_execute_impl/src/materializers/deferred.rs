@@ -354,6 +354,12 @@ impl From<anyhow::Error> for MaterializeEntryError {
     }
 }
 
+impl From<buck2_error::Error> for MaterializeEntryError {
+    fn from(e: buck2_error::Error) -> MaterializeEntryError {
+        Self::Error(e.into())
+    }
+}
+
 impl From<MaterializeEntryError> for SharedMaterializingError {
     fn from(e: MaterializeEntryError) -> SharedMaterializingError {
         match e {

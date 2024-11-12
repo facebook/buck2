@@ -289,6 +289,7 @@ pub macro buck2_env_anyhow {
     }},
 }
 
+#[allow(unused_macros)]
 macro parse_anyhow {
     (
         $already_parsed:tt,
@@ -313,6 +314,7 @@ macro parse_anyhow {
 /// `parser` is `&str -> anyhow::Result<$stored_type>`, `processor` is `Option<& $stored_type> -> $output_type`
 ///
 /// The extra set of parentheses is a trick to let us pass things through `parse2` transparently
+#[allow(unused_macros)]
 macro expand_anyhow(
     (
     var=$var:expr,

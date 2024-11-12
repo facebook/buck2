@@ -1221,7 +1221,7 @@ fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
         Some(("", rest)) => {
             let exe =
                 AbsPathBuf::new(std::env::current_exe().context("Cannot get Buck2 executable")?)?;
-            let exe = fs_util::canonicalize(&exe).context(
+            let exe = fs_util::canonicalize(&exe).buck_error_context_anyhow(
                 "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
             )?;
 

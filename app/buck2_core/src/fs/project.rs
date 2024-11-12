@@ -15,7 +15,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use ref_cast::RefCast;
 use relative_path::RelativePathBuf;
@@ -53,7 +53,7 @@ pub struct ProjectRootTemp {
 impl ProjectRootTemp {
     /// creates a filesystem at a temporary root where the cwd is set to the
     /// same root
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> buck2_error::Result<Self> {
         let temp = tempfile::tempdir()?;
         let path = fs_util::canonicalize(AbsPath::new(temp.path())?)?;
         let path = ProjectRoot::new(path)?;
@@ -71,8 +71,8 @@ impl ProjectRootTemp {
 }
 
 impl ProjectRoot {
-    pub fn new(root: AbsNormPathBuf) -> anyhow::Result<Self> {
-        let canon = fs_util::canonicalize(&root).context("canonicalize project root")?;
+    pub fn new(root: AbsNormPathBuf) -> buck2_error::Result<Self> {
+        let canon = fs_util::canonicalize(&root).buck_error_context("canonicalize project root")?;
         if canon != root {
             return Err(ProjectRootError::NotCanonical(root, canon).into());
         }
@@ -124,7 +124,7 @@ impl ProjectRoot {
     ///     );
     /// }
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn resolve(&self, path: impl AsRef<ProjectRelativePath>) -> AbsNormPathBuf {
         self.root().join(path.as_ref())
@@ -152,7 +152,7 @@ impl ProjectRoot {
     ///     fs.as_relative_path(ProjectRelativePath::new("buck/BUCK")?)
     /// );
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn as_relative_path<P: AsRef<ProjectRelativePath>>(&self, path: P) -> PathBuf {
         let rel: &RelativePath = (path.as_ref().0).as_ref();
@@ -201,14 +201,15 @@ impl ProjectRoot {
     ///     assert!(fs.relativize(AbsNormPath::new("c:/other/path")?).is_err());
     /// }
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn relativize<'a, P: ?Sized + AsRef<AbsNormPath>>(
         &self,
         p: &'a P,
-    ) -> anyhow::Result<Cow<'a, ProjectRelativePath>> {
+    ) -> buck2_error::Result<Cow<'a, ProjectRelativePath>> {
         let relative_path = p.as_ref().strip_prefix(self.root()).map_err(|_| {
-            anyhow::anyhow!(
+            buck2_error::buck2_error!(
+                [],
                 "Error relativizing: `{}` is not relative to project root `{}`",
                 p.as_ref(),
                 self.root()
@@ -224,7 +225,7 @@ impl ProjectRoot {
     /// and return the remaining path.
     ///
     /// Fail if canonicalized path does not start with project root.
-    fn strip_project_root<'a>(&'a self, path: &'a AbsPath) -> anyhow::Result<PathBuf> {
+    fn strip_project_root<'a>(&'a self, path: &'a AbsPath) -> buck2_error::Result<PathBuf> {
         let path = fs_util::simplified(path)?;
 
         if let Ok(rem) = Path::strip_prefix(path, &*self.root) {
@@ -266,7 +267,7 @@ impl ProjectRoot {
         Err(ProjectRootError::ProjectRootNotFound(self.dupe(), path.to_owned()).into())
     }
 
-    fn relativize_any_impl(&self, path: &AbsPath) -> anyhow::Result<ProjectRelativePathBuf> {
+    fn relativize_any_impl(&self, path: &AbsPath) -> buck2_error::Result<ProjectRelativePathBuf> {
         let project_relative = self.strip_project_root(path)?;
         // TODO(nga): this does not treat `..` correctly.
         //   See the test below for an example.
@@ -280,15 +281,16 @@ impl ProjectRoot {
     pub fn relativize_any<P: AsRef<AbsPath>>(
         &self,
         path: P,
-    ) -> anyhow::Result<ProjectRelativePathBuf> {
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let path = path.as_ref();
-        self.relativize_any_impl(path.as_ref()).with_context(|| {
-            format!(
-                "relativize path `{}` against project root `{}`",
-                path.display(),
-                self
-            )
-        })
+        self.relativize_any_impl(path.as_ref())
+            .with_buck_error_context(|| {
+                format!(
+                    "relativize path `{}` against project root `{}`",
+                    path.display(),
+                    self
+                )
+            })
     }
 
     // TODO(nga): refactor this to global function.
@@ -297,10 +299,10 @@ impl ProjectRoot {
         path: impl AsRef<ProjectRelativePath>,
         contents: impl AsRef<[u8]>,
         executable: bool,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let abs_path = self.root().join(path.as_ref());
         if let Some(parent) = abs_path.parent() {
-            fs_util::create_dir_all(parent).with_context(|| {
+            fs_util::create_dir_all(parent).with_buck_error_context(|| {
                 format!(
                     "`write_file` for `{}` creating directory `{}`",
                     abs_path, parent
@@ -308,10 +310,11 @@ impl ProjectRoot {
             })?;
         }
         fs_util::write(&abs_path, contents)
-            .with_context(|| format!("`write_file` writing `{}`", abs_path))?;
+            .with_buck_error_context(|| format!("`write_file` writing `{}`", abs_path))?;
         if executable {
-            fs_util::set_executable(&abs_path)
-                .with_context(|| format!("`write_file` setting executable `{}`", abs_path))?;
+            fs_util::set_executable(&abs_path).with_buck_error_context(|| {
+                format!("`write_file` setting executable `{}`", abs_path)
+            })?;
         }
         Ok(())
     }
@@ -321,10 +324,10 @@ impl ProjectRoot {
         &self,
         path: impl AsRef<ProjectRelativePath>,
         executable: bool,
-    ) -> anyhow::Result<File> {
+    ) -> buck2_error::Result<File> {
         let abs_path = self.root().join(path.as_ref());
         if let Some(parent) = abs_path.parent() {
-            fs_util::create_dir_all(parent).with_context(|| {
+            fs_util::create_dir_all(parent).with_buck_error_context(|| {
                 format!(
                     "`create_file` for `{}` creating directory `{}`",
                     abs_path, parent
@@ -332,16 +335,17 @@ impl ProjectRoot {
             })?;
         }
         let file = File::create(&abs_path)
-            .with_context(|| format!("`create_file` creating `{}`", abs_path))?;
+            .with_buck_error_context(|| format!("`create_file` creating `{}`", abs_path))?;
         if executable {
-            fs_util::set_executable(&abs_path)
-                .with_context(|| format!("`create_file` setting executable `{}`", abs_path))?;
+            fs_util::set_executable(&abs_path).with_buck_error_context(|| {
+                format!("`create_file` setting executable `{}`", abs_path)
+            })?;
         }
         Ok(file)
     }
 
     // TODO(nga): refactor this to global function.
-    pub fn set_executable(&self, path: impl AsRef<ProjectRelativePath>) -> anyhow::Result<()> {
+    pub fn set_executable(&self, path: impl AsRef<ProjectRelativePath>) -> buck2_error::Result<()> {
         let path = self.root().join(path.as_ref());
         fs_util::set_executable(path)
     }
@@ -362,7 +366,7 @@ impl ProjectRoot {
         &self,
         src: impl AsRef<Path>,
         dest: impl AsRef<ProjectRelativePath>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let dest_abs = self.resolve(dest);
 
         if let Some(parent) = dest_abs.parent() {
@@ -390,7 +394,7 @@ impl ProjectRoot {
         &self,
         src: impl AsRef<ProjectRelativePath>,
         dest: impl AsRef<ProjectRelativePath>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let target_abs = self.resolve(src);
         let dest_abs = self.resolve(dest);
 
@@ -412,12 +416,12 @@ impl ProjectRoot {
         &self,
         src: impl AsRef<ProjectRelativePath>,
         dest: impl AsRef<ProjectRelativePath>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let src_abs = self.resolve(src);
         let dest_abs = self.resolve(dest);
 
         let result = self.copy_resolved(&src_abs, &dest_abs);
-        result.with_context(|| {
+        result.with_buck_error_context(|| {
             format!(
                 "Error copying from src path `{}` to dest path `{}`",
                 src_abs, dest_abs
@@ -429,7 +433,7 @@ impl ProjectRoot {
         &self,
         src_abs: &AbsNormPathBuf,
         dest_abs: &AbsNormPathBuf,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let src_type = fs_util::symlink_metadata(src_abs)?.file_type();
 
         if let Some(parent) = dest_abs.parent() {
@@ -444,7 +448,8 @@ impl ProjectRoot {
         } else {
             // If we want to handle special files, we'll need to use special traits
             // https://doc.rust-lang.org/std/os/unix/fs/trait.FileTypeExt.html
-            Err(anyhow::anyhow!(
+            Err(buck2_error::buck2_error!(
+                [],
                 "Attempted to copy a path ({}) of an unknown type",
                 src_abs
             ))
@@ -503,7 +508,7 @@ impl ProjectRoot {
     }
 
     /// Creates symbolic link `dest` which points at the same location as symlink `src`.
-    fn copy_symlink(src: &AbsNormPathBuf, dest: &AbsNormPathBuf) -> anyhow::Result<()> {
+    fn copy_symlink(src: &AbsNormPathBuf, dest: &AbsNormPathBuf) -> buck2_error::Result<()> {
         let mut target = fs_util::read_link(src)?;
         if target.is_relative() {
             // Grab the absolute path, then re-relativize the path to the destination
@@ -517,11 +522,11 @@ impl ProjectRoot {
         fs_util::symlink(target, dest)
     }
 
-    fn copy_file(src: &AbsNormPathBuf, dst: &AbsNormPathBuf) -> anyhow::Result<()> {
+    fn copy_file(src: &AbsNormPathBuf, dst: &AbsNormPathBuf) -> buck2_error::Result<()> {
         fs_util::copy(src, dst).map(|_| ()).map_err(Into::into)
     }
 
-    fn copy_dir(src_dir: &AbsNormPathBuf, dest_dir: &AbsNormPathBuf) -> anyhow::Result<()> {
+    fn copy_dir(src_dir: &AbsNormPathBuf, dest_dir: &AbsNormPathBuf) -> buck2_error::Result<()> {
         fs_util::create_dir_all(dest_dir)?;
         for file in fs_util::read_dir(src_dir)? {
             let file = file?;
@@ -560,7 +565,7 @@ mod tests {
     use crate::fs::project_rel_path::ProjectRelativePath;
 
     #[test]
-    fn copy_works() -> anyhow::Result<()> {
+    fn copy_works() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let dir1 = ProjectRelativePath::new("dir1")?;
         let dir2 = ProjectRelativePath::new("dir1/dir2")?;
@@ -680,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_symlink() -> anyhow::Result<()> {
+    fn test_copy_symlink() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let symlink1 = ProjectRelativePath::new("symlink1")?;
         let symlink2 = ProjectRelativePath::new("symlink2")?;
@@ -695,7 +700,7 @@ mod tests {
     }
 
     #[test]
-    fn test_symlink_relativized() -> anyhow::Result<()> {
+    fn test_symlink_relativized() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
 
         let target1 = ProjectRelativePath::new("foo1/bar1/target")?;
@@ -771,7 +776,7 @@ mod tests {
     }
 
     #[test]
-    fn test_symlink_to_directory() -> anyhow::Result<()> {
+    fn test_symlink_to_directory() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let source_dir = ProjectRelativePath::new("foo")?;
         let source_file = ProjectRelativePath::new("foo/file")?;
@@ -793,7 +798,7 @@ mod tests {
     }
 
     #[test]
-    fn test_relativizes_paths_correct() -> anyhow::Result<()> {
+    fn test_relativizes_paths_correct() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
 
         let test_cases = vec![
@@ -836,7 +841,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn test_set_executable() -> anyhow::Result<()> {
+    fn test_set_executable() -> buck2_error::Result<()> {
         use std::os::unix::fs::PermissionsExt;
 
         let fs = ProjectRootTemp::new()?;

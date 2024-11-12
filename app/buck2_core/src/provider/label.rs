@@ -54,12 +54,12 @@ impl ProviderName {
         ProviderName(name)
     }
 
-    pub fn new(name: String) -> anyhow::Result<ProviderName> {
+    pub fn new(name: String) -> buck2_error::Result<ProviderName> {
         Self::verify(&name)?;
         Ok(ProviderName(name))
     }
 
-    fn verify(name: &str) -> anyhow::Result<()> {
+    fn verify(name: &str) -> buck2_error::Result<()> {
         const VALID_CHARS: &str =
             r"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_\\/.=,+-";
         const SET: AsciiCharSet = AsciiCharSet::new(VALID_CHARS);
@@ -185,7 +185,7 @@ impl ProvidersLabel {
         cell_name: CellName,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<ProvidersLabel> {
+    ) -> buck2_error::Result<ProvidersLabel> {
         let providers_label = ParsedPattern::<ProvidersPatternExtra>::parse_precise(
             label,
             cell_name,

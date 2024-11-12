@@ -17,6 +17,8 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+#[cfg(fbcode_build)]
+use buck2_error::BuckErrorContext;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use chrono::DateTime;
 use chrono::Utc;
@@ -548,7 +550,7 @@ impl RemoteExecutionClientImpl {
                     re_config
                         .buck_out_path
                         .to_str()
-                        .context("invalid meterialization_mount_path")?
+                        .buck_error_context_anyhow("invalid meterialization_mount_path")?
                         .to_owned(),
                 );
 
@@ -596,7 +598,7 @@ impl RemoteExecutionClientImpl {
                     re_client_config.log_file_location = Some(
                         logs_dir_path
                             .to_str()
-                            .context("Invalid log_file_location")?
+                            .buck_error_context_anyhow("Invalid log_file_location")?
                             .to_owned(),
                     );
                     // keep last 10 sessions (similar to a number of buck builds)

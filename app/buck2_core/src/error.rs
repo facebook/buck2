@@ -18,7 +18,7 @@ use arc_swap::ArcSwapOption;
 use buck2_error::BuckErrorContext;
 use starlark_map::small_set::SmallSet;
 
-use crate::env::__macro_refs::buck2_env_anyhow;
+use crate::env::__macro_refs::buck2_env;
 use crate::is_open_source;
 
 type StructuredErrorHandler = Box<
@@ -30,8 +30,8 @@ type StructuredErrorHandler = Box<
 
 static HANDLER: OnceLock<StructuredErrorHandler> = OnceLock::new();
 
-pub fn buck2_hard_error_env() -> anyhow::Result<Option<&'static str>> {
-    buck2_env_anyhow!("BUCK2_HARD_ERROR")
+pub fn buck2_hard_error_env() -> buck2_error::Result<Option<&'static str>> {
+    buck2_env!("BUCK2_HARD_ERROR")
 }
 
 static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
@@ -116,7 +116,7 @@ macro_rules! tag_result(
     };
 );
 
-fn hard_error_config() -> anyhow::Result<Arc<HardErrorConfig>> {
+fn hard_error_config() -> buck2_error::Result<Arc<HardErrorConfig>> {
     // This function should return `Guard<Arc<HardErrorConfig>>` to make it a little bit faster,
     // see https://github.com/vorner/arc-swap/issues/90
 
@@ -130,10 +130,10 @@ fn hard_error_config() -> anyhow::Result<Arc<HardErrorConfig>> {
     HARD_ERROR_CONFIG
         .config
         .load_full()
-        .internal_error_anyhow("Just stored a value")
+        .internal_error("Just stored a value")
 }
 
-pub fn reload_hard_error_config(var_value: &str) -> anyhow::Result<()> {
+pub fn reload_hard_error_config(var_value: &str) -> buck2_error::Result<()> {
     HARD_ERROR_CONFIG.reload_hard_error_config(var_value)
 }
 
@@ -218,7 +218,7 @@ pub fn reset_soft_error_counters() {
     }
 }
 
-pub fn initialize(handler: StructuredErrorHandler) -> anyhow::Result<()> {
+pub fn initialize(handler: StructuredErrorHandler) -> buck2_error::Result<()> {
     hard_error_config()?;
 
     if let Err(_e) = HANDLER.set(handler) {
@@ -276,7 +276,7 @@ struct HardErrorConfigHolder {
 }
 
 impl HardErrorConfigHolder {
-    fn reload_hard_error_config(&self, var_value: &str) -> anyhow::Result<()> {
+    fn reload_hard_error_config(&self, var_value: &str) -> buck2_error::Result<()> {
         let config = HardErrorConfig::from_str(var_value)?;
         if let Some(old_config) = &*self.config.load() {
             if **old_config == config {
@@ -303,7 +303,7 @@ enum InvalidSoftError {
 }
 
 /// A category must be a-z with no consecutive underscores. Or we raise an error.
-fn validate_category(category: &str) -> anyhow::Result<()> {
+fn validate_category(category: &str) -> buck2_error::Result<()> {
     let mut allow_underscore = false;
     for &x in category.as_bytes() {
         if x.is_ascii_lowercase() {
@@ -331,7 +331,7 @@ pub(crate) mod tests {
     use super::*;
 
     #[test]
-    fn test_hard_error() -> anyhow::Result<()> {
+    fn test_hard_error() -> buck2_error::Result<()> {
         assert!(HardErrorConfig::from_str("true")?.should_hard_error("foo"));
         assert!(!HardErrorConfig::from_str("false")?.should_hard_error("foo"));
         assert_eq!(

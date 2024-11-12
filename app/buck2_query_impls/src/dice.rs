@@ -111,13 +111,13 @@ impl LiteralParser {
         &self,
         value: &str,
     ) -> buck2_error::Result<ParsedPattern<ProvidersPatternExtra>> {
-        Ok(ParsedPattern::parse_relative(
+        ParsedPattern::parse_relative(
             &self.target_alias_resolver,
             self.working_dir.as_ref(),
             value,
             &self.cell_resolver,
             &self.cell_alias_resolver,
-        )?)
+        )
     }
 
     fn parse_file_literal(&self, literal: &str) -> buck2_error::Result<CellPath> {

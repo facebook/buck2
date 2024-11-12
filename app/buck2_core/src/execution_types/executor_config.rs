@@ -14,7 +14,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
@@ -67,13 +67,13 @@ pub struct RemoteExecutorDependency {
 }
 
 impl RemoteExecutorDependency {
-    pub fn parse(dep_map: SmallMap<&str, &str>) -> anyhow::Result<RemoteExecutorDependency> {
+    pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
         let smc_tier = dep_map
             .get("smc_tier")
-            .context(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
+            .buck_error_context(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
         let id = dep_map
             .get("id")
-            .context(RemoteExecutorDependencyErrors::MissingField("id"))?;
+            .buck_error_context(RemoteExecutorDependencyErrors::MissingField("id"))?;
         if dep_map.len() > 2 {
             return Err(RemoteExecutorDependencyErrors::UnsupportedFields(
                 dep_map.keys().join(", "),
@@ -118,7 +118,7 @@ impl Hash for RemoteExecutorUseCase {
 }
 
 impl FromStr for RemoteExecutorUseCase {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(RemoteExecutorUseCase::new(s.to_owned()))
@@ -222,7 +222,7 @@ pub enum OutputPathsBehavior {
 }
 
 impl FromStr for OutputPathsBehavior {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -230,7 +230,11 @@ impl FromStr for OutputPathsBehavior {
             "compatibility" => Ok(OutputPathsBehavior::Compatibility),
             #[cfg(not(fbcode_build))]
             "output_paths" => Ok(OutputPathsBehavior::OutputPaths),
-            _ => Err(anyhow::anyhow!("Invalid OutputPathsBehavior: `{}`", s)),
+            _ => Err(buck2_error::buck2_error!(
+                [],
+                "Invalid OutputPathsBehavior: `{}`",
+                s
+            )),
         }
     }
 }

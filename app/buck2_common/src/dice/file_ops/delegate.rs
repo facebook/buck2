@@ -106,7 +106,7 @@ impl IoFileOpsDelegate {
     }
 
     fn get_cell_path(&self, path: &ProjectRelativePath) -> anyhow::Result<CellPath> {
-        self.cells.get_cell_path(path)
+        Ok(self.cells.get_cell_path(path)?)
     }
 
     fn io_provider(&self) -> &dyn IoProvider {

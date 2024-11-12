@@ -49,7 +49,7 @@ pub trait PatternType:
     /// that are not allowed for this pattern type.
     fn from_configured_providers(
         providers: ConfiguredProvidersPatternExtra,
-    ) -> anyhow::Result<Self>;
+    ) -> buck2_error::Result<Self>;
 
     /// This pattern matches the configuration.
     ///
@@ -83,7 +83,7 @@ impl PatternType for TargetPatternExtra {
 
     fn from_configured_providers(
         providers: ConfiguredProvidersPatternExtra,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let ConfiguredProvidersPatternExtra { providers, cfg } = providers;
         if providers != ProvidersName::Default {
             return Err(PatternTypeError::ExpectingTargetNameWithoutProviders.into());
@@ -139,7 +139,7 @@ impl PatternType for ProvidersPatternExtra {
 
     fn from_configured_providers(
         providers: ConfiguredProvidersPatternExtra,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let ConfiguredProvidersPatternExtra { providers, cfg } = providers;
         if !cfg.is_any() {
             return Err(PatternTypeError::ExpectingProviderPatternWithoutConfiguration.into());
@@ -253,7 +253,7 @@ impl PatternType for ConfiguredTargetPatternExtra {
 
     fn from_configured_providers(
         providers: ConfiguredProvidersPatternExtra,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let ConfiguredProvidersPatternExtra { providers, cfg } = providers;
         if providers != ProvidersName::Default {
             return Err(PatternTypeError::ExpectingTargetNameWithoutProviders.into());
@@ -286,7 +286,9 @@ impl Display for ConfiguredProvidersPatternExtra {
 impl PatternType for ConfiguredProvidersPatternExtra {
     const NAME: &'static str = "configured providers";
 
-    fn from_configured_providers(extra: ConfiguredProvidersPatternExtra) -> anyhow::Result<Self> {
+    fn from_configured_providers(
+        extra: ConfiguredProvidersPatternExtra,
+    ) -> buck2_error::Result<Self> {
         Ok(extra)
     }
 

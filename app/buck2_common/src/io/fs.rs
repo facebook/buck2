@@ -23,6 +23,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use compact_str::CompactString;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -113,7 +114,7 @@ impl IoProvider for FsIoProvider {
 
         tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path))
             .await?
-            .map_err(IoError::categorize_for_source_file)
+            .map_err(|e| IoError::categorize_for_source_file(e).into())
     }
 
     async fn read_dir_impl(
@@ -302,7 +303,7 @@ impl ExactPathMetadata {
                             .parent()
                             .expect("We pushed a component to this so it cannot be empty")
                             .join_system(&dest)
-                            .with_context(|| {
+                            .with_buck_error_context_anyhow(|| {
                                 format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
                             })?;
 

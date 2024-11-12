@@ -14,6 +14,7 @@ use anyhow::Context as _;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use gazebo::prelude::*;
 
 use super::LocalExecutionCommand;
@@ -676,9 +677,12 @@ impl TryInto<buck2_test_proto::Output> for Output {
         use buck2_test_proto::output::*;
 
         let value = match self {
-            Self::LocalPath(value) => {
-                Value::LocalPath(value.to_str().context("Invalid local path")?.to_owned())
-            }
+            Self::LocalPath(value) => Value::LocalPath(
+                value
+                    .to_str()
+                    .buck_error_context_anyhow("Invalid local path")?
+                    .to_owned(),
+            ),
             Self::RemoteObject(value) => Value::RemoteObject(value.try_into()?),
         };
 
@@ -693,9 +697,11 @@ impl TryFrom<buck2_test_proto::Output> for Output {
         use buck2_test_proto::output::*;
 
         Ok(match s.value.context("Missing `value`")? {
-            Value::LocalPath(value) => {
-                Self::LocalPath(value.try_into().context("Invalid local path value.")?)
-            }
+            Value::LocalPath(value) => Self::LocalPath(
+                value
+                    .try_into()
+                    .buck_error_context_anyhow("Invalid local path value.")?,
+            ),
             Value::RemoteObject(value) => Self::RemoteObject(value.try_into()?),
         })
     }
@@ -897,7 +903,7 @@ impl TryInto<buck2_test_proto::PrepareForLocalExecutionResponse>
             .command
             .cwd
             .to_str()
-            .context("Invalid cwd path")?
+            .buck_error_context_anyhow("Invalid cwd path")?
             .to_owned();
 
         Ok(buck2_test_proto::PrepareForLocalExecutionResponse {
@@ -937,7 +943,7 @@ impl TryInto<buck2_test_proto::SetupLocalResourceLocalExecutionCommand> for Loca
             cwd: self
                 .cwd
                 .to_str()
-                .context("Invalid cwd path for local resource")?
+                .buck_error_context_anyhow("Invalid cwd path for local resource")?
                 .to_owned(),
             env: self
                 .env
@@ -954,7 +960,10 @@ impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for LocalExecutio
     fn try_from(s: buck2_test_proto::PrepareForLocalExecutionResult) -> Result<Self, Self::Error> {
         Ok(Self {
             cmd: s.cmd,
-            cwd: s.cwd.try_into().context("Invalid cwd value.")?,
+            cwd: s
+                .cwd
+                .try_into()
+                .buck_error_context_anyhow("Invalid cwd value.")?,
             env: s
                 .env
                 .into_iter()
@@ -972,7 +981,10 @@ impl TryFrom<buck2_test_proto::SetupLocalResourceLocalExecutionCommand> for Loca
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             cmd: s.cmd,
-            cwd: s.cwd.try_into().context("Invalid cwd value.")?,
+            cwd: s
+                .cwd
+                .try_into()
+                .buck_error_context_anyhow("Invalid cwd value.")?,
             env: s
                 .env
                 .into_iter()

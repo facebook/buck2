@@ -520,7 +520,7 @@ impl ConfiguredTargetNode {
 
     #[inline]
     pub fn execution_platform(&self) -> buck2_error::Result<&ExecutionPlatform> {
-        Ok(self.as_ref().execution_platform_resolution().platform()?)
+        self.as_ref().execution_platform_resolution().platform()
     }
 
     #[inline]

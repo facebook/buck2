@@ -64,7 +64,7 @@ fn load_nano_prelude() -> anyhow::Result<BundledCell> {
         return Err(anyhow::anyhow!("NANO_PRELUDE env var must not be empty"));
     }
     let path = AbsPathBuf::new(Path::new(&path))
-        .context("NANO_PRELUDE env var must point to absolute path")?;
+        .buck_error_context("NANO_PRELUDE env var must point to absolute path")?;
 
     let mut files = Vec::new();
     let mut dir_stack = Vec::new();

@@ -48,6 +48,7 @@ use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_directory::directory::shared_directory::SharedDirectory;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::internal_error_anyhow;
+use buck2_error::BuckErrorContext;
 use chrono::DateTime;
 use chrono::Utc;
 use derive_more::Display;
@@ -332,14 +333,15 @@ pub fn re_tree_to_directory(
     ) -> anyhow::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
-            let name = FileNameBuf::try_from(node.name.clone()).with_context(|| {
-                DirectoryReConversionError::IncorrectFileName {
-                    name: node.name.clone(),
-                    dir: re_dir_name.to_string(),
-                }
-            })?;
+            let name =
+                FileNameBuf::try_from(node.name.clone()).with_buck_error_context_anyhow(|| {
+                    DirectoryReConversionError::IncorrectFileName {
+                        name: node.name.clone(),
+                        dir: re_dir_name.to_string(),
+                    }
+                })?;
 
-            let digest = node.digest.as_ref().with_context(|| {
+            let digest = node.digest.as_ref().with_buck_error_context_anyhow(|| {
                 DirectoryReConversionError::NodeWithDigestNone {
                     name: node.name.clone(),
                     dir: re_dir_name.to_string(),

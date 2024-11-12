@@ -37,6 +37,7 @@ use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::buck2_env_anyhow;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 
 use crate::commands::build::out::copy_to_out;
@@ -238,12 +239,14 @@ impl StreamingCommand for BuildCommand {
                     output_hashes_file: self
                         .output_hashes_file
                         .map(|p| {
-                            p.resolve(&ctx.working_dir).into_string().with_context(|| {
-                                format!(
-                                    "Failed to convert output hashes file path ({}) to string",
-                                    p.display()
-                                )
-                            })
+                            p.resolve(&ctx.working_dir)
+                                .into_string()
+                                .with_buck_error_context_anyhow(|| {
+                                    format!(
+                                        "Failed to convert output hashes file path ({}) to string",
+                                        p.display()
+                                    )
+                                })
                         })
                         .transpose()?,
                 },

@@ -19,6 +19,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
 
 use crate::invocation_paths::InvocationPaths;
@@ -148,7 +149,8 @@ pub fn get_invocation_paths_result(from: &Path, isolation: FileNameBuf) -> Invoc
 pub(crate) fn home_buck_dir() -> anyhow::Result<&'static AbsNormPath> {
     fn find_dir() -> anyhow::Result<AbsNormPathBuf> {
         let home = dirs::home_dir().context("Expected a HOME directory to be available")?;
-        let home = AbsNormPathBuf::new(home).context("Expected an absolute HOME directory")?;
+        let home = AbsNormPathBuf::new(home)
+            .buck_error_context_anyhow("Expected an absolute HOME directory")?;
         Ok(home.join(FileName::new(".buck")?))
     }
 

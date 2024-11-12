@@ -11,8 +11,8 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use anyhow::Context;
-use buck2_error::internal_error_anyhow;
+use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -101,7 +101,7 @@ pub fn display_precise_pattern<'a, T: PatternType>(
 }
 
 /// Extract provider name from a target pattern.
-pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersName)> {
+pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, ProvidersName)> {
     if let Some((t, flavors)) = split1_opt_ascii(s, AsciiChar::new('#')) {
         let name = map_flavors(flavors, s)?;
         Ok((t, name))
@@ -112,7 +112,8 @@ pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersNa
             names.push(ProviderName::new(p.to_owned())?);
             r
         } else {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                [],
                 "target pattern with `[` must end with `]` to mark end of providers set label"
             ));
         };
@@ -125,7 +126,8 @@ pub(crate) fn split_providers_name(s: &str) -> anyhow::Result<(&str, ProvidersNa
                     continue;
                 }
             }
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                [],
                 "target pattern with `[` must end with `]` to mark end of providers set label"
             ));
         }
@@ -180,7 +182,7 @@ pub enum ParsedPattern<T: PatternType> {
 
 impl ParsedPattern<TargetPatternExtra> {
     /// Extract [`TargetLabel`] from a [`ParsedPattern`].
-    pub fn as_target_label(self, original: &str) -> anyhow::Result<TargetLabel> {
+    pub fn as_target_label(self, original: &str) -> buck2_error::Result<TargetLabel> {
         let (target_label, TargetPatternExtra) = self.as_literal(original)?;
         Ok(target_label)
     }
@@ -202,7 +204,7 @@ impl ParsedPattern<TargetPatternExtra> {
 
 impl ParsedPattern<ProvidersPatternExtra> {
     /// Extract [`ProvidersLabel`] from a [`ParsedPattern`].
-    pub fn as_providers_label(self, original: &str) -> anyhow::Result<ProvidersLabel> {
+    pub fn as_providers_label(self, original: &str) -> buck2_error::Result<ProvidersLabel> {
         let (target_label, ProvidersPatternExtra { providers }) = self.as_literal(original)?;
         Ok(ProvidersLabel::new(target_label, providers))
     }
@@ -219,8 +221,8 @@ impl<T: PatternType> ParsedPattern<T> {
 
     pub fn try_map<U: PatternType>(
         self,
-        f: impl FnOnce(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<ParsedPattern<U>> {
+        f: impl FnOnce(T) -> buck2_error::Result<U>,
+    ) -> buck2_error::Result<ParsedPattern<U>> {
         match self {
             ParsedPattern::Target(package, target_name, val) => {
                 Ok(ParsedPattern::Target(package, target_name, f(val)?))
@@ -248,7 +250,7 @@ impl<T: PatternType> ParsedPattern<T> {
     }
 
     /// Extract a literal from a [ParsedPattern], or `Err` if it is not a literal.
-    pub fn as_literal(self, original: &str) -> anyhow::Result<(TargetLabel, T)> {
+    pub fn as_literal(self, original: &str) -> buck2_error::Result<(TargetLabel, T)> {
         // FIXME: Would be better if we had a Display on self, so we could produce a nice error message.
         //        For now, just require the original string to be passed in for good errors.
         match self {
@@ -265,7 +267,7 @@ impl<T: PatternType> ParsedPattern<T> {
         cell: CellName,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         parse_target_pattern(
             cell,
             cell_resolver,
@@ -274,7 +276,7 @@ impl<T: PatternType> ParsedPattern<T> {
             TargetParsingOptions::precise(),
             pattern,
         )
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Invalid absolute target pattern `{}` is not allowed",
                 pattern
@@ -288,7 +290,7 @@ impl<T: PatternType> ParsedPattern<T> {
         cell: CellName,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         parse_target_pattern(
             cell,
             cell_resolver,
@@ -301,7 +303,7 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Invalid absolute target pattern `{}` is not allowed",
                 pattern
@@ -318,7 +320,7 @@ impl<T: PatternType> ParsedPattern<T> {
         pattern: &str,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         parse_target_pattern(
             relative_dir.cell(),
             cell_resolver,
@@ -331,7 +333,7 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Invalid relative target pattern `{}` is not allowed",
                 pattern
@@ -352,7 +354,7 @@ impl<T: PatternType> ParsedPattern<T> {
         pattern: &str,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         parse_target_pattern(
             relative_dir.cell(),
             cell_resolver,
@@ -365,7 +367,7 @@ impl<T: PatternType> ParsedPattern<T> {
             },
             pattern,
         )
-        .with_context(|| format!("Parsing target pattern `{}`", pattern))
+        .with_buck_error_context(|| format!("Parsing target pattern `{}`", pattern))
     }
 
     pub fn testing_parse(pattern: &str) -> Self {
@@ -432,10 +434,10 @@ pub struct PatternParts<'a, T: PatternType> {
 }
 
 impl<'a, T: PatternType> PatternParts<'a, T> {
-    fn try_map<U: PatternType, F: FnOnce(T) -> anyhow::Result<U>>(
+    fn try_map<U: PatternType, F: FnOnce(T) -> buck2_error::Result<U>>(
         self,
         f: F,
-    ) -> anyhow::Result<PatternParts<'a, U>> {
+    ) -> buck2_error::Result<PatternParts<'a, U>> {
         let PatternParts {
             cell_alias,
             pattern,
@@ -467,8 +469,8 @@ pub enum PatternDataOrAmbiguous<'a, T: PatternType> {
 impl<'a, T: PatternType> PatternDataOrAmbiguous<'a, T> {
     fn try_map<U: PatternType>(
         self,
-        f: impl FnOnce(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<PatternDataOrAmbiguous<'a, U>> {
+        f: impl FnOnce(T) -> buck2_error::Result<U>,
+    ) -> buck2_error::Result<PatternDataOrAmbiguous<'a, U>> {
         match self {
             PatternDataOrAmbiguous::PatternData(d) => {
                 Ok(PatternDataOrAmbiguous::PatternData(d.try_map(f)?))
@@ -492,7 +494,7 @@ where
 {
     /// If the pattern is ambiguous, try to infer a target. This would convert `foo/bar` into
     /// `foo/bar:bar`.
-    pub fn infer_target(self) -> anyhow::Result<PatternData<'a, T>> {
+    pub fn infer_target(self) -> buck2_error::Result<PatternData<'a, T>> {
         match self {
             Self::PatternData(d) => Ok(d),
             Self::Ambiguous {
@@ -504,7 +506,7 @@ where
 
                 let target = package
                     .file_name()
-                    .context(TargetPatternParseError::PackageIsEmpty)?;
+                    .buck_error_context(TargetPatternParseError::PackageIsEmpty)?;
 
                 let target_name = TargetName::new(target.as_ref())?;
 
@@ -518,7 +520,7 @@ where
     }
 
     /// If the pattern is ambiguous, error out.
-    pub fn reject_ambiguity(self) -> anyhow::Result<PatternData<'a, T>> {
+    pub fn reject_ambiguity(self) -> buck2_error::Result<PatternData<'a, T>> {
         match self {
             Self::PatternData(d) => Ok(d),
             Self::Ambiguous { pattern, .. } => {
@@ -556,8 +558,8 @@ pub enum PatternData<'a, T: PatternType> {
 impl<'a, T: PatternType> PatternData<'a, T> {
     fn try_map<U: PatternType>(
         self,
-        f: impl FnOnce(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<PatternData<'a, U>> {
+        f: impl FnOnce(T) -> buck2_error::Result<U>,
+    ) -> buck2_error::Result<PatternData<'a, U>> {
         match self {
             PatternData::Recursive { package } => Ok(PatternData::Recursive { package }),
             PatternData::AllTargetsInPackage { package } => {
@@ -602,7 +604,7 @@ impl<'a, T: PatternType> PatternData<'a, T> {
 // Splits a pattern into cell alias and forward relative path if "//" is present, otherwise returns None,
 pub fn maybe_split_cell_alias_and_relative_path<'a>(
     pattern: &'a str,
-) -> anyhow::Result<Option<(CellAlias, &'a ForwardRelativePath)>> {
+) -> buck2_error::Result<Option<(CellAlias, &'a ForwardRelativePath)>> {
     Ok(match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
         Some((a, p)) => Some((
             CellAlias::new(trim_prefix_ascii(a, AsciiChar::new('@')).to_owned()),
@@ -615,7 +617,7 @@ pub fn maybe_split_cell_alias_and_relative_path<'a>(
 fn lex_provider_pattern<'a>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<PatternParts<ProvidersPatternExtra>> {
+) -> buck2_error::Result<PatternParts<ProvidersPatternExtra>> {
     let (cell_alias, pattern) = match split1_opt_ascii(pattern, AsciiStr2::new("//")) {
         Some((a, p)) => (Some(trim_prefix_ascii(a, AsciiChar::new('@'))), p),
         None => (None, pattern),
@@ -667,13 +669,13 @@ fn lex_provider_pattern<'a>(
     })
 }
 
-fn lex_configuration_predicate(pattern: &str) -> anyhow::Result<ConfigurationPredicate> {
-    let pattern = pattern
-        .strip_prefix('(')
-        .context(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
-    let pattern = pattern
-        .strip_suffix(')')
-        .context(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
+fn lex_configuration_predicate(pattern: &str) -> buck2_error::Result<ConfigurationPredicate> {
+    let pattern = pattern.strip_prefix('(').buck_error_context(
+        TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses,
+    )?;
+    let pattern = pattern.strip_suffix(')').buck_error_context(
+        TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses,
+    )?;
     match pattern.split_once('#') {
         Some((cfg, hash)) => {
             let cfg = BoundConfigurationLabel::new(cfg.to_owned())?;
@@ -721,7 +723,7 @@ fn split_cfg(s: &str) -> Option<(&str, &str)> {
 pub fn lex_configured_providers_pattern<'a>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<PatternParts<ConfiguredProvidersPatternExtra>> {
+) -> buck2_error::Result<PatternParts<ConfiguredProvidersPatternExtra>> {
     let (provider_pattern, cfg) = match split_cfg(pattern) {
         Some((providers, cfg)) => {
             let provider_pattern = lex_provider_pattern(providers, strip_package_trailing_slash)?;
@@ -742,11 +744,11 @@ pub fn lex_configured_providers_pattern<'a>(
 pub fn lex_target_pattern<'a, T: PatternType>(
     pattern: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<PatternParts<T>> {
+) -> buck2_error::Result<PatternParts<T>> {
     let provider_pattern = lex_configured_providers_pattern(pattern, strip_package_trailing_slash)?;
     provider_pattern
         .try_map(|extra| T::from_configured_providers(extra))
-        .with_context(|| {
+        .with_buck_error_context(|| {
             // This can only fail when `PatternType = TargetName`, so the message is correct.
             TargetPatternParseError::ExpectingPatternOfType(T::NAME, pattern.to_owned())
         })
@@ -755,13 +757,13 @@ pub fn lex_target_pattern<'a, T: PatternType>(
 fn normalize_package<'a>(
     package: &'a str,
     strip_package_trailing_slash: bool,
-) -> anyhow::Result<&'a ForwardRelativePath> {
+) -> buck2_error::Result<&'a ForwardRelativePath> {
     // Strip or reject trailing `/`, such as in `foo/:bar`.
     if let Some(stripped) = strip_suffix_ascii(package, AsciiChar::new('/')) {
         if strip_package_trailing_slash {
             return ForwardRelativePath::new(stripped);
         } else {
-            return Err(anyhow::Error::from(
+            return Err(buck2_error::Error::from(
                 TargetPatternParseError::PackageTrailingSlash,
             ));
         }
@@ -825,11 +827,11 @@ fn parse_target_pattern<T>(
     target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
-) -> anyhow::Result<ParsedPattern<T>>
+) -> buck2_error::Result<ParsedPattern<T>>
 where
     T: PatternType,
 {
-    let res: anyhow::Result<_> = try {
+    let res: buck2_error::Result<_> = try {
         let parsed_pattern = parse_target_pattern_no_validate::<T>(
             cell_name,
             cell_resolver,
@@ -868,7 +870,7 @@ where
         parsed_pattern
     };
 
-    res.input_anyhow()
+    res.input()
 }
 
 fn parse_target_pattern_no_validate<T>(
@@ -878,7 +880,7 @@ fn parse_target_pattern_no_validate<T>(
     target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
-) -> anyhow::Result<ParsedPattern<T>>
+) -> buck2_error::Result<ParsedPattern<T>>
 where
     T: PatternType,
 {
@@ -890,7 +892,7 @@ where
 
     if let Some(dir) = relative.dir() {
         if dir.cell() != cell_name {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Cell resolver cell `{cell_name}` does not match the given relative dir `{dir}`"
             ));
         }
@@ -981,7 +983,7 @@ fn resolve_target_alias<T>(
     cell_alias_resolver: &CellAliasResolver,
     target_alias_resolver: &dyn TargetAliasResolver,
     lex: &PatternParts<T>,
-) -> anyhow::Result<Option<ParsedPattern<T>>>
+) -> buck2_error::Result<Option<ParsedPattern<T>>>
 where
     T: PatternType,
 {
@@ -1025,7 +1027,7 @@ where
         TargetParsingOptions::precise(),
         alias,
     )
-    .with_context(|| ResolveTargetAliasError::ErrorDereferencing {
+    .with_buck_error_context(|| ResolveTargetAliasError::ErrorDereferencing {
         target: target.to_owned(),
         alias: alias.to_owned(),
     })?;
@@ -1148,7 +1150,7 @@ mod tests {
             .unwrap()
     }
 
-    fn fails<R>(x: anyhow::Result<R>, msgs: &[&str]) {
+    fn fails<R>(x: buck2_error::Result<R>, msgs: &[&str]) {
         match x {
             Err(e) => {
                 let s = format!("{:#}", e);
@@ -1165,7 +1167,7 @@ mod tests {
     struct NoAliases;
 
     impl TargetAliasResolver for NoAliases {
-        fn get<'a>(&'a self, _name: &str) -> anyhow::Result<Option<&'a str>> {
+        fn get<'a>(&'a self, _name: &str) -> buck2_error::Result<Option<&'a str>> {
             Ok(None)
         }
     }
@@ -1174,7 +1176,7 @@ mod tests {
         struct Aliases(Vec<(String, String)>);
 
         impl TargetAliasResolver for Aliases {
-            fn get<'a>(&'a self, name: &str) -> anyhow::Result<Option<&'a str>> {
+            fn get<'a>(&'a self, name: &str) -> buck2_error::Result<Option<&'a str>> {
                 Ok(self
                     .0
                     .iter()
@@ -1328,7 +1330,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_relative_pattern() -> anyhow::Result<()> {
+    fn parse_relative_pattern() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path").to_owned(),
@@ -1357,7 +1359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_relaxed() -> anyhow::Result<()> {
+    fn test_relaxed() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package").to_owned(),
@@ -1486,7 +1488,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parsed_opt_absolute() -> anyhow::Result<()> {
+    fn test_parsed_opt_absolute() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path").to_owned(),
@@ -1586,7 +1588,7 @@ mod tests {
     }
 
     #[test]
-    fn test_aliases() -> anyhow::Result<()> {
+    fn test_aliases() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package").to_owned(),
@@ -1643,7 +1645,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_providers_pattern() -> anyhow::Result<()> {
+    fn parse_providers_pattern() -> buck2_error::Result<()> {
         assert_eq!(
             mk_providers("root", "package/path", "target", None),
             ParsedPattern::parse_precise(
@@ -1697,7 +1699,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_providers_pattern_with_alias() -> anyhow::Result<()> {
+    fn parse_providers_pattern_with_alias() -> buck2_error::Result<()> {
         let package = CellPath::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package").to_owned(),
@@ -1720,7 +1722,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_configured_providers_pattern() -> anyhow::Result<()> {
+    fn test_parse_configured_providers_pattern() -> buck2_error::Result<()> {
         assert_eq!(
             mk_configured_providers(
                 "root",
@@ -1916,7 +1918,7 @@ mod tests {
     }
 
     #[test]
-    fn parsed_pattern_contains() -> anyhow::Result<()> {
+    fn parsed_pattern_contains() -> buck2_error::Result<()> {
         let pkg1 = PackageLabel::new(
             CellName::testing_new("root"),
             CellRelativePath::unchecked_new("package/path"),

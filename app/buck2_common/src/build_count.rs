@@ -102,7 +102,7 @@ impl BuildCountManager {
     }
 
     async fn ensure_dir(&self) -> anyhow::Result<()> {
-        async_fs_util::create_dir_all(&self.base_dir).await
+        Ok(async_fs_util::create_dir_all(&self.base_dir).await?)
     }
 
     async fn read(&self, file_name: &FileName) -> anyhow::Result<BuildCountMap> {
@@ -120,7 +120,7 @@ impl BuildCountManager {
     async fn write(&self, build_count: &BuildCountMap, file_name: &FileName) -> anyhow::Result<()> {
         self.ensure_dir().await?;
         let path = self.base_dir.join(file_name);
-        async_fs_util::write(path, &serde_json::to_vec(build_count)?).await
+        Ok(async_fs_util::write(path, &serde_json::to_vec(build_count)?).await?)
     }
 
     async fn lock_with_timeout(&self, timeout: Duration) -> anyhow::Result<FileLockGuard> {

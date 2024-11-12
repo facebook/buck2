@@ -87,7 +87,10 @@ impl PluginKindSet {
     pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);
     pub const ALL: Self = Self::pack(PluginKindSetUnpacked::All);
 
-    pub fn new(pulls: Vec<PluginKind>, pulls_and_pushes: Vec<PluginKind>) -> anyhow::Result<Self> {
+    pub fn new(
+        pulls: Vec<PluginKind>,
+        pulls_and_pushes: Vec<PluginKind>,
+    ) -> buck2_error::Result<Self> {
         if pulls.is_empty() && pulls_and_pushes.is_empty() {
             return Ok(Self::EMPTY);
         }

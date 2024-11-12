@@ -96,7 +96,6 @@ rust_unittest(
         "tests/soft_error.rs",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         ":buck2_core",
         "//buck2/app/buck2_error:buck2_error",
     ],

@@ -52,13 +52,13 @@ impl PatternParser {
     }
 
     fn parse_pattern<T: PatternType>(&self, pattern: &str) -> anyhow::Result<ParsedPattern<T>> {
-        ParsedPattern::parse_relaxed(
+        Ok(ParsedPattern::parse_relaxed(
             &self.target_alias_resolver,
             self.cwd.as_ref(),
             pattern,
             &self.cell_resolver,
             &self.cell_alias_resolver,
-        )
+        )?)
     }
 }
 

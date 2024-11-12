@@ -15,6 +15,7 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::name::TargetName;
+use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
@@ -71,13 +72,12 @@ impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
             let spec = match spec {
                 PackageSpec::Targets(targets) => {
                     PackageSpec::Targets(targets.into_try_map(|(target_name, extra)| {
-                        let extra = U::from_configured_providers(extra.clone()).context(
-                            ResolvedPatternError::InvalidPattern(
+                        let extra = U::from_configured_providers(extra.clone())
+                            .buck_error_context(ResolvedPatternError::InvalidPattern(
                                 U::NAME,
                                 display_precise_pattern(&package, target_name.as_ref(), &extra)
                                     .to_string(),
-                            ),
-                        )?;
+                            ))?;
                         anyhow::Ok((target_name, extra))
                     })?)
                 }

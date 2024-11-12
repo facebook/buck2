@@ -67,7 +67,7 @@ impl Borrow<str> for CellAlias {
 pub struct NonEmptyCellAlias(String);
 
 impl NonEmptyCellAlias {
-    pub fn new(alias: String) -> anyhow::Result<NonEmptyCellAlias> {
+    pub fn new(alias: String) -> buck2_error::Result<NonEmptyCellAlias> {
         if alias.is_empty() {
             Err(CellAliasError::EmptyAlias.into())
         } else {

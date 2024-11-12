@@ -92,7 +92,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
             ExternalCellOrigin::Git(setup) => git::materialize_all(ctx, cell, setup).await?,
         };
 
-        io.project_root().copy(&materialized_path, &dest_path)
+        Ok(io.project_root().copy(&materialized_path, &dest_path)?)
     }
 }
 

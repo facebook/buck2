@@ -56,7 +56,7 @@ impl ImplicitImportPaths {
                 // are defined, so we can set the build_file_cell early.
                 ImportPath::new_with_build_file_cells(path, cell_name)
             })
-            .map_or(Ok(None), |e: anyhow::Result<ImportPath>| e.map(Some))?;
+            .map_or(Ok(None), |e: buck2_error::Result<ImportPath>| e.map(Some))?;
         let package_imports = PackageImplicitImports::new(
             cell_name,
             cell_alias_resolver.dupe(),

@@ -10,6 +10,7 @@
 use std::ffi::OsString;
 use std::str::FromStr;
 
+use buck2_error::buck2_error;
 use dupe::Dupe;
 use os_str_bytes::OsStrBytes;
 use rand::Rng;
@@ -78,7 +79,7 @@ impl RolloutPercentage {
 }
 
 impl FromStr for RolloutPercentage {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
         Ok(Self {
@@ -95,7 +96,7 @@ enum Inner {
 }
 
 impl FromStr for Inner {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(val: &str) -> Result<Self, Self::Err> {
         if let Some(val) = val.strip_prefix("hostname:") {
@@ -113,17 +114,19 @@ impl FromStr for Inner {
             return Ok(Inner::Bool(val));
         }
 
-        Err(anyhow::anyhow!(
+        Err(buck2_error!(
+            [],
             "RolloutPercentage must be either a float or a bool"
         ))
     }
 }
 
-fn rate(val: f64) -> anyhow::Result<f64> {
+fn rate(val: f64) -> buck2_error::Result<f64> {
     if (0.0..=1.0).contains(&val) {
         Ok(val)
     } else {
-        Err(anyhow::anyhow!(
+        Err(buck2_error!(
+            [],
             "RolloutPercentage floats must be within [0,1] (got: {})",
             val
         ))

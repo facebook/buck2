@@ -14,6 +14,7 @@ use buck2_common::file_ops::FileDigest;
 use buck2_core::cells::CellResolver;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_data::ToProtoMessage;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -35,7 +36,7 @@ pub(crate) fn build_configured_target_handle(
     let configuration = target.cfg().to_string();
     let package_project_relative_path = cell_resolver
         .resolve_path(label.pkg().as_cell_path())
-        .context("Failed to resolve the project relative path of package")?;
+        .buck_error_context_anyhow("Failed to resolve the project relative path of package")?;
 
     Ok(ConfiguredTarget {
         handle: session.register(target),

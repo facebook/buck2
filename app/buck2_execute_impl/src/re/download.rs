@@ -23,6 +23,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
@@ -395,8 +396,8 @@ impl CasDownloader<'_> {
 /// so if the conversion fails, RE is broken.
 fn re_forward_path(re_path: &str) -> anyhow::Result<&ForwardRelativePath> {
     // RE sends us paths with trailing slash.
-    ForwardRelativePath::new_trim_trailing_slashes(re_path)
-        .context(DownloadError::InvalidPathFromRe)
+    Ok(ForwardRelativePath::new_trim_trailing_slashes(re_path)
+        .buck_error_context(DownloadError::InvalidPathFromRe)?)
 }
 
 #[derive(buck2_error::Error, Debug)]

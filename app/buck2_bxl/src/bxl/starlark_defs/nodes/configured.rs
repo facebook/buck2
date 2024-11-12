@@ -15,7 +15,6 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_analysis::analysis::calculation::get_dep_analysis;
 use buck2_analysis::analysis::calculation::resolve_queries;
 use buck2_analysis::analysis::env::get_deps_from_analysis_results;
@@ -35,6 +34,7 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -471,16 +471,16 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let path = if path.is_absolute() {
             Cow::Owned(
                 fs.relativize_any(AbsPath::new(path)?)
-                    .context("Given path does not belong to the project root")?,
+                    .buck_error_context_anyhow("Given path does not belong to the project root")?,
             )
         } else {
-            Cow::Borrowed(ProjectRelativePath::new(path).context(
+            Cow::Borrowed(ProjectRelativePath::new(path).buck_error_context_anyhow(
                 "Given path should either be absolute or a forward pointing project relative path",
             )?)
         };
 
         let cell_path = ctx.async_ctx.borrow_mut().via(|ctx| {
-            async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)?) }.boxed_local()
+            async move { ctx.get_cell_resolver().await?.get_cell_path(&path) }.boxed_local()
         })?;
 
         struct SourceFinder {

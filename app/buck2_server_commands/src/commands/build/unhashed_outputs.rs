@@ -19,6 +19,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::BuckErrorContext;
 use buck2_query::__derive_refs::indexmap::IndexMap;
 use itertools::Itertools;
 use tracing::info;
@@ -130,8 +131,9 @@ fn create_unhashed_link(
         }
         Err(_) => {}
     }
-    fs_util::symlink(original_path, abs_unhashed_path)
-        .with_context(|| "was not able to symlink original path to absolute unhashed path")?;
+    fs_util::symlink(original_path, abs_unhashed_path).with_buck_error_context_anyhow(
+        || "was not able to symlink original path to absolute unhashed path",
+    )?;
     Ok(())
 }
 

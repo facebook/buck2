@@ -26,6 +26,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_error::BuckErrorContext;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
 use buck2_forkserver_proto::CommandRequest;
 use buck2_forkserver_proto::RequestEvent;
@@ -133,7 +134,7 @@ impl Forkserver for UnixForkserverService {
 
             let exe = OsStr::from_bytes(&exe);
             let cwd = OsStr::from_bytes(&cwd.as_ref().context("Missing cwd")?.path);
-            let cwd = AbsPath::new(Path::new(cwd)).context("Inalid cwd")?;
+            let cwd = AbsPath::new(Path::new(cwd)).buck_error_context_anyhow("Inalid cwd")?;
 
             let argv = argv.iter().map(|a| OsStr::from_bytes(a));
             let timeout = timeout
@@ -240,7 +241,7 @@ impl Forkserver for UnixForkserverService {
     ) -> Result<Response<SetLogFilterResponse>, Status> {
         self.log_reload_handle
             .update_log_filter(&req.get_ref().log_filter)
-            .context("Error updating forkserver filter")
+            .buck_error_context_anyhow("Error updating forkserver filter")
             .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
 
         Ok(Response::new(SetLogFilterResponse {}))

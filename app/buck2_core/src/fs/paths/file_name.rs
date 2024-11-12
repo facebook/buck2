@@ -38,7 +38,7 @@ enum FileNameError {
     Slashes(String),
 }
 
-fn verify_file_name(file_name: &str) -> anyhow::Result<()> {
+fn verify_file_name(file_name: &str) -> buck2_error::Result<()> {
     if file_name.is_empty() {
         Err(FileNameError::Empty.into())
     } else if file_name == "." {
@@ -149,7 +149,7 @@ impl FileName {
     /// assert!(FileName::new("foo\\bar").is_err());
     /// ```
     #[inline]
-    pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> anyhow::Result<&Self> {
+    pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> buck2_error::Result<&Self> {
         verify_file_name(s.as_ref())?;
         Ok(Self::unchecked_new(s.as_ref()))
     }
@@ -189,7 +189,7 @@ impl FileName {
     ///
     /// assert_eq!(Some("foo"), path.file_stem());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
     pub fn file_stem(&self) -> Option<&str> {
@@ -203,7 +203,7 @@ impl FileName {
     ///
     /// assert_eq!(Some("rs"), FileName::new("foo.rs")?.extension());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
     pub fn extension(&self) -> Option<&str> {
@@ -358,15 +358,15 @@ impl<'a> TryFrom<&'a str> for &'a FileName {
 
     #[inline]
     fn try_from(value: &'a str) -> buck2_error::Result<&'a FileName> {
-        Ok(FileName::new(value)?)
+        FileName::new(value)
     }
 }
 
 impl TryFrom<String> for FileNameBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     #[inline]
-    fn try_from(value: String) -> anyhow::Result<FileNameBuf> {
+    fn try_from(value: String) -> buck2_error::Result<FileNameBuf> {
         // NOTE: This does not turn a String into an inlined string.
         verify_file_name(value.as_str())?;
         Ok(FileNameBuf(value.into()))
@@ -374,10 +374,10 @@ impl TryFrom<String> for FileNameBuf {
 }
 
 impl TryFrom<CompactString> for FileNameBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     #[inline]
-    fn try_from(value: CompactString) -> anyhow::Result<FileNameBuf> {
+    fn try_from(value: CompactString) -> buck2_error::Result<FileNameBuf> {
         verify_file_name(value.as_str())?;
         Ok(FileNameBuf(value))
     }

@@ -220,7 +220,7 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
 
     thread_pool.join();
     if let Some(e) = error.lock().unwrap().take() {
-        return Err(e);
+        return Err(e.into());
     }
 
     // first entry is buck-out root dir and we don't want to remove it

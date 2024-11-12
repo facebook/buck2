@@ -19,6 +19,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::rollout_percentage::RolloutPercentage;
+use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
@@ -149,7 +150,7 @@ pub(crate) fn delete_unknown_disk_state(
                 let filename = entry.file_name();
                 let filename = filename
                     .to_str()
-                    .context("Filename is not UTF-8")
+                    .buck_error_context("Filename is not UTF-8")
                     .and_then(FileName::new)?;
 
                 // known_dir_names is always small, so this contains isn't expensive

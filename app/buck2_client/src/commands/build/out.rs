@@ -24,6 +24,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::WorkingDir;
+use buck2_error::BuckErrorContext;
 use futures::TryStreamExt;
 
 #[derive(Clone)]
@@ -162,10 +163,9 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
         "Removing pre-existing item at path {:?}",
         src_path.as_ref()
     ))?;
-    let symlink_target_abs_path = fs_util::canonicalize(src_path.as_ref()).context(format!(
-        "Resolving symlink to be copied {:?}",
-        src_path.as_ref()
-    ))?;
+    let symlink_target_abs_path = fs_util::canonicalize(src_path.as_ref()).buck_error_context(
+        format!("Resolving symlink to be copied {:?}", src_path.as_ref()),
+    )?;
     // Now recreate the symlink
     let symlink_target = {
         if symlink_target_abs_path.starts_with(&context.relative_symlink_boundary) {
@@ -180,7 +180,7 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
             symlink_target_abs_path.into_path_buf()
         }
     };
-    fs_util::symlink(&symlink_target, &dst_path).context(format!(
+    fs_util::symlink(&symlink_target, &dst_path).buck_error_context(format!(
         "Creating symlink at {:?} pointing to {:?}",
         dst_path.as_ref(),
         &symlink_target

@@ -163,7 +163,10 @@ pub fn parse_bzl_path_with_config(
     build_cell_path: BuildFileCell,
 ) -> anyhow::Result<ImportPath> {
     let path = parse_import_with_config(cell_resolver, import, opts)?;
-    ImportPath::new_with_build_file_cells(path, build_cell_path)
+    Ok(ImportPath::new_with_build_file_cells(
+        path,
+        build_cell_path,
+    )?)
 }
 
 #[cfg(test)]

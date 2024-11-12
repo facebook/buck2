@@ -44,7 +44,7 @@ fn is_platform_flavor(flavor: &str) -> bool {
 /// via subtargets.
 ///
 /// This mapping is a hardcoded map of flavors that we know can be handled simply as subtargets.
-pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<ProvidersName> {
+pub fn map_flavors(flavors: &str, full_target: &str) -> buck2_error::Result<ProvidersName> {
     let mut flavors_parts: Vec<&str> = flavors.split(',').collect();
     assert!(!flavors_parts.is_empty());
 
@@ -55,7 +55,7 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> anyhow::Result<Providers
             // rely on the wrapping span in order to find
             soft_error!(
                 "platform_flavor",
-                anyhow::anyhow!("Platform flavor found in target: {}", full_target).into(),
+                buck2_error::buck2_error!([], "Platform flavor found in target: {}", full_target).into(),
                 deprecation: true,
                 quiet: true
             )?;

@@ -32,14 +32,14 @@ pub enum TransitionApplied {
 }
 
 impl TransitionApplied {
-    pub fn single(&self) -> anyhow::Result<&ConfigurationData> {
+    pub fn single(&self) -> buck2_error::Result<&ConfigurationData> {
         match self {
             TransitionApplied::Single(configuration) => Ok(configuration),
             _ => Err(TransitionAppliedError::SplitWhereSingleExpected.into()),
         }
     }
 
-    pub fn split(&self) -> anyhow::Result<&SortedMap<String, ConfigurationData>> {
+    pub fn split(&self) -> buck2_error::Result<&SortedMap<String, ConfigurationData>> {
         match self {
             TransitionApplied::Split(configurations) => Ok(configurations),
             _ => Err(TransitionAppliedError::SingleWhereSplitExpected.into()),

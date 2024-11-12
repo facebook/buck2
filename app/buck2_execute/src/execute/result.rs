@@ -271,7 +271,7 @@ pub struct CommandExecutionReport {
     /// No exit_code means the command did not finish executing. Signals get mapped into this as
     /// 128 + SIGNUM, which is the convention shells follow.
     pub exit_code: Option<i32>,
-    /// Any additional message that a command's executor wants to be user visible in case of a
+    /// Any additional message that a command's executor wants to be user vissible in case of a
     /// failure. Provided by non-Meta RE server.
     pub additional_message: Option<String>,
 }

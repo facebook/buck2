@@ -100,7 +100,7 @@ impl BuckOutScratchPath {
         category: CategoryRef,
         identifier: Option<&str>,
         action_key: ForwardRelativePathBuf,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
         // Windows has MAX_PATH limit (260 chars).
         const LENGTH_THRESHOLD: usize = 50;
@@ -342,7 +342,7 @@ mod tests {
     use crate::target::name::TargetNameRef;
 
     #[test]
-    fn buck_path_resolves() -> anyhow::Result<()> {
+    fn buck_path_resolves() -> buck2_error::Result<()> {
         let cell_resolver = CellResolver::testing_with_name_and_path(
             CellName::testing_new("foo"),
             CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("bar-cell".into())),
@@ -385,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn buck_output_path_resolves() -> anyhow::Result<()> {
+    fn buck_output_path_resolves() -> buck2_error::Result<()> {
         let path_resolver = BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
             "base/buck-out/v2".into(),
         ));
@@ -434,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn buck_target_output_path_resolves() -> anyhow::Result<()> {
+    fn buck_target_output_path_resolves() -> buck2_error::Result<()> {
         let path_resolver =
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
 
@@ -597,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_test_discovery() -> anyhow::Result<()> {
+    fn test_resolve_test_discovery() -> buck2_error::Result<()> {
         let path_resolver =
             BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
 

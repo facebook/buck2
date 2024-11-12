@@ -350,7 +350,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let re_dependencies = remote_execution_dependencies
             .into_iter()
             .map(RemoteExecutorDependency::parse)
-            .collect::<anyhow::Result<Vec<RemoteExecutorDependency>>>()?;
+            .collect::<buck2_error::Result<Vec<RemoteExecutorDependency>>>()?;
 
         let action = UnregisteredRunAction {
             executor_preference,

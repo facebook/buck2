@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -109,7 +110,7 @@ impl UnregisteredSymlinkedDirAction {
                     (
                         as_artifact.0.get_artifact_group()?,
                         ForwardRelativePathBuf::try_from(k.to_owned())
-                            .context("dict key must be a forward relative path")?
+                            .buck_error_context_anyhow("dict key must be a forward relative path")?
                             .into_box(),
                     ),
                     associates,

@@ -194,14 +194,14 @@ impl ForwardRelativePath {
     /// assert!(ForwardRelativePath::new(Path::new("normalize\\bar")).is_err());
     /// assert!(ForwardRelativePath::new(Path::new("normalize/bar/")).is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     // TODO(nga): this accepts `Path`, but should accept `str`
     //   because paths can have backslashes.
     //   Conversion of `Path` to `ForwardRelativePath` should be done via
     //   `ForwardRelativePathBuf` which should normalize slashes.
     #[inline]
-    pub fn new<S: ?Sized + AsRef<Path>>(s: &S) -> anyhow::Result<&ForwardRelativePath> {
+    pub fn new<S: ?Sized + AsRef<Path>>(s: &S) -> buck2_error::Result<&ForwardRelativePath> {
         <&ForwardRelativePath>::try_from(s.as_ref())
     }
 
@@ -218,7 +218,7 @@ impl ForwardRelativePath {
     /// ```
     pub fn new_trim_trailing_slashes<S: ?Sized + AsRef<Path>>(
         path: &S,
-    ) -> anyhow::Result<&ForwardRelativePath> {
+    ) -> buck2_error::Result<&ForwardRelativePath> {
         let path = path.as_ref();
         let path = path
             .to_str()
@@ -257,7 +257,7 @@ impl ForwardRelativePath {
     ///     path.join(other)
     /// );
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
     pub fn join<P: AsRef<ForwardRelativePath>>(&self, path: P) -> ForwardRelativePathBuf {
@@ -300,7 +300,7 @@ impl ForwardRelativePath {
     /// );
     /// assert_eq!(None, ForwardRelativePath::new("")?.parent());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn parent(&self) -> Option<&ForwardRelativePath> {
         let s = &self.0;
@@ -340,7 +340,7 @@ impl ForwardRelativePath {
     /// );
     /// assert_eq!(None, ForwardRelativePath::new("")?.file_name());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn file_name(&self) -> Option<&FileName> {
         let s = &self.0;
@@ -426,12 +426,12 @@ impl ForwardRelativePath {
     ///     true
     /// );
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn strip_prefix<P: AsRef<ForwardRelativePath>>(
         &self,
         prefix: P,
-    ) -> anyhow::Result<&ForwardRelativePath> {
+    ) -> buck2_error::Result<&ForwardRelativePath> {
         let prefix = prefix.as_ref();
         self.strip_prefix_opt(prefix).ok_or_else(|| {
             ForwardRelativePathError::StripPrefix(
@@ -465,7 +465,7 @@ impl ForwardRelativePath {
     pub fn strip_suffix<P: AsRef<ForwardRelativePath>>(
         &self,
         suffix: P,
-    ) -> anyhow::Result<&ForwardRelativePath> {
+    ) -> buck2_error::Result<&ForwardRelativePath> {
         let suffix = suffix.as_ref();
         self.strip_suffix_opt(suffix).ok_or_else(|| {
             ForwardRelativePathError::StripSuffix(
@@ -508,7 +508,7 @@ impl ForwardRelativePath {
     /// assert!(!path.starts_with(ForwardRelativePath::new("som")?));
     /// assert!(path.starts_with(ForwardRelativePath::new("")?));
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn starts_with<P: AsRef<ForwardRelativePath>>(&self, base: P) -> bool {
         let path = self.as_str();
@@ -531,7 +531,7 @@ impl ForwardRelativePath {
     /// assert!(!path.ends_with(ForwardRelativePath::new("oo")?));
     /// assert!(path.ends_with(ForwardRelativePath::new("")?));
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn ends_with<P: AsRef<ForwardRelativePath>>(&self, child: P) -> bool {
         let child = child.as_ref();
@@ -562,7 +562,7 @@ impl ForwardRelativePath {
     ///     ForwardRelativePath::new("hi/foo.bar.rs")?.file_stem()
     /// );
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn file_stem(&self) -> Option<&str> {
         let file = self.file_name();
@@ -595,7 +595,7 @@ impl ForwardRelativePath {
     /// assert_eq!(None, ForwardRelativePath::new("foo/.git")?.extension());
     /// assert_eq!(None, ForwardRelativePath::new("")?.extension());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn extension(&self) -> Option<&str> {
         let s = &self.0;
@@ -637,12 +637,12 @@ impl ForwardRelativePath {
     ///     true
     /// );
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn join_normalized<P: AsRef<RelativePath>>(
         &self,
         path: P,
-    ) -> anyhow::Result<ForwardRelativePathBuf> {
+    ) -> buck2_error::Result<ForwardRelativePathBuf> {
         let self_rel_path: &RelativePath = self.as_ref();
         let inner = self_rel_path.join_normalized(path.as_ref());
         ForwardRelativePathBuf::try_from(inner)
@@ -651,7 +651,7 @@ impl ForwardRelativePath {
     /// Append a relative system path, obtained from e.g. `read_link`.
     ///
     /// The path will be converted to an internal path (i.e. forward slashes) before joining.
-    pub fn join_system(&self, path: &Path) -> anyhow::Result<ForwardRelativePathBuf> {
+    pub fn join_system(&self, path: &Path) -> buck2_error::Result<ForwardRelativePathBuf> {
         let path = fs_util::relative_path_from_system(path)?;
         self.join_normalized(path)
     }
@@ -671,7 +671,7 @@ impl ForwardRelativePath {
     /// assert_eq!(it.next(), None);
     /// assert_eq!(it.next(), None);
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
     pub fn iter(&self) -> ForwardRelativePathIter<'_> {
@@ -702,7 +702,7 @@ impl ForwardRelativePath {
     ///     Some(ForwardRelativePath::new("")?),
     /// );
     /// assert_eq!(p.strip_prefix_components(4), None,);
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn strip_prefix_components(&self, components: usize) -> Option<&Self> {
         let mut rem = self;
@@ -730,7 +730,7 @@ impl ForwardRelativePath {
 
 impl ForwardRelativePathBuf {
     #[inline]
-    pub fn new(s: String) -> anyhow::Result<ForwardRelativePathBuf> {
+    pub fn new(s: String) -> buck2_error::Result<ForwardRelativePathBuf> {
         ForwardRelativePath::new(&s)?;
         Ok(ForwardRelativePathBuf(s))
     }
@@ -826,7 +826,7 @@ impl ForwardRelativePathBuf {
     ///     path
     /// );
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     pub fn push<P: AsRef<ForwardRelativePath>>(&mut self, path: P) {
         let path = path.as_ref();
@@ -905,9 +905,9 @@ impl ForwardRelativePathBuf {
     ///
     /// assert!(path.push_normalized(RelativePath::new("..")).is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
-    pub fn push_normalized<P: AsRef<RelativePath>>(&mut self, path: P) -> anyhow::Result<()> {
+    pub fn push_normalized<P: AsRef<RelativePath>>(&mut self, path: P) -> buck2_error::Result<()> {
         let buf = &mut self.0;
         let mut insert_idx = buf.len();
         let bytes = path.as_ref().as_str().as_bytes();
@@ -934,9 +934,10 @@ impl ForwardRelativePathBuf {
                 if insert_idx == 0 {
                     // if we are already at 0, then we cannot move towards the parent without
                     // having this path still be forward pointing
-                    return Err(anyhow::anyhow!(
-                        ForwardRelativePathError::RelativizationError(path.as_ref().to_string())
-                    ));
+                    return Err(ForwardRelativePathError::RelativizationError(
+                        path.as_ref().to_string(),
+                    )
+                    .into());
                 }
 
                 let mut buf_i = insert_idx;
@@ -1044,7 +1045,7 @@ impl<'a> IntoIterator for &'a ForwardRelativePath {
 }
 
 impl<'a> TryFrom<&'a str> for &'a ForwardRelativePath {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -1060,10 +1061,10 @@ impl<'a> TryFrom<&'a str> for &'a ForwardRelativePath {
     /// assert!(<&ForwardRelativePath>::try_from("/abs/bar").is_err());
     /// assert!(<&ForwardRelativePath>::try_from("normalize/../bar").is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
-    fn try_from(s: &'a str) -> anyhow::Result<&'a ForwardRelativePath> {
+    fn try_from(s: &'a str) -> buck2_error::Result<&'a ForwardRelativePath> {
         ForwardRelativePathVerifier::verify_str(s)?;
         Ok(ForwardRelativePath::unchecked_new(s))
     }
@@ -1077,7 +1078,7 @@ impl<'a> From<&'a FileName> for &'a ForwardRelativePath {
 }
 
 impl<'a> TryFrom<&'a Path> for &'a ForwardRelativePath {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -1094,9 +1095,9 @@ impl<'a> TryFrom<&'a Path> for &'a ForwardRelativePath {
     /// assert!(<&ForwardRelativePath>::try_from(Path::new("/abs/bar")).is_err());
     /// assert!(<&ForwardRelativePath>::try_from(Path::new("normalize/../bar")).is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
-    fn try_from(s: &'a Path) -> anyhow::Result<&'a ForwardRelativePath> {
+    fn try_from(s: &'a Path) -> buck2_error::Result<&'a ForwardRelativePath> {
         let s = s
             .as_os_str()
             .to_str()
@@ -1107,7 +1108,7 @@ impl<'a> TryFrom<&'a Path> for &'a ForwardRelativePath {
 }
 
 impl<'a> TryFrom<&'a RelativePath> for &'a ForwardRelativePath {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -1123,10 +1124,10 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ForwardRelativePath {
     /// assert!(<&ForwardRelativePath>::try_from(RelativePath::new("normalize/./bar")).is_err());
     /// assert!(<&ForwardRelativePath>::try_from(RelativePath::new("normalize/../bar")).is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
-    fn try_from(p: &'a RelativePath) -> anyhow::Result<&'a ForwardRelativePath> {
+    fn try_from(p: &'a RelativePath) -> buck2_error::Result<&'a ForwardRelativePath> {
         ForwardRelativePathVerifier::verify_str(p.as_str())?;
         Ok(ForwardRelativePath::unchecked_new(p.as_str()))
     }
@@ -1139,7 +1140,7 @@ impl From<ForwardRelativePathBuf> for RelativePathBuf {
 }
 
 impl TryFrom<String> for ForwardRelativePathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -1155,17 +1156,17 @@ impl TryFrom<String> for ForwardRelativePathBuf {
     /// assert!(ForwardRelativePathBuf::try_from("/abs/bar".to_owned()).is_err());
     /// assert!(ForwardRelativePathBuf::try_from("normalize/../bar".to_owned()).is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
-    fn try_from(s: String) -> anyhow::Result<ForwardRelativePathBuf> {
+    fn try_from(s: String) -> buck2_error::Result<ForwardRelativePathBuf> {
         ForwardRelativePathVerifier::verify_str(&s)?;
         Ok(ForwardRelativePathBuf(s))
     }
 }
 
 impl TryFrom<PathBuf> for ForwardRelativePathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -1183,9 +1184,9 @@ impl TryFrom<PathBuf> for ForwardRelativePathBuf {
     /// assert!(ForwardRelativePathBuf::try_from(PathBuf::from("/abs/bar")).is_err());
     /// assert!(ForwardRelativePathBuf::try_from(PathBuf::from("normalize/../bar")).is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
-    fn try_from(p: PathBuf) -> anyhow::Result<ForwardRelativePathBuf> {
+    fn try_from(p: PathBuf) -> buck2_error::Result<ForwardRelativePathBuf> {
         // RelativePathBuf::from_path actually creates a copy.
         // avoid the copy by constructing RelativePathBuf from the underlying String
         ForwardRelativePathBuf::try_from(p.into_os_string().into_string().map_err(|_| {
@@ -1195,7 +1196,7 @@ impl TryFrom<PathBuf> for ForwardRelativePathBuf {
 }
 
 impl TryFrom<RelativePathBuf> for ForwardRelativePathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -1211,10 +1212,10 @@ impl TryFrom<RelativePathBuf> for ForwardRelativePathBuf {
     /// assert!(ForwardRelativePathBuf::try_from(RelativePathBuf::from("normalize/./bar")).is_err());
     /// assert!(ForwardRelativePathBuf::try_from(RelativePathBuf::from("normalize/../bar")).is_err());
     ///
-    /// # anyhow::Ok(())
+    /// # buck2_error::Ok(())
     /// ```
     #[inline]
-    fn try_from(p: RelativePathBuf) -> anyhow::Result<ForwardRelativePathBuf> {
+    fn try_from(p: RelativePathBuf) -> buck2_error::Result<ForwardRelativePathBuf> {
         ForwardRelativePathBuf::try_from(p.into_string())
     }
 }
@@ -1264,12 +1265,12 @@ pub struct ForwardRelativePathNormalizer {}
 impl ForwardRelativePathNormalizer {
     pub fn normalize_path<P: AsRef<Path> + ?Sized>(
         rel_path: &P,
-    ) -> anyhow::Result<Cow<ForwardRelativePath>> {
+    ) -> buck2_error::Result<Cow<ForwardRelativePath>> {
         let rel_path = rel_path.as_ref();
         if !rel_path.is_relative() {
-            return Err(anyhow::anyhow!(ForwardRelativePathError::PathNotRelative(
-                rel_path.display().to_string(),
-            )));
+            return Err(
+                ForwardRelativePathError::PathNotRelative(rel_path.display().to_string()).into(),
+            );
         }
         let path_str = rel_path
             .to_str()
@@ -1291,13 +1292,11 @@ impl ForwardRelativePathNormalizer {
 struct ForwardRelativePathVerifier {}
 
 impl ForwardRelativePathVerifier {
-    fn verify_str(rel_path: &str) -> anyhow::Result<()> {
+    fn verify_str(rel_path: &str) -> buck2_error::Result<()> {
         #[cold]
         #[inline(never)]
-        fn err(rel_path: &str) -> anyhow::Error {
-            anyhow::anyhow!(ForwardRelativePathError::PathNotNormalized(
-                rel_path.to_owned()
-            ))
+        fn err(rel_path: &str) -> buck2_error::Error {
+            ForwardRelativePathError::PathNotNormalized(rel_path.to_owned()).into()
         }
 
         let bytes = rel_path.as_bytes();
@@ -1305,9 +1304,7 @@ impl ForwardRelativePathVerifier {
             return Ok(());
         }
         if bytes[0] == b'/' {
-            return Err(anyhow::anyhow!(ForwardRelativePathError::PathNotRelative(
-                rel_path.to_owned()
-            )));
+            return Err(ForwardRelativePathError::PathNotRelative(rel_path.to_owned()).into());
         }
 
         if memchr::memchr(b'\\', bytes).is_some() {
@@ -1363,7 +1360,7 @@ mod tests {
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
     #[test]
-    fn forward_path_is_comparable() -> anyhow::Result<()> {
+    fn forward_path_is_comparable() -> buck2_error::Result<()> {
         let path1_buf = ForwardRelativePathBuf::unchecked_new("foo".into());
         let path2_buf = ForwardRelativePathBuf::unchecked_new("foo".into());
         let path3_buf = ForwardRelativePathBuf::unchecked_new("bar".into());

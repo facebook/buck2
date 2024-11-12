@@ -179,7 +179,7 @@ impl ExecutionPlatformResolution {
         }
     }
 
-    // TODO(cjhopman): Should this be an anyhow::Result and never return an invalid configuration?
+    // TODO(cjhopman): Should this be an buck2_error::Result and never return an invalid configuration?
     #[inline]
     pub fn cfg(&self) -> ConfigurationNoExec {
         match &self.platform {
@@ -188,7 +188,7 @@ impl ExecutionPlatformResolution {
         }
     }
 
-    pub fn platform(&self) -> anyhow::Result<&ExecutionPlatform> {
+    pub fn platform(&self) -> buck2_error::Result<&ExecutionPlatform> {
         match &self.platform {
             Some(v) => Ok(v),
             None => Err(ExecutionPlatformError::NoCompatiblePlatform(
@@ -202,7 +202,7 @@ impl ExecutionPlatformResolution {
         &self.skipped_platforms
     }
 
-    pub fn executor_config(&self) -> anyhow::Result<&Arc<CommandExecutorConfig>> {
+    pub fn executor_config(&self) -> buck2_error::Result<&Arc<CommandExecutorConfig>> {
         Ok(self.platform()?.executor_config())
     }
 }

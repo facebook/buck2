@@ -30,7 +30,7 @@ impl WorkingDir {
         WorkingDir { path }
     }
 
-    pub fn current_dir() -> anyhow::Result<WorkingDir> {
+    pub fn current_dir() -> buck2_error::Result<WorkingDir> {
         let current_dir = AbsPathBuf::new(env::current_dir()?)?;
 
         #[derive(Debug, buck2_error::Error)]

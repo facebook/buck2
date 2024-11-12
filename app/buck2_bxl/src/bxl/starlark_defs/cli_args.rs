@@ -488,26 +488,30 @@ impl CliArgType {
             CliArgType::List(inner) => inner.to_clap(clap).num_args(0..).action(ArgAction::Append),
             CliArgType::Option(inner) => inner.to_clap(clap).required(false),
             CliArgType::TargetLabel => clap.num_args(1).value_parser(|x: &str| {
-                lex_target_pattern::<TargetPatternExtra>(x, false)
-                    .and_then(|parsed| parsed.pattern.infer_target())
-                    .map(|parsed| {
-                        parsed
-                            .target()
-                            .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
-                            .map(|_| ())
-                    })
-                    .map(|_| x.to_owned())
+                anyhow::Ok(
+                    lex_target_pattern::<TargetPatternExtra>(x, false)
+                        .and_then(|parsed| parsed.pattern.infer_target())
+                        .map(|parsed| {
+                            parsed
+                                .target()
+                                .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
+                                .map(|_| ())
+                        })
+                        .map(|_| x.to_owned())?,
+                )
             }),
             CliArgType::SubTarget => clap.num_args(1).value_parser(|x: &str| {
-                lex_target_pattern::<ProvidersPatternExtra>(x, false)
-                    .and_then(|parsed| parsed.pattern.infer_target())
-                    .map(|parsed| {
-                        parsed
-                            .target()
-                            .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
-                            .map(|_| ())
-                    })
-                    .map(|_| x.to_owned())
+                anyhow::Ok(
+                    lex_target_pattern::<ProvidersPatternExtra>(x, false)
+                        .and_then(|parsed| parsed.pattern.infer_target())
+                        .map(|parsed| {
+                            parsed
+                                .target()
+                                .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
+                                .map(|_| ())
+                        })
+                        .map(|_| x.to_owned())?,
+                )
             }),
             CliArgType::TargetExpr => clap.num_args(1),
             CliArgType::SubTargetExpr => clap.num_args(1),

@@ -139,9 +139,9 @@ impl PartialEq<AbsPathBuf> for &'_ AbsPath {
 }
 
 impl AbsPath {
-    pub fn new<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> anyhow::Result<&'a AbsPath> {
+    pub fn new<'a, P: AsRef<Path> + ?Sized>(path: &'a P) -> buck2_error::Result<&'a AbsPath> {
         // Wrapper function to make sure the lifetimes are right
-        fn inner(path: &Path) -> anyhow::Result<&AbsPath> {
+        fn inner(path: &Path) -> buck2_error::Result<&AbsPath> {
             if path.is_absolute() {
                 // SAFETY: repr transparent.
                 Ok(unsafe { &*(path as *const Path as *const AbsPath) })
@@ -156,7 +156,7 @@ impl AbsPath {
         &self.0
     }
 
-    pub fn to_str(&self) -> anyhow::Result<&str> {
+    pub fn to_str(&self) -> buck2_error::Result<&str> {
         match self.0.to_str() {
             Some(s) => Ok(s),
             None => Err(AbsPathError::PathCannotBeConvertedToUtf8(self.0.to_owned().into()).into()),
@@ -172,7 +172,7 @@ impl AbsPath {
         self.0.parent().map(|p| AbsPath::new(p).unwrap())
     }
 
-    pub fn strip_prefix<P: AsRef<AbsPath>>(&self, prefix: P) -> anyhow::Result<&Path> {
+    pub fn strip_prefix<P: AsRef<AbsPath>>(&self, prefix: P) -> buck2_error::Result<&Path> {
         Ok(self.0.strip_prefix(prefix.as_ref())?)
     }
 
@@ -185,13 +185,13 @@ impl AbsPath {
         cwd::maybe_relativize(&self.0)
     }
 
-    pub fn as_maybe_relativized_str(&self) -> anyhow::Result<&str> {
+    pub fn as_maybe_relativized_str(&self) -> buck2_error::Result<&str> {
         Ok(cwd::maybe_relativize_str(self.to_str()?))
     }
 }
 
 impl AbsPathBuf {
-    pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
+    pub fn new<P: AsRef<Path>>(path: P) -> buck2_error::Result<Self> {
         let p = AbsPath::new(path.as_ref())?;
         Ok(p.to_owned())
     }
@@ -205,7 +205,7 @@ impl AbsPathBuf {
     }
 
     /// Convert a path into a String. Fails if the path is not UTF8.
-    pub fn into_string(self) -> anyhow::Result<String> {
+    pub fn into_string(self) -> buck2_error::Result<String> {
         self.into_os_string()
             .into_string()
             .map_err(|x| AbsPathError::PathCannotBeConvertedToUtf8(x).into())
