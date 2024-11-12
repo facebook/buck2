@@ -12,6 +12,7 @@
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
@@ -937,7 +938,8 @@ cxx_test = prelude_rule(
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        test_common.attributes()
     ),
 )
 

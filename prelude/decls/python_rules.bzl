@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
@@ -484,7 +485,8 @@ python_test = prelude_rule(
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         } |
-        _typing_arg()
+        _typing_arg() |
+        test_common.attributes()
     ),
 )
 

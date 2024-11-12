@@ -19,6 +19,7 @@ load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_i
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "LinkableDepType", "buck", "prelude_rule")
@@ -801,7 +802,8 @@ apple_test = prelude_rule(
         } |
         buck.allow_cache_upload_arg() |
         buck.inject_test_env_arg() |
-        apple_test_extra_attrs()
+        apple_test_extra_attrs() |
+        test_common.attributes()
     ),
 )
 

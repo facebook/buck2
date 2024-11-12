@@ -9,3 +9,12 @@ TestToolchainInfo = provider(fields = {
     # Used to populate sanitizer field in test infra.
     "sanitizer": str | None,
 })
+
+def _impl(_ctx: AnalysisContext) -> list[Provider]:
+    return [DefaultInfo(), TestToolchainInfo(sanitizer = None)]
+
+noop_test_toolchain = rule(
+    impl = _impl,
+    attrs = {},
+    is_toolchain_rule = True,
+)

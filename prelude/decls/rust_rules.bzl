@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
@@ -277,7 +278,8 @@ rust_test = prelude_rule(
         re_test_common.test_args() |
         rust_common.cxx_toolchain_arg() |
         rust_common.rust_toolchain_arg() |
-        rust_common.workspaces_arg()
+        rust_common.workspaces_arg() |
+        test_common.attributes()
     ),
     uses_plugins = [RustProcMacroPlugin],
 )

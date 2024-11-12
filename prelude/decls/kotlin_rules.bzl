@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
@@ -243,7 +244,8 @@ kotlin_test = prelude_rule(
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        test_common.attributes()
     ),
 )
 

@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":common.bzl", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
@@ -364,7 +365,8 @@ go_test = prelude_rule(
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
         } |
-        re_test_common.test_args()
+        re_test_common.test_args() |
+        test_common.attributes()
     ),
 )
 go_bootstrap_binary = prelude_rule(

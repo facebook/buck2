@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//utils/clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
 load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "ForkMode", "LogLevel", "OnDuplicateEntry", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
@@ -658,7 +659,8 @@ android_instrumentation_test = prelude_rule(
             "_android_emulators": attrs.option(attrs.transition_dep(cfg = clear_platform_transition, providers = [LocalResourceInfo]), default = None, doc = """
                 If provided, local resource of "android_emulators" type will be required to run this test locally and this target will be used to manage it. If omitted, local resource of "android_emulators" type will be ignored even if requested by the test runner.
             """),
-        }
+        } |
+        test_common.attributes()
     ),
 )
 
@@ -1483,7 +1485,8 @@ robolectric_test = prelude_rule(
         jvm_common.plugins() |
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.javac() |
-        re_test_common.test_args()
+        re_test_common.test_args() |
+        test_common.attributes()
     ),
 )
 

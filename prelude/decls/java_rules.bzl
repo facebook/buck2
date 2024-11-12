@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//decls:test_common.bzl", "test_common")
 load(":common.bzl", "AbiGenerationMode", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
@@ -428,7 +429,7 @@ java_test = prelude_rule(
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         }
-    ) | jvm_common.plugins() | jvm_common.javac(),
+    ) | jvm_common.plugins() | jvm_common.javac() | test_common.attributes(),
 )
 
 java_test_runner = prelude_rule(
