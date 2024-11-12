@@ -21,8 +21,14 @@ The biggest advantage in adopting this protocol is the number of already existin
 
 ### Reliability
 
-### Impact on performances
+### Sync Vs Async event stream
+
+Sending events to a remote end may cause a build to incur delays. The most clear of which is when a user wants to ensure that by the end of a command's invocation all events have been successfully uploaded or the command exits unsuccessfully. Doing this within the command itself will always add additional time to the build. At a minimum that delay will be the time it takes to send the last event, but in the worst case scenario this could cause the build to wait for multiple large blobs to be uploaded. This could take several minute and have a profound impact on performances.
+
+Alternatively, the events could be send asynchronously. This works really well when the instance the command is run from can be guaranteed to stay alive for as long as it takes to upload all the events. This is typically not the case with ephemeral CI instances which are becoming more and more common. Furthermore, consecutive invocations that do not wait for the previous events to be sent may incur higher network latency. Finally, mutating the file system during an asynchronous stream of events may cause inconsistent uploads and thus incorrect results.
 
 ### Using bazel's events or creating custom new ones?
 
-## Conclusions
+## Proposal
+
+
