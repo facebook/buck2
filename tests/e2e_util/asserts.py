@@ -40,6 +40,10 @@ def assert_not_executable(output: Path) -> None:
         assert output.stat().st_mode & stat.S_IXUSR == 0
 
 
+def _indent(text: str) -> str:
+    return "".join(f"  {line}\n" for line in text.splitlines())
+
+
 async def expect_failure(
     process: Awaitable[BuckResult],
     *,
@@ -80,7 +84,7 @@ async def expect_failure(
         )
         assert (
             actual_exit_code == exit_code
-        ), f"Expected exit code {exit_code} but found {actual_exit_code}"
+        ), f"Expected exit code {exit_code} but found {actual_exit_code}\n<stderr>\n{_indent(failure.stderr)}</stderr>"
     if stdout_regex is not None:
         assert re.search(
             stdout_regex, failure.stdout, re.DOTALL
