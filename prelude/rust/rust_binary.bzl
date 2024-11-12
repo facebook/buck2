@@ -49,6 +49,7 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
+load("@prelude//tests:test_toolchain.bzl", "test_toolchain_labels")
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(
@@ -440,7 +441,7 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
             type = "rust",
             command = [args],
             env = ctx.attrs.env | ctx.attrs.run_env,
-            labels = ctx.attrs.labels,
+            labels = ctx.attrs.labels + test_toolchain_labels(ctx.attrs._test_toolchain),
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
             executor_overrides = executor_overrides,
