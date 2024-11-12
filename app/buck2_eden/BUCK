@@ -10,7 +10,6 @@ rust_library(
         # @oss-disable: "edenfs_clients": "//eden/fs/service:thrift-rust-clients", 
     },
     deps = [
-        # @oss-disable: "fbsource//third-party/rust:anyhow", 
         # @oss-disable: "fbsource//third-party/rust:async-trait", 
         # @oss-disable: "fbsource//third-party/rust:compact_str", 
         # @oss-disable: "fbsource//third-party/rust:futures", 

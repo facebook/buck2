@@ -17,7 +17,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_certs::validate::validate_certs;
 use buck2_core;
 use buck2_core::fs::fs_util;
@@ -85,7 +84,7 @@ impl EdenConnectionManager {
         fb: FacebookInit,
         project_root: &ProjectRoot,
         semaphore: Semaphore,
-    ) -> anyhow::Result<Option<Self>> {
+    ) -> buck2_error::Result<Option<Self>> {
         let dot_eden_dir = project_root.root().as_abs_path().join(".eden");
         if !dot_eden_dir.exists() {
             return Ok(None);
@@ -97,7 +96,7 @@ impl EdenConnectionManager {
 
         let rel_project_root = canon_project_root
             .strip_prefix(&canon_eden_mount)
-            .with_buck_error_context_anyhow(|| {
+            .with_buck_error_context(|| {
                 format!(
                     "Eden root {} was not a prefix of the project root {}",
                     canon_eden_mount, canon_project_root
@@ -120,7 +119,7 @@ impl EdenConnectionManager {
     fn get_eden_connector(
         fb: FacebookInit,
         dot_eden_dir: &AbsPath,
-    ) -> anyhow::Result<EdenConnector> {
+    ) -> buck2_error::Result<EdenConnector> {
         // Based off of how watchman picks up the config: fbcode/watchman/watcher/eden.cpp:138
         if cfg!(windows) {
             let config_path = dot_eden_dir.join("config");
@@ -160,7 +159,7 @@ impl EdenConnectionManager {
 
     /// Returns a string like "20220102-030405", assuming this is a release version. This is
     /// pattern-matched off of what the Eden CLI does.
-    pub async fn get_eden_version(&self) -> anyhow::Result<Option<String>> {
+    pub async fn get_eden_version(&self) -> buck2_error::Result<Option<String>> {
         let fb303 = self.connector.connect_fb303()?;
         let values = fb303.getRegexExportedValues("^build_.*").await?;
 
@@ -268,7 +267,7 @@ struct EdenConnector {
 fn thrift_builder(
     fb: FacebookInit,
     socket: &AbsPathBuf,
-) -> anyhow::Result<::thriftclient::ThriftChannelBuilder> {
+) -> buck2_error::Result<::thriftclient::ThriftChannelBuilder> {
     // NOTE: This timeout is absurdly high, but bear in mind that what we're
     // "comparing" to is a FS call that has no timeouts at all.
     const THRIFT_TIMEOUT_MS: u32 = 120_000;
@@ -291,7 +290,7 @@ impl EdenConnector {
             tracing::info!("Creating a new Eden connection via `{}`", socket.display());
             let eden: Arc<dyn EdenService + Send + Sync> = thrift_builder(fb, &socket)?
                 .build_client(::edenfs_clients::make_EdenService)
-                .context("Error constructing Eden client")?;
+                .buck_error_context("Error constructing Eden client")?;
 
             wait_until_mount_is_ready(eden.as_ref(), &mount).await?;
 
@@ -305,8 +304,9 @@ impl EdenConnector {
         .shared()
     }
 
-    fn connect_fb303(&self) -> anyhow::Result<Arc<dyn BaseService + Send + Sync>> {
-        thrift_builder(self.fb, &self.socket)?.build_client(::fb303_core_clients::make_BaseService)
+    fn connect_fb303(&self) -> buck2_error::Result<Arc<dyn BaseService + Send + Sync>> {
+        Ok(thrift_builder(self.fb, &self.socket)?
+            .build_client(::fb303_core_clients::make_BaseService)?)
     }
 }
 
@@ -321,7 +321,7 @@ struct MountNeverBecameReady {
 async fn wait_until_mount_is_ready(
     eden: &(dyn EdenService + Send + Sync),
     mount: &EdenMountPoint,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut interval = tokio::time::interval(Duration::from_secs(1));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -380,7 +380,7 @@ async fn is_mount_ready(
 pub enum ConnectAndRequestError<E> {
     #[error(transparent)]
     #[buck2(tag = IoEdenConnectionError)]
-    ConnectionError(anyhow::Error),
+    ConnectionError(buck2_error::Error),
     #[error(transparent)]
     #[buck2(tag = IoEdenRequestError)]
     RequestError(E),

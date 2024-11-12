@@ -11,7 +11,6 @@
 #![allow(clippy::useless_vec)]
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::file_ops::FileDigest;
@@ -24,7 +23,7 @@ use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
 use buck2_common::io::IoProvider;
 use buck2_core;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
@@ -68,7 +67,7 @@ impl EdenIoProvider {
         fb: FacebookInit,
         fs: &ProjectRoot,
         cas_digest_config: CasDigestConfig,
-    ) -> anyhow::Result<Option<Self>> {
+    ) -> buck2_error::Result<Option<Self>> {
         let (digest, min_eden_version) = if cas_digest_config.source_files_config().allows_sha1() {
             (Digest::Sha1, "20220905-214046")
         } else if cas_digest_config
@@ -81,7 +80,8 @@ impl EdenIoProvider {
             return Ok(None);
         };
 
-        let eden_semaphore = buck2_env_anyhow!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)?;
+        let eden_semaphore =
+            buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)?;
 
         let manager = match EdenConnectionManager::new(fb, fs, Semaphore::new(eden_semaphore))? {
             Some(manager) => manager,
@@ -91,7 +91,7 @@ impl EdenIoProvider {
         let eden_version = manager
             .get_eden_version()
             .await
-            .context("Error querying Eden version")?;
+            .buck_error_context("Error querying Eden version")?;
 
         if let Some(eden_version) = &eden_version {
             if eden_version.as_str() < min_eden_version {
@@ -118,7 +118,7 @@ impl EdenIoProvider {
     async fn read_path_metadata_if_exists_impl(
         &self,
         path: &ProjectRelativePathBuf,
-    ) -> anyhow::Result<PathMetadataResult> {
+    ) -> buck2_error::Result<PathMetadataResult> {
         let _guard = IoCounterKey::StatEden.guard();
 
         let hash_attribute = match self.digest {
@@ -153,15 +153,15 @@ impl EdenIoProvider {
             .res
             .into_iter()
             .next()
-            .context("Eden did not return file info")?
+            .buck_error_context("Eden did not return file info")?
             .into_result()
         {
             Ok(data) => {
                 let source_control_type = data
                     .sourceControlType
-                    .context("Eden did not return a type")?
+                    .buck_error_context("Eden did not return a type")?
                     .into_result()
-                    .context("Eden returned an error for sourceControlType")?;
+                    .buck_error_context("Eden returned an error for sourceControlType")?;
 
                 if source_control_type == SourceControlType::TREE {
                     return Ok(PathMetadataResult::Result(Some(RawPathMetadata::Directory)));
@@ -193,34 +193,34 @@ impl EdenIoProvider {
 
                 let size = data
                     .size
-                    .context("Eden did not return a size")?
+                    .buck_error_context("Eden did not return a size")?
                     .into_result()
-                    .context("Eden returned an error for size")?
+                    .buck_error_context("Eden returned an error for size")?
                     .try_into()
-                    .context("Eden returned an invalid size")?;
+                    .buck_error_context("Eden returned an invalid size")?;
 
                 tracing::debug!("getAttributesFromFilesV2({}): ok", path);
                 let digest = match self.digest {
                     Digest::Sha1 => {
                         let sha1 = data
                             .sha1
-                            .context("Eden did not return a sha1")?
+                            .buck_error_context("Eden did not return a sha1")?
                             .into_result()
-                            .context("Eden returned an error for sha1")?
+                            .buck_error_context("Eden returned an error for sha1")?
                             .try_into()
                             .ok()
-                            .context("Eden returned an invalid sha1")?;
+                            .buck_error_context("Eden returned an invalid sha1")?;
                         FileDigest::new_sha1(sha1, size)
                     }
                     Digest::Blake3Keyed => {
                         let blake3 = data
                             .blake3
-                            .context("Eden did not return a blake3")?
+                            .buck_error_context("Eden did not return a blake3")?
                             .into_result()
-                            .context("Eden returned an error for blake3")?
+                            .buck_error_context("Eden returned an error for blake3")?
                             .try_into()
                             .ok()
-                            .context("Eden returned an invalid blake3")?;
+                            .buck_error_context("Eden returned an invalid blake3")?;
                         FileDigest::new_blake3_keyed(blake3, size)
                     }
                 };
@@ -248,7 +248,7 @@ impl EdenIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<Vec<RawDirEntry>> {
         let _guard = IoCounterKey::ReadDirEden.guard();
 
         let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));
@@ -273,7 +273,7 @@ impl EdenIoProvider {
         let data = res
             .into_iter()
             .next()
-            .context("Eden did not return a directory result")?
+            .buck_error_context("Eden did not return a directory result")?
             .into_result()?;
 
         tracing::debug!("readdir({}): {} entries", path, data.len());
@@ -281,13 +281,13 @@ impl EdenIoProvider {
         let entries = data
             .into_iter()
             .map(|(file_name, attrs)| {
-                let file_name =
-                    CompactString::from_utf8(file_name).context("Filename is not UTF-8")?;
+                let file_name = CompactString::from_utf8(file_name)
+                    .buck_error_context("Filename is not UTF-8")?;
 
                 let source_control_type = attrs
                     .into_result()?
                     .sourceControlType
-                    .context("Missing sourceControlType")?
+                    .buck_error_context("Missing sourceControlType")?
                     .into_result()?;
 
                 let file_type = match source_control_type {
@@ -299,7 +299,7 @@ impl EdenIoProvider {
                     _ => FileType::Unknown,
                 };
 
-                anyhow::Ok(RawDirEntry {
+                buck2_error::Ok(RawDirEntry {
                     file_name,
                     file_type,
                 })
@@ -376,7 +376,7 @@ impl IoProvider for EdenIoProvider {
                 )
             })
             .await
-            .context("Error synchronizing Eden working copy")
+            .buck_error_context("Error synchronizing Eden working copy")
             .tag(ErrorTag::IoEden)
     }
 
