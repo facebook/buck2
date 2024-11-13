@@ -10,10 +10,13 @@
 use std::str::FromStr;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
+use buck2_core::fs::fs_util;
+use buck2_core::fs::working_dir::WorkingDir;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum RootKind {
@@ -64,12 +67,28 @@ impl RootCommand {
         let root = if matches!(self.kind, RootKind::Daemon) {
             ctx.paths()?.daemon_dir()?.path
         } else {
-            let roots = match self.dir {
+            let roots = match self.dir.clone() {
                 Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?,
                 None => ctx.paths()?.roots.clone(),
             };
             match self.kind {
-                RootKind::Cell => roots.cell_root,
+                RootKind::Cell => {
+                    let working_dir_data;
+                    let imm_ctx_data;
+                    let imm_ctx = match self.dir {
+                        Some(dir) => {
+                            let base_dir = dir.resolve(&ctx.working_dir);
+                            // FIXME(JakobDegen): Like always, canonicalize is wrong
+                            let base_dir = fs_util::canonicalize(&base_dir)?;
+                            working_dir_data = WorkingDir::unchecked_new(base_dir);
+                            imm_ctx_data = ImmediateConfigContext::new(&working_dir_data);
+                            &imm_ctx_data
+                        }
+                        None => &ctx.immediate_config,
+                    };
+                    let root = imm_ctx.resolve_alias_to_path_in_cwd("")?;
+                    roots.project_root.resolve(&*root)
+                }
                 RootKind::Project => roots.project_root.root().to_owned(),
                 // Handled above
                 RootKind::Daemon => unreachable!(),

@@ -42,7 +42,7 @@ use crate::subscribers::recorder::try_get_invocation_recorder;
 
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
-    pub(crate) immediate_config: &'a ImmediateConfigContext<'a>,
+    pub immediate_config: &'a ImmediateConfigContext<'a>,
     paths: InvocationPathsResult,
     pub working_dir: WorkingDir,
     pub verbosity: Verbosity,

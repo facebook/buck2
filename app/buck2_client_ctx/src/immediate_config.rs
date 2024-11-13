@@ -129,10 +129,7 @@ impl<'a> ImmediateConfigContext<'a> {
         Ok(data.project_filesystem.resolve(&path))
     }
 
-    pub(crate) fn resolve_alias_to_path_in_cwd(
-        &self,
-        alias: &str,
-    ) -> anyhow::Result<CellRootPathBuf> {
+    pub fn resolve_alias_to_path_in_cwd(&self, alias: &str) -> anyhow::Result<CellRootPathBuf> {
         let data = self.data()?;
         let cell = data.cwd_cell_alias_resolver.resolve(alias)?;
         Ok(data.cell_resolver.get(cell)?.path().to_buf())

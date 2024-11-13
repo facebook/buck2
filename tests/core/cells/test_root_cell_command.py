@@ -16,5 +16,4 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 @buck_test()
 async def test_root_cell_with_ignored_buckconfig(buck: Buck) -> None:
     r = await buck.root("--kind=cell", rel_cwd=Path("abc"))
-    # FIXME(JakobDegen): Bug: This is not a cell
-    assert r.stdout.strip() == str(buck.cwd / "abc")
+    assert r.stdout.strip() == str(buck.cwd)
