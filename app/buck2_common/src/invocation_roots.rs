@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_core::buck2_env;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -62,12 +63,12 @@ impl InvocationRoots {
 ///
 /// We also look for .buckroot files, and if we find one of them, we don't traverse further upwards.
 /// The contents of the .buckroot file is entirely ignored.
-fn get_roots(from: &AbsWorkingDir) -> Option<InvocationRoots> {
+fn get_roots(from: &AbsWorkingDir) -> buck2_error::Result<Option<InvocationRoots>> {
     let mut project_root = None;
 
     let home_dir = dirs::home_dir();
     for curr in from.path().ancestors() {
-        if curr.join(FileName::unchecked_new(".buckconfig")).exists() {
+        if fs_util::try_exists(curr.join(FileName::unchecked_new(".buckconfig")))? {
             // Do not allow /home/{unixname}, /home or / to be a cell,
             // and /home/{unixname}/.buckconfig is used for config override
             if let Some(home_dir_path) = &home_dir {
@@ -78,22 +79,22 @@ fn get_roots(from: &AbsWorkingDir) -> Option<InvocationRoots> {
             project_root = Some(curr.to_owned());
         }
 
-        if curr.join(FileName::unchecked_new(".buckroot")).exists() {
+        if fs_util::try_exists(curr.join(FileName::unchecked_new(".buckroot")))? {
             break;
         }
     }
 
     #[allow(clippy::manual_map)]
-    match project_root {
+    Ok(match project_root {
         Some(project_root) => Some(InvocationRoots {
             project_root: ProjectRoot::new_unchecked(project_root),
         }),
         None => None,
-    }
+    })
 }
 
 pub fn find_invocation_roots(from: &AbsWorkingDir) -> buck2_error::Result<InvocationRoots> {
-    get_roots(from).ok_or_else(|| BuckCliError::NoBuckRoot(from.to_owned()).into())
+    get_roots(from)?.ok_or_else(|| BuckCliError::NoBuckRoot(from.to_owned()).into())
 }
 
 pub fn get_invocation_paths_result(
@@ -101,8 +102,11 @@ pub fn get_invocation_paths_result(
     isolation: FileNameBuf,
 ) -> InvocationPathsResult {
     match get_roots(from) {
-        Some(roots) => InvocationPathsResult::Paths(InvocationPaths { roots, isolation }),
-        _ => InvocationPathsResult::OutsideOfRepo(BuckCliError::NoBuckRoot(from.to_owned()).into()),
+        Ok(Some(roots)) => InvocationPathsResult::Paths(InvocationPaths { roots, isolation }),
+        Ok(None) => {
+            InvocationPathsResult::OutsideOfRepo(BuckCliError::NoBuckRoot(from.to_owned()).into())
+        }
+        Err(e) => InvocationPathsResult::OtherError(e.into()),
     }
 }
 
