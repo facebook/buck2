@@ -20,7 +20,10 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_error::classify::best_error;
+use buck2_error::classify::ErrorLike;
 use buck2_error::ErrorTag;
+use buck2_error::Tier;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 #[derive(Debug)]
@@ -198,9 +201,6 @@ impl ExitResult {
     }
 
     pub fn from_errors<'a>(errors: &'a Vec<buck2_data::ErrorReport>) -> Self {
-        let mut has_infra = false;
-        let mut has_user = false;
-
         for e in errors {
             if e.tags
                 .contains(&(buck2_data::error::ErrorTag::DaemonIsBusy as i32))
@@ -212,23 +212,22 @@ impl ExitResult {
             {
                 return Self::status_with_error_report(ExitCode::DaemonPreempted, errors);
             }
-            match e.tier.and_then(buck2_data::error::ErrorTier::from_i32) {
-                Some(buck2_data::error::ErrorTier::Tier0)
-                | Some(buck2_data::error::ErrorTier::Environment) => has_infra = true,
-                Some(buck2_data::error::ErrorTier::Input) => has_user = true,
-                Some(buck2_data::error::ErrorTier::UnusedDefaultCategory) | None => (),
+        }
+
+        match best_error(errors).map(|error| error.category()) {
+            Some(category) => match category {
+                Tier::Input => Self::status_with_error_report(ExitCode::UserError, errors),
+                Tier::Tier0 | Tier::Environment => {
+                    Self::status_with_error_report(ExitCode::InfraError, errors)
+                }
+            },
+            None => {
+                // FIXME(JakobDegen): For compatibility with pre-existing behavior, we return infra failure
+                // here. However, it would be more honest to return the `1` status code that we use for
+                // "unknown"
+                Self::status_with_error_report(ExitCode::InfraError, errors)
             }
         }
-        if has_infra {
-            return Self::status_with_error_report(ExitCode::InfraError, errors);
-        }
-        if has_user {
-            return Self::status_with_error_report(ExitCode::UserError, errors);
-        }
-        // FIXME(JakobDegen): For compatibility with pre-existing behavior, we return infra failure
-        // here. However, it would be more honest to return the `1` status code that we use for
-        // "unknown"
-        Self::status_with_error_report(ExitCode::InfraError, errors)
     }
 
     /// Buck2 supports being built as both a "full" binary as well as a "client-only" binary.
