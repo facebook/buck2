@@ -61,10 +61,9 @@ impl WhatUpCommand {
             let mut super_console = StatefulSuperConsole::console_builder()
                 .build_forced(StatefulSuperConsole::FALLBACK_SIZE)?;
 
-            let build_count_dir = match ctx.paths() {
-                Ok(paths) => Some(paths.build_count_dir()),
-                Err(_) => None,
-            };
+            let build_count_dir = ctx
+                .maybe_paths()?
+                .map(|p| p.roots.project_root.root().to_owned());
             let mut super_console_state = SuperConsoleState::new(
                 None,
                 invocation.trace_id,
