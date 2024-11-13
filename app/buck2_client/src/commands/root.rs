@@ -61,19 +61,19 @@ impl RootCommand {
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
-        let root = match self.kind {
-            RootKind::Cell => match self.dir {
-                Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?.cell_root,
-                None => ctx.paths()?.cell_root().to_owned(),
-            },
-            RootKind::Project => match self.dir {
-                Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?
-                    .project_root
-                    .root()
-                    .to_owned(),
-                None => ctx.paths()?.project_root().root().to_owned(),
-            },
-            RootKind::Daemon => ctx.paths()?.daemon_dir()?.path,
+        let root = if matches!(self.kind, RootKind::Daemon) {
+            ctx.paths()?.daemon_dir()?.path
+        } else {
+            let roots = match self.dir {
+                Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?,
+                None => ctx.paths()?.roots.clone(),
+            };
+            match self.kind {
+                RootKind::Cell => roots.cell_root,
+                RootKind::Project => roots.project_root.root().to_owned(),
+                // Handled above
+                RootKind::Daemon => unreachable!(),
+            }
         };
 
         buck2_client_ctx::println!("{}", root.to_string_lossy())?;
