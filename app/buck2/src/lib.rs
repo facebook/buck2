@@ -295,10 +295,8 @@ impl CommandKind {
         argv: Argv,
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
-        let paths_result = get_invocation_paths_result(
-            process.working_dir.path(),
-            common_opts.isolation_dir.clone(),
-        );
+        let paths_result =
+            get_invocation_paths_result(process.working_dir, common_opts.isolation_dir.clone());
 
         // Handle the daemon command earlier: it wants to fork, but the things we do below might
         // want to create threads.

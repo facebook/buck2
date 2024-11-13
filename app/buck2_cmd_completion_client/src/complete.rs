@@ -108,18 +108,17 @@ impl CompleteCommand {
         matches: &ArgMatches,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
-        let cwd = ctx.working_dir.path();
         let exit_result = match self.partial_target.split(':').collect::<Vec<_>>()[..] {
             // Package completion is performed locally and called here directly
             [given_partial_package] => {
                 let roots = &ctx.paths()?.roots;
-                let completer = PackageCompleter::new(cwd, roots).await?;
+                let completer = PackageCompleter::new(&ctx.working_dir, roots).await?;
                 print_completions(completer.complete(given_partial_package).await)
             }
             // Target completion requires a round-trip to the daemon, so we spin up a new command
             [given_package, given_partial_target] => {
                 let completer = CompleteTargetCommand::new(
-                    cwd,
+                    &ctx.working_dir,
                     given_package.to_owned(),
                     given_partial_target.to_owned(),
                     print_completions,

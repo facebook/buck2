@@ -8,22 +8,21 @@
  */
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::working_dir::WorkingDir;
 
 use super::path_sanitizer::PathSanitizer;
 use super::path_sanitizer::SanitizedPath;
 use super::results::CompletionResults;
 
 pub(crate) struct PathCompleter<'a, 'b> {
-    cwd: AbsNormPathBuf,
+    cwd: WorkingDir,
     sanitizer: &'b PathSanitizer,
     results: &'b mut CompletionResults<'a>,
 }
 
 impl<'a, 'b> PathCompleter<'a, 'b> {
     pub(crate) fn new(
-        cwd: &AbsNormPath,
+        cwd: &WorkingDir,
         sanitizer: &'b PathSanitizer,
         results: &'b mut CompletionResults<'a>,
     ) -> anyhow::Result<Self> {
@@ -74,7 +73,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
 
         let given_dir = &partial.given()[..partial.given().len() - partial_base.len()];
 
-        let mut scan_dir = self.cwd.to_path_buf();
+        let mut scan_dir = self.cwd.path().to_path_buf();
         if let Some(offset_dir) = partial_path.parent() {
             scan_dir = scan_dir.join(offset_dir);
         }
@@ -94,7 +93,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
         let partial_path = partial.abs_path();
         let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
 
-        let mut scan_dir = self.cwd.to_path_buf();
+        let mut scan_dir = self.cwd.path().to_path_buf();
         if let Some(offset_dir) = partial_path.parent() {
             scan_dir = scan_dir.join(offset_dir);
         }

@@ -23,6 +23,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::working_dir::WorkingDir;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SanitizedPath {
@@ -69,21 +70,21 @@ impl std::fmt::Display for SanitizedPath {
 pub(crate) struct PathSanitizer {
     cell_resovler: CellResolver,
     alias_resolver: CellAliasResolver,
-    cwd: AbsNormPathBuf,
+    cwd: WorkingDir,
     cwd_roots: InvocationRoots,
 }
 
 impl PathSanitizer {
     pub(crate) async fn new(
         cell_configs: &BuckConfigBasedCells,
-        cwd: &AbsNormPath,
+        cwd: &WorkingDir,
     ) -> anyhow::Result<Self> {
-        let cwd_roots = find_invocation_roots(&cwd)?;
+        let cwd_roots = find_invocation_roots(cwd)?;
         let cell_resolver = cell_configs.cell_resolver.clone();
         let alias_resolver = cell_configs
             .get_cell_alias_resolver_for_cwd_fast(
                 &cwd_roots.project_root,
-                &cwd_roots.project_root.relativize(&cwd)?,
+                &cwd_roots.project_root.relativize(cwd.path())?,
             )
             .await?;
         Ok(Self {
@@ -111,10 +112,10 @@ impl PathSanitizer {
         let abs_path = if path.is_absolute() {
             AbsNormPathBuf::new(path.to_owned())?
         } else {
-            self.cwd.join_normalized(path_str)?
+            self.cwd.path().join_normalized(path_str)?
         };
 
-        let cwd_cell_name = self.resolve_cell(&self.cwd)?;
+        let cwd_cell_name = self.resolve_cell(self.cwd.path())?;
 
         let cell_name = self.resolve_cell(&abs_path)?;
         let cell_path = self.relative_to_cell(&abs_path)?;
@@ -148,7 +149,7 @@ impl PathSanitizer {
         cell_path: &str,
     ) -> Result<SanitizedPath, anyhow::Error> {
         let given_cell = if given_cell_str == "" {
-            self.resolve_cell(&self.cwd)?
+            self.resolve_cell(self.cwd.path())?
         } else {
             self.resolve_alias(given_cell_str)?
         };
@@ -256,26 +257,26 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> anyhow::Result<AbsNormPathBuf> {
+    fn in_dir(d: &str) -> anyhow::Result<WorkingDir> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
-                return Ok(candidate);
+                return Ok(WorkingDir::unchecked_new(candidate));
             }
         }
 
         Err(anyhow::anyhow!("test_data directory not found"))
     }
 
-    fn in_root() -> anyhow::Result<AbsNormPathBuf> {
+    fn in_root() -> anyhow::Result<WorkingDir> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
-                return Ok(candidate);
+                return Ok(WorkingDir::unchecked_new(candidate));
             }
         }
 
@@ -284,7 +285,7 @@ mod tests {
 
     fn abs_path_from_root(relative: &str) -> anyhow::Result<AbsNormPathBuf> {
         let root = in_root()?;
-        Ok(root.join_normalized(relative)?)
+        Ok(root.into_abs_norm_path_buf().join_normalized(relative)?)
     }
 
     fn abs_str_from_root(relative: &str) -> anyhow::Result<String> {
@@ -292,13 +293,13 @@ mod tests {
         Ok(path.to_string())
     }
 
-    fn cell_configs(cwd: &Path) -> anyhow::Result<BuckConfigBasedCells> {
+    fn cell_configs(cwd: &WorkingDir) -> anyhow::Result<BuckConfigBasedCells> {
         let cwd_roots = find_invocation_roots(cwd)?;
         Ok(futures::executor::block_on(
             BuckConfigBasedCells::parse_with_config_args(
                 &cwd_roots.project_root,
                 &[],
-                &cwd_roots.project_root.relativize(&AbsNormPath::new(cwd)?)?,
+                &cwd_roots.project_root.relativize(cwd.path())?,
             ),
         )?)
     }

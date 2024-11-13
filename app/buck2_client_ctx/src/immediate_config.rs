@@ -138,7 +138,7 @@ impl<'a> ImmediateConfigContext<'a> {
     fn data(&self) -> anyhow::Result<&ImmediateConfigContextData> {
         self.data
             .get_or_try_init(|| {
-                let roots = find_invocation_roots(self.cwd.path())?;
+                let roots = find_invocation_roots(self.cwd)?;
                 let paranoid_info_path = roots.paranoid_info_path()?;
 
                 // See comment in `ImmediateConfig` about why we use `OnceLock` rather than `Lazy`

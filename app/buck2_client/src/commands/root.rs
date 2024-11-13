@@ -67,25 +67,22 @@ impl RootCommand {
         let root = if matches!(self.kind, RootKind::Daemon) {
             ctx.paths()?.daemon_dir()?.path
         } else {
-            let roots = match self.dir.clone() {
-                Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?,
-                None => ctx.paths()?.roots.clone(),
+            let working_dir_data;
+            let imm_ctx_data;
+            let (roots, imm_ctx) = match self.dir.clone() {
+                Some(dir) => {
+                    let base_dir = dir.resolve(&ctx.working_dir);
+                    // FIXME(JakobDegen): Like always, canonicalize is wrong
+                    let base_dir = fs_util::canonicalize(&base_dir)?;
+                    working_dir_data = WorkingDir::unchecked_new(base_dir);
+                    let roots = find_invocation_roots(&working_dir_data)?;
+                    imm_ctx_data = ImmediateConfigContext::new(&working_dir_data);
+                    (roots, &imm_ctx_data)
+                }
+                None => (ctx.paths()?.roots.clone(), ctx.immediate_config),
             };
             match self.kind {
                 RootKind::Cell => {
-                    let working_dir_data;
-                    let imm_ctx_data;
-                    let imm_ctx = match self.dir {
-                        Some(dir) => {
-                            let base_dir = dir.resolve(&ctx.working_dir);
-                            // FIXME(JakobDegen): Like always, canonicalize is wrong
-                            let base_dir = fs_util::canonicalize(&base_dir)?;
-                            working_dir_data = WorkingDir::unchecked_new(base_dir);
-                            imm_ctx_data = ImmediateConfigContext::new(&working_dir_data);
-                            &imm_ctx_data
-                        }
-                        None => &ctx.immediate_config,
-                    };
                     let root = imm_ctx.resolve_alias_to_path_in_cwd("")?;
                     roots.project_root.resolve(&*root)
                 }

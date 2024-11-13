@@ -12,16 +12,15 @@ use std::sync::Arc;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::working_dir::WorkingDir;
 
 use super::path_completer::PathCompleter;
 use super::path_sanitizer::PathSanitizer;
 use super::results::CompletionResults;
 
 pub(crate) struct PackageCompleter<'a> {
-    cwd: AbsNormPathBuf,
+    cwd: WorkingDir,
     roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
     path_sanitizer: PathSanitizer,
@@ -29,7 +28,7 @@ pub(crate) struct PackageCompleter<'a> {
 }
 
 impl<'a> PackageCompleter<'a> {
-    pub(crate) async fn new(cwd: &AbsNormPath, roots: &'a InvocationRoots) -> CommandOutcome<Self> {
+    pub(crate) async fn new(cwd: &WorkingDir, roots: &'a InvocationRoots) -> CommandOutcome<Self> {
         let cell_configs = Arc::new(
             BuckConfigBasedCells::parse_with_config_args(
                 &roots.project_root,
@@ -61,13 +60,13 @@ impl<'a> PackageCompleter<'a> {
         let cwd_cell_name = self
             .cell_configs
             .cell_resolver
-            .get_cell_path_from_abs_path(&self.cwd, &self.roots.project_root)?
+            .get_cell_path_from_abs_path(self.cwd.path().as_abs_path(), &self.roots.project_root)?
             .cell();
         let cwd_cell_root = self.cell_configs.cell_resolver.get(cwd_cell_name)?.path();
         let cwd_cell_root = self.roots.project_root.resolve(cwd_cell_root);
         match given_path {
             "" => {
-                self.results.insert_dir(&self.cwd, "//").await;
+                self.results.insert_dir(self.cwd.path(), "//").await;
                 self.results
                     .insert_package_colon_if_buildfile_exists(&cwd_cell_root, given_path)
                     .await;
@@ -97,7 +96,7 @@ impl<'a> PackageCompleter<'a> {
             .cell_configs
             .get_cell_alias_resolver_for_cwd_fast(
                 &self.roots.project_root,
-                &self.roots.project_root.relativize(&self.cwd)?,
+                &self.roots.project_root.relativize(self.cwd.path())?,
             )
             .await?;
         for (cell_alias, cell_name) in alias_resolver.mappings() {
@@ -139,6 +138,7 @@ impl<'a> PackageCompleter<'a> {
 mod tests {
     use buck2_client_ctx::exit_result::ExitResult;
     use buck2_common::invocation_roots::find_invocation_roots;
+    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 
     use super::*;
 
@@ -150,12 +150,13 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> CommandOutcome<(InvocationRoots, AbsNormPathBuf)> {
+    fn in_dir(d: &str) -> CommandOutcome<(InvocationRoots, WorkingDir)> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
+                let candidate = WorkingDir::unchecked_new(candidate);
                 return CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate));
             }
         }
@@ -163,12 +164,13 @@ mod tests {
         CommandOutcome::Failure(ExitResult::bail("test_data directory not found"))
     }
 
-    fn in_root() -> CommandOutcome<(InvocationRoots, AbsNormPathBuf)> {
+    fn in_root() -> CommandOutcome<(InvocationRoots, WorkingDir)> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
+                let candidate = WorkingDir::unchecked_new(candidate);
                 return CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate));
             }
         }
@@ -559,7 +561,7 @@ mod tests {
     #[tokio::test]
     async fn test_normalizes_absolute_paths() -> anyhow::Result<()> {
         let (roots, cwd) = in_root()?;
-        let absolute_partial = cwd.as_path().join("bare");
+        let absolute_partial = cwd.path().as_path().join("bare");
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
         let actual = uut.complete(absolute_partial.to_str().unwrap()).await?;
