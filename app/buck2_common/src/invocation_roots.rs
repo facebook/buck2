@@ -35,7 +35,6 @@ enum BuckCliError {
 
 #[derive(Clone, Allocative)]
 pub struct InvocationRoots {
-    pub cell_root: AbsNormPathBuf,
     pub project_root: ProjectRoot,
 }
 
@@ -57,27 +56,15 @@ impl InvocationRoots {
     }
 }
 
-/// This finds the cell root and the project root.
+/// Finds the project root.
 ///
-/// This uses a rather liberal definition of "roots". It traverses the directory and
-/// its parents looking for all .buckconfig files, the closest one (i.e. with the longest
-/// path) will be detected as the "cell root" and the furthest one (with the shortest
-/// path) will be detected as the "project root".
-///
-/// This definition requires that (1) every cell has a .buckconfig file (to make the "cell
-/// root" correct) and (2) that the cell's buckconfig actually references the outermost
-/// .buckconfig directory as one of its cells, which in practice means you can't stick a
-/// buck cell/project within another one without them referencing each other (or not
-/// running buck commands within the inner one).
+/// This uses a rather liberal definition of "roots". It traverses the directory and its parents
+/// looking for all .buckconfig files and the furthest one (with the shortest path) will be detected
+/// as the "project root".
 ///
 /// We also look for .buckroot files, and if we find one of them, we don't traverse further upwards.
 /// The contents of the .buckroot file is entirely ignored.
-///
-/// Doing this without those requirements (i.e. doing it correctly), would require us to
-/// parse the buckconfig files (including all file includes). It's unclear if we'll ever
-/// do that within the buckd client dir.
-fn get_roots(from: &Path) -> (Option<PathBuf>, Option<PathBuf>) {
-    let mut cell_root = None;
+fn get_roots(from: &Path) -> Option<PathBuf> {
     let mut project_root = None;
 
     let home_dir = dirs::home_dir();
@@ -90,9 +77,6 @@ fn get_roots(from: &Path) -> (Option<PathBuf>, Option<PathBuf>) {
                     break;
                 }
             }
-            if cell_root.is_none() {
-                cell_root = Some(curr.to_owned());
-            }
             project_root = Some(curr.to_owned());
         }
 
@@ -101,13 +85,12 @@ fn get_roots(from: &Path) -> (Option<PathBuf>, Option<PathBuf>) {
         }
     }
 
-    (project_root, cell_root)
+    project_root
 }
 
 pub fn find_invocation_roots(from: &Path) -> buck2_error::Result<InvocationRoots> {
     match get_roots(from) {
-        (Some(project_root), Some(cell_root)) => Ok(InvocationRoots {
-            cell_root: AbsNormPathBuf::try_from(cell_root)?,
+        Some(project_root) => Ok(InvocationRoots {
             project_root: ProjectRoot::new(AbsNormPathBuf::try_from(project_root)?)?,
         }),
         _ => Err(BuckCliError::NoBuckRoot(from.to_owned()).into()),
@@ -116,9 +99,8 @@ pub fn find_invocation_roots(from: &Path) -> buck2_error::Result<InvocationRoots
 
 pub fn get_invocation_paths_result(from: &Path, isolation: FileNameBuf) -> InvocationPathsResult {
     match get_roots(from) {
-        (Some(project_root), Some(cell_root)) => InvocationPathsResult::Paths(InvocationPaths {
+        Some(project_root) => InvocationPathsResult::Paths(InvocationPaths {
             roots: InvocationRoots {
-                cell_root: AbsNormPathBuf::try_from(cell_root)?,
                 project_root: ProjectRoot::new(AbsNormPathBuf::try_from(project_root)?)?,
             },
             isolation,

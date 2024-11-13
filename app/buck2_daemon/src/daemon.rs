@@ -552,7 +552,6 @@ mod tests {
 
         let invocation_paths = InvocationPaths {
             roots: InvocationRoots {
-                cell_root: project_root.path().root().to_buf(),
                 project_root: project_root.path().dupe(),
             },
             isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),

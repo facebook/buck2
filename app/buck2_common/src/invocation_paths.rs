@@ -13,7 +13,6 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
@@ -72,7 +71,7 @@ impl InvocationPaths {
             .roots
             .project_root
             .root()
-            .strip_prefix(AbsNormPath::new("/")?)?;
+            .strip_prefix(buck2_core::fs::paths::abs_norm_path::AbsNormPath::new("/")?)?;
 
         let path = self
             .roots
@@ -81,10 +80,6 @@ impl InvocationPaths {
             .join(&self.isolation);
 
         Ok(DaemonDir { path })
-    }
-
-    pub fn cell_root(&self) -> &AbsNormPath {
-        &self.roots.cell_root
     }
 
     pub fn project_root(&self) -> &ProjectRoot {
@@ -183,11 +178,6 @@ mod tests {
 
     #[test]
     fn test_paths() {
-        let cell_root = if cfg!(windows) {
-            "C:\\my\\project\\root\\cell"
-        } else {
-            "/my/project/root/cell"
-        };
         let project_root = if cfg!(windows) {
             "C:\\my\\project"
         } else {
@@ -195,7 +185,6 @@ mod tests {
         };
         let paths = InvocationPaths {
             roots: InvocationRoots {
-                cell_root: AbsNormPathBuf::try_from(cell_root.to_owned()).unwrap(),
                 project_root: ProjectRoot::new_unchecked(
                     AbsNormPathBuf::try_from(project_root.to_owned()).unwrap(),
                 ),
@@ -219,12 +208,6 @@ mod tests {
             .as_os_str()
         );
 
-        let expected_path = if cfg!(windows) {
-            "C:\\my\\project\\root\\cell"
-        } else {
-            "/my/project/root/cell"
-        };
-        assert_eq!(paths.cell_root().as_os_str(), OsStr::new(expected_path));
         let expected_path = if cfg!(windows) {
             "C:\\my\\project"
         } else {
