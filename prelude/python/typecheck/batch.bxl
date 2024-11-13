@@ -8,7 +8,7 @@
 load("@prelude//utils:utils.bzl", "flatten")
 load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 
-def _check_targets_sharded(ctx: bxl.Context, checked_targets: typing.Any) -> typing.Any:
+def _check_targets_sharded(ctx: bxl.Context, checked_targets: list[ConfiguredTargetLabel]) -> typing.Any:
     type_check_shard_labels = {
         label.configured_target(): target.providers()[DefaultInfo]
             .sub_targets["typecheck"][DefaultInfo]
@@ -29,9 +29,9 @@ def _check_targets_sharded(ctx: bxl.Context, checked_targets: typing.Any) -> typ
 
     return output
 
-def _check_targets_batched(ctx: bxl.Context, checked_targets: typing.Any) -> typing.Any:
+def _check_targets_batched(ctx: bxl.Context, checked_targets: list[ConfiguredTargetLabel]) -> typing.Any:
     build_result = ctx.build(
-        [target.label.with_sub_target("typecheck") for target in checked_targets],
+        [target.with_sub_target("typecheck") for target in checked_targets],
     )
     output = ctx.output.ensure_multiple(build_result)
 
@@ -40,8 +40,22 @@ def _check_targets_batched(ctx: bxl.Context, checked_targets: typing.Any) -> typ
         for label, artifacts in output.items()
     }
 
-def check_targets(ctx: bxl.Context, targets: typing.Any, enable_sharding: bool) -> None:
-    checked_targets = ctx.configured_targets(do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False))
+def do_ptt_filter(ctx: bxl.Context, targets: list[TargetLabel]) -> list[ConfiguredTargetLabel]:
+    configured_targets = ctx.analysis(
+        ctx.configured_targets(
+            do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False),
+        ),
+    )
+
+    return [
+        label.configured_target()
+        for label, target in configured_targets.items()
+        if "typecheck" in target.providers()[DefaultInfo].sub_targets
+    ]
+
+def check_targets(ctx: bxl.Context, targets: list[TargetLabel], enable_sharding: bool) -> None:
+    checked_targets = do_ptt_filter(ctx, targets)
+
     if enable_sharding:
         artifacts = _check_targets_sharded(ctx, checked_targets)
     else:
