@@ -58,21 +58,28 @@ impl<'a> PackageCompleter<'a> {
     /// such as partials which cross cell boundaries. In this case, normalized
     /// completion(s) are returned.
     pub(crate) async fn complete(mut self, given_path: &str) -> CommandOutcome<Vec<String>> {
+        let cwd_cell_name = self
+            .cell_configs
+            .cell_resolver
+            .get_cell_path_from_abs_path(&self.cwd, &self.roots.project_root)?
+            .cell();
+        let cwd_cell_root = self.cell_configs.cell_resolver.get(cwd_cell_name)?.path();
+        let cwd_cell_root = self.roots.project_root.resolve(cwd_cell_root);
         match given_path {
             "" => {
                 self.results.insert_dir(&self.cwd, "//").await;
                 self.results
-                    .insert_package_colon_if_buildfile_exists(&self.roots.cell_root, given_path)
+                    .insert_package_colon_if_buildfile_exists(&cwd_cell_root, given_path)
                     .await;
                 self.complete_partial_cells(given_path).await?;
                 self.complete_partial_path(given_path).await?;
             }
             "/" => {
-                self.results.insert_dir(&self.roots.cell_root, "//").await;
+                self.results.insert_dir(&cwd_cell_root, "//").await;
             }
             "//" => {
                 self.results
-                    .insert_package_colon_if_buildfile_exists(&self.roots.cell_root, given_path)
+                    .insert_package_colon_if_buildfile_exists(&cwd_cell_root, given_path)
                     .await;
                 self.complete_partial_path(given_path).await?;
             }
