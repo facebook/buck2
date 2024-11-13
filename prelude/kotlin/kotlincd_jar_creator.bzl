@@ -73,6 +73,7 @@ def create_jar_artifact_kotlincd(
         extra_kotlinc_arguments: list,
         k2: bool,
         incremental: bool,
+        enable_used_classes: bool,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
@@ -160,7 +161,7 @@ def create_jar_artifact_kotlincd(
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
     # external javac does not support used classes
-    track_class_usage = javac_tool == None and kotlin_toolchain.track_class_usage_plugin != None and not should_kotlinc_run_incrementally
+    track_class_usage = enable_used_classes and javac_tool == None and kotlin_toolchain.track_class_usage_plugin != None and not should_kotlinc_run_incrementally
 
     def encode_library_command(
             output_paths: OutputPaths,

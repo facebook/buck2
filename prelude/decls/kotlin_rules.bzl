@@ -114,7 +114,9 @@ kotlin_library = prelude_rule(
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.incremental() |
         jvm_common.plugins() |
-        jvm_common.javac() | buck.labels_arg() |
+        jvm_common.javac() |
+        jvm_common.enable_used_classes() |
+        buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processor_deps": attrs.list(attrs.dep(), default = []),
@@ -205,6 +207,7 @@ kotlin_test = prelude_rule(
         jvm_common.incremental() |
         jvm_common.test_env() |
         jvm_common.javac() |
+        jvm_common.enable_used_classes() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),

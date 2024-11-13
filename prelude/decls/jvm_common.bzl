@@ -161,6 +161,13 @@ def _incremental():
     """),
     }
 
+def _enable_used_classes():
+    return {
+        "enable_used_classes": attrs.bool(default = True, doc = """
+    Deprecated: for an experiment only, will be removed
+    """),
+    }
+
 def _plugins():
     return {
         "plugins": attrs.list(
@@ -261,4 +268,5 @@ jvm_common = struct(
     plugins = _plugins,
     kotlin_compiler_plugins = _kotlin_compiler_plugins,
     javac = _javac,
+    enable_used_classes = _enable_used_classes,
 )
