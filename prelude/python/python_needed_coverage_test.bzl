@@ -9,6 +9,7 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
+load("@prelude//tests:test_toolchain.bzl", "test_toolchain_labels")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(
     ":needed_coverage.bzl",
@@ -51,7 +52,7 @@ def python_needed_coverage_test_impl(ctx: AnalysisContext) -> list[Provider]:
             type = test_type,
             command = test_cmd,
             env = test_env,
-            labels = ctx.attrs.labels,
+            labels = ctx.attrs.labels + test_toolchain_labels(ctx.attrs._test_toolchain),
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
             executor_overrides = executor_overrides,
