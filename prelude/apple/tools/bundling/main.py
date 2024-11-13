@@ -277,7 +277,10 @@ def _args_parser() -> argparse.ArgumentParser:
 
 
 def _get_codesigned_paths_for_spec_item(
-    bundle_path: CodesignedPath, args: argparse.Namespace, item: BundleSpecItem
+    bundle_path: CodesignedPath,
+    args: argparse.Namespace,
+    item: BundleSpecItem,
+    codesign_configuration: Optional[CodesignConfiguration],
 ) -> List[CodesignedPath]:
     if not item.codesign_on_copy:
         return []
@@ -290,31 +293,43 @@ def _get_codesigned_paths_for_spec_item(
         if (item.codesign_flags_override is not None)
         else args.codesign_args
     )
-    codesigned_paths = [
+
+    codesigned_paths = []
+    extra_file_paths = []
+
+    is_dry_run = codesign_configuration is CodesignConfiguration.dryRun
+    extra_codesign_paths = item.extra_codesign_paths or []
+    for extra_codesign_path in extra_codesign_paths:
+        path = bundle_path.path / item.dst / extra_codesign_path
+        if path.is_file() and is_dry_run:
+            # In dry-run mode, non-bundle items should be signed as part of the containing bundle.
+            extra_file_paths.append(extra_codesign_path)
+        else:
+            codesigned_paths.append(
+                CodesignedPath(
+                    path=path,
+                    entitlements=entitlements,
+                    flags=flags,
+                    extra_file_paths=None,
+                )
+            )
+
+    codesigned_paths.append(
         CodesignedPath(
             path=bundle_path.path / item.dst,
             entitlements=entitlements,
             flags=flags,
-            extra_file_paths=None,
+            extra_file_paths=extra_file_paths,
         )
-    ]
-
-    extra_codesign_paths = item.extra_codesign_paths or []
-    for extra_codesign_path in extra_codesign_paths:
-        codesigned_paths.append(
-            CodesignedPath(
-                path=bundle_path.path / item.dst / extra_codesign_path,
-                entitlements=entitlements,
-                flags=flags,
-                extra_file_paths=None,
-            )
-        )
+    )
 
     return codesigned_paths
 
 
 def _get_codesigned_paths_from_spec(
-    bundle_path: CodesignedPath, args: argparse.Namespace, spec: List[BundleSpecItem]
+    bundle_path: CodesignedPath,
+    args: argparse.Namespace,
+    spec: List[BundleSpecItem],
 ) -> List[CodesignedPath]:
     codesigned_paths = []
     for item in spec:
@@ -322,6 +337,7 @@ def _get_codesigned_paths_from_spec(
             bundle_path=bundle_path,
             args=args,
             item=item,
+            codesign_configuration=args.codesign_configuration,
         )
     return codesigned_paths
 

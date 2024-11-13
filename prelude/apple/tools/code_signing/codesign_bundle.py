@@ -228,6 +228,14 @@ def codesign_bundle(
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
 ) -> None:
+
+    codesign_on_copy_paths = sorted(
+        codesign_on_copy_paths,
+        key=lambda codesigned_path: codesigned_path.path,
+        # Paths must be signed inside out (i.e., deepest first)
+        reverse=True,
+    )
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         if isinstance(signing_context, SigningContextWithProfileSelection):
             selection_profile_context = signing_context
