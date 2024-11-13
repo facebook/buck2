@@ -35,38 +35,42 @@ use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 
 /// Representation of `select()` in Starlark.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
 #[repr(C)]
-pub enum StarlarkSelectorGen<ValueType> {
+pub enum StarlarkSelectorGen<V: ValueLifetimeless> {
     /// Simplest form, backed by dictionary representation
     /// wrapped into `select` function call.
     // TODO: add a type restriction here that ValueType should be a dict
-    Primary(ValueType),
-    Sum(ValueType, ValueType),
+    Primary(V),
+    Sum(V, V),
 }
 
-impl<V: Display> Display for StarlarkSelectorGen<V> {
+impl<V: ValueLifetimeless> Display for StarlarkSelectorGen<V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             StarlarkSelectorGen::Primary(v) => {
                 f.write_str("select(")?;
-                v.fmt(f)?;
+                Display::fmt(v, f)?;
                 f.write_str(")")
             }
             StarlarkSelectorGen::Sum(l, r) => {
-                l.fmt(f)?;
+                Display::fmt(l, f)?;
                 f.write_str(" + ")?;
-                r.fmt(f)
+                Display::fmt(r, f)
             }
         }
     }
 }
 
-unsafe impl<From: Coerce<To>, To> Coerce<StarlarkSelectorGen<To>> for StarlarkSelectorGen<From> {}
+unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless>
+    Coerce<StarlarkSelectorGen<To>> for StarlarkSelectorGen<From>
+{
+}
 
 starlark_complex_value!(pub StarlarkSelector);
 
