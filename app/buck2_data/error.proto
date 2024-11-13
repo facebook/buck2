@@ -39,10 +39,20 @@ enum ErrorTier {
 //
 // Feel free to continue using error types if you like.
 enum ErrorTag {
+  reserved 2001;
   // Same as above
   UNUSED_DEFAULT_TAG = 0;
+
   STARLARK_FAIL = 1;
+  STARLARK_ERROR = 100;
   STARLARK_STACK_OVERFLOW = 102;
+  STARLARK_INTERNAL = 103;
+  STARLARK_VALUE = 104;
+  STARLARK_FUNCTION = 105;
+  STARLARK_SCOPE = 106;
+  STARLARK_PARSER = 107;
+  STARLARK_NATIVE_INPUT = 108;
+
   WATCHMAN_TIMEOUT = 2;
   WATCHMAN_REQUEST_ERROR = 201;
   // Taken from watchman_client::Error
@@ -117,7 +127,6 @@ enum ErrorTag {
   // error occurred
   ANALYSIS = 7;
   ANY_ACTION_EXECUTION = 2000;
-  ANY_STARLARK_EVALUATION = 2001;
 
   ///// IO SECTION
   //

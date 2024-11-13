@@ -106,6 +106,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::WatchmanConnect => rank!(tier0),
         ErrorTag::WatchmanRequestError => rank!(tier0),
         ErrorTag::HttpServer => rank!(tier0),
+        ErrorTag::StarlarkInternal => rank!(tier0),
 
         // Input errors
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
@@ -125,6 +126,11 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ProjectMissingPath => rank!(input),
         ErrorTag::StarlarkFail => rank!(input),
         ErrorTag::StarlarkStackOverflow => rank!(input),
+        ErrorTag::StarlarkValue => rank!(input),
+        ErrorTag::StarlarkFunction => rank!(input),
+        ErrorTag::StarlarkScope => rank!(input),
+        ErrorTag::StarlarkParser => rank!(input),
+        ErrorTag::StarlarkNativeInput => rank!(input),
         ErrorTag::Visibility => rank!(input),
         ErrorTag::HttpClient => rank!(input),
         ErrorTag::Analysis => rank!(input),
@@ -144,7 +150,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::Install => rank!(unspecified),
         ErrorTag::AnyActionExecution => rank!(unspecified),
-        ErrorTag::AnyStarlarkEvaluation => rank!(unspecified),
+        ErrorTag::StarlarkError => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
     }
 }
@@ -226,6 +232,7 @@ pub enum ErrorSourceArea {
     Eden,
     Re,
     Watchman,
+    Starlark,
 }
 
 pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
@@ -236,6 +243,8 @@ pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
         ErrorSourceArea::Re
     } else if tag_name.starts_with("WATCHMAN") {
         ErrorSourceArea::Watchman
+    } else if tag_name.starts_with("STARLARK") {
+        ErrorSourceArea::Starlark
     } else {
         ErrorSourceArea::Buck2
     }

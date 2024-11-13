@@ -79,27 +79,20 @@ fn from_starlark_impl(
         }
     };
 
-    let category = match e.kind() {
-        starlark_syntax::ErrorKind::Fail(_)
-        | starlark_syntax::ErrorKind::StackOverflow(_)
-        | starlark_syntax::ErrorKind::Value(_)
-        | starlark_syntax::ErrorKind::Function(_)
-        | starlark_syntax::ErrorKind::Scope(_)
-        | starlark_syntax::ErrorKind::Parser(_) => Some(crate::Tier::Input),
-        starlark_syntax::ErrorKind::Internal(_) => Some(crate::Tier::Tier0),
+    let tag = match e.kind() {
+        starlark_syntax::ErrorKind::Fail(_) => crate::ErrorTag::StarlarkFail,
+        starlark_syntax::ErrorKind::StackOverflow(_) => crate::ErrorTag::StarlarkStackOverflow,
+        starlark_syntax::ErrorKind::Value(_) => crate::ErrorTag::StarlarkValue,
+        starlark_syntax::ErrorKind::Function(_) => crate::ErrorTag::StarlarkFunction,
+        starlark_syntax::ErrorKind::Scope(_) => crate::ErrorTag::StarlarkScope,
+        starlark_syntax::ErrorKind::Parser(_) => crate::ErrorTag::StarlarkParser,
+        starlark_syntax::ErrorKind::Internal(_) => crate::ErrorTag::StarlarkInternal,
         starlark_syntax::ErrorKind::Native(_) | starlark_syntax::ErrorKind::Other(_)
             if error_handling == NativeErrorHandling::InputError =>
         {
-            Some(crate::Tier::Input)
+            crate::ErrorTag::StarlarkNativeInput
         }
-        _ => None,
-    };
-    let tags = match e.kind() {
-        starlark_syntax::ErrorKind::Fail(_) => vec![crate::ErrorTag::StarlarkFail],
-        starlark_syntax::ErrorKind::StackOverflow(_) => {
-            vec![crate::ErrorTag::StarlarkStackOverflow]
-        }
-        _ => vec![crate::ErrorTag::AnyStarlarkEvaluation],
+        _ => crate::ErrorTag::StarlarkError,
     };
 
     let variant_name = match e.kind() {
@@ -120,7 +113,7 @@ fn from_starlark_impl(
         format!("{}", e)
     };
 
-    let mut e = match e.into_kind() {
+    match e.into_kind() {
         starlark_syntax::ErrorKind::Fail(e)
         | starlark_syntax::ErrorKind::StackOverflow(e)
         | starlark_syntax::ErrorKind::Internal(e)
@@ -140,14 +133,8 @@ fn from_starlark_impl(
             source_location,
             None,
         ))))),
-    };
-
-    e = e.tag(tags);
-    if let Some(tier) = category {
-        e.context(tier)
-    } else {
-        e
     }
+    .tag(vec![tag])
 }
 
 pub(crate) struct BuckStarlarkError(pub(crate) anyhow::Error, String);
@@ -204,9 +191,10 @@ mod tests {
                 source_location_extra: Some("FullMetadataError"),
                 tags: vec![
                     crate::ErrorTag::WatchmanTimeout,
+                    crate::ErrorTag::StarlarkNativeInput,
                     crate::ErrorTag::StarlarkFail,
                 ],
-                category: Some(crate::Tier::Tier0),
+                category: None,
             });
         }
     }
@@ -237,8 +225,8 @@ mod tests {
         assert_eq!(
             &e.tags(),
             &[
-                crate::ErrorTag::AnyStarlarkEvaluation,
                 crate::ErrorTag::StarlarkFail,
+                crate::ErrorTag::StarlarkNativeInput,
                 crate::ErrorTag::WatchmanTimeout
             ]
         );
