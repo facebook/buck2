@@ -40,7 +40,7 @@
     list_impl/1
 ]).
 
--type test_id() :: string() | non_neg_integer().
+-type test_id() :: string() | non_neg_integer() | atom().
 -type test_info() :: #{name := string(), suite := atom()}.
 -type run_spec() :: test_id() | [test_info()].
 -type run_result() :: {non_neg_integer(), non_neg_integer()}.
@@ -411,9 +411,15 @@ ensure_per_suite_encapsulation(Suite) ->
             end
     end.
 
--spec discover(string() | non_neg_integer()) -> [test_info()].
+-spec discover(string() | non_neg_integer() | atom()) -> [test_info()].
 discover(RegExOrId) ->
-    case ct_daemon:discover(RegExOrId) of
+    StringOrId = case is_atom(RegExOrId) of
+        true ->
+            atom_to_list(RegExOrId);
+        false ->
+            RegExOrId
+    end,
+    case ct_daemon:discover(StringOrId) of
         {error, not_listed_yet} ->
             ct_daemon:list(""),
             discover(RegExOrId);
