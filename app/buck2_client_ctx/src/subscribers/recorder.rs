@@ -35,7 +35,6 @@ use buck2_data::ProcessedErrorReport;
 use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
 use buck2_error::classify::best_error;
-use buck2_error::classify::best_tag;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_error::AnyhowContextForError;
@@ -432,28 +431,19 @@ impl<'a> InvocationRecorder<'a> {
         let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
 
-        let best_error = best_error(&errors);
-        let best_error_category_key = best_error.map(|e| e.category_key.clone()).flatten();
-        let best_tag = best_error.map(|e| e.best_tag()).flatten();
-        let error_category = best_error.map(|error| error.category());
+        let best_error = best_error(&errors).map(|error| process_error_report(error.clone()));
+        let (best_error_category_key, best_error_tag, error_category) =
+            if let Some(best_error) = best_error {
+                (
+                    best_error.category_key,
+                    best_error.best_tag,
+                    best_error.category,
+                )
+            } else {
+                (None, None, None)
+            };
 
         let errors = errors.into_map(process_error_report);
-
-        // `None` if no errors, `Some("UNCLASSIFIED")` if no tags.
-        let best_error_tag = if errors.is_empty() {
-            None
-        } else {
-            Some(
-                best_tag
-                    .map_or(
-                        // If we don't have tags on the errors,
-                        // we still want to add a tag to Scuba column.
-                        ERROR_TAG_UNCLASSIFIED,
-                        |t| t.as_str_name(),
-                    )
-                    .to_owned(),
-            )
-        };
 
         ErrorsReport {
             errors,
@@ -1543,11 +1533,17 @@ impl<'a> InvocationRecorder<'a> {
 }
 
 fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
-    let best_tag = best_tag(error.tags.iter().filter_map(|tag|
-    // This should never fail, but it is safer to just ignore incorrect integers.
-    ErrorTag::from_i32(*tag)))
-    .map(|t| t.as_str_name())
-    .unwrap_or(ERROR_TAG_UNCLASSIFIED);
+    let best_tag = error
+        .best_tag()
+        .map_or(
+            // If we don't have tags on the errors,
+            // we still want to add a tag to Scuba column.
+            ERROR_TAG_UNCLASSIFIED,
+            |tag| tag.as_str_name(),
+        )
+        .to_owned();
+
+    let category = error.category();
     buck2_data::ProcessedErrorReport {
         tier: error.tier,
         message: error.message,
@@ -1560,9 +1556,10 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
             .filter_map(buck2_data::error::ErrorTag::from_i32)
             .map(|t| t.as_str_name().to_owned())
             .collect(),
-        best_tag: Some(best_tag.to_owned()),
+        best_tag: Some(best_tag),
         sub_error_categories: error.sub_error_categories,
         category_key: error.category_key,
+        category: Some(category),
     }
 }
 

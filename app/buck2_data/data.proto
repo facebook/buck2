@@ -2260,7 +2260,7 @@ message ErrorReport {
   optional string category_key = 8;
 }
 
-// Identical to `ErrorReport`, but with the typ and tags converted to strings.
+// Identical to `ErrorReport`, but with the tags converted to strings.
 // This makes it easy to change those enums without having to worry about uses
 // of this protobuf definition outside of buck2. Currently used in the
 // invocation record and nowhere else.
@@ -2276,6 +2276,7 @@ message ProcessedErrorReport {
   optional string best_tag = 7;
   repeated string sub_error_categories = 8;
   optional string category_key = 9;
+  optional string category = 10;
 }
 
 message CommandReport {
