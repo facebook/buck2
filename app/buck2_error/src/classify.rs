@@ -156,12 +156,8 @@ pub trait ErrorLike {
 
     fn error_rank(&self) -> u32;
 
-    fn category(&self) -> String;
+    fn category(&self) -> Tier;
 }
-
-const TIER0: &str = "INFRA";
-const ENVIRONMENT: &str = "ENVIRONMENT";
-const INPUT: &str = "USER";
 
 impl ErrorLike for buck2_data::ErrorReport {
     fn best_tag(&self) -> Option<ErrorTag> {
@@ -193,19 +189,12 @@ impl ErrorLike for buck2_data::ErrorReport {
         std::cmp::min(tag_rank, tier_rank)
     }
 
-    fn category(&self) -> String {
-        let tier = self
-            .best_tag()
+    fn category(&self) -> Tier {
+        self.best_tag()
             .map(|t| category_and_rank(t).0)
             .flatten()
             .or(self.get_tier())
-            .unwrap_or(Tier::Tier0);
-
-        match tier {
-            Tier::Tier0 => TIER0.to_owned(),
-            Tier::Environment => ENVIRONMENT.to_owned(),
-            Tier::Input => INPUT.to_owned(),
-        }
+            .unwrap_or(Tier::Tier0)
     }
 }
 
@@ -290,10 +279,7 @@ mod tests {
             },
         ];
 
-        assert_eq!(
-            best_error(&errors).map(|e| e.category()),
-            Some(TIER0.to_owned())
-        );
+        assert_eq!(best_error(&errors).map(|e| e.category()), Some(Tier::Tier0));
     }
 
     #[test]
@@ -303,10 +289,7 @@ mod tests {
             ..ErrorReport::default()
         }];
 
-        assert_eq!(
-            best_error(&errors).map(|e| e.category()),
-            Some(TIER0.to_owned())
-        );
+        assert_eq!(best_error(&errors).map(|e| e.category()), Some(Tier::Tier0));
     }
 
     #[test]
@@ -336,10 +319,7 @@ mod tests {
             ..ErrorReport::default()
         }];
 
-        assert_eq!(
-            best_error(&errors).map(|e| e.category()),
-            Some(INPUT.to_owned())
-        );
+        assert_eq!(best_error(&errors).map(|e| e.category()), Some(Tier::Input));
     }
 
     #[test]
@@ -354,7 +334,7 @@ mod tests {
 
         assert_eq!(
             best_error(&errors).map(|e| e.category()),
-            Some(ENVIRONMENT.to_owned())
+            Some(Tier::Environment)
         );
     }
 

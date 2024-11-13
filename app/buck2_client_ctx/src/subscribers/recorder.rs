@@ -39,6 +39,7 @@ use buck2_error::classify::source_area;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_error::AnyhowContextForError;
+use buck2_error::Tier;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_event_observer::action_stats;
 use buck2_event_observer::action_stats::ActionStats;
@@ -1537,6 +1538,10 @@ impl<'a> InvocationRecorder<'a> {
     }
 }
 
+const TIER0: &str = "INFRA";
+const ENVIRONMENT: &str = "ENVIRONMENT";
+const INPUT: &str = "USER";
+
 fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
     let best_tag = error.best_tag();
     let source_area = best_tag.map(|tag| source_area(tag).to_string().to_ascii_uppercase());
@@ -1549,7 +1554,11 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         )
         .to_owned();
 
-    let category = error.category();
+    let category = match error.category() {
+        Tier::Tier0 => TIER0.to_owned(),
+        Tier::Environment => ENVIRONMENT.to_owned(),
+        Tier::Input => INPUT.to_owned(),
+    };
     buck2_data::ProcessedErrorReport {
         tier: error.tier,
         message: error.message,
