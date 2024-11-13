@@ -33,7 +33,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -262,9 +261,10 @@ where
 pub fn register_select(globals: &mut GlobalsBuilder) {
     const Select: StarlarkValueAsType<StarlarkSelector> = StarlarkValueAsType::new();
 
-    fn select<'v>(#[starlark(require = pos)] d: Value<'v>) -> anyhow::Result<StarlarkSelector<'v>> {
-        let d = ValueOf::<DictType<StringValue, Value>>::unpack_value_err(d)?;
-        Ok(StarlarkSelector::new(*d))
+    fn select<'v>(
+        #[starlark(require = pos)] d: ValueOf<'v, DictType<StringValue<'v>, Value<'v>>>,
+    ) -> anyhow::Result<StarlarkSelector<'v>> {
+        Ok(StarlarkSelector::new(d.value))
     }
 
     /// Maps a selector.

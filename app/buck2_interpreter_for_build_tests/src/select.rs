@@ -145,8 +145,10 @@ def test():
     expr_select = select_test(select(select({"config/windows:x86_64": "flag_TEST"})), _test_func)
     "#
     );
-    assert!(tester.run_starlark_test(test).is_err_and(|e| {
-        e.to_string()
-            .contains("Expected `dict[str, typing.Any]`, but got `selector")
-    }));
+    let err_msg = tester.run_starlark_test(test).unwrap_err().to_string();
+    assert!(
+        err_msg.contains("Expected type `dict[str, typing.Any]` but got `selector`"),
+        "Should have gotten: {}",
+        err_msg
+    );
 }
