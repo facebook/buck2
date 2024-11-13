@@ -9,7 +9,7 @@ Options:
           which root to print
 
           [default: cell]
-          [possible values: package, cell, project, daemon]
+          [possible values: cell, project, daemon]
 
       --dir <PATH>
           determine the root for a specific directory (if not provided, finds the root for the

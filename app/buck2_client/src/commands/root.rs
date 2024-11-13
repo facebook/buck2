@@ -17,7 +17,6 @@ use buck2_common::invocation_roots::find_invocation_roots;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum RootKind {
-    Package,
     Cell,
     Project,
     Daemon,
@@ -27,7 +26,6 @@ impl FromStr for RootKind {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "package" => Ok(Self::Package),
             "cell" => Ok(Self::Cell),
             "project" => Ok(Self::Project),
             "daemon" => Ok(Self::Daemon),
@@ -57,12 +55,6 @@ pub struct RootCommand {
     dir: Option<PathArg>,
 }
 
-#[derive(Debug, buck2_error::Error)]
-enum RootError {
-    #[error("Finding package root isn't yet implemented.")]
-    PackageRootUnimplemented,
-}
-
 impl RootCommand {
     pub fn exec(
         self,
@@ -70,7 +62,6 @@ impl RootCommand {
         ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
         let root = match self.kind {
-            RootKind::Package => return Err(RootError::PackageRootUnimplemented.into()),
             RootKind::Cell => match self.dir {
                 Some(dir) => find_invocation_roots(&dir.resolve(&ctx.working_dir))?.cell_root,
                 None => ctx.paths()?.cell_root().to_owned(),
