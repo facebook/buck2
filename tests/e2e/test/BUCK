@@ -1,4 +1,5 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode//buck2/tests:bxl_test.bzl", "bxl_test")
 
 oncall("build_infra")
 
@@ -8,6 +9,10 @@ buck2_e2e_test(
     data = "//buck2/tests/targets:isolated_targets",
     test_with_deployed_buck2 = True,
     use_compiled_buck2_client_and_tpx = True,
+)
+
+bxl_test(
+    src = "test_label_inplace.bxl",
 )
 
 buck2_e2e_test(
