@@ -27,6 +27,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_data::CleanStaleResultKind;
 use buck2_data::CleanStaleStats;
+use buck2_error::buck2_error;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::errors::create_error_report;
 use buck2_events::metadata;
@@ -429,11 +431,11 @@ async fn clean_artifact<T: IoHandler>(
     {
         Ok(()) => Ok(Some(size)),
         Err(e) => {
-            // Not downcasting would require larger clean up to IoRequest
-            if e.downcast_ref::<CleanInterrupt>().is_some() {
+            let e: buck2_error::Error = e.into();
+            if e.has_tag(ErrorTag::CleanInterrupt) {
                 Ok(None)
             } else {
-                Err(e)
+                Err(e.into())
             }
         }
     }
@@ -444,14 +446,10 @@ pub struct CleanInvalidatedPathRequest {
     pub(crate) liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
 
-#[derive(buck2_error::Error, Debug)]
-#[error("Interrupt")]
-struct CleanInterrupt;
-
 impl IoRequest for CleanInvalidatedPathRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
         if !self.liveliness_observer.is_alive_sync() {
-            return Err(CleanInterrupt.into());
+            return Err(buck2_error!([ErrorTag::CleanInterrupt], "Interrupt").into());
         }
         cleanup_path(project_fs, &self.path)?;
         Ok(())

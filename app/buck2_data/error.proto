@@ -119,6 +119,8 @@ enum ErrorTag {
   MATERIALIZATION_ERROR = 26;
   // Could not find buck project root
   NO_BUCK_ROOT = 27;
+  // Clean stale command was interrupted
+  CLEAN_INTERRUPT = 28;
 
   // Errors during buck2 install.
   INSTALL = 200;

@@ -147,6 +147,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::IoEdenRequestError => rank!(unspecified),
         ErrorTag::IoEdenUnknownField => rank!(unspecified),
         ErrorTag::MaterializationError => rank!(unspecified),
+        ErrorTag::CleanInterrupt => rank!(unspecified),
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::Install => rank!(unspecified),
         ErrorTag::AnyActionExecution => rank!(unspecified),
