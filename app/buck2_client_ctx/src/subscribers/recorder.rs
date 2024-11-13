@@ -35,6 +35,7 @@ use buck2_data::ProcessedErrorReport;
 use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
 use buck2_error::classify::best_error;
+use buck2_error::classify::source_area;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_error::AnyhowContextForError;
@@ -208,6 +209,7 @@ struct ErrorsReport {
     errors: Vec<ProcessedErrorReport>,
     best_error_tag: Option<String>,
     best_error_category_key: Option<String>,
+    best_error_source_area: Option<String>,
     error_category: Option<String>,
 }
 
@@ -432,15 +434,16 @@ impl<'a> InvocationRecorder<'a> {
         errors.extend(command_errors);
 
         let best_error = best_error(&errors).map(|error| process_error_report(error.clone()));
-        let (best_error_category_key, best_error_tag, error_category) =
+        let (best_error_category_key, best_error_tag, error_category, best_error_source_area) =
             if let Some(best_error) = best_error {
                 (
                     best_error.category_key,
                     best_error.best_tag,
                     best_error.category,
+                    best_error.source_area,
                 )
             } else {
-                (None, None, None)
+                (None, None, None, None)
             };
 
         let errors = errors.into_map(process_error_report);
@@ -450,6 +453,7 @@ impl<'a> InvocationRecorder<'a> {
             best_error_tag,
             best_error_category_key,
             error_category,
+            best_error_source_area,
         }
     }
 
@@ -720,6 +724,7 @@ impl<'a> InvocationRecorder<'a> {
             errors: errors_report.errors,
             best_error_tag: errors_report.best_error_tag,
             best_error_category_key: errors_report.best_error_category_key,
+            best_error_source_area: errors_report.best_error_source_area,
             error_category: errors_report.error_category,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(
@@ -1533,8 +1538,9 @@ impl<'a> InvocationRecorder<'a> {
 }
 
 fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
-    let best_tag = error
-        .best_tag()
+    let best_tag = error.best_tag();
+    let source_area = best_tag.map(|tag| source_area(tag).to_string().to_ascii_uppercase());
+    let best_tag = best_tag
         .map_or(
             // If we don't have tags on the errors,
             // we still want to add a tag to Scuba column.
@@ -1560,6 +1566,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         sub_error_categories: error.sub_error_categories,
         category_key: error.category_key,
         category: Some(category),
+        source_area,
     }
 }
 

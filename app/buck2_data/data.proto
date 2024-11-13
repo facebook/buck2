@@ -2064,6 +2064,9 @@ message InvocationRecord {
   // If `errors` is not empty, the category of the error
   // assumed to have triggered the command failure.
   optional string error_category = 234;
+
+  // Larger subsystem where the best error originated, derived from best_tag.
+  optional string best_error_source_area = 235;
 }
 
 // Record event sent directly to scribe.
@@ -2277,6 +2280,7 @@ message ProcessedErrorReport {
   repeated string sub_error_categories = 8;
   optional string category_key = 9;
   optional string category = 10;
+  optional string source_area = 11;
 }
 
 message CommandReport {

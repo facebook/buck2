@@ -231,6 +231,27 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
     category_and_rank(tag).0
 }
 
+#[derive(derive_more::Display, Debug, PartialEq)]
+pub enum ErrorSourceArea {
+    Buck2,
+    Eden,
+    Re,
+    Watchman,
+}
+
+pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
+    let tag_name = tag.as_str_name();
+    if tag_name.starts_with("IO_EDEN") {
+        ErrorSourceArea::Eden
+    } else if tag_name.starts_with("RE") {
+        ErrorSourceArea::Re
+    } else if tag_name.starts_with("WATCHMAN") {
+        ErrorSourceArea::Watchman
+    } else {
+        ErrorSourceArea::Buck2
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use buck2_data::error::ErrorTag;
@@ -334,6 +355,23 @@ mod tests {
         assert_eq!(
             best_error(&errors).map(|e| e.category()),
             Some(ENVIRONMENT.to_owned())
+        );
+    }
+
+    #[test]
+    fn test_source_area() {
+        assert_eq!(
+            source_area(ErrorTag::ServerStderrEmpty),
+            ErrorSourceArea::Buck2
+        );
+        assert_eq!(source_area(ErrorTag::ReAborted), ErrorSourceArea::Re);
+        assert_eq!(
+            source_area(ErrorTag::WatchmanConnect),
+            ErrorSourceArea::Watchman
+        );
+        assert_eq!(
+            source_area(ErrorTag::IoEdenArgumentError),
+            ErrorSourceArea::Eden
         );
     }
 }
