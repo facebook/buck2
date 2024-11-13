@@ -155,12 +155,18 @@ def _main() -> None:
             )
 
         bundle_path = CodesignedPath(
-            path=args.bundle_path, entitlements=args.entitlements, flags=[]
+            path=args.bundle_path,
+            entitlements=args.entitlements,
+            flags=[],
+            extra_file_paths=None,
         )
         codesign_on_copy_paths = (
             [
                 CodesignedPath(
-                    path=bundle_path.path / path, entitlements=None, flags=[]
+                    path=bundle_path.path / path,
+                    entitlements=None,
+                    flags=[],
+                    extra_file_paths=None,
                 )
                 for path in args.codesign_on_copy
             ]

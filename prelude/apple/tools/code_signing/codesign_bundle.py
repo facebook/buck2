@@ -73,6 +73,10 @@ class CodesignedPath:
     """
     Flags to be passed to codesign command when codesigning this particular path
     """
+    extra_file_paths: Optional[List[Path]]
+    """
+    Extra paths to be codesign. Applicable to dry-run codesigning only.
+    """
 
 
 def _log_codesign_identities(identities: List[CodeSigningIdentity]) -> None:
@@ -320,6 +324,7 @@ def _prepare_entitlements_and_info_plist(
         path=bundle_path.path,
         entitlements=prepared_entitlements_path,
         flags=bundle_path.flags,
+        extra_file_paths=None,
     )
 
 
@@ -453,13 +458,22 @@ def _dry_codesign_everything(
         for p in codesign_on_copy_paths
         if p.path.is_file()
     ]
-    codesign_command_factory.set_codesign_on_copy_file_paths(
-        codesign_on_copy_file_paths
+
+    if root.extra_file_paths:
+        raise RuntimeError(
+            f"Root path contains extra file paths: `{root.extra_file_paths}`"
+        )
+
+    root_with_extra_paths = CodesignedPath(
+        path=root.path,
+        entitlements=root.entitlements,
+        flags=root.flags,
+        extra_file_paths=codesign_on_copy_file_paths,
     )
 
     # Lastly sign whole bundle
     _codesign_paths(
-        paths=[root],
+        paths=[root_with_extra_paths],
         identity_fingerprint=identity_fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
@@ -564,7 +578,11 @@ def _spawn_codesign_process(
     stack: ExitStack,
 ) -> ParallelProcess:
     command = codesign_command_factory.codesign_command(
-        path.path, identity_fingerprint, path.entitlements, path.flags
+        path.path,
+        identity_fingerprint,
+        path.entitlements,
+        path.flags,
+        path.extra_file_paths,
     )
     return _spawn_process(command=command, tmp_dir=tmp_dir, stack=stack)
 
@@ -696,7 +714,10 @@ def obtain_keychain_permissions(
         shutil.copyfile(dummy_binary_path, dummy_binary_copied, follow_symlinks=True)
         p = _spawn_codesign_process(
             path=CodesignedPath(
-                path=Path(dummy_binary_copied), entitlements=None, flags=[]
+                path=Path(dummy_binary_copied),
+                entitlements=None,
+                flags=[],
+                extra_file_paths=None,
             ),
             identity_fingerprint=identity_fingerprint,
             tmp_dir=tmp_dir,

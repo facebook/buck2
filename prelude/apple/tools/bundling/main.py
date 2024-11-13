@@ -295,6 +295,7 @@ def _get_codesigned_paths_for_spec_item(
             path=bundle_path.path / item.dst,
             entitlements=entitlements,
             flags=flags,
+            extra_file_paths=None,
         )
     ]
 
@@ -305,6 +306,7 @@ def _get_codesigned_paths_for_spec_item(
                 path=bundle_path.path / item.dst / extra_codesign_path,
                 entitlements=entitlements,
                 flags=flags,
+                extra_file_paths=None,
             )
         )
 
@@ -467,7 +469,10 @@ def _main() -> None:
             )
 
         bundle_path = CodesignedPath(
-            path=args.output, entitlements=args.entitlements, flags=args.codesign_args
+            path=args.output,
+            entitlements=args.entitlements,
+            flags=args.codesign_args,
+            extra_file_paths=None,
         )
         codesign_on_copy_paths = _get_codesigned_paths_from_spec(
             bundle_path=bundle_path, spec=spec, args=args
@@ -476,6 +481,7 @@ def _main() -> None:
                 path=bundle_path.path / path,
                 entitlements=None,
                 flags=args.codesign_args,
+                extra_file_paths=None,
             )
             for path in swift_stdlib_paths
         ]
