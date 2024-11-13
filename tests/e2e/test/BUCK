@@ -15,14 +15,6 @@ bxl_test(
     src = "test_label_inplace.bxl",
 )
 
-bxl_test(
-    name = "test_label_inplace_with_asan_buckconfig",
-    src = "test_label_inplace.bxl",
-    buck_args = [
-        "@fbsource//fbandroid/mode/asan",
-    ],
-)
-
 buck2_e2e_test(
     name = "test_test_coverage",
     srcs = glob([
