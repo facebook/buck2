@@ -14,37 +14,26 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 from buck2.tests.e2e_util.helper.utils import (
-    filter_events,
     is_running_on_linux,
     is_running_on_windows,
     read_invocation_record,
 )
 
-# From `buck2_data`
-USER_ERROR = 2
-ENVIRONMENT_ERROR = 3
-ACTION_COMMAND_FAILURE = 2
-
-STARLARK_FAIL_TAG = 1
-ANY_STARLARK_EVALUATION_TAG = 2001
-
 
 @buck_test()
-async def test_action_error(buck: Buck) -> None:
+async def test_action_error(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("//:action_fail"), stderr_regex="Failed to build 'root//:action_fail"
+        buck.build(
+            "//:action_fail", "--unstable-write-invocation-record", str(record_path)
+        ),
+        stderr_regex="Failed to build 'root//:action_fail",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+
     assert len(errors) == 1
-    assert errors[0]["tier"] == USER_ERROR
+    assert errors[0]["category"] == "USER"
     # This test is unfortunately liable to break as a result of refactorings, since this is not
     # stable. Feel free to delete it if it becomes a problem.
     assert (
@@ -54,40 +43,35 @@ async def test_action_error(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_missing_outputs(buck: Buck) -> None:
+async def test_missing_outputs(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     # FIXME(JakobDegen): This doesn't work with non-local-only actions
     await expect_failure(
-        buck.build("//:missing_outputs", "--local-only"),
+        buck.build(
+            "//:missing_outputs",
+            "--local-only",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex="Failed to build 'root//:missing_outputs",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
     assert len(errors) == 1
-    assert errors[0]["tier"] == USER_ERROR
+    assert errors[0]["category"] == "USER"
 
 
 @buck_test()
-async def test_bad_url(buck: Buck) -> None:
+async def test_bad_url(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("//:bad_url"),
+        buck.build(
+            "//:bad_url", "--unstable-write-invocation-record", str(record_path)
+        ),
         stderr_regex="Failed to build 'root//:bad_url",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
     assert len(errors) == 1
     # Also liable to break as a result of refactorings, feel free to update
     assert (
@@ -96,40 +80,36 @@ async def test_bad_url(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_attr_coercion(buck: Buck) -> None:
+async def test_attr_coercion(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("//attr_coercion:int_rule"),
+        buck.build(
+            "//attr_coercion:int_rule",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex="evaluating build file: `root//attr_coercion:TARGETS.fixture",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
     assert len(errors) == 1
     # Just make sure there's some kind of error metadata
     assert "CoercionError::TypeError" in errors[0]["source_location"]
 
 
 @buck_test()
-async def test_buck2_fail(buck: Buck) -> None:
+async def test_buck2_fail(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("//buck2_fail:foobar"),
+        buck.build(
+            "//buck2_fail:foobar",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex="evaluating build file: `root//buck2_fail:TARGETS.fixture`",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
     assert len(errors) == 1
     # Just make sure that despite there being no context on the error, we still report the right
     # metadata
@@ -140,88 +120,79 @@ async def test_buck2_fail(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_starlark_fail_error_categorization(buck: Buck) -> None:
+async def test_starlark_fail_error_categorization(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("//starlark_fail:foobar"),
+        buck.build(
+            "//starlark_fail:foobar",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex="evaluating build file: `root//starlark_fail:TARGETS.fixture`",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Fail")
-    assert errors[0]["tier"] == USER_ERROR
+    assert errors[0]["category"] == "USER"
 
 
 @buck_test()
-async def test_starlark_parse_error_categorization(buck: Buck) -> None:
+async def test_starlark_parse_error_categorization(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("//starlark_parse_error:starlark_parse_error"),
+        buck.build(
+            "//starlark_parse_error:starlark_parse_error",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex=".*Parse error:.*",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
 
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Parser")
-    assert errors[0]["category_key"].endswith("ANY_STARLARK_EVALUATION")
-    assert errors[0]["tier"] == USER_ERROR
+    assert errors[0]["tags"] == ["ANY_STARLARK_EVALUATION"]
+    assert errors[0]["category"] == "USER"
 
 
 @buck_test()
-async def test_starlark_scope_error_categorization(buck: Buck) -> None:
+async def test_starlark_scope_error_categorization(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.build("//starlark_scope_error:value_err"),
+        buck.build(
+            "//starlark_scope_error:value_err",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex="evaluating build file: .* not found",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "build_response",
-        "errors",
-    )
-
-    assert len(errors_events) == 1
-    errors = errors_events[0]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
 
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Scope")
-    assert errors[0]["category_key"].endswith("ANY_STARLARK_EVALUATION")
-    assert errors[0]["tier"] == USER_ERROR
+    assert errors[0]["tags"] == ["ANY_STARLARK_EVALUATION"]
+    assert errors[0]["category"] == "USER"
 
 
 @buck_test()
-async def test_targets_error_categorization(buck: Buck) -> None:
+async def test_targets_error_categorization(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.targets("//starlark_fail:foobar"),
+        buck.targets(
+            "//starlark_fail:foobar",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex="evaluating build file: `root//starlark_fail:TARGETS.fixture`",
     )
-    errors_events = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "error",
-    )
-    assert len(errors_events) == 1
-    errors = errors_events[0]["errors"]
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
     assert len(errors) == 1
-    assert errors[0]["tags"] == [STARLARK_FAIL_TAG]
-    assert errors[0]["tier"] == USER_ERROR
+    assert errors[0]["tags"] == ["STARLARK_FAIL"]
+    assert errors[0]["category"] == "USER"
 
 
 @buck_test()
@@ -344,7 +315,7 @@ async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
 
         invocation_record = read_invocation_record(record)
         assert invocation_record["best_error_tag"] == "IO_MATERIALIZER_FILE_BUSY"
-        assert invocation_record["errors"][0]["tier"] == ENVIRONMENT_ERROR
+        assert invocation_record["errors"][0]["category"] == "ENVIRONMENT"
     else:
         await build
 
