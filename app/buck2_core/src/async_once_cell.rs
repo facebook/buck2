@@ -61,7 +61,6 @@ impl<T> AsyncOnceCell<T> {
             .await
         {
             Ok(val) => val,
-            Err(infallible) => match infallible {},
         }
     }
 }

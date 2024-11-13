@@ -328,7 +328,6 @@ impl<E: Into<::anyhow::Error>> FromResidual<Result<Infallible, E>> for ExitResul
     #[track_caller]
     fn from_residual(residual: Result<Infallible, E>) -> ExitResult {
         match residual {
-            Ok(infallible) => match infallible {},
             // E -> anyhow::Error -> ExitResult
             Err(e) => Self::err(e.into()),
         }

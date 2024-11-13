@@ -61,7 +61,6 @@ impl<D: RefData> SelfRef<D> {
     ) -> Self {
         match Self::try_new(owner, |f| Ok::<_, Infallible>(data(f))) {
             Ok(x) => x,
-            Err(e) => match e {},
         }
     }
 
