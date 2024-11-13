@@ -28,7 +28,9 @@ def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None
         fail("`src` cannot be a target. Found `{}` for `src`".format(src))
     if not src.endswith(".bxl"):
         fail("`src` must end in '.bxl'. Found `{}` for `src`".format(src))
-    export_file_name = src + ".export_file"
+
+    # Need to include `name` to keep this target unique, in case there are multiple bxl_tests defined for same bxl file
+    export_file_name = "{}.{}.export_file".format(src, name)
     export_file(name = export_file_name, src = src, mode = "reference")
 
     # This is ugly but needed for buck1 compatibility
