@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//tests:test_toolchain.bzl", "test_toolchain_labels")
 load(
     ":erlang_build.bzl",
     "BuildEnvironment",
@@ -266,7 +267,7 @@ def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
             type = "erlang_test",
             command = [cmd],
             env = ctx.attrs.env,
-            labels = ctx.attrs.labels,
+            labels = ctx.attrs.labels + test_toolchain_labels(ctx.attrs._test_toolchain),
             contacts = ctx.attrs.contacts,
             run_from_project_root = True,
             use_project_relative_paths = True,
