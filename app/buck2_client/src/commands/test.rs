@@ -31,7 +31,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_count;
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::ErrorTag;
 use superconsole::Line;
 use superconsole::Span;
@@ -41,7 +41,7 @@ use crate::commands::build::print_build_result;
 fn forward_output_to_path(
     output: &str,
     path_arg: &PathArg,
-    working_dir: &WorkingDir,
+    working_dir: &AbsWorkingDir,
 ) -> anyhow::Result<()> {
     fs_util::write(path_arg.resolve(working_dir), output)
         .context("Failed to write test executor output to path")

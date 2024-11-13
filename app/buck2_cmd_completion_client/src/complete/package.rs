@@ -13,14 +13,14 @@ use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 
 use super::path_completer::PathCompleter;
 use super::path_sanitizer::PathSanitizer;
 use super::results::CompletionResults;
 
 pub(crate) struct PackageCompleter<'a> {
-    cwd: WorkingDir,
+    cwd: AbsWorkingDir,
     roots: &'a InvocationRoots,
     cell_configs: Arc<BuckConfigBasedCells>,
     path_sanitizer: PathSanitizer,
@@ -28,7 +28,10 @@ pub(crate) struct PackageCompleter<'a> {
 }
 
 impl<'a> PackageCompleter<'a> {
-    pub(crate) async fn new(cwd: &WorkingDir, roots: &'a InvocationRoots) -> CommandOutcome<Self> {
+    pub(crate) async fn new(
+        cwd: &AbsWorkingDir,
+        roots: &'a InvocationRoots,
+    ) -> CommandOutcome<Self> {
         let cell_configs = Arc::new(
             BuckConfigBasedCells::parse_with_config_args(
                 &roots.project_root,
@@ -150,13 +153,13 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> CommandOutcome<(InvocationRoots, WorkingDir)> {
+    fn in_dir(d: &str) -> CommandOutcome<(InvocationRoots, AbsWorkingDir)> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
-                let candidate = WorkingDir::unchecked_new(candidate);
+                let candidate = AbsWorkingDir::unchecked_new(candidate);
                 return CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate));
             }
         }
@@ -164,13 +167,13 @@ mod tests {
         CommandOutcome::Failure(ExitResult::bail("test_data directory not found"))
     }
 
-    fn in_root() -> CommandOutcome<(InvocationRoots, WorkingDir)> {
+    fn in_root() -> CommandOutcome<(InvocationRoots, AbsWorkingDir)> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
-                let candidate = WorkingDir::unchecked_new(candidate);
+                let candidate = AbsWorkingDir::unchecked_new(candidate);
                 return CommandOutcome::Success((find_invocation_roots(&candidate)?, candidate));
             }
         }

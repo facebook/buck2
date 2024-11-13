@@ -16,7 +16,7 @@ use buck2_cli_proto::*;
 use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
@@ -57,7 +57,7 @@ pub struct WriteEventLog {
     state: LogWriterState,
     sanitized_argv: SanitizedArgv,
     command_name: String,
-    working_dir: WorkingDir,
+    working_dir: AbsWorkingDir,
     /// Allocation cache. Must be cleaned before use.
     buf: Vec<u8>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
@@ -66,7 +66,7 @@ pub struct WriteEventLog {
 impl WriteEventLog {
     pub fn new(
         logdir: AbsNormPathBuf,
-        working_dir: WorkingDir,
+        working_dir: AbsWorkingDir,
         extra_path: Option<AbsPathBuf>,
         extra_user_event_log_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
@@ -466,7 +466,7 @@ mod tests {
                     expanded_argv: vec!["buck2".to_owned()],
                 },
                 command_name: "testtest".to_owned(),
-                working_dir: WorkingDir::current_dir()?,
+                working_dir: AbsWorkingDir::current_dir()?,
                 buf: Vec::new(),
                 log_size_counter_bytes: None,
             })

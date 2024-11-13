@@ -18,7 +18,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_core::error::buck2_hard_error_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContext;
@@ -44,7 +44,7 @@ pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
     pub immediate_config: &'a ImmediateConfigContext<'a>,
     paths: InvocationPathsResult,
-    pub working_dir: WorkingDir,
+    pub working_dir: AbsWorkingDir,
     pub verbosity: Verbosity,
     /// When set, this function is called to launch in process daemon.
     /// The function returns `Ok` when daemon successfully started
@@ -68,7 +68,7 @@ impl<'a> ClientCommandContext<'a> {
         init: fbinit::FacebookInit,
         immediate_config: &'a ImmediateConfigContext<'a>,
         paths: InvocationPathsResult,
-        working_dir: WorkingDir,
+        working_dir: AbsWorkingDir,
         verbosity: Verbosity,
         start_in_process_daemon: Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
         argv: Argv,

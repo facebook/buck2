@@ -268,7 +268,7 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::paths::abs_path::AbsPath;
-    use buck2_core::fs::working_dir::WorkingDir;
+    use buck2_core::fs::working_dir::AbsWorkingDir;
 
     use super::*;
 
@@ -297,7 +297,7 @@ mod tests {
         fs_util::write(root.join("foo/bar/arg1.txt"), "@bar/arg2.txt").unwrap();
         fs_util::write(root.join("foo/bar/arg2.txt"), "--magic").unwrap();
         fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .").unwrap();
-        let cwd = WorkingDir::unchecked_new(
+        let cwd = AbsWorkingDir::unchecked_new(
             AbsNormPathBuf::new(root.canonicalize().unwrap().join("foo")).unwrap(),
         );
         let mut context = ImmediateConfigContext::new(&cwd);

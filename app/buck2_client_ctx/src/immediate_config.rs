@@ -25,7 +25,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::AnyhowContextForError;
 use prost::Message;
 
@@ -80,12 +80,12 @@ pub struct ImmediateConfigContext<'a> {
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
     data: OnceLock<ImmediateConfigContextData>,
-    cwd: &'a WorkingDir,
+    cwd: &'a AbsWorkingDir,
     trace: Vec<AbsNormPathBuf>,
 }
 
 impl<'a> ImmediateConfigContext<'a> {
-    pub fn new(cwd: &'a WorkingDir) -> Self {
+    pub fn new(cwd: &'a AbsWorkingDir) -> Self {
         Self {
             data: OnceLock::new(),
             cwd,

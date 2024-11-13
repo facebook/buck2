@@ -16,7 +16,7 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_core::fs::fs_util;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum RootKind {
@@ -74,7 +74,7 @@ impl RootCommand {
                     let base_dir = dir.resolve(&ctx.working_dir);
                     // FIXME(JakobDegen): Like always, canonicalize is wrong
                     let base_dir = fs_util::canonicalize(&base_dir)?;
-                    working_dir_data = WorkingDir::unchecked_new(base_dir);
+                    working_dir_data = AbsWorkingDir::unchecked_new(base_dir);
                     let roots = find_invocation_roots(&working_dir_data)?;
                     imm_ctx_data = ImmediateConfigContext::new(&working_dir_data);
                     (roots, &imm_ctx_data)

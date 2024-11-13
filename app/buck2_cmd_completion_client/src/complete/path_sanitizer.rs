@@ -23,7 +23,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SanitizedPath {
@@ -70,14 +70,14 @@ impl std::fmt::Display for SanitizedPath {
 pub(crate) struct PathSanitizer {
     cell_resovler: CellResolver,
     alias_resolver: CellAliasResolver,
-    cwd: WorkingDir,
+    cwd: AbsWorkingDir,
     cwd_roots: InvocationRoots,
 }
 
 impl PathSanitizer {
     pub(crate) async fn new(
         cell_configs: &BuckConfigBasedCells,
-        cwd: &WorkingDir,
+        cwd: &AbsWorkingDir,
     ) -> anyhow::Result<Self> {
         let cwd_roots = find_invocation_roots(cwd)?;
         let cell_resolver = cell_configs.cell_resolver.clone();
@@ -257,26 +257,26 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> anyhow::Result<WorkingDir> {
+    fn in_dir(d: &str) -> anyhow::Result<AbsWorkingDir> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
-                return Ok(WorkingDir::unchecked_new(candidate));
+                return Ok(AbsWorkingDir::unchecked_new(candidate));
             }
         }
 
         Err(anyhow::anyhow!("test_data directory not found"))
     }
 
-    fn in_root() -> anyhow::Result<WorkingDir> {
+    fn in_root() -> anyhow::Result<AbsWorkingDir> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
-                return Ok(WorkingDir::unchecked_new(candidate));
+                return Ok(AbsWorkingDir::unchecked_new(candidate));
             }
         }
 
@@ -293,7 +293,7 @@ mod tests {
         Ok(path.to_string())
     }
 
-    fn cell_configs(cwd: &WorkingDir) -> anyhow::Result<BuckConfigBasedCells> {
+    fn cell_configs(cwd: &AbsWorkingDir) -> anyhow::Result<BuckConfigBasedCells> {
         let cwd_roots = find_invocation_roots(cwd)?;
         Ok(futures::executor::block_on(
             BuckConfigBasedCells::parse_with_config_args(

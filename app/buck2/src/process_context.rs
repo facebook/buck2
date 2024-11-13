@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_wrapper_common::invocation_id::TraceId;
 
@@ -19,7 +19,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 pub struct ProcessContext<'a> {
     pub log_reload_handle: &'a Arc<dyn LogConfigurationReloadHandle>,
     pub stdin: &'a mut Stdin,
-    pub working_dir: &'a WorkingDir,
+    pub working_dir: &'a AbsWorkingDir,
     pub args: &'a [String],
     pub restarter: &'a mut Restarter,
     pub trace_id: TraceId,

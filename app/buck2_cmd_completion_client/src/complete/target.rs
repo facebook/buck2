@@ -27,7 +27,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use clap::ArgMatches;
 use futures::future::BoxFuture;
 use futures::FutureExt;
@@ -44,7 +44,7 @@ pub(crate) trait TargetResolver: Send {
 pub(crate) struct CompleteTargetCommand {
     target_cfg: TargetCfgOptions,
 
-    cwd: WorkingDir,
+    cwd: AbsWorkingDir,
     package: String,
     partial_target: String,
 
@@ -53,7 +53,7 @@ pub(crate) struct CompleteTargetCommand {
 
 impl CompleteTargetCommand {
     pub(crate) fn new(
-        cwd: &WorkingDir,
+        cwd: &AbsWorkingDir,
         package: String,
         partial_target: String,
         callback: CompleteCallback,
@@ -117,7 +117,7 @@ impl StreamingCommand for CompleteTargetCommand {
     }
 }
 pub(crate) struct TargetCompleter<'a> {
-    cwd: WorkingDir,
+    cwd: AbsWorkingDir,
     cell_configs: Arc<BuckConfigBasedCells>,
     target_resolver: &'a mut dyn TargetResolver,
     results: CompletionResults<'a>,
@@ -125,7 +125,7 @@ pub(crate) struct TargetCompleter<'a> {
 
 impl<'a> TargetCompleter<'a> {
     pub(crate) async fn new(
-        cwd: &WorkingDir,
+        cwd: &AbsWorkingDir,
         roots: &'a InvocationRoots,
         target_resolver: &'a mut dyn TargetResolver,
     ) -> anyhow::Result<Self> {
@@ -220,13 +220,13 @@ mod tests {
         ]
     }
 
-    fn in_dir(d: &str) -> anyhow::Result<(InvocationRoots, WorkingDir)> {
+    fn in_dir(d: &str) -> anyhow::Result<(InvocationRoots, AbsWorkingDir)> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?.join_normalized(d)?;
             if candidate.exists() {
-                let candidate = WorkingDir::unchecked_new(candidate);
+                let candidate = AbsWorkingDir::unchecked_new(candidate);
                 return Ok((find_invocation_roots(&candidate)?, candidate));
             }
         }
@@ -234,13 +234,13 @@ mod tests {
         Err(anyhow::anyhow!("test_data directory not found"))
     }
 
-    fn in_root() -> anyhow::Result<(InvocationRoots, WorkingDir)> {
+    fn in_root() -> anyhow::Result<(InvocationRoots, AbsWorkingDir)> {
         let cwd = AbsNormPathBuf::new(std::env::current_dir().unwrap())?;
 
         for path in paths_to_test_data() {
             let candidate = cwd.join_normalized(path)?;
             if candidate.exists() {
-                let candidate = WorkingDir::unchecked_new(candidate);
+                let candidate = AbsWorkingDir::unchecked_new(candidate);
                 return Ok((find_invocation_roots(&candidate)?, candidate));
             }
         }

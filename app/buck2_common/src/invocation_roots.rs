@@ -18,7 +18,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
 
@@ -89,7 +89,7 @@ fn get_roots(from: &Path) -> Option<PathBuf> {
     project_root
 }
 
-pub fn find_invocation_roots(from: &WorkingDir) -> buck2_error::Result<InvocationRoots> {
+pub fn find_invocation_roots(from: &AbsWorkingDir) -> buck2_error::Result<InvocationRoots> {
     let from = from.path().as_path();
     match get_roots(from) {
         Some(project_root) => Ok(InvocationRoots {
@@ -100,7 +100,7 @@ pub fn find_invocation_roots(from: &WorkingDir) -> buck2_error::Result<Invocatio
 }
 
 pub fn get_invocation_paths_result(
-    from: &WorkingDir,
+    from: &AbsWorkingDir,
     isolation: FileNameBuf,
 ) -> InvocationPathsResult {
     let from = from.path().as_path();

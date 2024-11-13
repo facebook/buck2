@@ -24,7 +24,7 @@ use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stdio;
 use buck2_core::buck2_env_anyhow;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::log_file::TracingLogFile;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -134,7 +134,7 @@ fn main() -> ! {
         tracing::debug!("Client initialized logging");
 
         let args = std::env::args().collect::<Vec<String>>();
-        let cwd = WorkingDir::current_dir()?;
+        let cwd = AbsWorkingDir::current_dir()?;
         let mut stdin = Stdin::new()?;
         let mut restarter = Restarter::new();
 

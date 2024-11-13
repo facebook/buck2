@@ -21,16 +21,16 @@ use crate::fs::paths::abs_path::AbsPathBuf;
 /// So relative paths should be resolved against this.
 #[derive(Clone, Debug, derive_more::Display)]
 #[display("{}", path)]
-pub struct WorkingDir {
+pub struct AbsWorkingDir {
     path: AbsNormPathBuf,
 }
 
-impl WorkingDir {
-    pub fn unchecked_new(path: AbsNormPathBuf) -> WorkingDir {
-        WorkingDir { path }
+impl AbsWorkingDir {
+    pub fn unchecked_new(path: AbsNormPathBuf) -> AbsWorkingDir {
+        AbsWorkingDir { path }
     }
 
-    pub fn current_dir() -> buck2_error::Result<WorkingDir> {
+    pub fn current_dir() -> buck2_error::Result<AbsWorkingDir> {
         let current_dir = AbsPathBuf::new(env::current_dir()?)?;
 
         #[derive(Debug, buck2_error::Error)]
@@ -52,7 +52,7 @@ impl WorkingDir {
             }
         }
 
-        Ok(WorkingDir::unchecked_new(current_dir_canonical))
+        Ok(AbsWorkingDir::unchecked_new(current_dir_canonical))
     }
 
     pub fn resolve(&self, path: &Path) -> AbsPathBuf {

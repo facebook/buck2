@@ -64,7 +64,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
@@ -159,7 +159,7 @@ pub struct ServerCommandContext<'a> {
     /// to interpret values that are in the request. We should convert to client-agnostic things early.
     pub working_dir: ArcS<ProjectRelativePath>,
 
-    working_dir_abs: WorkingDir,
+    working_dir_abs: AbsWorkingDir,
 
     /// The oncall specified by the client, if any. This gets injected into request metadata.
     pub oncall: Option<String>,
@@ -303,7 +303,7 @@ impl<'a> ServerCommandContext<'a> {
         Ok(ServerCommandContext {
             base_context,
             working_dir: working_dir_project_relative,
-            working_dir_abs: WorkingDir::unchecked_new(working_dir.to_buf()),
+            working_dir_abs: AbsWorkingDir::unchecked_new(working_dir.to_buf()),
             host_platform_override: client_context.host_platform(),
             host_arch_override: client_context.host_arch(),
             host_xcode_version_override: client_context.host_xcode_version.clone(),
@@ -787,7 +787,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         &self.working_dir
     }
 
-    fn working_dir_abs(&self) -> &WorkingDir {
+    fn working_dir_abs(&self) -> &AbsWorkingDir {
         &self.working_dir_abs
     }
 

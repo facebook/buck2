@@ -20,7 +20,7 @@ use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_data::CommandCriticalEnd;
@@ -42,7 +42,7 @@ use crate::stderr_output_guard::StderrOutputGuard;
 pub trait ServerCommandContextTrait: Send + Sync {
     fn working_dir(&self) -> &ProjectRelativePath;
 
-    fn working_dir_abs(&self) -> &WorkingDir;
+    fn working_dir_abs(&self) -> &AbsWorkingDir;
 
     fn command_name(&self) -> &str;
 

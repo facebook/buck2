@@ -23,7 +23,7 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use futures::TryStreamExt;
 
@@ -55,7 +55,7 @@ struct CopyContext {
 pub(super) async fn copy_to_out(
     targets: &[BuildTarget],
     root_path: &ProjectRoot,
-    working_dir: &WorkingDir,
+    working_dir: &AbsWorkingDir,
     out: &OutputDestinationArg,
 ) -> anyhow::Result<()> {
     struct OutputToBeCopied {

@@ -8,21 +8,21 @@
  */
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
-use buck2_core::fs::working_dir::WorkingDir;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 
 use super::path_sanitizer::PathSanitizer;
 use super::path_sanitizer::SanitizedPath;
 use super::results::CompletionResults;
 
 pub(crate) struct PathCompleter<'a, 'b> {
-    cwd: WorkingDir,
+    cwd: AbsWorkingDir,
     sanitizer: &'b PathSanitizer,
     results: &'b mut CompletionResults<'a>,
 }
 
 impl<'a, 'b> PathCompleter<'a, 'b> {
     pub(crate) fn new(
-        cwd: &WorkingDir,
+        cwd: &AbsWorkingDir,
         sanitizer: &'b PathSanitizer,
         results: &'b mut CompletionResults<'a>,
     ) -> anyhow::Result<Self> {
