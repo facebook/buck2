@@ -555,6 +555,11 @@ impl AbsNormPath {
         Ok(self.as_path().strip_prefix(&prefix)?)
     }
 
+    pub fn ancestors(&self) -> impl Iterator<Item = &'_ AbsNormPath> {
+        // Taking the ancestors of an AbsNormPath gives you more AbsNormPath.
+        self.0.ancestors().map(AbsNormPath::ref_cast)
+    }
+
     pub fn as_path(&self) -> &Path {
         self.0.as_path()
     }
