@@ -301,6 +301,11 @@ def _get_codesigned_paths_for_spec_item(
     extra_codesign_paths = item.extra_codesign_paths or []
     for extra_codesign_path in extra_codesign_paths:
         path = bundle_path.path / item.dst / extra_codesign_path
+        if not path.exists():
+            raise RuntimeError(
+                f"Found non-existing extra path to codesign: {extra_codesign_path} for {item.src}"
+            )
+
         if path.is_file() and is_dry_run:
             # In dry-run mode, non-bundle items should be signed as part of the containing bundle.
             extra_file_paths.append(extra_codesign_path)
