@@ -10,7 +10,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_outputs")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validators_info")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
@@ -380,8 +380,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     contains_swift_sources = bool(swift_srcs)
     xctest_swift_support_provider = xctest_swift_support_info(ctx, contains_swift_sources, is_test_target)
 
-    attrs_validators_providers, attrs_validators_subtargets = get_attrs_validators_outputs(ctx)
-
     def additional_providers_factory(propagated_exported_preprocessor_info: [CPreprocessorInfo, None]) -> list[Provider]:
         # Expose `SwiftPCMUncompiledInfo` which represents the ObjC part of a target,
         # if a target also has a Swift part, the provider will expose the generated `-Swift.h` header.
@@ -394,7 +392,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
         providers.append(swift_dependency_info)
         providers.append(xctest_swift_support_provider)
-        providers.extend(attrs_validators_providers)
+        providers.extend(get_attrs_validators_info(ctx))
 
         return providers
 
@@ -471,7 +469,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             # follow.
             static_external_debug_info = swift_debug_info.static,
             shared_external_debug_info = swift_debug_info.shared,
-            subtargets = subtargets | attrs_validators_subtargets,
+            subtargets = subtargets,
             additional_providers_factory = additional_providers_factory,
             external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
         ),
