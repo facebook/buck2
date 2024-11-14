@@ -60,7 +60,7 @@ impl Display for DotNodeAttrs {
 }
 
 /// A node in the graph.
-pub trait DotNode {
+pub(crate) trait DotNode {
     fn attrs(&self) -> anyhow::Result<DotNodeAttrs>;
     fn id(&self) -> String;
 }
@@ -71,7 +71,7 @@ pub struct DotEdge<'a> {
     to: &'a str,
 }
 
-pub trait DotDigraph<'a> {
+pub(crate) trait DotDigraph<'a> {
     type Node: DotNode;
 
     fn name(&self) -> &str;
@@ -113,7 +113,10 @@ fn escape_id(value: &str) -> String {
 pub struct Dot {}
 
 impl Dot {
-    pub fn render<'a, T: DotDigraph<'a>, W: Write>(graph: &'a T, mut w: W) -> anyhow::Result<()> {
+    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
+        graph: &'a T,
+        mut w: W,
+    ) -> anyhow::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
         graph.for_each_node(|node| {
             let attrs = node.attrs()?;
@@ -132,7 +135,10 @@ impl Dot {
 pub struct DotCompact {}
 
 impl DotCompact {
-    pub fn render<'a, T: DotDigraph<'a>, W: Write>(graph: &'a T, mut w: W) -> anyhow::Result<()> {
+    pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
+        graph: &'a T,
+        mut w: W,
+    ) -> anyhow::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
 
         let mut next_id: u32 = 0;

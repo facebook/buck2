@@ -183,7 +183,7 @@ impl FileHasher for PathsAndContentsHasher {
 /// This trait is purposely defined here instead of in buck2_node crate
 /// so that we can only access the public fields of these nodes.
 #[async_trait]
-pub trait TargetHashingTargetNode: QueryTarget {
+pub(crate) trait TargetHashingTargetNode: QueryTarget {
     /// We only hash this node, not its dependencies.
     /// Importantly, we look at the nodes after configuration (for the configured case).
     fn target_hash<H: Hasher>(&self, state: &mut H);
@@ -411,7 +411,7 @@ impl TargetHashes {
         hasher.finish_u128()
     }
 
-    pub async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
+    pub(crate) async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         mut dice: DiceTransaction,
         lookup: L,
         targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,

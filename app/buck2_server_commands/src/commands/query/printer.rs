@@ -48,13 +48,13 @@ use crate::dot::Dot;
 use crate::dot::DotCompact;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
-pub enum ShouldPrintProviders<'a, T> {
+pub(crate) enum ShouldPrintProviders<'a, T> {
     No,
     Yes(&'a dyn ProviderLookUp<T>),
 }
 
 #[async_trait]
-pub trait ProviderLookUp<T: QueryTarget>: Send + Sync {
+pub(crate) trait ProviderLookUp<T: QueryTarget>: Send + Sync {
     async fn lookup(&self, t: &T)
     -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 }

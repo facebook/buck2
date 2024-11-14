@@ -27,7 +27,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::daemon::dice_dump::tar_dice_dump;
 
-pub trait DaemonStatePanicDiceDump: Send + Sync + 'static {
+pub(crate) trait DaemonStatePanicDiceDump: Send + Sync + 'static {
     fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()>;
 }
 
@@ -58,7 +58,7 @@ async fn remove_old_panic_dumps() -> anyhow::Result<()> {
 }
 
 /// Initializes the panic hook.
-pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
+pub(crate) fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
     let hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         daemon_panic_hook(&daemon_state, info);
