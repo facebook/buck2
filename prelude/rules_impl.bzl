@@ -81,7 +81,6 @@ load("@prelude//decls/re_test_common.bzl", "re_test_common")
 load("@prelude//decls/rust_rules.bzl", "rust_rules")
 load("@prelude//decls/scala_rules.bzl", "scala_rules")
 load("@prelude//decls/shell_rules.bzl", "shell_rules")
-load("@prelude//decls/test_common.bzl", "test_common")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load("@prelude//decls/uncategorized_rules.bzl", "uncategorized_rules")
 load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides")
@@ -637,7 +636,7 @@ inlined_extra_attributes = {
         labels = attrs.list(attrs.string(), default = []),
         needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
         test = attrs.dep(providers = [ExternalRunnerTestInfo]),
-        **(re_test_common.test_args() | buck.inject_test_env_arg() | test_common.attributes())
+        **(re_test_common.test_args() | buck.inject_test_env_arg())
     ),
     "python_test": _python_test_attrs(),
     "remote_file": {
