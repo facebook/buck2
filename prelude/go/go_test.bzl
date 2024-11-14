@@ -13,7 +13,6 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
-load("@prelude//tests:test_toolchain.bzl", "test_toolchain_labels")
 load(
     "@prelude//utils:utils.bzl",
     "map_val",
@@ -142,7 +141,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
             type = "go",
             command = [run_cmd],
             env = ctx.attrs.env,
-            labels = ctx.attrs.labels + test_toolchain_labels(ctx.attrs._test_toolchain),
+            labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,
             executor_overrides = executor_overrides,
