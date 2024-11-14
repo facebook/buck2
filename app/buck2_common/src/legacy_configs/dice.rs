@@ -16,6 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
+use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -268,9 +269,9 @@ impl HasInjectedLegacyConfigs for DiceComputations<'_> {
     async fn get_injected_external_buckconfig_data(
         &mut self,
     ) -> buck2_error::Result<Arc<ExternalBuckconfigData>> {
-        self.compute(&LegacyExternalBuckConfigDataKey).await?.ok_or_else(|| {
-            panic!("Tried to retrieve LegacyExternalBuckConfigDataKey from the graph, but key has None value")
-        })
+        self.compute(&LegacyExternalBuckConfigDataKey).await?.internal_error(
+            "Tried to retrieve LegacyExternalBuckConfigDataKey from the graph, but key has None value"
+        )
     }
 
     async fn is_injected_external_buckconfig_data_key_set(&mut self) -> buck2_error::Result<bool> {
