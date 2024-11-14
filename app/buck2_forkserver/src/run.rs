@@ -341,7 +341,7 @@ impl KillProcess for DefaultKillProcess {
 
 /// Unify the the behavior of using a relative path for the executable between Unix and Windows. On
 /// UNIX, the path is understood to be relative to the cwd of the *spawned process*, whereas on
-/// Windows, it's relative ot the cwd of the *spawning* process.
+/// Windows, it's relative to the cwd of the *spawning* process.
 ///
 /// Here, we unify the two behaviors since we always run our subprocesses with a known cwd: we
 /// check if the executable actually exists relative to said cwd, and if it does, we use that.
@@ -352,8 +352,21 @@ pub fn maybe_absolutize_exe<'a>(
     let exe = exe.as_ref();
 
     let abs = spawned_process_cwd.join(exe);
-    if fs_util::try_exists(&abs).context("Error absolute-izing executable")? {
-        return Ok(abs.into_path_buf().into());
+
+    if let Some(metadata) = fs_util::metadata_if_exists(&abs).context("Error getting metadata for path")? {
+        if metadata.is_file() {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if metadata.permissions().mode() & 0o111 != 0 {
+                    return Ok(abs.into_path_buf().into());
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                return Ok(abs.into_path_buf().into());
+            }
+        }
     }
 
     Ok(exe.into())

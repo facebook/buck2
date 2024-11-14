@@ -456,6 +456,17 @@ pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
 }
 
 /// `None` if file does not exist.
+pub fn metadata_if_exists<P: AsRef<AbsPath>>(
+    path: P,
+) -> Result<Option<fs::Metadata>, IoError> {
+    let _guard = IoCounterKey::Stat.guard();
+    make_error!(
+        if_exists(fs::metadata(path.as_ref().as_maybe_relativized())),
+        format!("metadata({})", path.as_ref().display())
+    )
+}
+
+/// `None` if file does not exist.
 pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
     path: P,
 ) -> Result<Option<fs::Metadata>, IoError> {
