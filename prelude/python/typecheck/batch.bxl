@@ -17,7 +17,7 @@ def _check_targets_batched(ctx: bxl.Context, checked_targets: list[Label]) -> ty
         for label, artifacts in output.items()
     }
 
-def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLabel]) -> list[Label]:
+def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> list[Label]:
     configured_targets = ctx.analysis(
         ctx.configured_targets(
             do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False),
@@ -30,7 +30,7 @@ def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLa
         if "typecheck" in target.providers()[DefaultInfo].sub_targets
     ]
 
-def check_targets(ctx: bxl.Context, targets: list[TargetLabel]) -> None:
+def check_targets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> None:
     checked_targets = filter_and_get_typecheck_subtargets(ctx, targets)
     artifacts = _check_targets_batched(ctx, checked_targets)
 
