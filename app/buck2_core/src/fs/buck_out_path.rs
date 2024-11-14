@@ -173,18 +173,20 @@ impl BuckOutTestPath {
 }
 
 #[derive(Clone, Allocative)]
-pub struct BuckOutPathResolver(ProjectRelativePathBuf);
+pub struct BuckOutPathResolver {
+    buck_out_v2: ProjectRelativePathBuf,
+}
 
 impl BuckOutPathResolver {
     /// creates a 'BuckOutPathResolver' that will resolve outputs to the provided buck-out root.
     /// If not set, buck_out defaults to "buck-out/v2"
-    pub fn new(buck_out: ProjectRelativePathBuf) -> Self {
-        BuckOutPathResolver(buck_out)
+    pub fn new(buck_out_v2: ProjectRelativePathBuf) -> Self {
+        BuckOutPathResolver { buck_out_v2 }
     }
 
     /// Returns the buck-out root.
     pub fn root(&self) -> &ProjectRelativePath {
-        &self.0
+        &self.buck_out_v2
     }
 
     /// Resolves a 'BuckOutPath' into a 'ProjectRelativePath' based on the base
@@ -219,7 +221,7 @@ impl BuckOutPathResolver {
         origin: ExternalCellOrigin,
     ) -> ProjectRelativePathBuf {
         ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
-            self.0.as_forward_relative_path(),
+            self.buck_out_v2.as_forward_relative_path(),
             ForwardRelativePath::new("external_cells").unwrap(),
             match origin {
                 ExternalCellOrigin::Bundled(_) => ForwardRelativePath::new("bundled").unwrap(),
@@ -251,7 +253,7 @@ impl BuckOutPathResolver {
     /// Resolve a test path
     pub fn resolve_test(&self, path: &BuckOutTestPath) -> ProjectRelativePathBuf {
         ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
-            self.0.as_forward_relative_path(),
+            self.buck_out_v2.as_forward_relative_path(),
             ForwardRelativePath::new("test").unwrap(),
             &path.base,
             &path.path,
@@ -293,7 +295,7 @@ impl BuckOutPathResolver {
         path: &ForwardRelativePath,
         fully_hash_path: bool,
     ) -> ProjectRelativePathBuf {
-        owner.make_hashed_path(&self.0, prefix, action_key, path, fully_hash_path)
+        owner.make_hashed_path(&self.buck_out_v2, prefix, action_key, path, fully_hash_path)
     }
 
     /// This function returns the exact location of the symlink of a given target.
@@ -302,7 +304,7 @@ impl BuckOutPathResolver {
     pub fn unhashed_gen(&self, path: &BuildArtifactPath) -> Option<ProjectRelativePathBuf> {
         Some(ProjectRelativePathBuf::from(
             ForwardRelativePathBuf::concat([
-                self.0.as_ref(),
+                self.buck_out_v2.as_ref(),
                 ForwardRelativePath::unchecked_new("gen"),
                 &path.0.owner.owner().make_unhashed_path()?,
                 path.path(),
