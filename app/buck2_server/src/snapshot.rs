@@ -55,7 +55,6 @@ impl SnapshotCollector {
         self.add_materializer_metrics(&mut snapshot);
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
-        self.add_cpu_load_info(&mut snapshot);
         snapshot
     }
 
@@ -270,12 +269,6 @@ impl SnapshotCollector {
                 load5,
                 load15,
             });
-        }
-    }
-
-    fn add_cpu_load_info(&self, snapshot: &mut buck2_data::Snapshot) {
-        if let Ok(host_cpu_load_info) = buck2_util::os::host_cpu_load_info::host_cpu_load_info() {
-            snapshot.host_cpu_load_info = Some(host_cpu_load_info);
         }
     }
 }
