@@ -16,19 +16,20 @@ syntax = "proto3";
 // elsewhere.
 package buck.data.error;
 
+// TODO(ctolliday) remove this
 enum ErrorTier {
   // Same as above
   UNUSED_DEFAULT_CATEGORY = 0;
   // Unexpected errors in buck2 or core dependencies.
   // It should be possible to eliminate these, in theory.
-  TIER0 = 1;
+  TIER0_TIER = 1;
   // Errors that may be triggered by issues with the host,
   // resource limits, non-explicit dependencies or potentially
   // ambiguous input errors.
   // These can be tracked but not eliminated.
-  ENVIRONMENT = 3;
+  ENVIRONMENT_TIER = 3;
   // Expected errors in inputs explicitly tracked by buck.
-  INPUT = 2;
+  INPUT_TIER = 2;
 }
 
 // Error types are - by design - restricted to being set exactly once at the
@@ -42,6 +43,10 @@ enum ErrorTag {
   reserved 2001;
   // Same as above
   UNUSED_DEFAULT_TAG = 0;
+
+  INPUT = 900;
+  TIER0 = 901;
+  ENVIRONMENT = 902;
 
   STARLARK_FAIL = 1;
   STARLARK_ERROR = 100;

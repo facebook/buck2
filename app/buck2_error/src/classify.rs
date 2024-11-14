@@ -108,6 +108,9 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::HttpServer => rank!(tier0),
         ErrorTag::StarlarkInternal => rank!(tier0),
 
+        ErrorTag::Environment => rank!(environment),
+        ErrorTag::Tier0 => rank!(tier0),
+
         // Input errors
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something
@@ -135,6 +138,8 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::HttpClient => rank!(input),
         ErrorTag::Analysis => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
+
+        ErrorTag::Input => rank!(input),
 
         // Unspecified errors
         ErrorTag::IoBrokenPipe => rank!(unspecified),
@@ -179,9 +184,9 @@ impl ErrorLike for buck2_data::ErrorReport {
         self.tier
             .map(|tier| match ErrorTier::from_i32(tier) {
                 Some(tier) => match tier {
-                    ErrorTier::Tier0 => Some(Tier::Tier0),
-                    ErrorTier::Environment => Some(Tier::Environment),
-                    ErrorTier::Input => Some(Tier::Input),
+                    ErrorTier::Tier0Tier => Some(Tier::Tier0),
+                    ErrorTier::EnvironmentTier => Some(Tier::Environment),
+                    ErrorTier::InputTier => Some(Tier::Input),
                     ErrorTier::UnusedDefaultCategory => None,
                 },
                 None => None,
@@ -254,7 +259,6 @@ pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
 #[cfg(test)]
 mod tests {
     use buck2_data::error::ErrorTag;
-    use buck2_data::error::ErrorTier;
     use buck2_data::ErrorReport;
 
     use super::*;
@@ -280,11 +284,11 @@ mod tests {
     fn test_user_and_infra() {
         let errors = vec![
             ErrorReport {
-                tier: Some(ErrorTier::Input as i32),
+                tags: vec![ErrorTag::Input as i32],
                 ..ErrorReport::default()
             },
             ErrorReport {
-                tier: Some(ErrorTier::Tier0 as i32),
+                tags: vec![ErrorTag::Tier0 as i32],
                 ..ErrorReport::default()
             },
         ];
@@ -295,7 +299,7 @@ mod tests {
     #[test]
     fn test_default_is_infra() {
         let errors = vec![ErrorReport {
-            tier: Some(ErrorTier::UnusedDefaultCategory as i32),
+            tags: vec![ErrorTag::UnusedDefaultTag as i32],
             ..ErrorReport::default()
         }];
 
@@ -310,7 +314,7 @@ mod tests {
                 ..ErrorReport::default()
             },
             ErrorReport {
-                tier: Some(ErrorTier::Tier0 as i32),
+                tags: vec![ErrorTag::Tier0 as i32],
                 ..ErrorReport::default()
             },
         ];
@@ -319,17 +323,6 @@ mod tests {
             best_error(&errors).map(|e| e.tags.clone()),
             Some(vec![ErrorTag::ServerJemallocAssert as i32]),
         );
-    }
-
-    #[test]
-    fn test_tag_overrides_tier() {
-        let errors = vec![ErrorReport {
-            tier: Some(ErrorTier::Tier0 as i32),
-            tags: vec![ErrorTag::StarlarkFail as i32],
-            ..ErrorReport::default()
-        }];
-
-        assert_eq!(best_error(&errors).map(|e| e.category()), Some(Tier::Input));
     }
 
     #[test]

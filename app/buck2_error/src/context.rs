@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_data::error::ErrorTag;
 use smallvec::smallvec;
 
 use crate::context_value::ContextValue;
@@ -33,12 +34,12 @@ pub trait BuckErrorContext<T>: Sealed {
 
     #[track_caller]
     fn input(self) -> crate::Result<T> {
-        self.buck_error_context(crate::Tier::Input)
+        self.tag(ErrorTag::Input)
     }
 
     #[track_caller]
     fn tier0(self) -> crate::Result<T> {
-        self.buck_error_context(crate::Tier::Tier0)
+        self.tag(ErrorTag::Tier0)
     }
 
     #[track_caller]
@@ -73,12 +74,12 @@ pub trait BuckErrorContext<T>: Sealed {
 
     #[track_caller]
     fn input_anyhow(self) -> anyhow::Result<T> {
-        self.buck_error_context_anyhow(crate::Tier::Input)
+        self.tag_anyhow(ErrorTag::Input)
     }
 
     #[track_caller]
     fn tier0_anyhow(self) -> anyhow::Result<T> {
-        self.buck_error_context_anyhow(crate::Tier::Tier0)
+        self.tag_anyhow(ErrorTag::Tier0)
     }
 
     #[track_caller]

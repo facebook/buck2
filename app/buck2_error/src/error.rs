@@ -15,6 +15,7 @@ use either::Either;
 use itertools::Itertools;
 use smallvec::SmallVec;
 
+use crate::ErrorTag;
 use crate::__for_macro::AsDynError;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
@@ -150,7 +151,14 @@ impl Error {
 
     /// Stable identifier for grouping errors.
     pub fn category_key(&self) -> String {
-        let tags = self.tags().into_iter().map(|tag| tag.as_str_name());
+        let tags = self
+            .tags()
+            .into_iter()
+            .filter(|tag| match tag {
+                ErrorTag::Input | ErrorTag::Environment | ErrorTag::Tier0 => false,
+                _ => true,
+            })
+            .map(|tag| tag.as_str_name());
 
         let key_values = self.iter_context().filter_map(|kind| match kind {
             ContextValue::Key(val) => Some(val.to_string()),
@@ -360,12 +368,10 @@ mod tests {
     #[test]
     fn test_get_tier() {
         let e: crate::Error = crate::Error::new(TestError)
-            .context(Tier::Tier0)
-            .context(Tier::Environment);
+            .tag([crate::ErrorTag::Tier0, crate::ErrorTag::Environment]);
         assert_eq!(e.get_tier(), Some(Tier::Tier0));
         let e: crate::Error = crate::Error::new(TestError)
-            .context(Tier::Environment)
-            .context(Tier::Input);
+            .tag([crate::ErrorTag::Environment, crate::ErrorTag::Input]);
         assert_eq!(e.get_tier(), Some(Tier::Environment));
     }
 

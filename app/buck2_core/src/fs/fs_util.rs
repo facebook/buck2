@@ -74,9 +74,7 @@ fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
 impl IoError {
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
         if self.e.kind() == io::ErrorKind::NotFound {
-            buck2_error::Error::from(self)
-                .context(buck2_error::Tier::Input)
-                .into()
+            buck2_error::Error::from(self).tag([ErrorTag::Input]).into()
         } else {
             self.into()
         }
