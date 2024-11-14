@@ -8,7 +8,6 @@
 load("@prelude//erlang/erlang_application.bzl", "StartTypeValues")
 load(":common.bzl", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
-load(":test_common.bzl", "test_common")
 
 def re_test_args():
     # remove reference to fbcode targets
@@ -293,7 +292,7 @@ rules_attributes = {
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
         "_trampoline": attrs.option(attrs.dep(), default = None, doc = "DEPRECATED. Use _trampolines instead."),
         "_trampolines": attrs.option(attrs.list(attrs.dep()), default = None),
-    } | common_shell_attributes | re_test_args() | test_common.attributes(),
+    } | common_shell_attributes | re_test_args(),
 }
 
 attributes = {
