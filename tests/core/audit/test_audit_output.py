@@ -136,7 +136,7 @@ async def test_fixed_target_platform(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_dynamic_outputs(buck: Buck) -> None:
+async def test_dynamic_output_declared_in_rule_bound_in_dynamic(buck: Buck) -> None:
     target = "root//dynamic_output:dynamic_output"
     config_hash = await _get_config_hash(buck, target)
 
@@ -147,6 +147,11 @@ async def test_dynamic_outputs(buck: Buck) -> None:
     assert target in action
     assert "id" in action
 
+
+@buck_test()
+async def test_dynamic_output_declared_and_bound_in_dynamic(buck: Buck) -> None:
+    target = "root//dynamic_output:dynamic_output"
+    config_hash = await _get_config_hash(buck, target)
     result = await buck.audit_output(
         f"buck-out/v2/gen/root/{config_hash}/dynamic_output/__dynamic_output__/defined_dynamic.txt",
     )
