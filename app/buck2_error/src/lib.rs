@@ -26,8 +26,6 @@ pub mod starlark_error;
 
 use std::error::Request;
 
-pub use context::AnyhowContextForError;
-pub use context::BuckErrorContext;
 /// A piece of metadata to indicate whether this error is an infra or user error.
 ///
 /// You can attach this to an error by passing it to the [`Error::context`] method. Alternatively,
@@ -37,7 +35,9 @@ pub use context::BuckErrorContext;
 /// The category is fundamentally closed - the expectation is that it will not grow new variants in
 /// the future.
 #[doc(inline)]
-pub use context_value::Tier;
+pub use classify::Tier;
+pub use context::AnyhowContextForError;
+pub use context::BuckErrorContext;
 pub use context_value::TypedContext;
 pub use error::DynLateFormat;
 pub use error::Error;

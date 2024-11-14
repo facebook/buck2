@@ -10,7 +10,6 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
-        "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:smallvec",

@@ -83,29 +83,6 @@ impl<'a> From<&'a str> for ContextValue {
     }
 }
 
-#[derive(
-    allocative::Allocative,
-    PartialEq,
-    Eq,
-    Copy,
-    Clone,
-    Debug,
-    PartialOrd,
-    Ord
-)]
-pub enum Tier {
-    Input,
-    Environment,
-    Tier0,
-}
-
-impl Tier {
-    pub fn combine(self, other: Option<Tier>) -> Tier {
-        let Some(other) = other else { return self };
-        std::cmp::max(self, other)
-    }
-}
-
 pub trait TypedContext:
     allocative::Allocative + Send + Sync + std::fmt::Display + std::any::Any + 'static
 {
@@ -183,18 +160,5 @@ mod tests {
         let e: crate::Error = TestError.into();
         let e = e.clone().tag([ErrorTag::Tier0, ErrorTag::Input]);
         assert_eq!(e.get_tier(), Some(Tier::Tier0));
-    }
-
-    #[test]
-    fn test_combine() {
-        assert_eq!(Tier::Input.combine(None), Tier::Input);
-        assert_eq!(Tier::Input.combine(Some(Tier::Input)), Tier::Input);
-        assert_eq!(
-            Tier::Input.combine(Some(Tier::Environment)),
-            Tier::Environment
-        );
-        assert_eq!(Tier::Input.combine(Some(Tier::Tier0)), Tier::Tier0);
-        assert_eq!(Tier::Environment.combine(Some(Tier::Tier0)), Tier::Tier0);
-        assert_eq!(Tier::Tier0.combine(Some(Tier::Input)), Tier::Tier0);
     }
 }

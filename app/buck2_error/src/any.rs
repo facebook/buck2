@@ -143,7 +143,7 @@ impl StdError for CrateAsStdError {
 
 /// This can be `provide`d by an error to inject buck2-specific information about it.
 ///
-/// For `typ`, `action_error`, and the source information, only the value that appears last in the
+/// For `action_error`, and the source information, only the value that appears last in the
 /// source chain will be used. The derive macro typically handles this to prevent any surprises,
 /// however if this value is being provided manually then care may need to be taken.
 #[derive(Clone)]

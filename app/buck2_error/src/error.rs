@@ -11,7 +11,6 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
-use either::Either;
 use itertools::Itertools;
 use smallvec::SmallVec;
 
@@ -215,24 +214,7 @@ impl Error {
     }
 
     pub fn get_tier(&self) -> Option<Tier> {
-        let mut out = None;
-        // TODO(nga): remove tiers marking and only rely on tags.
-        let context_tiers = self.iter_context().flat_map(|kind| match kind {
-            ContextValue::Tags(tags) => {
-                Either::Right(tags.iter().copied().filter_map(error_tag_category))
-            }
-            _ => Either::Left(None.into_iter()),
-        });
-
-        for t in context_tiers {
-            // It's a tier0 error if it was ever marked as a tier0 error
-            match t {
-                Tier::Tier0 => return Some(t),
-                Tier::Environment => out = std::cmp::max(out, Some(t)),
-                Tier::Input => out = std::cmp::max(out, Some(t)),
-            }
-        }
-        out
+        best_tag(self.tags()).map(error_tag_category).flatten()
     }
 
     /// All tags unsorted and with duplicates.
@@ -368,7 +350,7 @@ mod tests {
     fn test_get_tier() {
         let e: crate::Error = crate::Error::new(TestError)
             .tag([crate::ErrorTag::Tier0, crate::ErrorTag::Environment]);
-        assert_eq!(e.get_tier(), Some(Tier::Tier0));
+        assert_eq!(e.get_tier(), Some(Tier::Environment));
         let e: crate::Error = crate::Error::new(TestError)
             .tag([crate::ErrorTag::Environment, crate::ErrorTag::Input]);
         assert_eq!(e.get_tier(), Some(Tier::Environment));

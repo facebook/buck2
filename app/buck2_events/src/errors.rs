@@ -10,13 +10,6 @@
 use gazebo::prelude::SliceExt;
 
 pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport {
-    // Tier0 error by default if no tier is set
-    let tier: Option<buck2_data::error::ErrorTier> = err.get_tier().map(|c| match c {
-        buck2_error::Tier::Input => buck2_data::error::ErrorTier::InputTier,
-        buck2_error::Tier::Environment => buck2_data::error::ErrorTier::EnvironmentTier,
-        buck2_error::Tier::Tier0 => buck2_data::error::ErrorTier::Tier0Tier,
-    });
-
     let (message, telemetry_message) = if let Some(f) = err.is_emitted() {
         (format!("{:?}", f), Some(format!("{:?}", err)))
     } else {
@@ -46,7 +39,6 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
     };
 
     buck2_data::ErrorReport {
-        tier: tier.map(|c| c as i32),
         message,
         telemetry_message,
         source_location,

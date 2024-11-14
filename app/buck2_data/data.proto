@@ -2262,8 +2262,7 @@ message DiceEqualityCheck {
 message NoActiveDiceState {}
 
 message ErrorReport {
-  reserved 2;
-  optional buck.data.error.ErrorTier tier = 1;
+  reserved 1, 2;
   // The error message that is shown to users on the CLI
   string message = 3;
   // If different from `message`, the error messsage that is shown to the

@@ -1560,7 +1560,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         Tier::Input => INPUT.to_owned(),
     };
     buck2_data::ProcessedErrorReport {
-        tier: error.tier,
+        tier: None,
         message: error.message,
         telemetry_message: error.telemetry_message,
         source_location: error.source_location,
