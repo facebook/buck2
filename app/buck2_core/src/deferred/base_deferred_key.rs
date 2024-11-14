@@ -155,6 +155,7 @@ impl BaseDeferredKey {
                     let mut hasher = DefaultHasher::new();
                     path_identifier.hash(&mut hasher);
 
+                    // TODO(nga): should be `{:016x}`, but that requires a change via buckconfig.
                     format!("{:x}/", hasher.finish())
                 } else {
                     path_identifier.concat()

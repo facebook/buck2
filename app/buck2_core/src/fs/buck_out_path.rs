@@ -136,6 +136,7 @@ impl BuckOutScratchPath {
                     // FIXME: Should this be a crypto hasher?
                     let mut hasher = DefaultHasher::new();
                     v.hash(&mut hasher);
+                    // TODO(nga): should be `{:016x}`, but that requires a change via buckconfig.
                     let output_hash = format!("{}{:x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
                     path.join_normalized(ForwardRelativePath::new(&output_hash)?)?
                 }
