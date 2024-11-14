@@ -13,6 +13,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use derive_more::Display;
@@ -23,6 +25,7 @@ use dupe::Dupe;
 
 #[async_trait]
 pub trait HasBuildContextData {
+    async fn add_missing_zeros(&mut self) -> anyhow::Result<bool>;
     async fn get_buck_out_path(&mut self) -> anyhow::Result<BuckOutPathResolver>;
 }
 
@@ -49,9 +52,25 @@ impl InjectedKey for BuildDataKey {
 
 #[async_trait]
 impl HasBuildContextData for DiceComputations<'_> {
+    async fn add_missing_zeros(&mut self) -> anyhow::Result<bool> {
+        // TODO(nga): migrate and inline as `true`.
+        Ok(self
+            .get_legacy_root_config_on_dice()
+            .await?
+            .view(self)
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "add_missing_zeros",
+            })?
+            .unwrap_or(false))
+    }
+
     async fn get_buck_out_path(&mut self) -> anyhow::Result<BuckOutPathResolver> {
         let data = self.compute(&BuildDataKey).await?;
-        Ok(BuckOutPathResolver::new(data.buck_out_path.to_buf()))
+        Ok(BuckOutPathResolver::new(
+            data.buck_out_path.to_buf(),
+            self.add_missing_zeros().await?,
+        ))
     }
 }
 

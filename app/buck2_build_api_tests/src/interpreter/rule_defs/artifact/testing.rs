@@ -164,9 +164,10 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
                 .unwrap();
         let fs = ArtifactFs::new(
             cell_info.1,
-            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
-                "buck-out/v2".to_owned(),
-            )),
+            BuckOutPathResolver::new(
+                ProjectRelativePathBuf::unchecked_new("buck-out/v2".to_owned()),
+                true,
+            ),
             project_fs,
         );
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);

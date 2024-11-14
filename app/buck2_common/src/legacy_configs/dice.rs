@@ -16,6 +16,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
+use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
@@ -190,8 +191,11 @@ impl Key for LegacyBuckConfigForCellKey {
     ) -> buck2_error::Result<LegacyBuckConfig> {
         let cells = ctx.get_cell_resolver().await?;
         let this_cell = cells.get(self.cell_name)?;
-        let config =
-            BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path()).await?;
+        let config = BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path())
+            .await
+            .with_context(|| {
+                format!("Computing legacy buckconfigs for cell `{}`", self.cell_name)
+            })?;
         let config = config.filter_values(should_keep_config_change);
 
         ConfigDiffTracker::report_computed_config(ctx, self.cell_name, &config);
@@ -280,6 +284,16 @@ impl HasInjectedLegacyConfigs for DiceComputations<'_> {
             .await?
             .is_some())
     }
+}
+
+pub fn inject_legacy_config_for_test(
+    dice: &mut DiceTransactionUpdater,
+    cell_name: CellName,
+    configs: LegacyBuckConfig,
+) -> buck2_error::Result<()> {
+    dice.changed_to([(LegacyBuckConfigForCellKey { cell_name }, Ok(configs))])?;
+    dice.changed_to([(LegacyExternalBuckConfigDataKey, None)])?;
+    Ok(())
 }
 
 #[async_trait]

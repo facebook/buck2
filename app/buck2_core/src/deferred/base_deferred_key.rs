@@ -118,6 +118,7 @@ impl BaseDeferredKey {
         action_key: Option<&str>,
         path: &ForwardRelativePath,
         fully_hash_path: bool,
+        add_missing_zeros: bool,
     ) -> ProjectRelativePathBuf {
         match self {
             BaseDeferredKey::TargetLabel(target) => {
@@ -158,8 +159,11 @@ impl BaseDeferredKey {
                     let mut hasher = DefaultHasher::new();
                     path_identifier.hash(&mut hasher);
 
-                    // TODO(nga): should be `{:016x}`, but that requires a change via buckconfig.
-                    format!("{:x}/", hasher.finish())
+                    if add_missing_zeros {
+                        format!("{:016x}/", hasher.finish())
+                    } else {
+                        format!("{:x}/", hasher.finish())
+                    }
                 } else {
                     path_identifier.concat()
                 };

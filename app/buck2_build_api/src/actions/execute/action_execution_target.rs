@@ -24,11 +24,15 @@ use crate::actions::RegisteredAction;
 #[derivative(Debug)]
 pub struct ActionExecutionTarget<'a> {
     action: &'a RegisteredAction,
+    add_missing_zeros: bool,
 }
 
 impl<'a> ActionExecutionTarget<'a> {
-    pub(crate) fn new(action: &'a RegisteredAction) -> Self {
-        Self { action }
+    pub(crate) fn new(action: &'a RegisteredAction, add_missing_zeros: bool) -> Self {
+        ActionExecutionTarget {
+            action,
+            add_missing_zeros,
+        }
     }
 
     pub fn owner(&self) -> &'a BaseDeferredKey {
@@ -49,6 +53,7 @@ impl<'a> ActionExecutionTarget<'a> {
             self.action.category(),
             self.action.identifier(),
             self.action.action_key(),
+            self.add_missing_zeros,
         )
         .unwrap()
     }

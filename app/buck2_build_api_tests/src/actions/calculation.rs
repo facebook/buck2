@@ -46,6 +46,8 @@ use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::SetHttpClient;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::dice::inject_legacy_config_for_test;
 use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
 use buck2_core::category::CategoryRef;
 use buck2_core::cells::cell_path::CellPath;
@@ -235,6 +237,11 @@ async fn make_default_dice_state(
     extra.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
 
     let mut computations = dice_builder.build(extra)?;
+    inject_legacy_config_for_test(
+        &mut computations,
+        CellName::testing_new("root"),
+        LegacyBuckConfig::empty(),
+    )?;
     computations.set_buck_out_path(Some(output_path))?;
     computations.set_cell_resolver(cell_resolver)?;
 

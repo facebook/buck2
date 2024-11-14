@@ -27,9 +27,10 @@ fn artifact_fs() -> ArtifactFs {
     let cell_info = cells(None).unwrap();
     ArtifactFs::new(
         cell_info.1,
-        BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
-            "buck-out/v2".to_owned(),
-        )),
+        BuckOutPathResolver::new(
+            ProjectRelativePathBuf::unchecked_new("buck-out/v2".to_owned()),
+            true,
+        ),
         ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
             .unwrap(),
     )

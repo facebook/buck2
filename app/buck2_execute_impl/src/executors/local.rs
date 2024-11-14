@@ -1185,7 +1185,10 @@ mod tests {
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             ),
-            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out/v2".into())),
+            BuckOutPathResolver::new(
+                ProjectRelativePathBuf::unchecked_new("buck_out/v2".into()),
+                true,
+            ),
             project_fs,
         )
     }

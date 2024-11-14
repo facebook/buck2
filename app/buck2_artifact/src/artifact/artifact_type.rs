@@ -659,7 +659,10 @@ mod tests {
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             ),
-            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
+            BuckOutPathResolver::new(
+                ProjectRelativePathBuf::unchecked_new("buck_out".into()),
+                true,
+            ),
             project_fs,
         );
 
@@ -690,7 +693,10 @@ mod tests {
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             ),
-            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
+            BuckOutPathResolver::new(
+                ProjectRelativePathBuf::unchecked_new("buck_out".into()),
+                true,
+            ),
             project_fs.dupe(),
         );
         let expected_path1 = project_fs.resolve(&fs.resolve_build(artifact1.get_path()));

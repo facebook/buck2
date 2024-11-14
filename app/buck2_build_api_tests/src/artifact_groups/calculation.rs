@@ -29,6 +29,8 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::file_ops::testing::TestFileOps;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::dice::inject_legacy_config_for_test;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
@@ -197,6 +199,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
     let mut dice = dice_builder.build(extra)?;
     dice.set_cell_resolver(cell_resolver)?;
     dice.set_buck_out_path(None)?;
+    inject_legacy_config_for_test(&mut dice, cell_parent, LegacyBuckConfig::empty())?;
     let mut dice = dice.commit().await;
 
     let result = dice
