@@ -241,6 +241,28 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
 
     return gather
 
+def _get_compiled_underlying_pcm(
+        ctx: AnalysisContext,
+        module_pp_info: CPreprocessor | None,
+        deps_providers: list,
+        swift_cxx_flags: list[str],
+        framework_search_paths: cmd_args) -> SwiftCompiledModuleInfo | None:
+    underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
+        ctx,
+        None,
+        module_pp_info,
+    )
+    if not underlying_swift_pcm_uncompiled_info:
+        return None
+
+    return compile_underlying_pcm(
+        ctx,
+        underlying_swift_pcm_uncompiled_info,
+        deps_providers,
+        swift_cxx_flags,
+        framework_search_paths,
+    )
+
 def compile_swift(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags],
@@ -262,21 +284,13 @@ def compile_swift(
     # If a target exports ObjC headers and Swift explicit modules are enabled,
     # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
     if objc_modulemap_pp_info and uses_explicit_modules(ctx):
-        underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
+        compiled_underlying_pcm = _get_compiled_underlying_pcm(
             ctx,
-            None,
             objc_modulemap_pp_info,
+            deps_providers,
+            get_swift_cxx_flags(ctx),
+            framework_search_paths,
         )
-        if underlying_swift_pcm_uncompiled_info:
-            compiled_underlying_pcm = compile_underlying_pcm(
-                ctx,
-                underlying_swift_pcm_uncompiled_info,
-                deps_providers,
-                get_swift_cxx_flags(ctx),
-                framework_search_paths,
-            )
-        else:
-            compiled_underlying_pcm = None
     else:
         compiled_underlying_pcm = None
 
