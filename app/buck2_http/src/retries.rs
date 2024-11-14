@@ -132,7 +132,8 @@ mod tests {
     }
 
     fn ok_response() -> Result<String, HttpTestError> {
-        Ok("Success".to_owned()).map_err(|_: anyhow::Error| test_error(StatusCode::IM_A_TEAPOT))
+        Ok("Success".to_owned())
+            .map_err(|_: buck2_error::Error| test_error(StatusCode::IM_A_TEAPOT))
     }
 
     fn retryable() -> Result<String, HttpTestError> {

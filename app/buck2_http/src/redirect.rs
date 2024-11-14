@@ -9,7 +9,7 @@
 
 use std::future::Future;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use bytes::Bytes;
 use http::HeaderMap;
 use http::Method;
@@ -21,7 +21,7 @@ use hyper::StatusCode;
 use crate::HttpError;
 
 trait UriWithRedirect {
-    fn with_redirect(&self, location: &Uri) -> anyhow::Result<Uri>;
+    fn with_redirect(&self, location: &Uri) -> buck2_error::Result<Uri>;
 
     fn is_cross_host(&self, other: &Uri) -> bool;
 }
@@ -29,7 +29,7 @@ trait UriWithRedirect {
 impl UriWithRedirect for Uri {
     /// Converts this Uri into the redirect Uri by combining it with the URI
     /// obtained from the Location header of a response.
-    fn with_redirect(&self, location: &Uri) -> anyhow::Result<Uri> {
+    fn with_redirect(&self, location: &Uri) -> buck2_error::Result<Uri> {
         let mut redirected = Uri::builder();
         if let Some(scheme) = location.scheme().or_else(|| self.scheme()) {
             redirected = redirected.scheme(scheme.clone());
@@ -40,7 +40,9 @@ impl UriWithRedirect for Uri {
         if let Some(path_and_query) = location.path_and_query().or_else(|| self.path_and_query()) {
             redirected = redirected.path_and_query(path_and_query.clone());
         }
-        redirected.build().context("Building redirected URI")
+        redirected
+            .build()
+            .buck_error_context("Building redirected URI")
     }
 
     /// Returns whether this Uri is the same host as represented by 'other'.
@@ -69,7 +71,7 @@ impl PendingRequest {
         }
     }
 
-    pub(super) fn to_request(&self) -> anyhow::Result<Request<Bytes>> {
+    pub(super) fn to_request(&self) -> buck2_error::Result<Request<Bytes>> {
         let mut builder = Request::builder()
             .method(self.method.clone())
             .uri(self.uri.clone());
@@ -78,7 +80,7 @@ impl PendingRequest {
             .expect("Request builder should not error here") = self.headers.clone();
         builder
             .body(self.body.clone())
-            .context("building redirected request")
+            .buck_error_context("building redirected request")
     }
 }
 
@@ -164,7 +166,7 @@ impl<B> RedirectEngine<B> {
     }
 
     /// Updates the request in place to send to the redirect location.
-    fn update_and_create_request(&mut self) -> anyhow::Result<Option<Request<Bytes>>> {
+    fn update_and_create_request(&mut self) -> buck2_error::Result<Option<Request<Bytes>>> {
         let redirect_location =
             if let Some(location) = self.extract_redirect_location_from_response() {
                 location

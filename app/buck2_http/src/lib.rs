@@ -77,7 +77,7 @@ pub enum HttpError {
     #[error("HTTP Error: Exceeded max redirects ({max_redirects}) while fetching URI: {uri}. ")]
     TooManyRedirects { uri: String, max_redirects: usize },
     #[error("HTTP: Error mutating request")]
-    MutateRequest(#[source] anyhow::Error),
+    MutateRequest(#[source] buck2_error::Error),
     #[error("HTTP: Timed out while making request to URI: {uri} after {duration} seconds.")]
     #[buck2(tier0)]
     Timeout { uri: String, duration: u64 },
@@ -95,8 +95,8 @@ impl From<http::Error> for HttpError {
     }
 }
 
-impl From<anyhow::Error> for HttpError {
-    fn from(err: anyhow::Error) -> Self {
+impl From<buck2_error::Error> for HttpError {
+    fn from(err: buck2_error::Error) -> Self {
         Self::MutateRequest(err)
     }
 }

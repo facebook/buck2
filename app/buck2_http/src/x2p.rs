@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_error::buck2_error;
 use http::HeaderMap;
 use http::HeaderValue;
 use http::Uri;
@@ -14,7 +15,7 @@ use hyper_proxy::Proxy;
 
 #[cfg(fbcode_build)]
 mod imp {
-    use anyhow::Context;
+    use buck2_error::BuckErrorContext;
     use http::Uri;
     use hyper_proxy::Intercept;
 
@@ -35,12 +36,12 @@ mod imp {
         }
     }
 
-    pub(super) fn find_http_proxy() -> anyhow::Result<Option<Proxy>> {
+    pub(super) fn find_http_proxy() -> buck2_error::Result<Option<Proxy>> {
         if let Some(port) = cpe::x2p::http1_proxy_port() {
             tracing::debug!("Using x2pagent http proxy client on port: {}", port);
             let uri: Uri = format!("http://localhost:{}", port)
                 .try_into()
-                .context("Error converting x2pagent proxy address into URI")?;
+                .buck_error_context("Error converting x2pagent proxy address into URI")?;
             Ok(Some(Proxy::new(Intercept::All, uri)))
         } else {
             Ok(None)
@@ -49,7 +50,7 @@ mod imp {
 }
 
 #[cfg(fbcode_build)]
-pub fn find_proxy() -> anyhow::Result<Option<Proxy>> {
+pub fn find_proxy() -> buck2_error::Result<Option<Proxy>> {
     #[cfg(unix)]
     if let Some(proxy) = imp::find_unix_socket_proxy() {
         return Ok(Some(proxy));
@@ -59,8 +60,9 @@ pub fn find_proxy() -> anyhow::Result<Option<Proxy>> {
 }
 
 #[cfg(not(fbcode_build))]
-pub fn find_proxy() -> anyhow::Result<Option<Proxy>> {
-    Err(anyhow::anyhow!(
+pub fn find_proxy() -> buck2_error::Result<Option<Proxy>> {
+    Err(buck2_error!(
+        [],
         "VPNless development not supported for non-internal fbcode builds"
     ))
 }
@@ -77,11 +79,11 @@ pub enum X2PAgentError {
     #[error("Host `{host}` and path `{path}` is not authorized on vpnless")]
     AccessDenied { host: String, path: String },
     #[error(transparent)]
-    Error(anyhow::Error),
+    Error(buck2_error::Error),
 }
 
-impl From<anyhow::Error> for X2PAgentError {
-    fn from(e: anyhow::Error) -> Self {
+impl From<buck2_error::Error> for X2PAgentError {
+    fn from(e: buck2_error::Error) -> Self {
         Self::Error(e)
     }
 }
@@ -110,7 +112,7 @@ impl X2PAgentError {
                 host,
                 message: to_str(msg),
             }),
-            (_, _, Some(message)) => Some(Self::Error(anyhow::anyhow!(to_str(message)))),
+            (_, _, Some(message)) => Some(Self::Error(buck2_error!([], "{}", to_str(message)))),
             _ => None,
         }
     }
