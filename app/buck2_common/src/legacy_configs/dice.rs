@@ -269,7 +269,7 @@ impl HasInjectedLegacyConfigs for DiceComputations<'_> {
         &mut self,
     ) -> buck2_error::Result<Arc<ExternalBuckconfigData>> {
         self.compute(&LegacyExternalBuckConfigDataKey).await?.ok_or_else(|| {
-            panic!("Tried to retrieve LegacyBuckConfigOverridesKey from the graph, but key has None value")
+            panic!("Tried to retrieve LegacyExternalBuckConfigDataKey from the graph, but key has None value")
         })
     }
 
