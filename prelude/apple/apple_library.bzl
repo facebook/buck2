@@ -317,7 +317,13 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     # ObjC code in Swift so must be done before Swift compilation.
     exported_hdrs = cxx_attr_exported_headers(ctx, get_apple_cxx_headers_layout(ctx))
     if (ctx.attrs.modular or swift_srcs) and exported_hdrs:
-        modulemap_pre = preprocessor_info_for_modulemap(ctx, "exported", exported_hdrs, None)
+        modulemap_pre = preprocessor_info_for_modulemap(
+            ctx,
+            name = "exported",
+            headers = exported_hdrs,
+            swift_header = None,
+            mark_headers_private = False,
+        )
     else:
         modulemap_pre = None
 

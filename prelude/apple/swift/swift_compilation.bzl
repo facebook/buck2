@@ -345,7 +345,13 @@ def compile_swift(
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
-    modulemap_pp_info = preprocessor_info_for_modulemap(ctx, "swift-extended", exported_headers, output_header)
+    modulemap_pp_info = preprocessor_info_for_modulemap(
+        ctx,
+        name = "swift-extended",
+        headers = exported_headers,
+        swift_header = output_header,
+        mark_headers_private = False,
+    )
     exported_swift_header = CHeader(
         artifact = output_header,
         name = output_header.basename,

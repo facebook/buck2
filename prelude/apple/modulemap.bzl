@@ -17,12 +17,18 @@ load(
 )
 load(":apple_utility.bzl", "get_module_name")
 
-def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: list[CHeader], swift_header: Artifact | None) -> CPreprocessor:
+def preprocessor_info_for_modulemap(
+        ctx: AnalysisContext,
+        name: str,
+        headers: list[CHeader],
+        swift_header: Artifact | None,
+        mark_headers_private: bool) -> CPreprocessor:
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module":
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
     module_name = get_module_name(ctx)
+    name_no_dots = name.replace(".", "_")
 
     # Create a map of header import path to artifact location
     header_map = {}
@@ -38,7 +44,7 @@ def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: li
         header_map[swift_header_name] = swift_header
 
     # Create a symlink dir for the headers to import
-    symlink_tree = ctx.actions.symlinked_dir(name + "_symlink_tree", header_map)
+    symlink_tree = ctx.actions.symlinked_dir(name_no_dots + "_symlink_tree", header_map)
 
     # Create a modulemap at the root of that tree
     output = ctx.actions.declare_output(name + ".modulemap")
@@ -47,7 +53,7 @@ def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: li
         "--output",
         output.as_output(),
         "--name",
-        get_module_name(ctx),
+        module_name,
         "--symlink-tree",
         symlink_tree,
     ])
@@ -66,7 +72,10 @@ def preprocessor_info_for_modulemap(ctx: AnalysisContext, name: str, headers: li
         if hdr != swift_header_name:
             cmd.add(hdr)
 
-    ctx.actions.run(cmd, category = "modulemap", identifier = name)
+    if mark_headers_private:
+        cmd.add("--mark-headers-private")
+
+    ctx.actions.run(cmd, category = "modulemap", identifier = name_no_dots)
 
     return CPreprocessor(
         args = CPreprocessorArgs(args = _exported_preprocessor_args(symlink_tree)),
