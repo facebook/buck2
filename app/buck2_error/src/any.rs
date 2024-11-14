@@ -41,9 +41,6 @@ where
 
 fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) -> crate::Error {
     if let Some(metadata) = request_value::<ProvidableMetadata>(context) {
-        if let Some(category) = metadata.category {
-            e = e.context(category);
-        }
         if !metadata.tags.is_empty() {
             e = e.tag(metadata.tags.iter().copied());
         }
@@ -151,7 +148,6 @@ impl StdError for CrateAsStdError {
 /// however if this value is being provided manually then care may need to be taken.
 #[derive(Clone)]
 pub struct ProvidableMetadata {
-    pub category: Option<crate::Tier>,
     pub tags: Vec<crate::ErrorTag>,
     pub source_file: &'static str,
     /// Extra information to add to the end of the source location - typically a type/variant name,
@@ -230,7 +226,6 @@ mod tests {
                     crate::ErrorTag::StarlarkFail,
                     crate::ErrorTag::WatchmanTimeout,
                 ],
-                category: Some(crate::Tier::Tier0),
             });
         }
     }

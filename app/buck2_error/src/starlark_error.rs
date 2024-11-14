@@ -194,7 +194,6 @@ mod tests {
                     crate::ErrorTag::StarlarkNativeInput,
                     crate::ErrorTag::StarlarkFail,
                 ],
-                category: None,
             });
         }
     }

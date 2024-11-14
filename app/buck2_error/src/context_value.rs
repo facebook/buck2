@@ -17,7 +17,6 @@ use starlark_syntax::span_display::span_display;
 #[derive(allocative::Allocative, Clone)]
 pub enum ContextValue {
     Dyn(Arc<str>),
-    Tier(Tier),
     Tags(SmallVec<[crate::ErrorTag; 1]>),
     Typed(Arc<dyn TypedContext>),
     // Stable value for category key
@@ -31,8 +30,6 @@ impl ContextValue {
         match self {
             Self::Dyn(..) => true,
             Self::Typed(e) => e.should_display(),
-            // Displaying the category in the middle of an error message doesn't seem useful
-            Self::Tier(_) => false,
             Self::Tags(_) => false,
             Self::Key(..) => false,
             Self::StarlarkError(..) => false,
@@ -43,9 +40,6 @@ impl ContextValue {
     pub(crate) fn assert_eq(&self, other: &Self) {
         match (self, other) {
             (ContextValue::Dyn(a), ContextValue::Dyn(b)) => {
-                assert_eq!(a, b);
-            }
-            (ContextValue::Tier(a), ContextValue::Tier(b)) => {
                 assert_eq!(a, b);
             }
             (ContextValue::Tags(a), ContextValue::Tags(b)) => {
@@ -69,7 +63,6 @@ impl std::fmt::Display for ContextValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Dyn(v) => f.write_str(v),
-            Self::Tier(category) => write!(f, "{:?}", category),
             Self::Tags(tags) => write!(f, "{:?}", tags),
             Self::Typed(v) => std::fmt::Display::fmt(v, f),
             Self::Key(v) => f.write_str(v),
@@ -110,12 +103,6 @@ impl Tier {
     pub fn combine(self, other: Option<Tier>) -> Tier {
         let Some(other) = other else { return self };
         std::cmp::max(self, other)
-    }
-}
-
-impl From<Tier> for ContextValue {
-    fn from(value: Tier) -> Self {
-        ContextValue::Tier(value)
     }
 }
 
@@ -175,6 +162,7 @@ impl std::fmt::Display for StarlarkContext {
 
 #[cfg(test)]
 mod tests {
+    use crate::ErrorTag;
     use crate::Tier;
     use crate::{self as buck2_error};
 
@@ -186,18 +174,15 @@ mod tests {
     fn test_category_not_in_formatting() {
         let e: crate::Error = TestError.into();
         let e = e.context("foo");
-        let e2 = e.clone().context(crate::Tier::Input);
+        let e2 = e.clone().tag([ErrorTag::Input]);
         assert_eq!(format!("{:#}", e), format!("{:#}", e2));
     }
 
     #[test]
     fn test_category_infra_preferred() {
         let e: crate::Error = TestError.into();
-        let e = e
-            .clone()
-            .context(crate::Tier::Tier0)
-            .context(crate::Tier::Input);
-        assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
+        let e = e.clone().tag([ErrorTag::Tier0, ErrorTag::Input]);
+        assert_eq!(e.get_tier(), Some(Tier::Tier0));
     }
 
     #[test]

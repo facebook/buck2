@@ -89,7 +89,6 @@ use crate::any::ProvidableMetadata;
 /// - and possibly variant - name, formatted as either `Type` or `Type::Variant`.
 pub fn provide_metadata<'a, 'b>(
     request: &'b mut Request<'a>,
-    category: Option<crate::Tier>,
     tags: impl IntoIterator<Item = crate::ErrorTag>,
     source_file: &'static str,
     source_location_extra: Option<&'static str>,
@@ -97,7 +96,6 @@ pub fn provide_metadata<'a, 'b>(
 ) {
     let metadata = ProvidableMetadata {
         action_error,
-        category,
         tags: tags.into_iter().collect(),
         source_file,
         source_location_extra,

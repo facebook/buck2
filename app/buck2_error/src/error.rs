@@ -218,7 +218,6 @@ impl Error {
         let mut out = None;
         // TODO(nga): remove tiers marking and only rely on tags.
         let context_tiers = self.iter_context().flat_map(|kind| match kind {
-            ContextValue::Tier(t) => Either::Left(Some(*t).into_iter()),
             ContextValue::Tags(tags) => {
                 Either::Right(tags.iter().copied().filter_map(error_tag_category))
             }

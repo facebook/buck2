@@ -63,7 +63,6 @@ impl std::error::Error for ActionError {
 
         buck2_error::provide_metadata(
             request,
-            None,
             tags,
             std::file!(),
             Some("ActionError"),

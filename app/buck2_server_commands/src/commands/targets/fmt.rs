@@ -318,7 +318,6 @@ impl TargetFormatter for JsonFormat {
 pub(crate) struct Stats {
     pub(crate) errors: u64,
     error_tags: BTreeSet<buck2_error::ErrorTag>,
-    error_category: Option<buck2_error::Tier>,
     pub(crate) success: u64,
     pub(crate) targets: u64,
 }
@@ -332,9 +331,6 @@ impl Stats {
 
     pub(crate) fn add_error(&mut self, e: &buck2_error::Error) {
         self.error_tags.extend(e.tags());
-        if let Some(category) = e.get_tier() {
-            self.error_category = Some(category.combine(self.error_category.take()));
-        }
         self.errors += 1;
     }
 
@@ -357,9 +353,6 @@ impl Stats {
 
         let mut e = buck2_error::Error::from(TargetsError::FailedToParse(self.errors, package_str));
         e = e.tag(self.error_tags.iter().copied());
-        if let Some(category) = self.error_category {
-            e = e.context(category);
-        }
         Some(e.into())
     }
 }

@@ -327,7 +327,6 @@ fn gen_provide_contents(
     let metadata: syn::Stmt = syn::parse_quote! {
         buck2_error::provide_metadata(
             __request,
-            None,
             <[Option<buck2_error::ErrorTag>; #num_tags] as IntoIterator>::into_iter([#(#tags,)*]).flatten(),
             core::file!(),
             core::option::Option::Some(#source_location_extra),
