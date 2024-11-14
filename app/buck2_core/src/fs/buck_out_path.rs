@@ -408,8 +408,9 @@ mod tests {
             ForwardRelativePathBuf::unchecked_new("faz.file".into()),
         ));
 
-        let expected_gen_path =
-            Regex::new("base/buck-out/v2/gen/foo/[0-9a-z]+/baz-package/__target-name__/faz.file")?;
+        let expected_gen_path = Regex::new(
+            "base/buck-out/v2/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/faz.file",
+        )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{}.is_match({})",
@@ -428,7 +429,7 @@ mod tests {
         );
 
         let expected_scratch_path =
-            Regex::new("base/buck-out/v2/tmp/foo/[0-9a-z]+/category/blah.file")?;
+            Regex::new("base/buck-out/v2/tmp/foo/[0-9a-f]{16}/category/blah.file")?;
         assert!(
             expected_scratch_path.is_match(resolved_scratch_path.as_str()),
             "{}.is_match({})",
@@ -457,7 +458,7 @@ mod tests {
         ));
 
         let expected_gen_path: Regex =
-            Regex::new("buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/quux")?;
+            Regex::new("buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/quux")?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{}.is_match({})",
@@ -475,7 +476,7 @@ mod tests {
         let resolved_gen_path = path_resolver.resolve_gen(&path);
 
         let expected_gen_path = Regex::new(
-            "buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/__action___17__/quux",
+            "buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/__action___17__/quux",
         )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
@@ -500,7 +501,7 @@ mod tests {
         );
 
         let expected_scratch_path =
-            Regex::new("buck-out/tmp/foo/[0-9a-z]+/category/_buck_[0-9a-z]+")?;
+            Regex::new("buck-out/tmp/foo/[0-9a-f]{16}/category/_buck_[0-9a-f]{16}")?;
         assert!(
             expected_scratch_path.is_match(resolved_scratch_path.as_str()),
             "{}.is_match({})",
@@ -617,7 +618,7 @@ mod tests {
         let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));
         let providers_label = ConfiguredProvidersLabel::new(cfg_target, providers);
         let result = path_resolver.resolve_test_discovery(&providers_label);
-        let expected_result = Regex::new("buck-out/test_discovery/foo/[0-9a-z]+/bar\\+baz")?;
+        let expected_result = Regex::new("buck-out/test_discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
         assert!(expected_result.is_match(result.as_str()));
         Ok(())
     }
