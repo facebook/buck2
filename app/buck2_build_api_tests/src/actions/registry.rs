@@ -44,7 +44,6 @@ fn declaring_artifacts() -> anyhow::Result<()> {
     let mut actions = ActionsRegistry::new(
         DeferredHolderKey::Base(base.dupe()),
         ExecutionPlatformResolution::unspecified(),
-        None,
     );
     let out1 = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let buckout1 = BuildArtifactPath::new(base.dupe(), out1.clone());
@@ -78,7 +77,6 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
     let mut actions = ActionsRegistry::new(
         DeferredHolderKey::testing_new("cell//pkg:my_target"),
         ExecutionPlatformResolution::unspecified(),
-        None,
     );
 
     let out1 = ForwardRelativePathBuf::unchecked_new("foo/a/1".into());
@@ -144,7 +142,6 @@ fn register_actions() -> anyhow::Result<()> {
     let mut actions = ActionsRegistry::new(
         DeferredHolderKey::Base(base.dupe()),
         ExecutionPlatformResolution::unspecified(),
-        None,
     );
     let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let declared = actions.declare_artifact(None, out, OutputType::File, None)?;
@@ -193,7 +190,6 @@ fn finalizing_actions() -> anyhow::Result<()> {
             )),
             Vec::new(),
         ),
-        None,
     );
     let out = ForwardRelativePathBuf::unchecked_new("bar.out".into());
     let declared = actions.declare_artifact(None, out, OutputType::File, None)?;
@@ -274,7 +270,6 @@ fn category_identifier_test(
             )),
             Vec::new(),
         ),
-        None,
     );
     for (category, identifier) in action_names {
         let unregistered_action = SimpleUnregisteredAction::new(

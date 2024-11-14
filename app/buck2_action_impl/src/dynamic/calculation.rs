@@ -71,14 +71,8 @@ impl Key for DynamicLambdaDiceKey {
             &self.0,
         )?;
 
-        let analysis_values = prepare_and_execute_lambda(
-            ctx,
-            cancellation,
-            lambda,
-            self.0.dupe(),
-            self.0.action_key(),
-        )
-        .await?;
+        let analysis_values =
+            prepare_and_execute_lambda(ctx, cancellation, lambda, self.0.dupe()).await?;
         Ok(Arc::new(DynamicLambdaResult { analysis_values }))
     }
 

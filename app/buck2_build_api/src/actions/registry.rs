@@ -21,7 +21,6 @@ use buck2_core::category::Category;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_directory::directory;
@@ -54,7 +53,6 @@ use crate::deferred::calculation::ActionLookup;
 #[derive(Allocative)]
 pub struct ActionsRegistry {
     owner: DeferredHolderKey,
-    dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     artifacts: IndexSet<DeclaredArtifact>,
 
     // For a dynamic_output, maps the ActionKeys for the outputs that have been bound
@@ -66,14 +64,9 @@ pub struct ActionsRegistry {
 }
 
 impl ActionsRegistry {
-    pub fn new(
-        owner: DeferredHolderKey,
-        execution_platform: ExecutionPlatformResolution,
-        dynamic_actions_action_key: Option<DynamicActionsActionKey>,
-    ) -> Self {
+    pub fn new(owner: DeferredHolderKey, execution_platform: ExecutionPlatformResolution) -> Self {
         Self {
             owner,
-            dynamic_actions_action_key,
             artifacts: Default::default(),
             declared_dynamic_outputs: SmallMap::new(),
             pending: Default::default(),
@@ -187,11 +180,7 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path = BuildArtifactPath::with_dynamic_actions_action_key(
-            self.owner.owner().dupe(),
-            path,
-            self.dynamic_actions_action_key.dupe(),
-        );
+        let out_path = BuildArtifactPath::with_dynamic_actions_action_key(self.owner.dupe(), path);
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");

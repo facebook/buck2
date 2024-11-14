@@ -33,7 +33,6 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_error::buck2_error_anyhow;
 use buck2_error::internal_error_anyhow;
 use buck2_error::starlark_error::from_starlark;
@@ -161,7 +160,6 @@ async fn execute_lambda(
     lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     dice: &mut DiceComputations<'_>,
     self_key: DynamicLambdaResultsKey,
-    action_key: DynamicActionsActionKey,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
@@ -173,7 +171,6 @@ async fn execute_lambda(
             self_key,
             lambda,
             dice,
-            action_key,
             input_artifacts_materialized,
             resolved_dynamic_values,
             digest_config,
@@ -208,7 +205,6 @@ async fn execute_lambda(
                     let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
                         lambda,
                         self_key,
-                        action_key,
                         input_artifacts_materialized,
                         &resolved_dynamic_values,
                         &artifact_fs,
@@ -304,7 +300,6 @@ pub(crate) async fn prepare_and_execute_lambda(
     cancellation: &CancellationContext<'_>,
     lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_holder_key: DynamicLambdaResultsKey,
-    action_key: DynamicActionsActionKey,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
@@ -344,7 +339,6 @@ pub(crate) async fn prepare_and_execute_lambda(
                         lambda,
                         ctx,
                         self_holder_key,
-                        action_key,
                         resolved_dynamic_values,
                         input_artifacts_materialized,
                         ctx.global_data().get_digest_config(),
@@ -626,7 +620,6 @@ fn new_attr_values<'v>(
 pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_key: DynamicLambdaResultsKey,
-    action_key: DynamicActionsActionKey,
     input_artifacts_materialized: InputArtifactsMaterialized,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: &ArtifactFs,
@@ -648,7 +641,6 @@ pub fn dynamic_lambda_ctx_data<'v>(
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
         dynamic_lambda.static_fields.execution_platform.dupe(),
         DeferredHolderKey::DynamicLambda(self_key),
-        Some(action_key),
     )?;
 
     let spec = match &dynamic_lambda.attr_values {

@@ -109,7 +109,6 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let mut registry = ActionsRegistry::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label)),
             ExecutionPlatformResolution::unspecified(),
-            None,
         );
         let artifact = registry.declare_artifact(
             None,
@@ -133,7 +132,6 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let mut registry = ActionsRegistry::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             ExecutionPlatformResolution::unspecified(),
-            None,
         );
         let artifact = registry.declare_artifact(
             None,
@@ -199,7 +197,6 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let mut actions_registry = ActionsRegistry::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             ExecutionPlatformResolution::unspecified(),
-            None,
         );
 
         let associated_artifacts = AssociatedArtifacts::from(

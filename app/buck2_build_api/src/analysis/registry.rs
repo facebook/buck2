@@ -21,7 +21,6 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::internal_error_anyhow;
@@ -107,20 +106,15 @@ impl<'v> AnalysisRegistry<'v> {
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
     ) -> anyhow::Result<AnalysisRegistry<'v>> {
-        Self::new_from_owner_and_deferred(execution_platform, DeferredHolderKey::Base(owner), None)
+        Self::new_from_owner_and_deferred(execution_platform, DeferredHolderKey::Base(owner))
     }
 
     pub fn new_from_owner_and_deferred(
         execution_platform: ExecutionPlatformResolution,
         self_key: DeferredHolderKey,
-        dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     ) -> anyhow::Result<Self> {
         Ok(AnalysisRegistry {
-            actions: ActionsRegistry::new(
-                self_key.dupe(),
-                execution_platform.dupe(),
-                dynamic_actions_action_key,
-            ),
+            actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(self_key),

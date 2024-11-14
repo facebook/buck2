@@ -21,6 +21,7 @@ use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::deferred::key::DeferredHolderKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -34,9 +35,7 @@ use crate::provider::label::ProvidersName;
 #[display("({})/{}", owner, path.as_str())]
 struct BuildArtifactPathData {
     /// The owner responsible for creating this path.
-    owner: BaseDeferredKey,
-    /// The unique identifier for this action (only set for outputs inside dynamic actions)
-    dynamic_actions_action_key: Option<DynamicActionsActionKey>,
+    owner: DeferredHolderKey,
     /// The path relative to that target.
     path: Box<ForwardRelativePath>,
 }
@@ -53,27 +52,25 @@ pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
 impl BuildArtifactPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
-        Self::with_dynamic_actions_action_key(owner, path, None)
+        Self::with_dynamic_actions_action_key(DeferredHolderKey::Base(owner), path)
     }
 
     pub fn with_dynamic_actions_action_key(
-        owner: BaseDeferredKey,
+        owner: DeferredHolderKey,
         path: ForwardRelativePathBuf,
-        dynamic_actions_action_key: Option<DynamicActionsActionKey>,
     ) -> Self {
         BuildArtifactPath(Arc::new(BuildArtifactPathData {
             owner,
-            dynamic_actions_action_key,
             path: path.into_box(),
         }))
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {
-        &self.0.owner
+        self.0.owner.owner()
     }
 
-    pub fn dynamic_actions_action_key(&self) -> Option<&DynamicActionsActionKey> {
-        self.0.dynamic_actions_action_key.as_ref()
+    pub fn dynamic_actions_action_key(&self) -> Option<DynamicActionsActionKey> {
+        self.0.owner.action_key()
     }
 
     pub fn path(&self) -> &ForwardRelativePath {
@@ -195,7 +192,9 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
             path.owner(),
-            path.dynamic_actions_action_key().map(|x| x.as_str()),
+            path.dynamic_actions_action_key()
+                .as_ref()
+                .map(|x| x.as_str()),
             path.path(),
             false,
         )
@@ -205,7 +204,9 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
             path.owner(),
-            path.dynamic_actions_action_key().map(|x| x.as_str()),
+            path.dynamic_actions_action_key()
+                .as_ref()
+                .map(|x| x.as_str()),
             path.path(),
             false,
         )
@@ -302,7 +303,7 @@ impl BuckOutPathResolver {
             ForwardRelativePathBuf::concat([
                 self.0.as_ref(),
                 ForwardRelativePath::unchecked_new("gen"),
-                &path.0.owner.make_unhashed_path()?,
+                &path.0.owner.owner().make_unhashed_path()?,
                 path.path(),
             ]),
         ))
@@ -313,6 +314,7 @@ impl BuckOutPathResolver {
 mod tests {
 
     use std::path::Path;
+    use std::sync::Arc;
 
     use dupe::Dupe;
     use regex::Regex;
@@ -324,11 +326,13 @@ mod tests {
     use crate::cells::CellResolver;
     use crate::configuration::data::ConfigurationData;
     use crate::deferred::base_deferred_key::BaseDeferredKey;
+    use crate::deferred::dynamic::DynamicLambdaIndex;
+    use crate::deferred::dynamic::DynamicLambdaResultsKey;
+    use crate::deferred::key::DeferredHolderKey;
     use crate::fs::artifact_path_resolver::ArtifactFs;
     use crate::fs::buck_out_path::BuckOutPathResolver;
     use crate::fs::buck_out_path::BuckOutScratchPath;
     use crate::fs::buck_out_path::BuildArtifactPath;
-    use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
     use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
     use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use crate::fs::project::ProjectRoot;
@@ -461,14 +465,16 @@ mod tests {
         );
 
         let path = BuildArtifactPath::with_dynamic_actions_action_key(
-            owner.dupe(),
+            DeferredHolderKey::DynamicLambda(Arc::new(DynamicLambdaResultsKey::new(
+                DeferredHolderKey::Base(owner.dupe()),
+                DynamicLambdaIndex::new(17),
+            ))),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
-            Some(DynamicActionsActionKey::new("xxx").unwrap()),
         );
         let resolved_gen_path = path_resolver.resolve_gen(&path);
 
         let expected_gen_path = Regex::new(
-            "buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/__action__xxx__/quux",
+            "buck-out/gen/foo/[0-9a-z]+/baz-package/__target-name__/__action___17__/quux",
         )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
