@@ -13,8 +13,22 @@ use buck2_error::buck2_error;
 
 use crate::os::macos::mach_error_string::mach_error_string;
 
+/// CPU usage sum for all cores from the system start.
+/// Field values are in ticks. Each tick is 1/100 second (but please check `sc_clk_tck`).
+// Currently, on my laptop sum of all fields is 1528429426.
+// Which is 1528429426 / 100 = 15284294 seconds.
+// 15284294 / 10 CPU cores = 1528429 seconds per core, which is 17 days.
+// Note at 10 CPUs, numbers overflow after a couple of weeks of uptime.
+#[derive(Debug, Copy, Clone)]
+pub struct HostCpuLoadInfo {
+    pub user: u32,
+    pub system: u32,
+    pub idle: u32,
+    pub nice: u32,
+}
+
 /// Query `HOST_CPU_LOAD_INFO`. This is low-level API.
-pub fn host_cpu_load_info() -> buck2_error::Result<buck2_data::HostCpuLoadInfo> {
+pub fn host_cpu_load_info() -> buck2_error::Result<HostCpuLoadInfo> {
     unsafe {
         let mut count: libc::mach_msg_type_number_t = libc::HOST_CPU_LOAD_INFO_COUNT;
 
@@ -42,7 +56,7 @@ pub fn host_cpu_load_info() -> buck2_error::Result<buck2_data::HostCpuLoadInfo> 
             ));
         }
 
-        Ok(buck2_data::HostCpuLoadInfo {
+        Ok(HostCpuLoadInfo {
             user: host_info.cpu_ticks[libc::CPU_STATE_USER as usize],
             system: host_info.cpu_ticks[libc::CPU_STATE_SYSTEM as usize],
             idle: host_info.cpu_ticks[libc::CPU_STATE_IDLE as usize],
