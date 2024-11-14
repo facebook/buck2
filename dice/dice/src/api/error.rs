@@ -11,8 +11,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use indexmap::IndexSet;
-use itertools::Itertools;
 use thiserror::Error;
 
 use crate::legacy::cycles::RequestedKey;
@@ -23,29 +21,19 @@ use crate::result::CancellationReason;
 pub struct DiceError(pub(crate) Arc<DiceErrorImpl>);
 
 impl DiceError {
-    pub fn cycle(
-        trigger: Arc<dyn RequestedKey>,
-        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
-    ) -> Self {
-        DiceError(Arc::new(DiceErrorImpl::Cycle {
-            trigger,
-            cyclic_keys,
-        }))
-    }
-
-    pub fn invalid_change(key: Arc<dyn RequestedKey>) -> Self {
+    pub(crate) fn invalid_change(key: Arc<dyn RequestedKey>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::ChangedToInvalid(key)))
     }
 
-    pub fn duplicate(key: Arc<dyn RequestedKey>) -> Self {
+    pub(crate) fn duplicate(key: Arc<dyn RequestedKey>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
     }
 
-    pub fn cancelled(reason: CancellationReason) -> Self {
+    pub(crate) fn cancelled(reason: CancellationReason) -> Self {
         DiceError(Arc::new(DiceErrorImpl::Cancelled(reason)))
     }
 
-    pub fn duplicate_activation_data() -> Self {
+    pub(crate) fn duplicate_activation_data() -> Self {
         DiceError(Arc::new(DiceErrorImpl::DuplicateActivationData))
     }
 
@@ -56,11 +44,6 @@ impl DiceError {
 
 #[derive(Debug, Error, Allocative)]
 pub(crate) enum DiceErrorImpl {
-    #[error("Cyclic computation detected when computing key `{}`, which forms a cycle in computation chain: `{}`", trigger, cyclic_keys.iter().join(" -> "))]
-    Cycle {
-        trigger: Arc<dyn RequestedKey>,
-        cyclic_keys: IndexSet<Arc<dyn RequestedKey>>,
-    },
     #[error("Key `{0}` was marked as changed multiple times on the same transaction.")]
     DuplicateChange(Arc<dyn RequestedKey>),
     #[error("Key `{0}` was reported as changed to an invalid value")]

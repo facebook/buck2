@@ -19,7 +19,6 @@ dupe = { workspace = true }
 futures = "0.3"
 fxhash = "0.2.1"
 gazebo = { workspace = true }
-indexmap = { workspace = true }
 indoc = { workspace = true }
 itertools = "0.13.0"
 lock_free_hashtable = { workspace = true }

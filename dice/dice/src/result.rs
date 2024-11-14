@@ -20,7 +20,6 @@ pub(crate) type CancellableResult<T> = Result<T, CancellationReason>;
 #[display("{:?}", self)]
 pub enum CancellationReason {
     OutdatedEpoch,
-    Terminated,
     NoResult,
     Rejected,
     DepsMatch,
@@ -31,5 +30,6 @@ pub enum CancellationReason {
     TransactionCancelled,
     TransactionDropped,
     /// Used by test code that manually cancels things.
+    #[cfg(test)]
     ByTest,
 }

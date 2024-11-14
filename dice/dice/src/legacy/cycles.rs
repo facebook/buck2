@@ -9,7 +9,6 @@
 
 //! Cycle detection in DICE
 
-use std::any::TypeId;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -18,19 +17,10 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use cmp_any::PartialEqAny;
 
-use crate::api::key::Key;
-
 /// A `Key` that has been requested within Dice.
-pub trait RequestedKey: Allocative + Display + Debug + Send + Sync {
+pub(crate) trait RequestedKey: Allocative + Display + Debug + Send + Sync {
     fn get_key_equality(&self) -> PartialEqAny;
     fn hash(&self, state: &mut dyn Hasher);
-    fn type_id(&self) -> TypeId;
-}
-
-impl dyn RequestedKey {
-    pub fn is_key<K: Key>(&self) -> bool {
-        TypeId::of::<K>() == self.type_id()
-    }
 }
 
 impl<T> RequestedKey for T
@@ -43,10 +33,6 @@ where
 
     fn hash(&self, mut state: &mut dyn Hasher) {
         self.hash(&mut state)
-    }
-
-    fn type_id(&self) -> TypeId {
-        TypeId::of::<T>()
     }
 }
 
