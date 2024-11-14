@@ -9,6 +9,7 @@
 
 use std::fmt;
 
+use buck2_error::ErrorTag;
 use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
 
@@ -36,39 +37,33 @@ impl std::error::Error for ActionError {
             )
         });
 
-        let mut tags = vec![buck2_error::ErrorTag::AnyActionExecution];
+        let mut tags = vec![ErrorTag::AnyActionExecution];
 
-        let category = match &self.execute_error {
+        match &self.execute_error {
             ExecuteError::CommandExecutionError { error } => {
-                let category = if let Some(err) = error {
+                if let Some(err) = error {
                     tags.extend(err.tags());
-                    err.get_tier()
-                } else {
-                    None
-                };
+                }
 
                 if is_command_failure {
-                    Some(buck2_error::Tier::Input)
-                } else {
-                    category
+                    tags.push(ErrorTag::ActionCommandFailure)
                 }
             }
             // Returning extra outputs is a bug in the executor
-            ExecuteError::MismatchedOutputs { .. } => Some(buck2_error::Tier::Tier0),
+            ExecuteError::MismatchedOutputs { .. } => tags.push(ErrorTag::ActionMismatchedOutputs),
             // However outputs may be legitimately missing if the action didn't produce them
-            ExecuteError::MissingOutputs { .. } => Some(buck2_error::Tier::Input),
+            ExecuteError::MissingOutputs { .. } => tags.push(ErrorTag::ActionMissingOutputs),
             // Or if the action produced the wrong type
-            ExecuteError::WrongOutputType { .. } => Some(buck2_error::Tier::Input),
+            ExecuteError::WrongOutputType { .. } => tags.push(ErrorTag::ActionWrongOutputType),
             ExecuteError::Error { error } => {
                 let err = buck2_error::Error::from_anyhow_ref(error);
                 tags.extend(err.tags());
-                err.get_tier()
             }
         };
 
         buck2_error::provide_metadata(
             request,
-            category,
+            None,
             tags,
             std::file!(),
             Some("ActionError"),

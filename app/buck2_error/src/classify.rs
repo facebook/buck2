@@ -107,6 +107,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::WatchmanRequestError => rank!(tier0),
         ErrorTag::HttpServer => rank!(tier0),
         ErrorTag::StarlarkInternal => rank!(tier0),
+        ErrorTag::ActionMismatchedOutputs => rank!(tier0),
 
         ErrorTag::Environment => rank!(environment),
         ErrorTag::Tier0 => rank!(tier0),
@@ -126,6 +127,9 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::IoPermissionDenied => rank!(input),
         ErrorTag::IoEdenMountDoesNotExist => rank!(input),
         ErrorTag::IoEdenFileNotFound => rank!(input), // user likely specified non-existing path
+        ErrorTag::ActionMissingOutputs => rank!(input),
+        ErrorTag::ActionWrongOutputType => rank!(input),
+        ErrorTag::ActionCommandFailure => rank!(input),
         ErrorTag::ProjectMissingPath => rank!(input),
         ErrorTag::StarlarkFail => rank!(input),
         ErrorTag::StarlarkStackOverflow => rank!(input),

@@ -127,6 +127,11 @@ enum ErrorTag {
   // Clean stale command was interrupted
   CLEAN_INTERRUPT = 28;
 
+  ACTION_MISMATCHED_OUTPUTS = 601;
+  ACTION_MISSING_OUTPUTS = 602;
+  ACTION_WRONG_OUTPUT_TYPE = 603;
+  ACTION_COMMAND_FAILURE = 604;
+
   // Errors during buck2 install.
   INSTALL = 200;
 
