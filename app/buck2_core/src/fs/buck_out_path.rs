@@ -65,8 +65,8 @@ impl BuildArtifactPath {
         }))
     }
 
-    pub fn owner(&self) -> &BaseDeferredKey {
-        self.0.owner.owner()
+    pub fn owner(&self) -> &DeferredHolderKey {
+        &self.0.owner
     }
 
     pub fn dynamic_actions_action_key(&self) -> Option<DynamicActionsActionKey> {
@@ -191,7 +191,7 @@ impl BuckOutPathResolver {
     pub fn resolve_gen(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("gen"),
-            path.owner(),
+            path.owner().owner(),
             path.dynamic_actions_action_key()
                 .as_ref()
                 .map(|x| x.as_str()),
@@ -203,7 +203,7 @@ impl BuckOutPathResolver {
     pub fn resolve_offline_cache(&self, path: &BuildArtifactPath) -> ProjectRelativePathBuf {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("offline-cache"),
-            path.owner(),
+            path.owner().owner(),
             path.dynamic_actions_action_key()
                 .as_ref()
                 .map(|x| x.as_str()),

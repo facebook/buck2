@@ -112,7 +112,7 @@ impl Artifact {
     pub fn owner(&self) -> Option<&BaseDeferredKey> {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => None,
-            BaseArtifactKind::Build(b) => Some(b.get_path().owner()),
+            BaseArtifactKind::Build(b) => Some(b.get_path().owner().owner()),
         }
     }
 
@@ -378,7 +378,7 @@ impl DeclaredArtifact {
 
     pub fn owner(&self) -> Option<BaseDeferredKey> {
         match &*self.artifact.borrow() {
-            DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().dupe()),
+            DeclaredArtifactKind::Bound(b) => Some(b.get_path().owner().owner().dupe()),
             DeclaredArtifactKind::Unbound(_) => None,
         }
     }

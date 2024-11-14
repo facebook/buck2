@@ -124,7 +124,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
             .into(),
             BaseArtifactKind::Build(b) => ArtifactError::BoundArtifactAsOutput {
                 artifact_repr: self.to_string(),
-                existing_owner: b.get_path().owner().dupe(),
+                existing_owner: b.get_path().owner().owner().dupe(),
             }
             .into(),
         }
@@ -185,7 +185,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
             .into()),
             BaseArtifactKind::Build(b) => Err(ArtifactError::BoundArtifactAsOutput {
                 artifact_repr: self.to_string(),
-                existing_owner: b.get_path().owner().dupe(),
+                existing_owner: b.get_path().owner().owner().dupe(),
             }
             .into()),
         }
