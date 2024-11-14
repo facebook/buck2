@@ -111,7 +111,7 @@ impl BaseDeferredKey {
         }
     }
 
-    pub fn make_hashed_path(
+    pub(crate) fn make_hashed_path(
         &self,
         base: &ProjectRelativePath,
         prefix: &ForwardRelativePath,
