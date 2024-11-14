@@ -307,7 +307,7 @@ async fn test_build_action() -> anyhow::Result<()> {
     let result =
         ActionCalculation::build_action(&mut dice_computations, registered_action.key()).await;
 
-    assert!(result.is_ok());
+    result.unwrap();
 
     assert_eq!(
         dry_run_tracker.lock().unwrap()[0],
@@ -355,7 +355,7 @@ async fn test_build_artifact() -> anyhow::Result<()> {
     )
     .await;
 
-    assert!(result.is_ok());
+    result.unwrap();
 
     assert_eq!(
         dry_run_tracker.lock().unwrap()[0],
@@ -403,7 +403,7 @@ async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
     )
     .await;
 
-    assert!(result.is_ok());
+    result.unwrap();
 
     assert_eq!(
         dry_run_tracker.lock().unwrap()[0],
