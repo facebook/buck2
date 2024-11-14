@@ -7,6 +7,6 @@
  * of this source tree.
  */
 
-pub(crate) mod host_cpu_load_info_low_level;
+pub mod host_cpu_load_info;
 pub(crate) mod mach_error_string;
 pub mod sc_clk_tck;

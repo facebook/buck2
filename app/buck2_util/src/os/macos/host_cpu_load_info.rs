@@ -14,7 +14,7 @@ use buck2_error::buck2_error;
 use crate::os::macos::mach_error_string::mach_error_string;
 
 /// Query `HOST_CPU_LOAD_INFO`. This is low-level API.
-pub fn host_cpu_load_info_low_level() -> buck2_error::Result<buck2_data::HostCpuLoadInfo> {
+pub fn host_cpu_load_info() -> buck2_error::Result<buck2_data::HostCpuLoadInfo> {
     unsafe {
         let mut count: libc::mach_msg_type_number_t = libc::HOST_CPU_LOAD_INFO_COUNT;
 
@@ -56,13 +56,13 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use crate::os::macos::host_cpu_load_info_low_level::host_cpu_load_info_low_level;
+    use crate::os::macos::host_cpu_load_info::host_cpu_load_info;
 
     #[test]
-    fn test_host_cpu_load_info_low_level() {
-        let x = host_cpu_load_info_low_level().unwrap();
+    fn test_host_cpu_load_info() {
+        let x = host_cpu_load_info().unwrap();
         thread::sleep(Duration::from_millis(10));
-        let y = host_cpu_load_info_low_level().unwrap();
+        let y = host_cpu_load_info().unwrap();
         assert!(x.user <= y.user);
         assert!(x.system <= y.system);
         assert!(x.idle <= y.idle);
