@@ -35,7 +35,7 @@ struct OutputFormatOptions {
 }
 
 impl OutputFormatOptions {
-    fn emit_markdown(&self, markdown: &str) -> anyhow::Result<()> {
+    fn emit_markdown(&self, markdown: &str) -> buck2_error::Result<()> {
         match self.format {
             OutputFormatArg::Markdown => {
                 buck2_client_ctx::println!("{}", markdown)?;

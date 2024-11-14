@@ -81,7 +81,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                 let p = self
                     .output_dir
                     .as_ref()
-                    .internal_error_anyhow("Checked by clap")?
+                    .internal_error("Checked by clap")?
                     .resolve(&ctx.working_dir);
                 DocsOutputFormat::Markdown(p)
             }
