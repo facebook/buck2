@@ -2018,6 +2018,11 @@ message InvocationRecord {
   repeated string target_rule_type_names = 80;
   // Time elapsed from a build's start until first test discovery begins.
   optional uint64 time_to_first_test_discovery_ms = 81;
+  // Tracks whether buckconfigs were invalidated between invocations (e.g. due
+  // to modefile changes or another buck command in between)
+  // For the first command after daemon start or for the first time these
+  // configs are observed in each state (cell, command etc.), it will be set
+  // to true.
   optional bool new_configs_used = 84;
   // Max sustained RE download speed
   optional uint64 re_max_download_speed = 85;
