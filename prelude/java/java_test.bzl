@@ -25,7 +25,6 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
-load("@prelude//tests:test_toolchain.bzl", "test_toolchain_labels")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
@@ -175,7 +174,7 @@ def build_junit_test(
         type = "junit",
         command = cmd,
         env = env,
-        labels = ctx.attrs.labels + test_toolchain_labels(ctx.attrs._test_toolchain),
+        labels = ctx.attrs.labels,
         contacts = ctx.attrs.contacts,
         run_from_project_root = not run_from_cell_root,
         use_project_relative_paths = not run_from_cell_root,
