@@ -33,7 +33,7 @@ fn parse_import_paths(
     current_dir: &CellPath,
     current_cell: BuildFileCell,
     symbol_patterns: &[String],
-) -> anyhow::Result<HashSet<ImportPath>> {
+) -> buck2_error::Result<HashSet<ImportPath>> {
     let parse_options = ParseImportOptions {
         allow_missing_at_symbol: true,
         relative_import_option: RelativeImports::Allow { current_dir },
@@ -51,7 +51,7 @@ pub(crate) async fn docs_starlark(
     server_ctx: &dyn ServerCommandContextTrait,
     mut dice_ctx: DiceTransaction,
     request: &DocsStarlarkRequest,
-) -> anyhow::Result<DocsResponse> {
+) -> buck2_error::Result<DocsResponse> {
     let cell_resolver = dice_ctx.get_cell_resolver().await?;
     let cwd = server_ctx.working_dir();
     let current_cell_path = cell_resolver.get_cell_path(cwd)?;
@@ -75,7 +75,7 @@ pub(crate) async fn docs_starlark(
                     .await?
                     .env()
                     .documentation();
-                anyhow::Ok((import_path, doc))
+                buck2_error::Ok((import_path, doc))
             }
             .boxed()
         })

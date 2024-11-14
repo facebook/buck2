@@ -161,12 +161,9 @@ pub fn parse_bzl_path_with_config(
     import: &str,
     opts: &ParseImportOptions,
     build_cell_path: BuildFileCell,
-) -> anyhow::Result<ImportPath> {
+) -> buck2_error::Result<ImportPath> {
     let path = parse_import_with_config(cell_resolver, import, opts)?;
-    Ok(ImportPath::new_with_build_file_cells(
-        path,
-        build_cell_path,
-    )?)
+    ImportPath::new_with_build_file_cells(path, build_cell_path)
 }
 
 #[cfg(test)]

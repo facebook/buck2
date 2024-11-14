@@ -288,7 +288,7 @@ impl JsonDocString {
 
 // Note(JakobDegen): The particular format of the output is not really by design, but mostly a
 // historical accident.
-pub(crate) fn to_json(docs: Vec<(ImportPath, DocModule)>) -> anyhow::Result<String> {
+pub(crate) fn to_json(docs: Vec<(ImportPath, DocModule)>) -> buck2_error::Result<String> {
     let docs: Vec<_> = docs
         .into_iter()
         .flat_map(|(p, d)| to_docs_list(&p, d))

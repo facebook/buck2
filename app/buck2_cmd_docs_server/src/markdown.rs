@@ -31,7 +31,7 @@ fn add_md(mut p: AbsPathBuf) -> AbsPathBuf {
 pub(crate) fn generate_markdown_files(
     output_dir: &AbsPath,
     docs: Vec<(ImportPath, DocModule)>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut outputs = HashMap::new();
 
     for (path, docs) in docs {
