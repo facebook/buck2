@@ -155,9 +155,6 @@ fn impl_enum(mut input: Enum) -> TokenStream {
     // We let people specify these on the type or variant, so make sure that they always show up on
     // the variant and we don't have to re-check the type
     for variant in &mut input.variants {
-        if input.attrs.category.is_some() {
-            variant.attrs.category = input.attrs.category.clone();
-        }
         variant.attrs.tags.extend(input.attrs.tags.iter().cloned());
     }
 
@@ -315,15 +312,6 @@ fn gen_provide_contents(
         None => type_name.to_string(),
     };
     let source_location_extra = syn::LitStr::new(&type_and_variant, Span::call_site());
-    let category: syn::Expr = match &attrs.category {
-        Some(OptionStyle::Explicit(cat)) => syn::parse_quote! {
-            core::option::Option::Some(buck2_error::Tier::#cat)
-        },
-        Some(OptionStyle::ByExpr(e)) => e.clone(),
-        None => syn::parse_quote! {
-            core::option::Option::None
-        },
-    };
     let tags: Vec<syn::Expr> = attrs
         .tags
         .iter()
@@ -339,7 +327,7 @@ fn gen_provide_contents(
     let metadata: syn::Stmt = syn::parse_quote! {
         buck2_error::provide_metadata(
             __request,
-            #category,
+            None,
             <[Option<buck2_error::ErrorTag>; #num_tags] as IntoIterator>::into_iter([#(#tags,)*]).flatten(),
             core::file!(),
             core::option::Option::Some(#source_location_extra),

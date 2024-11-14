@@ -67,7 +67,6 @@ impl Parse for OptionStyle {
 }
 
 enum MacroOption {
-    Category(OptionStyle),
     Tag(OptionStyle),
 }
 
@@ -76,13 +75,13 @@ impl Parse for MacroOption {
         let name: syn::Ident = input.parse()?;
         if name == "input" {
             let ident = syn::Ident::new("Input", name.span());
-            Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
+            Ok(MacroOption::Tag(OptionStyle::Explicit(ident)))
         } else if name == "tier0" {
             let ident = syn::Ident::new("Tier0", name.span());
-            Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
+            Ok(MacroOption::Tag(OptionStyle::Explicit(ident)))
         } else if name == "environment" {
             let ident = syn::Ident::new("Environment", name.span());
-            Ok(MacroOption::Category(OptionStyle::Explicit(ident)))
+            Ok(MacroOption::Tag(OptionStyle::Explicit(ident)))
         } else if name == "tag" {
             let _eq: Token![=] = input.parse()?;
             Ok(MacroOption::Tag(input.parse()?))
@@ -96,7 +95,6 @@ pub struct Attrs<'a> {
     pub display: Option<Display<'a>>,
     pub source: Option<&'a Attribute>,
     pub transparent: Option<Transparent<'a>>,
-    pub category: Option<OptionStyle>,
     pub tags: Vec<OptionStyle>,
 }
 
@@ -132,7 +130,6 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
         display: None,
         source: None,
         transparent: None,
-        category: None,
         tags: Vec::new(),
     };
 
@@ -151,12 +148,6 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
                 .parse2(meta.tokens.clone())?;
             for option in parsed {
                 match option {
-                    MacroOption::Category(style) => {
-                        if attrs.category.is_some() {
-                            return Err(syn::Error::new(style.span(), "duplicate category"));
-                        }
-                        attrs.category = Some(style);
-                    }
                     MacroOption::Tag(style) => {
                         attrs.tags.push(style);
                     }
