@@ -20,9 +20,9 @@ use static_assertions::assert_eq_size;
 use crate::actions::key::ActionKey;
 
 /// An artifact that is built by the build system
-#[allow(clippy::derived_hash_with_manual_eq)] // The Eq is equivalent to what would have been generated
-#[derive(Clone, Debug, Dupe, Display, Derivative, Allocative)]
-#[derivative(PartialEq, Eq, Hash)]
+#[derive(
+    Clone, PartialEq, Eq, Hash, Debug, Dupe, Display, Derivative, Allocative
+)]
 #[display("`{}`, action: {}", path, key)]
 pub struct BuildArtifact {
     path: BuildArtifactPath,
