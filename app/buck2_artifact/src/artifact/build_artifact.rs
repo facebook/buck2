@@ -39,7 +39,11 @@ impl BuildArtifact {
         output_type: OutputType,
     ) -> buck2_error::Result<Self> {
         if key.holder_key().owner() != path.owner().owner() {
-            return Err(internal_error!("BaseDeferredKey mismatch"));
+            return Err(internal_error!(
+                "BaseDeferredKey mismatch: in action key: {}, in path: {}",
+                key.holder_key().owner(),
+                path.owner().owner()
+            ));
         }
         Ok(BuildArtifact {
             path,
