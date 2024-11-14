@@ -243,6 +243,7 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
 
 def _get_compiled_underlying_pcm(
         ctx: AnalysisContext,
+        module_name: str,
         module_pp_info: CPreprocessor | None,
         deps_providers: list,
         swift_cxx_flags: list[str],
@@ -257,6 +258,7 @@ def _get_compiled_underlying_pcm(
 
     return compile_underlying_pcm(
         ctx,
+        module_name,
         underlying_swift_pcm_uncompiled_info,
         deps_providers,
         swift_cxx_flags,
@@ -281,11 +283,14 @@ def compile_swift(
     framework_search_paths.add(framework_search_paths_flags)
     framework_search_paths.add(cmd_args(framework_search_paths_flags, prepend = "-Xcc"))
 
+    module_name = get_module_name(ctx)
+
     # If a target exports ObjC headers and Swift explicit modules are enabled,
     # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
     if objc_modulemap_pp_info and uses_explicit_modules(ctx):
         compiled_underlying_pcm = _get_compiled_underlying_pcm(
             ctx,
+            module_name,
             objc_modulemap_pp_info,
             deps_providers,
             get_swift_cxx_flags(ctx),
@@ -293,8 +298,6 @@ def compile_swift(
         )
     else:
         compiled_underlying_pcm = None
-
-    module_name = get_module_name(ctx)
 
     shared_flags = _get_shared_flags(
         ctx,
@@ -348,6 +351,7 @@ def compile_swift(
     modulemap_pp_info = preprocessor_info_for_modulemap(
         ctx,
         name = "swift-extended",
+        module_name = module_name,
         headers = exported_headers,
         swift_header = output_header,
         mark_headers_private = False,

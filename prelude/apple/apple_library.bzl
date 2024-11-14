@@ -320,6 +320,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         modulemap_pre = preprocessor_info_for_modulemap(
             ctx,
             name = "exported",
+            module_name = get_module_name(ctx),
             headers = exported_hdrs,
             swift_header = None,
             mark_headers_private = False,

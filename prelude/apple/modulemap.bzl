@@ -15,11 +15,11 @@ load(
     "CPreprocessor",
     "CPreprocessorArgs",
 )
-load(":apple_utility.bzl", "get_module_name")
 
 def preprocessor_info_for_modulemap(
         ctx: AnalysisContext,
         name: str,
+        module_name: str,
         headers: list[CHeader],
         swift_header: Artifact | None,
         mark_headers_private: bool) -> CPreprocessor:
@@ -27,7 +27,6 @@ def preprocessor_info_for_modulemap(
     if name == "module":
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
-    module_name = get_module_name(ctx)
     name_no_dots = name.replace(".", "_")
 
     # Create a map of header import path to artifact location
