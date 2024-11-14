@@ -45,6 +45,10 @@ impl DynamicLambdaResultsKey {
         &self.0
     }
 
+    pub fn dynamic_actions_index(&self) -> DynamicLambdaIndex {
+        self.1
+    }
+
     pub fn action_key(&self) -> DynamicActionsActionKey {
         let mut v = match self.0.action_key() {
             Some(v) => v.as_str().to_owned(),

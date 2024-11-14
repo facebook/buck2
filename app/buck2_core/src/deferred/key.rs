@@ -11,9 +11,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use smallvec::SmallVec;
 
 use crate::configuration::data::ConfigurationData;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::deferred::dynamic::DynamicLambdaIndex;
 use crate::deferred::dynamic::DynamicLambdaResultsKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
@@ -50,6 +52,24 @@ impl DeferredHolderKey {
             DeferredHolderKey::Base(base) => base,
             DeferredHolderKey::DynamicLambda(lambda) => lambda.owner(),
         }
+    }
+
+    fn dynamic_action_id_stack(&self) -> SmallVec<[DynamicLambdaIndex; 5]> {
+        let mut stack = SmallVec::new();
+        let mut current = self;
+        while let DeferredHolderKey::DynamicLambda(lambda) = current {
+            stack.push(lambda.dynamic_actions_index());
+            current = lambda.holder_key();
+        }
+        stack.reverse();
+        stack
+    }
+
+    pub fn starts_with(&self, other: &DeferredHolderKey) -> bool {
+        self.owner() == other.owner()
+            && self
+                .dynamic_action_id_stack()
+                .starts_with(&other.dynamic_action_id_stack())
     }
 
     /// Create action_key information from the ids, uniquely
