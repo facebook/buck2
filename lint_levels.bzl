@@ -44,7 +44,6 @@ CLIPPY_ALLOW = [
     "clippy::non_canonical_partial_ord_impl",  # Almost exclusively identifies cases where a type delegates ord/partial ord to something else (including Derivative-derived PartialOrd) and in that case being explicit about that delegation is better than following some canonical partialord impl.
     "clippy::question_mark",
     "clippy::single_match",  # Sometimes a single match looks good
-    "clippy::too_long_first_doc_paragraph",  # FIXME new in Rust 1.82.0
     "clippy::too_many_arguments",  # This is an arbitrary limit set on number of arguments and not always useful
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
     "clippy::unconditional_recursion",  # FIXME new in Rust 1.77.1

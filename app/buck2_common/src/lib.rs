@@ -12,9 +12,10 @@
 //! Common core components of buck2
 
 #![feature(io_error_more)]
+#![feature(try_trait_v2)]
+#![feature(is_sorted)]
 #![feature(map_try_insert)]
 #![feature(never_type)]
-#![feature(try_trait_v2)]
 #![feature(used_with_arg)]
 
 pub mod argv;

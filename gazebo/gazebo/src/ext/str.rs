@@ -28,7 +28,7 @@ pub trait StrExt {
     #[cfg(feature = "str_pattern_extensions")]
     fn split1<'a, P>(&'a self, pat: P) -> (&'a Self, &'a Self)
     where
-        P: Pattern;
+        P: Pattern<'a>;
 
     /// Like `split`, but only separates off the first element if there is a
     /// separator, otherwise returns `None`. For example:
@@ -48,7 +48,7 @@ pub trait StrExt {
     #[deprecated(since = "0.6.1", note = "use `split_once` available in `std`")]
     fn split1_opt<'a, P>(&'a self, pat: P) -> Option<(&'a Self, &'a Self)>
     where
-        P: Pattern;
+        P: Pattern<'a>;
 
     /// Trim off the first match, or return the string unchanged if the pattern
     /// is not a prefix of the string. Like 'trim_start_matches', but at
@@ -63,7 +63,7 @@ pub trait StrExt {
     #[cfg(feature = "str_pattern_extensions")]
     fn trim_start_match<'a, P>(&'a self, pat: P) -> &'a Self
     where
-        P: Pattern;
+        P: Pattern<'a>;
 
     /// Trim off the first match and return 'Some', or return 'None' if the
     /// pattern is not a prefix of the string. Like 'trim_start_matches'.
@@ -79,7 +79,7 @@ pub trait StrExt {
     #[deprecated(note = "Use str.strip_prefix instead")]
     fn trim_start_match_opt<'a, P>(&'a self, pat: P) -> Option<&'a Self>
     where
-        P: Pattern;
+        P: Pattern<'a>;
 
     /// Trim off the first match, or return the string unchanged if the pattern
     /// is not a prefix of the string. Like 'trim_start_matches', but at
@@ -94,7 +94,7 @@ pub trait StrExt {
     #[cfg(feature = "str_pattern_extensions")]
     fn trim_end_match<'a, P>(&'a self, pat: P) -> &'a Self
     where
-        P: Pattern<Searcher<'a>: ReverseSearcher<'a>>;
+        P: Pattern<'a, Searcher: ReverseSearcher<'a>>;
 
     /// Trim off the first match and return 'Some', or return 'None' if the
     /// pattern is not a prefix of the string. Like 'trim_start_matches'.
@@ -110,14 +110,14 @@ pub trait StrExt {
     #[deprecated(note = "Use str.strip_suffix instead")]
     fn trim_end_match_opt<'a, P>(&'a self, pat: P) -> Option<&'a Self>
     where
-        P: Pattern<Searcher<'a>: ReverseSearcher<'a>>;
+        P: Pattern<'a, Searcher: ReverseSearcher<'a>>;
 }
 
 impl StrExt for str {
     #[cfg(feature = "str_pattern_extensions")]
     fn split1_opt<'a, P>(&'a self, pat: P) -> Option<(&'a Self, &'a Self)>
     where
-        P: Pattern,
+        P: Pattern<'a>,
     {
         self.split_once(pat)
     }
@@ -125,7 +125,7 @@ impl StrExt for str {
     #[cfg(feature = "str_pattern_extensions")]
     fn split1<'a, P>(&'a self, pat: P) -> (&'a Self, &'a Self)
     where
-        P: Pattern,
+        P: Pattern<'a>,
     {
         self.split_once(pat).unwrap_or((self, ""))
     }
@@ -133,7 +133,7 @@ impl StrExt for str {
     #[cfg(feature = "str_pattern_extensions")]
     fn trim_start_match_opt<'a, P>(&'a self, pat: P) -> Option<&'a Self>
     where
-        P: Pattern,
+        P: Pattern<'a>,
     {
         let mut matcher = pat.into_searcher(self);
         match matcher.next() {
@@ -145,7 +145,7 @@ impl StrExt for str {
     #[cfg(feature = "str_pattern_extensions")]
     fn trim_start_match<'a, P>(&'a self, pat: P) -> &'a Self
     where
-        P: Pattern,
+        P: Pattern<'a>,
     {
         #[allow(deprecated)]
         self.trim_start_match_opt(pat).unwrap_or(self)
@@ -154,7 +154,7 @@ impl StrExt for str {
     #[cfg(feature = "str_pattern_extensions")]
     fn trim_end_match_opt<'a, P>(&'a self, pat: P) -> Option<&'a Self>
     where
-        P: Pattern<Searcher<'a>: ReverseSearcher<'a>>,
+        P: Pattern<'a, Searcher: ReverseSearcher<'a>>,
     {
         let mut matcher = pat.into_searcher(self);
         match matcher.next_back() {
@@ -166,7 +166,7 @@ impl StrExt for str {
     #[cfg(feature = "str_pattern_extensions")]
     fn trim_end_match<'a, P>(&'a self, pat: P) -> &'a Self
     where
-        P: Pattern<Searcher<'a>: ReverseSearcher<'a>>,
+        P: Pattern<'a, Searcher: ReverseSearcher<'a>>,
     {
         #[allow(deprecated)]
         self.trim_end_match_opt(pat).unwrap_or(self)

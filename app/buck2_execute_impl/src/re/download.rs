@@ -431,6 +431,7 @@ impl FromResidual<ControlFlow<Self, Infallible>> for DownloadResult {
     fn from_residual(residual: ControlFlow<Self, Infallible>) -> Self {
         match residual {
             ControlFlow::Break(v) => v,
+            ControlFlow::Continue(_) => unreachable!(),
         }
     }
 }

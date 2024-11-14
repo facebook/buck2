@@ -243,7 +243,10 @@ mod tests {
         "yyy",
     ];
 
-    fn test_is_prefix_of_impl(ascii: impl AsciiPattern + Copy, str_pattern: impl Pattern + Copy) {
+    fn test_is_prefix_of_impl<'p>(
+        ascii: impl AsciiPattern + Copy,
+        str_pattern: impl Pattern<'p> + Copy,
+    ) {
         for s in STRINGS {
             assert_eq!(ascii.is_prefix_of(s), str_pattern.is_prefix_of(s));
         }
@@ -251,24 +254,26 @@ mod tests {
 
     fn test_is_suffix_of_impl<'p>(
         ascii: impl AsciiPattern + Copy,
-        str_pattern: impl Pattern<Searcher<'p> = impl ReverseSearcher<'p>> + Copy,
+        str_pattern: impl Pattern<'p, Searcher = impl ReverseSearcher<'p>> + Copy,
     ) {
         for s in STRINGS {
             assert_eq!(ascii.is_suffix_of(s), str_pattern.is_suffix_of(s));
         }
     }
 
-    fn test_first_index_in_impl(ascii: impl AsciiPattern + Copy, str_pattern: impl Pattern + Copy) {
+    fn test_first_index_in_impl<'p>(
+        ascii: impl AsciiPattern + Copy,
+        str_pattern: impl Pattern<'p> + Copy,
+    ) {
         for s in STRINGS {
             assert_eq!(ascii.first_index_in(s), s.find(str_pattern));
         }
     }
 
-    fn test_last_index_in_impl<P>(ascii: impl AsciiPattern + Copy, str_pattern: P)
-    where
-        P: Pattern + Copy,
-        for<'p> <P as Pattern>::Searcher<'p>: ReverseSearcher<'p>,
-    {
+    fn test_last_index_in_impl<'p>(
+        ascii: impl AsciiPattern + Copy,
+        str_pattern: impl Pattern<'p, Searcher = impl ReverseSearcher<'p>> + Copy,
+    ) {
         for s in STRINGS {
             assert_eq!(ascii.last_index_in(s), s.rfind(str_pattern));
         }

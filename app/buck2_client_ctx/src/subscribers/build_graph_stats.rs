@@ -75,7 +75,6 @@ impl BuildGraphStats {
     }
 
     async fn send_events(&self, events: Vec<buck2_events::BuckEvent>) {
-        #[allow(unreachable_patterns)]
         if let Ok(Some(sink)) =
             new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(100), 2, None)
         {

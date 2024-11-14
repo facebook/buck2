@@ -8,7 +8,6 @@
  */
 
 #![cfg_attr(feature = "str_pattern_extensions", feature(pattern))]
-#![allow(clippy::too_long_first_doc_paragraph)]
 
 //! A collection of well-tested primitives that have been useful. Most modules stand alone.
 

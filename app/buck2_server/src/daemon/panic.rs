@@ -13,7 +13,7 @@
 
 use std::env::temp_dir;
 use std::panic;
-use std::panic::PanicHookInfo;
+use std::panic::PanicInfo;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -72,7 +72,7 @@ pub fn initialize(daemon_state: Arc<dyn DaemonStatePanicDiceDump>) {
 /// This cell prevents a circular set of panics if this happens.
 static ALREADY_DUMPED_DICE: OnceLock<()> = OnceLock::new();
 
-fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &PanicHookInfo) {
+fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &PanicInfo) {
     if !buck2_core::is_open_source()
         && buck2_env_anyhow!("BUCK2_DICE_DUMP_ON_PANIC", bool).unwrap_or_default()
         && ALREADY_DUMPED_DICE.set(()).is_ok()
@@ -84,7 +84,7 @@ fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &Pa
 
 fn maybe_dice_dump(
     daemon_state: &Arc<dyn DaemonStatePanicDiceDump>,
-    info: &PanicHookInfo,
+    info: &PanicInfo,
     panic_id: &TraceId,
 ) {
     let is_dice_panic = info.location().map_or(false, |loc| {

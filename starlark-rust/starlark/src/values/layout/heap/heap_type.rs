@@ -786,8 +786,12 @@ impl Heap {
         &'v self,
         elems: impl IntoIterator<Item = Value<'v>>,
     ) -> Value<'v> {
-        match self.try_alloc_list_iter(elems.into_iter().map(Ok::<_, Infallible>)) {
+        match self.try_alloc_list_iter(elems.into_iter().map(Ok)) {
             Ok(value) => value,
+            Err(e) => {
+                let e: Infallible = e;
+                match e {}
+            }
         }
     }
 
