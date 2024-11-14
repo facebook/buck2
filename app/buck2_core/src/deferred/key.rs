@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 use smallvec::SmallVec;
+use static_assertions::assert_eq_size;
 
 use crate::configuration::data::ConfigurationData;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
@@ -38,6 +39,8 @@ pub enum DeferredHolderKey {
     Base(BaseDeferredKey),
     DynamicLambda(Arc<DynamicLambdaResultsKey>),
 }
+
+assert_eq_size!(DeferredHolderKey, [usize; 3]);
 
 impl DeferredHolderKey {
     pub fn testing_new(target_label: &str) -> DeferredHolderKey {

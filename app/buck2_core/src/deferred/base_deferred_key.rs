@@ -21,6 +21,7 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
+use static_assertions::assert_eq_size;
 
 use crate::execution_types::execution::ExecutionPlatformResolution;
 use crate::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -62,6 +63,8 @@ pub enum BaseDeferredKey {
     AnonTarget(Arc<dyn BaseDeferredKeyDyn>),
     BxlLabel(BaseDeferredKeyBxl),
 }
+
+assert_eq_size!(BaseDeferredKey, [usize; 3]);
 
 impl PartialEq for BaseDeferredKey {
     fn eq(&self, other: &Self) -> bool {

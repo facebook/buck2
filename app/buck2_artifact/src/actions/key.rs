@@ -14,6 +14,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
+use static_assertions::assert_eq_size;
 
 /// A key to look up an 'Action' from the 'ActionAnalysisResult'.
 /// Since 'Action's are registered as 'Deferred's
@@ -32,6 +33,8 @@ pub struct ActionKey {
     parent: DeferredHolderKey,
     id: ActionIndex,
 }
+
+assert_eq_size!(ActionKey, [usize; 4]);
 
 /// An unique identifier for different actions with the same parent.
 #[derive(
