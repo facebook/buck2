@@ -9,6 +9,7 @@ load("@prelude//:attrs_validators.bzl", "get_attrs_validators_info")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+load("@prelude//apple:apple_utility.bzl", "get_module_name")
 # @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs") 
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
@@ -84,13 +85,18 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         cxx_srcs, swift_srcs = _filter_swift_srcs(ctx)
         contains_swift_sources = len(swift_srcs) > 0
 
+        module_name = get_module_name(ctx)
+
         framework_search_path_flags = get_framework_search_path_flags(ctx)
         swift_compile, _ = compile_swift(
             ctx,
             swift_srcs,
             False,  # parse_as_library
             deps_providers,
+            module_name,
+            module_name + "_Private",
             [],
+            None,
             None,
             framework_search_path_flags,
             objc_bridging_header_flags,

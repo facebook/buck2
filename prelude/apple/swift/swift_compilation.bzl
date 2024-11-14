@@ -270,8 +270,11 @@ def compile_swift(
         srcs: list[CxxSrcWithFlags],
         parse_as_library: bool,
         deps_providers: list,
+        module_name: str,
+        private_module_name: str,
         exported_headers: list[CHeader],
-        objc_modulemap_pp_info: [CPreprocessor, None],
+        exported_objc_modulemap_pp_info: [CPreprocessor, None],
+        private_objc_modulemap_pp_info: [CPreprocessor, None],
         framework_search_paths_flags: cmd_args,
         extra_search_paths_flags: list[ArgLike] = []) -> ([SwiftCompilationOutput, None], DefaultInfo):
     # If this target imports XCTest we need to pass the search path to its swiftmodule.
@@ -283,30 +286,40 @@ def compile_swift(
     framework_search_paths.add(framework_search_paths_flags)
     framework_search_paths.add(cmd_args(framework_search_paths_flags, prepend = "-Xcc"))
 
-    module_name = get_module_name(ctx)
-
     # If a target exports ObjC headers and Swift explicit modules are enabled,
     # we need to precompile a PCM of the underlying module and supply it to the Swift compilation.
-    if objc_modulemap_pp_info and uses_explicit_modules(ctx):
-        compiled_underlying_pcm = _get_compiled_underlying_pcm(
+    swift_cxx_flags = get_swift_cxx_flags(ctx)
+    if uses_explicit_modules(ctx):
+        exported_compiled_underlying_pcm = _get_compiled_underlying_pcm(
             ctx,
             module_name,
-            objc_modulemap_pp_info,
+            exported_objc_modulemap_pp_info,
             deps_providers,
-            get_swift_cxx_flags(ctx),
+            swift_cxx_flags,
             framework_search_paths,
-        )
+        ) if exported_objc_modulemap_pp_info else None
+        private_compiled_underlying_pcm = _get_compiled_underlying_pcm(
+            ctx,
+            private_module_name,
+            private_objc_modulemap_pp_info,
+            deps_providers,
+            swift_cxx_flags,
+            framework_search_paths,
+        ) if private_objc_modulemap_pp_info else None
     else:
-        compiled_underlying_pcm = None
+        exported_compiled_underlying_pcm = None
+        private_compiled_underlying_pcm = None
 
     shared_flags = _get_shared_flags(
         ctx,
         deps_providers,
         parse_as_library,
-        compiled_underlying_pcm,
+        private_compiled_underlying_pcm,
+        exported_compiled_underlying_pcm,
         module_name,
         exported_headers,
-        objc_modulemap_pp_info,
+        private_objc_modulemap_pp_info,
+        exported_objc_modulemap_pp_info,
         extra_search_paths_flags,
     )
     shared_flags.add(framework_search_paths)
@@ -355,6 +368,7 @@ def compile_swift(
         headers = exported_headers,
         swift_header = output_header,
         mark_headers_private = False,
+        additional_args = None,
     )
     exported_swift_header = CHeader(
         artifact = output_header,
@@ -384,14 +398,24 @@ def compile_swift(
         object_files = object_output.object_files,
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
-        compiled_underlying_pcm_artifact = compiled_underlying_pcm.output_artifact if compiled_underlying_pcm else None,
+        compiled_underlying_pcm_artifact = exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
         dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, deps_providers),
         pre = pre,
         exported_pre = exported_pp_info,
         exported_swift_header = exported_swift_header.artifact,
         argsfiles = object_output.argsfiles,
         swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
-        clang_debug_info = extract_and_merge_clang_debug_infos(ctx, deps_providers, [compiled_underlying_pcm.output_artifact] if compiled_underlying_pcm else []),
+        clang_debug_info = extract_and_merge_clang_debug_infos(
+            ctx,
+            deps_providers,
+            filter(
+                None,
+                [
+                    exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
+                    private_compiled_underlying_pcm.output_artifact if private_compiled_underlying_pcm else None,
+                ],
+            ),
+        ),
         compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
         exported_symbols = output_symbols,
         swift_library_for_distribution_output = swift_framework_output,
@@ -639,10 +663,12 @@ def _get_shared_flags(
         ctx: AnalysisContext,
         deps_providers: list,
         parse_as_library: bool,
-        underlying_module: [SwiftCompiledModuleInfo, None],
+        private_module: SwiftCompiledModuleInfo | None,
+        public_module: SwiftCompiledModuleInfo | None,
         module_name: str,
         objc_headers: list[CHeader],
-        objc_modulemap_pp_info: [CPreprocessor, None],
+        private_modulemap_pp_info: CPreprocessor | None,
+        public_modulemap_pp_info: CPreprocessor | None,
         extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args()
@@ -768,7 +794,14 @@ def _get_shared_flags(
     _add_swift_deps_flags(ctx, cmd)
 
     # Add flags for importing the ObjC part of this library
-    _add_mixed_library_flags_to_cmd(ctx, cmd, underlying_module, objc_headers, objc_modulemap_pp_info)
+    _add_mixed_library_flags_to_cmd(
+        ctx,
+        cmd,
+        private_module,
+        public_module,
+        private_modulemap_pp_info,
+        public_modulemap_pp_info,
+    )
 
     # Add toolchain and target flags last to allow for overriding defaults
     cmd.add(toolchain.compiler_flags)
@@ -840,20 +873,22 @@ def _add_clang_deps_flags(
 def _add_mixed_library_flags_to_cmd(
         ctx: AnalysisContext,
         cmd: cmd_args,
-        underlying_module: [SwiftCompiledModuleInfo, None],
-        objc_headers: list[CHeader],
-        objc_modulemap_pp_info: [CPreprocessor, None]) -> None:
+        private_module: SwiftCompiledModuleInfo | None,
+        underlying_module: SwiftCompiledModuleInfo | None,
+        private_modulemap_pp_info: CPreprocessor | None,
+        public_modulemap_pp_info: CPreprocessor | None) -> None:
     if uses_explicit_modules(ctx):
+        if private_module:
+            cmd.add(private_module.clang_importer_args)
+            cmd.add(private_module.clang_module_file_args)
+
         if underlying_module:
             cmd.add(underlying_module.clang_importer_args)
             cmd.add(underlying_module.clang_module_file_args)
             cmd.add("-import-underlying-module")
         return
 
-    if not objc_headers:
-        return
-
-    if objc_modulemap_pp_info:
+    for objc_modulemap_pp_info in filter(None, [private_modulemap_pp_info, public_modulemap_pp_info]):
         # TODO(T99100029): We cannot use VFS overlays to mask this import from
         # the debugger as they require absolute paths. Instead we will enforce
         # that mixed libraries do not have serialized debugging info and rely on
@@ -866,7 +901,8 @@ def _add_mixed_library_flags_to_cmd(
             cmd.add("-Xcc")
             cmd.add(arg)
 
-    cmd.add("-import-underlying-module")
+    if public_modulemap_pp_info:
+        cmd.add("-import-underlying-module")
 
 def _get_swift_paths_tsets(deps: list[Dependency]) -> list[SwiftCompiledModuleTset]:
     return [

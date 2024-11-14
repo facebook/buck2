@@ -171,6 +171,11 @@ def _uses_explicit_modules_arg():
         "uses_explicit_modules": attrs.bool(default = False),
     }
 
+def _enable_private_swift_module_arg():
+    return {
+        "enable_private_swift_module": attrs.bool(default = False),
+    }
+
 def _meta_apple_library_validation_enabled_default_value():
     if not is_full_meta_repo():
         return False
@@ -239,4 +244,5 @@ apple_common = struct(
     meta_apple_library_validation_enabled_arg = _meta_apple_library_validation_enabled_arg,
     skip_universal_resource_dedupe_arg = _skip_universal_resource_dedupe_arg,
     apple_sanitizer_compatibility_arg = _apple_sanitizer_compatibility_arg,
+    enable_private_swift_module_arg = _enable_private_swift_module_arg,
 )

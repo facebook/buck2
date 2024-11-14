@@ -461,6 +461,7 @@ apple_library = prelude_rule(
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.meta_apple_library_validation_enabled_arg() |
+        apple_common.enable_private_swift_module_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -709,6 +710,7 @@ apple_test = prelude_rule(
         apple_common.serialize_debugging_options_arg() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.apple_sanitizer_compatibility_arg() |
+        apple_common.enable_private_swift_module_arg() |
         {
             "asset_catalogs_compilation_options": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "bridging_header": attrs.option(attrs.source(), default = None),

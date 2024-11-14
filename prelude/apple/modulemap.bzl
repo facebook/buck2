@@ -22,12 +22,11 @@ def preprocessor_info_for_modulemap(
         module_name: str,
         headers: list[CHeader],
         swift_header: Artifact | None,
-        mark_headers_private: bool) -> CPreprocessor:
+        mark_headers_private: bool,
+        additional_args: CPreprocessorArgs | None) -> CPreprocessor:
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module":
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
-
-    name_no_dots = name.replace(".", "_")
 
     # Create a map of header import path to artifact location
     header_map = {}
@@ -37,13 +36,17 @@ def preprocessor_info_for_modulemap(
         else:
             header_map[h.name] = h.artifact
 
-    # We need to include the Swift header in the symlink tree too
-    swift_header_name = "{}/{}-Swift.h".format(module_name, module_name)
+    swift_header_name = None
     if swift_header:
+        # We need to include the Swift header in the symlink tree too
+        swift_header_name = "{}/{}-Swift.h".format(module_name, module_name)
         header_map[swift_header_name] = swift_header
 
+        if mark_headers_private:
+            fail("You shouldn't be generating a bridging header for a private module map.")
+
     # Create a symlink dir for the headers to import
-    symlink_tree = ctx.actions.symlinked_dir(name_no_dots + "_symlink_tree", header_map)
+    symlink_tree = ctx.actions.symlinked_dir(name.replace(".", "_") + "_symlink_tree", header_map)
 
     # Create a modulemap at the root of that tree
     output = ctx.actions.declare_output(name + ".modulemap")
@@ -74,10 +77,13 @@ def preprocessor_info_for_modulemap(
     if mark_headers_private:
         cmd.add("--mark-headers-private")
 
-    ctx.actions.run(cmd, category = "modulemap", identifier = name_no_dots)
+    ctx.actions.run(cmd, category = "modulemap", identifier = name)
 
     return CPreprocessor(
-        args = CPreprocessorArgs(args = _exported_preprocessor_args(symlink_tree)),
+        args = CPreprocessorArgs(
+            args = _exported_preprocessor_args(symlink_tree) + (additional_args.args if additional_args else []),
+            file_prefix_args = additional_args.file_prefix_args if additional_args else [],
+        ),
         modular_args = _args_for_modulemap(output, symlink_tree, swift_header),
         modulemap_path = cmd_args(output, hidden = cmd_args(symlink_tree)),
     )
