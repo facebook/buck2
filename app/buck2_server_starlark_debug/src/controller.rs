@@ -41,7 +41,7 @@ pub struct BuckStarlarkDebugController {
 
 impl StarlarkDebugController for BuckStarlarkDebugController {
     /// Initializes the Evaluator. This can only be used once for a particular controller.
-    fn initialize(&mut self, eval: &mut starlark::eval::Evaluator) -> anyhow::Result<()> {
+    fn initialize(&mut self, eval: &mut starlark::eval::Evaluator) -> buck2_error::Result<()> {
         match self.eval_wrapper.take()? {
             Some(v) => {
                 debug!("adding dap hooks for {}", &self.description);
@@ -96,7 +96,7 @@ enum EvalWrapperHolder {
 }
 
 impl EvalWrapperHolder {
-    fn take(&mut self) -> anyhow::Result<Option<Box<dyn DapAdapterEvalHook>>> {
+    fn take(&mut self) -> buck2_error::Result<Option<Box<dyn DapAdapterEvalHook>>> {
         match self {
             EvalWrapperHolder::ShuttingDown => Ok(None),
             EvalWrapperHolder::Used => {
