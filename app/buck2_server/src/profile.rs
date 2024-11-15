@@ -156,7 +156,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
                 )
                 .await?;
 
-                get_profile_response(profile_data, output)
+                Ok(get_profile_response(profile_data, output)?)
             }
             _ => {
                 return Err(anyhow::anyhow!(

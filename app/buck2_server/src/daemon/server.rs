@@ -1332,7 +1332,10 @@ impl DaemonApi for BuckdServer {
                 &self,
                 req: &ProfileRequest,
             ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-                starlark_profiler_configuration_from_request(req, &self.project_root)
+                Ok(starlark_profiler_configuration_from_request(
+                    req,
+                    &self.project_root,
+                )?)
             }
         }
 

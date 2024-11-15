@@ -11,7 +11,6 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::HasClientContext;
 use buck2_core::fs::fs_util;
@@ -20,10 +19,12 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_core::pattern::unparsed::UnparsedPatterns;
+use buck2_error::buck2_error;
+use buck2_error::starlark_error::from_starlark;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use starlark::eval::ProfileMode;
-use starlark::StarlarkResultExt;
 
 pub fn proto_to_profile_mode(proto: buck2_cli_proto::ProfileMode) -> ProfileMode {
     match proto {
@@ -44,16 +45,16 @@ pub fn proto_to_profile_mode(proto: buck2_cli_proto::ProfileMode) -> ProfileMode
 pub fn starlark_profiler_configuration_from_request(
     req: &buck2_cli_proto::ProfileRequest,
     project_root: &ProjectRoot,
-) -> anyhow::Result<StarlarkProfilerConfiguration> {
-    let profiler_proto =
-        buck2_cli_proto::ProfileMode::from_i32(req.profile_mode).context("Invalid profiler")?;
+) -> buck2_error::Result<StarlarkProfilerConfiguration> {
+    let profiler_proto = buck2_cli_proto::ProfileMode::from_i32(req.profile_mode)
+        .buck_error_context("Invalid profiler")?;
 
     let profile_mode = proto_to_profile_mode(profiler_proto);
 
     match req.profile_opts.as_ref().expect("Missing profile opts") {
         ProfileOpts::TargetProfile(opts) => {
             let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
-                .context("Invalid action")?;
+                .buck_error_context("Invalid action")?;
             Ok(match (action, opts.recursive) {
                 (buck2_cli_proto::target_profile::Action::Loading, false) => {
                     let working_dir = AbsNormPath::new(&req.client_context()?.working_dir)?;
@@ -67,7 +68,8 @@ pub fn starlark_profiler_configuration_from_request(
                     )
                 }
                 (buck2_cli_proto::target_profile::Action::Loading, true) => {
-                    return Err(anyhow::anyhow!(
+                    return Err(buck2_error!(
+                        [],
                         "Recursive profiling is not supported for loading profiling, but you can pass multiple target patterns."
                     ));
                 }
@@ -98,7 +100,7 @@ pub fn starlark_profiler_configuration_from_request(
 pub fn write_starlark_profile(
     profile_data: &StarlarkProfileDataAndStats,
     output: &AbsPath,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     fs_util::create_dir_if_not_exists(output)?;
 
     fs_util::write(
@@ -109,13 +111,13 @@ pub fn write_starlark_profile(
             .map(|t| format!("{t}\n"))
             .collect::<String>(),
     )
-    .context("Failed to write targets")?;
+    .buck_error_context("Failed to write targets")?;
 
     match profile_data.profile_data.profile_mode() {
         ProfileMode::HeapFlameAllocated
         | ProfileMode::HeapFlameRetained
         | ProfileMode::TimeFlame => {
-            let mut profile = profile_data.profile_data.gen().into_anyhow_result()?;
+            let mut profile = profile_data.profile_data.gen().map_err(from_starlark)?;
             if profile.is_empty() {
                 // inferno does not like empty flamegraphs.
                 profile = "empty 1\n".to_owned();
@@ -126,16 +128,17 @@ pub fn write_starlark_profile(
                 profile.as_bytes(),
                 &mut svg,
             )
-            .context("writing SVG from profile data")?;
+            .buck_error_context("writing SVG from profile data")?;
 
             fs_util::write(output.join("flame.src"), &profile)
-                .context("Failed to write profile")?;
-            fs_util::write(output.join("flame.svg"), &svg).context("Failed to write profile")?;
+                .buck_error_context("Failed to write profile")?;
+            fs_util::write(output.join("flame.svg"), &svg)
+                .buck_error_context("Failed to write profile")?;
         }
         _ => {
-            let profile = profile_data.profile_data.gen().into_anyhow_result()?;
+            let profile = profile_data.profile_data.gen().map_err(from_starlark)?;
             fs_util::write(output.join("profile.txt"), profile)
-                .context("Failed to write profile")?;
+                .buck_error_context("Failed to write profile")?;
         }
     };
     Ok(())
@@ -144,7 +147,7 @@ pub fn write_starlark_profile(
 pub fn get_profile_response(
     profile_data: Arc<StarlarkProfileDataAndStats>,
     output: &AbsPath,
-) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
+) -> buck2_error::Result<buck2_cli_proto::ProfileResponse> {
     write_starlark_profile(profile_data.as_ref(), output)?;
 
     Ok(buck2_cli_proto::ProfileResponse {

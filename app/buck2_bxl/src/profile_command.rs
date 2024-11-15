@@ -153,7 +153,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                     }
                 };
 
-                get_profile_response(profile_data, output)
+                Ok(get_profile_response(profile_data, output)?)
             }
             _ => {
                 return Err(anyhow::anyhow!(
