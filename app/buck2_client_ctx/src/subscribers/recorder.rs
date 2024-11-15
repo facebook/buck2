@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
 use std::io::Write;
+use std::ops::Sub;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -204,6 +205,10 @@ pub(crate) struct InvocationRecorder<'a> {
     target_cfg: Option<TargetCfg>,
     version_control_revision: Option<buck2_data::VersionControlRevision>,
     concurrent_commands: bool,
+    initial_local_cache_hits_files: Option<i64>,
+    initial_local_cache_hits_bytes: Option<i64>,
+    initial_local_cache_misses_files: Option<i64>,
+    initial_local_cache_misses_bytes: Option<i64>,
 }
 
 struct ErrorsReport {
@@ -352,6 +357,10 @@ impl<'a> InvocationRecorder<'a> {
             target_cfg: None,
             version_control_revision: None,
             concurrent_commands: false,
+            initial_local_cache_hits_files: None,
+            initial_local_cache_hits_bytes: None,
+            initial_local_cache_misses_files: None,
+            initial_local_cache_misses_bytes: None,
         }
     }
 
@@ -486,6 +495,11 @@ impl<'a> InvocationRecorder<'a> {
         let mut hedwig_upload_queries = None;
         let mut hedwig_upload_bytes = None;
 
+        let mut local_cache_hits_files = None;
+        let mut local_cache_hits_bytes = None;
+        let mut local_cache_misses_files = None;
+        let mut local_cache_misses_bytes = None;
+
         if let Some(snapshot) = &self.last_snapshot {
             sink_success_count =
                 calculate_diff_if_some(&snapshot.sink_successes, &self.initial_sink_success_count);
@@ -568,6 +582,26 @@ impl<'a> InvocationRecorder<'a> {
             hedwig_upload_bytes = calculate_diff_if_some(
                 &Some(snapshot.hedwig_upload_bytes),
                 &self.initial_hedwig_upload_bytes,
+            );
+
+            local_cache_hits_files = calculate_diff_if_some(
+                &Some(snapshot.local_cache_hits_files),
+                &self.initial_local_cache_hits_files,
+            );
+
+            local_cache_hits_bytes = calculate_diff_if_some(
+                &Some(snapshot.local_cache_hits_bytes),
+                &self.initial_local_cache_hits_bytes,
+            );
+
+            local_cache_misses_files = calculate_diff_if_some(
+                &Some(snapshot.local_cache_misses_files),
+                &self.initial_local_cache_misses_files,
+            );
+
+            local_cache_misses_bytes = calculate_diff_if_some(
+                &Some(snapshot.local_cache_misses_bytes),
+                &self.initial_local_cache_misses_bytes,
             );
 
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
@@ -772,6 +806,10 @@ impl<'a> InvocationRecorder<'a> {
                 .collect(),
             target_cfg: self.target_cfg.take(),
             version_control_revision: self.version_control_revision.take(),
+            local_cache_hits_files,
+            local_cache_hits_bytes,
+            local_cache_misses_files,
+            local_cache_misses_bytes,
         };
 
         let event = BuckEvent::new(
@@ -1269,6 +1307,19 @@ impl<'a> InvocationRecorder<'a> {
             self.initial_hedwig_upload_bytes = Some(update.hedwig_upload_bytes);
         }
 
+        if self.initial_local_cache_hits_files.is_none() {
+            self.initial_local_cache_hits_files = Some(update.local_cache_hits_files);
+        }
+        if self.initial_local_cache_hits_bytes.is_none() {
+            self.initial_local_cache_hits_bytes = Some(update.local_cache_hits_bytes);
+        }
+        if self.initial_local_cache_misses_files.is_none() {
+            self.initial_local_cache_misses_files = Some(update.local_cache_misses_files);
+        }
+        if self.initial_local_cache_misses_bytes.is_none() {
+            self.initial_local_cache_misses_bytes = Some(update.local_cache_misses_bytes);
+        }
+
         for s in self.re_max_download_speeds.iter_mut() {
             s.update(event.timestamp(), update.re_download_bytes);
         }
@@ -1690,7 +1741,11 @@ impl<'a> ErrorObserver for InvocationRecorder<'a> {
     }
 }
 
-fn calculate_diff_if_some(a: &Option<u64>, b: &Option<u64>) -> Option<u64> {
+fn calculate_diff_if_some<T>(a: &Option<T>, b: &Option<T>) -> Option<T>
+where
+    for<'a> &'a T: Sub<&'a T, Output = T>,
+    T: Ord,
+{
     match (a, b) {
         (Some(av), Some(bv)) => Some(max(av, bv) - min(av, bv)),
         _ => None,

@@ -2095,6 +2095,12 @@ message InvocationRecord {
 
   // Larger subsystem where the best error originated, derived from best_tag.
   optional string best_error_source_area = 235;
+
+  // Local cache hits and misses stats
+  optional int64 local_cache_hits_files = 236;
+  optional int64 local_cache_hits_bytes = 237;
+  optional int64 local_cache_misses_files = 238;
+  optional int64 local_cache_misses_bytes = 239;
 }
 
 // Record event sent directly to scribe.
