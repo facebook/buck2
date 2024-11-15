@@ -14,6 +14,7 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::find_invocation_roots;
+use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -24,7 +25,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::AnyhowContextForError;
 use prost::Message;
@@ -40,19 +40,16 @@ impl ImmediateConfig {
     /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    fn parse(
-        project_fs: &ProjectRoot,
-        cwd: &ProjectRelativePath,
-    ) -> anyhow::Result<ImmediateConfig> {
+    fn parse(roots: &InvocationRoots) -> anyhow::Result<ImmediateConfig> {
         // This function is non-reentrant, and blocking for a bit should be ok
         let cells = futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
-            project_fs,
+            &roots.project_root,
             &[],
-            cwd,
+            &roots.cwd,
         ))?;
 
         let cwd_cell_alias_resolver = futures::executor::block_on(
-            cells.get_cell_alias_resolver_for_cwd_fast(project_fs, cwd),
+            cells.get_cell_alias_resolver_for_cwd_fast(&roots.project_root, &roots.cwd),
         )?;
 
         Ok(ImmediateConfig {
@@ -142,11 +139,7 @@ impl<'a> ImmediateConfigContext<'a> {
                 let paranoid_info_path = roots.paranoid_info_path()?;
 
                 // See comment in `ImmediateConfig` about why we use `OnceLock` rather than `Lazy`
-                let project_filesystem = roots.project_root;
-                let cfg = ImmediateConfig::parse(
-                    &project_filesystem,
-                    project_filesystem.relativize(self.cwd.path())?.as_ref(),
-                )?;
+                let cfg = ImmediateConfig::parse(&roots)?;
 
                 // It'd be nice to deal with this a little differently by having this be a separate
                 // type.
@@ -169,7 +162,7 @@ impl<'a> ImmediateConfigContext<'a> {
                     cell_resolver: cfg.cell_resolver,
                     cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
                     daemon_startup_config,
-                    project_filesystem,
+                    project_filesystem: roots.project_root,
                 })
             })
             .context("Error creating cell resolver")
