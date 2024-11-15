@@ -72,7 +72,9 @@ impl RootCommand {
             let (roots, imm_ctx) = match self.dir.clone() {
                 Some(dir) => {
                     let base_dir = dir.resolve(&ctx.working_dir);
-                    // FIXME(JakobDegen): Like always, canonicalize is wrong
+                    // Note: While `canonicalize` is usually wrong, in this case it's necessary
+                    // because our definition of where the project root is doesn't make sense for
+                    // non-normalized paths
                     let base_dir = fs_util::canonicalize(&base_dir)?;
                     working_dir_data = AbsWorkingDir::unchecked_new(base_dir);
                     let roots = find_invocation_roots(&working_dir_data)?;
