@@ -50,6 +50,9 @@ pub struct RemoteExecutionClientStats {
     pub materializes: RemoteExecutionClientOpStats,
     pub write_action_results: RemoteExecutionClientOpStats,
     pub get_digest_expirations: RemoteExecutionClientOpStats,
+
+    // Local cache hits and misses stats
+    pub local_cache: LocalCacheRemoteExecutionClientStats,
 }
 
 #[derive(Default, Allocative)]
@@ -135,5 +138,24 @@ impl LocalCacheStats {
             .fetch_add(stat.misses_files, Ordering::Relaxed);
         self.misses_bytes
             .fetch_add(stat.misses_bytes, Ordering::Relaxed);
+    }
+}
+
+#[derive(Default)]
+pub struct LocalCacheRemoteExecutionClientStats {
+    pub hits_files: i64,
+    pub hits_bytes: i64,
+    pub misses_files: i64,
+    pub misses_bytes: i64,
+}
+
+impl From<&'_ LocalCacheStats> for LocalCacheRemoteExecutionClientStats {
+    fn from(stats: &LocalCacheStats) -> LocalCacheRemoteExecutionClientStats {
+        LocalCacheRemoteExecutionClientStats {
+            hits_files: stats.hits_files.load(Ordering::Relaxed),
+            hits_bytes: stats.hits_bytes.load(Ordering::Relaxed),
+            misses_files: stats.misses_files.load(Ordering::Relaxed),
+            misses_bytes: stats.misses_bytes.load(Ordering::Relaxed),
+        }
     }
 }

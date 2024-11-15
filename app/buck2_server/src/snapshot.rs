@@ -149,6 +149,11 @@ impl SnapshotCollector {
             snapshot.hedwig_upload_queries = stats.upload_stats.hedwig.queries;
             snapshot.hedwig_upload_bytes = stats.upload_stats.hedwig.bytes;
 
+            snapshot.local_cache_hits_files = stats.local_cache.hits_files;
+            snapshot.local_cache_hits_bytes = stats.local_cache.hits_bytes;
+            snapshot.local_cache_misses_files = stats.local_cache.misses_files;
+            snapshot.local_cache_misses_bytes = stats.local_cache.misses_bytes;
+
             Ok(())
         }
 

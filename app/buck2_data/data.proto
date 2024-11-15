@@ -700,6 +700,12 @@ message Snapshot {
   uint64 hedwig_upload_queries = 432;
   uint64 hedwig_upload_bytes = 433;
 
+  // Local cache hits and misses stats
+  int64 local_cache_hits_files = 434;
+  int64 local_cache_hits_bytes = 435;
+  int64 local_cache_misses_files = 436;
+  int64 local_cache_misses_bytes = 437;
+
   // Client side metrics.
 
   // Delay between time snapshot is created and time it is received

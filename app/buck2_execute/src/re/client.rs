@@ -76,6 +76,7 @@ use crate::re::error::with_error_handler;
 use crate::re::error::RemoteExecutionError;
 use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::stats::LocalCacheRemoteExecutionClientStats;
 use crate::re::stats::LocalCacheStats;
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
@@ -370,6 +371,7 @@ impl RemoteExecutionClient {
         stats.materializes = RemoteExecutionClientOpStats::from(&self.data.materializes);
         stats.get_digest_expirations =
             RemoteExecutionClientOpStats::from(&self.data.get_digest_expirations);
+        stats.local_cache = LocalCacheRemoteExecutionClientStats::from(&self.data.local_cache);
     }
 }
 
