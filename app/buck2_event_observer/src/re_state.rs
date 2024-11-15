@@ -149,6 +149,27 @@ impl ReState {
         Ok(Some(Line::unstyled(&line)?))
     }
 
+    fn render_local_cache_stat(
+        &self,
+        name: &str,
+        hits_files: i64,
+        hits_bytes: i64,
+        misses_files: i64,
+        misses_bytes: i64,
+    ) -> buck2_error::Result<Option<Line>> {
+        let line = format!(
+            "{:<20}: \
+            {:>5} / {:>5} files hits, \
+            {:>5} / {:>5} files misses ",
+            name,
+            HumanizedBytes::new(hits_bytes as u64),
+            hits_files,
+            HumanizedBytes::new(misses_bytes as u64),
+            misses_files,
+        );
+        Ok(Some(Line::unstyled(&line)?))
+    }
+
     fn render_detailed(&self, two_snapshots: &TwoSnapshots) -> buck2_error::Result<Vec<Line>> {
         let mut r = Vec::new();
         if let (Some(first), Some((_, last))) = (&self.first_snapshot, &two_snapshots.last) {
@@ -198,6 +219,14 @@ impl ReState {
             r.extend(self.render_detailed_item_no_progress_stats(
                 "http_download_bytes",
                 last.http_download_bytes - first.http_download_bytes,
+            )?);
+
+            r.extend(self.render_local_cache_stat(
+                "local_cache",
+                last.local_cache_hits_files - first.local_cache_hits_files,
+                last.local_cache_hits_bytes - first.local_cache_hits_bytes,
+                last.local_cache_misses_files - first.local_cache_misses_files,
+                last.local_cache_misses_bytes - first.local_cache_misses_bytes,
             )?);
         }
         Ok(r)
