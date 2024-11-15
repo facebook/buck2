@@ -63,7 +63,7 @@ impl<'a> PackageCompleter<'a> {
         let cwd_cell_name = self
             .cell_configs
             .cell_resolver
-            .get_cell_path_from_abs_path(self.cwd.path().as_abs_path(), &self.roots.project_root)?
+            .get_cell_path(&self.roots.cwd)?
             .cell();
         let cwd_cell_root = self.cell_configs.cell_resolver.get(cwd_cell_name)?.path();
         let cwd_cell_root = self.roots.project_root.resolve(cwd_cell_root);
@@ -97,10 +97,7 @@ impl<'a> PackageCompleter<'a> {
         let cell_resolver = &self.cell_configs.cell_resolver;
         let alias_resolver = self
             .cell_configs
-            .get_cell_alias_resolver_for_cwd_fast(
-                &self.roots.project_root,
-                &self.roots.project_root.relativize(self.cwd.path())?,
-            )
+            .get_cell_alias_resolver_for_cwd_fast(&self.roots.project_root, &self.roots.cwd)
             .await?;
         for (cell_alias, cell_name) in alias_resolver.mappings() {
             let canonical_cell_root = format!("{}//", cell_alias);

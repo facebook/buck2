@@ -115,7 +115,7 @@ impl PathSanitizer {
             self.cwd.path().join_normalized(path_str)?
         };
 
-        let cwd_cell_name = self.resolve_cell(self.cwd.path())?;
+        let cwd_cell_name = self.cell_resovler.find(&self.cwd_roots.cwd)?;
 
         let cell_name = self.resolve_cell(&abs_path)?;
         let cell_path = self.relative_to_cell(&abs_path)?;
@@ -149,7 +149,7 @@ impl PathSanitizer {
         cell_path: &str,
     ) -> Result<SanitizedPath, anyhow::Error> {
         let given_cell = if given_cell_str == "" {
-            self.resolve_cell(self.cwd.path())?
+            self.cell_resovler.find(&self.cwd_roots.cwd)?
         } else {
             self.resolve_alias(given_cell_str)?
         };
