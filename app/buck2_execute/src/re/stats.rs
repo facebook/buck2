@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::sync::atomic::AtomicI64;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
@@ -113,5 +114,26 @@ impl PerBackendRemoteExecutionClientStats {
         {
             let _unused = metrics;
         }
+    }
+}
+
+#[derive(Default, Allocative)]
+pub(super) struct LocalCacheStats {
+    hits_files: AtomicI64,
+    hits_bytes: AtomicI64,
+    misses_files: AtomicI64,
+    misses_bytes: AtomicI64,
+}
+
+impl LocalCacheStats {
+    pub(super) fn update(&self, stat: &remote_execution::TLocalCacheStats) {
+        self.hits_files
+            .fetch_add(stat.hits_files, Ordering::Relaxed);
+        self.hits_bytes
+            .fetch_add(stat.hits_bytes, Ordering::Relaxed);
+        self.misses_files
+            .fetch_add(stat.misses_files, Ordering::Relaxed);
+        self.misses_bytes
+            .fetch_add(stat.misses_bytes, Ordering::Relaxed);
     }
 }

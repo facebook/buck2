@@ -76,6 +76,7 @@ use crate::re::error::with_error_handler;
 use crate::re::error::RemoteExecutionError;
 use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::stats::LocalCacheStats;
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
 use crate::re::stats::RemoteExecutionClientStats;
@@ -105,6 +106,7 @@ struct RemoteExecutionClientData {
     write_action_results: OpStats,
     get_digest_expirations: OpStats,
     extend_digest_ttl: OpStats,
+    local_cache: LocalCacheStats,
 }
 
 impl RemoteExecutionClient {
@@ -126,6 +128,7 @@ impl RemoteExecutionClient {
                 write_action_results: OpStats::default(),
                 get_digest_expirations: OpStats::default(),
                 extend_digest_ttl: OpStats::default(),
+                local_cache: Default::default(),
             }),
         })
     }
@@ -224,7 +227,8 @@ impl RemoteExecutionClient {
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
-        self.data
+        let res = self
+            .data
             .executes
             .op(self.data.client.execute(
                 action_digest,
@@ -239,7 +243,15 @@ impl RemoteExecutionClient {
                 re_resource_units,
                 knobs,
             ))
-            .await
+            .await?;
+
+        if let ExecuteResponseOrCancelled::Response(resp) = &res {
+            self.data
+                .local_cache
+                .update(&resp.executed_action_details.storage_stats.local_cache_stats);
+        }
+
+        Ok(res)
     }
 
     pub async fn materialize_files(
@@ -247,10 +259,12 @@ impl RemoteExecutionClient {
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<()> {
-        self.data
+        let stat = self
+            .data
             .materializes
             .op(self.data.client.materialize_files(files, use_case))
             .await?;
+        self.data.local_cache.update(&stat);
         Ok(())
     }
 
@@ -267,7 +281,10 @@ impl RemoteExecutionClient {
                 .client
                 .download_typed_blobs(identity, digests, use_case))
             .await
-            .map(|r| r.0)
+            .map(|r| {
+                self.data.local_cache.update(&r.1);
+                r.0
+            })
     }
 
     pub async fn download_blob(
@@ -279,7 +296,10 @@ impl RemoteExecutionClient {
             .downloads
             .op(self.data.client.download_blob(digest, use_case))
             .await
-            .map(|r| r.0)
+            .map(|r| {
+                self.data.local_cache.update(&r.1);
+                r.0
+            })
     }
 
     pub async fn upload_blob(
