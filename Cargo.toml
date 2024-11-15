@@ -121,7 +121,7 @@ repository = "https://github.com/facebook/buck2"
 
 [workspace.dependencies]
 anyhow = "1.0.65"
-anymap = "0.12.1"
+anymap = "1.0.0-beta.2"
 arc-swap = "1.6.0"
 argfile = "0.1.0"
 assert_matches = "1.5"
