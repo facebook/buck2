@@ -58,6 +58,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
         ErrorTag::WatchmanCheckoutInProgress => rank!(environment),
         ErrorTag::DownloadFileHeadRequest => rank!(environment),
+        ErrorTag::ServerTransportError => rank!(environment),
         ErrorTag::ServerMemoryPressure => rank!(environment),
         // Daemon was likely SIGKILLed, otherwise it should have written something to stderr
         ErrorTag::ServerStderrEmpty => rank!(environment),

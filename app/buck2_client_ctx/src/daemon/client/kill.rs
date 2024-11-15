@@ -59,8 +59,11 @@ pub async fn kill_command_impl(
             // No time out: we just errored out. This is likely indicative that there is no
             // buckd (i.e. our connection got rejected), so let's check for this and then
             // provide some information.
+            let e: buck2_error::Error = e.into();
 
-            if e.is::<tonic::transport::Error>() {
+            // TODO(minglunli): Look into checking for explicit 'Connection Refused' or something more
+            // concretely pointing to `no server running` instead of all transport errors
+            if e.has_tag(ErrorTag::ServerTransportError) {
                 // OK, looks like the server
                 tracing::debug!("Connect failed with a Tonic error: {:#}", e);
                 crate::eprintln!("no buckd server running")?;

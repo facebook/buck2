@@ -13,6 +13,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use futures::Future;
 use tokio::time::Instant;
 use tonic::transport::Channel;
@@ -73,14 +74,15 @@ async fn get_channel_uds_no_symlink(connect_to: &Path) -> buck2_error::Result<Ch
     let mut io = Some(io);
     // This URL string is not relevant to the connection. Some URL is required for the function to work but the closure running inside connect_with_connector()
     // deals with connecting to the unix domain socket.
-    Ok(Endpoint::try_from("http://[::]:50051")?
+    Endpoint::try_from("http://[::]:50051")?
         .connect_with_connector(service_fn(move |_: Uri| {
             let io = io
                 .take()
                 .with_buck_error_context_anyhow(|| "Cannot reconnect after connection loss to uds");
             futures::future::ready(io)
         }))
-        .await?)
+        .await
+        .tag(ErrorTag::ServerTransportError)
 }
 
 #[cfg(windows)]
@@ -98,6 +100,7 @@ pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> buck2_error::R
     Endpoint::try_from(format!("http://{}:{}", socket_addr, port))?
         .connect()
         .await
+        .tag(ErrorTag::ServerTransportError)
         .with_buck_error_context(|| format!("failed to connect to port {}", port))
 }
 

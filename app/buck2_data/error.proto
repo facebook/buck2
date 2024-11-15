@@ -107,6 +107,8 @@ enum ErrorTag {
   SERVER_MEMORY_PRESSURE = 401;
   // Jemalloc assertion failure.
   SERVER_JEMALLOC_ASSERT = 15;
+  // Server transport errors. Eg. Channel not open
+  SERVER_TRANSPORT_ERROR = 16;
   // The reason for server failure is unknown.
   SERVER_STDERR_UNKNOWN = 19;
   // Internal error in buck2. This is a bug.
