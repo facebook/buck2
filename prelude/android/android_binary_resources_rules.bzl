@@ -443,7 +443,7 @@ def get_manifest(
 
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if ctx.attrs.manifest:
-        expect(ctx.attrs.manifest_skeleton == None, "Only one of manifest and manifest_skeleton should be declared")
+        expect(getattr(ctx.attrs, "manifest_skeleton", None) == None, "Only one of manifest and manifest_skeleton should be declared")
         if isinstance(ctx.attrs.manifest, Dependency):
             android_manifest = ctx.attrs.manifest[DefaultInfo].default_outputs[0]
         else:

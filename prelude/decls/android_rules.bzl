@@ -1416,9 +1416,7 @@ robolectric_test = prelude_rule(
                 Robolectric only runs in offline mode with buck. Specify the relative
                  directory containing all the jars Robolectric uses at runtime.
             """),
-            "robolectric_manifest": attrs.source(doc = """
-                An [Android Manifest](http://developer.android.com/guide/topics/manifest/manifest-intro.html) for the rule to declare any permissions or intents it may need or want to handle. May either be a file or an `android_manifest()` target.
-            """),
+            "robolectric_manifest": attrs.option(attrs.source(), default = None, doc = "DEPRECATED. Use `manifest` attribute."),
             "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
@@ -1445,7 +1443,6 @@ robolectric_test = prelude_rule(
             "language": attrs.option(attrs.enum(JvmLanguage), default = None),
             "licenses": attrs.list(attrs.source(), default = []),
             "locales_for_binary_resources": attrs.list(attrs.string(), default = []),
-            "manifest": attrs.option(attrs.source(), default = None),
             "manifest_entries": attrs.dict(key = attrs.string(), value = attrs.any(), default = {}),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -1481,6 +1478,7 @@ robolectric_test = prelude_rule(
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
             "vm_args": attrs.list(attrs.arg(), default = []),
         } |
+        android_common.manifest_arg() |
         jvm_common.k2() |
         jvm_common.incremental() |
         jvm_common.plugins() |
