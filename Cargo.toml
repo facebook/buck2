@@ -131,6 +131,7 @@ async-compression = { version = "0.4.1", features = ["tokio", "gzip", "zstd"] }
 async-condvar-fair = { version = "1.0", features = ["parking_lot_0_11", "tokio"] }
 async-recursion = "1.0"
 async-scoped = { version = "0.9", features = ["use-tokio"] }
+async-stream = "0.3.6"
 async-trait = "0.1.24"
 atomic = "0.5.1"
 backtrace = "0.3.51"
