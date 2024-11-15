@@ -5,8 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+)
+
 def _impl(_ctx: AnalysisContext) -> list[Provider]:
-    return [DefaultInfo()]
+    return [DefaultInfo(), SharedLibraryInfo()]
 
 none_rule = rule(
     attrs = {},
