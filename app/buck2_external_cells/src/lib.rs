@@ -54,7 +54,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
     }
 
     fn check_bundled_cell_exists(&self, cell_name: CellName) -> buck2_error::Result<()> {
-        Ok(bundled::find_bundled_data(cell_name).map(|_| ())?)
+        bundled::find_bundled_data(cell_name).map(|_| ())
     }
 
     async fn expand(

@@ -13,7 +13,6 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use anyhow::Context;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::FileMetadata;
@@ -42,6 +41,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::find::find;
 use buck2_directory::directory::find::DirectoryFindError;
 use buck2_directory::directory::immutable_directory::ImmutableDirectory;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -55,13 +55,13 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 
-fn load_nano_prelude() -> anyhow::Result<BundledCell> {
-    let path = env::var("NANO_PRELUDE").context(
+fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
+    let path = env::var("NANO_PRELUDE").buck_error_context(
         "NANO_PRELUDE env var must be set to the location of nano prelude\n\
         Consider `export NANO_PRELUDE=$HOME/fbsource/fbcode/buck2/tests/e2e_util/nano_prelude`",
     )?;
     if path.is_empty() {
-        return Err(anyhow::anyhow!("NANO_PRELUDE env var must not be empty"));
+        return Err(buck2_error!([], "NANO_PRELUDE env var must not be empty"));
     }
     let path = AbsPathBuf::new(Path::new(&path))
         .buck_error_context("NANO_PRELUDE env var must point to absolute path")?;
@@ -74,7 +74,10 @@ fn load_nano_prelude() -> anyhow::Result<BundledCell> {
             let entry = entry?;
             let entry_path = AbsPathBuf::new(entry.path())?;
             let entry_rel_path = rel_path.join(FileName::new(
-                entry.file_name().to_str().context("not UTF-8 string")?,
+                entry
+                    .file_name()
+                    .to_str()
+                    .buck_error_context("not UTF-8 string")?,
             )?);
             match FileType::from(entry.file_type()?) {
                 FileType::Directory => dir_stack.push((entry_path, entry_rel_path)),
@@ -100,12 +103,13 @@ fn load_nano_prelude() -> anyhow::Result<BundledCell> {
     })
 }
 
-fn nano_prelude() -> anyhow::Result<BundledCell> {
+fn nano_prelude() -> buck2_error::Result<BundledCell> {
     static NANO_PRELUDE: OnceLock<BundledCell> = OnceLock::new();
-    Ok(*NANO_PRELUDE.get_or_try_init(|| load_nano_prelude().context("loading nano_prelude"))?)
+    Ok(*NANO_PRELUDE
+        .get_or_try_init(|| load_nano_prelude().buck_error_context("loading nano_prelude"))?)
 }
 
-pub(crate) fn find_bundled_data(cell_name: CellName) -> anyhow::Result<BundledCell> {
+pub(crate) fn find_bundled_data(cell_name: CellName) -> buck2_error::Result<BundledCell> {
     #[derive(buck2_error::Error, Debug)]
     #[error("No bundled cell named `{0}`, options are `{}`", _1.join(", "))]
     struct CellNotBundled(String, Vec<&'static str>);
@@ -158,7 +162,7 @@ impl BundledFileOpsDelegate {
     fn get_entry_at_path_if_exists(
         &self,
         path: &CellRelativePath,
-    ) -> anyhow::Result<
+    ) -> buck2_error::Result<
         Option<
             DirectoryEntry<
                 impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
@@ -177,7 +181,7 @@ impl BundledFileOpsDelegate {
     fn get_entry_at_path(
         &self,
         path: &CellRelativePath,
-    ) -> anyhow::Result<
+    ) -> buck2_error::Result<
         DirectoryEntry<
             impl DirectoryRef<Leaf = ContentsAndMetadata, DirectoryDigest = NoDigest>,
             &ContentsAndMetadata,
@@ -252,12 +256,12 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
 fn get_file_ops_delegate_impl(
     data: BundledCell,
     digest_config: DigestConfig,
-) -> anyhow::Result<BundledFileOpsDelegate> {
+) -> buck2_error::Result<BundledFileOpsDelegate> {
     let mut builder: DirectoryBuilder<ContentsAndMetadata, NoDigest> = DirectoryBuilder::empty();
     let digest_config = digest_config.cas_digest_config().source_files_config();
     for file in data.files {
         let path = ForwardRelativePath::new(file.path)
-            .internal_error_anyhow("non-forward relative bundled path")?;
+            .internal_error("non-forward relative bundled path")?;
         let metadata = FileMetadata {
             digest: TrackedFileDigest::from_content(file.contents, digest_config),
             is_executable: file.is_executable,
@@ -271,7 +275,7 @@ fn get_file_ops_delegate_impl(
                     metadata,
                 }),
             )
-            .internal_error_anyhow("conflicting bundled source paths")?;
+            .internal_error("conflicting bundled source paths")?;
     }
     Ok(BundledFileOpsDelegate {
         dir: builder.fingerprint(&NoDigestDigester),
@@ -282,7 +286,7 @@ async fn declare_all_source_artifacts(
     ctx: &mut DiceComputations<'_>,
     cell_name: CellName,
     ops: &BundledFileOpsDelegate,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut requests = Vec::new();
     let artifact_fs = ctx.get_artifact_fs().await?;
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
@@ -300,16 +304,16 @@ async fn declare_all_source_artifacts(
     }
 
     let materializer = ctx.per_transaction_data().get_materializer();
-    Ok(materializer
+    materializer
         .declare_write(Box::new(move || Ok(requests)))
         .await
-        .map(|_| ())?)
+        .map(|_| ())
 }
 
 pub(crate) async fn get_file_ops_delegate(
     ctx: &mut DiceComputations<'_>,
     cell_name: CellName,
-) -> anyhow::Result<Arc<BundledFileOpsDelegate>> {
+) -> buck2_error::Result<Arc<BundledFileOpsDelegate>> {
     #[derive(
         dupe::Dupe,
         Clone,
@@ -344,13 +348,13 @@ pub(crate) async fn get_file_ops_delegate(
         }
     }
 
-    Ok(ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await??)
+    ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await?
 }
 
 pub(crate) async fn materialize_all(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
-) -> anyhow::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<ProjectRelativePathBuf> {
     let artifact_fs = ctx.get_artifact_fs().await?;
     let buck_out_resolver = artifact_fs.buck_out_path_resolver();
 

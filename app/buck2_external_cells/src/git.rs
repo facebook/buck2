@@ -16,7 +16,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
-use anyhow::Context;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
@@ -37,7 +36,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -83,7 +82,7 @@ impl IoRequest for GitFetchIoRequest {
         // FIXME(JakobDegen): Ideally we'd use libgit2 directly here instead of shelling out, but
         // unfortunately the third party situation for that library in fbsource isn't great, so
         // let's do this for now
-        fn run_git(cwd: &AbsNormPath, f: impl FnOnce(&mut Command)) -> anyhow::Result<()> {
+        fn run_git(cwd: &AbsNormPath, f: impl FnOnce(&mut Command)) -> buck2_error::Result<()> {
             let mut cmd = background_command("git");
             f(&mut cmd);
             let output = cmd
@@ -91,7 +90,7 @@ impl IoRequest for GitFetchIoRequest {
                 .stderr(Stdio::piped())
                 .stdout(Stdio::null())
                 .output()
-                .context("Could not run git to fetch external cell")?;
+                .buck_error_context("Could not run git to fetch external cell")?;
 
             if !output.status.success() {
                 return Err(GitError::Unsuccessful {
@@ -133,7 +132,7 @@ async fn download_impl(
     path: &ProjectRelativePath,
     materializer: &dyn Materializer,
     cancellations: &CancellationContext<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let io = ctx.get_blocking_executor();
     io.execute_io(
         Box::new(CleanOutputPaths {
@@ -193,7 +192,7 @@ async fn download_and_materialize(
     path: &ProjectRelativePath,
     setup: &GitCellSetup,
     cancellations: &CancellationContext<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let materializer = ctx.per_transaction_data().get_materializer();
 
     if materializer.has_artifact_at(path.to_owned()).await? {
@@ -324,7 +323,7 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         Ok(Some(metadata.try_map(
             |path| match path.strip_prefix_opt(&self.get_base_path()) {
                 Some(path) => Ok(Arc::new(CellPath::new(self.cell, path.to_owned().into()))),
-                None => Err(internal_error_anyhow!(
+                None => Err(internal_error!(
                     "Non-cell internal symlink at `{}` in cell `{}`",
                     path,
                     self.cell
@@ -342,7 +341,7 @@ pub(crate) async fn get_file_ops_delegate(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
     setup: GitCellSetup,
-) -> anyhow::Result<Arc<GitFileOpsDelegate>> {
+) -> buck2_error::Result<Arc<GitFileOpsDelegate>> {
     #[derive(
         dupe::Dupe,
         Clone,
@@ -384,14 +383,14 @@ pub(crate) async fn get_file_ops_delegate(
         }
     }
 
-    Ok(ctx.compute(&GitFileOpsDelegateKey(cell, setup)).await??)
+    ctx.compute(&GitFileOpsDelegateKey(cell, setup)).await?
 }
 
 pub(crate) async fn materialize_all(
     ctx: &mut DiceComputations<'_>,
     cell: CellName,
     setup: GitCellSetup,
-) -> anyhow::Result<ProjectRelativePathBuf> {
+) -> buck2_error::Result<ProjectRelativePathBuf> {
     // Get the `GitFileOpsDelegate` instance to make sure all the data is materialized.
     let ops = get_file_ops_delegate(ctx, cell, setup.dupe()).await?;
     Ok(ops.get_base_path())
