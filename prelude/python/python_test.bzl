@@ -53,16 +53,13 @@ def python_test_executable(ctx: AnalysisContext) -> PexProviders:
     # Add in default test runner.
     srcs["__test_main__.py"] = ctx.attrs._test_main
 
-    resources_map, standalone_resources_map = py_attr_resources(ctx)
-    standalone_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, standalone_resources_map)
-    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, resources_map)
+    resources = qualify_srcs(ctx.label, ctx.attrs.base_module, py_attr_resources(ctx))
 
     return python_executable(
         ctx,
         (EntryPointKind("module"), main_module),
         srcs,
         resources,
-        standalone_resources,
         compile = value_or(ctx.attrs.compile, False),
         allow_cache_upload = False,
     )
