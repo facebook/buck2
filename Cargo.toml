@@ -4,6 +4,7 @@ members = [
     "allocative/allocative_derive",
     # @oss-disable: "attic/uniplate",
     # @oss-disable: "attic/uniplate_derive",
+    "app/bazel_event_publisher_proto",
     "app/buck2",
     "app/buck2_action_impl",
     "app/buck2_action_impl_tests",
@@ -335,6 +336,8 @@ starlark_map = { version = "0.12.0", path = "starlark-rust/starlark_map" }
 starlark_syntax = { version = "0.12.0", path = "starlark-rust/starlark_syntax" }
 static_interner = { path = "shed/static_interner" }
 three_billion_instructions = { path = "shed/three_billion_instructions" }
+
+bazel_event_publisher_proto = { path = "app/bazel_event_publisher_proto" }
 
 buck2_action_impl = { path = "app/buck2_action_impl" }
 buck2_action_metadata_proto = { path = "app/buck2_action_metadata_proto" }
