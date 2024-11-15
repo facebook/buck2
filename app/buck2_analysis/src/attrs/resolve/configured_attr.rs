@@ -63,17 +63,21 @@ pub trait ConfiguredAttrExt {
         &self,
         pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
-    ) -> anyhow::Result<Vec<Value<'v>>>;
+    ) -> buck2_error::Result<Vec<Value<'v>>>;
 
     fn resolve_single<'v>(
         &self,
         pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> buck2_error::Result<Value<'v>>;
 
-    fn starlark_type(&self) -> anyhow::Result<&'static str>;
+    fn starlark_type(&self) -> buck2_error::Result<&'static str>;
 
-    fn to_value<'v>(&self, pkg: PackageLabelOption, heap: &'v Heap) -> anyhow::Result<Value<'v>>;
+    fn to_value<'v>(
+        &self,
+        pkg: PackageLabelOption,
+        heap: &'v Heap,
+    ) -> buck2_error::Result<Value<'v>>;
 }
 
 impl ConfiguredAttrExt for ConfiguredAttr {
@@ -87,7 +91,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
         &self,
         pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    ) -> buck2_error::Result<Vec<Value<'v>>> {
         match self {
             // SourceLabel is special since it is the only type that can be expand to many
             ConfiguredAttr::SourceLabel(src) => SourceAttrType::resolve_label(ctx, src),
@@ -103,7 +107,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
         &self,
         pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         match self {
             ConfiguredAttr::Bool(v) => Ok(Value::new_bool(v.0)),
             ConfiguredAttr::Int(v) => Ok(ctx.heap().alloc(*v)),
@@ -171,7 +175,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     }
 
     /// Returns the starlark type of this attr without resolving
-    fn starlark_type(&self) -> anyhow::Result<&'static str> {
+    fn starlark_type(&self) -> buck2_error::Result<&'static str> {
         match self {
             ConfiguredAttr::Bool(_) => Ok(starlark::values::bool::BOOL_TYPE),
             ConfiguredAttr::Int(_) => Ok(starlark::values::int::INT_TYPE),
@@ -213,7 +217,11 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     }
 
     /// Converts the configured attr to a starlark value without fully resolving
-    fn to_value<'v>(&self, pkg: PackageLabelOption, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn to_value<'v>(
+        &self,
+        pkg: PackageLabelOption,
+        heap: &'v Heap,
+    ) -> buck2_error::Result<Value<'v>> {
         configured_attr_to_value(self, pkg, heap)
     }
 }
@@ -222,7 +230,7 @@ fn configured_attr_to_value<'v>(
     this: &ConfiguredAttr,
     pkg: PackageLabelOption,
     heap: &'v Heap,
-) -> anyhow::Result<Value<'v>> {
+) -> buck2_error::Result<Value<'v>> {
     Ok(match this {
         ConfiguredAttr::Bool(v) => heap.alloc(v.0),
         ConfiguredAttr::Int(v) => heap.alloc(*v),

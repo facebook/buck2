@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
@@ -88,14 +87,14 @@ impl<'v> AttrResolutionContext<'v> for RuleAnalysisAttrResolutionContext<'v> {
     fn get_dep(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+    ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         get_dep(&self.dep_analysis_results, target, self.module)
     }
 
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
-    ) -> anyhow::Result<Option<FrozenCommandLineArg>> {
+    ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
         Ok(resolve_unkeyed_placeholder(
             &self.dep_analysis_results,
             name,
@@ -116,7 +115,7 @@ pub fn get_dep<'v>(
     dep_analysis_results: &HashMap<&'_ ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     target: &ConfiguredProvidersLabel,
     module: &'v Module,
-) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
     match dep_analysis_results.get(target.target()) {
         None => Err(AnalysisError::MissingDep(target.dupe()).into()),
         Some(x) => {
@@ -156,7 +155,7 @@ pub fn resolve_query<'v>(
     module: &'v Module,
 ) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
     match query_results.get(query) {
-        None => Err(anyhow::anyhow!(AnalysisError::MissingQuery(query.to_owned())).into()),
+        None => Err(AnalysisError::MissingQuery(query.to_owned()).into()),
         Some(x) => {
             for (_, y) in x.result.iter() {
                 // IMPORTANT: Anything given back to the user must be kept alive
@@ -172,12 +171,12 @@ pub trait RuleSpec: Sync {
         &self,
         eval: &mut Evaluator<'v, '_, '_>,
         ctx: ValueTyped<'v, AnalysisContext<'v>>,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> buck2_error::Result<Value<'v>>;
 
     fn promise_artifact_mappings<'v>(
         &self,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<SmallMap<String, Value<'v>>>;
+    ) -> buck2_error::Result<SmallMap<String, Value<'v>>>;
 }
 
 /// Container for the environment that analysis implementation functions should run in
@@ -198,7 +197,7 @@ pub(crate) async fn run_analysis<'a>(
     rule_spec: &'a dyn RuleSpec,
     node: ConfiguredTargetNodeRef<'a>,
     profile_mode: &'a StarlarkProfileMode,
-) -> anyhow::Result<AnalysisResult> {
+) -> buck2_error::Result<AnalysisResult> {
     let analysis_env = AnalysisEnv {
         rule_spec,
         deps: results,
@@ -211,11 +210,11 @@ pub(crate) async fn run_analysis<'a>(
 
 pub fn get_deps_from_analysis_results(
     results: Vec<(&ConfiguredTargetLabel, AnalysisResult)>,
-) -> anyhow::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
+) -> buck2_error::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
     results
         .into_iter()
         .map(|(label, result)| Ok((label, result.providers()?.to_owned())))
-        .collect::<anyhow::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
+        .collect::<buck2_error::Result<HashMap<&ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
 }
 
 // Used to express that the impl Future below captures multiple named lifetimes.
@@ -228,7 +227,7 @@ fn run_analysis_with_env<'a, 'd: 'a>(
     analysis_env: AnalysisEnv<'a>,
     node: ConfiguredTargetNodeRef<'a>,
     profile_mode: &'a StarlarkProfileMode,
-) -> impl Future<Output = anyhow::Result<AnalysisResult>> + 'a + Captures<'d> {
+) -> impl Future<Output = buck2_error::Result<AnalysisResult>> + 'a + Captures<'d> {
     let fut = async move {
         run_analysis_with_env_underlying(dice, analysis_env, node, profile_mode).await
     };
@@ -240,7 +239,7 @@ async fn run_analysis_with_env_underlying(
     analysis_env: AnalysisEnv<'_>,
     node: ConfiguredTargetNodeRef<'_>,
     profile_mode: &StarlarkProfileMode,
-) -> anyhow::Result<AnalysisResult> {
+) -> buck2_error::Result<AnalysisResult> {
     let env = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
@@ -311,7 +310,7 @@ async fn run_analysis_with_env_underlying(
             // TODO(cjhopman): This seems quite wrong. This should be happening after run_promises.
             provider
                 .evaluation_complete(&mut eval)
-                .context("Profiler finalization failed")?;
+                .buck_error_context("Profiler finalization failed")?;
             // TODO(cjhopman): This is gross, but we can't await on running the promises within
             // the with_starlark_eval_provider scoped thing (as we may be holding a debugger
             // permit, running the promises may require doing more starlark evaluation which in
@@ -338,7 +337,7 @@ async fn run_analysis_with_env_underlying(
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     {
         let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
-            .internal_error_anyhow("Just allocated provider collection")?;
+            .internal_error("Just allocated provider collection")?;
         analysis_registry
             .analysis_value_storage
             .set_result_value(provider_collection)?;
@@ -352,7 +351,7 @@ async fn run_analysis_with_env_underlying(
 
     profiler
         .visit_frozen_module(Some(&frozen_env))
-        .context("Profiler heap visitation failed")?;
+        .buck_error_context("Profiler heap visitation failed")?;
 
     let profile_data = profiler_opt.map(|p| p.finish()).transpose()?.map(Arc::new);
 
@@ -409,18 +408,18 @@ pub fn get_user_defined_rule_spec(
             &self,
             eval: &mut Evaluator<'v, '_, '_>,
             ctx: ValueTyped<'v, AnalysisContext<'v>>,
-        ) -> anyhow::Result<Value<'v>> {
+        ) -> buck2_error::Result<Value<'v>> {
             let rule_callable = self
                 .module
                 .get_any_visibility(&self.name)
-                .with_context(|| format!("Couldn't find rule `{}`", self.name))?
+                .with_buck_error_context(|| format!("Couldn't find rule `{}`", self.name))?
                 .0;
             let rule_impl = {
                 // Need to free up the starlark_ctx borrow before we return
                 let rule_callable = rule_callable.owned_value(eval.frozen_heap());
                 let rule_callable = rule_callable
                     .unpack_frozen()
-                    .internal_error_anyhow("Must be frozen")?;
+                    .internal_error("Must be frozen")?;
 
                 (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
             };
@@ -431,18 +430,18 @@ pub fn get_user_defined_rule_spec(
         fn promise_artifact_mappings<'v>(
             &self,
             eval: &mut Evaluator<'v, '_, '_>,
-        ) -> anyhow::Result<SmallMap<String, Value<'v>>> {
+        ) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
             let rule_callable = self
                 .module
                 .get_any_visibility(&self.name)
-                .with_context(|| format!("Couldn't find rule `{}`", self.name))?
+                .with_buck_error_context(|| format!("Couldn't find rule `{}`", self.name))?
                 .0;
             let frozen_promise_artifact_mappings = {
                 // Need to free up the starlark_ctx borrow before we return
                 let rule_callable = rule_callable.owned_value(eval.frozen_heap());
                 let rule_callable = rule_callable
                     .unpack_frozen()
-                    .internal_error_anyhow("Must be frozen")?;
+                    .internal_error("Must be frozen")?;
 
                 (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?
             };

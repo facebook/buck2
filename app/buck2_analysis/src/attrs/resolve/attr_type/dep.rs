@@ -34,7 +34,7 @@ pub trait DepAttrTypeExt {
         required_providers: &ProviderIdSet,
         providers: &FrozenProviderCollection,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 
     fn alloc_dependency<'v>(
         env: &'v Module,
@@ -48,12 +48,12 @@ pub trait DepAttrTypeExt {
         target: &ConfiguredProvidersLabel,
         required_providers: &ProviderIdSet,
         is_exec: bool,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> buck2_error::Result<Value<'v>>;
 
     fn resolve_single<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         dep_attr: &DepAttr<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> buck2_error::Result<Value<'v>>;
 }
 
 impl DepAttrTypeExt for DepAttrType {
@@ -61,7 +61,7 @@ impl DepAttrTypeExt for DepAttrType {
         required_providers: &ProviderIdSet,
         providers: &FrozenProviderCollection,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         for provider_id in required_providers {
             if !providers.contains_provider(provider_id) {
                 return Err(ResolutionError::MissingRequiredProvider(
@@ -94,7 +94,7 @@ impl DepAttrTypeExt for DepAttrType {
         target: &ConfiguredProvidersLabel,
         required_providers: &ProviderIdSet,
         is_exec_dep: bool,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         let provider_collection = ctx.get_dep(target)?;
         Self::check_providers(required_providers, provider_collection.as_ref(), target)?;
         let execution_platform_resolution = if is_exec_dep {
@@ -114,7 +114,7 @@ impl DepAttrTypeExt for DepAttrType {
     fn resolve_single<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         dep_attr: &DepAttr<ConfiguredProvidersLabel>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         let is_exec = dep_attr.attr_type.transition == DepAttrTransition::Exec;
         Self::resolve_single_impl(
             ctx,
@@ -129,7 +129,7 @@ pub(crate) trait ExplicitConfiguredDepAttrTypeExt {
     fn resolve_single<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         dep_attr: &ConfiguredExplicitConfiguredDep,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         DepAttrType::resolve_single_impl(
             ctx,
             &dep_attr.label,

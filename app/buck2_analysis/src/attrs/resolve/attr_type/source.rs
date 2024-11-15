@@ -32,7 +32,7 @@ pub(crate) trait SourceAttrTypeExt {
     fn resolve_label<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         label: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    ) -> buck2_error::Result<Vec<Value<'v>>> {
         let dep = ctx.get_dep(label)?;
         let default_outputs = dep.default_info()?.default_outputs_raw();
         let res = ListRef::from_frozen_value(default_outputs)
@@ -45,7 +45,7 @@ pub(crate) trait SourceAttrTypeExt {
     fn resolve_single_label<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         value: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         let mut resolved = Self::resolve_label(ctx, value)?;
         if resolved.len() == 1 {
             Ok(resolved.pop().unwrap())

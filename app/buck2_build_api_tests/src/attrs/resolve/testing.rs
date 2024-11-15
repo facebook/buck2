@@ -217,7 +217,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn get_dep(
             &self,
             target: &ConfiguredProvidersLabel,
-        ) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+        ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
             Ok(self
                 .deps
                 .get(target)
@@ -229,7 +229,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
         fn resolve_unkeyed_placeholder(
             &self,
             name: &str,
-        ) -> anyhow::Result<Option<FrozenCommandLineArg>> {
+        ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
             for providers in self.deps.values() {
                 if let Some(placeholders) = providers
                     .provider_collection()

@@ -625,8 +625,9 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(attrs.name.value())
     /// ```
     fn value<'v>(this: &StarlarkConfiguredAttr, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
-        this.0
-            .to_value(PackageLabelOption::PackageLabel(this.1.dupe()), heap)
+        Ok(this
+            .0
+            .to_value(PackageLabelOption::PackageLabel(this.1.dupe()), heap)?)
     }
 }
 

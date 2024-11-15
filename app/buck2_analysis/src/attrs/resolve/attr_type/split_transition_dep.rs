@@ -22,14 +22,14 @@ pub(crate) trait SplitTransitionDepAttrTypeExt {
     fn resolve_single<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         deps: &ConfiguredSplitTransitionDep,
-    ) -> anyhow::Result<Value<'v>>;
+    ) -> buck2_error::Result<Value<'v>>;
 }
 
 impl SplitTransitionDepAttrTypeExt for SplitTransitionDepAttrType {
     fn resolve_single<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         deps: &ConfiguredSplitTransitionDep,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         let mut res = SmallMap::with_capacity(deps.deps.len());
         for (label, target) in &deps.deps {
             let label_hashed = ctx.heap().alloc_str(label).get_hashed();

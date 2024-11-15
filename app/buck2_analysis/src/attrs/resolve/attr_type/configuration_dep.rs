@@ -17,7 +17,7 @@ pub(crate) trait ConfigurationDepAttrTypeExt {
     fn resolve_single<'v>(
         ctx: &dyn AttrResolutionContext<'v>,
         label: &ConfigurationSettingKey,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         Ok(ctx.heap().alloc(label.to_string()))
     }
 }

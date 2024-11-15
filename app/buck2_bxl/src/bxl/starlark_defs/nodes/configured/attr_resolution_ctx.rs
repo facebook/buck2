@@ -51,11 +51,9 @@ impl<'v> LazyAttrResolutionContext<'v> {
     ) -> &buck2_error::Result<HashMap<&'v ConfiguredTargetLabel, FrozenProviderCollectionValue>>
     {
         self.dep_analysis_results.get_or_init(|| {
-            Ok(get_deps_from_analysis_results(
-                self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
-                    get_dep_analysis(self.configured_node.as_ref(), dice_ctx).boxed_local()
-                })?,
-            )?)
+            get_deps_from_analysis_results(self.ctx.async_ctx.borrow_mut().via(|dice_ctx| {
+                get_dep_analysis(self.configured_node.as_ref(), dice_ctx).boxed_local()
+            })?)
         })
     }
 
@@ -78,20 +76,25 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
     fn get_dep(
         &self,
         target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
+    ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
         match self.dep_analysis_results() {
-            Ok(deps) => get_dep(deps, target, self.module),
-            Err(e) => Err(anyhow::anyhow!("Error getting deps from analysis: `{}`", e)),
+            Ok(deps) => Ok(get_dep(deps, target, self.module)?),
+            Err(e) => Err(buck2_error::buck2_error!(
+                [],
+                "Error getting deps from analysis: `{}`",
+                e
+            )),
         }
     }
 
     fn resolve_unkeyed_placeholder(
         &self,
         name: &str,
-    ) -> anyhow::Result<Option<FrozenCommandLineArg>> {
+    ) -> buck2_error::Result<Option<FrozenCommandLineArg>> {
         match self.dep_analysis_results() {
             Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, self.module)),
-            Err(e) => Err(anyhow::anyhow!(
+            Err(e) => Err(buck2_error::buck2_error!(
+                [],
                 "Error resolving unkeyed placeholder: `{}`",
                 e
             )),
