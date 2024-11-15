@@ -334,8 +334,7 @@ impl CellResolver {
         path: &AbsPath,
         fs: &ProjectRoot,
     ) -> buck2_error::Result<CellPath> {
-        let abs_path = AbsPath::new(path)?;
-        self.get_cell_path(&fs.relativize_any(abs_path)?)
+        self.get_cell_path(&fs.relativize_any(path)?)
     }
 
     pub fn cells(&self) -> impl Iterator<Item = (CellName, &CellInstance)> {
