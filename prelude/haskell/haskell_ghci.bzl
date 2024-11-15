@@ -190,7 +190,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
     # Need to exclude all transitive deps of excluded deps
     all_nodes_to_exclude = depth_first_traversal(
         dep_graph,
-        [dep.label for dep in preload_deps],
+        [dep[LinkableGraph].label for dep in preload_deps if LinkableGraph in dep],
     )
 
     # Body nodes should support haskell omnibus (e.g. cxx_library)
