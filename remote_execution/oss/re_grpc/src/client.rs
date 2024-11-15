@@ -667,6 +667,7 @@ impl REClient {
                             },
                             cached_result: execute_response_grpc.cached_result,
                             action_digest: Default::default(), // Filled in below.
+                            executed_action_details: Default::default(),
                         };
 
                         ExecuteWithProgressResponse {
@@ -1181,6 +1182,7 @@ where
     Ok(DownloadResponse {
         inlined_blobs: Some(inlined_blobs),
         directories: None,
+        local_cache_stats: Default::default(),
     })
 }
 

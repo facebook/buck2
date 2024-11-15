@@ -127,6 +127,7 @@ pub struct WriteActionResultResponse {
 pub struct DownloadResponse {
     pub inlined_blobs: Option<Vec<InlinedDigestWithStatus>>,
     pub directories: Option<Vec<DigestWithStatus>>,
+    pub local_cache_stats: TLocalCacheStats,
 }
 
 #[derive(Clone, Default)]
@@ -142,6 +143,14 @@ pub struct DigestWithStatus {
     pub status: TStatus,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct TLocalCacheStats {
+    pub hits_files: i64,
+    pub hits_bytes: i64,
+    pub misses_files: i64,
+    pub misses_bytes: i64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -176,6 +185,42 @@ pub struct ExecuteResponse {
     pub action_digest: TDigest,
     pub action_result_digest: TDigest,
     pub action_result_ttl: i64,
+    pub executed_action_details: ExecutedActionDetails,
+}
+
+#[derive(Clone, Default)]
+pub struct ExecutedActionDetails {
+    pub was_served_from_cache: bool,
+    pub was_deduplicated: bool,
+    pub elastic_capacity: bool,
+    pub memory_stats: ExecutedActionMemoryStats,
+    pub cpu_stats: ExecutedActionCpuStats,
+    pub storage_stats: ExecutedActionStorageStats,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct ExecutedActionStorageStats {
+    pub downloads: TStorageStats,
+    pub uploads: TStorageStats,
+    pub inputs_downloads: TStorageStats,
+    pub inputs_uploads: TStorageStats,
+    pub outputs_downloads: TStorageStats,
+    pub outputs_uploads: TStorageStats,
+    pub local_cache_stats: TLocalCacheStats,
+}
+
+#[derive(Clone, Default)]
+pub struct ExecutedActionMemoryStats {
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
+}
+
+#[derive(Clone, Default)]
+pub struct ExecutedActionCpuStats {
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
