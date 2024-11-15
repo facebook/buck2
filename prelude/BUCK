@@ -1,3 +1,4 @@
+load("@prelude//:none.bzl", "none_rule")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 load(":native.bzl", prelude = "native")
 
@@ -46,5 +47,10 @@ prelude.filegroup(
         "": ":files",
         "android/constraints/BUCK.v2": ":copy_android_constraint",
     },
+    visibility = ["PUBLIC"],
+)
+
+none_rule(
+    name = "none",
     visibility = ["PUBLIC"],
 )
