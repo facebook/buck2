@@ -13,7 +13,7 @@ use std::mem;
 use std::ptr;
 use std::sync::Arc;
 
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::win::winapi_handle::WinapiHandle;
 use dupe::Dupe;
 use winapi::shared::basetsd::ULONG_PTR;
@@ -41,13 +41,13 @@ pub(crate) struct JobObject {
 }
 
 impl JobObject {
-    pub(crate) fn new() -> anyhow::Result<Self> {
+    pub(crate) fn new() -> buck2_error::Result<Self> {
         let job_handle = unsafe {
             WinapiHandle::new_check_last_os_error(jobapi2::CreateJobObjectW(
                 ptr::null_mut(),
                 ptr::null_mut(),
             ))
-            .context("CreateJobObject")?
+            .buck_error_context("CreateJobObject")?
         };
 
         let completion_handle = unsafe {
@@ -57,7 +57,7 @@ impl JobObject {
                 0,                               // CompletionKey
                 1,                               // NumberOfConcurrentThreads
             ))
-            .context("CreateIoCompletionPort")?
+            .buck_error_context("CreateIoCompletionPort")?
         };
 
         associate_job_with_completion_port(&job_handle, &completion_handle)?;
@@ -69,18 +69,18 @@ impl JobObject {
         })
     }
 
-    pub(crate) fn assign_process(&self, process: HANDLE) -> anyhow::Result<()> {
+    pub(crate) fn assign_process(&self, process: HANDLE) -> buck2_error::Result<()> {
         result_bool(unsafe { jobapi2::AssignProcessToJobObject(self.job_handle.handle(), process) })
     }
 
-    pub(crate) async fn terminate(&self, exit_code: u32) -> anyhow::Result<()> {
+    pub(crate) async fn terminate(&self, exit_code: u32) -> buck2_error::Result<()> {
         result_bool(unsafe { jobapi2::TerminateJobObject(self.job_handle.handle(), exit_code) })?;
         self.wait().await
     }
 
     // waits until all processes in a job have exited
     // https://devblogs.microsoft.com/oldnewthing/20130405-00/?p=4743
-    async fn wait(&self) -> anyhow::Result<()> {
+    async fn wait(&self) -> buck2_error::Result<()> {
         const MAX_RETRY_ATTEMPT: usize = 10;
         let job = self.job_handle.dupe();
         let completion_port = self.completion_handle.dupe();
@@ -105,7 +105,7 @@ fn has_active_processes(
     job: &WinapiHandle,
     completion_port: &WinapiHandle,
     timeout: DWORD,
-) -> anyhow::Result<bool> {
+) -> buck2_error::Result<bool> {
     let mut completion_code: DWORD = 0;
     let mut completion_key: ULONG_PTR = 0;
     let mut overlapped = mem::MaybeUninit::<OVERLAPPED>::uninit();
@@ -143,7 +143,7 @@ fn has_active_processes(
 fn associate_job_with_completion_port(
     job: &WinapiHandle,
     completion_port: &WinapiHandle,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut associate_completion = JOBOBJECT_ASSOCIATE_COMPLETION_PORT {
         CompletionKey: job.handle(),
         CompletionPort: completion_port.handle(),
@@ -161,7 +161,7 @@ fn associate_job_with_completion_port(
     })
 }
 
-fn set_job_limits(job: &WinapiHandle) -> anyhow::Result<()> {
+fn set_job_limits(job: &WinapiHandle) -> buck2_error::Result<()> {
     let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
     info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 

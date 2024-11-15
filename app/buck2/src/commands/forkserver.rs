@@ -53,12 +53,12 @@ impl ForkserverCommand {
                 .enable_all()
                 .build()?;
 
-            rt.block_on(buck2_forkserver::unix::run_forkserver(
+            Ok(rt.block_on(buck2_forkserver::unix::run_forkserver(
                 self.fd,
                 log_reload_handle,
                 self.state_dir,
                 self.resource_control,
-            ))
+            ))?)
         }
 
         #[cfg(not(unix))]

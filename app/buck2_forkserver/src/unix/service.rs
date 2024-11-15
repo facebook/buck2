@@ -16,7 +16,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::systemd::SystemdRunner;
@@ -74,7 +73,7 @@ impl UnixForkserverService {
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
         resource_control: ResourceControlConfig,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
         let systemd_runner = SystemdRunner::create_if_enabled(
             &resource_control,
@@ -107,7 +106,7 @@ impl Forkserver for UnixForkserverService {
                 .await?
                 .and_then(|m| m.data)
                 .and_then(|m| m.into_command_request())
-                .context("RequestEvent was not a CommandRequest!")?;
+                .buck_error_context("RequestEvent was not a CommandRequest!")?;
 
             let cancel = async move {
                 stream
@@ -115,9 +114,9 @@ impl Forkserver for UnixForkserverService {
                     .await?
                     .and_then(|m| m.data)
                     .and_then(|m| m.into_cancel_request())
-                    .context("RequestEvent was not a CancelRequest!")?;
+                    .buck_error_context("RequestEvent was not a CancelRequest!")?;
 
-                anyhow::Ok(GatherOutputStatus::Cancelled)
+                Ok(GatherOutputStatus::Cancelled)
             };
 
             let CommandRequest {
@@ -133,14 +132,14 @@ impl Forkserver for UnixForkserverService {
             } = msg;
 
             let exe = OsStr::from_bytes(&exe);
-            let cwd = OsStr::from_bytes(&cwd.as_ref().context("Missing cwd")?.path);
-            let cwd = AbsPath::new(Path::new(cwd)).buck_error_context_anyhow("Inalid cwd")?;
+            let cwd = OsStr::from_bytes(&cwd.as_ref().buck_error_context("Missing cwd")?.path);
+            let cwd = AbsPath::new(Path::new(cwd)).buck_error_context("Inalid cwd")?;
 
             let argv = argv.iter().map(|a| OsStr::from_bytes(a));
             let timeout = timeout
                 .map(|t| t.try_into_duration())
                 .transpose()
-                .buck_error_context_anyhow("Invalid timeout")?;
+                .buck_error_context("Invalid timeout")?;
 
             let exe = maybe_absolutize_exe(exe, cwd)?;
             let systemd_context = self.systemd_runner.as_ref().zip(action_digest);
@@ -175,7 +174,10 @@ impl Forkserver for UnixForkserverService {
                 use buck2_forkserver_proto::env_directive::Data;
 
                 for directive in env {
-                    match directive.data.context("EnvDirective is missing data")? {
+                    match directive
+                        .data
+                        .buck_error_context("EnvDirective is missing data")?
+                    {
                         Data::Clear(..) => {
                             cmd.env_clear();
                         }
@@ -201,7 +203,7 @@ impl Forkserver for UnixForkserverService {
                 cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
             }
 
-            let process_group = cmd.spawn().map_err(anyhow::Error::from);
+            let process_group = cmd.spawn().map_err(buck2_error::Error::from);
 
             let timeout = timeout_into_cancellation(timeout);
 
@@ -241,7 +243,7 @@ impl Forkserver for UnixForkserverService {
     ) -> Result<Response<SetLogFilterResponse>, Status> {
         self.log_reload_handle
             .update_log_filter(&req.get_ref().log_filter)
-            .buck_error_context_anyhow("Error updating forkserver filter")
+            .buck_error_context("Error updating forkserver filter")
             .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
 
         Ok(Response::new(SetLogFilterResponse {}))
@@ -257,7 +259,7 @@ struct MiniperfContainer {
 }
 
 impl MiniperfContainer {
-    fn new(forkserver_state_dir: &AbsNormPath) -> anyhow::Result<Option<Self>> {
+    fn new(forkserver_state_dir: &AbsNormPath) -> buck2_error::Result<Option<Self>> {
         let miniperf_bin: Option<&'static [u8]>;
 
         #[cfg(all(fbcode_build, target_os = "linux"))]
@@ -294,12 +296,14 @@ impl MiniperfContainer {
 
         let mut miniperf_writer = opts
             .open(miniperf.as_path())
-            .with_context(|| format!("Error opening: `{}`", miniperf.display()))?;
+            .with_buck_error_context(|| format!("Error opening: `{}`", miniperf.display()))?;
 
         miniperf_writer
             .write_all(miniperf_bin)
             .and_then(|()| miniperf_writer.flush())
-            .with_context(|| format!("Error writing miniperf to `{}`", miniperf.display()))?;
+            .with_buck_error_context(|| {
+                format!("Error writing miniperf to `{}`", miniperf.display())
+            })?;
 
         Ok(Some(Self {
             miniperf,

@@ -7,9 +7,8 @@
  * of this source tree.
  */
 
-use anyhow::Context as _;
 use buck2_common::convert::ProstDurationExt;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 
@@ -21,7 +20,7 @@ pub(crate) fn encode_event_stream<S>(
     s: S,
 ) -> impl Stream<Item = Result<buck2_forkserver_proto::CommandEvent, tonic::Status>>
 where
-    S: Stream<Item = anyhow::Result<CommandEvent>>,
+    S: Stream<Item = buck2_error::Result<CommandEvent>>,
 {
     fn convert_event(e: CommandEvent) -> buck2_forkserver_proto::CommandEvent {
         use buck2_forkserver_proto::command_event::Data;
@@ -56,21 +55,21 @@ where
         buck2_forkserver_proto::CommandEvent { data: Some(data) }
     }
 
-    fn convert_err(e: anyhow::Error) -> tonic::Status {
+    fn convert_err(e: buck2_error::Error) -> tonic::Status {
         tonic::Status::unknown(format!("{:#}", e))
     }
 
     s.map(|r| r.map(convert_event).map_err(convert_err))
 }
 
-pub(crate) fn decode_event_stream<S>(s: S) -> impl Stream<Item = anyhow::Result<CommandEvent>>
+pub(crate) fn decode_event_stream<S>(s: S) -> impl Stream<Item = buck2_error::Result<CommandEvent>>
 where
     S: Stream<Item = Result<buck2_forkserver_proto::CommandEvent, tonic::Status>>,
 {
-    fn convert_event(e: buck2_forkserver_proto::CommandEvent) -> anyhow::Result<CommandEvent> {
+    fn convert_event(e: buck2_forkserver_proto::CommandEvent) -> buck2_error::Result<CommandEvent> {
         use buck2_forkserver_proto::command_event::Data;
 
-        let event = match e.data.context("Missing `data`")? {
+        let event = match e.data.buck_error_context("Missing `data`")? {
             Data::Stdout(buck2_forkserver_proto::StreamEvent { data }) => {
                 CommandEvent::Stdout(data.into())
             }
@@ -87,9 +86,9 @@ where
             Data::Timeout(buck2_forkserver_proto::TimeoutEvent { duration }) => {
                 CommandEvent::Exit(GatherOutputStatus::TimedOut(
                     duration
-                        .context("Missing `duration`")?
+                        .buck_error_context("Missing `duration`")?
                         .try_into_duration()
-                        .context("Invalid `duration`")?,
+                        .buck_error_context("Invalid `duration`")?,
                 ))
             }
             Data::Cancel(buck2_forkserver_proto::CancelEvent {}) => {
@@ -103,8 +102,8 @@ where
         Ok(event)
     }
 
-    fn convert_err(e: tonic::Status) -> anyhow::Error {
-        anyhow::anyhow!("forkserver error: {}", e.message())
+    fn convert_err(e: tonic::Status) -> buck2_error::Error {
+        buck2_error::buck2_error!([], "forkserver error: {}", e.message())
     }
 
     s.map(|r| r.map_err(convert_err).and_then(convert_event))

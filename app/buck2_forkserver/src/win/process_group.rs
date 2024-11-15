@@ -16,7 +16,8 @@ use std::process::ExitStatus;
 use std::process::Stdio;
 use std::time::Duration;
 
-use anyhow::Context;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
@@ -84,7 +85,7 @@ pub(crate) struct ProcessGroupImpl {
 }
 
 impl ProcessGroupImpl {
-    pub(crate) fn new(child: Child) -> anyhow::Result<ProcessGroupImpl> {
+    pub(crate) fn new(child: Child) -> buck2_error::Result<ProcessGroupImpl> {
         let job = JobObject::new()?;
         job.assign_process(child.as_raw_handle())?;
         let process = ProcessGroupImpl {
@@ -141,17 +142,17 @@ impl ProcessGroupImpl {
     pub(crate) async fn kill(
         &self,
         _graceful_shutdown_timeout_s: Option<u32>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         tokio::time::timeout(Duration::from_secs(10), self.job.terminate(0))
             .await
-            .map_err(|_| anyhow::anyhow!("Timed out on job object termination"))?
+            .map_err(|_| buck2_error::buck2_error!([], "Timed out on job object termination"))?
     }
 
-    fn resume(&self) -> anyhow::Result<()> {
+    fn resume(&self) -> buck2_error::Result<()> {
         let handle = self
             .child
             .as_option()
-            .context("can't resume an exited process")?
+            .buck_error_context("can't resume an exited process")?
             .as_std()
             .main_thread_handle()
             .as_raw_handle();

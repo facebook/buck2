@@ -9,21 +9,30 @@
 
 use std::io::Error;
 
+use buck2_error::buck2_error;
 use winapi::shared::minwindef::BOOL;
 use winapi::shared::minwindef::DWORD;
 use winapi::shared::minwindef::FALSE;
 
-pub(crate) fn result_bool(ret: BOOL) -> anyhow::Result<()> {
+pub(crate) fn result_bool(ret: BOOL) -> buck2_error::Result<()> {
     if ret == FALSE {
-        Err(anyhow::anyhow!(Error::last_os_error()))
+        Err(buck2_error!(
+            [],
+            "{}",
+            format!("{}", Error::last_os_error())
+        ))
     } else {
         Ok(())
     }
 }
 
-pub(crate) fn result_dword(ret: DWORD) -> anyhow::Result<()> {
+pub(crate) fn result_dword(ret: DWORD) -> buck2_error::Result<()> {
     if ret == DWORD::MAX {
-        Err(anyhow::anyhow!(Error::last_os_error()))
+        Err(buck2_error!(
+            [],
+            "{}",
+            format!("{}", Error::last_os_error())
+        ))
     } else {
         Ok(())
     }

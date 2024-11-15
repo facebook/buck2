@@ -12,9 +12,9 @@ use std::process::ExitStatus;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use buck2_core::tag_error;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -73,7 +73,6 @@ impl ForkserverClient {
                 };
 
                 let err = buck2_error::Error::new(err).context("Forkserver is unavailable");
-
                 error.swap(Some(Arc::new(err)));
             }
         });
@@ -91,7 +90,7 @@ impl ForkserverClient {
         &self,
         req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
-    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+    ) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
     where
         C: Future<Output = ()> + Send + 'static,
     {
@@ -121,13 +120,13 @@ impl ForkserverClient {
             .clone()
             .run(stream)
             .await
-            .context("Error dispatching command to Forkserver")?
+            .buck_error_context("Error dispatching command to Forkserver")?
             .into_inner();
         let stream = decode_event_stream(stream);
         decode_command_event_stream(stream).await
     }
 
-    pub async fn set_log_filter(&self, log_filter: String) -> anyhow::Result<()> {
+    pub async fn set_log_filter(&self, log_filter: String) -> buck2_error::Result<()> {
         self.inner
             .rpc
             .clone()

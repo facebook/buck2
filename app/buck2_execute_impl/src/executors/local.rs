@@ -1116,9 +1116,9 @@ mod unix {
             action_digest: Some(action_digest.to_owned()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
-        Ok(forkserver
+        forkserver
             .execute(req, async move { liveliness_observer.while_alive().await })
-            .await?)
+            .await
     }
 
     trait CommandRequestExt {

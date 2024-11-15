@@ -34,7 +34,7 @@ pub async fn maybe_launch_forkserver(
     }
 
     let exe = std::env::current_exe().context("Cannot access current_exe")?;
-    Some(
+    Ok(Some(
         buck2_forkserver::unix::launch_forkserver(
             exe,
             &["forkserver"],
@@ -43,7 +43,7 @@ pub async fn maybe_launch_forkserver(
         )
         .await,
     )
-    .transpose()
+    .transpose()?)
 }
 
 #[cfg(not(unix))]

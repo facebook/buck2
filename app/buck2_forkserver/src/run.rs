@@ -20,10 +20,10 @@ use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_error::BuckErrorContext;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -96,7 +96,7 @@ impl From<StdioEvent> for CommandEvent {
 /// a select, but with the exit guaranteed to come last.
 #[pin_project]
 struct CommandEventStream<Status, Stdio> {
-    exit: Option<anyhow::Result<GatherOutputStatus>>,
+    exit: Option<buck2_error::Result<GatherOutputStatus>>,
 
     done: bool,
 
@@ -124,10 +124,10 @@ where
 
 impl<Status, Stdio> Stream for CommandEventStream<Status, Stdio>
 where
-    Status: Future<Output = anyhow::Result<GatherOutputStatus>>,
-    Stdio: Stream<Item = anyhow::Result<StdioEvent>> + InterruptNotifiable,
+    Status: Future<Output = buck2_error::Result<GatherOutputStatus>>,
+    Stdio: Stream<Item = buck2_error::Result<StdioEvent>> + InterruptNotifiable,
 {
-    type Item = anyhow::Result<CommandEvent>;
+    type Item = buck2_error::Result<CommandEvent>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -162,7 +162,7 @@ where
 
 pub async fn timeout_into_cancellation(
     timeout: Option<Duration>,
-) -> anyhow::Result<GatherOutputStatus> {
+) -> buck2_error::Result<GatherOutputStatus> {
     match timeout {
         Some(t) => {
             tokio::time::sleep(t).await;
@@ -173,14 +173,14 @@ pub async fn timeout_into_cancellation(
 }
 
 pub(crate) fn stream_command_events<T>(
-    process_group: anyhow::Result<ProcessGroup>,
+    process_group: buck2_error::Result<ProcessGroup>,
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
     stream_stdio: bool,
-) -> anyhow::Result<impl Stream<Item = anyhow::Result<CommandEvent>>>
+) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
 where
-    T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
+    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
 {
     let mut process_group = match process_group {
         Ok(process_group) => process_group,
@@ -195,10 +195,10 @@ where
     let stdio = if stream_stdio {
         let stdout = process_group
             .take_stdout()
-            .context("Child stdout is not piped")?;
+            .buck_error_context("Child stdout is not piped")?;
         let stderr = process_group
             .take_stderr()
-            .context("Child stderr is not piped")?;
+            .buck_error_context("Child stderr is not piped")?;
 
         #[cfg(unix)]
         type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
@@ -211,9 +211,9 @@ where
         let stdout = InterruptibleAsyncRead::<_, Drainer<_>>::new(stdout);
         let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
         let stdout = FramedRead::new(stdout, BytesCodec::new())
-            .map(|data| anyhow::Ok(StdioEvent::Stdout(data?.freeze())));
+            .map(|data| Ok(StdioEvent::Stdout(data?.freeze())));
         let stderr = FramedRead::new(stderr, BytesCodec::new())
-            .map(|data| anyhow::Ok(StdioEvent::Stderr(data?.freeze())));
+            .map(|data| Ok(StdioEvent::Stderr(data?.freeze())));
 
         futures::stream::select(stdout, stderr).left_stream()
     } else {
@@ -233,31 +233,31 @@ where
             futures::pin_mut!(status);
             futures::pin_mut!(cancellation);
 
-            anyhow::Ok(match futures::future::select(status, cancellation).await {
+            buck2_error::Ok(match futures::future::select(status, cancellation).await {
                 futures::future::Either::Left((status, _)) => Outcome::Finished(status?),
                 futures::future::Either::Right((res, _)) => Outcome::Cancelled(res?),
             })
         };
 
-        anyhow::Ok(match execute.await? {
+        Ok(match execute.await? {
             Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
             Outcome::Cancelled(res) => {
                 kill_process
                     .kill(&mut process_group)
                     .await
-                    .context("Failed to terminate child after timeout")?;
+                    .buck_error_context("Failed to terminate child after timeout")?;
 
                 decoder
                     .cancel()
                     .await
-                    .context("Failed to cancel status decoder after timeout")?;
+                    .buck_error_context("Failed to cancel status decoder after timeout")?;
 
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
                 process_group
                     .wait()
                     .await
-                    .context("Failed to await child after kill")?;
+                    .buck_error_context("Failed to await child after kill")?;
 
                 res
             }
@@ -269,9 +269,9 @@ where
 
 pub(crate) async fn decode_command_event_stream<S>(
     stream: S,
-) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
 where
-    S: Stream<Item = anyhow::Result<CommandEvent>>,
+    S: Stream<Item = buck2_error::Result<CommandEvent>>,
 {
     futures::pin_mut!(stream);
 
@@ -286,7 +286,8 @@ where
         }
     }
 
-    Err(anyhow::Error::msg(
+    Err(buck2_error::buck2_error!(
+        [],
         "Stream did not yield CommandEvent::Exit",
     ))
 }
@@ -294,9 +295,9 @@ where
 pub async fn gather_output<T>(
     cmd: Command,
     cancellation: T,
-) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
+) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>
 where
-    T: Future<Output = anyhow::Result<GatherOutputStatus>> + Send,
+    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
 {
     let cmd = ProcessCommand::new(cmd);
 
@@ -316,7 +317,7 @@ where
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
 pub(crate) trait KillProcess {
-    async fn kill(self, process: &mut ProcessGroup) -> anyhow::Result<()>;
+    async fn kill(self, process: &mut ProcessGroup) -> buck2_error::Result<()>;
 }
 
 #[derive(Default)]
@@ -326,7 +327,7 @@ pub(crate) struct DefaultKillProcess {
 
 #[async_trait]
 impl KillProcess for DefaultKillProcess {
-    async fn kill(self, process_group: &mut ProcessGroup) -> anyhow::Result<()> {
+    async fn kill(self, process_group: &mut ProcessGroup) -> buck2_error::Result<()> {
         let pid = match process_group.id() {
             Some(pid) => pid,
             None => {
@@ -348,11 +349,11 @@ impl KillProcess for DefaultKillProcess {
 pub fn maybe_absolutize_exe<'a>(
     exe: &'a (impl AsRef<Path> + ?Sized),
     spawned_process_cwd: &'_ AbsPath,
-) -> anyhow::Result<Cow<'a, Path>> {
+) -> buck2_error::Result<Cow<'a, Path>> {
     let exe = exe.as_ref();
 
     let abs = spawned_process_cwd.join(exe);
-    if fs_util::try_exists(&abs).context("Error absolute-izing executable")? {
+    if fs_util::try_exists(&abs).buck_error_context("Error absolute-izing executable")? {
         return Ok(abs.into_path_buf().into());
     }
 
@@ -380,7 +381,7 @@ pub fn maybe_absolutize_exe<'a>(
 async fn spawn_retry_txt_busy<F, D>(
     mut cmd: ProcessCommand,
     mut delay: F,
-) -> anyhow::Result<ProcessGroup>
+) -> buck2_error::Result<ProcessGroup>
 where
     F: FnMut() -> D,
     D: Future<Output = ()>,
@@ -397,7 +398,7 @@ where
         let is_txt_busy = matches!(res_errno, Err(Some(libc::ETXTBSY)));
 
         if attempts == 0 || !is_txt_busy {
-            return res.map_err(anyhow::Error::from);
+            return res.map_err(buck2_error::Error::from);
         }
 
         delay().await;
@@ -415,13 +416,14 @@ mod tests {
     use std::time::Instant;
 
     use assert_matches::assert_matches;
+    use buck2_error::buck2_error;
     use buck2_util::process::background_command;
     use dupe::Dupe;
 
     use super::*;
 
     #[tokio::test]
-    async fn test_gather_output() -> anyhow::Result<()> {
+    async fn test_gather_output() -> buck2_error::Result<()> {
         let mut cmd = if cfg!(windows) {
             background_command("powershell")
         } else {
@@ -438,7 +440,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_gather_does_not_wait_for_children() -> anyhow::Result<()> {
+    async fn test_gather_does_not_wait_for_children() -> buck2_error::Result<()> {
         // If we wait for sleep, this will time out.
         let mut cmd = if cfg!(windows) {
             background_command("powershell")
@@ -472,7 +474,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_gather_output_timeout() -> anyhow::Result<()> {
+    async fn test_gather_output_timeout() -> buck2_error::Result<()> {
         let now = Instant::now();
 
         let cmd = if cfg!(windows) {
@@ -510,7 +512,7 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_spawn_retry_txt_busy() -> anyhow::Result<()> {
+    async fn test_spawn_retry_txt_busy() -> buck2_error::Result<()> {
         use futures::future;
         use tokio::fs::OpenOptions;
         use tokio::io::AsyncWriteExt;
@@ -546,7 +548,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_spawn_retry_other_error() -> anyhow::Result<()> {
+    async fn test_spawn_retry_other_error() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;
         let bin = tempdir.path().join("bin"); // Does not actually exist
 
@@ -559,7 +561,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_kill_terminates_process_group() -> anyhow::Result<()> {
+    async fn test_kill_terminates_process_group() -> buck2_error::Result<()> {
         use sysinfo::Pid;
         use sysinfo::System;
 
@@ -587,8 +589,8 @@ mod tests {
         .await?;
         let out = str::from_utf8(&stdout)?;
         let pids: Vec<&str> = out.split('\n').collect();
-        let ppid = Pid::from_str(pids.first().context("no ppid")?.trim())?;
-        let pid = Pid::from_str(pids.get(1).context("no pid")?.trim())?;
+        let ppid = Pid::from_str(pids.first().buck_error_context("no ppid")?.trim())?;
+        let pid = Pid::from_str(pids.get(1).buck_error_context("no pid")?.trim())?;
         let sys = System::new_all();
 
         // we want to check if existed process doesn't have the same parent because of pid reuse
@@ -598,13 +600,13 @@ mod tests {
                     return Ok(());
                 }
             }
-            return Err(anyhow::anyhow!("PID still exits: {}", pid));
+            return Err(buck2_error!([], "PID still exits: {}", pid));
         }
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_stream_command_events_ends() -> anyhow::Result<()> {
+    async fn test_stream_command_events_ends() -> buck2_error::Result<()> {
         let mut cmd = if cfg!(windows) {
             background_command("powershell")
         } else {
@@ -613,7 +615,7 @@ mod tests {
         cmd.args(["-c", "exit 0"]);
 
         let mut cmd = ProcessCommand::new(cmd);
-        let process = cmd.spawn().map_err(anyhow::Error::from);
+        let process = cmd.spawn().map_err(buck2_error::Error::from);
         let mut events = stream_command_events(
             process,
             futures::future::pending(),
@@ -629,7 +631,7 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_signal_exit_code() -> anyhow::Result<()> {
+    async fn test_signal_exit_code() -> buck2_error::Result<()> {
         use nix::sys::signal::Signal;
 
         let mut cmd = background_command("sh");
@@ -645,14 +647,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn timeout_kills_before_dropping_decoder() -> anyhow::Result<()> {
+    async fn timeout_kills_before_dropping_decoder() -> buck2_error::Result<()> {
         struct Kill {
             killed: Arc<Mutex<bool>>,
         }
 
         #[async_trait]
         impl KillProcess for Kill {
-            async fn kill(self, process_group: &mut ProcessGroup) -> anyhow::Result<()> {
+            async fn kill(self, process_group: &mut ProcessGroup) -> buck2_error::Result<()> {
                 *self.killed.lock().unwrap() = true;
 
                 // We still need to kill the process. On Windows in particular our test will hang
@@ -668,11 +670,14 @@ mod tests {
 
         #[async_trait::async_trait]
         impl StatusDecoder for Decoder {
-            async fn decode_status(self, _status: ExitStatus) -> anyhow::Result<DecodedStatus> {
+            async fn decode_status(
+                self,
+                _status: ExitStatus,
+            ) -> buck2_error::Result<DecodedStatus> {
                 panic!("Should not be called in this test since we timeout")
             }
 
-            async fn cancel(self) -> anyhow::Result<()> {
+            async fn cancel(self) -> buck2_error::Result<()> {
                 assert!(*self.killed.lock().unwrap());
                 *self.cancelled.lock().unwrap() = true;
                 Ok(())
@@ -690,7 +695,7 @@ mod tests {
         cmd.args(["-c", "sleep 10000"]);
 
         let mut cmd = ProcessCommand::new(cmd);
-        let process = cmd.spawn().map_err(anyhow::Error::from);
+        let process = cmd.spawn().map_err(buck2_error::Error::from);
 
         let stream = stream_command_events(
             process,
@@ -716,7 +721,7 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_no_stdio_stream_command_events() -> anyhow::Result<()> {
+    async fn test_no_stdio_stream_command_events() -> buck2_error::Result<()> {
         let mut cmd = background_command("sh");
         cmd.args(["-c", "echo hello"]);
 
@@ -725,7 +730,7 @@ mod tests {
         let mut cmd = ProcessCommand::new(cmd);
         cmd.stdout(std::fs::File::create(stdout.clone())?);
 
-        let process_group = cmd.spawn().map_err(anyhow::Error::from);
+        let process_group = cmd.spawn().map_err(buck2_error::Error::from);
         let mut events = stream_command_events(
             process_group,
             futures::future::pending(),

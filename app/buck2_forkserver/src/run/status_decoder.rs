@@ -9,9 +9,11 @@
 
 use std::process::ExitStatus;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+#[cfg(not(unix))]
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfOutput;
 
 pub(crate) enum DecodedStatus {
@@ -29,24 +31,24 @@ pub(crate) enum DecodedStatus {
 pub(crate) trait StatusDecoder {
     /// Status decoders receive the exit status of the command we ran, but they might also obtain
     /// information out of band to obtain a different exit status.
-    async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus>;
+    async fn decode_status(self, status: ExitStatus) -> buck2_error::Result<DecodedStatus>;
 
     /// Notify this decoder that it will not be used.
-    async fn cancel(self) -> anyhow::Result<()>;
+    async fn cancel(self) -> buck2_error::Result<()>;
 }
 
 pub(crate) struct DefaultStatusDecoder;
 
 #[async_trait]
 impl StatusDecoder for DefaultStatusDecoder {
-    async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus> {
+    async fn decode_status(self, status: ExitStatus) -> buck2_error::Result<DecodedStatus> {
         Ok(DecodedStatus::Status {
             exit_code: default_decode_exit_code(status),
             execution_stats: None,
         })
     }
 
-    async fn cancel(self) -> anyhow::Result<()> {
+    async fn cancel(self) -> buck2_error::Result<()> {
         Ok(())
     }
 }
@@ -83,7 +85,7 @@ impl MiniperfStatusDecoder {
 
 #[async_trait]
 impl StatusDecoder for MiniperfStatusDecoder {
-    async fn decode_status(self, status: ExitStatus) -> anyhow::Result<DecodedStatus> {
+    async fn decode_status(self, status: ExitStatus) -> buck2_error::Result<DecodedStatus> {
         if !status.success() {
             return Ok(DecodedStatus::Status {
                 exit_code: default_decode_exit_code(status),
@@ -91,19 +93,25 @@ impl StatusDecoder for MiniperfStatusDecoder {
             });
         }
 
-        let status = tokio::fs::read(&self.out_path).await.with_context(|| {
-            format!(
-                "Error reading miniperf output at `{}`",
-                self.out_path.display()
-            )
-        })?;
+        let status = tokio::fs::read(&self.out_path)
+            .await
+            .with_buck_error_context(|| {
+                format!(
+                    "Error reading miniperf output at `{}`",
+                    self.out_path.display()
+                )
+            })?;
 
         tokio::fs::remove_file(&self.out_path)
             .await
-            .with_context(|| format!("Error removing miniperf output at `{}`", self.out_path))?;
+            .with_buck_error_context(|| {
+                format!("Error removing miniperf output at `{}`", self.out_path)
+            })?;
 
-        let status = bincode::deserialize::<MiniperfOutput>(&status)
-            .with_context(|| format!("Invalid miniperf output at `{}`", self.out_path.display()))?;
+        let status =
+            bincode::deserialize::<MiniperfOutput>(&status).with_buck_error_context(|| {
+                format!("Invalid miniperf output at `{}`", self.out_path.display())
+            })?;
 
         match status.raw_exit_code {
             #[allow(unused_variables)]
@@ -141,20 +149,23 @@ impl StatusDecoder for MiniperfStatusDecoder {
 
                 #[cfg(not(unix))]
                 {
-                    Err(anyhow::anyhow!("Attempted to use Miniperf output off-UNIX"))
+                    Err(buck2_error::buck2_error!(
+                        [],
+                        "Attempted to use Miniperf output off-UNIX"
+                    ))
                 }
             }
             Err(e) => Ok(DecodedStatus::SpawnFailed(e)),
         }
     }
 
-    async fn cancel(self) -> anyhow::Result<()> {
+    async fn cancel(self) -> buck2_error::Result<()> {
         let res = tokio::fs::remove_file(&self.out_path).await;
 
         match res {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(anyhow::Error::from(e).context(format!(
+            Err(e) => Err(buck2_error::Error::from(e).context(format!(
                 "Error removing miniperf output at `{}`",
                 self.out_path
             ))),

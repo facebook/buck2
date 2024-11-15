@@ -165,7 +165,7 @@ fn spawn_via_forkserver(
             // TODO(ctolliday) delete directory (after logs are moved to buck-out)
             fs_util::remove_file(&socket_path)?;
         }
-        Ok(res?)
+        res
     })
 }
 

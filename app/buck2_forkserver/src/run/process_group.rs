@@ -11,7 +11,6 @@ use std::process::Command as StdCommand;
 use std::process::ExitStatus;
 use std::process::Stdio;
 
-use thiserror::Error;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
@@ -21,12 +20,26 @@ use crate::unix::process_group as imp;
 #[cfg(windows)]
 use crate::win::process_group as imp;
 
-#[derive(Error, Debug)]
+#[derive(buck2_error::Error, Debug)]
 pub(crate) enum SpawnError {
     #[error("Failed to spawn a process")]
-    IoError(#[from] io::Error),
+    IoError(io::Error),
     #[error("Failed to create a process group")]
-    GenericError(#[from] anyhow::Error),
+    GenericError(buck2_error::Error),
+}
+
+impl From<buck2_error::Error> for SpawnError {
+    #[cold]
+    fn from(e: buck2_error::Error) -> Self {
+        SpawnError::GenericError(e)
+    }
+}
+
+impl From<io::Error> for SpawnError {
+    #[cold]
+    fn from(e: io::Error) -> Self {
+        SpawnError::IoError(e)
+    }
 }
 
 pub(crate) struct ProcessCommand {
@@ -43,7 +56,7 @@ impl ProcessCommand {
         }
     }
 
-    pub(crate) fn spawn(&mut self) -> anyhow::Result<ProcessGroup, SpawnError> {
+    pub(crate) fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
         let child = self.inner.spawn()?;
         Ok(ProcessGroup {
             inner: imp::ProcessGroupImpl::new(child)?,
@@ -87,7 +100,7 @@ impl ProcessGroup {
     pub(crate) async fn kill(
         &self,
         graceful_shutdown_timeout_s: Option<u32>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.inner.kill(graceful_shutdown_timeout_s).await
     }
 }
@@ -100,7 +113,7 @@ mod tests {
 
     // The test check basic functionality of process implementation as it differs on Unix and Windows
     #[tokio::test]
-    async fn test_process_impl() -> anyhow::Result<()> {
+    async fn test_process_impl() -> buck2_error::Result<()> {
         let mut cmd;
 
         if cfg!(windows) {

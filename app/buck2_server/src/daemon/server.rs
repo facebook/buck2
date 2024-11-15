@@ -1464,7 +1464,7 @@ impl DaemonApi for BuckdServer {
                     forkserver
                         .set_log_filter(req.log_filter)
                         .await
-                        .context("Error forwarding daemon log filter to forkserver")
+                        .buck_error_context("Error forwarding daemon log filter to forkserver")
                         .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
                 }
             }

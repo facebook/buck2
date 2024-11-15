@@ -13,9 +13,8 @@ use std::process::ExitStatus;
 use std::process::Stdio;
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_common::kill_util::try_terminate_process_gracefully;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
@@ -53,7 +52,7 @@ pub(crate) struct ProcessGroupImpl {
 }
 
 impl ProcessGroupImpl {
-    pub(crate) fn new(child: Child) -> anyhow::Result<ProcessGroupImpl> {
+    pub(crate) fn new(child: Child) -> buck2_error::Result<ProcessGroupImpl> {
         Ok(ProcessGroupImpl { inner: child })
     }
 
@@ -77,12 +76,12 @@ impl ProcessGroupImpl {
     pub(crate) async fn kill(
         &self,
         graceful_shutdown_timeout_s: Option<u32>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let pid: i32 = self
             .inner
             .id()
             .and_then(|id| id.try_into().ok())
-            .context("PID does not fit a i32")?;
+            .buck_error_context("PID does not fit a i32")?;
 
         if let Some(graceful_shutdown_timeout_s) = graceful_shutdown_timeout_s {
             try_terminate_process_gracefully(
@@ -90,10 +89,10 @@ impl ProcessGroupImpl {
                 Duration::from_secs(graceful_shutdown_timeout_s as u64),
             )
             .await
-            .with_context(|| format!("Failed to terminate process {} gracefully", pid))
+            .with_buck_error_context(|| format!("Failed to terminate process {} gracefully", pid))
         } else {
             signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
-                .with_context(|| format!("Failed to kill process {}", pid))
+                .with_buck_error_context(|| format!("Failed to kill process {}", pid))
         }
     }
 }
