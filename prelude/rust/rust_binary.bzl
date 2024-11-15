@@ -185,7 +185,7 @@ def _rust_binary_common(
         emit = Emit("link"),
         params = params,
         default_roots = default_roots,
-        extra_link_args = compile_ctx.cxx_toolchain_info.linker_info.binary_linker_flags + executable_args.extra_link_args,
+        extra_link_args = executable_args.extra_link_args,
         predeclared_output = output,
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
@@ -400,7 +400,7 @@ def _rust_binary_common(
     return (providers, args)
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    compile_ctx = compile_context(ctx)
+    compile_ctx = compile_context(ctx, binary = True)
 
     providers, args = _rust_binary_common(
         ctx = ctx,
@@ -413,7 +413,7 @@ def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     return providers + [RunInfo(args = args)]
 
 def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    compile_ctx = compile_context(ctx)
+    compile_ctx = compile_context(ctx, binary = True)
     toolchain_info = compile_ctx.toolchain_info
 
     extra_flags = toolchain_info.rustc_test_flags or []

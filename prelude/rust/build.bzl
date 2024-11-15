@@ -95,7 +95,7 @@ load(":outputs.bzl", "RustcOutput")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
-def compile_context(ctx: AnalysisContext) -> CompileContext:
+def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
@@ -121,7 +121,7 @@ def compile_context(ctx: AnalysisContext) -> CompileContext:
     if not symlinked_srcs:
         symlinked_srcs = ctx.actions.symlinked_dir("__srcs", srcs)
 
-    linker = _linker_args(ctx, cxx_toolchain_info.linker_info)
+    linker = _linker_args(ctx, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
     dep_ctx = DepCollectionContext(
@@ -1130,10 +1130,16 @@ def _clippy_wrapper(
 # and add -Clinker=
 def _linker_args(
         ctx: AnalysisContext,
-        linker_info: LinkerInfo) -> cmd_args:
+        linker_info: LinkerInfo,
+        binary: bool = False) -> cmd_args:
     linker = cmd_args(
         linker_info.linker,
         linker_info.linker_flags or [],
+        # For "binary" rules, add C++ toolchain binary-specific linker flags.
+        # TODO(agallagher): This feels a bit wrong -- it might be better to have
+        # the Rust toolchain have it's own `binary_linker_flags` instead of
+        # implicltly using the one from the C++ toolchain.
+        linker_info.binary_linker_flags if binary else [],
         ctx.attrs.linker_flags,
     )
 
