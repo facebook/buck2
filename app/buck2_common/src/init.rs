@@ -292,14 +292,14 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_max",
             })?;
-            let hybrid_execution_high_memory_gibibytes = config.parse(BuckconfigKeyRef {
+            let hybrid_execution_memory_limit_gibibytes = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
-                property: "hybrid_execution_high_memory_gibibytes",
+                property: "hybrid_execution_memory_limit_gibibytes",
             })?;
             Ok(Self {
                 status,
                 memory_max,
-                hybrid_execution_memory_limit_gibibytes: hybrid_execution_high_memory_gibibytes,
+                hybrid_execution_memory_limit_gibibytes,
             })
         }
     }
