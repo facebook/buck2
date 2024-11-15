@@ -1,0 +1,10 @@
+[repositories]
+    cell1 = .
+    root = ..
+    prelude = buck2/prelude
+    cell2 = ../cell2
+    cell3a = ../dir3/cell3a
+    cell3b = ../dir3/cell3b
+
+[buildfile]
+    name = TARGETS.fixture

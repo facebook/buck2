@@ -1,0 +1,11 @@
+stub(
+    name = "target1",
+)
+
+stub(
+    name = "target2",
+)
+
+stub(
+    name = "target3",
+)

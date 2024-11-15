@@ -1,0 +1,17 @@
+[repositories]
+    root = .
+    fake_prelude = cell1/buck2/fake_prelude
+    cell1 = cell1
+    cell2 = cell2
+    cell3a = dir3/cell3a
+    cell3b = dir3/cell3b
+    nano_prelude = nano_prelude
+
+[cell_aliases]
+  prelude = nano_prelude
+
+[external_cells]
+  nano_prelude = bundled
+
+[buildfile]
+    name = BUCK.fixture
