@@ -7,14 +7,10 @@
  * of this source tree.
  */
 
-use std::path::Path;
-
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 
@@ -79,8 +75,6 @@ fn resolve_config_flag_arg(
 async fn resolve_config_file_arg(
     cell: Option<CellRootPathBuf>,
     arg: &str,
-    project_filesystem: &ProjectRoot,
-    cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> buck2_error::Result<ResolvedConfigFile> {
     if let Some(cell_path) = cell {
@@ -88,17 +82,11 @@ async fn resolve_config_file_arg(
         return Ok(ResolvedConfigFile::Project(proj_path));
     }
 
-    let path = Path::new(arg);
-    let path = if path.is_absolute() {
-        AbsPath::new(path)?.to_owned()
-    } else {
-        let cwd = project_filesystem.resolve(cwd);
-        cwd.into_abs_path_buf().join(path)
-    };
+    let path = AbsPath::new(arg).internal_error("Client always produces absolute paths")?;
 
     Ok(ResolvedConfigFile::Global(
         LegacyBuckConfig::start_parse_for_external_files(
-            &[ConfigPath::Global(path)],
+            &[ConfigPath::Global(path.to_owned())],
             file_ops,
             // Note that when reading immediate configs that don't follow includes, we don't apply
             // config args either
@@ -110,8 +98,6 @@ async fn resolve_config_file_arg(
 
 pub(crate) async fn resolve_config_args(
     args: &[ConfigOverride],
-    project_fs: &ProjectRoot,
-    cwd: &ProjectRelativePath,
     file_ops: &mut dyn ConfigParserFileOps,
 ) -> buck2_error::Result<Vec<ResolvedLegacyConfigArg>> {
     let mut resolved_args = Vec::new();
@@ -132,8 +118,7 @@ pub(crate) async fn resolve_config_args(
             ConfigType::File => {
                 let cell = u.get_cell()?.map(|p| p.to_buf());
                 let resolved_path =
-                    resolve_config_file_arg(cell, &u.config_override, project_fs, cwd, file_ops)
-                        .await?;
+                    resolve_config_file_arg(cell, &u.config_override, file_ops).await?;
                 ResolvedLegacyConfigArg::File(resolved_path)
             }
         };

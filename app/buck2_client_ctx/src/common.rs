@@ -26,8 +26,12 @@ pub mod build;
 pub mod target_cfg;
 pub mod ui;
 
+use std::path::Path;
+
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
+use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -204,6 +208,7 @@ impl CommonBuildConfigurationOptions {
         &self,
         matches: &clap::ArgMatches,
         immediate_ctx: &ImmediateConfigContext<'_>,
+        cwd: &AbsWorkingDir,
     ) -> anyhow::Result<Vec<ConfigOverride>> {
         fn with_indices<'a, T>(
             collection: &'a [T],
@@ -252,15 +257,21 @@ impl CommonBuildConfigurationOptions {
                         let cell = immediate_ctx
                             .resolve_alias_to_path_in_cwd(cell)?
                             .to_string();
-                        (Some(cell), val)
+                        (Some(cell), val.to_owned())
                     }
-                    _ => (None, file.as_str()),
+                    None => {
+                        let abs_path = match AbsPath::new(file) {
+                            Ok(p) => p.to_owned(),
+                            Err(_) => cwd.resolve(Path::new(file)),
+                        };
+                        (None, abs_path.to_string())
+                    }
                 };
                 Ok((
                     index,
                     ConfigOverride {
                         cell,
-                        config_override: path.to_owned(),
+                        config_override: path,
                         config_type: ConfigType::File as i32,
                     },
                 ))

@@ -115,23 +115,12 @@ impl HasBuildfiles for DiceComputations<'_> {
 #[cfg(test)]
 mod tests {
     use buck2_core::cells::name::CellName;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::project::ProjectRoot;
-    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use gazebo::prelude::SliceExt;
     use indoc::indoc;
 
     use crate::buildfiles::parse_buildfile_name;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
-
-    fn create_project_filesystem() -> ProjectRoot {
-        #[cfg(not(windows))]
-        let root_path = "/".to_owned();
-        #[cfg(windows)]
-        let root_path = "C:/".to_owned();
-        ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
-    }
 
     #[tokio::test]
     async fn test_buildfiles() -> buck2_error::Result<()> {
@@ -173,14 +162,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)

@@ -326,7 +326,6 @@ pub mod testing {
 
     use super::*;
     use crate::legacy_configs::args::resolve_config_args;
-    use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::file_ops::ConfigDirEntry;
 
     pub fn parse(data: &[(&str, &str)], path: &str) -> buck2_error::Result<LegacyBuckConfig> {
@@ -342,13 +341,7 @@ pub mod testing {
         let path = ProjectRelativePath::new(cell_path)?;
         futures::executor::block_on(async {
             // As long as people don't pass config files, making up values here is ok
-            let processed_config_args = resolve_config_args(
-                config_args,
-                &create_project_filesystem(),
-                &ProjectRelativePath::empty(),
-                &mut file_ops,
-            )
-            .await?;
+            let processed_config_args = resolve_config_args(config_args, &mut file_ops).await?;
             LegacyBuckConfig::finish_parse(
                 LegacyConfigParser::new(),
                 &[ConfigPath::Project(path.to_owned())],

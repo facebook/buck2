@@ -312,8 +312,14 @@ message ConfigOverride {
   //  - If its a value, then this is the cell the value should be applied to
   //  - If its a file, then the file path is relative to this cell
   optional string cell = 3;
-  // The value passed either to `--config` or `--config-file`. This does not
-  // include the cell, which is instead included above
+  // If the config type is a value, then this is the value passed to `--config`,
+  // verbatim.
+  //
+  // If the config type is a file, then:
+  //  - If the cell is set above, a not-necessarily-normalized relative path to
+  //    that cell root
+  //  - If the cell above is not set, this is the absolute path of the config
+  //    file
   string config_override = 1;
   enum ConfigType {
     VALUE = 0;

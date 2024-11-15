@@ -38,7 +38,6 @@ use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
@@ -264,12 +263,7 @@ impl DaemonState {
             let fs = paths.project_root().clone();
 
             tracing::info!("Reading config...");
-            let legacy_cells = BuckConfigBasedCells::parse_with_config_args(
-                &fs,
-                &[],
-                ProjectRelativePath::empty(),
-            )
-            .await?;
+            let legacy_cells = BuckConfigBasedCells::parse_with_config_args(&fs, &[]).await?;
 
             tracing::info!("Starting...");
 

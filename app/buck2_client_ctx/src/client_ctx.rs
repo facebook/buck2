@@ -201,7 +201,11 @@ impl<'a> ClientCommandContext<'a> {
         let starlark_opts = cmd.starlark_opts();
 
         Ok(ClientContext {
-            config_overrides: config_opts.config_overrides(arg_matches, &self.immediate_config)?,
+            config_overrides: config_opts.config_overrides(
+                arg_matches,
+                &self.immediate_config,
+                &self.working_dir,
+            )?,
             host_platform: match config_opts.host_platform_override() {
                 HostPlatformOverride::Default => GrpcHostPlatformOverride::DefaultPlatform,
                 HostPlatformOverride::Linux => GrpcHostPlatformOverride::Linux,

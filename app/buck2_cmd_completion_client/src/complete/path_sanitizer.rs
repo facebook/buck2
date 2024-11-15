@@ -296,11 +296,7 @@ mod tests {
     fn cell_configs(cwd: &AbsWorkingDir) -> anyhow::Result<BuckConfigBasedCells> {
         let cwd_roots = find_invocation_roots(cwd)?;
         Ok(futures::executor::block_on(
-            BuckConfigBasedCells::parse_with_config_args(
-                &cwd_roots.project_root,
-                &[],
-                &cwd_roots.project_root.relativize(cwd.path())?,
-            ),
+            BuckConfigBasedCells::parse_with_config_args(&cwd_roots.project_root, &[]),
         )?)
     }
 

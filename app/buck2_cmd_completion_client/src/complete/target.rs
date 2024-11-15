@@ -26,7 +26,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use clap::ArgMatches;
 use futures::future::BoxFuture;
@@ -129,14 +128,8 @@ impl<'a> TargetCompleter<'a> {
         roots: &'a InvocationRoots,
         target_resolver: &'a mut dyn TargetResolver,
     ) -> anyhow::Result<Self> {
-        let cell_configs = Arc::new(
-            BuckConfigBasedCells::parse_with_config_args(
-                &roots.project_root,
-                &[],
-                ProjectRelativePath::empty(),
-            )
-            .await?,
-        );
+        let cell_configs =
+            Arc::new(BuckConfigBasedCells::parse_with_config_args(&roots.project_root, &[]).await?);
         Ok(Self {
             cwd: cwd.to_owned(),
             cell_configs: cell_configs.clone(),

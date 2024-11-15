@@ -20,7 +20,6 @@ use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::RelativePath;
@@ -165,61 +164,42 @@ impl BuckConfigBasedCells {
     pub async fn parse_with_config_args(
         project_fs: &ProjectRoot,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
     ) -> buck2_error::Result<Self> {
         Self::parse_with_file_ops_and_options(
-            project_fs,
             &mut DefaultConfigParserFileOps {
                 project_fs: project_fs.dupe(),
             },
             config_args,
-            cwd,
             false, /* follow includes */
         )
         .await
     }
 
     pub async fn testing_parse_with_file_ops(
-        project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
     ) -> buck2_error::Result<Self> {
         Self::parse_with_file_ops_and_options(
-            project_fs,
             file_ops,
             config_args,
-            cwd,
             true, /* follow includes */
         )
         .await
     }
 
     async fn parse_with_file_ops_and_options(
-        project_root: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
         follow_includes: bool,
     ) -> buck2_error::Result<Self> {
-        Self::parse_with_file_ops_and_options_inner(
-            project_root,
-            file_ops,
-            config_args,
-            cwd,
-            follow_includes,
-        )
-        .await
-        .with_buck_error_context(|| {
-            format!("Parsing cells with project root `{project_root}`, cwd `{cwd}`",)
-        })
+        Self::parse_with_file_ops_and_options_inner(file_ops, config_args, follow_includes)
+            .await
+            .buck_error_context("Parsing cells")
     }
 
     async fn parse_with_file_ops_and_options_inner(
-        project_fs: &ProjectRoot,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[buck2_cli_proto::ConfigOverride],
-        cwd: &ProjectRelativePath,
         follow_includes: bool,
     ) -> buck2_error::Result<Self> {
         // Tracing file ops to record config file accesses on command invocation.
@@ -259,8 +239,7 @@ impl BuckConfigBasedCells {
         };
 
         // NOTE: This will _not_ perform IO unless it needs to.
-        let processed_config_args =
-            resolve_config_args(&config_args, project_fs, cwd, &mut file_ops).await?;
+        let processed_config_args = resolve_config_args(&config_args, &mut file_ops).await?;
 
         let external_paths = get_external_buckconfig_paths(&mut file_ops).await?;
         let started_parse = LegacyBuckConfig::start_parse_for_external_files(
@@ -557,14 +536,6 @@ async fn get_project_buckconfig_paths(
     Ok(buckconfig_paths)
 }
 
-pub(crate) fn create_project_filesystem() -> ProjectRoot {
-    #[cfg(not(windows))]
-    let root_path = "/".to_owned();
-    #[cfg(windows)]
-    let root_path = "C:/".to_owned();
-    ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(root_path).unwrap())
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -575,14 +546,12 @@ mod tests {
     use buck2_core::cells::external::ExternalCellOrigin;
     use buck2_core::cells::external::GitCellSetup;
     use buck2_core::cells::name::CellName;
-    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use dice::DiceComputations;
     use indoc::indoc;
 
     use crate::dice::file_ops::delegate::FileOpsDelegate;
     use crate::external_cells::ExternalCellsImpl;
     use crate::external_cells::EXTERNAL_CELLS_IMPL;
-    use crate::legacy_configs::cells::create_project_filesystem;
     use crate::legacy_configs::cells::BuckConfigBasedCells;
     use crate::legacy_configs::configs::testing::TestConfigParserFileOps;
     use crate::legacy_configs::configs::tests::assert_config_value;
@@ -625,14 +594,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let resolver = &cells.cell_resolver;
 
@@ -715,15 +677,12 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut file_ops,
             &[ConfigOverride::file(
                 "cli-conf",
                 Some(CellRootPathBuf::testing_new("other")),
             )],
-            ProjectRelativePath::empty(),
         )
         .await?;
 
@@ -786,14 +745,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let other_config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("other"), &mut file_ops)
@@ -855,15 +807,12 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
         let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut file_ops,
             &[
                 ConfigOverride::file("app-conf", Some(CellRootPathBuf::testing_new("other"))),
                 ConfigOverride::file("global-conf", Some(CellRootPathBuf::testing_new(""))),
             ],
-            ProjectRelativePath::empty(),
         )
         .await?;
 
@@ -918,14 +867,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
@@ -997,14 +939,7 @@ mod tests {
             ),
         ])?;
 
-        let project_fs = create_project_filesystem();
-        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?;
+        let cells = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[]).await?;
 
         let root_config = cells
             .parse_single_cell_with_file_ops(CellName::testing_new("root"), &mut file_ops)
@@ -1046,13 +981,10 @@ mod tests {
                     "#
             ),
         )])?;
-        let project_fs = create_project_filesystem();
 
         let cells = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut file_ops,
             &[ConfigOverride::flag_no_cell("some_section.key=value1")],
-            ProjectRelativePath::empty(),
         )
         .await?;
         let config = cells
@@ -1079,15 +1011,9 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?
-        .cell_resolver;
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await?
+            .cell_resolver;
 
         assert_eq!(
             "other",
@@ -1167,15 +1093,9 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?
-        .cell_resolver;
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await?
+            .cell_resolver;
 
         let other1 = resolver
             .root_cell_cell_alias_resolver()
@@ -1223,16 +1143,10 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await
-        .err()
-        .unwrap();
+        BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await
+            .err()
+            .unwrap();
 
         Ok(())
     }
@@ -1255,16 +1169,10 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let e = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await
-        .err()
-        .unwrap();
+        let e = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await
+            .err()
+            .unwrap();
 
         let e = format!("{:?}", e);
         assert!(e.contains("No bundled cell"), "error: {}", e);
@@ -1292,15 +1200,9 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await?
-        .cell_resolver;
+        let resolver = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await?
+            .cell_resolver;
 
         let instance = resolver.get(CellName::testing_new("libfoo")).unwrap();
 
@@ -1335,16 +1237,10 @@ mod tests {
             ),
         )])?;
 
-        let project_fs = create_project_filesystem();
-        let e = BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
-            &mut file_ops,
-            &[],
-            ProjectRelativePath::empty(),
-        )
-        .await
-        .err()
-        .unwrap();
+        let e = BuckConfigBasedCells::testing_parse_with_file_ops(&mut file_ops, &[])
+            .await
+            .err()
+            .unwrap();
 
         let e = format!("{:?}", e);
         assert!(e.contains("not a valid SHA1 digest"), "error: {}", e);

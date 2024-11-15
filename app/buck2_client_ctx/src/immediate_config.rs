@@ -44,7 +44,6 @@ impl ImmediateConfig {
         let cells = futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
             &roots.project_root,
             &[],
-            &roots.cwd,
         ))?;
 
         let cwd_cell_alias_resolver = futures::executor::block_on(

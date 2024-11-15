@@ -16,9 +16,6 @@ use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::StarlarkPath;
@@ -178,12 +175,8 @@ fn test_eval_build_file() {
 }
 
 fn cells() -> CellsData {
-    let repo_root = if cfg!(windows) { "C:/" } else { "/" };
-    let project_fs =
-        ProjectRoot::new_unchecked(AbsNormPathBuf::try_from(repo_root.to_owned()).unwrap());
     let BuckConfigBasedCells { cell_resolver, .. } =
         futures::executor::block_on(BuckConfigBasedCells::testing_parse_with_file_ops(
-            &project_fs,
             &mut TestConfigParserFileOps::new(&[(
                 ".buckconfig",
                 indoc!(
@@ -198,7 +191,6 @@ fn cells() -> CellsData {
             )])
             .unwrap(),
             &[],
-            ProjectRelativePath::empty(),
         ))
         .unwrap();
     (

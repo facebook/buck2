@@ -12,7 +12,6 @@ use std::sync::Arc;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 
 use super::path_completer::PathCompleter;
@@ -32,14 +31,8 @@ impl<'a> PackageCompleter<'a> {
         cwd: &AbsWorkingDir,
         roots: &'a InvocationRoots,
     ) -> CommandOutcome<Self> {
-        let cell_configs = Arc::new(
-            BuckConfigBasedCells::parse_with_config_args(
-                &roots.project_root,
-                &[],
-                ProjectRelativePath::empty(),
-            )
-            .await?,
-        );
+        let cell_configs =
+            Arc::new(BuckConfigBasedCells::parse_with_config_args(&roots.project_root, &[]).await?);
 
         let path_sanitizer = PathSanitizer::new(&cell_configs, cwd).await?;
         let results = CompletionResults::new(roots, cell_configs.clone());

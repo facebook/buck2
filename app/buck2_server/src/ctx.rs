@@ -434,7 +434,6 @@ impl ServerCommandContext<'_> {
         let new_configs = BuckConfigBasedCells::parse_with_config_args(
             &self.base_context.project_root,
             &self.config_overrides,
-            &self.working_dir,
         )
         .await?;
 
