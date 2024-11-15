@@ -151,6 +151,8 @@ pub struct TLocalCacheStats {
     pub hits_bytes: i64,
     pub misses_files: i64,
     pub misses_bytes: i64,
+    // Compatibility with the Thrift structs
+    pub _dot_dot_default: (),
 }
 
 #[derive(Debug, Clone, Default)]

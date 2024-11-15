@@ -54,6 +54,7 @@ use remote_execution::TDigest;
 use remote_execution::TExecutionPolicy;
 use remote_execution::THostResourceRequirements;
 use remote_execution::THostRuntimeRequirements;
+use remote_execution::TLocalCacheStats;
 use remote_execution::UploadRequest;
 use remote_execution::WriteActionResultRequest;
 use remote_execution::WriteActionResultResponse;
@@ -249,7 +250,8 @@ impl RemoteExecutionClient {
         self.data
             .materializes
             .op(self.data.client.materialize_files(files, use_case))
-            .await
+            .await?;
+        Ok(())
     }
 
     pub async fn download_typed_blobs<T: Message + Default>(
@@ -265,6 +267,7 @@ impl RemoteExecutionClient {
                 .client
                 .download_typed_blobs(identity, digests, use_case))
             .await
+            .map(|r| r.0)
     }
 
     pub async fn download_blob(
@@ -276,6 +279,7 @@ impl RemoteExecutionClient {
             .downloads
             .op(self.data.client.download_blob(digest, use_case))
             .await
+            .map(|r| r.0)
     }
 
     pub async fn upload_blob(
@@ -1076,9 +1080,9 @@ impl RemoteExecutionClientImpl {
         identity: Option<&ReActionIdentity<'_>>,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> buck2_error::Result<Vec<T>> {
+    ) -> buck2_error::Result<(Vec<T>, TLocalCacheStats)> {
         if digests.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), TLocalCacheStats::default()));
         }
         let expected_blobs = digests.len();
         let response = with_error_handler(
@@ -1116,14 +1120,14 @@ impl RemoteExecutionClientImpl {
             ));
         }
 
-        Ok(blobs)
+        Ok((blobs, response.local_cache_stats))
     }
 
     pub async fn download_blob(
         &self,
         digest: &TDigest,
         use_case: RemoteExecutorUseCase,
-    ) -> buck2_error::Result<Vec<u8>> {
+    ) -> buck2_error::Result<(Vec<u8>, TLocalCacheStats)> {
         let re_action = format!("download_blob for digest {}", digest);
         let response = with_error_handler(
             re_action.as_str(),
@@ -1148,7 +1152,7 @@ impl RemoteExecutionClientImpl {
             .into_iter()
             .flat_map(|blobs| blobs.into_iter())
             .next()
-            .map(|blob| blob.blob)
+            .map(|blob| (blob.blob, response.local_cache_stats))
             .with_buck_error_context(|| format!("No digest was returned in request for {}", digest))
     }
 
@@ -1171,7 +1175,7 @@ impl RemoteExecutionClientImpl {
         &self,
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
-    ) -> buck2_error::Result<()> {
+    ) -> buck2_error::Result<TLocalCacheStats> {
         if buck2_env!(
             "BUCK2_TEST_FAIL_RE_DOWNLOADS",
             bool,
@@ -1194,7 +1198,7 @@ impl RemoteExecutionClientImpl {
                 .await
                 .buck_error_context("Failed to acquire download_files_semapore")?;
 
-            with_error_handler(
+            let response = with_error_handler(
                 "materialize_files",
                 self.get_session_id(),
                 self.client()
@@ -1210,12 +1214,21 @@ impl RemoteExecutionClientImpl {
             )
             .await?;
 
-            buck2_error::Ok(())
+            buck2_error::Ok(response.local_cache_stats)
         });
 
-        buck2_util::future::try_join_all(futs).await?;
+        let stat = buck2_util::future::try_join_all(futs).await?.iter().fold(
+            TLocalCacheStats::default(),
+            |acc, x| TLocalCacheStats {
+                hits_files: acc.hits_files + x.hits_files,
+                hits_bytes: acc.hits_bytes + x.hits_bytes,
+                misses_files: acc.misses_files + x.misses_files,
+                misses_bytes: acc.misses_bytes + x.misses_bytes,
+                ..Default::default()
+            },
+        );
 
-        Ok(())
+        Ok(stat)
     }
 
     async fn get_digest_expirations(
