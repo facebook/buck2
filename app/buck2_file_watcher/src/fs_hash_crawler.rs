@@ -315,6 +315,7 @@ mod tests {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::paths::abs_path::AbsPathBuf;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_data::FileWatcherEventType;
     use buck2_data::FileWatcherKind;
 
@@ -331,17 +332,16 @@ mod tests {
         let root_path = fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned())?)?;
         let proj_root = ProjectRoot::new(root_path)?;
 
-        let get_path = |root: &AbsPathBuf, path| -> buck2_error::Result<(AbsPathBuf, CellPath)> {
-            let path = root.join(path);
-            let cell_path = cell_resolver.get_cell_path_from_abs_path(&path, &proj_root)?;
-            Ok((path, cell_path))
+        let get_path = |path| -> buck2_error::Result<(AbsPathBuf, CellPath)> {
+            let path = ProjectRelativePath::new(path).unwrap();
+            let cell_path = cell_resolver.get_cell_path(path)?;
+            Ok((proj_root.resolve(path).into_abs_path_buf(), cell_path))
         };
-        let root = proj_root.root().to_owned().into_abs_path_buf();
-        let dir1 = root.join("dir1");
-        let (file1, file1_cell) = get_path(&dir1, "file1")?;
-        let (dir2, dir2_cell) = get_path(&root, "dir2")?;
-        let (file2, file2_cell) = get_path(&dir2, "file2")?;
-        let (file3, file3_cell) = get_path(&dir1, "file3")?;
+        let dir1 = proj_root.resolve(ProjectRelativePath::new("dir1")?);
+        let (file1, file1_cell) = get_path("dir1/file1")?;
+        let (dir2, dir2_cell) = get_path("dir2")?;
+        let (file2, file2_cell) = get_path("dir2/file2")?;
+        let (file3, file3_cell) = get_path("dir1/file3")?;
         fs_util::create_dir_all(dir1)?;
         fs_util::write(&file1, "old content")?;
         fs_util::create_dir_all(&dir2)?;
