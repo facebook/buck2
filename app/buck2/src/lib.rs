@@ -192,9 +192,12 @@ impl Opt {
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     let mut immediate_config = ImmediateConfigContext::new(process.working_dir);
-    let mut expanded_args =
-        expand_argfiles_with_context(process.args.to_vec(), &mut immediate_config)
-            .context("Error expanding argsfiles")?;
+    let mut expanded_args = expand_argfiles_with_context(
+        process.args.to_vec(),
+        &mut immediate_config,
+        process.working_dir,
+    )
+    .context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
     if let Some(arg0) = buck2_env_anyhow!("BUCK2_ARG0")? {

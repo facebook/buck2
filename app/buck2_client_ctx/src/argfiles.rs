@@ -17,6 +17,9 @@ use std::str;
 use anyhow::Context as _;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::is_open_source;
 use buck2_util::process::background_command;
 use termwiz::istty::IsTty;
@@ -28,7 +31,9 @@ enum ArgExpansionError {
     #[error("Missing flag file path after --flagfile argument")]
     MissingFlagFilePath,
     #[error("Unable to read flag file at `{path}`")]
-    MissingFlagFileOnDisk { source: anyhow::Error, path: String },
+    MissingFlagFileOnDisk { path: String },
+    #[error("Unable to read flag file at `{path}`")]
+    MissingFlagFileOnDiskWithSource { source: anyhow::Error, path: String },
     #[error("Unable to read line in flag file `{path}`")]
     FlagFileReadError { source: anyhow::Error, path: String },
     #[error("Python mode file `{path}` output is not UTF-8")]
@@ -69,8 +74,8 @@ pub fn log_relative_path_from_cell_root(requested_path: &str) -> anyhow::Result<
 
 #[derive(Clone, Debug)]
 enum ArgFile {
-    PythonExecutable(AbsNormPathBuf, Option<String>),
-    Path(AbsNormPathBuf),
+    PythonExecutable(AbsPathBuf, Option<String>),
+    Path(AbsPathBuf),
     Stdin,
 }
 
@@ -89,6 +94,7 @@ enum ArgFile {
 pub fn expand_argfiles_with_context(
     args: Vec<String>,
     context: &mut ImmediateConfigContext,
+    cwd: &AbsWorkingDir,
 ) -> anyhow::Result<Vec<String>> {
     let mut expanded_args = Vec::new();
     let mut arg_iterator = args.into_iter();
@@ -106,7 +112,7 @@ pub fn expand_argfiles_with_context(
                     None => return Err(anyhow::anyhow!(ArgExpansionError::MissingFlagFilePath)),
                 };
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args = resolve_and_expand_argfile(&flagfile, context)?;
+                let expanded_flagfile_args = resolve_and_expand_argfile(&flagfile, context, cwd)?;
                 expanded_args.extend(expanded_flagfile_args);
             }
             next_arg if next_arg.starts_with('@') => {
@@ -117,7 +123,7 @@ pub fn expand_argfiles_with_context(
                     ));
                 }
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args = resolve_and_expand_argfile(flagfile, context)?;
+                let expanded_flagfile_args = resolve_and_expand_argfile(flagfile, context, cwd)?;
                 expanded_args.extend(expanded_flagfile_args);
             }
             _ => expanded_args.push(next_arg),
@@ -132,22 +138,24 @@ pub fn expand_argfiles_with_context(
 fn resolve_and_expand_argfile(
     path: &str,
     context: &mut ImmediateConfigContext,
+    cwd: &AbsWorkingDir,
 ) -> anyhow::Result<Vec<String>> {
-    let flagfile = resolve_flagfile(path, context)
+    let flagfile = resolve_flagfile(path, context, cwd)
         .with_context(|| format!("Error resolving flagfile `{}`", path))?;
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
-    expand_argfiles_with_context(flagfile_lines, context)
+    expand_argfiles_with_context(flagfile_lines, context, cwd)
 }
 
 fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
     match flagfile {
         ArgFile::Path(path) => {
             let mut lines = Vec::new();
-            let file =
-                File::open(path).map_err(|source| ArgExpansionError::MissingFlagFileOnDisk {
+            let file = File::open(path).map_err(|source| {
+                ArgExpansionError::MissingFlagFileOnDiskWithSource {
                     source: source.into(),
                     path: path.to_string_lossy().into_owned(),
-                })?;
+                }
+            })?;
             let reader = io::BufReader::new(file);
             for line_result in reader.lines() {
                 let line = line_result.map_err(|source| ArgExpansionError::FlagFileReadError {
@@ -207,7 +215,11 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
 }
 
 // Resolves a path argument to an absolute path, so that it can be read.
-fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow::Result<ArgFile> {
+fn resolve_flagfile(
+    path: &str,
+    context: &mut ImmediateConfigContext,
+    cwd: &AbsWorkingDir,
+) -> anyhow::Result<ArgFile> {
     if path == "-" {
         return Ok(ArgFile::Stdin);
     }
@@ -220,13 +232,21 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
     let resolved_path = match path_part.split_once("//") {
         Some((cell_alias, cell_relative_path)) => context
             .resolve_cell_path(cell_alias, cell_relative_path)
-            .context("Error resolving cell path")?,
+            .context("Error resolving cell path")?
+            .into_abs_path_buf(),
         None => {
             let p = Path::new(path_part);
-            if !p.is_absolute() {
-                match context.canonicalize(p) {
-                    Ok(abs_path) => abs_path,
-                    Err(original_error) => {
+            match AbsPath::new(path) {
+                Ok(abs_path) => {
+                    // FIXME(JakobDegen): Checks for normalization for historical reasons, not sure
+                    // why we'd want that
+                    AbsNormPathBuf::new(abs_path.as_path().to_path_buf())?.into_abs_path_buf()
+                }
+                Err(_) => {
+                    let abs_p = cwd.resolve(p);
+                    if fs_util::try_exists(&abs_p)? {
+                        abs_p
+                    } else {
                         let cell_relative_path = context.resolve_cell_path("", path_part)?;
                         // If the relative path does not exist relative to the cwd,
                         // attempt to make it relative to the cell root. If *that*
@@ -236,25 +256,23 @@ fn resolve_flagfile(path: &str, context: &mut ImmediateConfigContext) -> anyhow:
                         match fs_util::try_exists(&cell_relative_path) {
                             Ok(true) => {
                                 log_relative_path_from_cell_root(path_part)?;
-                                cell_relative_path
+                                cell_relative_path.into_abs_path_buf()
                             }
                             _ => {
                                 return Err(ArgExpansionError::MissingFlagFileOnDisk {
-                                    source: original_error,
-                                    path: p.to_string_lossy().into_owned(),
+                                    path: p.to_path_buf().to_string_lossy().into_owned(),
                                 }
                                 .into());
                             }
                         }
                     }
                 }
-            } else {
-                AbsNormPathBuf::try_from(p.to_owned())?
             }
         }
     };
 
-    context.push_trace(&resolved_path);
+    // FIXME(JakobDegen): Don't canonicalize
+    context.push_trace(&fs_util::canonicalize(&resolved_path)?);
     if path_part.ends_with(".py") {
         Ok(ArgFile::PythonExecutable(
             resolved_path,
@@ -279,10 +297,7 @@ mod tests {
         let mode_file = root.join("mode-file");
         // Test skips empty lines.
         fs_util::write(&mode_file, "a\n\nb\n").unwrap();
-        let lines = expand_argfile_contents(&ArgFile::Path(
-            AbsNormPathBuf::from(mode_file.to_string_lossy().into_owned()).unwrap(),
-        ))
-        .unwrap();
+        let lines = expand_argfile_contents(&ArgFile::Path(mode_file)).unwrap();
         assert_eq!(vec!["a".to_owned(), "b".to_owned()], lines);
     }
 
@@ -302,7 +317,8 @@ mod tests {
         );
         let mut context = ImmediateConfigContext::new(&cwd);
         let res =
-            expand_argfiles_with_context(vec!["@bar/arg1.txt".to_owned()], &mut context).unwrap();
+            expand_argfiles_with_context(vec!["@bar/arg1.txt".to_owned()], &mut context, &cwd)
+                .unwrap();
         assert_eq!(res, vec!["--magic".to_owned()]);
     }
 }

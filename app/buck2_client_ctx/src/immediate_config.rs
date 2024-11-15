@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::path::Path;
 use std::sync::OnceLock;
 use std::time::SystemTime;
 
@@ -100,12 +99,6 @@ impl<'a> ImmediateConfigContext<'a> {
 
     pub fn daemon_startup_config(&self) -> anyhow::Result<&DaemonStartupConfig> {
         Ok(&self.data()?.daemon_startup_config)
-    }
-
-    pub(crate) fn canonicalize(&self, path: &Path) -> anyhow::Result<AbsNormPathBuf> {
-        Ok(fs_util::canonicalize(
-            self.cwd.path().as_abs_path().join(path),
-        )?)
     }
 
     /// Resolves a cell path (i.e., contains `//`) into an absolute path. The cell path must have
