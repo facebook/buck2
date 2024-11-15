@@ -10,7 +10,6 @@
 use std::time::Duration;
 use std::time::Instant;
 
-use anyhow::Context as _;
 use async_recursion::async_recursion;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestConfig;
@@ -59,7 +58,7 @@ pub async fn build_entry_from_disk(
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
     project_root: &AbsNormPath,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     Option<ActionDirectoryEntry<ActionDirectoryBuilder>>,
     HashingInfo,
 )> {
@@ -88,7 +87,8 @@ pub async fn build_entry_from_disk(
             DirectoryEntry::Dir(dir)
         }
         FileType::Unknown => {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                [],
                 "Path {:?} is of an unknown file type.",
                 path
             ));
@@ -104,7 +104,7 @@ async fn build_dir_from_disk(
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
     project_root: &AbsNormPath,
-) -> anyhow::Result<(ActionDirectoryBuilder, HashingInfo)> {
+) -> buck2_error::Result<(ActionDirectoryBuilder, HashingInfo)> {
     let mut builder = ActionDirectoryBuilder::empty();
     let mut hashing_info = HashingInfo::default();
 
@@ -123,9 +123,9 @@ async fn build_dir_from_disk(
 
         let filename = filename
             .to_str()
-            .buck_error_context_anyhow("Filename is not UTF-8")
-            .and_then(|f| Ok(FileNameBuf::try_from(f.to_owned())?))
-            .with_buck_error_context_anyhow(|| {
+            .buck_error_context("Filename is not UTF-8")
+            .and_then(|f| FileNameBuf::try_from(f.to_owned()))
+            .with_buck_error_context(|| {
                 format!("Invalid filename: {}", disk_path.clone().display())
             })?;
 
@@ -184,7 +184,7 @@ fn build_file_metadata(
     disk_path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
     blocking_executor: &dyn BlockingExecutor,
-) -> impl Future<Output = anyhow::Result<(FileMetadata, HashingInfo)>> + '_ {
+) -> impl Future<Output = buck2_error::Result<(FileMetadata, HashingInfo)>> + '_ {
     static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
     let exec_path = disk_path.clone();
     let executable = blocking_executor.execute_io_inline(move || Ok(exec_path.executable()));
@@ -208,28 +208,27 @@ fn build_file_metadata(
 fn create_symlink(
     path: &AbsNormPathBuf,
     project_root: &AbsNormPath,
-) -> anyhow::Result<ActionDirectoryMember> {
+) -> buck2_error::Result<ActionDirectoryMember> {
     let mut symlink_target = fs_util::read_link(path)?;
     if cfg!(windows) && symlink_target.is_relative() {
         let directory_path = path
             .parent()
-            .context(format!("failed to get parent of {}", path.display()))?;
-        let canonical_path =
-            fs_util::canonicalize(directory_path).buck_error_context_anyhow(format!(
-                "failed to get canonical path of {}",
-                directory_path.display()
-            ))?;
+            .buck_error_context(format!("failed to get parent of {}", path.display()))?;
+        let canonical_path = fs_util::canonicalize(directory_path).buck_error_context(format!(
+            "failed to get canonical path of {}",
+            directory_path.display()
+        ))?;
         if !canonical_path.starts_with(project_root) {
             let normalized_target = symlink_target
                 .to_str()
-                .context("can't convert path to str")?
+                .buck_error_context("can't convert path to str")?
                 .replace('\\', "/");
             let target_abspath =
                 canonical_path.join_normalized(RelativePath::from_path(&normalized_target)?)?;
             // Recalculate symlink target if it points from symlinked buck-out to the files inside project root.
             if target_abspath.starts_with(project_root) {
                 symlink_target = diff_paths(target_abspath, directory_path)
-                    .context("can't calculate relative path")?;
+                    .buck_error_context("can't calculate relative path")?;
             }
         }
     }

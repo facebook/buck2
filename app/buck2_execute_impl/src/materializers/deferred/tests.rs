@@ -22,7 +22,7 @@ use super::VersionTracker;
 use super::*;
 
 #[test]
-fn test_find_artifacts() -> anyhow::Result<()> {
+fn test_find_artifacts() -> buck2_error::Result<()> {
     let artifact1 = ProjectRelativePathBuf::unchecked_new("foo/bar/baz".to_owned());
     let artifact2 = ProjectRelativePathBuf::unchecked_new("foo/bar/bar/qux".to_owned());
     let artifact3 = ProjectRelativePathBuf::unchecked_new("foo/bar/bar/quux".to_owned());
@@ -94,7 +94,6 @@ mod state_machine {
     use std::sync::Barrier;
     use std::thread;
 
-    use anyhow::Context;
     use assert_matches::assert_matches;
     use buck2_core::fs::fs_util;
     use buck2_core::fs::fs_util::ReadDir;
@@ -102,6 +101,8 @@ mod state_machine {
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::paths::RelativePathBuf;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_error::buck2_error;
+    use buck2_error::BuckErrorContext;
     use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
@@ -202,7 +203,7 @@ mod state_machine {
     impl StubIoHandler {
         fn actually_write(self: &Arc<Self>, path: &ProjectRelativePathBuf, write: &Arc<WriteFile>) {
             let data = zstd::bulk::decompress(&write.compressed_data, write.decompressed_size)
-                .context("Error decompressing data")
+                .buck_error_context("Error decompressing data")
                 .unwrap();
             self.fs.write_file(path, data, write.is_executable).unwrap();
         }
@@ -235,8 +236,8 @@ mod state_machine {
 
         async fn immediate_write<'a>(
             self: &Arc<Self>,
-            _gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
-        ) -> anyhow::Result<Vec<ArtifactValue>> {
+            _gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+        ) -> buck2_error::Result<Vec<ArtifactValue>> {
             unimplemented!()
         }
 
@@ -266,7 +267,7 @@ mod state_machine {
             self: &Arc<Self>,
             request: CleanInvalidatedPathRequest,
             _cancellations: &'a CancellationContext,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             if let Some(barriers) = self.clean_barriers.as_ref() {
                 // Allow tests to advance here, execute something and then continue
                 barriers.as_ref().0.wait();
@@ -293,7 +294,7 @@ mod state_machine {
 
             if (*self.fail_paths.lock()).contains(&path) || *self.fail.lock() {
                 self.log.lock().push((Op::MaterializeError, path));
-                Err(anyhow::anyhow!("Injected error").into())
+                Err(buck2_error::buck2_error!([], "Injected error").into())
             } else {
                 match _method.as_ref() {
                     ArtifactMaterializationMethod::Write(write) => {
@@ -310,7 +311,7 @@ mod state_machine {
             self: &Arc<Self>,
             _tree: &ArtifactTree,
             _min_ttl: Duration,
-        ) -> Option<BoxFuture<'static, anyhow::Result<()>>> {
+        ) -> Option<BoxFuture<'static, buck2_error::Result<()>>> {
             unimplemented!()
         }
 
@@ -384,7 +385,7 @@ mod state_machine {
         contents: &'static [u8],
         handle: &mut SubscriptionHandle<StubIoHandler>,
         dm: &DeferredMaterializerAccessor<StubIoHandler>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         dm.declare_write(Box::new(|| {
             Ok(vec![WriteRequest {
                 path: path.clone(),
@@ -507,7 +508,7 @@ mod state_machine {
                 ));
             }
         })
-        .context("Cannot start materializer thread")
+        .buck_error_context("Cannot start materializer thread")
         .unwrap();
 
         (
@@ -529,7 +530,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_declare_reuse() -> anyhow::Result<()> {
+    async fn test_declare_reuse() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let (mut dm, _) = make_processor(Default::default());
             let digest_config = dm.io.digest_config();
@@ -546,7 +547,7 @@ mod state_machine {
 
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
 
@@ -577,7 +578,7 @@ mod state_machine {
 
             let _ignore = dm
                 .materialize_artifact(&path2, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, path2.clone())]);
 
@@ -590,7 +591,7 @@ mod state_machine {
         target_path: &ProjectRelativePathBuf,
         target_from_symlink: &RelativePathBuf,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<ArtifactValue> {
+    ) -> buck2_error::Result<ArtifactValue> {
         let mut deps = ActionDirectoryBuilder::empty();
         let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
             digest_config.cas_digest_config(),
@@ -609,7 +610,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_materialize_symlink_and_target() -> anyhow::Result<()> {
+    async fn test_materialize_symlink_and_target() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             // Construct a tree with a symlink and its target, materialize both at once
             let symlink_path = make_path("foo/bar_symlink");
@@ -646,9 +647,9 @@ mod state_machine {
             assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await
-                .map_err(|_| anyhow::anyhow!("error materializing"))?;
+                .map_err(|_| buck2_error!([], "error materializing"))?;
 
             let logs = dm.io.take_log();
             if cfg!(unix) {
@@ -674,7 +675,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_materialize_symlink_first_then_target() -> anyhow::Result<()> {
+    async fn test_materialize_symlink_first_then_target() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             // Materialize a symlink, then materialize the target. Test that we still
             // materialize deps if the main artifact has already been materialized.
@@ -706,7 +707,7 @@ mod state_machine {
             // Materialize the symlink, at this point the target is not in the tree so it's ignored
             let res = dm
                 .materialize_artifact(&symlink_path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
 
             let logs = dm.io.take_log();
@@ -733,9 +734,9 @@ mod state_machine {
             // This time, we don't re-materialize the symlink as that's already been done.
             // But we still materialize the target as that has not been materialized yet.
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await
-                .map_err(|_| anyhow::anyhow!("error materializing"))?;
+                .map_err(|_| buck2_error!([], "error materializing"))?;
 
             let logs = dm.io.take_log();
             assert_eq!(logs, &[(Op::Materialize, target_path.clone())]);
@@ -806,7 +807,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_subscription_subscribe_also_materializes() -> anyhow::Result<()> {
+    async fn test_subscription_subscribe_also_materializes() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let (mut dm, mut channel) = make_processor(Default::default());
             let digest_config = dm.io.digest_config();
@@ -897,7 +898,7 @@ mod state_machine {
                 .expect("db missing")
                 .materializer_state_table()
                 .delete(vec![path.clone()])
-                .context("delete failed")
+                .buck_error_context("delete failed")
                 .unwrap();
             dm.declare_existing(&path, value2.dupe());
 
@@ -913,7 +914,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_invalidate_error() -> anyhow::Result<()> {
+    async fn test_invalidate_error() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async{
             let (mut dm, _) = make_processor(Default::default());
             let digest_config = dm.io.digest_config();
@@ -931,7 +932,7 @@ mod state_machine {
             // Now we check that materialization fails. This needs to wait on the previous clean.
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
 
             assert_matches!(
@@ -947,7 +948,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_materialize_dep_error() -> anyhow::Result<()> {
+    async fn test_materialize_dep_error() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             // Construct a tree with a symlink and its target, materialize both at once
             let symlink_path = make_path("foo/bar_symlink");
@@ -975,9 +976,9 @@ mod state_machine {
                 Box::new(ArtifactMaterializationMethod::Test),
             );
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await
-                .map_err(|err| anyhow::anyhow!("error materializing {:?}", err))?;
+                .map_err(|err| buck2_error!([], "error materializing {:?}", err))?;
             assert_eq!(
                 dm.io.take_log(),
                 &[
@@ -1011,7 +1012,7 @@ mod state_machine {
             dm.io.set_fail_on(vec![target_path.clone()]);
             let res = dm
                 .materialize_artifact(&symlink_path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
             assert_matches!(
             res,
@@ -1030,16 +1031,16 @@ mod state_machine {
             // Request symlink again, target is materialized and symlink materialization succeeds
             dm.io.set_fail_on(vec![]);
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await
-                .map_err(|err| anyhow::anyhow!("error materializing 2 {:?}", err))?;
+                .map_err(|err| buck2_error!([], "error materializing 2 {:?}", err))?;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, target_path.clone()), ]);
             Ok(())
         }).await
     }
 
     #[tokio::test]
-    async fn test_retry() -> anyhow::Result<()> {
+    async fn test_retry() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let (mut dm, mut channel) = make_processor(Default::default());
             let digest_config = dm.io.digest_config();
@@ -1056,7 +1057,7 @@ mod state_machine {
             // Materializing it fails.
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
 
             assert_matches!(
@@ -1070,7 +1071,7 @@ mod state_machine {
             // Rejoining the existing future fails.
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
 
             assert_matches!(
@@ -1092,7 +1093,7 @@ mod state_machine {
             // Materializing works now:
             let res = dm
                 .materialize_artifact(&path, EventDispatcher::null())
-                .context("Expected a future")?
+                .buck_error_context("Expected a future")?
                 .await;
 
             assert_matches!(res, Ok(()));
@@ -1102,7 +1103,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_clean_stale() -> anyhow::Result<()> {
+    async fn test_clean_stale() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let path = make_path("buck-out/v2/gen/foo/bar");
             let project_root = temp_root();
@@ -1143,7 +1144,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_clean_stale_interrupt() -> anyhow::Result<()> {
+    async fn test_clean_stale_interrupt() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let path = make_path("buck-out/v2/gen/foo/bar");
             let project_root = temp_root();
@@ -1234,7 +1235,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_clean_stale_schedule() -> anyhow::Result<()> {
+    async fn test_clean_stale_schedule() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let path = make_path("buck-out/v2/gen/foo/bar");
             let project_root = temp_root();
@@ -1299,7 +1300,7 @@ mod state_machine {
     }
 
     #[tokio::test]
-    async fn test_has_artifact_at() -> anyhow::Result<()> {
+    async fn test_has_artifact_at() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let (mut dm, _) = make_processor(Default::default());
             let digest_config = dm.io.digest_config();

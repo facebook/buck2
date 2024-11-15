@@ -16,7 +16,6 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -30,6 +29,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::tag_error;
 use buck2_core::tag_result;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -147,7 +148,7 @@ impl LocalExecutor {
         disable_miniperf: bool,
         action_digest: &'a str,
     ) -> impl futures::future::Future<
-        Output = anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>,
+        Output = buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)>,
     > + Send
     + 'a {
         async move {
@@ -175,7 +176,7 @@ impl LocalExecutor {
                     #[cfg(not(unix))]
                     {
                         let _unused = (forkserver, disable_miniperf, action_digest);
-                        Err(anyhow::anyhow!("Forkserver is not supported off-UNIX"))
+                        Err(buck2_error!([], "Forkserver is not supported off-UNIX"))
                     }
                 }
 
@@ -194,14 +195,16 @@ impl LocalExecutor {
 
                     let alive = liveliness_observer
                         .while_alive()
-                        .map(|()| anyhow::Ok(GatherOutputStatus::Cancelled));
+                        .map(|()| Ok(GatherOutputStatus::Cancelled));
 
                     let cancellation =
                         select(timeout.boxed(), alive.boxed()).map(|r| r.factor_first().0);
 
                     gather_output(cmd, cancellation).await
                 }
-                .with_context(|| format!("Failed to gather output from command: {}", exe)),
+                .with_buck_error_context(|| {
+                    format!("Failed to gather output from command: {}", exe)
+                }),
             }
         }
     }
@@ -254,7 +257,7 @@ impl LocalExecutor {
                 let scratch_path = r1?.scratch;
                 r2?;
 
-                anyhow::Ok((scratch_path, start.elapsed()))
+                buck2_error::Ok((scratch_path, start.elapsed()))
             },
         )
         .boxed()
@@ -285,9 +288,9 @@ impl LocalExecutor {
                     cancellations,
                 )
                 .await
-                .context("Error creating output directories")?;
+                .buck_error_context("Error creating output directories")?;
 
-                anyhow::Ok(())
+                buck2_error::Ok(())
             },
         )
         .boxed()
@@ -312,7 +315,8 @@ impl LocalExecutor {
                 if scratch_path_abs.as_os_str().len() > MAX_PATH {
                     return manager.error(
                         "scratch_dir_too_long",
-                        anyhow::anyhow!(
+                        buck2_error!(
+                            [],
                             "Scratch directory path is longer than MAX_PATH: {}",
                             scratch_path_abs
                         ),
@@ -345,7 +349,7 @@ impl LocalExecutor {
         let dispatcher = match get_dispatcher_opt() {
             Some(dispatcher) => dispatcher,
             None => {
-                return manager.error("no_dispatcher", anyhow::anyhow!("No dispatcher available"));
+                return manager.error("no_dispatcher", buck2_error!([], "No dispatcher available"));
             }
         };
         let build_id: &str = &dispatcher.trace_id().to_string();
@@ -555,7 +559,7 @@ impl LocalExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<(IndexMap<CommandExecutionOutput, ArtifactValue>, HashingInfo)> {
+    ) -> buck2_error::Result<(IndexMap<CommandExecutionOutput, ArtifactValue>, HashingInfo)> {
         let mut builder = inputs_directory(request.inputs(), &self.artifact_fs)?;
 
         // Read outputs from disk and add them to the builder
@@ -572,7 +576,7 @@ impl LocalExecutor {
                 self.artifact_fs.fs().root(),
             )
             .await
-            .with_context(|| format!("collecting output {:?}", path))?;
+            .with_buck_error_context(|| format!("collecting output {:?}", path))?;
             total_hashing_time += hashing_info.hashing_duration;
             total_hashed_outputs += hashing_info.hashed_artifacts_count;
             if let Some(entry) = entry {
@@ -833,7 +837,7 @@ pub async fn materialize_inputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-) -> anyhow::Result<MaterializedInputPaths> {
+) -> buck2_error::Result<MaterializedInputPaths> {
     let mut paths = vec![];
     let mut scratch = ScratchPath(None);
 
@@ -917,7 +921,7 @@ async fn check_inputs(
                                 // want to propagate it.
                                 let _ignored = tag_result!(
                                     "missing_local_inputs",
-                                    fs_util::symlink_metadata(&abs_path).context("Missing input").map_err(|e| e.into()),
+                                    fs_util::symlink_metadata(&abs_path).buck_error_context("Missing input").map_err(|e| e.into()),
                                     quiet: true,
                                     task: false,
                                     daemon_materializer_state_is_corrupted: true
@@ -952,7 +956,7 @@ pub async fn materialize_build_outputs_from_previous_run(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut paths = vec![];
 
     for output in request.outputs() {
@@ -979,7 +983,7 @@ pub async fn create_output_dirs(
     materializer: Arc<dyn Materializer>,
     blocking_executor: Arc<dyn BlockingExecutor>,
     cancellations: &CancellationContext<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let outputs: Vec<_> = request
         .outputs()
         .map(|output| output.resolve(artifact_fs))
@@ -1003,7 +1007,7 @@ pub async fn create_output_dirs(
                 cancellations,
             )
             .await
-            .context("Failed to cleanup output directory")?;
+            .buck_error_context("Failed to cleanup output directory")?;
     }
 
     let project_fs = artifact_fs.fs();
@@ -1092,7 +1096,7 @@ mod unix {
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
         action_digest: &str,
-    ) -> anyhow::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
+    ) -> buck2_error::Result<(GatherOutputStatus, Vec<u8>, Vec<u8>)> {
         let exe = exe.as_ref();
 
         let mut req = buck2_forkserver_proto::CommandRequest {
@@ -1112,9 +1116,9 @@ mod unix {
             action_digest: Some(action_digest.to_owned()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
-        forkserver
+        Ok(forkserver
             .execute(req, async move { liveliness_observer.while_alive().await })
-            .await
+            .await?)
     }
 
     trait CommandRequestExt {
@@ -1193,7 +1197,7 @@ mod tests {
         )
     }
 
-    fn test_executor() -> anyhow::Result<(LocalExecutor, AbsNormPathBuf, ProjectRootTemp)> {
+    fn test_executor() -> buck2_error::Result<(LocalExecutor, AbsNormPathBuf, ProjectRootTemp)> {
         let temp = ProjectRootTemp::new().unwrap();
         let project_fs = temp.path();
         let artifact_fs = artifact_fs(project_fs.dupe());
@@ -1218,7 +1222,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_exec_cmd_environment() -> anyhow::Result<()> {
+    async fn test_exec_cmd_environment() -> buck2_error::Result<()> {
         let (executor, root, _tmpdir) = test_executor()?;
 
         let interpreter = if cfg!(windows) { "powershell" } else { "sh" };
@@ -1237,7 +1241,7 @@ mod tests {
             .await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
 
-        let stdout = std::str::from_utf8(&stdout).context("Invalid stdout")?;
+        let stdout = std::str::from_utf8(&stdout).buck_error_context("Invalid stdout")?;
 
         if cfg!(windows) {
             let lines: Vec<&str> = stdout.split("\r\n").collect();
@@ -1254,7 +1258,7 @@ mod tests {
 
     #[cfg(unix)] // TODO: something similar on Windows: T123279320
     #[tokio::test]
-    async fn test_exec_cmd_environment_filtering() -> anyhow::Result<()> {
+    async fn test_exec_cmd_environment_filtering() -> buck2_error::Result<()> {
         use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 
         let (executor, _root, _tmpdir) = test_executor()?;

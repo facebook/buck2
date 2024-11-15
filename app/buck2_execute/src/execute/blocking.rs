@@ -10,10 +10,10 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_util::threads::thread_spawn;
 use crossbeam_channel::unbounded;
@@ -43,7 +43,7 @@ pub trait BlockingExecutor: Allocative + Send + Sync + 'static {
         &self,
         io: Box<dyn IoRequest>,
         cancellations: &'a CancellationContext,
-    ) -> BoxFuture<'a, anyhow::Result<()>>;
+    ) -> BoxFuture<'a, buck2_error::Result<()>>;
 
     /// The size of the queue of pending I/O.
     fn queue_size(&self) -> usize;
@@ -52,7 +52,7 @@ pub trait BlockingExecutor: Allocative + Send + Sync + 'static {
 impl dyn BlockingExecutor {
     pub async fn execute_io_inline<F, T>(&self, f: F) -> anyhow::Result<T>
     where
-        F: FnOnce() -> anyhow::Result<T> + Send,
+        F: FnOnce() -> buck2_error::Result<T> + Send,
         T: Send,
     {
         let mut res = None;
@@ -61,17 +61,17 @@ impl dyn BlockingExecutor {
             Ok(())
         }))
         .await?;
-        res.context("Inline I/O did not execute")
+        res.buck_error_context_anyhow("Inline I/O did not execute")
     }
 }
 
 pub trait IoRequest: Send + Sync + 'static {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()>;
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()>;
 }
 
 struct ThreadPoolIoRequest {
     io: Box<dyn IoRequest>,
-    sender: oneshot::Sender<anyhow::Result<()>>,
+    sender: oneshot::Sender<buck2_error::Result<()>>,
 }
 
 #[derive(Allocative)]
@@ -95,10 +95,9 @@ impl BuckBlockingExecutor {
     ///   host. This is because those operations often have to do CPU bound work to generate the data
     ///   they are trying to write, and writing to multiple files doesn't have the negative scaling
     ///   issues modifying the directory structure does.
-    pub fn default_concurrency(fs: ProjectRoot) -> anyhow::Result<Self> {
-        let io_threads = buck2_env_anyhow!("BUCK2_IO_THREADS", type=usize, default=4)?;
-        let io_semaphore =
-            buck2_env_anyhow!("BUCK2_IO_SEMAPHORE", type=usize, default=num_cpus::get())?;
+    pub fn default_concurrency(fs: ProjectRoot) -> buck2_error::Result<Self> {
+        let io_threads = buck2_env!("BUCK2_IO_THREADS", type=usize, default=4)?;
+        let io_semaphore = buck2_env!("BUCK2_IO_SEMAPHORE", type=usize, default=num_cpus::get())?;
 
         let (command_sender, command_receiver) = unbounded();
 
@@ -111,7 +110,7 @@ impl BuckBlockingExecutor {
                     let _ignored = sender.send(res);
                 }
             })
-            .context("Failed to spawn io worker")?;
+            .buck_error_context("Failed to spawn io worker")?;
         }
 
         Ok(Self {
@@ -140,7 +139,7 @@ impl BlockingExecutor for BuckBlockingExecutor {
         &self,
         io: Box<dyn IoRequest>,
         cancellations: &'a CancellationContext,
-    ) -> BoxFuture<'a, anyhow::Result<()>> {
+    ) -> BoxFuture<'a, buck2_error::Result<()>> {
         let (sender, receiver) = oneshot::channel();
 
         // Ignore errors sending as they'll translate to an error receiving once we drop the
@@ -148,7 +147,9 @@ impl BlockingExecutor for BuckBlockingExecutor {
         let _ignored = self.command_sender.send(ThreadPoolIoRequest { io, sender });
 
         cancellations
-            .critical_section(|| async move { receiver.await.context("Pool shut down")? })
+            .critical_section(
+                || async move { receiver.await.buck_error_context("Pool shut down")? },
+            )
             .boxed()
     }
 
@@ -202,7 +203,7 @@ pub mod testing {
             &self,
             io: Box<dyn IoRequest>,
             _cancellations: &'a CancellationContext,
-        ) -> BoxFuture<'a, anyhow::Result<()>> {
+        ) -> BoxFuture<'a, buck2_error::Result<()>> {
             futures::future::ready(io.execute(&self.fs)).boxed()
         }
 

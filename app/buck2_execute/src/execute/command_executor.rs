@@ -11,7 +11,6 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
@@ -20,6 +19,9 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
+#[cfg(fbcode_build)]
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
@@ -133,7 +135,7 @@ impl CommandExecutor {
         re_result: Option<TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
         action_digest_and_blobs: &ActionDigestAndBlobs,
-    ) -> anyhow::Result<CacheUploadResult> {
+    ) -> buck2_error::Result<CacheUploadResult> {
         self.0
             .cache_uploader
             .upload(
@@ -173,7 +175,7 @@ impl CommandExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<PreparedAction> {
+    ) -> buck2_error::Result<PreparedAction> {
         executor_stage(buck2_data::PrepareAction {}, || {
             let input_digest = request.paths().input_directory().fingerprint();
 
@@ -200,7 +202,7 @@ impl CommandExecutor {
                 request.remote_execution_dependencies(),
             )?;
 
-            anyhow::Ok(action)
+            buck2_error::Ok(action)
         })
     }
 }
@@ -219,7 +221,7 @@ fn re_create_action(
     output_paths_behavior: OutputPathsBehavior,
     unique_input_inodes: bool,
     remote_execution_dependencies: &Vec<RemoteExecutorDependency>,
-) -> anyhow::Result<PreparedAction> {
+) -> buck2_error::Result<PreparedAction> {
     let mut command = RE::Command {
         arguments: args,
         platform: Some(platform),
@@ -265,7 +267,8 @@ fn re_create_action(
         OutputPathsBehavior::OutputPaths => {
             #[cfg(fbcode_build)]
             {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "output_paths is not supported in fbcode_build"
                 ));
             }
@@ -304,7 +307,7 @@ fn re_create_action(
         timeout: timeout
             .map(|t| t.try_into())
             .transpose()
-            .context("Cannot convert timeout to GRPC")?,
+            .buck_error_context("Cannot convert timeout to GRPC")?,
         do_not_cache,
         ..Default::default()
     };

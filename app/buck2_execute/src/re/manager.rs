@@ -17,15 +17,15 @@ use std::sync::Weak;
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::async_once_cell::AsyncOnceCell;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use chrono::DateTime;
 use chrono::Utc;
@@ -96,7 +96,7 @@ pub struct RemoteExecutionConfig {
 }
 
 impl RemoteExecutionConfig {
-    async fn connect_now(&self) -> anyhow::Result<RemoteExecutionClient> {
+    async fn connect_now(&self) -> buck2_error::Result<RemoteExecutionClient> {
         RemoteExecutionClient::new_retry(&self).await
     }
 }
@@ -133,7 +133,7 @@ impl LazyRemoteExecutionClient {
         }
     }
 
-    async fn get(&self) -> anyhow::Result<&RemoteExecutionClient> {
+    async fn get(&self) -> buck2_error::Result<&RemoteExecutionClient> {
         // The future from self.init() is large and very rarely required. We want
         // to ensure that (1) it doesn't contribute to the size of the get() future
         // (which is used for basically every call) and (2) isn't even allocated on
@@ -234,8 +234,9 @@ impl ReConnectionManager {
         }
     }
 
-    pub fn get_network_stats(&self) -> anyhow::Result<RemoteExecutionClientStats> {
-        let client_stats = RE::get_network_stats().context("Error getting RE network stats")?;
+    pub fn get_network_stats(&self) -> buck2_error::Result<RemoteExecutionClientStats> {
+        let client_stats =
+            RE::get_network_stats().buck_error_context("Error getting RE network stats")?;
 
         // Those two fields come from RE and are always available.
         let mut res = RemoteExecutionClientStats {
@@ -262,7 +263,7 @@ impl ReConnectionManager {
 
 #[async_trait]
 impl ReGetSessionId for ReConnectionManager {
-    async fn get_session_id(&self) -> anyhow::Result<String> {
+    async fn get_session_id(&self) -> buck2_error::Result<String> {
         self.get_re_connection().get_client().get_session_id().await
     }
 }
@@ -319,17 +320,17 @@ impl ManagedRemoteExecutionClient {
         self
     }
 
-    fn lock(&self) -> anyhow::Result<Arc<Arc<LazyRemoteExecutionClient>>> {
+    fn lock(&self) -> buck2_error::Result<Arc<Arc<LazyRemoteExecutionClient>>> {
         self.data
             .upgrade()
-            .context("Internal error: the underlying RE connection has terminated because the corresponding guard has been dropped.")
+            .buck_error_context("Internal error: the underlying RE connection has terminated because the corresponding guard has been dropped.")
     }
 
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<Option<ActionResultResponse>> {
+    ) -> buck2_error::Result<Option<ActionResultResponse>> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         Ok(self
             .lock()?
@@ -351,7 +352,7 @@ impl ManagedRemoteExecutionClient {
         use_case: RemoteExecutorUseCase,
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<UploadStats> {
+    ) -> buck2_error::Result<UploadStats> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -375,7 +376,7 @@ impl ManagedRemoteExecutionClient {
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -402,7 +403,7 @@ impl ManagedRemoteExecutionClient {
         re_max_queue_time: Option<Duration>,
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
-    ) -> anyhow::Result<ExecuteResponseOrCancelled> {
+    ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -427,7 +428,7 @@ impl ManagedRemoteExecutionClient {
         &self,
         files: Vec<NamedDigestWithPermissions>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -441,7 +442,7 @@ impl ManagedRemoteExecutionClient {
         identity: Option<&ReActionIdentity<'_>>,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<Vec<T>> {
+    ) -> buck2_error::Result<Vec<T>> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -454,7 +455,7 @@ impl ManagedRemoteExecutionClient {
         &self,
         digest: &TDigest,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> buck2_error::Result<Vec<u8>> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -467,7 +468,7 @@ impl ManagedRemoteExecutionClient {
         &self,
         blob: Vec<u8>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<TDigest> {
+    ) -> buck2_error::Result<TDigest> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?.get().await?.upload_blob(blob, use_case).await
     }
@@ -476,7 +477,7 @@ impl ManagedRemoteExecutionClient {
         &self,
         digests: Vec<TDigest>,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<Vec<(TDigest, DateTime<Utc>)>> {
+    ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -490,7 +491,7 @@ impl ManagedRemoteExecutionClient {
         digests: Vec<TDigest>,
         ttl: Duration,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
             .get()
@@ -505,9 +506,9 @@ impl ManagedRemoteExecutionClient {
         result: TActionResult2,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
-    ) -> anyhow::Result<WriteActionResultResponse> {
+    ) -> buck2_error::Result<WriteActionResultResponse> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
-        if buck2_env_anyhow!(
+        if buck2_env!(
             "BUCK2_TEST_SKIP_ACTION_CACHE_WRITE",
             bool,
             applicability = testing
@@ -525,7 +526,7 @@ impl ManagedRemoteExecutionClient {
         }
     }
 
-    pub async fn get_session_id(&self) -> anyhow::Result<String> {
+    pub async fn get_session_id(&self) -> buck2_error::Result<String> {
         let session_id = self.lock()?.get().await?.get_session_id().to_owned();
         Ok(session_id)
     }

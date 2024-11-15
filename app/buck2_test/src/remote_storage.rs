@@ -30,9 +30,9 @@ pub async fn apply_config(
             // the TTL of symlinks. Additionally, it is rare for test outputs to include symlinks, but if they do,
             // we are materializing them on disk.
             let digests = collect_digests(artifact.entry());
-            client
+            Ok(client
                 .extend_digest_ttl(digests, ttl_config.ttl, ttl_config.use_case.dupe())
-                .await
+                .await?)
         }
         _ => Ok(()),
     }

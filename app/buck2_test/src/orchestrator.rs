@@ -920,7 +920,10 @@ impl<'b> BuckTestOrchestrator<'b> {
 
         // For test execution, we currently do not do any cache queries
 
-        let prepared_action = executor.prepare_action(&request, digest_config)?;
+        let prepared_action = match executor.prepare_action(&request, digest_config) {
+            Ok(prepared_action) => prepared_action,
+            Err(e) => return Err(ExecuteError::Error(e.into())),
+        };
         let prepared_command = PreparedCommand {
             target: &test_target as _,
             request: &request,
@@ -966,7 +969,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                         target: &test_target as _,
                         digest_config,
                     };
-                    let _result = executor
+                    let _result = match executor
                         .cache_upload(
                             &info,
                             &result,
@@ -974,7 +977,11 @@ impl<'b> BuckTestOrchestrator<'b> {
                             None,
                             &prepared_action.action_and_blobs,
                         )
-                        .await?;
+                        .await
+                    {
+                        Ok(result) => result,
+                        Err(e) => return Err(ExecuteError::Error(e.into())),
+                    };
                 }
                 result
             }

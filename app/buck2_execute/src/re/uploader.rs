@@ -30,6 +30,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
+use buck2_error::BuckErrorContext;
 use chrono::Duration;
 use chrono::Utc;
 use futures::FutureExt;
@@ -331,7 +332,7 @@ impl Uploader {
             materializer
                 .ensure_materialized(paths_to_materialize)
                 .await
-                .context("Error materializing paths for upload")?;
+                .buck_error_context_anyhow("Error materializing paths for upload")?;
         }
 
         // Compute stats of digests we're about to upload so we can report them

@@ -12,7 +12,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithmFamily;
 use buck2_common::cas_digest::SHA1_SIZE;
@@ -22,6 +21,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::BuckErrorContext;
 use buck2_http::retries::http_retry;
 use buck2_http::retries::AsHttpError;
 use buck2_http::retries::HttpError;
@@ -67,7 +67,7 @@ enum DownloadFileError {
 }
 
 impl Checksum {
-    pub fn new(sha1: Option<&str>, sha256: Option<&str>) -> anyhow::Result<Self> {
+    pub fn new(sha1: Option<&str>, sha256: Option<&str>) -> buck2_error::Result<Self> {
         fn is_hex_digit(x: char) -> bool {
             let x = x.to_ascii_lowercase();
             x.is_ascii_digit() || ('a'..='f').contains(&x)
@@ -77,7 +77,7 @@ impl Checksum {
             digest: Option<&str>,
             digest_len: usize,
             digest_type: &'static str,
-        ) -> anyhow::Result<Option<Arc<str>>> {
+        ) -> buck2_error::Result<Option<Arc<str>>> {
             match digest {
                 None => Ok(None),
                 Some(digest) => {
@@ -164,7 +164,7 @@ enum HttpDownloadError {
     },
 
     #[error(transparent)]
-    IoError(anyhow::Error),
+    IoError(buck2_error::Error),
 }
 
 impl From<HttpError> for HttpDownloadError {
@@ -192,7 +192,7 @@ impl AsHttpError for HttpDownloadError {
     }
 }
 
-pub async fn http_head(client: &HttpClient, url: &str) -> anyhow::Result<Response<()>> {
+pub async fn http_head(client: &HttpClient, url: &str) -> buck2_error::Result<Response<()>> {
     let response = http_retry(
         || async {
             client
@@ -214,7 +214,7 @@ pub async fn http_download(
     url: &str,
     checksum: &Checksum,
     executable: bool,
-) -> anyhow::Result<TrackedFileDigest> {
+) -> buck2_error::Result<TrackedFileDigest> {
     let abs_path = fs.resolve(path);
     if let Some(dir) = abs_path.parent() {
         fs_util::create_dir_all(dir)?;
@@ -223,7 +223,7 @@ pub async fn http_download(
     Ok(http_retry(
         || async {
             let file = fs_util::create_file(&abs_path)
-                .map_err(|e| HttpDownloadError::IoError(anyhow::Error::from(e)))?;
+                .map_err(|e| HttpDownloadError::IoError(buck2_error::Error::from(e)))?;
 
             let stream = client
                 .get(url)
@@ -308,7 +308,7 @@ async fn copy_and_hash(
         })?;
         writer
             .write(&chunk)
-            .with_context(|| format!("write({})", abs_path))
+            .with_buck_error_context(|| format!("write({})", abs_path))
             .map_err(HttpDownloadError::IoError)?;
 
         digester.update(&chunk);
@@ -320,7 +320,7 @@ async fn copy_and_hash(
     }
     writer
         .flush()
-        .with_context(|| format!("flush({})", abs_path))
+        .with_buck_error_context(|| format!("flush({})", abs_path))
         .map_err(HttpDownloadError::IoError)?;
 
     let digest = digester.finalize();
@@ -383,7 +383,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_copy_and_hash_ok() -> anyhow::Result<()> {
+    async fn test_copy_and_hash_ok() -> buck2_error::Result<()> {
         let (digest, bytes) = do_test(
             testing::blake3(),
             &Checksum::Both {
@@ -406,7 +406,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_copy_and_hash_invalid_primary_hash() -> anyhow::Result<()> {
+    async fn test_copy_and_hash_invalid_primary_hash() -> buck2_error::Result<()> {
         assert_matches!(
             do_test(testing::sha1(), &Checksum::Sha1(Arc::from("oops"))).await,
             Err(HttpDownloadError::InvalidChecksum(..))
@@ -421,7 +421,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_copy_and_hash_invalid_secondary_hash() -> anyhow::Result<()> {
+    async fn test_copy_and_hash_invalid_secondary_hash() -> buck2_error::Result<()> {
         assert_matches!(
             do_test(testing::blake3(), &Checksum::Sha1(Arc::from("oops"))).await,
             Err(HttpDownloadError::InvalidChecksum(..))

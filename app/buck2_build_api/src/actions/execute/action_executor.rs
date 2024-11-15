@@ -12,7 +12,6 @@ use std::ops::ControlFlow;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_common::dice::data::HasIoProvider;
@@ -23,6 +22,7 @@ use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -395,9 +395,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         &mut self,
         request: &CommandExecutionRequest,
     ) -> anyhow::Result<PreparedAction> {
-        self.executor
+        Ok(self
+            .executor
             .command_executor
-            .prepare_action(request, self.digest_config())
+            .prepare_action(request, self.digest_config())?)
     }
 
     async fn action_cache(
@@ -513,7 +514,8 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
     ) -> anyhow::Result<CacheUploadResult> {
         let action = self.target();
-        self.executor
+        Ok(self
+            .executor
             .command_executor
             .cache_upload(
                 &CacheUploadInfo {
@@ -525,7 +527,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 dep_file_bundle,
                 action_digest_and_blobs,
             )
-            .await
+            .await?)
     }
 
     async fn cleanup_outputs(&mut self) -> anyhow::Result<()> {
@@ -545,7 +547,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .materializer
             .invalidate_many(output_paths.clone())
             .await
-            .context("Failed to invalidate output directory")?;
+            .buck_error_context_anyhow("Failed to invalidate output directory")?;
 
         self.executor
             .blocking_executor
@@ -556,7 +558,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 self.cancellations,
             )
             .await
-            .context("Failed to cleanup output directory")?;
+            .buck_error_context_anyhow("Failed to cleanup output directory")?;
 
         Ok(())
     }

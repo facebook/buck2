@@ -25,6 +25,7 @@ use buck2_core::soft_error;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::buck2_error;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
@@ -113,7 +114,7 @@ pub enum ExecutorPreference {
 }
 
 impl ExecutorPreference {
-    pub fn and(self, other: Self) -> anyhow::Result<Self> {
+    pub fn and(self, other: Self) -> buck2_error::Result<Self> {
         let requires_remote = self.requires_remote() || other.requires_remote();
         let requires_local = self.requires_local() || other.requires_local();
 
@@ -215,7 +216,7 @@ impl CommandExecutionPaths {
         outputs: IndexSet<CommandExecutionOutput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut builder = inputs_directory(&inputs, fs)?;
 
         let output_paths = outputs
@@ -228,7 +229,7 @@ impl CommandExecutionPaths {
                 let output_type = resolved.output_type;
                 Ok((resolved.into_path(), output_type))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
         insert_entry(
             &mut builder,
@@ -507,11 +508,12 @@ impl CommandExecutionRequest {
     pub fn with_required_local_resources(
         mut self,
         required_local_resources: Vec<LocalResourceState>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let original_len = required_local_resources.len();
         self.required_local_resources = required_local_resources.into_iter().collect();
         if self.required_local_resources.len() != original_len {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error!(
+                [],
                 "Each provided local resource state is supposed to come from a different target."
             ));
         }
@@ -569,7 +571,7 @@ impl OutputType {
         self,
         path_for_error_message: impl Display,
         output_type: OutputType,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self == OutputType::Directory && output_type == OutputType::FileOrDirectory {
             // If we treat paths whose declared type is FileOrDirectory like files, then that's incompatible with directory
             soft_error!(

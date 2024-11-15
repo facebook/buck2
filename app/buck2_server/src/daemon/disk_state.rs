@@ -72,7 +72,8 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         // Otherwise, artifacts in buck-out will diverge from the state stored in db.
         io_executor
             .execute_io_inline(|| {
-                fs_util::remove_all(&paths.materializer_state_path()).map_err(anyhow::Error::from)
+                fs_util::remove_all(&paths.materializer_state_path())
+                    .map_err(buck2_error::Error::from)
             })
             .await?;
         return Ok((None, None));

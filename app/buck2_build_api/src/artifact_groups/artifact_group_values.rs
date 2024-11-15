@@ -234,8 +234,8 @@ impl ArtifactGroupValuesDyn for ArtifactGroupValues {
         &self,
         builder: &mut ActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
-    ) -> anyhow::Result<()> {
-        self.add_to_directory(builder, artifact_fs)
+    ) -> buck2_error::Result<()> {
+        Ok(self.add_to_directory(builder, artifact_fs)?)
     }
 }
 

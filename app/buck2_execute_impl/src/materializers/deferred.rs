@@ -28,12 +28,11 @@ use std::task::Context;
 use std::task::Poll;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessGuard;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -45,7 +44,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_error::AnyhowContextForError;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::get_dispatcher;
@@ -184,8 +183,8 @@ pub struct DeferredMaterializerStats {
     declares_reused: AtomicU64,
 }
 
-fn access_time_update_max_buffer_size() -> anyhow::Result<usize> {
-    buck2_env_anyhow!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=5000)
+fn access_time_update_max_buffer_size() -> buck2_error::Result<usize> {
+    buck2_env!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=5000)
 }
 
 pub struct DeferredMaterializerConfigs {
@@ -222,7 +221,7 @@ pub enum AccessTimesUpdatesError {
 }
 
 impl AccessTimesUpdates {
-    pub fn try_new_from_config_value(config_value: Option<&str>) -> anyhow::Result<Self> {
+    pub fn try_new_from_config_value(config_value: Option<&str>) -> buck2_error::Result<Self> {
         match config_value {
             None | Some("") | Some("full") => Ok(AccessTimesUpdates::Full),
             Some("partial") => Ok(AccessTimesUpdates::Partial),
@@ -317,7 +316,7 @@ pub(crate) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// small and we create it infrequently, that's fine.
     ttl_refresh_history: Vec<TtlRefreshHistoryEntry>,
     /// The current ttl_refresh instance, if any exists.
-    ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, anyhow::Result<()>)>>,
+    ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, buck2_error::Result<()>)>>,
     cancellations: &'static CancellationContext<'static>,
     stats: Arc<DeferredMaterializerStats>,
     access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
@@ -327,7 +326,7 @@ pub(crate) struct DeferredMaterializerCommandProcessor<T: 'static> {
 
 struct TtlRefreshHistoryEntry {
     at: DateTime<Utc>,
-    outcome: Option<anyhow::Result<()>>,
+    outcome: Option<buck2_error::Result<()>>,
 }
 
 // NOTE: This doesn't derive `Error` and that's on purpose.  We don't want to make it easy (or
@@ -341,21 +340,21 @@ pub enum SharedMaterializingError {
 #[derive(buck2_error::Error, Debug)]
 pub enum MaterializeEntryError {
     #[error(transparent)]
-    Error(anyhow::Error),
+    Error(buck2_error::Error),
 
     /// The artifact wasn't found. This typically means it expired in the CAS.
     #[error(transparent)]
     NotFound(CasNotFoundError),
 }
 
-impl From<anyhow::Error> for MaterializeEntryError {
-    fn from(e: anyhow::Error) -> MaterializeEntryError {
+impl From<buck2_error::Error> for MaterializeEntryError {
+    fn from(e: buck2_error::Error) -> MaterializeEntryError {
         Self::Error(e)
     }
 }
 
-impl From<buck2_error::Error> for MaterializeEntryError {
-    fn from(e: buck2_error::Error) -> MaterializeEntryError {
+impl From<anyhow::Error> for MaterializeEntryError {
+    fn from(e: anyhow::Error) -> MaterializeEntryError {
         Self::Error(e.into())
     }
 }
@@ -730,7 +729,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn declare_existing(
         &self,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let cmd = MaterializerCommand::DeclareExisting(
             artifacts,
             current_span(),
@@ -746,7 +745,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
         _cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // TODO(rafaelc): get rid of this tree; it'd save a lot of memory.
         let mut srcs_tree = FileTree::new();
         for copied_artifact in srcs.iter() {
@@ -784,7 +783,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
         _cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         for (path, value) in artifacts {
             let cmd = MaterializerCommand::Declare(
                 path,
@@ -802,7 +801,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
         _cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let cmd = MaterializerCommand::Declare(
             path,
             ArtifactValue::file(info.metadata.dupe()),
@@ -816,8 +815,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
     async fn declare_write<'a>(
         &self,
-        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
-    ) -> anyhow::Result<Vec<ArtifactValue>> {
+        gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> buck2_error::Result<Vec<ArtifactValue>> {
         if !self.defer_write_actions {
             return self.io.immediate_write(gen).await;
         }
@@ -847,7 +846,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             // NOTE: The zstd crate doesn't release extra capacity of its encoding buffer so it's
             // important to do so here (or the compressed Vec is the same capacity as the input!).
             let compressed_data = zstd::bulk::compress(&content, 0)
-                .with_context(|| format!("Error compressing {} bytes", content.len()))?
+                .with_buck_error_context(|| format!("Error compressing {} bytes", content.len()))?
                 .into_boxed_slice();
 
             paths.push(path);
@@ -875,7 +874,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn declare_match(
         &self,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-    ) -> anyhow::Result<DeclareMatchOutcome> {
+    ) -> buck2_error::Result<DeclareMatchOutcome> {
         let (sender, recv) = oneshot::channel();
 
         self.command_sender
@@ -883,12 +882,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
         let is_match = recv
             .await
-            .context("Recv'ing match future from command thread.")?;
+            .buck_error_context("Recv'ing match future from command thread.")?;
 
         Ok(is_match.into())
     }
 
-    async fn has_artifact_at(&self, path: ProjectRelativePathBuf) -> anyhow::Result<bool> {
+    async fn has_artifact_at(&self, path: ProjectRelativePathBuf) -> buck2_error::Result<bool> {
         let (sender, recv) = oneshot::channel();
 
         self.command_sender
@@ -896,12 +895,12 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
         let has_artifact = recv
             .await
-            .context("Recv'ing match future from command thread.")?;
+            .buck_error_context("Recv'ing match future from command thread.")?;
 
         Ok(has_artifact)
     }
 
-    async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
+    async fn invalidate_many(&self, paths: Vec<ProjectRelativePathBuf>) -> buck2_error::Result<()> {
         let (sender, recv) = oneshot::channel();
 
         self.command_sender
@@ -913,13 +912,13 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
         // Wait on future to finish before invalidation can continue.
         let invalidate_fut = recv.await?;
-        invalidate_fut.await.map_err(anyhow::Error::from)
+        invalidate_fut.await.map_err(buck2_error::Error::from)
     }
 
     async fn materialize_many(
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
-    ) -> anyhow::Result<BoxStream<'static, Result<(), MaterializationError>>> {
+    ) -> buck2_error::Result<BoxStream<'static, Result<(), MaterializationError>>> {
         let event_dispatcher = get_dispatcher();
 
         // TODO: display [materializing] in superconsole
@@ -930,17 +929,17 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                 event_dispatcher,
                 sender,
             ))
-            .context("Sending Ensure() command.")?;
+            .buck_error_context("Sending Ensure() command.")?;
         let materialization_fut = recv
             .await
-            .context("Receiving materialization future from command thread.")?;
+            .buck_error_context("Receiving materialization future from command thread.")?;
         Ok(materialization_fut)
     }
 
     async fn try_materialize_final_artifact(
         &self,
         artifact_path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<bool> {
+    ) -> buck2_error::Result<bool> {
         if self.materialize_final_artifacts {
             self.ensure_materialized(vec![artifact_path]).await?;
             Ok(true)
@@ -952,7 +951,8 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn get_materialized_file_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
-    ) -> anyhow::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>> {
+    ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>
+    {
         if paths.is_empty() {
             return Ok(Vec::new());
         }
@@ -993,7 +993,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
         sqlite_state: Option<MaterializerState>,
         http_client: HttpClient,
         daemon_dispatcher: EventDispatcher,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let (high_priority_sender, high_priority_receiver) = mpsc::unbounded_channel();
         let (low_priority_sender, low_priority_receiver) = mpsc::unbounded_channel();
 
@@ -1078,7 +1078,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 ));
             }
         })
-        .context("Cannot start materializer thread")?;
+        .buck_error_context("Cannot start materializer thread")?;
 
         Ok(Self {
             command_thread: Some(command_thread),
@@ -1129,7 +1129,7 @@ struct CommandStream<T: 'static> {
     refresh_ttl_ticker: Option<Interval>,
     io_buffer_ticker: Interval,
     clean_stale_ticker: Option<Interval>,
-    clean_stale_fut: Option<BoxFuture<'static, anyhow::Result<CleanResult>>>,
+    clean_stale_fut: Option<BoxFuture<'static, buck2_error::Result<CleanResult>>>,
 }
 
 enum Op<T: 'static> {
@@ -1343,7 +1343,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         // This should never happen
                         soft_error!(
                             "clean_stale_no_config",
-                            anyhow::anyhow!("clean scheduled without being configured").into(),
+                            buck2_error!([], "clean scheduled without being configured").into(),
                             quiet: true
                         )
                         .unwrap();
@@ -1483,7 +1483,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     // Shouldnt really happen unless Tokio is shutting down, but be safe.
                     self.ttl_refresh_history.push(TtlRefreshHistoryEntry {
                         at: Utc::now(),
-                        outcome: Some(Err(anyhow::anyhow!("Shutdown"))),
+                        outcome: Some(Err(buck2_error!([], "Shutdown"))),
                     });
                     None
                 }
@@ -1521,7 +1521,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 {
                     soft_error!(
                         "materializer_materialize_error",
-                        e.context(self.log_buffer.clone()).into(),
+                        e.context(format!("{}", self.log_buffer)).into(),
                         quiet: true
                     )
                     .unwrap();
@@ -1605,7 +1605,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 } => {
                     // NOTE: This is for testing performance when hitting mismatches with disk
                     // state. Unwrapping isn't ideal, but we can't report errors here.
-                    let force_mismatch = buck2_env_anyhow!(
+                    let force_mismatch = buck2_env!(
                         "BUCK2_TEST_FORCE_DECLARE_MISMATCH",
                         bool,
                         applicability = testing
@@ -1776,7 +1776,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .materializer_state_table()
                         .update_access_times(vec![&path])
                     {
-                        soft_error!("has_artifact_update_time", e.context(self.log_buffer.clone()).into(), quiet: true).unwrap();
+                        soft_error!("has_artifact_update_time", e.context(format!("{}", self.log_buffer)).into(), quiet: true).unwrap();
                     }
                 }
             }
@@ -1823,9 +1823,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         stack: MaterializeStack<'_>,
         path: &ProjectRelativePath,
         event_dispatcher: EventDispatcher,
-    ) -> anyhow::Result<Option<MaterializingFuture>> {
+    ) -> buck2_error::Result<Option<MaterializingFuture>> {
         // TODO(nga): rewrite without recursion or figure out why we overflow stack here.
-        check_stack_overflow().tag_anyhow(ErrorTag::ServerStackOverflow)?;
+        check_stack_overflow().tag(ErrorTag::ServerStackOverflow)?;
 
         // Get the data about the artifact, or return early if materializing/materialized
         let mut path_iter = path.iter();
@@ -1964,7 +1964,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     if let Some(cleaning_fut) = cleaning_fut {
                         cleaning_fut
                             .await
-                            .with_context(|| "Error cleaning output path")
+                            .with_buck_error_context(|| "Error cleaning output path")
                             .map_err(|e| SharedMaterializingError::Error(e.into()))?;
                     };
 
@@ -2154,7 +2154,8 @@ fn on_materialization(
             .materializer_state_table()
             .insert(path, metadata, timestamp)
         {
-            soft_error!(error_name, e.context(log_buffer.clone()).into(), quiet: true).unwrap();
+            soft_error!(error_name, e.context(format!("{}", log_buffer)).into(), quiet: true)
+                .unwrap();
         }
     }
 
@@ -2280,7 +2281,7 @@ impl ArtifactTree {
     ) {
         match self
             .prefix_get_mut(&mut artifact_path.iter())
-            .context("Path is vacant")
+            .buck_error_context("Path is vacant")
         {
             Ok(info) => {
                 if info.processing.current_version() > version {
@@ -2310,7 +2311,7 @@ impl ArtifactTree {
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
-    ) -> anyhow::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {
+    ) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {
         let mut invalidated_paths = Vec::new();
         let mut futs = Vec::new();
 
@@ -2327,7 +2328,7 @@ impl ArtifactTree {
         {
             for path in &invalidated_paths {
                 if path.as_str() == "test/invalidate/failure" {
-                    return Err(anyhow::anyhow!("Injected error"));
+                    return Err(buck2_error!([], "Injected error"));
                 }
             }
         }
@@ -2339,7 +2340,7 @@ impl ArtifactTree {
             sqlite_db
                 .materializer_state_table()
                 .delete(invalidated_paths)
-                .context("Error invalidating paths in materializer state")?;
+                .buck_error_context("Error invalidating paths in materializer state")?;
         }
 
         Ok(futs)
@@ -2485,7 +2486,7 @@ async fn join_all_existing_futs(
                 f.await.ok();
             }
             ProcessingFuture::Cleaning(f) => {
-                f.await.with_context(|| {
+                f.await.with_buck_error_context(|| {
                     format!(
                         "Error waiting for a previous future to finish cleaning output path {}",
                         path
@@ -2533,14 +2534,14 @@ fn clean_path<T: IoHandler>(
 }
 
 /// A wrapper type around the Result it contains. Used to expose some extra methods.
-struct ExistingFutures(anyhow::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>);
+struct ExistingFutures(buck2_error::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>>);
 
 impl ExistingFutures {
     fn is_empty(&self) -> bool {
         self.0.as_ref().map_or(false, |f| f.is_empty())
     }
 
-    fn into_result(self) -> anyhow::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {
+    fn into_result(self) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {
         self.0
     }
 

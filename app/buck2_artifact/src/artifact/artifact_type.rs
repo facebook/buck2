@@ -170,7 +170,7 @@ impl Artifact {
 
 impl ArtifactDyn for Artifact {
     fn resolve_path(&self, fs: &ArtifactFs) -> buck2_error::Result<ProjectRelativePathBuf> {
-        Ok(self.get_path().resolve(fs)?)
+        self.get_path().resolve(fs)
     }
 
     fn requires_materialization(&self, fs: &ArtifactFs) -> bool {
@@ -472,7 +472,7 @@ impl OutputArtifact {
     }
 
     pub fn ensure_output_type(&self, output_type: OutputType) -> buck2_error::Result<()> {
-        Ok(output_type.check_path(self, self.0.output_type())?)
+        output_type.check_path(self, self.0.output_type())
     }
 }
 

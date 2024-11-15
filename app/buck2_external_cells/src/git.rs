@@ -76,7 +76,7 @@ impl IoRequest for GitFetchIoRequest {
     fn execute(
         self: Box<Self>,
         project_fs: &buck2_core::fs::project::ProjectRoot,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let path = project_fs.resolve(&self.path);
         fs_util::create_dir_all(path.clone())?;
 

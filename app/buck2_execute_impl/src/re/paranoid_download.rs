@@ -157,7 +157,7 @@ impl ParanoidDownloader {
 
                 materializer.declare_existing(artifacts).await?;
 
-                anyhow::Ok(())
+                buck2_error::Ok(())
             })
             .await;
 
@@ -177,7 +177,7 @@ struct CacheDownload {
 }
 
 impl CacheDownload {
-    async fn wait_until_materialized(&self) -> anyhow::Result<()> {
+    async fn wait_until_materialized(&self) -> buck2_error::Result<()> {
         self.inner
             .as_ref()
             .expect("wait_until_materialized called after drop")
@@ -225,7 +225,7 @@ struct MoveOutputsIntoPlace {
 }
 
 impl IoRequest for MoveOutputsIntoPlace {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         for (from, to) in &self.mapping {
             let from = project_fs.resolve(from);
             let to = project_fs.resolve(to);

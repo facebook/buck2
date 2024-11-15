@@ -11,7 +11,6 @@ use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::liveliness_observer::CancelledLivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessGuard;
@@ -19,6 +18,7 @@ use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
 use buck2_common::memory_tracker::MemoryTracker;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::claim::Claim;
 use buck2_execute::execute::claim::ClaimManager;
@@ -100,7 +100,7 @@ where
     fn command_executor_preference(
         &self,
         command: &PreparedCommand<'_, '_>,
-    ) -> anyhow::Result<ExecutorPreference> {
+    ) -> buck2_error::Result<ExecutorPreference> {
         self.executor_preference
             .and(command.request.executor_preference())
     }
@@ -444,11 +444,11 @@ impl Claim for ReClaim {
     ///
     /// In that case, RE will have failed. To fix this, we need local to release its claim instead
     /// of returning ClaimCancelled.
-    fn release(self: Box<Self>) -> anyhow::Result<()> {
+    fn release(self: Box<Self>) -> buck2_error::Result<()> {
         // An error here should only occur if local execution had started without the claim.
         self.released_liveliness_guard
             .restore()
-            .context("Unable to restore CancelledLivelinessGuard!")?
+            .buck_error_context("Unable to restore CancelledLivelinessGuard!")?
             .forget();
 
         self.claim.release()?;

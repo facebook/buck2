@@ -74,7 +74,7 @@ impl RemoteCommandStdStreams {
             .await
     }
 
-    pub(crate) async fn into_stdout_stderr_bytes(self) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
+    pub(crate) async fn into_stdout_stderr_bytes(self) -> buck2_error::Result<(Vec<u8>, Vec<u8>)> {
         future::try_join(
             self.stdout
                 .into_bytes(&self.client, self.use_case, self.digest_config),

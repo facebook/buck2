@@ -59,9 +59,9 @@ pub(super) struct OpStats {
 }
 
 impl OpStats {
-    pub(super) fn op<'a, R, F>(&'a self, f: F) -> impl Future<Output = anyhow::Result<R>> + 'a
+    pub(super) fn op<'a, R, F>(&'a self, f: F) -> impl Future<Output = buck2_error::Result<R>> + 'a
     where
-        F: Future<Output = anyhow::Result<R>> + 'a,
+        F: Future<Output = buck2_error::Result<R>> + 'a,
     {
         // We avoid using `async fn` or `async move` here to avoid doubling the
         // future size. See https://github.com/rust-lang/rust/issues/62958

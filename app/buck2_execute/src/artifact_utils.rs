@@ -9,11 +9,11 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 
 use crate::artifact_value::ArtifactValue;
@@ -49,7 +49,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         &mut self,
         path: &ProjectRelativePath,
         entry: ActionDirectoryEntry<ActionDirectoryBuilder>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         insert_entry(&mut self.builder, path, entry)
     }
 
@@ -59,7 +59,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         &mut self,
         path: &ProjectRelativePath,
         value: &ArtifactValue,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         insert_artifact(&mut self.builder, path, value)
     }
 
@@ -71,7 +71,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         src_value: &ArtifactValue,
         src: &ProjectRelativePath,
         dest: &ProjectRelativePath,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         insert_artifact(&mut self.builder, src, src_value)?;
         let entry = DirectoryEntry::Leaf(new_symlink(self.project_fs.relative_path(src, dest))?);
         self.builder.insert(dest, entry)?;
@@ -87,7 +87,7 @@ impl<'a> ArtifactValueBuilder<'a> {
         src_value: &ArtifactValue,
         src: &ProjectRelativePath,
         dest: &ProjectRelativePath,
-    ) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
+    ) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
         insert_artifact(&mut self.builder, src, src_value)?;
 
         let entry = match src_value.entry() {
@@ -100,9 +100,11 @@ impl<'a> ArtifactValueBuilder<'a> {
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
                 // TODO: This seems like it normally shouldn't need to be normalizing anything.
-                let reldest = self
-                    .project_fs
-                    .relative_path(src.parent().context("Symlink has no dir parent")?, dest);
+                let reldest = self.project_fs.relative_path(
+                    src.parent()
+                        .buck_error_context("Symlink has no dir parent")?,
+                    dest,
+                );
                 // RelativePathBuf converts platform specific path separators.
                 let reldest = fs_util::relative_path_from_system(&reldest)?;
                 let s = s.relativized(reldest);
@@ -129,7 +131,7 @@ impl<'a> ArtifactValueBuilder<'a> {
     /// Builds the `ArtifactValue`. Since `self.builder` is rooted at the
     /// project root, `output` must be passed to specify the path of the value
     /// being built.
-    pub fn build(&self, output: &ProjectRelativePath) -> anyhow::Result<ArtifactValue> {
+    pub fn build(&self, output: &ProjectRelativePath) -> buck2_error::Result<ArtifactValue> {
         match extract_artifact_value(&self.builder, output, self.digest_config)? {
             Some(v) => Ok(v),
             None => {
@@ -161,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn copy_relativized_symlink() -> anyhow::Result<()> {
+    fn copy_relativized_symlink() -> buck2_error::Result<()> {
         // /
         // |-d1/
         // | |-d2/

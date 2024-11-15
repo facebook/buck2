@@ -11,13 +11,13 @@ use std::borrow::Cow;
 use std::fmt;
 use std::hash::Hash;
 
-use anyhow::Context;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::source_path::SourcePathRef;
+use buck2_error::BuckErrorContext;
 use either::Either;
 use gazebo::cell::ARef;
 
@@ -33,7 +33,7 @@ pub struct ArtifactPath<'a> {
 impl<'a> ArtifactPath<'a> {
     pub fn with_filename<F, T>(&self, f: F) -> T
     where
-        for<'b> F: FnOnce(anyhow::Result<&'b FileName>) -> T,
+        for<'b> F: FnOnce(buck2_error::Result<&'b FileName>) -> T,
     {
         let file_name = match self.projected_path.is_empty() {
             false => self.projected_path,
@@ -43,7 +43,7 @@ impl<'a> ArtifactPath<'a> {
             },
         }
         .file_name()
-        .with_context(|| format!("Artifact has no file name: `{}`", self));
+        .with_buck_error_context(|| format!("Artifact has no file name: `{}`", self));
 
         f(file_name)
     }
@@ -86,7 +86,7 @@ impl<'a> ArtifactPath<'a> {
         f(&path)
     }
 
-    pub fn resolve(&self, artifact_fs: &ArtifactFs) -> anyhow::Result<ProjectRelativePathBuf> {
+    pub fn resolve(&self, artifact_fs: &ArtifactFs) -> buck2_error::Result<ProjectRelativePathBuf> {
         let ArtifactPath {
             base_path,
             projected_path,

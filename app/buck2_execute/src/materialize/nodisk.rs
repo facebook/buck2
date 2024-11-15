@@ -12,6 +12,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::buck2_error;
 use buck2_futures::cancellation::CancellationContext;
 use futures::stream;
 use futures::stream::BoxStream;
@@ -43,7 +44,7 @@ impl Materializer for NoDiskMaterializer {
     async fn declare_existing(
         &self,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // Nothing to do, we don't keep track of state;
         Ok(())
     }
@@ -54,7 +55,7 @@ impl Materializer for NoDiskMaterializer {
         _value: ArtifactValue,
         _srcs: Vec<CopiedArtifact>,
         _cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 
@@ -63,7 +64,7 @@ impl Materializer for NoDiskMaterializer {
         _info: Arc<CasDownloadInfo>,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
         _cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 
@@ -72,52 +73,56 @@ impl Materializer for NoDiskMaterializer {
         _path: ProjectRelativePathBuf,
         _info: HttpDownloadInfo,
         _cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 
     async fn declare_match(
         &self,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-    ) -> anyhow::Result<DeclareMatchOutcome> {
+    ) -> buck2_error::Result<DeclareMatchOutcome> {
         // This materializer does not keep track of state
         Ok(DeclareMatchOutcome::NotMatch)
     }
 
-    async fn has_artifact_at(&self, _path: ProjectRelativePathBuf) -> anyhow::Result<bool> {
+    async fn has_artifact_at(&self, _path: ProjectRelativePathBuf) -> buck2_error::Result<bool> {
         // This materializer does not keep track of state
         Ok(false)
     }
 
     async fn declare_write<'a>(
         &self,
-        _gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
-    ) -> anyhow::Result<Vec<ArtifactValue>> {
-        Err(anyhow::anyhow!("NoDiskMaterializer cannot write"))
+        _gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> buck2_error::Result<Vec<ArtifactValue>> {
+        Err(buck2_error!([], "NoDiskMaterializer cannot write"))
     }
 
-    async fn invalidate_many(&self, _paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
+    async fn invalidate_many(
+        &self,
+        _paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 
     async fn materialize_many(
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
-    ) -> anyhow::Result<BoxStream<'static, Result<(), MaterializationError>>> {
+    ) -> buck2_error::Result<BoxStream<'static, Result<(), MaterializationError>>> {
         Ok(stream::iter(artifact_paths.into_iter().map(|_| Ok(()))).boxed())
     }
 
     async fn try_materialize_final_artifact(
         &self,
         _artifact_path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<bool> {
+    ) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
     async fn get_materialized_file_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
-    ) -> anyhow::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>> {
+    ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>
+    {
         Ok(paths.into_map(Ok))
     }
 }

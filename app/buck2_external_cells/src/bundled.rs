@@ -300,10 +300,10 @@ async fn declare_all_source_artifacts(
     }
 
     let materializer = ctx.per_transaction_data().get_materializer();
-    materializer
+    Ok(materializer
         .declare_write(Box::new(move || Ok(requests)))
         .await
-        .map(|_| ())
+        .map(|_| ())?)
 }
 
 pub(crate) async fn get_file_ops_delegate(

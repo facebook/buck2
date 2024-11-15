@@ -31,6 +31,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::re_directory_to_re_tree;
@@ -210,7 +211,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
             .re_client()
             .get_digest_expirations(vec![self.inner.digest.to_re()], self.inner.re_use_case)
             .await
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 CasArtifactActionExecutionError::GetDigestExpirationError(self.inner.digest.dupe())
             })?
             .into_iter()
@@ -274,7 +275,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
                     &Utc.timestamp_opt(0, 0).unwrap(),
                     ctx.digest_config(),
                 )
-                .context("Invalid directory")?;
+                .buck_error_context("Invalid directory")?;
 
                 ArtifactValue::new(
                     ActionDirectoryEntry::Dir(

@@ -77,12 +77,13 @@ async fn declare_copy_materialization(
     value: ArtifactValue,
 ) -> anyhow::Result<()> {
     let immutable_entry = value.entry().dupe().map_dir(|d| d.as_immutable());
-    ctx.materializer()
+    Ok(ctx
+        .materializer()
         .declare_copy(
             dest.clone(),
             value,
             vec![CopiedArtifact::new(src, dest, immutable_entry)],
             ctx.cancellation_context(),
         )
-        .await
+        .await?)
 }

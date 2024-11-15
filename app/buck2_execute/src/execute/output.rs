@@ -10,9 +10,9 @@
 use std::fmt;
 use std::fmt::Debug;
 
-use anyhow::Context;
 use buck2_common::file_ops::FileDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_error::BuckErrorContext;
 use futures::future;
 use remote_execution::TDigest;
 
@@ -114,14 +114,14 @@ impl ReStdStream {
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> buck2_error::Result<Vec<u8>> {
         match self {
             Self::Raw(raw) => Ok(raw),
             Self::Digest(digest) | Self::PrefetchedLossy { digest, .. } => {
                 let bytes = client
                     .download_blob(&digest, use_case)
                     .await
-                    .with_context(|| {
+                    .with_buck_error_context(|| {
                         format!(
                             "Error downloading from {}",
                             FileDigest::from_re(&digest, digest_config).as_display()
@@ -220,7 +220,7 @@ impl CommandStdStreams {
 
     /// Access the raw data. This is suitable for machine consumption. This will fail if we can't
     /// fetch it.
-    pub async fn into_bytes(self) -> anyhow::Result<StdStreamPair<Vec<u8>>> {
+    pub async fn into_bytes(self) -> buck2_error::Result<StdStreamPair<Vec<u8>>> {
         match self {
             Self::Local { stdout, stderr } => Ok(StdStreamPair { stdout, stderr }),
             Self::Remote(remote) => {
@@ -238,7 +238,7 @@ impl CommandStdStreams {
         self,
         client: &ManagedRemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
-    ) -> anyhow::Result<StdStreamPair<ReStdStream>> {
+    ) -> buck2_error::Result<StdStreamPair<ReStdStream>> {
         match self {
             Self::Local { stdout, stderr } => {
                 let (stdout, stderr) = future::try_join(
@@ -254,7 +254,8 @@ impl CommandStdStreams {
                 // same re use case as what we passed in. Lots of things make this assumption, but
                 // for the sake of being safe, check it.
                 if remote.use_case() != use_case {
-                    return Err(anyhow::anyhow!(
+                    return Err(buck2_error::buck2_error!(
+                        [],
                         "Copying log outputs across RE use cases (from `{}` to `{}`) is not supported",
                         remote.use_case(),
                         use_case
@@ -276,7 +277,7 @@ async fn maybe_upload_to_re(
     client: &ManagedRemoteExecutionClient,
     use_case: RemoteExecutorUseCase,
     bytes: Vec<u8>,
-) -> anyhow::Result<ReStdStream> {
+) -> buck2_error::Result<ReStdStream> {
     const MIN_STREAM_UPLOAD_SIZE: usize = 50 * 1024; // Same as RE
     if bytes.len() < MIN_STREAM_UPLOAD_SIZE {
         return Ok(ReStdStream::Raw(bytes));

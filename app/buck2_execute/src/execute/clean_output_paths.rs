@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 
 use crate::execute::blocking::IoRequest;
 
@@ -25,10 +26,10 @@ impl CleanOutputPaths {
     pub fn clean<'a>(
         paths: impl IntoIterator<Item = &'a ProjectRelativePath>,
         fs: &'a ProjectRoot,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         for path in paths {
             cleanup_path(fs, path)
-                .with_context(|| format!("Error cleaning up output path `{}`", path))?;
+                .with_buck_error_context(|| format!("Error cleaning up output path `{}`", path))?;
         }
         Ok(())
     }
@@ -54,15 +55,13 @@ fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
 }
 
 use buck2_core::fs::fs_util::IoError;
-fn tag_cleanup_path_env_error(res: Result<(), IoError>) -> anyhow::Result<()> {
-    let error = res
-        .map_err(buck2_error::Error::from)
-        .map_err(tag_environment_error);
-    Ok(error?)
+fn tag_cleanup_path_env_error(res: Result<(), IoError>) -> buck2_error::Result<()> {
+    res.map_err(buck2_error::Error::from)
+        .map_err(tag_environment_error)
 }
 
 #[tracing::instrument(level = "debug", skip(fs), fields(path = %path))]
-pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Result<()> {
+pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error::Result<()> {
     let path = fs.resolve(path);
 
     // This will remove the path if it exists.
@@ -79,7 +78,8 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
         path = match path.parent() {
             Some(path) => path,
             None => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "Internal Error: reached root before finding a directory that exists!"
                 ));
             }
@@ -123,7 +123,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> anyhow::Res
 }
 
 impl IoRequest for CleanOutputPaths {
-    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> anyhow::Result<()> {
+    fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         Self::clean(self.paths.iter().map(AsRef::as_ref), project_fs)
     }
 }

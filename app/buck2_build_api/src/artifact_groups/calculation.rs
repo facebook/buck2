@@ -395,7 +395,7 @@ impl Key for EnsureProjectedArtifactKey {
         insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
 
         let value = extract_artifact_value(&builder, &base_path.join(path), digest_config)
-            .with_context(|| {
+            .with_buck_error_context_anyhow(|| {
                 format!("The path `{path}` cannot be projected in the artifact `{base}`")
             })?
             .with_context(|| format!("The path `{path}` does not exist in the artifact `{base}`"))

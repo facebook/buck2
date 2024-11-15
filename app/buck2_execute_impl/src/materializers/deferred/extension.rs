@@ -13,11 +13,11 @@ use std::fmt::Display;
 use std::fmt::Write;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
@@ -208,7 +208,7 @@ struct Fsck {
     /// This is for debug commands so we use an unbounded channel to avoid locking up the
     /// materializer command thread.
     #[derivative(Debug = "ignore")]
-    sender: UnboundedSender<(ProjectRelativePathBuf, anyhow::Error)>,
+    sender: UnboundedSender<(ProjectRelativePathBuf, buck2_error::Error)>,
 }
 
 impl<T: IoHandler> ExtensionCommand<T> for Fsck {
@@ -240,7 +240,7 @@ impl<T: IoHandler> ExtensionCommand<T> for Fsck {
 #[derive(Derivative)]
 #[derivative(Debug)]
 struct RefreshTtls {
-    sender: Sender<Option<JoinHandle<anyhow::Result<()>>>>,
+    sender: Sender<Option<JoinHandle<buck2_error::Result<()>>>>,
     min_ttl: i64,
 }
 
@@ -357,7 +357,7 @@ impl<T: IoHandler> ExtensionCommand<T> for FlushAccessTimes {
 
 #[async_trait]
 impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccessor<T> {
-    fn iterate(&self) -> anyhow::Result<BoxStream<'static, DeferredMaterializerIterItem>> {
+    fn iterate(&self) -> buck2_error::Result<BoxStream<'static, DeferredMaterializerIterItem>> {
         let (sender, receiver) = mpsc::unbounded_channel();
         self.command_sender.send(MaterializerCommand::Extension(
             Box::new(Iterate { sender }) as _
@@ -365,7 +365,9 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }
 
-    fn list_subscriptions(&self) -> anyhow::Result<BoxStream<'static, ProjectRelativePathBuf>> {
+    fn list_subscriptions(
+        &self,
+    ) -> buck2_error::Result<BoxStream<'static, ProjectRelativePathBuf>> {
         let (sender, receiver) = mpsc::unbounded_channel();
         self.command_sender
             .send(MaterializerCommand::Extension(
@@ -374,7 +376,9 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }
 
-    fn fsck(&self) -> anyhow::Result<BoxStream<'static, (ProjectRelativePathBuf, anyhow::Error)>> {
+    fn fsck(
+        &self,
+    ) -> buck2_error::Result<BoxStream<'static, (ProjectRelativePathBuf, buck2_error::Error)>> {
         let (sender, receiver) = mpsc::unbounded_channel();
         self.command_sender.send(MaterializerCommand::Extension(
             Box::new(Fsck { sender }) as _
@@ -382,29 +386,34 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         Ok(UnboundedReceiverStream::new(receiver).boxed())
     }
 
-    async fn refresh_ttls(&self, min_ttl: i64) -> anyhow::Result<()> {
+    async fn refresh_ttls(&self, min_ttl: i64) -> buck2_error::Result<()> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(
                 Box::new(RefreshTtls { sender, min_ttl }) as _,
             ))?;
-        match receiver.await.context("No response from materializer")? {
+        match receiver
+            .await
+            .buck_error_context("No response from materializer")?
+        {
             Some(task) => task
                 .await
-                .context("Refresh task aborted")?
-                .context("Refresh failed")?,
+                .buck_error_context("Refresh task aborted")?
+                .buck_error_context("Refresh failed")?,
             None => {}
         };
         Ok(())
     }
 
-    async fn get_ttl_refresh_log(&self) -> anyhow::Result<String> {
+    async fn get_ttl_refresh_log(&self) -> buck2_error::Result<String> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(
                 Box::new(GetTtlRefreshLog { sender }) as _,
             ))?;
-        receiver.await.context("No response from materializer")
+        receiver
+            .await
+            .buck_error_context("No response from materializer")
     }
 
     async fn clean_stale_artifacts(
@@ -412,7 +421,7 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         keep_since_time: DateTime<Utc>,
         dry_run: bool,
         tracked_only: bool,
-    ) -> anyhow::Result<buck2_cli_proto::CleanStaleResponse> {
+    ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
         let dispatcher = get_dispatcher();
         let (sender, recv) = oneshot::channel();
         self.command_sender
@@ -430,31 +439,39 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
         recv.await?.await.map(|res| res.into())
     }
 
-    async fn test_iter(&self, count: usize) -> anyhow::Result<String> {
+    async fn test_iter(&self, count: usize) -> buck2_error::Result<String> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(
                 Box::new(TestIter { sender, count }) as _,
             ))?;
-        receiver.await.context("No response from materializer")
+        receiver
+            .await
+            .buck_error_context("No response from materializer")
     }
 
-    async fn flush_all_access_times(&self) -> anyhow::Result<String> {
+    async fn flush_all_access_times(&self) -> buck2_error::Result<String> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(
                 Box::new(FlushAccessTimes { sender }) as _,
             ))?;
-        receiver.await.context("No response from materializer")
+        receiver
+            .await
+            .buck_error_context("No response from materializer")
     }
 
     async fn create_subscription(
         &self,
-    ) -> anyhow::Result<Box<dyn DeferredMaterializerSubscription>> {
+    ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender.send(MaterializerCommand::Subscription(
             MaterializerSubscriptionOperation::Create { sender },
         ))?;
-        Ok(Box::new(receiver.await.context("No response from materializer")?) as _)
+        Ok(Box::new(
+            receiver
+                .await
+                .buck_error_context("No response from materializer")?,
+        ) as _)
     }
 }

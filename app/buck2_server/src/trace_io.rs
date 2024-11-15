@@ -7,11 +7,11 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_cli_proto::trace_io_request;
 use buck2_cli_proto::trace_io_response;
 use buck2_common::file_ops::RawSymlink;
 use buck2_common::io::trace::TracingIoProvider;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -68,7 +68,7 @@ async fn build_response_with_trace(
         .materializer()
         .ensure_materialized(buck_out_entries.clone())
         .await
-        .context("Error materializing buck-out paths for trace")?;
+        .buck_error_context_anyhow("Error materializing buck-out paths for trace")?;
 
     let mut entries = provider.trace().project_entries();
     entries.extend(buck_out_entries);

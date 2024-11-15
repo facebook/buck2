@@ -19,7 +19,7 @@ use crate::execute::request::CommandExecutionInput;
 pub fn inputs_directory(
     inputs: &[CommandExecutionInput],
     fs: &ArtifactFs,
-) -> anyhow::Result<ActionDirectoryBuilder> {
+) -> buck2_error::Result<ActionDirectoryBuilder> {
     let mut builder = ActionDirectoryBuilder::empty();
     for input in inputs {
         match input {

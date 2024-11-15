@@ -454,7 +454,10 @@ impl DaemonState {
                     // Using `execute_io_inline` is just out of convenience.
                     // It doesn't really matter what's used here since there's no IO-heavy
                     // operations on daemon startup
-                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs)
+                    Ok(delete_unknown_disk_state(
+                        &cache_dir_path,
+                        &valid_cache_dirs,
+                    )?)
                 }),
                 maybe_initialize_materializer_sqlite_db(
                     &disk_state_options,

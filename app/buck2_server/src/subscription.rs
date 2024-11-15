@@ -47,7 +47,7 @@ pub(crate) async fn run_subscription_server_command(
             let mut materializer_subscription = materializer
                 .create_subscription()
                 .await
-                .context("Error creating a materializer subscription")?;
+                .buck_error_context_anyhow("Error creating a materializer subscription")?;
 
             let mut wants_active_commands = false;
 

@@ -425,7 +425,7 @@ impl IntoRemoteDepFile for DepFileBundle {
         digest_config: DigestConfig,
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
-    ) -> anyhow::Result<RemoteDepFile> {
+    ) -> buck2_error::Result<RemoteDepFile> {
         // Compute the input fingerprint digest if it hasn't been computed already.
         if self.filtered_input_fingerprints.is_none() {
             self.filtered_input_fingerprints = Some(
@@ -1245,7 +1245,7 @@ impl DeclaredDepFiles {
         let mut stream = materializer
             .materialize_many(paths)
             .await
-            .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
+            .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e.into() })?;
 
         while let Some(dep_file) = stream.next().await {
             match dep_file {

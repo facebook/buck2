@@ -88,7 +88,7 @@ impl Materializer for ImmediateMaterializer {
     async fn declare_existing(
         &self,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // Nothing to do, we don't keep track of state;
         Ok(())
     }
@@ -99,7 +99,7 @@ impl Materializer for ImmediateMaterializer {
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
         cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.io_executor
             .execute_io(
                 Box::new(CleanOutputPaths {
@@ -120,13 +120,13 @@ impl Materializer for ImmediateMaterializer {
             )
             .await?;
 
-        self.io_executor
+        Ok(self.io_executor
             .execute_io_inline(|| {
                 for copied_artifact in srcs {
                     // Make sure `path` is a prefix of `dest`, so we don't
                     // materialize anything outside `path`.
                     copied_artifact.dest.strip_prefix(&path)
-                        .with_buck_error_context_anyhow(|| format!(
+                        .with_buck_error_context(|| format!(
                             "declare_copy: artifact at `{}` copies into `{}`. This is a bug in Buck, not a user error.",
                             path,
                             &copied_artifact.dest,
@@ -139,7 +139,7 @@ impl Materializer for ImmediateMaterializer {
                 }
                 Ok(())
             })
-            .await
+            .await?)
     }
 
     async fn declare_cas_many_impl<'a, 'b>(
@@ -147,7 +147,7 @@ impl Materializer for ImmediateMaterializer {
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
         cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         cas_download(
             &self.fs,
             self.io_executor.as_ref(),
@@ -164,7 +164,7 @@ impl Materializer for ImmediateMaterializer {
         path: ProjectRelativePathBuf,
         info: HttpDownloadInfo,
         cancellations: &CancellationContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.io_executor
             .execute_io(
                 Box::new(CleanOutputPaths {
@@ -191,24 +191,27 @@ impl Materializer for ImmediateMaterializer {
     async fn declare_match(
         &self,
         _artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-    ) -> anyhow::Result<DeclareMatchOutcome> {
+    ) -> buck2_error::Result<DeclareMatchOutcome> {
         // This materializer does not keep track of state
         Ok(DeclareMatchOutcome::NotMatch)
     }
 
-    async fn has_artifact_at(&self, _path: ProjectRelativePathBuf) -> anyhow::Result<bool> {
+    async fn has_artifact_at(&self, _path: ProjectRelativePathBuf) -> buck2_error::Result<bool> {
         // This materializer does not keep track of state
         Ok(false)
     }
 
     async fn declare_write<'a>(
         &self,
-        gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
-    ) -> anyhow::Result<Vec<ArtifactValue>> {
+        gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> buck2_error::Result<Vec<ArtifactValue>> {
         write_to_disk(&self.fs, self.io_executor.as_ref(), self.digest_config, gen).await
     }
 
-    async fn invalidate_many(&self, _paths: Vec<ProjectRelativePathBuf>) -> anyhow::Result<()> {
+    async fn invalidate_many(
+        &self,
+        _paths: Vec<ProjectRelativePathBuf>,
+    ) -> buck2_error::Result<()> {
         // Nothing to do, we don't keep track of anything.
         Ok(())
     }
@@ -216,7 +219,7 @@ impl Materializer for ImmediateMaterializer {
     async fn materialize_many(
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
-    ) -> anyhow::Result<BoxStream<'static, Result<(), MaterializationError>>> {
+    ) -> buck2_error::Result<BoxStream<'static, Result<(), MaterializationError>>> {
         // We materialize on `declare`, so at this point all declared artifacts
         // have already been materialized.
         Ok(stream::iter(artifact_paths.into_iter().map(|_| Ok(()))).boxed())
@@ -225,7 +228,7 @@ impl Materializer for ImmediateMaterializer {
     async fn try_materialize_final_artifact(
         &self,
         _artifact_path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<bool> {
+    ) -> buck2_error::Result<bool> {
         // As long as it was declared, it was already materialized
         Ok(true)
     }
@@ -233,7 +236,8 @@ impl Materializer for ImmediateMaterializer {
     async fn get_materialized_file_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
-    ) -> anyhow::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>> {
+    ) -> buck2_error::Result<Vec<Result<ProjectRelativePathBuf, ArtifactNotMaterializedReason>>>
+    {
         // We materialize on `declare`, so all declared paths are already
         // materialized. We can simply return them as is.
         Ok(paths.into_map(Ok))
@@ -244,9 +248,9 @@ pub async fn write_to_disk<'a>(
     fs: &ProjectRoot,
     io_executor: &dyn BlockingExecutor,
     digest_config: DigestConfig,
-    gen: Box<dyn FnOnce() -> anyhow::Result<Vec<WriteRequest>> + Send + 'a>,
-) -> anyhow::Result<Vec<ArtifactValue>> {
-    io_executor
+    gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+) -> buck2_error::Result<Vec<ArtifactValue>> {
+    Ok(io_executor
         .execute_io_inline({
             move || {
                 let requests = gen()?;
@@ -274,7 +278,7 @@ pub async fn write_to_disk<'a>(
                 Ok(values)
             }
         })
-        .await
+        .await?)
 }
 
 pub async fn cas_download<'a, 'b>(
@@ -284,7 +288,7 @@ pub async fn cas_download<'a, 'b>(
     info: &CasDownloadInfo,
     artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     cancellations: &CancellationContext<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     io.execute_io(
         Box::new(CleanOutputPaths {
             paths: artifacts.map(|(p, _)| p.to_owned()),

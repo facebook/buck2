@@ -16,7 +16,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::DigestAlgorithm;
 use buck2_common::external_symlink::ExternalSymlink;
@@ -47,7 +46,7 @@ use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_directory::directory::shared_directory::SharedDirectory;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use chrono::DateTime;
 use chrono::Utc;
@@ -210,7 +209,7 @@ impl Symlink {
     }
 }
 
-pub fn new_symlink<T: AsRef<Path>>(target: T) -> anyhow::Result<ActionDirectoryMember> {
+pub fn new_symlink<T: AsRef<Path>>(target: T) -> buck2_error::Result<ActionDirectoryMember> {
     let target = target.as_ref();
     if target.is_absolute() {
         Ok(ActionDirectoryMember::ExternalSymlink(Arc::new(
@@ -250,7 +249,7 @@ pub async fn re_directory_to_re_tree(
     directory: RE::Directory,
     client: &ManagedRemoteExecutionClient,
     use_case: RemoteExecutorUseCase,
-) -> anyhow::Result<RE::Tree> {
+) -> buck2_error::Result<RE::Tree> {
     let mut children: Vec<RE::Directory> = vec![];
     let mut frontier = directory.directories.clone();
     while !frontier.is_empty() {
@@ -286,7 +285,7 @@ pub fn re_tree_to_directory(
     tree: &RE::Tree,
     leaf_expires: &DateTime<Utc>,
     digest_config: DigestConfig,
-) -> anyhow::Result<ActionDirectoryBuilder> {
+) -> buck2_error::Result<ActionDirectoryBuilder> {
     /// A map of digests to directories, populated lazily when we access it based on the hash we
     /// use. We need this because in a RE tree, the directories in the tree don't carry their hash,
     /// but the pointers are hashes, so we need to first see a hash before we can work out what
@@ -330,18 +329,17 @@ pub fn re_tree_to_directory(
         dirmap: &'_ mut DirMap<'a>,
         leaf_expires: &DateTime<Utc>,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<ActionDirectoryBuilder> {
+    ) -> buck2_error::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
-            let name =
-                FileNameBuf::try_from(node.name.clone()).with_buck_error_context_anyhow(|| {
-                    DirectoryReConversionError::IncorrectFileName {
-                        name: node.name.clone(),
-                        dir: re_dir_name.to_string(),
-                    }
-                })?;
+            let name = FileNameBuf::try_from(node.name.clone()).with_buck_error_context(|| {
+                DirectoryReConversionError::IncorrectFileName {
+                    name: node.name.clone(),
+                    dir: re_dir_name.to_string(),
+                }
+            })?;
 
-            let digest = node.digest.as_ref().with_buck_error_context_anyhow(|| {
+            let digest = node.digest.as_ref().with_buck_error_context(|| {
                 DirectoryReConversionError::NodeWithDigestNone {
                     name: node.name.clone(),
                     dir: re_dir_name.to_string(),
@@ -447,7 +445,7 @@ pub enum DirectoryReConversionError {
 }
 
 impl<'a> TryFrom<&'a RE::SymlinkNode> for ActionDirectoryMember {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(node: &'a RE::SymlinkNode) -> Result<Self, Self::Error> {
         let symlink = if node.target.starts_with('/') {
@@ -468,7 +466,7 @@ pub fn relativize_directory(
     builder: &mut ActionDirectoryBuilder,
     orig_root: &ProjectRelativePath,
     new_root: &ProjectRelativePath,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut replacements = ActionDirectoryBuilder::empty();
 
     {
@@ -486,12 +484,12 @@ pub fn relativize_directory(
 
             let orig_dest = orig_path
                 .parent()
-                .context("Symlink has no dir parent")?
+                .buck_error_context("Symlink has no dir parent")?
                 .join_normalized(link.target())?;
 
             let new_dest = new_path
                 .parent()
-                .context("Symlink has no dir parent")?
+                .buck_error_context("Symlink has no dir parent")?
                 .as_forward_relative_path()
                 .as_relative_path()
                 .relative(orig_dest);
@@ -513,7 +511,7 @@ pub fn insert_entry(
     builder: &mut ActionDirectoryBuilder,
     path: &ProjectRelativePath,
     entry: ActionDirectoryEntry<ActionDirectoryBuilder>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if let DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) = entry {
         // ExternalSymlink is a bit of an odd concept. The way it works is that when you try to
         // read `foo/bar` and it turns out `foo` is an ExternalSymlink, we tell you the value of
@@ -543,9 +541,11 @@ pub fn insert_entry(
         // can't "fix" it, and using the full symlink destination instead of
         // `s.without_remaining_path()`, but considering this doesn't seem to be something very
         // widespread and I might be missing something, I did not do it.
-        let fixed_source_path = s.fix_source_path(path.as_ref()).with_context(|| {
-            format!("Error locating source path for symlink at {}: {}", path, s)
-        })?;
+        let fixed_source_path = s
+            .fix_source_path(path.as_ref())
+            .with_buck_error_context(|| {
+                format!("Error locating source path for symlink at {}: {}", path, s)
+            })?;
         let path = ProjectRelativePath::unchecked_new(fixed_source_path.as_str());
         let entry = DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(
             s.without_remaining_path(),
@@ -564,7 +564,7 @@ pub fn insert_artifact(
     builder: &mut ActionDirectoryBuilder,
     path: &ProjectRelativePath,
     value: &ArtifactValue,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     insert_entry(
         builder,
         path,
@@ -581,7 +581,7 @@ pub fn insert_file(
     builder: &mut ActionDirectoryBuilder,
     path: &ProjectRelativePath,
     meta: FileMetadata,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     insert_entry(
         builder,
         path,
@@ -594,7 +594,7 @@ pub fn insert_symlink(
     builder: &mut ActionDirectoryBuilder,
     path: &ProjectRelativePath,
     symlink: Arc<Symlink>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     insert_entry(
         builder,
         path,
@@ -697,7 +697,7 @@ pub fn extract_artifact_value(
     builder: &ActionDirectoryBuilder,
     path: &ProjectRelativePath,
     digest_config: DigestConfig,
-) -> anyhow::Result<Option<ArtifactValue>> {
+) -> buck2_error::Result<Option<ArtifactValue>> {
     let entry = match find(builder.as_ref(), path.as_forward_relative_path())? {
         Some(entry) => entry,
         _ => return Ok(None),
@@ -750,7 +750,7 @@ pub fn extract_artifact_value(
     match deps.remove_prefix(path.as_forward_relative_path()) {
         Ok(_) => {}
         Err(DirectoryFindError::CannotTraverseLeaf { .. }) => {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Dependency artifact is parent of output artifact: {}",
                 path
             ));
@@ -771,7 +771,7 @@ pub fn extract_artifact_value(
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Context as _;
+    use buck2_error::BuckErrorContext;
 
     use super::*;
 
@@ -812,7 +812,7 @@ mod tests {
     }
 
     #[test]
-    fn directory_relativized() -> anyhow::Result<()> {
+    fn directory_relativized() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
         let mut dir = {
@@ -863,7 +863,7 @@ mod tests {
         Ok(())
     }
 
-    fn build_test_dir() -> anyhow::Result<ActionDirectoryBuilder> {
+    fn build_test_dir() -> buck2_error::Result<ActionDirectoryBuilder> {
         let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
@@ -912,22 +912,22 @@ mod tests {
 
     /// All deps of d6 are internal to it, so we don't return any deps.
     #[test]
-    fn test_extract_no_deps() -> anyhow::Result<()> {
+    fn test_extract_no_deps() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
         let root = build_test_dir()?;
-        let value =
-            extract_artifact_value(&root, path("d6"), digest_config)?.context("Not value!")?;
+        let value = extract_artifact_value(&root, path("d6"), digest_config)?
+            .buck_error_context("Not value!")?;
         assert!(value.deps().is_none());
         Ok(())
     }
 
     #[test]
-    fn test_extract_has_deps_dir() -> anyhow::Result<()> {
+    fn test_extract_has_deps_dir() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
         let root = build_test_dir()?;
         let value = extract_artifact_value(&root, path("d1/d2/d3"), digest_config)?
-            .context("Not value!")?;
+            .buck_error_context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -935,7 +935,7 @@ mod tests {
             for p in &["d6/s4", "d6/f4", "d1/d2/d4", "f1"] {
                 let path = path(p);
                 let entry = find(root.as_ref(), path.as_forward_relative_path())?
-                    .with_context(|| format!("Missing {}", path))?
+                    .with_buck_error_context(|| format!("Missing {}", path))?
                     .map_dir(|d| d.to_builder())
                     .map_leaf(|l| l.dupe());
                 insert_entry(&mut builder, path, entry)?;
@@ -944,18 +944,18 @@ mod tests {
             builder
         };
 
-        assert_dirs_eq(value.deps().context("No deps!")?, &expected);
+        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
 
         Ok(())
     }
 
     #[test]
-    fn test_extract_has_deps_leaf() -> anyhow::Result<()> {
+    fn test_extract_has_deps_leaf() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
         let root = build_test_dir()?;
         let value = extract_artifact_value(&root, path("d1/d2/d3/s3"), digest_config)?
-            .context("Not value!")?;
+            .buck_error_context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -967,13 +967,13 @@ mod tests {
             builder
         };
 
-        assert_dirs_eq(value.deps().context("No deps!")?, &expected);
+        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
 
         Ok(())
     }
 
     #[test]
-    fn test_extract_cycle() -> anyhow::Result<()> {
+    fn test_extract_cycle() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
@@ -997,15 +997,15 @@ mod tests {
         };
 
         let value = extract_artifact_value(&builder, path("d1/f1"), digest_config)?
-            .context("Not value!")?;
+            .buck_error_context("Not value!")?;
 
-        assert_dirs_eq(value.deps().context("No deps!")?, &expected);
+        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
 
         Ok(())
     }
 
     #[test]
-    fn test_extract_symlink_chain() -> anyhow::Result<()> {
+    fn test_extract_symlink_chain() -> buck2_error::Result<()> {
         // Crank up the difficulty: l1 points through d3/f, but through l2. We need all of those in
         // the deps! In practice, this tends to not happen in Buck 2 because we always dereference
         // symlinks and traverse them, but might a well support it properly.
@@ -1030,8 +1030,8 @@ mod tests {
             FileMetadata::empty(digest_config.cas_digest_config()),
         )?;
 
-        let value =
-            extract_artifact_value(&builder, path("l1"), digest_config)?.context("Not value!")?;
+        let value = extract_artifact_value(&builder, path("l1"), digest_config)?
+            .buck_error_context("Not value!")?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -1051,13 +1051,13 @@ mod tests {
             builder
         };
 
-        assert_dirs_eq(value.deps().context("No deps!")?, &expected);
+        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
 
         Ok(())
     }
 
     #[test]
-    fn test_re_tree_roundtrip() -> anyhow::Result<()> {
+    fn test_re_tree_roundtrip() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
@@ -1095,7 +1095,7 @@ mod tests {
     ///     'mkdir -p test/a/aa test/a/aaa test/b/bb test/d && touch test/a/aa/f test/a/aaa/f test/b/bb/f test/d/f'
     /// ```
     #[test]
-    fn test_re_tree_compatibility() -> anyhow::Result<()> {
+    fn test_re_tree_compatibility() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
@@ -1122,7 +1122,7 @@ mod tests {
     #[test]
     //Test that a symlink created with a windows path doesn't get interpreted as an invalid sylink
     //TODO(lmvasquezg) Update symlinks to store a normalized, OS-independent path
-    fn test_unnormalized_symlinks() -> anyhow::Result<()> {
+    fn test_unnormalized_symlinks() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
         let mut builder = ActionDirectoryBuilder::empty();
@@ -1137,7 +1137,8 @@ mod tests {
             FileMetadata::empty(digest_config.cas_digest_config()),
         )?;
 
-        extract_artifact_value(&builder, path("d1/f1"), digest_config)?.context("Not value!")?;
+        extract_artifact_value(&builder, path("d1/f1"), digest_config)?
+            .buck_error_context("Not value!")?;
         Ok(())
     }
 }

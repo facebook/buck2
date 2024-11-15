@@ -10,11 +10,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use buck2_core::fs::fs_util::disk_space_stats;
 use buck2_core::fs::fs_util::DiskSpaceStats;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::io_counters::IoCounterKey;
+use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
 use buck2_execute::re::manager::ReConnectionManager;
 use buck2_util::process_stats::process_stats;
@@ -97,7 +97,7 @@ impl SnapshotCollector {
         ) -> anyhow::Result<()> {
             let stats = re
                 .get_network_stats()
-                .context("Error collecting network stats")?;
+                .buck_error_context_anyhow("Error collecting network stats")?;
 
             snapshot.re_download_bytes = stats.downloaded;
             snapshot.re_upload_bytes = stats.uploaded;

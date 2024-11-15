@@ -9,6 +9,7 @@
 
 use anyhow::Context;
 use async_trait::async_trait;
+use buck2_error::BuckErrorContext;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -67,7 +68,7 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
                 extension
                     .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)
                     .await
-                    .context("Failed to clean stale artifacts.")
+                    .buck_error_context_anyhow("Failed to clean stale artifacts.")
             })
             .await
     }

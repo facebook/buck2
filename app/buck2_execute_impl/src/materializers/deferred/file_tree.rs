@@ -29,6 +29,7 @@ use std::marker::PhantomData;
 
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::buck2_error;
 
 pub type FileTree<V> = DataTree<FileNameBuf, V>;
 
@@ -107,7 +108,10 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
 
     /// Get the subtree at `key`, if the entry exists and is a tree.
     /// Return an error if there is an entry but it is not a tree.
-    pub fn get_subtree<'a, I, Q>(&self, key: &mut I) -> anyhow::Result<Option<&HashMap<K, Self>>>
+    pub fn get_subtree<'a, I, Q>(
+        &self,
+        key: &mut I,
+    ) -> buck2_error::Result<Option<&HashMap<K, Self>>>
     where
         K: 'a + Borrow<Q>,
         Q: 'a + Hash + Eq + ?Sized,
@@ -116,7 +120,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         let mut entries = match self {
             Self::Tree(ref t) => t,
             Self::Data(..) => {
-                return Err(anyhow::anyhow!("Data found where tree expected"));
+                return Err(buck2_error!([], "Data found where tree expected"));
             }
         };
 
@@ -129,7 +133,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
             entries = match node {
                 Self::Tree(ref t) => t,
                 Self::Data(..) => {
-                    return Err(anyhow::anyhow!("Data found where tree expected"));
+                    return Err(buck2_error!([], "Data found where tree expected"));
                 }
             };
         }

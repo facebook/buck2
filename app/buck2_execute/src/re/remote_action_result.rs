@@ -10,9 +10,9 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
-use anyhow::Context as _;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfCounter;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
@@ -205,7 +205,7 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
 
 fn convert_perf_counts(
     perf_counts: &TPerfCount,
-) -> anyhow::Result<buck2_data::CommandExecutionStats> {
+) -> buck2_error::Result<buck2_data::CommandExecutionStats> {
     Ok({
         let userspace_counter = convert_perf_count(&perf_counts.userspace_events)?;
         let kernel_counter = convert_perf_count(&perf_counts.kernel_events)?;
@@ -219,20 +219,25 @@ fn convert_perf_counts(
     })
 }
 
-fn convert_perf_count(perf_count: &TSubsysPerfCount) -> anyhow::Result<Option<MiniperfCounter>> {
+fn convert_perf_count(
+    perf_count: &TSubsysPerfCount,
+) -> buck2_error::Result<Option<MiniperfCounter>> {
     if perf_count.time_running == 0 {
         return Ok(None);
     }
 
     Ok(Some(MiniperfCounter {
-        count: perf_count.count.try_into().context("Invalid count")?,
+        count: perf_count
+            .count
+            .try_into()
+            .buck_error_context("Invalid count")?,
         time_enabled: perf_count
             .time_enabled
             .try_into()
-            .context("Invalid time_enabled")?,
+            .buck_error_context("Invalid time_enabled")?,
         time_running: perf_count
             .time_running
             .try_into()
-            .context("Invalid time_running")?,
+            .buck_error_context("Invalid time_running")?,
     }))
 }

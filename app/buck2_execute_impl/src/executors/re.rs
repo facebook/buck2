@@ -257,7 +257,8 @@ impl ReExecutor {
             if execution_time > timeout {
                 let res = soft_error!(
                     "re_timeout_exceeded",
-                    anyhow::anyhow!(
+                    buck2_error::buck2_error!(
+                        [],
                         "Command {} exceeded its timeout (ran for {}s, timeout was {}s)",
                         &identity.action_key,
                         execution_time.as_secs(),

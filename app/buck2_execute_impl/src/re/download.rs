@@ -13,7 +13,6 @@ use std::ops::FromResidual;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -295,7 +294,7 @@ impl CasDownloader<'_> {
         paths: &CommandExecutionPaths,
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
-    ) -> anyhow::Result<ExtractedArtifacts> {
+    ) -> buck2_error::Result<ExtractedArtifacts> {
         let now = Utc::now();
         let ttl = Duration::seconds(output_spec.ttl());
         let expires = now + ttl;
@@ -344,7 +343,7 @@ impl CasDownloader<'_> {
             )
             .boxed()
             .await
-            .context(DownloadError::DownloadTrees)?;
+            .buck_error_context(DownloadError::DownloadTrees)?;
 
         for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
             let entry = re_tree_to_directory(&tree, &expires, self.digest_config)?;
@@ -379,13 +378,13 @@ impl CasDownloader<'_> {
         artifacts: ExtractedArtifacts,
         info: CasDownloadInfo,
         cancellations: &CancellationContext<'_>,
-    ) -> anyhow::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
+    ) -> buck2_error::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer
             .declare_cas_many(Arc::new(info), artifacts.to_declare, cancellations)
             .boxed()
             .await
-            .context(DownloadError::Materialization)?;
+            .buck_error_context(DownloadError::Materialization)?;
 
         Ok(artifacts.mapped_outputs)
     }
@@ -394,10 +393,10 @@ impl CasDownloader<'_> {
 /// Takes a path that came from RE and tries to convert it to
 /// a `ForwardRelativePath`. These paths are supposed to be forward relative,
 /// so if the conversion fails, RE is broken.
-fn re_forward_path(re_path: &str) -> anyhow::Result<&ForwardRelativePath> {
+fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
     // RE sends us paths with trailing slash.
-    Ok(ForwardRelativePath::new_trim_trailing_slashes(re_path)
-        .buck_error_context(DownloadError::InvalidPathFromRe)?)
+    ForwardRelativePath::new_trim_trailing_slashes(re_path)
+        .buck_error_context(DownloadError::InvalidPathFromRe)
 }
 
 #[derive(buck2_error::Error, Debug)]

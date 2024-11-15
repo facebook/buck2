@@ -87,7 +87,7 @@ pub(crate) async fn with_error_handler<T>(
     re_action: &str,
     re_session_id: &str,
     result: anyhow::Result<T>,
-) -> anyhow::Result<T> {
+) -> buck2_error::Result<T> {
     match result {
         Ok(val) => Ok(val),
         Err(e) => {
