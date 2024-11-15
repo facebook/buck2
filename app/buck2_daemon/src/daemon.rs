@@ -524,6 +524,7 @@ mod tests {
     use buck2_common::invocation_roots::InvocationRoots;
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::logging::LogConfigurationReloadHandle;
     use buck2_error::BuckErrorContext;
     use buck2_server::daemon::daemon_tcp::create_listener;
@@ -553,6 +554,7 @@ mod tests {
         let invocation_paths = InvocationPaths {
             roots: InvocationRoots {
                 project_root: project_root.path().dupe(),
+                cwd: ProjectRelativePath::empty().to_buf(),
             },
             isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),
         };

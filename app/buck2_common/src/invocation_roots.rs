@@ -16,6 +16,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
@@ -35,6 +36,7 @@ enum BuckCliError {
 #[derive(Clone, Allocative)]
 pub struct InvocationRoots {
     pub project_root: ProjectRoot,
+    pub cwd: ProjectRelativePathBuf,
 }
 
 impl InvocationRoots {
@@ -86,9 +88,17 @@ fn get_roots(from: &AbsWorkingDir) -> buck2_error::Result<Option<InvocationRoots
 
     #[allow(clippy::manual_map)]
     Ok(match project_root {
-        Some(project_root) => Some(InvocationRoots {
-            project_root: ProjectRoot::new_unchecked(project_root),
-        }),
+        Some(project_root) => {
+            let rel_cwd = from
+                .path()
+                .strip_prefix(&project_root)
+                .expect("By construction")
+                .into_owned();
+            Some(InvocationRoots {
+                project_root: ProjectRoot::new_unchecked(project_root),
+                cwd: rel_cwd.into(),
+            })
+        }
         None => None,
     })
 }

@@ -171,6 +171,7 @@ mod tests {
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 
     use crate::invocation_paths::InvocationPaths;
@@ -188,6 +189,7 @@ mod tests {
                 project_root: ProjectRoot::new_unchecked(
                     AbsNormPathBuf::try_from(project_root.to_owned()).unwrap(),
                 ),
+                cwd: ProjectRelativePath::empty().to_buf(),
             },
             isolation: FileNameBuf::unchecked_new("isolation"),
         };
