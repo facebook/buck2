@@ -170,6 +170,7 @@ def buck_e2e_test(
             ci_deps = ci_deps,
             reason = "Non isolated buck2 e2e tests depend heavily on macros",
             target = name,
+            compatible_with = compatible_with,
         )
 
 def buck2_e2e_test(

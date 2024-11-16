@@ -15,6 +15,7 @@ buck2_e2e_test(
     srcs = glob([
         "test_test_coverage/**/*.py",
     ]),
+    compatible_with = ["ovr_config//os:linux"],
     skip_for_os = [
         "darwin",
         "windows",
@@ -26,6 +27,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_test_artifacts",
     srcs = ["test_test_artifacts.py"],
+    compatible_with = ["ovr_config//os:linux"],
     env = {
         "TESTX_BIN": "$(exe_target fbsource//xplat/tools:testx)",
     },
@@ -47,6 +49,11 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_testname_formatting",
     srcs = ["test_testname_formatting.py"],
+    compatible_with = ["ovr_config//os:linux"],
+    skip_for_os = [
+        "darwin",
+        "windows",
+    ],
     test_with_deployed_buck2 = True,
     use_compiled_buck2_client_and_tpx = True,
     deps = [
