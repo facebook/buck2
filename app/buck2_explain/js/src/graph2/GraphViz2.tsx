@@ -48,7 +48,7 @@ export function GraphViz2(props: {
     <ForceGraph2D
       ref={graphRef}
       graphData={{nodes, links}}
-      onNodeRightClick={(node, _event) => {
+      onNodeClick={(node, _event) => {
         openTarget(node.name)
       }}
       nodeCanvasObjectMode={paintMode}
