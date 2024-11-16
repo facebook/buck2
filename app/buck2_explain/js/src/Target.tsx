@@ -16,6 +16,7 @@ import {formatTargetLabel} from './formatTargetLabel'
 const TARGET_ATTRS = 'target_attrs'
 const TARGET_DEPS = 'target_deps'
 const TARGET_RDEPS = 'target_rdeps'
+const TARGET_ACTIONS = 'target_actions'
 
 /*
  * If we have an object associated with this string, make it a link.
@@ -109,11 +110,22 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
               </span>
             </Link>
           </li>
+          <li className={tab === TARGET_ACTIONS ? 'is-active' : ''}>
+            <Link
+              className="no-underline"
+              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_ACTIONS}}>
+              Actions
+              <span className="icon">
+                <i className="fa fa-tasks"></i>
+              </span>
+            </Link>
+          </li>
         </ul>
       </div>
       {tab === TARGET_ATTRS ? <TargetAttrs target={target} /> : null}
       {tab === TARGET_DEPS ? <TargetDeps target={target} /> : null}
       {tab === TARGET_RDEPS ? <TargetRdeps target={target} /> : null}
+      {tab === TARGET_ACTIONS ? <TargetActions target={target} /> : null}
     </div>
   )
 }
@@ -121,6 +133,19 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
 function TargetDeps(props: {target: ConfiguredTargetNode}) {
   const {target} = props
   return <List attr={i => formatTargetLabel(target!.deps(i)!)} length={target.depsLength()} />
+}
+
+function TargetActions(props: {target: ConfiguredTargetNode}) {
+  const {target} = props
+  let repros = []
+  for (let i = 0; i < target.actionsLength(); i++) {
+    const action = target.actions(i)!
+    for (let j = 0; j < action.reprosLength(); j++) {
+      repros.push(action.repros(j)!)
+    }
+  }
+  let res = repros.map(r => <ul>{r}</ul>)
+  return <div className="content">{res}</div>
 }
 
 function TargetRdeps(props: {target: ConfiguredTargetNode}) {
