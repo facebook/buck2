@@ -109,3 +109,18 @@ async def test_explain_upload(buck: Buck) -> None:
     await buck.explain("--upload", env={"BUCK_WRAPPER_UUID": uuid})
 
     assert await manifold_exists(path=f"flat/{uuid}-explain.html") is True
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_explain_target_platform(buck: Buck) -> None:
+    # no config fails
+    await expect_failure(
+        buck.build(":foo"),
+        stderr_regex="Unknown target `foo`",
+    )
+
+    # with config works and so does `explain`
+    await buck.build(":foo", "--config=test.config=foo")
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        output = f"{tmpdirname}/index.html"
+        await buck.explain("--output", output)

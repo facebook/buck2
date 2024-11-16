@@ -127,6 +127,7 @@ impl StreamingCommand for ExplainCommand {
 
         let mut context = ctx.empty_client_context("explain")?;
         context.target_call_stacks = true;
+        context.reuse_current_config = true;
 
         buckd
             .with_flushing()
