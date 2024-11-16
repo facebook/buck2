@@ -99,6 +99,7 @@ cxx_binary = prelude_rule(
         buck.deps_query_arg() |
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
+        cxx_common.raw_headers_as_headers_mode_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
@@ -526,6 +527,7 @@ cxx_library = prelude_rule(
         native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
         native_common.soname() |
         cxx_common.raw_headers_arg() |
+        cxx_common.raw_headers_as_headers_mode_arg() |
         cxx_common.include_directories_arg() |
         cxx_common.public_include_directories_arg() |
         cxx_common.public_system_include_directories_arg() |
@@ -858,6 +860,7 @@ cxx_test = prelude_rule(
             """),
         } |
         cxx_common.raw_headers_arg() |
+        cxx_common.raw_headers_as_headers_mode_arg() |
         cxx_common.include_directories_arg() |
         {
             "framework": attrs.option(attrs.enum(CxxTestType), default = None, doc = """
@@ -949,6 +952,7 @@ cxx_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
+        cxx_common.raw_headers_as_headers_mode_arg() |
         {
             "archive_contents": attrs.enum(ArchiveContents, default = "normal"),
             "archiver": attrs.source(),

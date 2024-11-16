@@ -456,6 +456,11 @@ apple_library = prelude_rule(
         native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
         cxx_common.reexport_all_header_dependencies_arg() |
         cxx_common.exported_deps_arg() |
+        cxx_common.raw_headers_arg() |
+        cxx_common.include_directories_arg() |
+        cxx_common.public_include_directories_arg() |
+        cxx_common.public_system_include_directories_arg() |
+        cxx_common.raw_headers_as_headers_mode_arg() |
         apple_common.extra_xcode_sources() |
         apple_common.extra_xcode_files() |
         apple_common.serialize_debugging_options_arg() |
@@ -488,7 +493,6 @@ apple_library = prelude_rule(
             "force_static": attrs.option(attrs.bool(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "import_obj_c_forward_declarations": attrs.bool(default = True),
-            "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "info_plist": attrs.option(attrs.source(), default = None),
             "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "labels": attrs.list(attrs.string(), default = []),
@@ -512,9 +516,6 @@ apple_library = prelude_rule(
             "precompiled_header": attrs.option(attrs.source(), default = None),
             "prefix_header": attrs.option(attrs.source(), default = None),
             "public_framework_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
-            "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "sdk_modules": attrs.list(attrs.string(), default = []),
             "soname": attrs.option(attrs.string(), default = None),
             "static_library_basename": attrs.option(attrs.string(), default = None),

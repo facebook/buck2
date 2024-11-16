@@ -35,6 +35,13 @@ load(":platform.bzl", "cxx_by_platform")
 # #include "namespace/wfh/baz.h"
 CxxHeadersNaming = enum("apple", "regular")
 
+# Modes supporting implementing the `raw_headers` parameter of C++ rules using
+# symlink trees and/or header maps through `headers`.
+RawHeadersAsHeadersMode = enum(
+    "enabled",
+    "disabled",
+)
+
 # Modes supporting implementing the `headers` parameter of C++ rules using raw
 # headers instead of e.g. symlink trees.
 HeadersAsRawHeadersMode = enum(
@@ -129,6 +136,41 @@ def cxx_get_regular_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout
 
 def cxx_attr_exported_header_style(ctx: AnalysisContext) -> HeaderStyle:
     return HeaderStyle(ctx.attrs.exported_header_style)
+
+def _concat_inc_dir_with_raw_header(namespace, inc_dir, header) -> list[str] | None:
+    namespace_parts = namespace.split("/")
+    inc_dir_parts = inc_dir.split("/")
+    header_parts = header.short_path.split("/")
+
+    for part in inc_dir_parts:
+        if part == ".":
+            continue
+        if part == "..":
+            if not namespace_parts:
+                # Too many .., would set include root out of cell
+                return None
+            header_parts = [namespace_parts.pop()] + header_parts
+        elif part == header_parts[0]:
+            header_parts = header_parts[1:]
+        else:
+            # Header not accessible under this folder
+            return None
+    return header_parts
+
+def as_headers(
+        ctx: AnalysisContext,
+        raw_headers: list[Artifact],
+        include_directories: list[str]) -> list[CHeader]:
+    headers = []
+    base_namespace = ctx.label.package
+    for header in raw_headers:
+        for inc_dir in include_directories:
+            inc_dir = paths.normalize(inc_dir)
+            mapped_header = _concat_inc_dir_with_raw_header(base_namespace, inc_dir, header)
+            if mapped_header:
+                headers.append(CHeader(artifact = header, name = "/".join(mapped_header), namespace = "", named = True))
+
+    return headers
 
 def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming) -> list[CHeader]:
     if type(xs) == type([]):

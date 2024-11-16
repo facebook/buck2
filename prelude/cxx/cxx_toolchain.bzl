@@ -29,7 +29,7 @@ load(
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
-load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode")
+load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode", "RawHeadersAsHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
 load("@prelude//cxx:target_sdk_version.bzl", "get_toolchain_target_sdk_version")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
@@ -186,6 +186,7 @@ def cxx_toolchain_impl(ctx):
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link else None,
         object_format = CxxObjectFormat(object_format),
         headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode) if ctx.attrs.headers_as_raw_headers_mode != None else None,
+        raw_headers_as_headers_mode = RawHeadersAsHeadersMode(ctx.attrs.raw_headers_as_headers_mode) if ctx.attrs.raw_headers_as_headers_mode != None else None,
         conflicting_header_basename_allowlist = ctx.attrs.conflicting_header_basename_exemptions,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior),
         split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),

@@ -21,6 +21,8 @@ load(
     "CxxHeadersNaming",
     "HeaderStyle",
     "HeadersAsRawHeadersMode",
+    "RawHeadersAsHeadersMode",
+    "as_headers",
     "as_raw_headers",
     "cxx_attr_exported_header_style",
     "cxx_attr_exported_headers",
@@ -232,8 +234,22 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
 
     # Add in raw headers and include dirs from attrs.
     raw_headers.extend(value_or(ctx.attrs.raw_headers, []))
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
-    system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
+
+    # if raw-headers-as-headers is enabled, convert raw headers to headers
+    if raw_headers and _attr_raw_headers_as_headers_mode(ctx) != RawHeadersAsHeadersMode("disabled"):
+        exported_headers = as_headers(ctx, raw_headers, ctx.attrs.public_include_directories + ctx.attrs.public_system_include_directories)
+        exported_header_map = {
+            paths.join(h.namespace, h.name): h.artifact
+            for h in exported_headers
+        }
+        raw_headers.clear()
+
+        # Force system exported header style if any system include directories are set.
+        if ctx.attrs.public_system_include_directories:
+            style = HeaderStyle("system")
+    else:
+        include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
+        system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
 
     args = _get_exported_preprocessor_args(ctx, exported_header_map, style, compiler_type, raw_headers, extra_preprocessors)
 
@@ -349,7 +365,19 @@ def _cxx_private_preprocessor_info(
 
     # Add in raw headers and include dirs from attrs.
     all_raw_headers.extend(raw_headers)
-    include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
+
+    # if raw-headers-as-headers is enabled, convert raw headers to headers
+    if all_raw_headers and _attr_raw_headers_as_headers_mode(ctx) != RawHeadersAsHeadersMode("disabled"):
+        # private headers are also accessible via public_include_directories
+        # same as exported_preprocessor_flags apply to the target itself.
+        headers = as_headers(ctx, all_raw_headers, ctx.attrs.include_directories + getattr(ctx.attrs, "public_include_directories", []) + getattr(ctx.attrs, "public_system_include_directories", []))
+        header_map = {
+            paths.join(h.namespace, h.name): h.artifact
+            for h in headers
+        }
+        all_raw_headers.clear()
+    else:
+        include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.include_directories])
 
     args = _get_private_preprocessor_args(ctx, header_map, compiler_type, all_raw_headers)
 
@@ -389,6 +417,24 @@ def _header_style_args(style: HeaderStyle, path: cmd_args, compiler_type: str) -
     if style == HeaderStyle("system"):
         return format_system_include_arg(path, compiler_type)
     fail("unsupported header style: {}".format(style))
+
+def _attr_raw_headers_as_headers_mode(ctx: AnalysisContext) -> RawHeadersAsHeadersMode:
+    """
+    Return the `RawHeadersAsHeadersMode` setting to use for this rule.
+    """
+
+    mode = get_cxx_toolchain_info(ctx).raw_headers_as_headers_mode
+
+    # If the platform hasn't set a raw headers translation mode, we don't do anything.
+    if mode == None:
+        return RawHeadersAsHeadersMode("disabled")
+
+    # Otherwise use the rule-specific setting, if provided (not available on prebuilt_cxx_library).
+    if getattr(ctx.attrs, "raw_headers_as_headers_mode", None) != None:
+        return RawHeadersAsHeadersMode(ctx.attrs.raw_headers_as_headers_mode)
+
+    # Fallback to platform default.
+    return mode
 
 def _attr_headers_as_raw_headers_mode(ctx: AnalysisContext) -> HeadersAsRawHeadersMode:
     """
