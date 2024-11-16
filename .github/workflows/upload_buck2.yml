@@ -56,7 +56,7 @@ jobs:
     runs-on: ${{ matrix.target.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: SebRollen/toml-action@v1.0.2
@@ -135,7 +135,7 @@ jobs:
       - get_prelude_hash
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       # Publish a new tag and upload all aritfacts from `build` and `get_prelude_hash`
@@ -196,7 +196,7 @@ jobs:
     # Only perform this action if check_for_bi_monthly_release set a tag output
     if: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       # Publish a new tag and upload all aritfacts from `build` and `get_prelude_hash`
@@ -218,7 +218,7 @@ jobs:
       - build
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Download Buck2
       uses: actions/download-artifact@v4
       with:
