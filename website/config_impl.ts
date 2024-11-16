@@ -134,6 +134,14 @@ const themeConfig: ClassicPresetConfig = ({
     theme: lightCodeTheme,
     darkTheme: darkCodeTheme,
   },
+  algolia: fbContent({
+    internal: undefined,
+    external: {
+      appId: '9RT0EWXQO8',
+      apiKey: 'c0c0727b6bdf3fe8bc6f743ae1878232',
+      indexName: 'buck2',
+    }
+  }),
 });
 
 const config: DocusaurusConfig = ({
