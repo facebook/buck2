@@ -25,8 +25,17 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 
 const HTML_PLACEHOLDER: &str = "XXDATAXX";
 
+#[derive(Default)]
+pub struct ActionEntryData {
+    // TODO iguridi: add more interesting action fields e.g. duration
+    pub category: Option<String>,
+    pub failed: bool,
+    pub repros: Vec<String>,
+}
+
 pub async fn main(
     data: Vec<ConfiguredTargetNode>,
+    _executed_actions: Vec<(String, ActionEntryData)>,
     output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
     manifold_path: Option<&str>,

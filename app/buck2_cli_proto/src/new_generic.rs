@@ -56,6 +56,7 @@ pub struct ExplainRequest {
     pub target: String,
     pub fbs_dump: Option<AbsPathBuf>,
     pub manifold_path: Option<String>,
+    pub log_path: AbsPathBuf,
     // build options
     pub target_universe: Vec<String>,
     pub target_cfg: TargetCfg,

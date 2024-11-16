@@ -139,6 +139,7 @@ impl StreamingCommand for ExplainCommand {
                     manifold_path: manifold_path.clone(),
                     target_universe,
                     target_cfg,
+                    log_path: build_log.path().to_owned(),
                 }),
                 None,
             )
