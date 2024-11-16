@@ -109,9 +109,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         manifests = dep[PythonLibraryInfo].manifests.value
         if manifests.srcs != None:
             srcs.append(manifests.srcs)
-        if manifests.default_resources != None:
-            expect(not manifests.default_resources[1])
-            srcs.append(manifests.default_resources[0])
+        if manifests.resources != None:
+            expect(not manifests.resources[1])
+            srcs.append(manifests.resources[0])
         if manifests.extensions != None:
             python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
             toolchain_info = get_cxx_toolchain_info(ctx)
