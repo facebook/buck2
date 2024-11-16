@@ -11,8 +11,8 @@ use core::iter::Iterator;
 use std::collections::HashMap;
 
 use anyhow::Context;
+use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::new_generic::ExplainRequest;
-use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;
 use buck2_data::action_key;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
@@ -26,11 +26,9 @@ use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_events::span::SpanId;
 use buck2_explain::ActionEntryData;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_patterns_to_targets_from_cli_args;
-use buck2_server_ctx::target_resolution_config::TargetResolutionConfig;
+use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use dupe::IterDupedExt;
@@ -172,47 +170,37 @@ pub(crate) async fn explain(
         }
     }
 
-    let configured_target = {
-        // TODO iguridi: this is hacky
-        let target_pattern = parse_and_resolve_patterns_to_targets_from_cli_args::<
-            ConfiguredTargetPatternExtra,
-        >(&mut ctx, &[req.target.clone()], server_ctx.working_dir())
-        .await?;
-
-        let target_label = match target_pattern.as_slice() {
-            [p] => &p.target_label,
-            _ => {
-                return Err(anyhow::anyhow!(
-                    "Expected exactly one target, got {}",
-                    target_pattern.len()
-                ));
-            }
+    let targets: Vec<ConfiguredTargetNode> = {
+        let target_universe: Option<&[String]> = if req.target_universe.is_empty() {
+            None
+        } else {
+            Some(&req.target_universe)
         };
 
-        let target_resolution_config = TargetResolutionConfig::from_args(
-            &mut ctx,
-            &req.target_cfg,
-            server_ctx,
-            &req.target_universe,
-        )
-        .await?;
+        let global_cfg_options =
+            global_cfg_options_from_client_context(&req.target_cfg, server_ctx, &mut ctx).await?;
 
-        let configured_targets = target_resolution_config
-            .get_configured_target(&mut ctx, target_label)
+        let (query_result, _universes) = QUERY_FRONTEND
+            .get()?
+            .eval_cquery(
+                &mut ctx,
+                server_ctx.working_dir(),
+                &req.target,
+                &[],
+                global_cfg_options,
+                target_universe,
+                false,
+            )
             .await?;
-        if configured_targets.len() != 1 {
-            return Err(anyhow::anyhow!(
-                "Expected exactly one target, got {}",
-                configured_targets.len()
-            ));
-        }
-        ctx.get_configured_target_node(&configured_targets[0])
-            .await?
-            .require_compatible()? // TODO iguridi: not sure about this, make things simpler for now
+
+        query_result
+            .targets()
+            .map(|v| v.map(|v| v.dupe()))
+            .collect::<Result<Vec<ConfiguredTargetNode>, _>>()?
     };
 
     let all_deps = {
-        let mut stack = vec![configured_target];
+        let mut stack = targets;
         let mut visited = LabelIndexedSet::new();
         while let Some(node) = stack.pop() {
             if visited.insert(node.dupe()) {
