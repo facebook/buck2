@@ -20,6 +20,7 @@ enum DisplayType {
   passesFilters,
   hidden,
   highlighted,
+  actionsRan,
 }
 
 const displayTypeColors: {[key in DisplayType]: string} = {
@@ -27,6 +28,7 @@ const displayTypeColors: {[key in DisplayType]: string} = {
   [DisplayType.rootNode]: '#1a181b',
   [DisplayType.passesFilters]: '#1c77c3',
   [DisplayType.highlighted]: '#e9724c',
+  [DisplayType.actionsRan]: '#39a9db',
   [DisplayType.hidden]: 'gray', // doesn't matter
 }
 
@@ -95,6 +97,11 @@ export function GraphImpl2(props: {
       if (label.includes(highlighted)) {
         node.displayType = DisplayType.highlighted
       }
+    }
+
+    // Targets with actions ran
+    if (target.actionsLength() > 0) {
+      node.displayType = DisplayType.actionsRan
     }
   }
 
