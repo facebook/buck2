@@ -14,6 +14,7 @@ export const ROOT_VIEW = ''
 export enum QueryKey {
   SearchView = 'search',
   GraphView = 'graph',
+  GraphView2 = 'graph2',
   TargetView = 'target',
   TargetTab = 'target_tab',
 }
