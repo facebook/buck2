@@ -13,6 +13,8 @@ pub mod ctargets;
 pub mod debug_eval;
 pub mod expand_external_cell;
 pub mod explain;
+#[cfg(fbcode_build)]
+pub(crate) mod explain_code;
 pub(crate) mod init_commands;
 pub mod install;
 pub mod query;
