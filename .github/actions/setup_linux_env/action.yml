@@ -3,7 +3,7 @@ description: Setup Linux environment
 runs:
   using: composite
   steps:
-  - uses: SebRollen/toml-action@v1.0.2
+  - uses: SebRollen/toml-action@v1.2.0
     id: read_rust_toolchain
     with:
       file: rust-toolchain
