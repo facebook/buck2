@@ -1125,16 +1125,9 @@ impl<'b> BuckTestOrchestrator<'b> {
     async fn get_command_executor(
         dice: &mut DiceComputations<'_>,
         fs: &ArtifactFs,
-        test_target_node: &ConfiguredTargetNode,
-        executor_override: Option<&CommandExecutorConfig>,
+        executor_config: &CommandExecutorConfig,
         stage: &TestStage,
     ) -> anyhow::Result<CommandExecutor> {
-        let executor_config = &Self::executor_config_with_remote_cache_override(
-            test_target_node,
-            executor_override,
-            &stage,
-        )?;
-
         let CommandExecutorResponse {
             executor,
             platform,
@@ -1238,15 +1231,15 @@ impl<'b> BuckTestOrchestrator<'b> {
             None => test_info.default_executor().map(|o| &o.0),
         };
 
-        Self::get_command_executor(
-            dice,
-            fs,
+        let executor_config = Self::executor_config_with_remote_cache_override(
             &node,
             resolved_executor_override.as_ref().map(|a| &***a),
-            stage,
-        )
-        .await
-        .context("Error constructing CommandExecutor")
+            &stage,
+        )?;
+
+        Self::get_command_executor(dice, fs, &executor_config, stage)
+            .await
+            .context("Error constructing CommandExecutor")
     }
 
     async fn expand_test_executable<'a>(
