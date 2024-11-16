@@ -301,4 +301,11 @@ impl CommandExecutorConfig {
             },
         })
     }
+
+    pub fn re_cache_enabled(&self) -> bool {
+        match &self.executor {
+            Executor::Local(_) => false,
+            Executor::RemoteEnabled(options) => options.remote_cache_enabled,
+        }
+    }
 }

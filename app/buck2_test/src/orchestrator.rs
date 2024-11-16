@@ -364,7 +364,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         } = key;
         let fs = dice.get_artifact_fs().await?;
         let test_info = Self::get_test_info(dice, &test_target).await?;
-        let test_executor = Self::get_test_executor(
+        let (test_executor, re_cache_enabled) = Self::get_test_executor(
             dice,
             &test_target,
             &test_info,
@@ -448,6 +448,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             &test_executor,
             execution_request,
             liveliness_observer.dupe(),
+            re_cache_enabled,
         )
         .boxed()
         .await?;
@@ -759,7 +760,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             .await?;
 
         // Tests are not run, so there is no executor override.
-        let executor = Self::get_test_executor(
+        let (executor, _) = Self::get_test_executor(
             self.dice.dupe().deref_mut(),
             &test_target,
             &test_info,
@@ -894,6 +895,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         executor: &CommandExecutor,
         request: CommandExecutionRequest,
         liveliness_observer: Arc<dyn LivelinessObserver>,
+        re_cache_enabled: bool,
     ) -> Result<ExecuteData, ExecuteError> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let manager = CommandExecutionManager::new(
@@ -960,6 +962,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                                     .to_command_execution_proto(true, true, false)
                                     .await,
                             ),
+                            re_cache_enabled,
                         };
                         ((result, cached), end)
                     })
@@ -1207,7 +1210,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         executor_override: Option<Arc<ExecutorConfigOverride>>,
         fs: &ArtifactFs,
         stage: &TestStage,
-    ) -> anyhow::Result<CommandExecutor> {
+    ) -> anyhow::Result<(CommandExecutor, bool)> {
         // NOTE: get_providers() implicitly calls this already but it's not the end of the world
         // since this will get cached in DICE.
         let node = dice
@@ -1237,9 +1240,10 @@ impl<'b> BuckTestOrchestrator<'b> {
             &stage,
         )?;
 
-        Self::get_command_executor(dice, fs, &executor_config, stage)
+        let executor = Self::get_command_executor(dice, fs, &executor_config, stage)
             .await
-            .context("Error constructing CommandExecutor")
+            .context("Error constructing CommandExecutor")?;
+        Ok((executor, executor_config.re_cache_enabled()))
     }
 
     async fn expand_test_executable<'a>(

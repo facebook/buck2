@@ -1619,6 +1619,7 @@ message TestDiscoveryStart {
 message TestDiscoveryEnd {
   string suite_name = 1;
   CommandExecution command_report = 2;
+  bool re_cache_enabled = 3;
 }
 
 message TestRunStart {
