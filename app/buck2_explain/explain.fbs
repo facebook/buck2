@@ -16,6 +16,11 @@ table CodePointer {
 
 enum TargetValueType : byte { Bool, Int, String, List, Dict }
 
+table Action {
+  category: string;
+  failed: bool;
+  repros: [string];
+}
 
 table TargetValue {
   type: TargetValueType = String;
@@ -42,6 +47,8 @@ table ConfiguredTargetNode {
     oncall: string;
     target_configuration: string;
     execution_platform: string;
+    // actions
+    actions: [Action];
     // extras
     label: ConfiguredTargetLabel;
     srcs: long;
@@ -50,4 +57,6 @@ table ConfiguredTargetNode {
 
 table Build {
     targets: [ConfiguredTargetNode];
+    // Couldn't associate these with a target
+    other_actions: [Action];
 }

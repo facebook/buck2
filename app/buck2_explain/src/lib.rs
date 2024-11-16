@@ -35,12 +35,12 @@ pub struct ActionEntryData {
 
 pub async fn main(
     data: Vec<ConfiguredTargetNode>,
-    _executed_actions: Vec<(String, ActionEntryData)>,
+    executed_actions: Vec<(String, ActionEntryData)>,
     output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
     manifold_path: Option<&str>,
 ) -> anyhow::Result<()> {
-    let fbs = flatbuffers::gen_fbs(data)?;
+    let fbs = flatbuffers::gen_fbs(data, executed_actions)?;
 
     let fbs = fbs.finished_data();
     let base64 = STANDARD.encode(&fbs);

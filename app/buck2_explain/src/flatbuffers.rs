@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::collections::HashMap;
+
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -15,7 +17,11 @@ use buck2_query::query::environment::QueryTarget;
 use flatbuffers::FlatBufferBuilder;
 use flatbuffers::WIPOffset;
 
+use crate::ActionEntryData;
+
 mod fbs {
+    pub use crate::explain_generated::explain::Action;
+    pub use crate::explain_generated::explain::ActionArgs;
     pub use crate::explain_generated::explain::Build;
     pub use crate::explain_generated::explain::BuildArgs;
     pub use crate::explain_generated::explain::CodePointer;
@@ -32,21 +38,61 @@ enum AttrField {
     StringDict(Vec<(String, String)>),
 }
 
+struct TargetData {
+    node: ConfiguredTargetNode,
+    actions: Vec<ActionEntryData>,
+}
+
 pub(crate) fn gen_fbs(
     data: Vec<ConfiguredTargetNode>,
+    actions: Vec<(String, ActionEntryData)>,
 ) -> anyhow::Result<FlatBufferBuilder<'static>> {
+    // associate actions with targets when possible
+    let (target_data, other_actions_data) = {
+        let mut actions_data = vec![];
+        let mut data: Vec<_> = data
+            .into_iter()
+            .map(|node| TargetData {
+                node,
+                actions: vec![],
+            })
+            .collect();
+
+        let mut node_map: HashMap<String, &mut TargetData> = HashMap::new();
+        for node in data.iter_mut() {
+            let key = node.node.label().to_string();
+            node_map.insert(key, node);
+        }
+
+        for (target, entry) in actions.into_iter() {
+            if let Some(target_data) = node_map.get_mut(&target) {
+                target_data.actions.push(entry);
+            } else {
+                actions_data.push(entry);
+            }
+        }
+        (data, actions_data)
+    };
+
     let mut builder = FlatBufferBuilder::new();
 
-    let targets: Result<Vec<_>, _> = data
+    let targets: Result<Vec<_>, _> = target_data
         .iter()
         .map(|node| target_to_fbs(&mut builder, node))
         .collect();
-
     let targets = builder.create_vector(&targets?);
+
+    let other_actions: Vec<_> = other_actions_data
+        .iter()
+        .map(|node| action_to_fbs(&mut builder, node))
+        .collect();
+    let other_actions = builder.create_vector(&other_actions);
+
     let build = fbs::Build::create(
         &mut builder,
         &fbs::BuildArgs {
             targets: Some(targets),
+            other_actions: Some(other_actions),
         },
     );
     builder.finish(build, None);
@@ -55,8 +101,19 @@ pub(crate) fn gen_fbs(
 
 fn target_to_fbs<'a>(
     builder: &'_ mut FlatBufferBuilder<'static>,
-    node: &'_ ConfiguredTargetNode,
+    data: &'_ TargetData,
 ) -> anyhow::Result<WIPOffset<fbs::ConfiguredTargetNode<'a>>, anyhow::Error> {
+    let node = &data.node;
+
+    let actions = {
+        let actions: Vec<flatbuffers::WIPOffset<fbs::Action<'_>>> = data
+            .actions
+            .iter()
+            .map(|action| action_to_fbs(builder, action))
+            .collect();
+        Some(builder.create_vector(&actions))
+    };
+
     // special attrs
     let name = builder.create_shared_string(&node.name());
     let target_label = get_target_label(builder, node);
@@ -107,9 +164,36 @@ fn target_to_fbs<'a>(
             execution_platform: Some(execution_platform),
             srcs,
             code_pointer,
+            actions,
         },
     );
     Ok(target)
+}
+
+fn action_to_fbs<'a>(
+    builder: &mut FlatBufferBuilder<'static>,
+    action: &ActionEntryData,
+) -> WIPOffset<fbs::Action<'a>> {
+    let category = action
+        .category
+        .as_ref()
+        .map(|c| builder.create_shared_string(&c));
+    let repros = {
+        let list = action
+            .repros
+            .iter()
+            .map(|v| builder.create_shared_string(v))
+            .collect::<Vec<WIPOffset<&str>>>();
+        Some(builder.create_vector(&list))
+    };
+    fbs::Action::create(
+        builder,
+        &fbs::ActionArgs {
+            category,
+            failed: action.failed,
+            repros,
+        },
+    )
 }
 
 fn get_target_label<'a>(
@@ -233,7 +317,7 @@ mod tests {
             vec![],
         );
 
-        let fbs = gen_fbs(data).unwrap();
+        let fbs = gen_fbs(data, vec![]).unwrap();
         let fbs = fbs.finished_data();
         let build = flatbuffers::root::<Build>(fbs).unwrap();
         let target = build.targets().unwrap().get(0);
