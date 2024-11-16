@@ -83,11 +83,5 @@ jobs:
           & $Env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
           & $Env:RUNNER_TEMP/artifacts/buck2 test //... -v 2
       - uses: ./.github/actions/build_example_no_prelude
-      - name: Configure CARGO_HOME
-        run: |-
-          echo CARGO_HOME=$GITHUB_WORKSPACE/.cargo >> $GITHUB_ENV
-          echo $GITHUB_WORKSPACE/.cargo/bin >> $GITHUB_PATH
-        shell:
-          bash
       - uses: ./.github/actions/setup_reindeer
       - uses: ./.github/actions/build_bootstrap

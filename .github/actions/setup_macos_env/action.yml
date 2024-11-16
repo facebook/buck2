@@ -3,9 +3,15 @@ description: Setup macOS environment
 runs:
   using: composite
   steps:
-  - name: Install Rustup
-    run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain=none
-    shell: bash
+  - uses: SebRollen/toml-action@v1.2.0
+    id: read_rust_toolchain
+    with:
+      file: rust-toolchain
+      field: toolchain.channel
+  - uses: dtolnay/rust-toolchain@v1
+    with:
+      toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
+      components: clippy
   - name: Brew install
     run: brew install cmake python3 coreutils opam llvm protobuf zstd
     shell: bash
@@ -13,7 +19,6 @@ runs:
     run: sudo pip3 install --break-system-packages conan==1.*
     shell: bash
   - uses: "./.github/actions/print_versions"
-  - uses: actions/checkout@v4
   - uses: actions/setup-go@v5
     with:
       cache: false
