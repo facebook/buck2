@@ -25,6 +25,7 @@ load(
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
+load("@prelude//sabaton:sabaton_toolchain.bzl", "SabatonToolchainInfo")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
 load("@prelude//tests:test_toolchain.bzl", "TestToolchainInfo")
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
@@ -91,6 +92,9 @@ def _remote_test_execution_toolchain():
 def _test_toolchain():
     return _toolchain("test", [TestToolchainInfo])
 
+def _sabaton_toolchain():
+    return _toolchain("sabaton", [SabatonToolchainInfo])
+
 toolchains_common = struct(
     android = _android_toolchain,
     csharp = _csharp_toolchain,
@@ -111,4 +115,5 @@ toolchains_common = struct(
     rust = _rust_toolchain,
     zip_file = _zip_file_toolchain,
     remote_test_execution = _remote_test_execution_toolchain,
+    sabaton = _sabaton_toolchain,
 )
