@@ -85,7 +85,7 @@ impl<'v> StarlarkSelector<'v> {
         heap.alloc(StarlarkSelector::Sum(left, right))
     }
 
-    pub fn from_concat<I>(iter: I, heap: &'v Heap) -> Value<'v>
+    pub fn from_concat<I>(iter: I, heap: &'v Heap) -> buck2_error::Result<Value<'v>>
     where
         I: IntoIterator<Item = Value<'v>>,
     {
@@ -93,32 +93,31 @@ impl<'v> StarlarkSelector<'v> {
             selector: Option<StarlarkSelector<'v>>,
             values: &mut I,
             heap: &'v Heap,
-        ) -> NoneOr<StarlarkSelector<'v>>
+        ) -> buck2_error::Result<NoneOr<StarlarkSelector<'v>>>
         where
             I: Iterator<Item = Value<'v>>,
         {
             match (selector, values.next()) {
-                (None, None) => NoneOr::None,
+                (None, None) => Ok(NoneOr::None),
                 (None, Some(v)) => {
                     if let Some(next_v) = values.next() {
                         let head = StarlarkSelector::Sum(v, next_v);
                         values_to_selector(Some(head), values, heap)
                     } else {
-                        NoneOr::Other(StarlarkSelector::new(
-                            ValueOf::unpack_value_err(v.to_value())
-                                .expect("validated at construction"),
-                        ))
+                        let v = ValueOf::unpack_value_err(v.to_value())
+                            .internal_error("validated at construction")?;
+                        Ok(NoneOr::Other(StarlarkSelector::new(v)))
                     }
                 }
-                (Some(s), None) => NoneOr::Other(s),
+                (Some(s), None) => Ok(NoneOr::Other(s)),
                 (Some(s), Some(v)) => {
                     let head = Some(StarlarkSelector::Sum(heap.alloc(s), v));
                     values_to_selector(head, values, heap)
                 }
             }
         }
-        let selector = values_to_selector(None, &mut iter.into_iter(), heap);
-        heap.alloc(selector)
+        let selector = values_to_selector(None, &mut iter.into_iter(), heap)?;
+        Ok(heap.alloc(selector))
     }
 
     fn select_map<'a>(

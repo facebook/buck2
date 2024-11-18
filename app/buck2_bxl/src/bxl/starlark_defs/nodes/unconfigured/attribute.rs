@@ -246,7 +246,7 @@ impl CoercedAttrExt for CoercedAttr {
             }
             CoercedAttr::Concat(l) => {
                 let list = l.as_ref().try_map(|attr| attr.to_value(pkg.dupe(), heap))?;
-                StarlarkSelector::from_concat(list, heap)
+                StarlarkSelector::from_concat(list, heap)?
             }
         })
     }
