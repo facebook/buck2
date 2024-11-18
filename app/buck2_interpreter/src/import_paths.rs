@@ -38,7 +38,7 @@ impl ImplicitImportPaths {
         mut config: impl LegacyBuckConfigView,
         cell_name: BuildFileCell,
         cell_alias_resolver: &CellAliasResolver,
-    ) -> anyhow::Result<ImplicitImportPaths> {
+    ) -> buck2_error::Result<ImplicitImportPaths> {
         // Oddly, the root import is defined to use a more path-like representation than
         // normal imports. e.g. it uses `cell//path/to/file.bzl` instead of
         // `cell//path/to:file.bzl`.
@@ -83,7 +83,7 @@ pub trait HasImportPaths {
     async fn import_paths_for_cell(
         &mut self,
         cell_name: BuildFileCell,
-    ) -> anyhow::Result<Arc<ImplicitImportPaths>>;
+    ) -> buck2_error::Result<Arc<ImplicitImportPaths>>;
 }
 
 #[async_trait]
@@ -91,7 +91,7 @@ impl HasImportPaths for DiceComputations<'_> {
     async fn import_paths_for_cell(
         &mut self,
         cell_name: BuildFileCell,
-    ) -> anyhow::Result<Arc<ImplicitImportPaths>> {
+    ) -> buck2_error::Result<Arc<ImplicitImportPaths>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, derive_more::Display, Allocative)]
         #[display("{}", cell_name)]
         struct ImportPathsKey {
@@ -128,6 +128,6 @@ impl HasImportPaths for DiceComputations<'_> {
 
         self.compute(&ImportPathsKey { cell_name })
             .await?
-            .map_err(anyhow::Error::from)
+            .map_err(buck2_error::Error::from)
     }
 }

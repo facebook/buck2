@@ -409,12 +409,12 @@ pub async fn profile_analysis(
         })
         .await?;
 
-    Ok(StarlarkProfileDataAndStats::merge(
+    StarlarkProfileDataAndStats::merge(
         profile_datas
             .iter()
             .filter_map(|o| o.as_ref())
             .map(|x| &**x),
-    )?)
+    )
 }
 
 pub struct AnalysisKeyActivationData {

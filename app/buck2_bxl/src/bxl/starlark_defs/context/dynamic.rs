@@ -123,7 +123,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         scope_and_collect_with_dice(dice_ctx, |dice_ctx, s| {
             s.spawn_cancellable(
                 async move {
-                    Ok(with_starlark_eval_provider(
+                    with_starlark_eval_provider(
                         dice_ctx,
                         &mut StarlarkProfilerOpt::disabled(),
                         format!("bxl_dynamic:{}", "foo"),
@@ -133,7 +133,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                             }))
                         },
                     )
-                    .await?)
+                    .await
                 },
                 || Err(buck2_error!([], "cancelled")),
             )

@@ -47,7 +47,7 @@ pub trait SetStarlarkTypes {
         &mut self,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 impl SetStarlarkTypes for DiceTransactionUpdater {
@@ -55,7 +55,7 @@ impl SetStarlarkTypes for DiceTransactionUpdater {
         &mut self,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(self.changed_to([(
             StarlarkTypesKey,
             StarlarkTypesValue {
@@ -68,20 +68,20 @@ impl SetStarlarkTypes for DiceTransactionUpdater {
 
 #[async_trait]
 pub trait GetStarlarkTypes {
-    async fn get_disable_starlark_types(&mut self) -> anyhow::Result<bool>;
-    async fn get_unstable_typecheck(&mut self) -> anyhow::Result<bool>;
+    async fn get_disable_starlark_types(&mut self) -> buck2_error::Result<bool>;
+    async fn get_unstable_typecheck(&mut self) -> buck2_error::Result<bool>;
 }
 
 #[async_trait]
 impl GetStarlarkTypes for DiceComputations<'_> {
-    async fn get_disable_starlark_types(&mut self) -> anyhow::Result<bool> {
+    async fn get_disable_starlark_types(&mut self) -> buck2_error::Result<bool> {
         Ok(self
             .compute(&StarlarkTypesKey)
             .await?
             .disable_starlark_types)
     }
 
-    async fn get_unstable_typecheck(&mut self) -> anyhow::Result<bool> {
+    async fn get_unstable_typecheck(&mut self) -> buck2_error::Result<bool> {
         Ok(self.compute(&StarlarkTypesKey).await?.unstable_typecheck)
     }
 }

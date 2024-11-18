@@ -37,7 +37,7 @@ impl PreludePath {
     }
 }
 
-pub fn prelude_path(cell_resolver: &CellResolver) -> anyhow::Result<Option<PreludePath>> {
+pub fn prelude_path(cell_resolver: &CellResolver) -> buck2_error::Result<Option<PreludePath>> {
     let alias_resolver = cell_resolver.root_cell_cell_alias_resolver();
     let Ok(prelude_cell) = alias_resolver.resolve("prelude") else {
         return Ok(None);

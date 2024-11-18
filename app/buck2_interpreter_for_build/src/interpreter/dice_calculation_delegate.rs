@@ -171,7 +171,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 async move {
                     ctx.get_loaded_module(import.borrow())
                         .await
-                        .with_context(|| {
+                        .with_buck_error_context_anyhow(|| {
                             format!(
                                 "From load at {}",
                                 span.as_ref()
@@ -229,7 +229,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = &self.configs;
         let ctx = &mut *self.ctx;
 
-        with_starlark_eval_provider(
+        Ok(with_starlark_eval_provider(
             ctx,
             &mut StarlarkProfilerOpt::disabled(),
             format!("load:{}", &starlark_file),
@@ -255,7 +255,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 ))
             },
         )
-        .await
+        .await?)
     }
 
     /// Eval parent `PACKAGE` file for given package file.
@@ -374,7 +374,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let configs = &self.configs;
         let ctx = &mut *self.ctx;
 
-        with_starlark_eval_provider(
+        Ok(with_starlark_eval_provider(
             ctx,
             &mut StarlarkProfilerOpt::disabled(),
             format!("load:{}", path),
@@ -382,7 +382,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 let mut buckconfigs =
                     ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
-                configs
+                Ok(configs
                     .eval_package_file(
                         &package_file_path,
                         ast,
@@ -391,10 +391,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         deps.get_loaded_modules(),
                         provider,
                     )
-                    .with_context(|| format!("evaluating Starlark PACKAGE file `{}`", path))
+                    .with_context(|| format!("evaluating Starlark PACKAGE file `{}`", path))?)
             },
         )
-        .await
+        .await?)
     }
 
     pub(crate) async fn eval_package_file(
@@ -465,8 +465,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     async fn resolve_package_listing(
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> anyhow::Result<PackageListing> {
-        Ok(span_async_simple(
+    ) -> buck2_error::Result<PackageListing> {
+        span_async_simple(
             buck2_data::LoadPackageStart {
                 path: package.as_cell_path().to_string(),
             },
@@ -475,7 +475,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 path: package.as_cell_path().to_string(),
             },
         )
-        .await?)
+        .await
     }
 
     pub async fn eval_build_file(
@@ -533,7 +533,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 let mut buckconfigs =
                     ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
-                span(start_event, move || {
+                Ok(span(start_event, move || {
                     let result_with_stats = configs
                         .eval_build_file(
                             &build_file_path,
@@ -572,7 +572,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                             error,
                         },
                     )
-                })
+                })?)
             },
         )
         .await?;

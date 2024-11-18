@@ -173,7 +173,7 @@ impl<'v> Freeze for Transition<'v> {
 starlark_complex_values!(Transition);
 
 impl<'v> TransitionValue for Transition<'v> {
-    fn transition_id(&self) -> anyhow::Result<Arc<TransitionId>> {
+    fn transition_id(&self) -> buck2_error::Result<Arc<TransitionId>> {
         self.id
             .borrow()
             .as_ref()
@@ -183,7 +183,7 @@ impl<'v> TransitionValue for Transition<'v> {
 }
 
 impl TransitionValue for FrozenTransition {
-    fn transition_id(&self) -> anyhow::Result<Arc<TransitionId>> {
+    fn transition_id(&self) -> buck2_error::Result<Arc<TransitionId>> {
         Ok(self.id.dupe())
     }
 }

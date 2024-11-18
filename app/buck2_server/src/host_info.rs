@@ -7,10 +7,10 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_cli_proto::client_context::HostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_core::soft_error;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -57,11 +57,11 @@ pub fn get_host_info(
     let interpreter_xcode_version = match host_xcode_override {
         Some(s) => Some(
             XcodeVersionInfo::from_version_and_build(s.as_str())
-                .context("Constructing `XcodeVersionInfo` from string.")?,
+                .buck_error_context("Constructing `XcodeVersionInfo` from string.")?,
         ),
         None if interpreter_platform == InterpreterHostPlatform::MacOS => {
             match XcodeVersionInfo::new()
-                .context("Constructing `XcodeVersionInfo` using host platform MacOS.")
+                .buck_error_context("Constructing `XcodeVersionInfo` using host platform MacOS.")
             {
                 Ok(v) => v,
                 Err(e) => {

@@ -21,14 +21,14 @@ enum TransitionError {
 
 /// Implemented by starlark transition objects.
 pub trait TransitionValue {
-    fn transition_id(&self) -> anyhow::Result<Arc<TransitionId>>;
+    fn transition_id(&self) -> buck2_error::Result<Arc<TransitionId>>;
 }
 
 unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn TransitionValue {
     type StaticType = &'static dyn TransitionValue;
 }
 
-pub fn transition_id_from_value(value: Value) -> anyhow::Result<Arc<TransitionId>> {
+pub fn transition_id_from_value(value: Value) -> buck2_error::Result<Arc<TransitionId>> {
     match value.request_value::<&dyn TransitionValue>() {
         Some(has) => has.transition_id(),
         None => Err(TransitionError::WrongType(value.to_repr()).into()),

@@ -55,10 +55,10 @@ pub struct XcodeVersionInfo {
 
 impl XcodeVersionInfo {
     // Construct from version.plist in root of Xcode install dir.
-    pub fn new() -> anyhow::Result<Option<Self>> {
+    pub fn new() -> buck2_error::Result<Option<Self>> {
         let resolved_xcode_path =
             fs_util::canonicalize_if_exists(AbsPath::new(XCODE_SELECT_SYMLINK)?)
-                .buck_error_context_anyhow("resolve selected xcode link")?;
+                .buck_error_context("resolve selected xcode link")?;
         let resolved_xcode_path = match resolved_xcode_path {
             Some(p) => p,
             None => return Ok(None),
@@ -72,7 +72,7 @@ impl XcodeVersionInfo {
         Self::from_plist(&plist_path)
     }
 
-    pub(crate) fn from_plist(plist_path: &Path) -> anyhow::Result<Option<Self>> {
+    pub(crate) fn from_plist(plist_path: &Path) -> buck2_error::Result<Option<Self>> {
         let plist = plist::from_file::<_, XcodeVersionPlistSchema>(plist_path);
 
         let plist = match plist {
@@ -84,9 +84,8 @@ impl XcodeVersionInfo {
                 return Ok(None);
             }
             Err(e) => {
-                return Err(
-                    anyhow::Error::from(e).context("Error deserializing Xcode `version.plist`")
-                );
+                return Err(buck2_error::Error::from(e)
+                    .context("Error deserializing Xcode `version.plist`"));
             }
         };
 
@@ -112,7 +111,7 @@ impl XcodeVersionInfo {
 
     /// Construct from a string, formatted as: "version-build"
     /// (e.g., 14.3.0-14C18 or 14.1-14B47b)
-    pub fn from_version_and_build(version_and_build: &str) -> anyhow::Result<Self> {
+    pub fn from_version_and_build(version_and_build: &str) -> buck2_error::Result<Self> {
         let re = Regex::new(r"^((\d+)\.(\d+)(?:\.(\d+))?)\-([[:alnum:]]+)$").unwrap();
         if !re.is_match(version_and_build) {
             return Err(XcodeVersionError::MalformedVersionBuildString.into());

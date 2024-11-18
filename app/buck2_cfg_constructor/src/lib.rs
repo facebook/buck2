@@ -83,7 +83,7 @@ async fn eval_pre_constraint_analysis<'v>(
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
 ) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
-    with_starlark_eval_provider(
+    Ok(with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
@@ -144,7 +144,7 @@ async fn eval_pre_constraint_analysis<'v>(
             Ok((refs.items, params, eval))
         },
     )
-    .await
+    .await?)
 }
 
 async fn analyze_constraints(
@@ -194,12 +194,12 @@ async fn eval_post_constraint_analysis<'v>(
     mut eval: Evaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
 ) -> anyhow::Result<ConfigurationData> {
-    with_starlark_eval_provider(
+    Ok(with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
         "post constraint-analysis invocation for cfg".to_owned(),
-        |_, _| -> anyhow::Result<ConfigurationData> {
+        |_, _| -> buck2_error::Result<ConfigurationData> {
             let post_constraint_analysis_args = vec![
                 (
                     "refs",
@@ -224,10 +224,13 @@ async fn eval_post_constraint_analysis<'v>(
                 .map_err(from_starlark)?;
 
             // Type check + unpack
-            <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()
+            Ok(
+                <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?
+                    .to_configuration()?,
+            )
         },
     )
-    .await
+    .await?)
 }
 
 async fn eval_underlying(

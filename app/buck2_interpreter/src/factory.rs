@@ -18,11 +18,11 @@ pub trait StarlarkEvaluatorProvider {
     fn make<'v, 'a, 'e>(
         &mut self,
         module: &'v Module,
-    ) -> anyhow::Result<(Evaluator<'v, 'a, 'e>, bool)>;
+    ) -> buck2_error::Result<(Evaluator<'v, 'a, 'e>, bool)>;
 
-    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()>;
+    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()>;
 
-    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()>;
+    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> buck2_error::Result<()>;
 }
 
 /// Trivial provider that just constructs an Evaluator. Useful for tests (but not necessarily limited to them).
@@ -32,15 +32,15 @@ impl StarlarkEvaluatorProvider for StarlarkPassthroughProvider {
     fn make<'v, 'a, 'e>(
         &mut self,
         module: &'v Module,
-    ) -> anyhow::Result<(Evaluator<'v, 'a, 'e>, bool)> {
+    ) -> buck2_error::Result<(Evaluator<'v, 'a, 'e>, bool)> {
         Ok((Evaluator::new(module), true))
     }
 
-    fn evaluation_complete(&mut self, _eval: &mut Evaluator) -> anyhow::Result<()> {
+    fn evaluation_complete(&mut self, _eval: &mut Evaluator) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    fn visit_frozen_module(&mut self, _module: Option<&FrozenModule>) -> anyhow::Result<()> {
+    fn visit_frozen_module(&mut self, _module: Option<&FrozenModule>) -> buck2_error::Result<()> {
         Ok(())
     }
 }

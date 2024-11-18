@@ -42,7 +42,7 @@ impl BuckStarlarkRegex {
         }
     }
 
-    fn is_match(&self, s: &str) -> anyhow::Result<bool> {
+    fn is_match(&self, s: &str) -> buck2_error::Result<bool> {
         match self {
             BuckStarlarkRegex::Regular(r) => Ok(r.is_match(s)),
             BuckStarlarkRegex::Fancy(r) => Ok(r.is_match(s)?),
@@ -83,8 +83,8 @@ fn regex_methods(builder: &mut MethodsBuilder) {
     fn r#match(
         this: &BuckStarlarkRegex,
         #[starlark(require = pos)] str: &str,
-    ) -> anyhow::Result<bool> {
-        this.is_match(str)
+    ) -> starlark::Result<bool> {
+        Ok(this.is_match(str)?)
     }
 }
 
@@ -94,10 +94,14 @@ pub fn register_buck_regex(builder: &mut GlobalsBuilder) {
     fn regex<'v>(
         #[starlark(require = pos)] regex: &str,
         #[starlark(require = named, default = false)] fancy: bool,
-    ) -> anyhow::Result<BuckStarlarkRegex> {
+    ) -> starlark::Result<BuckStarlarkRegex> {
         match fancy {
-            false => Ok(BuckStarlarkRegex::Regular(regex::Regex::new(regex)?)),
-            true => Ok(BuckStarlarkRegex::Fancy(fancy_regex::Regex::new(regex)?)),
+            false => Ok(BuckStarlarkRegex::Regular(
+                regex::Regex::new(regex).map_err(buck2_error::Error::from)?,
+            )),
+            true => Ok(BuckStarlarkRegex::Fancy(
+                fancy_regex::Regex::new(regex).map_err(buck2_error::Error::from)?,
+            )),
         }
     }
 }

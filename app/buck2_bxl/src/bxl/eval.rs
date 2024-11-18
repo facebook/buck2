@@ -285,7 +285,7 @@ async fn eval_bxl_inner(
         ctx,
         &mut profiler,
         starlark_eval_description,
-        move |provider, ctx| Ok(eval_ctx.do_eval(provider, ctx)?),
+        move |provider, ctx| eval_ctx.do_eval(provider, ctx),
     )
     .await?;
 

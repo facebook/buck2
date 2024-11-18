@@ -36,11 +36,11 @@ pub struct BxlFilePath {
 struct BxlPathError(CellPath);
 
 impl BxlFilePath {
-    pub fn new(path: CellPath) -> anyhow::Result<Self> {
+    pub fn new(path: CellPath) -> buck2_error::Result<Self> {
         let err = || BxlPathError(path.clone());
 
         if path.path().file_name().ok_or_else(err)?.extension() != Some("bxl") {
-            return Err(anyhow::anyhow!(err()));
+            return Err(err().into());
         }
 
         Ok(Self::unverified_new(path))

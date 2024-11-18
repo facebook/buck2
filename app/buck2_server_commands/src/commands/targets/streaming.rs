@@ -337,8 +337,8 @@ async fn package_imports(
     dice: &mut DiceComputations<'_>,
     path: PackageLabel,
 ) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
-    INTERPRETER_CALCULATION_IMPL
+    Ok(INTERPRETER_CALCULATION_IMPL
         .get()?
         .get_package_file_deps(dice, path)
-        .await
+        .await?)
 }

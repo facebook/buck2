@@ -16,7 +16,6 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::package_listing::listing::PackageListing;
@@ -114,7 +113,7 @@ impl ParseData {
         for x in ast.loads() {
             let path = resolver
                 .resolve_load(x.module_id, Some(&x.span))
-                .with_context(|| {
+                .with_buck_error_context_anyhow(|| {
                     format!(
                         "Error loading `load` of `{}` from `{}`",
                         x.module_id, x.span
@@ -188,7 +187,7 @@ impl LoadResolver for InterpreterLoadResolver {
         &self,
         path: &str,
         location: Option<&FileSpan>,
-    ) -> anyhow::Result<OwnedStarlarkModulePath> {
+    ) -> buck2_error::Result<OwnedStarlarkModulePath> {
         // This is to be removed when we finish migration to Buck2.
         let path = path.trim_end_match("?v2_only");
 
@@ -475,7 +474,9 @@ impl InterpreterForCell {
         import: StarlarkPath<'_>,
         import_string: &str,
     ) -> anyhow::Result<OwnedStarlarkModulePath> {
-        self.load_resolver(import).resolve_load(import_string, None)
+        Ok(self
+            .load_resolver(import)
+            .resolve_load(import_string, None)?)
     }
 
     fn eval(
@@ -525,10 +526,10 @@ impl InterpreterForCell {
 
                     eval_provider
                         .evaluation_complete(&mut eval)
-                        .context("Profiler finalization failed")?;
+                        .buck_error_context_anyhow("Profiler finalization failed")?;
                     eval_provider
                         .visit_frozen_module(None)
-                        .context("Profiler heap visitation failed")?;
+                        .buck_error_context_anyhow("Profiler heap visitation failed")?;
 
                     cpu_instruction_count
                 }

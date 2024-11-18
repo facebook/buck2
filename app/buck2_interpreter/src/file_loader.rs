@@ -52,7 +52,7 @@ pub trait LoadResolver {
         &self,
         path: &str,
         location: Option<&FileSpan>,
-    ) -> anyhow::Result<OwnedStarlarkModulePath>;
+    ) -> buck2_error::Result<OwnedStarlarkModulePath>;
 }
 
 pub struct ModuleDeps(pub Vec<LoadedModule>);
@@ -112,7 +112,7 @@ impl LoadedModule {
     /// Returned `FrozenValue` is owned by `self.0.env`.
     pub fn extra_globals_from_prelude_for_buck_files(
         &self,
-    ) -> anyhow::Result<impl Iterator<Item = (&str, FrozenValue)> + '_> {
+    ) -> buck2_error::Result<impl Iterator<Item = (&str, FrozenValue)> + '_> {
         if let Some(native) = self.0.env.get_option("native")? {
             unsafe {
                 match FrozenStructRef::<'static>::from_value(native.unchecked_frozen_value()) {
@@ -140,17 +140,18 @@ impl InterpreterFileLoader {
     }
 }
 
-fn to_diagnostic(err: &anyhow::Error, id: &str) -> anyhow::Error {
-    anyhow::anyhow!("UnknownError in {}: {}", id, err)
+fn to_diagnostic(err: &buck2_error::Error, id: &str) -> buck2_error::Error {
+    buck2_error::buck2_error!([], "UnknownError in {}: {}", id, err)
 }
 
 impl InterpreterFileLoader {
     /// Used for looking up modules by id.
-    fn find_module(&self, id: StarlarkModulePath) -> anyhow::Result<&FrozenModule> {
+    fn find_module(&self, id: StarlarkModulePath) -> buck2_error::Result<&FrozenModule> {
         match self.loaded_modules.map.get(&id) {
             Some(v) => Ok(&v.0.env),
             None => Err(to_diagnostic(
-                &anyhow::anyhow!(
+                &buck2_error::buck2_error!(
+                    [],
                     "Should have had an env for {}. had <{:?}>",
                     id,
                     self.loaded_modules.map.keys().collect::<Vec<_>>()
@@ -167,13 +168,14 @@ impl FileLoader for InterpreterFileLoader {
     fn load(&self, path: &str) -> anyhow::Result<FrozenModule> {
         match self.info.resolve_load(path, None) {
             Ok(import) => Ok(self.find_module(import.borrow())?.dupe()),
-            Err(e) => Err(to_diagnostic(&e, path)),
+            Err(e) => Err(to_diagnostic(&e, path).into()),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use buck2_error::buck2_error;
     use starlark::environment::Module;
 
     use super::*;
@@ -185,7 +187,7 @@ mod tests {
             &self,
             path: &str,
             _location: Option<&FileSpan>,
-        ) -> anyhow::Result<OwnedStarlarkModulePath> {
+        ) -> buck2_error::Result<OwnedStarlarkModulePath> {
             match path {
                 "//some/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(
                     ImportPath::testing_new("root//some/package:import.bzl"),
@@ -196,7 +198,7 @@ mod tests {
                 "alias2//last/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(
                     ImportPath::testing_new("cell2//last/package:import.bzl"),
                 )),
-                _ => Err(anyhow::anyhow!("error")),
+                _ => Err(buck2_error!([], "error")),
             }
         }
     }
@@ -234,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn no_resolution() -> anyhow::Result<()> {
+    fn no_resolution() -> buck2_error::Result<()> {
         let path = "some//random:file.bzl".to_owned();
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver());
         match loader.load(&path) {
@@ -247,7 +249,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_in_loaded_modules() -> anyhow::Result<()> {
+    fn missing_in_loaded_modules() -> buck2_error::Result<()> {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
         let id = resolver.resolve_load(&path, None)?;
@@ -265,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_load() -> anyhow::Result<()> {
+    fn valid_load() -> buck2_error::Result<()> {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
         let id = resolver.resolve_load(&path, None)?.to_string();
@@ -280,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn valid_find() -> anyhow::Result<()> {
+    fn valid_find() -> buck2_error::Result<()> {
         let path = "cell1//next/package:import.bzl".to_owned();
         let resolver = resolver();
         let resolved = resolver.resolve_load(&path, None)?;

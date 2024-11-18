@@ -54,7 +54,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCellPath {
 
 #[starlark_module]
 fn cell_path_methods(builder: &mut MethodsBuilder) {
-    fn add(this: &StarlarkCellPath, arg: &str) -> anyhow::Result<StarlarkCellPath> {
+    fn add(this: &StarlarkCellPath, arg: &str) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath((this).0.join_normalized(arg)?))
     }
 }

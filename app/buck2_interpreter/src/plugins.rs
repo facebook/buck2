@@ -12,5 +12,5 @@ use buck2_util::late_binding::LateBinding;
 use starlark::values::Value;
 
 pub static PLUGIN_KIND_FROM_VALUE: LateBinding<
-    for<'v> fn(Value<'v>) -> anyhow::Result<PluginKind>,
+    for<'v> fn(Value<'v>) -> buck2_error::Result<PluginKind>,
 > = LateBinding::new("PLUGIN_KIND_FROM_VALUE");

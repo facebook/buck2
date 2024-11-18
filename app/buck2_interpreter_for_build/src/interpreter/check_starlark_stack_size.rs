@@ -34,7 +34,7 @@ enum CheckStarlarkStackSizeError {
 // before the native stack overflows
 pub(crate) async fn check_starlark_stack_size(
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     #[derive(Debug, derive_more::Display, Clone, Allocative, Eq, PartialEq, Hash)]
     struct StarlarkStackSizeChecker;
 
@@ -106,5 +106,5 @@ pub(crate) async fn check_starlark_stack_size(
 
     ctx.compute(&StarlarkStackSizeChecker)
         .await?
-        .map_err(anyhow::Error::from)
+        .map_err(buck2_error::Error::from)
 }

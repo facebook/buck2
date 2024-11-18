@@ -149,7 +149,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
         // TODO(nga): must be either positional or named.
         #[starlark(default = SubtargetNameArg::List(UnpackList { items: Vec::new() }))]
         subtarget_name: SubtargetNameArg<'v>,
-    ) -> anyhow::Result<StarlarkProvidersLabel> {
+    ) -> starlark::Result<StarlarkProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 
         Ok(StarlarkProvidersLabel::new(ProvidersLabel::new(
@@ -243,12 +243,12 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkCellPath(this.label.pkg().to_cell_path()))
     }
 
-    fn config<'v>(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<StarlarkConfiguration> {
+    fn config<'v>(this: &StarlarkConfiguredTargetLabel) -> starlark::Result<StarlarkConfiguration> {
         Ok(StarlarkConfiguration((this.label.cfg()).dupe()))
     }
 
     /// Returns the unconfigured underlying target label.
-    fn raw_target(this: &StarlarkConfiguredTargetLabel) -> anyhow::Result<StarlarkTargetLabel> {
+    fn raw_target(this: &StarlarkConfiguredTargetLabel) -> starlark::Result<StarlarkTargetLabel> {
         Ok(StarlarkTargetLabel::new(
             (*this.label.unconfigured()).dupe(),
         ))
@@ -272,7 +272,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
         // TODO(nga): must be either positional or named.
         #[starlark(default = SubtargetNameArg::List(UnpackList { items: Vec::new() }))]
         subtarget_name: SubtargetNameArg<'v>,
-    ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
+    ) -> starlark::Result<StarlarkConfiguredProvidersLabel> {
         let providers_name = value_to_providers_name(subtarget_name)?;
 
         Ok(StarlarkConfiguredProvidersLabel::new(
@@ -287,19 +287,19 @@ enum SubtargetNameArg<'v> {
     Str(&'v str),
 }
 
-fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> anyhow::Result<ProvidersName> {
+fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> buck2_error::Result<ProvidersName> {
     let subtarget = match subtarget_name {
         SubtargetNameArg::List(list) => list
             .items
             .into_iter()
             .map(|name| {
-                ProviderName::new(name).buck_error_context_anyhow("for parameter `subtarget_name`")
+                ProviderName::new(name).buck_error_context("for parameter `subtarget_name`")
             })
-            .collect::<anyhow::Result<Vec<_>>>()?,
+            .collect::<buck2_error::Result<Vec<_>>>()?,
         SubtargetNameArg::Str(str) => {
             vec![
                 ProviderName::new(str.to_owned())
-                    .buck_error_context_anyhow("for parameter `subtarget_name`")?,
+                    .buck_error_context("for parameter `subtarget_name`")?,
             ]
         }
     };

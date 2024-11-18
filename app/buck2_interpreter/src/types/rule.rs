@@ -18,9 +18,9 @@ use starlark_map::small_map::SmallMap;
 pub static FROZEN_RULE_GET_IMPL: LateBinding<
     fn(
         FrozenValue,
-    ) -> anyhow::Result<FrozenStarlarkCallable<(FrozenValue,), ListType<FrozenValue>>>,
+    ) -> buck2_error::Result<FrozenStarlarkCallable<(FrozenValue,), ListType<FrozenValue>>>,
 > = LateBinding::new("FROZEN_RULE_GET_IMPL");
 
 pub static FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL: LateBinding<
-    fn(FrozenValue) -> anyhow::Result<SmallMap<FrozenStringValue, FrozenValue>>,
+    fn(FrozenValue) -> buck2_error::Result<SmallMap<FrozenStringValue, FrozenValue>>,
 > = LateBinding::new("FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL");

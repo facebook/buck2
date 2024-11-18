@@ -282,7 +282,7 @@ pub trait SetStarlarkProfilerInstrumentation {
     fn set_starlark_profiler_configuration(
         &mut self,
         instrumentation: StarlarkProfilerConfiguration,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 #[async_trait]
@@ -296,7 +296,7 @@ pub trait GetStarlarkProfilerInstrumentation {
     async fn get_profile_mode_for_loading(
         &mut self,
         package_label: PackageLabel,
-    ) -> anyhow::Result<StarlarkProfileMode>;
+    ) -> buck2_error::Result<StarlarkProfileMode>;
 }
 
 #[async_trait]
@@ -304,7 +304,7 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
     fn set_starlark_profiler_configuration(
         &mut self,
         configuration: StarlarkProfilerConfiguration,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(self.changed_to([(StarlarkProfilerConfigurationKey, Arc::new(configuration))])?)
     }
 }
@@ -327,7 +327,7 @@ impl GetStarlarkProfilerInstrumentation for DiceComputations<'_> {
     async fn get_profile_mode_for_loading(
         &mut self,
         package_label: PackageLabel,
-    ) -> anyhow::Result<StarlarkProfileMode> {
+    ) -> buck2_error::Result<StarlarkProfileMode> {
         let cfg = self
             .compute_opaque(&StarlarkProfilerConfigurationResolvedKey)
             .await?;

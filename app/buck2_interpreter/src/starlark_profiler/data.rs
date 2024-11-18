@@ -13,7 +13,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -58,10 +57,12 @@ impl StarlarkProfileDataAndStats {
 
     pub fn merge<'a>(
         datas: impl IntoIterator<Item = &'a StarlarkProfileDataAndStats>,
-    ) -> anyhow::Result<StarlarkProfileDataAndStats> {
+    ) -> buck2_error::Result<StarlarkProfileDataAndStats> {
         let datas = Vec::from_iter(datas);
         let mut iter = datas.iter().copied();
-        let first = iter.next().context("empty collection of profile data")?;
+        let first = iter
+            .next()
+            .buck_error_context("empty collection of profile data")?;
         let mut total_retained_bytes = first.total_retained_bytes;
         let mut initialized_at = first.initialized_at;
         let mut finalized_at = first.finalized_at;
@@ -87,12 +88,12 @@ impl StarlarkProfileDataAndStats {
         })
     }
 
-    pub fn downcast(profile_data: &dyn StarlarkProfileDataAndStatsDyn) -> anyhow::Result<&Self> {
+    pub fn downcast(
+        profile_data: &dyn StarlarkProfileDataAndStatsDyn,
+    ) -> buck2_error::Result<&Self> {
         profile_data
             .as_any()
             .downcast_ref::<Self>()
-            .internal_error_anyhow(
-                "There's only one implementation of StarlarkProfileDataAndStatsDyn",
-            )
+            .internal_error("There's only one implementation of StarlarkProfileDataAndStatsDyn")
     }
 }

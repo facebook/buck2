@@ -222,7 +222,7 @@ async fn generate_profile(
             ))
             .await?;
 
-            StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)
+            Ok(StarlarkProfileDataAndStats::merge(profiles.iter()).map(Arc::new)?)
         }
     }
 }

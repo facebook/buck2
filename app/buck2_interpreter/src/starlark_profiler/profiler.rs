@@ -9,7 +9,7 @@
 
 use std::time::Instant;
 
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
@@ -61,33 +61,29 @@ impl StarlarkProfiler {
     }
 
     /// Collect all profiling data.
-    pub fn finish(self) -> anyhow::Result<StarlarkProfileDataAndStats> {
+    pub fn finish(self) -> buck2_error::Result<StarlarkProfileDataAndStats> {
         Ok(StarlarkProfileDataAndStats {
-            initialized_at: self
-                .initialized_at
-                .internal_error_anyhow("did not initialize")?,
-            finalized_at: self
-                .finalized_at
-                .internal_error_anyhow("did not finalize")?,
+            initialized_at: self.initialized_at.internal_error("did not initialize")?,
+            finalized_at: self.finalized_at.internal_error("did not finalize")?,
             total_retained_bytes: self
                 .total_retained_bytes
-                .internal_error_anyhow("did not visit heap")?,
+                .internal_error("did not visit heap")?,
             profile_data: self
                 .profile_data
-                .internal_error_anyhow("profile_data not initialized")?,
+                .internal_error("profile_data not initialized")?,
             targets: vec![self.target],
         })
     }
 
     /// Prepare an Evaluator to capture output relevant to this profiler.
-    fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+    fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
         eval.enable_profile(&self.profile_mode)?;
         self.initialized_at = Some(Instant::now());
         Ok(())
     }
 
     /// Post-analysis, produce the output of this profiler.
-    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+    fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
         self.finalized_at = Some(Instant::now());
         if !self.profile_mode.requires_frozen_module() {
             self.profile_data = Some(eval.gen_profile().into_anyhow_result()?);
@@ -95,9 +91,9 @@ impl StarlarkProfiler {
         Ok(())
     }
 
-    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
+    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> buck2_error::Result<()> {
         if self.will_freeze != module.is_some() {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "will_freeze field was initialized incorrectly"
             ));
         }
@@ -140,14 +136,17 @@ impl<'p> StarlarkProfilerOpt<'p> {
         StarlarkProfilerOpt(StarlarkProfilerOptImpl::None)
     }
 
-    pub fn initialize(&mut self, eval: &mut Evaluator) -> anyhow::Result<bool> {
+    pub fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<bool> {
         match &mut self.0 {
             StarlarkProfilerOptImpl::None => Ok(false),
             StarlarkProfilerOptImpl::Profiler(profiler) => profiler.initialize(eval).map(|_| true),
         }
     }
 
-    pub fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
+    pub fn visit_frozen_module(
+        &mut self,
+        module: Option<&FrozenModule>,
+    ) -> buck2_error::Result<()> {
         if let StarlarkProfilerOptImpl::Profiler(profiler) = &mut self.0 {
             profiler.visit_frozen_module(module)
         } else {
@@ -155,7 +154,7 @@ impl<'p> StarlarkProfilerOpt<'p> {
         }
     }
 
-    pub fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+    pub fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
         if let StarlarkProfilerOptImpl::Profiler(profiler) = &mut self.0 {
             profiler.evaluation_complete(eval)
         } else {
@@ -179,7 +178,7 @@ impl StarlarkProfilerOptVal {
         }
     }
 
-    pub fn finish(self) -> anyhow::Result<Option<StarlarkProfileDataAndStats>> {
+    pub fn finish(self) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
         match self {
             StarlarkProfilerOptVal::Disabled => Ok(None),
             StarlarkProfilerOptVal::Profiler(profiler) => profiler.finish().map(Some),

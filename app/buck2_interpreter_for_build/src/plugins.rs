@@ -88,7 +88,7 @@ enum PluginKindError {
 }
 
 impl StarlarkPluginKind {
-    pub fn expect_bound(&self) -> anyhow::Result<PluginKind> {
+    pub fn expect_bound(&self) -> buck2_error::Result<PluginKind> {
         match &*self.0.borrow() {
             InnerStarlarkPluginKind::Unbound(_) => Err(PluginKindError::NotBound.into()),
             InnerStarlarkPluginKind::Bound(kind) => Ok(kind.dupe()),
@@ -121,20 +121,20 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
 impl Freeze for StarlarkPluginKind {
     type Frozen = FrozenStarlarkPluginKind;
     fn freeze(self, _: &Freezer) -> anyhow::Result<Self::Frozen> {
-        self.expect_bound().map(FrozenStarlarkPluginKind)
+        Ok(self.expect_bound().map(FrozenStarlarkPluginKind)?)
     }
 }
 
 fn plugin_kind_from_value_typed<'v>(
     v: ValueTypedComplex<'v, StarlarkPluginKind>,
-) -> anyhow::Result<PluginKind> {
+) -> buck2_error::Result<PluginKind> {
     match v.unpack() {
         Either::Left(unfrozen) => unfrozen.expect_bound(),
         Either::Right(frozen) => Ok(frozen.0.dupe()),
     }
 }
 
-fn plugin_kind_from_value<'v>(v: Value<'v>) -> anyhow::Result<PluginKind> {
+fn plugin_kind_from_value<'v>(v: Value<'v>) -> buck2_error::Result<PluginKind> {
     let Some(v) = ValueTypedComplex::new(v) else {
         return Err(PluginKindError::NotAPluginKind(v.to_repr()).into());
     };
@@ -154,13 +154,16 @@ impl StarlarkTypeRepr for PluginKindArg {
 }
 
 impl<'v> UnpackValue<'v> for PluginKindArg {
-    type Error = anyhow::Error;
+    type Error = starlark::Error;
 
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         let Some(v) = ValueTypedComplex::new(value) else {
             return Ok(None);
         };
-        plugin_kind_from_value_typed(v).map(|kind| Some(PluginKindArg { plugin_kind: kind }))
+        Ok(
+            plugin_kind_from_value_typed(v)
+                .map(|kind| Some(PluginKindArg { plugin_kind: kind }))?,
+        )
     }
 }
 

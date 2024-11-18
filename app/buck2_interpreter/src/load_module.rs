@@ -27,28 +27,28 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         path: StarlarkModulePath<'_>,
-    ) -> anyhow::Result<LoadedModule>;
+    ) -> buck2_error::Result<LoadedModule>;
 
     async fn get_module_deps(
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
         build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<ModuleDeps>;
+    ) -> buck2_error::Result<ModuleDeps>;
 
     /// Return `None` if the PACKAGE file doesn't exist.
     async fn get_package_file_deps(
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>>;
+    ) -> buck2_error::Result<Option<(PackageFilePath, Vec<ImportPath>)>>;
 
-    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<Globals>;
+    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> buck2_error::Result<Globals>;
 
     async fn prelude_import(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<PreludePath>>;
+    ) -> buck2_error::Result<Option<PreludePath>>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =
@@ -60,12 +60,12 @@ pub trait InterpreterCalculation {
     async fn get_loaded_module(
         &mut self,
         path: StarlarkModulePath<'_>,
-    ) -> anyhow::Result<LoadedModule>;
+    ) -> buck2_error::Result<LoadedModule>;
 
     async fn get_loaded_module_from_import_path(
         &mut self,
         path: &ImportPath,
-    ) -> anyhow::Result<LoadedModule> {
+    ) -> buck2_error::Result<LoadedModule> {
         self.get_loaded_module(StarlarkModulePath::LoadFile(path))
             .await
     }
@@ -73,7 +73,7 @@ pub trait InterpreterCalculation {
     async fn get_loaded_module_imports(
         &mut self,
         path: &ImportPath,
-    ) -> anyhow::Result<Vec<ImportPath>> {
+    ) -> buck2_error::Result<Vec<ImportPath>> {
         //TODO(benfoxman): Don't need to get the whole module, just parse the imports.
         Ok(self
             .get_loaded_module_from_import_path(path)
@@ -89,7 +89,7 @@ impl InterpreterCalculation for DiceComputations<'_> {
     async fn get_loaded_module(
         &mut self,
         path: StarlarkModulePath<'_>,
-    ) -> anyhow::Result<LoadedModule> {
+    ) -> buck2_error::Result<LoadedModule> {
         INTERPRETER_CALCULATION_IMPL
             .get()?
             .get_loaded_module(self, path)

@@ -167,10 +167,10 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         starlark_path: StarlarkModulePath<'_>,
-    ) -> anyhow::Result<LoadedModule> {
+    ) -> buck2_error::Result<LoadedModule> {
         ctx.compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
-            .map_err(anyhow::Error::from)
+            .map_err(buck2_error::Error::from)
     }
 
     async fn get_module_deps(
@@ -178,7 +178,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
         build_file_cell: BuildFileCell,
-    ) -> anyhow::Result<ModuleDeps> {
+    ) -> buck2_error::Result<ModuleDeps> {
         let build_file_name = DicePackageListingResolver(ctx)
             .resolve_package_listing(package.dupe())
             .await?
@@ -203,7 +203,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
+    ) -> buck2_error::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
         // These aren't cached on the DICE graph, since in normal evaluation there aren't that many, and we can cache at a higher level.
         // Therefore we re-parse the file, if it exists.
         // Fortunately, there are only a small number (currently a few hundred)
@@ -221,14 +221,14 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
         )))
     }
 
-    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> anyhow::Result<Globals> {
+    async fn global_env(&self, ctx: &mut DiceComputations<'_>) -> buck2_error::Result<Globals> {
         Ok(ctx.get_global_interpreter_state().await?.globals().dupe())
     }
 
     async fn prelude_import(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Option<PreludePath>> {
+    ) -> buck2_error::Result<Option<PreludePath>> {
         Ok(ctx
             .get_global_interpreter_state()
             .await?

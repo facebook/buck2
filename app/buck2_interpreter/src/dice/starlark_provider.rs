@@ -36,8 +36,8 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
     mut ctx: D,
     profiler_instrumentation: &mut StarlarkProfilerOpt<'_>,
     description: String,
-    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> anyhow::Result<R>,
-) -> anyhow::Result<R> {
+    closure: impl FnOnce(&mut dyn StarlarkEvaluatorProvider, D) -> buck2_error::Result<R>,
+) -> buck2_error::Result<R> {
     let root_buckconfig = ctx.get_legacy_root_config_on_dice().await?;
 
     let starlark_max_callstack_size =
@@ -64,7 +64,7 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
         fn make<'v, 'a, 'e>(
             &mut self,
             module: &'v Module,
-        ) -> anyhow::Result<(Evaluator<'v, 'a, 'e>, bool)> {
+        ) -> buck2_error::Result<(Evaluator<'v, 'a, 'e>, bool)> {
             let mut eval = Evaluator::new(module);
             if let Some(stack_size) = self.starlark_max_callstack_size {
                 eval.set_max_callstack_size(stack_size)?;
@@ -77,11 +77,14 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
             Ok((eval, is_profiling_enabled))
         }
 
-        fn evaluation_complete(&mut self, eval: &mut Evaluator) -> anyhow::Result<()> {
+        fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
             self.profiler.evaluation_complete(eval)
         }
 
-        fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> anyhow::Result<()> {
+        fn visit_frozen_module(
+            &mut self,
+            module: Option<&FrozenModule>,
+        ) -> buck2_error::Result<()> {
             self.profiler.visit_frozen_module(module)
         }
     }

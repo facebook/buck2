@@ -286,7 +286,7 @@ impl UserProviderCallable {
 }
 
 impl ProviderCallableLike for UserProviderCallable {
-    fn id(&self) -> anyhow::Result<&Arc<ProviderId>> {
+    fn id(&self) -> buck2_error::Result<&Arc<ProviderId>> {
         self.callable
             .get()
             .map(|x| &x.id)
@@ -469,7 +469,7 @@ impl FrozenUserProviderCallable {
 }
 
 impl ProviderCallableLike for FrozenUserProviderCallable {
-    fn id(&self) -> anyhow::Result<&Arc<ProviderId>> {
+    fn id(&self) -> buck2_error::Result<&Arc<ProviderId>> {
         Ok(&self.callable.id)
     }
 }

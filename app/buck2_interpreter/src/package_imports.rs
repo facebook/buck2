@@ -69,7 +69,7 @@ impl PackageImplicitImports {
         cell_name: BuildFileCell,
         cell_alias_resolver: CellAliasResolver,
         encoded_mappings: Option<&str>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut mappings = HashMap::new();
         if let Some(value) = encoded_mappings {
             let root_path = CellPath::new(
@@ -77,12 +77,13 @@ impl PackageImplicitImports {
                 CellRelativePathBuf::unchecked_new("".to_owned()),
             );
             for item in value.split(',') {
-                let (dir, import_spec) = item.trim().split_once("=>").ok_or_else(|| {
-                    anyhow::anyhow!(PackageImportsError::MissingArrow(item.to_owned()))
-                })?;
-                let (import, symbol_specs) = import_spec.split_once("::").ok_or_else(|| {
-                    anyhow::anyhow!(PackageImportsError::MissingColons(import_spec.to_owned()))
-                })?;
+                let (dir, import_spec) = item
+                    .trim()
+                    .split_once("=>")
+                    .ok_or_else(|| PackageImportsError::MissingArrow(item.to_owned()))?;
+                let (import, symbol_specs) = import_spec
+                    .split_once("::")
+                    .ok_or_else(|| PackageImportsError::MissingColons(import_spec.to_owned()))?;
                 let import_path = parse_import(&cell_alias_resolver, &root_path, import)?;
                 // Package implicit imports are only going to be used for a top-level module in
                 // the same cell, so we can set that early.
@@ -132,7 +133,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() -> anyhow::Result<()> {
+    fn test() -> buck2_error::Result<()> {
         let cell_alias_resolver = CellAliasResolver::new(
             CellName::testing_new("root"),
             vec![("root", "root"), ("cell1", "cell1")]

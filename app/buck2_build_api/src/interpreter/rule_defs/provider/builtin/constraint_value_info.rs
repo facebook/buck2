@@ -68,7 +68,7 @@ fn constraint_value_info_creator(globals: &mut GlobalsBuilder) {
     fn ConstraintValueInfo<'v>(
         #[starlark(require = named)] setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
         #[starlark(require = named)] label: ValueOf<'v, &'v StarlarkTargetLabel>,
-    ) -> anyhow::Result<ConstraintValueInfo<'v>> {
+    ) -> starlark::Result<ConstraintValueInfo<'v>> {
         Ok(ConstraintValueInfo {
             setting: ValueOfUnchecked::new(setting.value),
             label: label.as_unchecked().cast(),

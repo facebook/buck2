@@ -67,7 +67,7 @@ pub struct StarlarkPromise<'v> {
 }
 
 #[derive(Allocative, Trace)]
-struct Validate<'v>(#[trace(unsafe_ignore)] fn(Value<'v>) -> anyhow::Result<()>);
+struct Validate<'v>(#[trace(unsafe_ignore)] fn(Value<'v>) -> buck2_error::Result<()>);
 
 #[derive(Clone, Debug, Trace, Allocative)]
 enum PromiseValue<'v> {
@@ -169,7 +169,7 @@ impl<'v> StarlarkPromise<'v> {
         f: StarlarkCallable<'v, (Value<'v>,), Value<'v>>,
         x: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> buck2_error::Result<Value<'v>> {
         eval.eval_function(f.0, &[x], &[])
             .map_err(|e| from_starlark(e).into())
     }
@@ -178,7 +178,7 @@ impl<'v> StarlarkPromise<'v> {
         x: ValueTyped<'v, StarlarkPromise<'v>>,
         f: StarlarkCallable<'v, (Value<'v>,), Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+    ) -> buck2_error::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         match x.get() {
             Some(x) => Ok(eval
                 .heap()
@@ -214,7 +214,7 @@ impl<'v> StarlarkPromise<'v> {
     }
 
     /// Validate the type of a promise. Will execute once the promise is resolved.
-    pub fn validate(&self, f: fn(Value<'v>) -> anyhow::Result<()>) -> anyhow::Result<()> {
+    pub fn validate(&self, f: fn(Value<'v>) -> buck2_error::Result<()>) -> buck2_error::Result<()> {
         match self.get() {
             Some(x) => f(x),
             _ => {
@@ -226,14 +226,22 @@ impl<'v> StarlarkPromise<'v> {
 
     /// Resolve a promise. Errors if the promise was produced by `.map` or the promise has
     /// already been resolved.
-    pub fn resolve(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<()> {
+    pub fn resolve(
+        &self,
+        x: Value<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> buck2_error::Result<()> {
         if matches!(&*self.value.borrow(), PromiseValue::Map(..)) {
             return Err(PromiseError::CantResolveMap.into());
         }
         self.resolve_rec(x, eval)
     }
 
-    fn resolve_rec(&self, x: Value<'v>, eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<()> {
+    fn resolve_rec(
+        &self,
+        x: Value<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> buck2_error::Result<()> {
         if matches!(&*self.value.borrow(), PromiseValue::Resolved(_)) {
             return Err(PromiseError::CantResolveTwice.into());
         }
@@ -313,8 +321,8 @@ fn promise_methods(builder: &mut MethodsBuilder) {
         this: ValueTyped<'v, StarlarkPromise<'v>>,
         #[starlark(require = pos)] func: StarlarkCallable<'v, (Value<'v>,), Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
-        StarlarkPromise::map(this, func, eval)
+    ) -> starlark::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+        Ok(StarlarkPromise::map(this, func, eval)?)
     }
 
     /// Join a set of promises together into a single promise.
@@ -326,7 +334,7 @@ fn promise_methods(builder: &mut MethodsBuilder) {
         this: ValueTyped<'v, StarlarkPromise<'v>>,
         #[starlark(args)] mut args: UnpackListOrTuple<ValueTyped<'v, StarlarkPromise<'v>>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         args.items.insert(0, this);
         Ok(StarlarkPromise::join(args.items, heap))
     }
@@ -340,12 +348,12 @@ pub fn register_promise(globals: &mut GlobalsBuilder) {
 #[cfg(test)]
 mod tests {
 
+    use buck2_error::buck2_error;
     use starlark::any::ProvidesStaticType;
     use starlark::environment::Module;
     use starlark::syntax::AstModule;
     use starlark::values::none::NoneType;
     use starlark::values::tuple::TupleRef;
-    use starlark::StarlarkResultExt;
 
     use super::*;
     use crate::file_type::StarlarkFileType;
@@ -370,25 +378,25 @@ mod tests {
         fn promise_unresolved<'v>(
             name: String,
             eval: &mut Evaluator<'v, '_, '_>,
-        ) -> anyhow::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
+        ) -> starlark::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
             let promises = get_promises(eval.module());
             let promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
             promises.0.borrow_mut().push((name, promise));
             Ok(promise)
         }
 
-        fn promise_resolved<'v>(value: Value<'v>) -> anyhow::Result<StarlarkPromise<'v>> {
+        fn promise_resolved<'v>(value: Value<'v>) -> starlark::Result<StarlarkPromise<'v>> {
             Ok(StarlarkPromise::new_resolved(value))
         }
 
         fn promise_validate<'v>(
             promise: ValueTyped<'v, StarlarkPromise<'v>>,
-        ) -> anyhow::Result<NoneType> {
+        ) -> starlark::Result<NoneType> {
             promise.validate(|x| {
                 if x.unpack_str() == Some("ok") {
                     Ok(())
                 } else {
-                    Err(anyhow::anyhow!("VALIDATE_FAILED"))
+                    Err(buck2_error!([], "VALIDATE_FAILED"))
                 }
             })?;
             Ok(NoneType)
@@ -406,7 +414,7 @@ mod tests {
         modu.get("__promises__").unwrap().downcast_ref().unwrap()
     }
 
-    fn assert_promise<'v>(modu: &'v Module, content: &str) -> anyhow::Result<Value<'v>> {
+    fn assert_promise<'v>(modu: &'v Module, content: &str) -> buck2_error::Result<Value<'v>> {
         alloc_promises(modu);
         let globals = GlobalsBuilder::standard().with(helpers).build();
         let ast = AstModule::parse(
@@ -414,9 +422,9 @@ mod tests {
             content.to_owned(),
             &StarlarkFileType::Bzl.dialect(false),
         )
-        .into_anyhow_result()?;
+        .map_err(from_starlark)?;
         let mut eval = Evaluator::new(modu);
-        let res = eval.eval_module(ast, &globals).into_anyhow_result()?;
+        let res = eval.eval_module(ast, &globals).map_err(from_starlark)?;
         let promises = get_promises(modu);
         for (key, promise) in promises.0.borrow().iter() {
             promise.resolve(modu.heap().alloc(key), &mut eval)?;
@@ -424,7 +432,7 @@ mod tests {
         Ok(res)
     }
 
-    fn assert_promise_err<'v>(modu: &'v Module, content: &str, err: &str) -> anyhow::Error {
+    fn assert_promise_err<'v>(modu: &'v Module, content: &str, err: &str) -> buck2_error::Error {
         match assert_promise(modu, content) {
             Ok(_) => panic!("Expected an error, got a result"),
             Err(e) => {

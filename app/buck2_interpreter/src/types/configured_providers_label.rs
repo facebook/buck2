@@ -168,7 +168,9 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 
     /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this returns the unconfigured underlying target label (`fbcode//buck2/hello:world`)
-    fn raw_target(this: &StarlarkConfiguredProvidersLabel) -> anyhow::Result<StarlarkTargetLabel> {
+    fn raw_target(
+        this: &StarlarkConfiguredProvidersLabel,
+    ) -> starlark::Result<StarlarkTargetLabel> {
         Ok(StarlarkTargetLabel::new(
             (*this.label.target().unconfigured()).dupe(),
         ))
@@ -177,7 +179,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     /// Returns the underlying configured target label, dropping the sub target
     fn configured_target(
         this: &StarlarkConfiguredProvidersLabel,
-    ) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
+    ) -> starlark::Result<StarlarkConfiguredTargetLabel> {
         Ok(StarlarkConfiguredTargetLabel::new(
             (*this.label.target()).dupe(),
         ))
@@ -278,7 +280,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Returns the unconfigured underlying target label.
-    fn raw_target(this: &StarlarkProvidersLabel) -> anyhow::Result<StarlarkTargetLabel> {
+    fn raw_target(this: &StarlarkProvidersLabel) -> starlark::Result<StarlarkTargetLabel> {
         Ok(StarlarkTargetLabel::new((*this.label.target()).dupe()))
     }
 }
@@ -312,7 +314,7 @@ mod tests {
 
     #[starlark_module]
     fn register_test_providers_label(globals: &mut GlobalsBuilder) {
-        fn configured_providers_label() -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
+        fn configured_providers_label() -> starlark::Result<StarlarkConfiguredProvidersLabel> {
             Ok(StarlarkConfiguredProvidersLabel {
                 label: ConfiguredProvidersLabel::new(
                     ConfiguredTargetLabel::testing_parse(
@@ -329,7 +331,7 @@ mod tests {
             })
         }
 
-        fn providers_label() -> anyhow::Result<StarlarkProvidersLabel> {
+        fn providers_label() -> starlark::Result<StarlarkProvidersLabel> {
             Ok(StarlarkProvidersLabel {
                 label: ProvidersLabel::new(
                     TargetLabel::testing_parse("foo//bar:baz"),
