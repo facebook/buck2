@@ -315,6 +315,7 @@ async def main() -> int:
     ) as args_file:
         args_file.write("\n".join(rustc_args).encode() + b"\n")
         args_file.flush()
+        args_file.close()
         # Kick off the action
         proc = await asyncio.create_subprocess_exec(
             *rustc_cmd,
@@ -327,6 +328,10 @@ async def main() -> int:
         )
         got_error_diag = await handle_output(proc, args, crate_map)
         res = await proc.wait()
+
+        # TODO: When Python 3.12 becomes the baseline, replace this with:
+        #   `NamedTemporaryFile(delete=True, delete_on_close=False)`
+        os.unlink(args_file.name)
 
     if DEBUG:
         print(
