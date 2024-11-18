@@ -18,6 +18,7 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_error::starlark_error::from_starlark_with_options;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
@@ -50,7 +51,9 @@ use starlark::values::tuple::AllocTuple;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::ValueOf;
 use starlark_map::small_map::SmallMap;
 
 #[derive(Debug, ProvidesStaticType, From, Allocative)]
@@ -236,7 +239,10 @@ impl CoercedAttrExt for CoercedAttr {
                     .all_entries()
                     .map(|(k, v)| v.to_value(pkg.dupe(), heap).map(|v| (k.to_string(), v)))
                     .collect::<buck2_error::Result<_>>()?;
-                heap.alloc(StarlarkSelector::new(heap.alloc(map)))
+                heap.alloc(StarlarkSelector::new(
+                    ValueOf::unpack_value_err(heap.alloc(map))
+                        .internal_error("validated at construction")?,
+                ))
             }
             CoercedAttr::Concat(l) => {
                 let list = l.as_ref().try_map(|attr| attr.to_value(pkg.dupe(), heap))?;

@@ -73,7 +73,7 @@ impl CoercedAttrExr for CoercedAttr {
 
             match *selector {
                 StarlarkSelectorGen::Primary(v) => {
-                    if let Some(dict) = DictRef::from_value(v) {
+                    if let Some(dict) = DictRef::from_value(v.get()) {
                         let has_default = dict.get_str("DEFAULT").is_some();
                         let mut entries =
                             Vec::with_capacity(dict.len().saturating_sub(has_default as usize));
@@ -107,7 +107,9 @@ impl CoercedAttrExr for CoercedAttr {
                             default,
                         )?)))
                     } else {
-                        Err(anyhow::anyhow!(SelectError::ValueNotDict(v.to_repr())))
+                        Err(anyhow::anyhow!(SelectError::ValueNotDict(
+                            v.get().to_repr()
+                        )))
                     }
                 }
                 StarlarkSelectorGen::Sum(l, r) => {
