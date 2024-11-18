@@ -294,25 +294,23 @@ LinkInfoArgumentFilter = enum(
 )
 
 def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFilter = LinkInfoArgumentFilter("all")) -> cmd_args:
-    pre_flags = cmd_args()
-    post_flags = cmd_args()
-    if argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("excluding_filelist"):
-        pre_flags.add(value.pre_flags)
-        post_flags.add(value.post_flags)
-
-    flags = cmd_args()
-    for linkable in value.linkables:
-        if argument_type_filter == LinkInfoArgumentFilter("all"):
-            append_linkable_args(flags, linkable)
-        elif argument_type_filter == LinkInfoArgumentFilter("filelist_only") and _is_linkable_included_in_filelist(linkable):
-            append_linkable_args(flags, linkable)
-        elif argument_type_filter == LinkInfoArgumentFilter("excluding_filelist") and not _is_linkable_included_in_filelist(linkable):
-            append_linkable_args(flags, linkable)
-
     result = cmd_args()
-    result.add(pre_flags)
-    result.add(flags)
-    result.add(post_flags)
+
+    do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("excluding_filelist")
+    if do_pre_post_flags:
+        result.add(value.pre_flags)
+
+    for linkable in value.linkables:
+        if (argument_type_filter == LinkInfoArgumentFilter("all")) or (
+            argument_type_filter == LinkInfoArgumentFilter("filelist_only") and _is_linkable_included_in_filelist(linkable)
+        ) or (
+            argument_type_filter == LinkInfoArgumentFilter("excluding_filelist") and not _is_linkable_included_in_filelist(linkable)
+        ):
+            append_linkable_args(result, linkable)
+
+    if do_pre_post_flags:
+        result.add(value.post_flags)
+
     return result
 
 # Encapsulate all `LinkInfo`s provided by a given rule's link style.
