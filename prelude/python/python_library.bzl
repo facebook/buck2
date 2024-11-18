@@ -244,7 +244,7 @@ def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict
                 resource = value[DefaultInfo].sub_targets["standalone"][DefaultInfo].default_outputs[0]
         standalone_artifacts[key] = resource
     standalone_resources = unpack_artifact_map(standalone_artifacts)
-    default_resources = unpack_artifact_map(_attr_resources(ctx))
+    default_resources = unpack_artifact_map(resources)
 
     return default_resources, standalone_resources
 

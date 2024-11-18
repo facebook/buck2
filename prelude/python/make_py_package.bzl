@@ -306,6 +306,9 @@ def _make_py_package_impl(
     else:
         symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
 
+    resource_artifacts = [a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)]
+    dep_artifacts = dep_artifacts + resource_artifacts
+
     modules_args = _pex_modules_args(
         ctx,
         common_modules_args,
@@ -339,7 +342,6 @@ def _make_py_package_impl(
         # For inplace builds add local artifacts to outputs so they get properly materialized
         runtime_files.extend(dep_artifacts)
         runtime_files.append(symlink_tree_path)
-        runtime_files.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)])
 
     # For standalone builds, or builds setting make_py_package we generate args for calling make_par.py
     if standalone or make_py_package_cmd != None:
@@ -659,7 +661,6 @@ def _pex_modules_args(
 
     resources = pex_modules.manifests.resource_manifests(is_standalone)
     if resources:
-        hidden.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(is_standalone)])
         resource_manifests_path = ctx.actions.write(
             "__resource_manifests{}.txt".format(output_suffix),
             _srcs(resources, format = "--resource-manifest={}"),
