@@ -62,7 +62,7 @@ impl HasBuildContextData for DiceComputations<'_> {
                 section: "buck2",
                 property: "add_missing_zeros",
             })?
-            .unwrap_or(false))
+            .unwrap_or(true))
     }
 
     async fn get_buck_out_path(&mut self) -> anyhow::Result<BuckOutPathResolver> {
