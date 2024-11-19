@@ -728,13 +728,13 @@ def _get_import_filename(ctx: AnalysisContext, group_name: str) -> str:
 def _is_standalone_header(header: CHeader) -> bool:
     if header.artifact.extension not in HeaderExtension.values():
         return False
-    if header.name.endswith("-inl.h"):
+    if header.name.endswith("-inl.h") or header.name.endswith("-inl.hpp"):
         return False
     if header.name.endswith(".tcc"):
         return False
-    if header.name.endswith("-pre.h"):
+    if header.name.endswith("-pre.h") or header.name.endswith("-pre.hpp"):
         return False
-    if header.name.endswith("-post.h"):
+    if header.name.endswith("-post.h") or header.name.endswith("-post.hpp"):
         return False
     return True
 
