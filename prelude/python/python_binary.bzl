@@ -65,6 +65,7 @@ load(
     "LinkableGraph",
     "LinkableGraphTSet",
     "create_linkable_graph",
+    _linkable_graph = "linkable_graph",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -464,7 +465,7 @@ def _convert_python_library_to_executable(
     package_style = get_package_style(ctx)
 
     # Convert preloaded deps to a set of their names to be loaded by.
-    preload_labels = {d.label: None for d in ctx.attrs.preload_deps}
+    preload_labels = {_linkable_graph(d).label: None for d in ctx.attrs.preload_deps if _linkable_graph(d)}
 
     extensions = {}
     extra_artifacts = {}
