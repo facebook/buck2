@@ -940,6 +940,12 @@ cxx_test = prelude_rule(
             "use_default_test_main": attrs.option(attrs.bool(), default = None),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
+            "use_header_units": attrs.bool(default = False, doc = """
+                If True, makes any header unit exported by a dependency (including
+                recursively) through export_header_unit available to the compiler. If
+                false, the compilation ignores header units, regardless of what is
+                exported by dependencies.
+            """),
         } |
         buck.allow_cache_upload_arg() |
         test_common.attributes()
