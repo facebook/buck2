@@ -1,0 +1,89 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _assert_true(
+        condition,
+        msg = "Expected condition to be true, but was false."):
+    if not condition:
+        fail(msg)
+
+def _build_artifact(ctx: bxl.Context):
+    target_node = ctx.configured_targets("root//:foo")
+    ana_res = ctx.analysis(target_node)
+    default_outputs = ana_res.as_dependency()[DefaultInfo].default_outputs
+    lazies = ctx.lazy.join_all([ctx.lazy.build_artifact(out) for out in default_outputs])
+    results = lazies.resolve()
+    _assert_true(len(results) == 2)
+    ctx.output.print(ctx.output.ensure(results[0]))
+    ctx.output.print(ctx.output.ensure(results[1]))
+
+build_artifact = bxl_main(
+    impl = _build_artifact,
+    cli_args = {},
+)
+
+def _build_artifact_fail(ctx: bxl.Context):
+    target_node = ctx.configured_targets("root//:fail_foo")
+    ana_res = ctx.analysis(target_node)
+    default_outputs = ana_res.as_dependency()[DefaultInfo].default_outputs
+    _assert_true(len(default_outputs) == 2)
+    res1 = ctx.lazy.build_artifact(default_outputs[0]).resolve()
+    res2 = ctx.lazy.build_artifact(default_outputs[1]).catch().resolve()
+
+    ctx.output.print(ctx.output.ensure(res1))
+    _assert_true(not res2.is_ok())
+    err = res2.unwrap_err()
+    _assert_true("Local command returned non-zero exit code" in err.message)
+
+build_artifact_fail = bxl_main(
+    impl = _build_artifact_fail,
+    cli_args = {},
+)
+
+def _basic_f_impl(bxl_ctx: bxl.Context, src: ArtifactValue, out: OutputArtifact):
+    src = src.read_string()
+    if src != "foo":
+        fail("Expect input 'foo' but got '{}'".format(src))
+    bxl_actions = bxl_ctx.bxl_actions().actions
+    bxl_actions.write(out, src + "bar")
+    return []
+
+_basic_f = bxl.dynamic_actions(
+    impl = _basic_f_impl,
+    attrs = {
+        "out": dynattrs.output(),
+        "src": dynattrs.artifact_value(),
+    },
+)
+
+def _dynamic(ctx):
+    bxl_actions = ctx.bxl_actions().actions
+    input = bxl_actions.write("input", "foo")
+    output = bxl_actions.declare_output("output")
+
+    bxl_actions.dynamic_output_new(_basic_f(
+        src = input,
+        out = output.as_output(),
+    ))
+
+    ctx.lazy.build_artifact(output).resolve()
+
+dynamic = bxl_main(
+    impl = _dynamic,
+    cli_args = {},
+)
+
+def _bxl_action_output(ctx):
+    bxl_actions = ctx.bxl_actions().actions
+    output = bxl_actions.declare_output("output")
+    bxl_actions.write("input", output.as_output())
+    ctx.lazy.build_artifact(output).resolve()
+
+bxl_action_output = bxl_main(
+    impl = _bxl_action_output,
+    cli_args = {},
+)

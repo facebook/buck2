@@ -1,0 +1,5 @@
+load(":prelude.bzl", "duplicate_output", "fail_duplicate")
+
+duplicate_output(name = "foo")
+
+fail_duplicate(name = "fail_foo")
