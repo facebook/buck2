@@ -161,9 +161,7 @@ from {mod} import {func}
 if __name__ == '__main__':
     sys.argv[0] = re.sub(r'(-script\\.pyw|\\.exe)?$', '', sys.argv[0])
     sys.exit({func}())
-""".format(
-                                mod=mod, func=func
-                            )
+""".format(mod=mod, func=func)
                         )
                     os.chmod(path, 0o777)
         with open(args.entry_points_manifest, mode="w") as f:

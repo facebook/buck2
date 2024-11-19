@@ -43,7 +43,7 @@ def build_report_test(name: str, command: List[str], should_fail: bool) -> None:
                     str(report),
                     "--build-report-options",
                     "fill-out-failures",
-                    *command
+                    *command,
                 )
             )
         else:

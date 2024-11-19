@@ -107,7 +107,6 @@ async def test_cpp_test(buck: Buck) -> None:
 
 @buck_test(inplace=True, skip_for_os=["darwin"])
 async def test_cpp_test_fdb_message(buck: Buck) -> None:
-
     await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/cxx:cpp_test_fail",

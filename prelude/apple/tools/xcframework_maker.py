@@ -125,7 +125,6 @@ def main() -> None:
     dsym_path_map = {}
 
     for framework_path in args.framework_path:
-
         # args are structured like this
         # --framework_path ios-arm64 buck-out/path/to/MyPkg.framework
 

@@ -15,7 +15,6 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 @buck_test()
 async def test_bxl_dynamic_action_basic(buck: Buck) -> None:
-
     result = await buck.bxl(
         "//:dynamic.bxl:basic",
     )

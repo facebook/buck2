@@ -57,7 +57,7 @@ def build_report_test(name: str, command: List[str]) -> None:
                 str(report),
                 "--build-report-options",
                 "fill-out-failures",
-                *command
+                *command,
             )
         )
         with open(report) as f:

@@ -34,7 +34,6 @@ async def manifold_exists(path: str) -> bool:
 @buck_test(inplace=True)
 @env("SANDCASTLE", "1")  # wait for logs to finish uploading
 async def test_upload_re_logs(buck: Buck) -> None:
-
     # Build a trivial action
     await buck.build(
         "fbcode//buck2/tests/targets/rules/command_alias:print_cwd",

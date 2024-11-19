@@ -17,9 +17,7 @@ from .identity import CodeSigningIdentity
 
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 
-META_IOS_DEVELOPER_CERTIFICATE_LINK: str = (
-    "https://www.internalfb.com/intern/qa/5198/how-do-i-get-the-fb-ios-developer-certificate"
-)
+META_IOS_DEVELOPER_CERTIFICATE_LINK: str = "https://www.internalfb.com/intern/qa/5198/how-do-i-get-the-fb-ios-developer-certificate"
 META_IOS_PROVISIONING_PROFILES_LINK: str = (
     "https://www.internalfb.com/intern/apple/download-provisioning-profile/"
 )
@@ -28,9 +26,7 @@ META_IOS_PROVISIONING_PROFILES_COMMAND: str = (
 )
 META_IOS_CERTS_ALL_COMMAND: str = "arc ios-certs --all"
 # TODO(T197258387): Remove references to `arc download-provisioning-profile` in this wiki page.
-META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK: str = (
-    "https://www.internalfb.com/intern/wiki/Ios-first-steps/running-on-device/#2-register-your-device-i"
-)
+META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK: str = "https://www.internalfb.com/intern/wiki/Ios-first-steps/running-on-device/#2-register-your-device-i"
 
 
 class IProvisioningProfileDiagnostics(metaclass=ABCMeta):

@@ -286,7 +286,6 @@ def main():
                 f.write(" ".join(script_args))
 
         else:  # generate fat jar
-
             entries_to_jar_file = jars_file
             override_entries_to_jar = None
 

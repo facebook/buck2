@@ -435,9 +435,9 @@ class TestIncrementalUtils(unittest.TestCase):
             versioned_if_macos=True,
         )
         self.assertFalse(should_assemble_incrementally(spec, incremental_context))
-        incremental_context.state.codesigned_on_copy[0].extra_codesign_paths = (
-            extra_codesign_paths_after
-        )
+        incremental_context.state.codesigned_on_copy[
+            0
+        ].extra_codesign_paths = extra_codesign_paths_after
         self.assertTrue(should_assemble_incrementally(spec, incremental_context))
 
     def test_not_run_incrementally_when_codesign_arguments_mismatch(self):

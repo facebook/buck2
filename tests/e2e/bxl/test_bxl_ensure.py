@@ -89,7 +89,6 @@ async def test_bxl_ensure(buck: Buck) -> None:
 
 @buck_test(inplace=True, skip_for_os=["windows"])
 async def test_bxl_artifact_path(buck: Buck) -> None:
-
     result = await buck.bxl(
         "fbcode//buck2/tests/targets/bxl/simple/bxl/artifacts.bxl:artifact_path_test",
     )

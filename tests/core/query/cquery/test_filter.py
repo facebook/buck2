@@ -20,7 +20,6 @@ def _replace_hash(s: str) -> str:
 
 @buck_test()
 async def test_cquery_filter_should_not_include_configuration(buck: Buck) -> None:
-
     # First, self-check.
     result = await buck.cquery("//...")
     assert [

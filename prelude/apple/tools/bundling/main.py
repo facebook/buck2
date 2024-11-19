@@ -723,7 +723,6 @@ def _setup_logging(
 
 
 class ColoredLogFormatter(logging.Formatter):
-
     _colors: Dict[int, str] = {
         logging.DEBUG: "\x1b[m",
         logging.INFO: "\x1b[37m",

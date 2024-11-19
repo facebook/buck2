@@ -24,7 +24,6 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 )
 async def test_write_uuid(buck: Buck, cmd: str) -> None:
     with tempfile.NamedTemporaryFile() as file:
-
         cmd_call = getattr(buck, cmd)
         await expect_failure(cmd_call("--write-build-id", file.name, "a"))
 

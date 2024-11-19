@@ -21,7 +21,6 @@ import sys
 
 
 def gen(args):
-
     with open(args.project_root_file, "r") as project_root_file:
         project_root = project_root_file.read().replace("\n", "")
 

@@ -46,7 +46,7 @@ async def test_subscribe(buck: Buck) -> None:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         cwd=buck.cwd,
-        env=buck._env
+        env=buck._env,
     )
 
     await buck.build("//:stage2")

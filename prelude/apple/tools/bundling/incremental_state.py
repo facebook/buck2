@@ -133,7 +133,7 @@ class IncrementalStateJSONEncoder(json.JSONEncoder):
 
 
 def _object_hook(
-    dict: Dict[str, Any]
+    dict: Dict[str, Any],
 ) -> Union[IncrementalState, IncrementalStateItem, CodesignedOnCopy]:
     if "version" in dict:
         codesign_configuration = dict.pop("codesign_configuration")

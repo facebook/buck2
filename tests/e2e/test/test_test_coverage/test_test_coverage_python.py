@@ -53,10 +53,13 @@ async def test_python_coverage_filtering_by_folder(buck: Buck) -> None:
         with open(covfile.name) as results:
             for line in results:
                 paths.append(json.loads(line)["filepath"])
-    assert set(paths) == {
-        f"{folder_to_collect}/lib.py",
-        f"{folder_to_collect}/test.py",
-    }, f"Only folder {folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
+    assert (
+        set(paths)
+        == {
+            f"{folder_to_collect}/lib.py",
+            f"{folder_to_collect}/test.py",
+        }
+    ), f"Only folder {folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
 
 
 @dataclass
@@ -109,9 +112,9 @@ async def test_python_coverage_filtering_by_file(buck: Buck) -> None:
         buck, folder_filter=[], file_filter=[file_to_collect_coverage]
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -126,9 +129,9 @@ async def test_python_coverage_filtering_by_file_with_base_module_remap(
         file_filter=[file_to_collect_coverage],
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -141,9 +144,9 @@ async def test_python_coverage_filtering_by_file_with_opt_mode(buck: Buck) -> No
         mode="@fbcode//mode/opt",
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -159,9 +162,9 @@ async def test_python_standalone_xar_coverage_filtering_by_file(buck: Buck) -> N
         mode="@fbcode//mode/opt",
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -177,9 +180,9 @@ async def test_python_standalone_zip_coverage_filtering_by_file(buck: Buck) -> N
         mode="@fbcode//mode/opt",
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -194,9 +197,9 @@ async def test_python_coverage_filtering_by_file_on_cinder_target(buck: Buck) ->
         file_filter=[file_to_collect_coverage],
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -211,9 +214,9 @@ async def test_python_coverage_filtering_by_source_file_on_cpp_dep(buck: Buck) -
         file_filter=[file_to_collect_coverage],
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -227,9 +230,9 @@ async def test_python_coverage_filtering_by_header_file_on_cpp_dep(buck: Buck) -
         file_filter=[header_file],
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        source_file
-    }, f"Only {source_file} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {source_file}
+    ), f"Only {source_file} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
 
 
 @buck_test(inplace=True)
@@ -244,6 +247,6 @@ async def test_python_coverage_filtering_by_file_on_ligen_cpp_dep(buck: Buck) ->
         file_filter=[file_to_collect_coverage],
     )
 
-    assert set(result.using_new_testpilot_interface_paths) == {
-        file_to_collect_coverage
-    }, f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"
+    assert (
+        set(result.using_new_testpilot_interface_paths) == {file_to_collect_coverage}
+    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result.using_new_testpilot_interface_paths)}"

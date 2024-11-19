@@ -24,7 +24,6 @@ def _replace_hash(s: str) -> str:
 
 @buck_test()
 async def test_bxl_dynamic_action(buck: Buck) -> None:
-
     result = await buck.bxl(
         "//:dynamic.bxl:dynamic_test",
     )
@@ -34,7 +33,6 @@ async def test_bxl_dynamic_action(buck: Buck) -> None:
 
 @buck_test()
 async def test_bxl_dynamic_with_bxl_ctx(buck: Buck) -> None:
-
     result = await buck.bxl(
         "//:dynamic.bxl:dynamic_test_with_bxl_ctx",
     )
@@ -53,7 +51,6 @@ async def test_bxl_dynamic_with_bxl_ctx(buck: Buck) -> None:
 # Very simple test that the exec_deps/toolchains get propagatd to the dynamic bxl_ctx correctly
 @buck_test()
 async def test_bxl_dynamic_execution_resolution(buck: Buck) -> None:
-
     result = await buck.bxl(
         "//:dynamic.bxl:dynamic_test_execution_resolution",
     )
@@ -65,7 +62,6 @@ async def test_bxl_dynamic_execution_resolution(buck: Buck) -> None:
 
 @buck_test()
 async def test_bxl_dynamic_incompatible_targets(buck: Buck) -> None:
-
     result = await buck.bxl(
         "//:dynamic.bxl:dynamic_test_incompatible_targets",
     )

@@ -37,7 +37,7 @@ class CodeSignProvisioningError(Exception):
 
 
 def _parse_team_id_from_entitlements(
-    entitlements: Optional[Dict[str, Any]]
+    entitlements: Optional[Dict[str, Any]],
 ) -> Optional[str]:
     if not entitlements:
         return None

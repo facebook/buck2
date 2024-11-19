@@ -21,7 +21,6 @@ from typing import cast, Dict, List, Optional, Set, Tuple, Type
 
 # pyre-fixme[24]: Generic type `AbstractContextManager` expects 1 type parameter.
 class WheelBuilder(contextlib.AbstractContextManager):
-
     def __init__(
         self,
         *,

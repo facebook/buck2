@@ -881,7 +881,12 @@ class Buck(Executable):
             result_type=lambda proc, stdout, stderr: result_type(
                 proc, stdout, stderr, buck_build_id
             ),
-            exception_type=lambda cmd_to_run, working_dir, env, proc, stdout, stderr: exception_type(
+            exception_type=lambda cmd_to_run,
+            working_dir,
+            env,
+            proc,
+            stdout,
+            stderr: exception_type(
                 cmd_to_run, working_dir, env, proc, stdout, stderr, buck_build_id
             ),
             encoding=self.encoding,

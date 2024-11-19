@@ -228,7 +228,6 @@ def codesign_bundle(
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
 ) -> None:
-
     codesign_on_copy_paths = sorted(
         codesign_on_copy_paths,
         key=lambda codesigned_path: codesigned_path.path,
@@ -374,7 +373,6 @@ def _read_provisioning_profiles(
     dirpath: Path,
     read_provisioning_profile_command_factory: IReadProvisioningProfileCommandFactory,
 ) -> List[ProvisioningProfileMetadata]:
-
     return [
         _provisioning_profile_from_file_path(
             dirpath / f,

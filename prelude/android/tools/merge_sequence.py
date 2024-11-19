@@ -101,6 +101,7 @@ We aim to minimize the suffixing of the largest, most central layers, so we appl
    (possibly module-suffixed) library name. Each final library after the first encountered for its library name will be
    further suffixed with that library name's counter value.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -561,9 +562,7 @@ def get_native_linkables_by_merge_sequence(  # noqa: C901
                 for (
                     group,
                     entry_count,
-                ) in (
-                    dependent_in_group_data.dependent_included_split_group_entry_counts.items()
-                ):
+                ) in dependent_in_group_data.dependent_included_split_group_entry_counts.items():
                     if group == dependent_split_group and is_included_split_group_entry:
                         entry_count += 1
 

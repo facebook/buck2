@@ -18,7 +18,6 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 @buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_root(buck: Buck) -> None:
-
     result = await buck.bxl(
         "//bxl:root.bxl:root_test",
     )
@@ -28,7 +27,6 @@ async def test_bxl_root(buck: Buck) -> None:
 
 @buck_test(inplace=False, data_dir="bxl/simple")
 async def test_bxl_cell_root(buck: Buck) -> None:
-
     result = await buck.bxl(
         "fbcode//cell_root.bxl:cell_root_test",
     )

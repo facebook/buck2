@@ -670,7 +670,7 @@ async def test_exit_when_different_state(buck: Buck) -> None:
 
     # create a coroutine that can return a result
     async def process(
-        p: Process[BuildResult, BuckException]
+        p: Process[BuildResult, BuckException],
     ) -> Tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
@@ -713,7 +713,7 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
 
     # create a coroutine that can return a result
     async def process(
-        p: Process[BuildResult, BuckException]
+        p: Process[BuildResult, BuckException],
     ) -> Tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
@@ -758,7 +758,7 @@ async def test_exit_when_preemptible_on_different_state(
 
     # create a coroutine that can return a result
     async def process(
-        p: Process[BuildResult, BuckException]
+        p: Process[BuildResult, BuckException],
     ) -> Tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
