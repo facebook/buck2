@@ -9,21 +9,28 @@
 
 //! bxl additional artifact types
 
-use std::fmt::Display;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::iter;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
+use buck2_build_api::actions::calculation::ActionCalculation;
+use buck2_build_api::actions::execute::action_executor::ActionOutputs;
+use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use futures::FutureExt;
+use indexmap::IndexSet;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -44,7 +51,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::ValueTyped;
 
-#[derive(Clone, Debug, Trace, ProvidesStaticType, Allocative)]
+#[derive(Clone, Debug, Dupe, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) enum EnsuredArtifact {
     Artifact {
@@ -175,7 +182,7 @@ impl PartialEq for EnsuredArtifact {
 
 impl Eq for EnsuredArtifact {}
 
-#[derive(StarlarkTypeRepr, UnpackValue)]
+#[derive(StarlarkTypeRepr, UnpackValue, Display)]
 pub(crate) enum ArtifactArg<'v> {
     Artifact(&'v StarlarkArtifact),
     DeclaredArtifact(&'v StarlarkDeclaredArtifact),
@@ -463,5 +470,67 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
 
             Ok(heap.alloc_typed(artifact))
         }
+    }
+}
+
+#[derive(Debug, Allocative)]
+pub(crate) struct LazyBuildArtifact {
+    /// The artifacts that are associated with this artifact. This is used to materialize.
+    artifacts_to_build: IndexSet<ArtifactGroup>,
+    artifact: StarlarkArtifact,
+}
+
+impl LazyBuildArtifact {
+    pub(crate) fn new(artifact: &StarlarkArtifact) -> Self {
+        let as_artifact = artifact as &dyn StarlarkArtifactLike;
+
+        let bound_artifact = as_artifact.get_bound_artifact().unwrap();
+        let associated_artifacts = as_artifact.get_associated_artifacts();
+
+        let artifacts = associated_artifacts
+            .iter()
+            .flat_map(|v| v.iter())
+            .cloned()
+            .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
+            .collect::<IndexSet<_>>();
+
+        LazyBuildArtifact {
+            artifacts_to_build: artifacts,
+            artifact: artifact.dupe(),
+        }
+    }
+
+    pub(crate) fn artifact(&self) -> StarlarkArtifact {
+        self.artifact.dupe()
+    }
+
+    pub(crate) async fn build_artifacts(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+    ) -> anyhow::Result<Vec<ActionOutputs>> {
+        let res = ctx
+            .try_compute_join(&self.artifacts_to_build, |ctx, artifact_group| {
+                async move {
+                    let artifact_group_values = ctx.ensure_artifact_group(artifact_group).await?;
+                    let build_artifacts = artifact_group_values
+                        .iter()
+                        .filter_map(|(artifact, _value)| {
+                            if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
+                                Some(artifact.dupe())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    ctx.try_compute_join(build_artifacts, |ctx, build_artifact| {
+                        async move { ActionCalculation::build_artifact(ctx, &build_artifact).await }
+                            .boxed()
+                    })
+                    .await
+                }
+                .boxed()
+            })
+            .await?;
+        Ok(res.into_iter().flatten().collect::<Vec<_>>())
     }
 }

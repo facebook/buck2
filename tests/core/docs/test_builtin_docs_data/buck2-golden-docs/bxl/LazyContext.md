@@ -2,6 +2,7 @@
 
 # LazyContext
 ## LazyContext.analysis
+## LazyContext.build\_artifact
 ## LazyContext.configured\_target\_node
 ## LazyContext.cquery
 ## LazyContext.join
