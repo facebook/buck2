@@ -465,7 +465,7 @@ def get_manifest(
         )
 
     if android_toolchain.set_application_id_to_specified_package and should_replace_application_id_placeholders:
-        android_manifest_with_replaced_application_id = ctx.actions.declare_output("android_manifest_with_replaced_application_id/AndroidManifest.xml")
+        android_manifest_with_replaced_application_id = ctx.actions.declare_output("replaced/AndroidManifest.xml")
         replace_application_id_placeholders_cmd = cmd_args([
             ctx.attrs._android_toolchain[AndroidToolchainInfo].replace_application_id_placeholders[RunInfo],
             "--manifest",
