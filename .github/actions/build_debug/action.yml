@@ -3,6 +3,9 @@ description: Build buck2 binary (debug)
 runs:
   using: composite
   steps:
+  - uses: Swatinem/rust-cache@v2
+    with:
+      prefix-key: buck2-debug
   - name: Build buck2 binary (debug)
     run: |-
       mkdir $RUNNER_TEMP/artifacts

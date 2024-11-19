@@ -3,6 +3,9 @@ description: Build buck2 binary (release)
 runs:
   using: composite
   steps:
+  - uses: Swatinem/rust-cache@v2
+    with:
+      prefix-key: buck2-release
   - name: Build buck2 binary (release)
     run: |-
       mkdir $RUNNER_TEMP/artifacts
