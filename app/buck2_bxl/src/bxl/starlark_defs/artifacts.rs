@@ -176,19 +176,19 @@ impl PartialEq for EnsuredArtifact {
 impl Eq for EnsuredArtifact {}
 
 #[derive(StarlarkTypeRepr, UnpackValue)]
-pub(crate) enum EnsuredArtifactArg<'v> {
+pub(crate) enum ArtifactArg<'v> {
     Artifact(&'v StarlarkArtifact),
     DeclaredArtifact(&'v StarlarkDeclaredArtifact),
 }
 
-impl<'v> EnsuredArtifactArg<'v> {
+impl<'v> ArtifactArg<'v> {
     pub(crate) fn into_ensured_artifact(self) -> EnsuredArtifact {
         match self {
-            EnsuredArtifactArg::Artifact(artifact) => EnsuredArtifact::Artifact {
+            ArtifactArg::Artifact(artifact) => EnsuredArtifact::Artifact {
                 artifact: artifact.dupe(),
                 abs: false,
             },
-            EnsuredArtifactArg::DeclaredArtifact(artifact) => EnsuredArtifact::DeclaredArtifact {
+            ArtifactArg::DeclaredArtifact(artifact) => EnsuredArtifact::DeclaredArtifact {
                 artifact: artifact.dupe(),
                 abs: false,
             },

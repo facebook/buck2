@@ -62,8 +62,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkResultExt;
 
+use crate::bxl::starlark_defs::artifacts::ArtifactArg;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifact;
-use crate::bxl::starlark_defs::artifacts::EnsuredArtifactArg;
 use crate::bxl::starlark_defs::artifacts::EnsuredArtifactGroup;
 use crate::bxl::starlark_defs::build_result::StarlarkBxlBuildResult;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
@@ -138,7 +138,7 @@ impl<'v> AllocValue<'v> for OutputStream {
 #[derive(StarlarkTypeRepr, UnpackValue)]
 enum EnsureMultipleArtifactsArg<'v> {
     None(NoneType),
-    EnsuredArtifactArgs(UnpackList<EnsuredArtifactArg<'v>>),
+    EnsuredArtifactArgs(UnpackList<ArtifactArg<'v>>),
     ProvidersArtifactIterable(&'v StarlarkProvidersArtifactIterable<'v>),
     BxlBuildResult(&'v StarlarkBxlBuildResult),
     Dict(UnpackDictEntries<Value<'v>, &'v StarlarkBxlBuildResult>),
@@ -359,7 +359,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn ensure<'v>(
         this: &OutputStream,
-        artifact: EnsuredArtifactArg<'v>,
+        artifact: ArtifactArg<'v>,
     ) -> anyhow::Result<EnsuredArtifact> {
         let artifact = artifact.into_ensured_artifact();
         populate_ensured_artifacts(this, EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
