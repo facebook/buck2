@@ -343,6 +343,8 @@ mod fbcode {
     use async_stream::stream;
 
     use bazel_event_publisher_proto::build_event_stream;
+    use bazel_event_publisher_proto::build_event_stream::build_event_id;
+    use bazel_event_publisher_proto::build_event_stream::BuildEventId;
     use bazel_event_publisher_proto::google::devtools::build::v1;
     use buck2_data;
     use buck2_data::BuildCommandStart;
@@ -398,6 +400,7 @@ mod fbcode {
     }
 
     fn buck_to_bazel_events<S: Stream<Item = BuckEvent>>(events: S) -> impl Stream<Item = v1::BuildEvent> {
+        let mut target_actions: HashMap<(String, String), Vec<(BuildEventId, bool)>> = HashMap::new();
         stream! {
             for await event in events {
                 println!("EVENT {:?} {:?}", event.event.trace_id, event);
@@ -438,6 +441,65 @@ mod fbcode {
                                     Some(_) => {},
                                 }
                             },
+                            Some(buck2_data::span_start_event::Data::Analysis(analysis)) => {
+                                let label = match analysis.target.as_ref() {
+                                    None => None,
+                                    Some(buck2_data::analysis_start::Target::StandardTarget(label)) =>
+                                        label.label.as_ref().map(|label| format!("{}:{}", label.package, label.name)),
+                                    Some(buck2_data::analysis_start::Target::AnonTarget(_anon)) => None, // TODO
+                                    Some(buck2_data::analysis_start::Target::DynamicLambda(_owner)) => None, // TODO
+                                };
+                                match label {
+                                    None => {},
+                                    Some(label) => {
+                                        let bes_event = build_event_stream::BuildEvent {
+                                            id: Some(build_event_stream::BuildEventId { id: Some(build_event_stream::build_event_id::Id::TargetConfigured(build_event_id::TargetConfiguredId {
+                                                label: label.clone(),
+                                                aspect: "".to_owned(),
+                                            })) }),
+                                            children: vec![],
+                                            last_message: false,
+                                            payload: Some(build_event_stream::build_event::Payload::Configured(bazel_event_publisher_proto::build_event_stream::TargetConfigured {
+                                                target_kind: "UNKNOWN".to_owned(),
+                                                test_size: 0,
+                                                tag: vec![],
+                                            })),
+                                        };
+                                        let bazel_event = v1::build_event::Event::BazelEvent(prost_types::Any {
+                                            type_url: "type.googleapis.com/build_event_stream.BuildEvent".to_owned(),
+                                            value: bes_event.encode_to_vec(),
+                                        });
+                                        yield v1::BuildEvent {
+                                            event_time: Some(event.timestamp().into()),
+                                            event: Some(bazel_event),
+                                        };
+
+                                        let bes_event = build_event_stream::BuildEvent {
+                                            id: Some(build_event_stream::BuildEventId { id: Some(build_event_stream::build_event_id::Id::Pattern(build_event_id::PatternExpandedId {
+                                                pattern: vec![label.clone()],
+                                            })) }),
+                                            children: vec![
+                                                build_event_stream::BuildEventId { id: Some(build_event_stream::build_event_id::Id::TargetConfigured(bazel_event_publisher_proto::build_event_stream::build_event_id::TargetConfiguredId {
+                                                    label: label,
+                                                    aspect: "".to_owned(),
+                                                }))},
+                                            ],
+                                            last_message: false,
+                                            payload: Some(build_event_stream::build_event::Payload::Expanded(bazel_event_publisher_proto::build_event_stream::PatternExpanded {
+                                                test_suite_expansions: vec![],
+                                            })),
+                                        };
+                                        let bazel_event = v1::build_event::Event::BazelEvent(prost_types::Any {
+                                            type_url: "type.googleapis.com/build_event_stream.BuildEvent".to_owned(),
+                                            value: bes_event.encode_to_vec(),
+                                        });
+                                        yield v1::BuildEvent {
+                                            event_time: Some(event.timestamp().into()),
+                                            event: Some(bazel_event),
+                                        };
+                                    },
+                                }
+                            },
                             Some(_) => {},
                         }
                     },
@@ -449,6 +511,41 @@ mod fbcode {
                                 match command.data.as_ref() {
                                     None => {},
                                     Some(buck2_data::command_end::Data::Build(_build)) => {
+                                        // flush the target completed map.
+                                        for ((label, config), actions) in target_actions.into_iter() {
+                                            let success = actions.iter().all(|(_, success)| *success);
+                                            let children: Vec<_> = actions.into_iter().map(|(id, _)| id).collect();
+                                            let bes_event = build_event_stream::BuildEvent {
+                                                id: Some(build_event_stream::BuildEventId { id: Some(build_event_stream::build_event_id::Id::TargetCompleted(build_event_id::TargetCompletedId {
+                                                    label: label,
+                                                    configuration: Some(build_event_id::ConfigurationId { id: config }),
+                                                    aspect: "".to_owned(),
+                                                })) }),
+                                                children: children,
+                                                last_message: false,
+                                                payload: Some(build_event_stream::build_event::Payload::Completed(build_event_stream::TargetComplete {
+                                                    success: success,
+                                                    target_kind: "".to_owned(),
+                                                    test_size: 0,
+                                                    output_group: vec![],
+                                                    important_output: vec![],
+                                                    directory_output: vec![],
+                                                    tag: vec![],
+                                                    test_timeout_seconds: 0,
+                                                    test_timeout: None,
+                                                    failure_detail: None,
+                                                })),
+                                            };
+                                            let bazel_event = v1::build_event::Event::BazelEvent(prost_types::Any {
+                                                type_url: "type.googleapis.com/build_event_stream.BuildEvent".to_owned(),
+                                                value: bes_event.encode_to_vec(),
+                                            });
+                                            yield v1::BuildEvent {
+                                                event_time: Some(event.timestamp().into()),
+                                                event: Some(bazel_event),
+                                            };
+                                        }
+
                                         let bes_event = build_event_stream::BuildEvent {
                                             id: Some(build_event_stream::BuildEventId { id: Some(build_event_stream::build_event_id::Id::BuildFinished(build_event_stream::build_event_id::BuildFinishedId {})) }),
                                             children: vec![],
@@ -486,6 +583,111 @@ mod fbcode {
                                     },
                                     Some(_) => {},
                                 }
+                            },
+                            Some(buck2_data::span_end_event::Data::ActionExecution(action)) => {
+                                let configuration = match &action.key {
+                                    None => None,
+                                    Some(key) => match &key.owner {
+                                        None => None,
+                                        Some(owner) => match owner {
+                                           buck2_data::action_key::Owner::TargetLabel(target) => target.configuration.clone(),
+                                           buck2_data::action_key::Owner::TestTargetLabel(test) => test.configuration.clone(),
+                                           buck2_data::action_key::Owner::LocalResourceSetup(resource) => resource.configuration.clone(),
+                                           buck2_data::action_key::Owner::AnonTarget(_anon) => None, // TODO: execution configuration?
+                                           buck2_data::action_key::Owner::BxlKey(_bxl) => None,
+                                        },
+                                    },
+                                }.map(|configuration| build_event_id::ConfigurationId { id: configuration.full_name.clone() });
+                                let label = match &action.key {
+                                    None => None,
+                                    Some(key) => match &key.owner {
+                                        None => None,
+                                        Some(owner) => match owner {
+                                           buck2_data::action_key::Owner::TargetLabel(target) => target.label.clone(),
+                                           buck2_data::action_key::Owner::TestTargetLabel(test) => test.label.clone(),
+                                           buck2_data::action_key::Owner::LocalResourceSetup(resource) => resource.label.clone(),
+                                           buck2_data::action_key::Owner::AnonTarget(anon) => anon.name.clone(),
+                                           buck2_data::action_key::Owner::BxlKey(_bxl) => None, // TODO: handle bxl
+                                        },
+                                    },
+                                }.map(|label| format!("{}:{}", label.package, label.name));
+                                let action_id = BuildEventId {id: Some(build_event_id::Id::ActionCompleted(build_event_id::ActionCompletedId {
+                                    configuration: configuration.clone(),
+                                    label: label.clone().unwrap_or("UNKOWN".to_owned()),
+                                    primary_output: "UNKNOWN".to_owned(),
+                                }))};
+                                let mnemonic = action.name.as_ref().map(|name| name.category.clone()).unwrap_or("UNKNOWN".to_owned());
+                                let success = !action.failed;
+                                let last_command_details = action.commands.last().and_then(|command| command.details.as_ref());
+                                let command_line: Vec<String> = match last_command_details.and_then(|command| command.command_kind.as_ref()).and_then(|kind| kind.command.as_ref()) {
+                                    None => vec![],
+                                    Some(buck2_data::command_execution_kind::Command::LocalCommand(command)) => command.argv.clone(),
+                                    Some(_) => vec![], // TODO: handle remote, worker, and other commands
+                                };
+                                let exit_code = last_command_details.and_then(|details| details.signed_exit_code).unwrap_or(0);
+                                let stdout = last_command_details.map(|details| details.stdout.clone());
+                                let stderr = last_command_details.map(|details| details.stderr.clone());
+                                let stdout_file = stdout.map(|stdout| bazel_event_publisher_proto::build_event_stream::File {
+                                    path_prefix: vec![],
+                                    name: "stdout".to_owned(),
+                                    digest: "".to_owned(),
+                                    length: stdout.len() as i64,
+                                    file: Some(bazel_event_publisher_proto::build_event_stream::file::File::Contents(stdout.into())),
+                                });
+                                let stderr_file = stderr.clone().map(|stderr| bazel_event_publisher_proto::build_event_stream::File {
+                                    path_prefix: vec![],
+                                    name: "stderr".to_owned(),
+                                    digest: "".to_owned(),
+                                    length: stderr.len() as i64,
+                                    file: Some(bazel_event_publisher_proto::build_event_stream::file::File::Contents(stderr.into())),
+                                });
+                                let start_time = last_command_details.and_then(|details| details.metadata.as_ref().and_then(|metadata| metadata.start_time.clone()));
+                                //let wall_time = last_command_details.and_then(|details| details.metadata.as_ref().and_then(|metadata| metadata.wall_time.clone()));
+                                //let end_time = ...; // TODO: add start_time and wall_time
+                                match (label.as_ref(), configuration.as_ref()) {
+                                    (Some(label), Some(configuration)) => {
+                                        target_actions
+                                            .entry((label.clone(), configuration.id.clone()))
+                                            .or_default()
+                                            .push((action_id.clone(), success));
+                                    },
+                                    _ => {},
+                                }
+                                let failure_detail = if success { None } else {
+                                    Some(bazel_event_publisher_proto::failure_details::FailureDetail {
+                                        message: stderr.unwrap_or("UNKNOWN".to_owned()),
+                                        category: None, // TODO
+                                    })
+                                };
+                                let bes_event = build_event_stream::BuildEvent {
+                                    id: Some(action_id),
+                                    children: vec![],
+                                    last_message: false,
+                                    payload: Some(build_event_stream::build_event::Payload::Action(build_event_stream::ActionExecuted {
+                                        success: success,
+                                        r#type: mnemonic,
+                                        exit_code: exit_code,
+                                        stdout: stdout_file,
+                                        stderr: stderr_file,
+                                        label: "".to_owned(),
+                                        configuration: None,
+                                        primary_output: None,
+                                        command_line: command_line,
+                                        action_metadata_logs: vec![],
+                                        failure_detail: failure_detail,
+                                        start_time: start_time, // TODO: should we deduct queue time?
+                                        end_time: None,
+                                        strategy_details: vec![],
+                                    })),
+                                };
+                                let bazel_event = v1::build_event::Event::BazelEvent(prost_types::Any {
+                                    type_url: "type.googleapis.com/build_event_stream.BuildEvent".to_owned(),
+                                    value: bes_event.encode_to_vec(),
+                                });
+                                yield v1::BuildEvent {
+                                    event_time: Some(event.timestamp().into()),
+                                    event: Some(bazel_event),
+                                };
                             },
                             Some(_) => {},
                         }
