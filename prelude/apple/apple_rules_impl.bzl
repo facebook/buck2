@@ -21,6 +21,7 @@ load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
+load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
 load(":apple_bundle.bzl", "apple_bundle_impl")
@@ -95,6 +96,7 @@ def _apple_binary_extra_attrs():
         ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
     }
     attribs.update(apple_dsymutil_attrs())
+    attribs.update(constraint_overrides.attributes)
     return attribs
 
 def _apple_library_extra_attrs():
