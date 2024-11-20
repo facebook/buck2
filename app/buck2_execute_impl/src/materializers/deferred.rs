@@ -194,6 +194,7 @@ pub struct DeferredMaterializerConfigs {
     pub update_access_times: AccessTimesUpdates,
     pub verbose_materializer_log: bool,
     pub clean_stale_config: Option<CleanStaleConfig>,
+    pub disable_eager_write_dispatch: bool,
 }
 
 pub struct TtlRefreshConfiguration {
@@ -322,6 +323,7 @@ pub(crate) struct DeferredMaterializerCommandProcessor<T: 'static> {
     access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
     verbose_materializer_log: bool,
     daemon_dispatcher: EventDispatcher,
+    disable_eager_write_dispatch: bool,
 }
 
 struct TtlRefreshHistoryEntry {
@@ -1055,6 +1057,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 access_times_buffer,
                 verbose_materializer_log: configs.verbose_materializer_log,
                 daemon_dispatcher,
+                disable_eager_write_dispatch: configs.disable_eager_write_dispatch,
             }
         };
 
@@ -1664,12 +1667,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         // Dispatch Write actions eagerly if possible. We can do this if no cleanup is required. We
         // also check that there are no deps, though for writes there should never be deps.
-
-        // Gate this to not macs for now because we are seeing some instances of extremely slow I/O on macs.
-        // This is a very hacky and temporary fix.
-        // TODO(scottcao): Eagerly dispatch writes on a lower priority.
-        let can_use_write_fast_path =
-            !cfg!(target_os = "macos") && existing_futs.is_empty() && value.deps().is_none();
+        // NOTE: This is causing perf issues because the writes are still dispatched eagerly and that
+        // is flooding our IO executor queue and blocking materializations.
+        // This is a temporary workaround. The proper fix should be to dispatch writes at a lower priority.
+        let can_use_write_fast_path = !cfg!(target_os = "macos")
+            && existing_futs.is_empty()
+            && value.deps().is_none()
+            && !self.disable_eager_write_dispatch;
 
         let future = match &*method {
             ArtifactMaterializationMethod::Write(write) if can_use_write_fast_path => {

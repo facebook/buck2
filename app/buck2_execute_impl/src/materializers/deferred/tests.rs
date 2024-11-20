@@ -452,6 +452,7 @@ mod state_machine {
                 access_times_buffer: Default::default(),
                 verbose_materializer_log: true,
                 daemon_dispatcher,
+                disable_eager_write_dispatch: true,
             },
             command_sender,
             command_receiver,

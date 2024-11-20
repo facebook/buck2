@@ -419,6 +419,14 @@ impl DaemonState {
 
                 let clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
 
+                let disable_eager_write_dispatch = root_config
+                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "disable_eager_write_dispatch",
+                    })?
+                    .unwrap_or_else(RolloutPercentage::never)
+                    .roll();
+
                 DeferredMaterializerConfigs {
                     materialize_final_artifacts: matches!(
                         materializations,
@@ -433,6 +441,7 @@ impl DaemonState {
                     update_access_times,
                     verbose_materializer_log,
                     clean_stale_config,
+                    disable_eager_write_dispatch,
                 }
             };
 
