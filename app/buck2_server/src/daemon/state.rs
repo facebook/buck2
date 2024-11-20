@@ -444,6 +444,8 @@ impl DaemonState {
                     disable_eager_write_dispatch,
                 }
             };
+            let disable_eager_write_dispatch =
+                deferred_materializer_configs.disable_eager_write_dispatch;
 
             let (io, _, (materializer_db, materializer_state)) = futures::future::try_join3(
                 create_io_provider(
@@ -600,6 +602,10 @@ impl DaemonState {
                 format!(
                     "respect-file-symlinks:{}",
                     static_metadata.respect_file_symlinks
+                ),
+                format!(
+                    "disable-eager-write-dispatch:{}",
+                    disable_eager_write_dispatch,
                 ),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
