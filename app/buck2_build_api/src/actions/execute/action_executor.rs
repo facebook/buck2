@@ -81,7 +81,6 @@ use crate::actions::ActionExecutionCtx;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
-use crate::context::HasBuildContextData;
 
 /// This is the result of the action as exposed to other things in the dice computation.
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
@@ -247,7 +246,6 @@ impl HasActionExecutor for DiceComputations<'_> {
         let http_client = self.per_transaction_data().get_http_client();
         let mergebase = self.per_transaction_data().get_mergebase();
         let invalidation_tracking_enabled = self.get_invalidation_tracking_config().enabled;
-        let add_missing_zeros = self.add_missing_zeros().await?;
 
         Ok(Arc::new(BuckActionExecutor::new(
             CommandExecutor::new(
@@ -268,7 +266,6 @@ impl HasActionExecutor for DiceComputations<'_> {
             http_client,
             mergebase,
             invalidation_tracking_enabled,
-            add_missing_zeros,
         )))
     }
 }
@@ -285,7 +282,6 @@ pub struct BuckActionExecutor {
     http_client: HttpClient,
     mergebase: Mergebase,
     invalidation_tracking_enabled: bool,
-    add_missing_zeros: bool,
 }
 
 impl BuckActionExecutor {
@@ -301,7 +297,6 @@ impl BuckActionExecutor {
         http_client: HttpClient,
         mergebase: Mergebase,
         invalidation_tracking_enabled: bool,
-        add_missing_zeros: bool,
     ) -> Self {
         BuckActionExecutor {
             command_executor,
@@ -315,7 +310,6 @@ impl BuckActionExecutor {
             http_client,
             mergebase,
             invalidation_tracking_enabled,
-            add_missing_zeros,
         }
     }
 }
@@ -332,7 +326,7 @@ struct BuckActionExecutionContext<'a> {
 #[async_trait]
 impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn target(&self) -> ActionExecutionTarget<'_> {
-        ActionExecutionTarget::new(self.action, self.executor.add_missing_zeros)
+        ActionExecutionTarget::new(self.action)
     }
 
     fn fs(&self) -> &ArtifactFs {
@@ -756,10 +750,9 @@ mod tests {
         let project_fs = temp_fs.path().dupe();
         let artifact_fs = ArtifactFs::new(
             cells,
-            BuckOutPathResolver::new(
-                ProjectRelativePathBuf::unchecked_new("cell/buck-out/v2".into()),
-                true,
-            ),
+            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
+                "cell/buck-out/v2".into(),
+            )),
             project_fs.dupe(),
         );
 
@@ -794,7 +787,6 @@ mod tests {
                 .unwrap()
                 .build(),
             Default::default(),
-            true,
             true,
         );
 

@@ -97,7 +97,6 @@ impl BuckOutScratchPath {
         category: CategoryRef,
         identifier: Option<&str>,
         action_key: ForwardRelativePathBuf,
-        add_missing_zeros: bool,
     ) -> buck2_error::Result<Self> {
         const MAKE_SENSIBLE_PREFIX: &str = "_buck_";
         // Windows has MAX_PATH limit (260 chars).
@@ -137,11 +136,7 @@ impl BuckOutScratchPath {
                     // FIXME: Should this be a crypto hasher?
                     let mut hasher = DefaultHasher::new();
                     v.hash(&mut hasher);
-                    let output_hash = if add_missing_zeros {
-                        format!("{}{:016x}", MAKE_SENSIBLE_PREFIX, hasher.finish())
-                    } else {
-                        format!("{}{:x}", MAKE_SENSIBLE_PREFIX, hasher.finish())
-                    };
+                    let output_hash = format!("{}{:016x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
                     path.join_normalized(ForwardRelativePath::new(&output_hash)?)?
                 }
             }
@@ -179,17 +174,13 @@ impl BuckOutTestPath {
 #[derive(Clone, Allocative)]
 pub struct BuckOutPathResolver {
     buck_out_v2: ProjectRelativePathBuf,
-    add_missing_zeros: bool,
 }
 
 impl BuckOutPathResolver {
     /// creates a 'BuckOutPathResolver' that will resolve outputs to the provided buck-out root.
     /// If not set, buck_out defaults to "buck-out/v2"
-    pub fn new(buck_out_v2: ProjectRelativePathBuf, add_missing_zeros: bool) -> Self {
-        BuckOutPathResolver {
-            buck_out_v2,
-            add_missing_zeros,
-        }
+    pub fn new(buck_out_v2: ProjectRelativePathBuf) -> Self {
+        BuckOutPathResolver { buck_out_v2 }
     }
 
     /// Returns the buck-out root.
@@ -303,14 +294,7 @@ impl BuckOutPathResolver {
         path: &ForwardRelativePath,
         fully_hash_path: bool,
     ) -> ProjectRelativePathBuf {
-        owner.make_hashed_path(
-            &self.buck_out_v2,
-            prefix,
-            action_key,
-            path,
-            fully_hash_path,
-            self.add_missing_zeros,
-        )
+        owner.make_hashed_path(&self.buck_out_v2, prefix, action_key, path, fully_hash_path)
     }
 
     /// This function returns the exact location of the symlink of a given target.
@@ -371,7 +355,6 @@ mod tests {
         );
         let buck_out_path_resolver = BuckOutPathResolver::new(
             ProjectRelativePathBuf::unchecked_new("base/buck-out/v2".into()),
-            true,
         );
         let artifact_fs = ArtifactFs::new(
             cell_resolver,
@@ -409,10 +392,9 @@ mod tests {
 
     #[test]
     fn buck_output_path_resolves() -> buck2_error::Result<()> {
-        let path_resolver = BuckOutPathResolver::new(
-            ProjectRelativePathBuf::unchecked_new("base/buck-out/v2".into()),
-            true,
-        );
+        let path_resolver = BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
+            "base/buck-out/v2".into(),
+        ));
 
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
@@ -443,7 +425,6 @@ mod tests {
                 CategoryRef::new("category").unwrap(),
                 Some(&String::from("blah.file")),
                 ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
-                true,
             )
             .unwrap(),
         );
@@ -461,10 +442,8 @@ mod tests {
 
     #[test]
     fn buck_target_output_path_resolves() -> buck2_error::Result<()> {
-        let path_resolver = BuckOutPathResolver::new(
-            ProjectRelativePathBuf::unchecked_new("buck-out".into()),
-            true,
-        );
+        let path_resolver =
+            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
 
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
@@ -518,7 +497,6 @@ mod tests {
                     "xxx_some_long_action_key_but_it_doesnt_matter_xxx".to_owned(),
                 )
                 .unwrap(),
-                true,
             )
             .unwrap(),
         );
@@ -551,7 +529,6 @@ mod tests {
             category,
             None,
             ForwardRelativePathBuf::new("1_2".to_owned()).unwrap(),
-            true,
         )
         .unwrap();
 
@@ -561,7 +538,6 @@ mod tests {
                 category,
                 Some(s),
                 ForwardRelativePathBuf::new("3_4".to_owned()).unwrap(),
-                true,
             )
             .unwrap()
             .path
@@ -587,10 +563,9 @@ mod tests {
 
     #[test]
     fn test_scratch_path_is_unique() {
-        let path_resolver = BuckOutPathResolver::new(
-            ProjectRelativePathBuf::unchecked_new("base/buck-out/v2".into()),
-            true,
-        );
+        let path_resolver = BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
+            "base/buck-out/v2".into(),
+        ));
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),
             CellRelativePath::unchecked_new("baz-package"),
@@ -606,7 +581,6 @@ mod tests {
                         CategoryRef::new("category").unwrap(),
                         Some(id),
                         ForwardRelativePathBuf::new(s.to_owned()).unwrap(),
-                        true,
                     )
                     .unwrap(),
                 )
@@ -633,10 +607,8 @@ mod tests {
 
     #[test]
     fn test_resolve_test_discovery() -> buck2_error::Result<()> {
-        let path_resolver = BuckOutPathResolver::new(
-            ProjectRelativePathBuf::unchecked_new("buck-out".into()),
-            true,
-        );
+        let path_resolver =
+            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
 
         let pkg = PackageLabel::new(
             CellName::testing_new("foo"),

@@ -163,10 +163,7 @@ mod tests {
                 CellName::testing_new("cell"),
                 CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
             ),
-            BuckOutPathResolver::new(
-                ProjectRelativePathBuf::unchecked_new("buck_out".into()),
-                true,
-            ),
+            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
             project_fs,
         );
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);

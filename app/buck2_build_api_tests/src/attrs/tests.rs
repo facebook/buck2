@@ -913,10 +913,9 @@ fn test_user_placeholders() -> anyhow::Result<()> {
                             "cell_path".into(),
                         )),
                     ),
-                    BuckOutPathResolver::new(
-                        ProjectRelativePathBuf::unchecked_new("buck_out/v2".into()),
-                        true,
-                    ),
+                    BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
+                        "buck_out/v2".into(),
+                    )),
                     project_fs,
                 );
                 let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
