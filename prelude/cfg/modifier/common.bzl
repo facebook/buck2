@@ -220,3 +220,24 @@ def get_constraint_setting_deps(
     # Get all constraint settings depended on by a modifier (from keys of `modifier_select`). The modifiers
     # for these constraint settings must be resolved before this modifier can be resolved.
     return dedupe(_get_constraint_setting_deps(modifier_info))
+
+def add_to_constraint_setting_to_modifier_infos(
+        constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]],
+        constraint_setting_label: TargetLabel,
+        modifier_info: ModifierInfo):
+    modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
+    modifier_infos.append(modifier_info)
+    constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
+
+def get_and_insert_modifier_info(
+        constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]],
+        refs: dict[str, ProviderCollection],
+        modifier: Modifier,
+        location: ModifierLocation) -> (TargetLabel, ModifierInfo):
+    constraint_setting_label, modifier_info = get_modifier_info(
+        refs = refs,
+        modifier = modifier,
+        location = location,
+    )
+    add_to_constraint_setting_to_modifier_infos(constraint_setting_to_modifier_infos, constraint_setting_label, modifier_info)
+    return (constraint_setting_label, modifier_info)
