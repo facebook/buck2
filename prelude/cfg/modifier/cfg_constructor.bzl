@@ -8,6 +8,7 @@
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
     ":common.bzl",
+    "add_to_constraint_setting_to_modifier_infos",
     "get_and_insert_modifier_info",
     "get_constraint_setting_deps",
     "json_to_tagged_modifiers",
@@ -18,6 +19,7 @@ load(
 load(":name.bzl", "cfg_name")
 load(
     ":types.bzl",
+    "BuckconfigBackedModifierInfo",
     "Modifier",  # @unused
     "ModifierCliLocation",
     "ModifierTargetLocation",
@@ -78,6 +80,10 @@ def cfg_constructor_pre_constraint_analysis(
     cli_modifiers = [resolved_modifier for modifier in cli_modifiers for resolved_modifier in resolve_alias(modifier, aliases)]
 
     refs = []
+    buckconfig_backed_modifiers = getattr(extra_data, "buckconfig_backed_modifiers", None)
+    if buckconfig_backed_modifiers:
+        refs.append(buckconfig_backed_modifiers)
+
     for tagged_modifiers in package_modifiers:
         for modifier in tagged_modifiers.modifiers:
             refs.extend(modifier_to_refs(modifier, tagged_modifiers.location))
@@ -123,6 +129,15 @@ def cfg_constructor_post_constraint_analysis(
 
     constraint_setting_to_modifier_infos = {}
     cli_modifier_validation = getattr(params.extra_data, "cli_modifier_validation", None)
+    buckconfig_backed_modifiers = getattr(params.extra_data, "buckconfig_backed_modifiers", None)
+
+    if buckconfig_backed_modifiers:
+        for conditional_modifier_info in refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].pre_platform_modifiers:
+            add_to_constraint_setting_to_modifier_infos(
+                constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,
+                constraint_setting_label = conditional_modifier_info.key,
+                modifier_info = conditional_modifier_info.inner,
+            )
 
     if params.legacy_platform:
         for constraint_setting, constraint_value_info in params.legacy_platform.configuration.constraints.items():

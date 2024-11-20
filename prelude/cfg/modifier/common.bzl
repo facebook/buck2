@@ -11,6 +11,7 @@ load(
     ":types.bzl",
     "ConditionalModifierInfo",
     "Modifier",
+    "ModifierBuckconfigLocation",
     "ModifierCliLocation",
     "ModifierInfo",
     "ModifierLocation",
@@ -33,6 +34,8 @@ def location_to_string(location: ModifierLocation) -> str:
         return _TARGET_LOCATION_STR
     if isinstance(location, ModifierCliLocation):
         return _CLI_LOCATION_STR
+    if isinstance(location, ModifierBuckconfigLocation):
+        return "buckconfig {}.{}".format(location.section, location.property)
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
 
 def get_tagged_modifiers(

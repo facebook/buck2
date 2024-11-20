@@ -19,8 +19,14 @@ ModifierTargetLocation = record()
 # Modifier specified via command line from the user
 ModifierCliLocation = record()
 
+# Modifier specified from buckconfig
+ModifierBuckconfigLocation = record(
+    section = str,
+    property = str,
+)
+
 # This is a handy way of specifying a rust-style enum in Starlark.
-ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCliLocation
+ModifierLocation = ModifierPackageLocation | ModifierTargetLocation | ModifierCliLocation | ModifierBuckconfigLocation
 
 # Modifier types as how they appear to the user via `set_cfg_modifier` or `cfg_modifier` function.
 
@@ -52,6 +58,10 @@ ModifierInfo = ConstraintValueInfo | ModifiersMatchInfo | None
 ConditionalModifierInfo = provider(fields = {
     "inner": ModifierInfo,
     "key": TargetLabel,
+})
+
+BuckconfigBackedModifierInfo = provider(fields = {
+    "pre_platform_modifiers": list[ConditionalModifierInfo],
 })
 
 def is_modifiers_match(modifier: Modifier) -> bool:
