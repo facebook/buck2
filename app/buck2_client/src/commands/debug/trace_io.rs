@@ -29,6 +29,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_offline_archive::ExternalSymlink;
 use buck2_offline_archive::OfflineArchiveManifest;
 use buck2_offline_archive::RelativeSymlink;
@@ -139,7 +140,7 @@ impl StreamingCommand for TraceIoCommand {
                         })
                         .collect(),
                     repository: RepositoryMetadata::from_cwd()
-                        .context("creating repository metadata")?,
+                        .buck_error_context_anyhow("creating repository metadata")?,
                 };
                 let serialized = serde_json::to_string(&manifest)
                     .context("serializing offline archive manifest to json")?;

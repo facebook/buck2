@@ -7,10 +7,10 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 serde = { workspace = true }
 
 buck2_core = { workspace = true }
+buck2_error = { workspace = true }
 buck2_util = { workspace = true }
 
 [target.'cfg(unix)'.dev-dependencies]
