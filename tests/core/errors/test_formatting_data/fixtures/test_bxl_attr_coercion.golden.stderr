@@ -5,6 +5,7 @@ Traceback (most recent call last):
   File <builtin>, in <module>
   * fail_attr_coercion.bxl:9, in _int_rule
       ctx.unconfigured_targets("//attr_coercion:int_rule")
+
 error: Error loading targets in package `root//attr_coercion` for target `root//attr_coercion:int_rule`
  --> fail_attr_coercion.bxl:9:5
   |
@@ -12,10 +13,10 @@ error: Error loading targets in package `root//attr_coercion` for target `root//
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
 
-
 Caused by:
-    0: Error evaluating build file: `root//attr_coercion:TARGETS.fixture`
-    1: Traceback (most recent call last):
+    0: Error loading targets in package `root//attr_coercion` for target `root//attr_coercion:int_rule`
+    1: Error evaluating build file: `root//attr_coercion:TARGETS.fixture`
+    2: Traceback (most recent call last):
          * attr_coercion/TARGETS.fixture:3, in <module>
              int_rule(
        error: Error coercing attribute `x` of `root//attr_coercion:int_rule`
@@ -28,7 +29,7 @@ Caused by:
          | |_^
          |
        
-    2: Error coercing attribute `x` of type `attrs.int()`
-    3: Error coercing "foobar"
-    4: Expected value of type `int`, got value with type `string` (value was `"foobar"`)
+    3: Error coercing attribute `x` of type `attrs.int()`
+    4: Error coercing "foobar"
+    5: Expected value of type `int`, got value with type `string` (value was `"foobar"`)
 BXL FAILED

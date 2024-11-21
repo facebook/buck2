@@ -215,7 +215,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     fn unconfigured_targets<'v>(
         this: &'v BxlContext<'v>,
         labels: TargetListExprArg<'v>,
-    ) -> anyhow::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
+    ) -> starlark::Result<Either<StarlarkTargetNode, StarlarkTargetSet<TargetNode>>> {
         Ok(this.via_dice(|ctx, this| {
             ctx.via(|ctx| {
                 async move {
