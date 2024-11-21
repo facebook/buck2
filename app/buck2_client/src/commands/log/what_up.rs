@@ -111,7 +111,7 @@ impl WhatUpCommand {
 
             super_console
                 .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)?;
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })?;
 
         ExitResult::success()

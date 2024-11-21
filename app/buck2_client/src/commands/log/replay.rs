@@ -16,7 +16,7 @@ use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
 use buck2_client_ctx::subscribers::get::get_console_with_root;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
-use buck2_error::buck2_error_anyhow;
+use buck2_error::buck2_error;
 
 use crate::commands::log::options::EventLogOptions;
 
@@ -100,12 +100,12 @@ impl ReplayCommand {
                 }
 
                 // FIXME(JakobDegen)(easy): This should probably return failures if there were errors
-                Ok(())
+                buck2_error::Ok(())
             };
 
             with_simple_sigint_handler(work)
                 .await
-                .unwrap_or_else(|| Err(buck2_error_anyhow!([], "Signal Interrupted")))
+                .unwrap_or_else(|| Err(buck2_error!([], "Signal Interrupted")))
         })
         .into()
     }

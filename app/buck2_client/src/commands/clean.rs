@@ -28,6 +28,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use threadpool::ThreadPool;
@@ -97,7 +98,7 @@ impl CleanCommand {
                 let console = &self.common_opts.console_opts.final_console();
 
                 if self.dry_run {
-                    return clean(buck_out_dir, daemon_dir, console, None).await;
+                    return Ok(clean(buck_out_dir, daemon_dir, console, None).await?);
                 }
 
                 // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
@@ -107,11 +108,11 @@ impl CleanCommand {
                     StartupDeadline::duration_from_now(Duration::from_secs(10))?,
                 )
                 .await
-                .with_context(|| "Error locking buckd lifecycle.lock")?;
+                .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
 
                 kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
 
-                clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
+                Ok(clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await?)
             },
         )
         .into()

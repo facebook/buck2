@@ -309,9 +309,7 @@ impl StreamingCommand for TargetsCommand {
         let target_hash_graph_type =
             match (self.show_target_hash, self.show_unconfigured_target_hash) {
                 (true, true) => {
-                    return ExitResult::err(anyhow::Error::new(
-                        TargetsError::IncompatibleArguments,
-                    ));
+                    return ExitResult::err(TargetsError::IncompatibleArguments.into());
                 }
                 (true, false) => targets_request::TargetHashGraphType::Configured as i32,
                 (false, true) => targets_request::TargetHashGraphType::Unconfigured as i32,

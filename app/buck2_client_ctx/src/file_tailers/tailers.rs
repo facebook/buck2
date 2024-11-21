@@ -22,7 +22,7 @@ pub struct FileTailers {
 }
 
 impl FileTailers {
-    pub fn new(daemon_dir: &DaemonDir) -> anyhow::Result<Self> {
+    pub fn new(daemon_dir: &DaemonDir) -> buck2_error::Result<Self> {
         let (tx, rx) = mpsc::unbounded_channel();
         let stdout_tailer = FileTailer::tail_file(
             daemon_dir.buckd_stdout(),

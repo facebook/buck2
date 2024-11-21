@@ -202,7 +202,7 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
         &mut self,
         mut ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let response = partial_res
             .response
             .context("Empty `SubscriptionResponseWrapper`")?;

@@ -32,7 +32,7 @@ impl BuildGraphStats {
     async fn handle_build_response(
         &self,
         res: &buck2_cli_proto::BuildResponse,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let events = self.build_graph_stats_from_build_response(res);
         self.send_events(events).await;
 
@@ -91,7 +91,7 @@ impl EventSubscriber for BuildGraphStats {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match &result.result {
             Some(command_result::Result::BuildResponse(res)) => {
                 self.handle_build_response(res).await

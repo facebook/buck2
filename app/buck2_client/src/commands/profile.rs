@@ -32,6 +32,7 @@ use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_error::buck2_error;
 use dupe::Dupe;
 
 use super::bxl::BxlCommandOptions;
@@ -235,7 +236,8 @@ impl StreamingCommand for ProfileSubcommand {
                     .target_universe
                     .is_empty()
                 {
-                    return Err::<(), _>(anyhow::anyhow!(
+                    return Err::<(), _>(buck2_error!(
+                        [],
                         "BXL profile does not support target universe"
                     ))
                     .into();

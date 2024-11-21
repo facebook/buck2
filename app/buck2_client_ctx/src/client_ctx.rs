@@ -106,7 +106,7 @@ impl<'a> ClientCommandContext<'a> {
         self.init
     }
 
-    pub fn paths(&self) -> anyhow::Result<&InvocationPaths> {
+    pub fn paths(&self) -> buck2_error::Result<&InvocationPaths> {
         match &self.paths {
             InvocationPathsResult::Paths(p) => Ok(p),
             InvocationPathsResult::OutsideOfRepo(e) | InvocationPathsResult::OtherError(e) => {
@@ -115,7 +115,7 @@ impl<'a> ClientCommandContext<'a> {
         }
     }
 
-    pub fn maybe_paths(&self) -> anyhow::Result<Option<&InvocationPaths>> {
+    pub fn maybe_paths(&self) -> buck2_error::Result<Option<&InvocationPaths>> {
         match &self.paths {
             InvocationPathsResult::Paths(p) => Ok(Some(p)),
             InvocationPathsResult::OutsideOfRepo(_) => Ok(None), // commands like log don't need a root but still need to create an invocation record
@@ -136,9 +136,9 @@ impl<'a> ClientCommandContext<'a> {
         command_name: &'static str,
         event_log_opts: &CommonEventLogOptions,
         func: F,
-    ) -> anyhow::Result<()>
+    ) -> buck2_error::Result<()>
     where
-        Fut: Future<Output = anyhow::Result<()>> + 'a,
+        Fut: Future<Output = buck2_error::Result<()>> + 'a,
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
     {
         let mut recorder = try_get_invocation_recorder(
@@ -163,9 +163,9 @@ impl<'a> ClientCommandContext<'a> {
         self,
         command_name: &'static str,
         func: F,
-    ) -> anyhow::Result<()>
+    ) -> buck2_error::Result<()>
     where
-        Fut: Future<Output = anyhow::Result<()>> + 'a,
+        Fut: Future<Output = buck2_error::Result<()>> + 'a,
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
     {
         self.instant_command(
@@ -185,7 +185,7 @@ impl<'a> ClientCommandContext<'a> {
     pub async fn connect_buckd(
         &self,
         options: BuckdConnectOptions<'a>,
-    ) -> anyhow::Result<BuckdClientConnector<'a>> {
+    ) -> buck2_error::Result<BuckdClientConnector<'a>> {
         BuckdConnectOptions { ..options }
             .connect(self.paths()?)
             .await
@@ -195,7 +195,7 @@ impl<'a> ClientCommandContext<'a> {
         &self,
         arg_matches: &clap::ArgMatches,
         cmd: &T,
-    ) -> anyhow::Result<ClientContext> {
+    ) -> buck2_error::Result<ClientContext> {
         // TODO(cjhopman): Support non unicode paths?
         let config_opts = cmd.build_config_opts();
         let starlark_opts = cmd.starlark_opts();
@@ -245,7 +245,7 @@ impl<'a> ClientCommandContext<'a> {
     }
 
     /// A client context for commands where CommonConfigOptions are not provided.
-    pub fn empty_client_context(&self, command_name: &str) -> anyhow::Result<ClientContext> {
+    pub fn empty_client_context(&self, command_name: &str) -> buck2_error::Result<ClientContext> {
         #[derive(Debug, buck2_error::Error)]
         #[error("Current directory is not UTF-8")]
         struct CurrentDirIsNotUtf8;
@@ -255,7 +255,7 @@ impl<'a> ClientCommandContext<'a> {
                 .working_dir
                 .path()
                 .to_str()
-                .buck_error_context_anyhow(CurrentDirIsNotUtf8.to_string())?
+                .buck_error_context(CurrentDirIsNotUtf8.to_string())?
                 .to_owned(),
             config_overrides: Default::default(),
             host_platform: Default::default(),

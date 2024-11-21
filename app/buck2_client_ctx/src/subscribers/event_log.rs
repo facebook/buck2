@@ -40,7 +40,7 @@ impl<'a> EventLog<'a> {
         async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    ) -> anyhow::Result<EventLog> {
+    ) -> buck2_error::Result<EventLog> {
         Ok(Self {
             async_cleanup_context: Some(async_cleanup_context),
             writer: WriteEventLog::new(
@@ -58,11 +58,11 @@ impl<'a> EventLog<'a> {
 
 #[async_trait]
 impl<'a> EventSubscriber for EventLog<'a> {
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         Ok(self.writer.write_events(events).await?)
     }
 
-    async fn handle_tailer_stderr(&mut self, _stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, _stderr: &str) -> buck2_error::Result<()> {
         // TODO(nga): currently we mostly ignore buckd stderr.
         //   It is very important to investigate crashes of buckd.
         //
@@ -79,17 +79,17 @@ impl<'a> EventSubscriber for EventLog<'a> {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(self.writer.write_result(result).await?)
     }
 
     /// Flush all log files during on tick to avoid buffering data in memory which we might lose if
     /// we hit an error.
-    async fn tick(&mut self, _tick: &Tick) -> anyhow::Result<()> {
+    async fn tick(&mut self, _tick: &Tick) -> buck2_error::Result<()> {
         Ok(self.writer.flush_files().await?)
     }
 
-    async fn exit(&mut self) -> anyhow::Result<()> {
+    async fn exit(&mut self) -> buck2_error::Result<()> {
         self.writer.exit().await;
         Ok(())
     }

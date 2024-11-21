@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_event_observer::test_state::TestState;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -92,7 +92,7 @@ impl TestCounterColumn {
             label: self.label,
             count: (self.get_from_test_statues)(test_statuses)
                 .as_ref()
-                .with_context(|| format!("Missing {} in TestStatuses", self.label))?
+                .with_buck_error_context(|| format!("Missing {} in TestStatuses", self.label))?
                 .count,
             color: self.color,
         }
@@ -142,7 +142,6 @@ pub(crate) struct TestHeader<'a> {
 impl<'a> Component for TestHeader<'a> {
     fn draw_unchecked(
         &self,
-
         dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {

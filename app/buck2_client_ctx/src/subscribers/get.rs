@@ -40,7 +40,7 @@ pub fn get_console_with_root(
     command_name: &str,
     config: SuperConsoleConfig,
     build_count_dir: Option<AbsNormPathBuf>,
-) -> anyhow::Result<Box<dyn EventSubscriber>> {
+) -> buck2_error::Result<Box<dyn EventSubscriber>> {
     match console_type {
         ConsoleType::Simple => Ok(Box::new(
             SimpleConsole::<NoopEventObserverExtra>::autodetect(
@@ -104,7 +104,7 @@ pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
     cmd: &T,
     ctx: &ClientCommandContext<'a>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     let event_log_opts = cmd.event_log_opts();
     let sanitized_argv = cmd.sanitize_argv(ctx.argv.clone());
     let user_event_log = cmd.user_event_log();
@@ -131,7 +131,7 @@ pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
 
 pub(crate) fn try_get_re_log_subscriber<'a>(
     ctx: &ClientCommandContext<'a>,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     let log = ReLog::new(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
@@ -142,7 +142,7 @@ pub(crate) fn try_get_re_log_subscriber<'a>(
 pub(crate) fn try_get_build_id_writer<'a>(
     opts: &CommonEventLogOptions,
     ctx: &ClientCommandContext<'a>,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     if let Some(file_loc) = opts.write_build_id.as_ref() {
         Ok(Some(Box::new(BuildIdWriter::new(
             file_loc.resolve(&ctx.working_dir),
@@ -155,7 +155,7 @@ pub(crate) fn try_get_build_id_writer<'a>(
 pub(crate) fn try_get_build_graph_stats<'a, T: StreamingCommand>(
     cmd: &T,
     ctx: &ClientCommandContext<'a>,
-) -> anyhow::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
     if should_handle_build_graph_stats(cmd) {
         Ok(Some(Box::new(BuildGraphStats::new(
             ctx.fbinit(),

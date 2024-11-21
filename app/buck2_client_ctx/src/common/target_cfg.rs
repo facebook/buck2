@@ -88,14 +88,14 @@ mod tests {
 
     use super::*;
 
-    fn parse(args: &[&str]) -> anyhow::Result<TargetCfgOptions> {
+    fn parse(args: &[&str]) -> buck2_error::Result<TargetCfgOptions> {
         Ok(TargetCfgOptions::try_parse_from(
             std::iter::once("program").chain(args.iter().copied()),
         )?)
     }
 
     #[test]
-    fn opt_multiple() -> anyhow::Result<()> {
+    fn opt_multiple() -> buck2_error::Result<()> {
         let opts = parse(&["--modifier", "value1", "--modifier", "value2"])?;
 
         assert_eq!(opts.cli_modifiers(), vec!["value1", "value2"]);
@@ -104,7 +104,7 @@ mod tests {
     }
 
     #[test]
-    fn space_separated_fails() -> anyhow::Result<()> {
+    fn space_separated_fails() -> buck2_error::Result<()> {
         assert_matches!(parse(&["--modifier", "value1", "value2"]), Err(..));
 
         Ok(())

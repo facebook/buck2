@@ -41,7 +41,7 @@ use crate::subscribers::subscribers::EventSubscribers;
 fn default_subscribers<'a, T: StreamingCommand>(
     cmd: &T,
     ctx: &ClientCommandContext<'a>,
-) -> anyhow::Result<EventSubscribers<'a>> {
+) -> buck2_error::Result<EventSubscribers<'a>> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
     let expect_spans = cmd.should_expect_spans();

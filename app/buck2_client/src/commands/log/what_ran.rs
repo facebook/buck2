@@ -132,29 +132,31 @@ impl WhatRanCommand {
                 include_std_err: show_std_err,
                 omit_empty_std_err,
             };
-            ctx.instant_command_no_log("log-what-ran", |ctx| async move {
-                let log_path = event_log.get(&ctx).await?;
+            Ok(
+                ctx.instant_command_no_log("log-what-ran", |ctx| async move {
+                    let log_path = event_log.get(&ctx).await?;
 
-                let (invocation, events) = log_path.unpack_stream().await?;
+                    let (invocation, events) = log_path.unpack_stream().await?;
 
-                buck2_client_ctx::eprintln!(
-                    "Showing commands from: {}{}",
-                    invocation.display_command_line(),
-                    if options.filter_category.is_some() {
-                        ", filtered by action category"
-                    } else {
-                        ""
-                    }
-                )?;
+                    buck2_client_ctx::eprintln!(
+                        "Showing commands from: {}{}",
+                        invocation.display_command_line(),
+                        if options.filter_category.is_some() {
+                            ", filtered by action category"
+                        } else {
+                            ""
+                        }
+                    )?;
 
-                let options = WhatRanCommandOptions {
-                    options,
-                    failed,
-                    incomplete,
-                };
-                WhatRanCommandState::execute(events, &mut output, &options).await?;
-                Ok(())
-            })
+                    let options = WhatRanCommandOptions {
+                        options,
+                        failed,
+                        incomplete,
+                    };
+                    WhatRanCommandState::execute(events, &mut output, &options).await?;
+                    buck2_error::Ok(())
+                })?,
+            )
         })?;
         ExitResult::success()
     }

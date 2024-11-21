@@ -20,7 +20,7 @@ use std::io::Write;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use superconsole::Line;
 
 use crate::exit_result::ClientIoError;
@@ -33,9 +33,9 @@ pub fn has_written_to_stdout() -> bool {
 
 static STDOUT_LOCKED: AtomicBool = AtomicBool::new(false);
 
-fn stdout() -> anyhow::Result<io::Stdout> {
+fn stdout() -> buck2_error::Result<io::Stdout> {
     if STDOUT_LOCKED.load(Ordering::Relaxed) {
-        return Err(internal_error_anyhow!("stdout is already locked"));
+        return Err(internal_error!("stdout is already locked"));
     }
     HAS_WRITTEN_TO_STDOUT.store(true, Ordering::Relaxed);
     Ok(io::stdout())
@@ -87,37 +87,37 @@ macro_rules! eprintln {
     };
 }
 
-pub fn _print(fmt: Arguments) -> anyhow::Result<()> {
+pub fn _print(fmt: Arguments) -> buck2_error::Result<()> {
     stdout()?
         .lock()
         .write_fmt(fmt)
         .map_err(|e| ClientIoError::new(e).into())
 }
 
-pub fn _eprint(fmt: Arguments) -> anyhow::Result<()> {
+pub fn _eprint(fmt: Arguments) -> buck2_error::Result<()> {
     io::stderr()
         .lock()
         .write_fmt(fmt)
         .map_err(|e| ClientIoError::new(e).into())
 }
 
-pub fn print_bytes(bytes: &[u8]) -> anyhow::Result<()> {
+pub fn print_bytes(bytes: &[u8]) -> buck2_error::Result<()> {
     stdout()?
         .lock()
         .write_all(bytes)
         .map_err(|e| ClientIoError::new(e).into())
 }
 
-pub fn eprint_line(line: &Line) -> anyhow::Result<()> {
+pub fn eprint_line(line: &Line) -> buck2_error::Result<()> {
     let line = line.render();
     crate::eprintln!("{}", line)
 }
 
-pub fn flush() -> anyhow::Result<()> {
+pub fn flush() -> buck2_error::Result<()> {
     stdout()?.flush().map_err(|e| ClientIoError::new(e).into())
 }
 
-fn stdout_to_file(stdout: &Stdout) -> anyhow::Result<File> {
+fn stdout_to_file(stdout: &Stdout) -> buck2_error::Result<File> {
     #[cfg(not(windows))]
     {
         use std::os::fd::AsFd;

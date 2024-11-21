@@ -44,7 +44,7 @@ pub struct ExecArgs {
 /// - User Error          : 3
 /// - Signal Interruption : 129-192 (128 + signal number)
 ///
-/// We can easily turn a anyhow::Result (or anyhow::Error, or even a message) into a ExitResult,
+/// We can easily turn a buck2_error::Result (or buck2_error::Error, or even a message) into a ExitResult,
 /// but the reverse is not possible: once created, the only useful thing we can with a
 /// ExitResult is propagate it.
 #[must_use]
@@ -151,10 +151,10 @@ impl ExitResult {
     }
 
     pub fn bail(msg: impl Display) -> Self {
-        Self::err(anyhow::anyhow!("Command failed: {}", msg))
+        Self::err(buck2_error::buck2_error!([], "Command failed: {}", msg))
     }
 
-    pub fn err(err: anyhow::Error) -> Self {
+    pub fn err(err: buck2_error::Error) -> Self {
         let err_msg = format!("{:#}", err);
         let err: buck2_error::Error = err.into();
         let exit_code = if err.has_tag(ErrorTag::IoClientBrokenPipe) {
@@ -170,7 +170,7 @@ impl ExitResult {
         }
     }
 
-    pub fn err_with_exit_code(err: anyhow::Error, exit_code: ExitCode) -> Self {
+    pub fn err_with_exit_code(err: buck2_error::Error, exit_code: ExitCode) -> Self {
         let err_msg = format!("{:#}", err);
         Self {
             variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
@@ -236,7 +236,7 @@ impl ExitResult {
     /// when these commands are run, we have to retry them with the full build.
     ///
     /// This function is called in those cases. It returns `Some` only for client-only builds.
-    pub fn retry_command_with_full_binary() -> anyhow::Result<Option<Self>> {
+    pub fn retry_command_with_full_binary() -> buck2_error::Result<Option<Self>> {
         if buck2_core::client_only::is_client_only()? {
             let exe = crate::daemon::client::connect::get_daemon_exe()?;
             Ok(Some(ExitResult::exec(
@@ -255,7 +255,7 @@ impl ExitResult {
         trace_id: TraceId,
         buck_log_dir: &AbsNormPathBuf,
         command_report_path: &Option<AbsPathBuf>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let dir = buck_log_dir.join(ForwardRelativePath::new(&trace_id.to_string())?);
         fs_util::create_dir_all(&dir)?;
 
@@ -292,9 +292,9 @@ impl ExitResult {
 
 impl std::error::Error for ExitResult {}
 
-/// We can produce a ExitResult from a `anyhow::Result` for convenience.
-impl From<anyhow::Result<()>> for ExitResult {
-    fn from(e: anyhow::Result<()>) -> Self {
+/// We can produce a ExitResult from a `buck2_error::Result` for convenience.
+impl From<buck2_error::Result<()>> for ExitResult {
+    fn from(e: buck2_error::Result<()>) -> Self {
         match e {
             Ok(()) => Self::success(),
             Err(e) => Self::err(e),
@@ -302,8 +302,8 @@ impl From<anyhow::Result<()>> for ExitResult {
     }
 }
 
-impl From<anyhow::Result<ExitCode>> for ExitResult {
-    fn from(e: anyhow::Result<ExitCode>) -> Self {
+impl From<buck2_error::Result<ExitCode>> for ExitResult {
+    fn from(e: buck2_error::Result<ExitCode>) -> Self {
         match e {
             Ok(code) => Self::status(code),
             Err(e) => Self::err(e),
@@ -311,33 +311,33 @@ impl From<anyhow::Result<ExitCode>> for ExitResult {
     }
 }
 
-impl From<anyhow::Error> for ExitResult {
-    fn from(e: anyhow::Error) -> Self {
+impl From<buck2_error::Error> for ExitResult {
+    fn from(e: buck2_error::Error) -> Self {
         Self::err(e)
     }
 }
 
-impl FromResidual<anyhow::Error> for ExitResult {
+impl FromResidual<buck2_error::Error> for ExitResult {
     #[track_caller]
-    fn from_residual(residual: anyhow::Error) -> ExitResult {
+    fn from_residual(residual: buck2_error::Error) -> ExitResult {
         Self::err(residual)
     }
 }
 
-impl<E: Into<::anyhow::Error>> FromResidual<Result<Infallible, E>> for ExitResult {
+impl<E: Into<::buck2_error::Error>> FromResidual<Result<Infallible, E>> for ExitResult {
     #[track_caller]
     fn from_residual(residual: Result<Infallible, E>) -> ExitResult {
         match residual {
             Ok(infallible) => match infallible {},
-            // E -> anyhow::Error -> ExitResult
+            // E -> buck2_error::Error -> ExitResult
             Err(e) => Self::err(e.into()),
         }
     }
 }
 
 // TODO(minglunli): Temporary change, all the froms above should be changed to buck2_error instead
-impl From<buck2_error::Result<()>> for ExitResult {
-    fn from(e: buck2_error::Result<()>) -> Self {
+impl From<anyhow::Result<()>> for ExitResult {
+    fn from(e: anyhow::Result<()>) -> Self {
         match e {
             Ok(()) => Self::success(),
             Err(e) => Self::err(e.into()),
@@ -462,7 +462,7 @@ impl ExitCode {
 }
 
 #[cfg(windows)]
-fn do_exec(command: &mut Command) -> anyhow::Error {
+fn do_exec(command: &mut Command) -> buck2_error::Error {
     let status = match command.status() {
         Ok(status) => status,
         Err(e) => return e.into(),
@@ -472,7 +472,7 @@ fn do_exec(command: &mut Command) -> anyhow::Error {
 }
 
 #[cfg(unix)]
-fn do_exec(command: &mut Command) -> anyhow::Error {
+fn do_exec(command: &mut Command) -> buck2_error::Error {
     use std::os::unix::process::CommandExt;
 
     command.exec().into()

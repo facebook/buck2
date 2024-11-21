@@ -12,6 +12,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_error::buck2_error;
 use buck2_wrapper_common::is_buck2::WhoIsAsking;
 
 #[derive(Debug, clap::Parser)]
@@ -28,7 +29,7 @@ impl KillallCommand {
                 let _ignored = buck2_client_ctx::eprintln!("{}", s);
             })
             .then_some(())
-            .ok_or(anyhow::anyhow!("Killall command failed"))
+            .ok_or(buck2_error::buck2_error!([], "Killall command failed"))
         })
         .into()
     }

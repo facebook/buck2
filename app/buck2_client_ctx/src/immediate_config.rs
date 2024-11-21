@@ -10,12 +10,11 @@
 use std::sync::OnceLock;
 use std::time::SystemTime;
 
-use anyhow::Context as _;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -25,7 +24,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::AbsWorkingDir;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use prost::Message;
 
 /// Limited view of the root config. This does not follow includes.
@@ -39,7 +38,7 @@ impl ImmediateConfig {
     /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    fn parse(roots: &InvocationRoots) -> anyhow::Result<ImmediateConfig> {
+    fn parse(roots: &InvocationRoots) -> buck2_error::Result<ImmediateConfig> {
         // This function is non-reentrant, and blocking for a bit should be ok
         let cells = futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
             &roots.project_root,
@@ -54,7 +53,7 @@ impl ImmediateConfig {
             cell_resolver: cells.cell_resolver,
             cwd_cell_alias_resolver,
             daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
-                .context("Error loading daemon startup config")?,
+                .buck_error_context("Error loading daemon startup config")?,
         })
     }
 }
@@ -70,7 +69,7 @@ struct ImmediateConfigContextData {
 
 pub struct ImmediateConfigContext<'a> {
     // Deliberately use `OnceLock` rather than `Lazy` because `Lazy` forces
-    // us to have a shared reference to the underlying `anyhow::Error` which
+    // us to have a shared reference to the underlying `buck2_error::Error` which
     // we cannot use to correct chain the errors. Using `OnceLock` means
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
@@ -96,7 +95,7 @@ impl<'a> ImmediateConfigContext<'a> {
         &self.trace
     }
 
-    pub fn daemon_startup_config(&self) -> anyhow::Result<&DaemonStartupConfig> {
+    pub fn daemon_startup_config(&self) -> buck2_error::Result<&DaemonStartupConfig> {
         Ok(&self.data()?.daemon_startup_config)
     }
 
@@ -109,7 +108,7 @@ impl<'a> ImmediateConfigContext<'a> {
         &self,
         cell_alias: &str,
         cell_relative_path: &str,
-    ) -> anyhow::Result<AbsNormPathBuf> {
+    ) -> buck2_error::Result<AbsNormPathBuf> {
         let data = self.data()?;
 
         let cell = data.cwd_cell_alias_resolver.resolve(cell_alias)?;
@@ -118,13 +117,16 @@ impl<'a> ImmediateConfigContext<'a> {
         Ok(data.project_filesystem.resolve(&path))
     }
 
-    pub fn resolve_alias_to_path_in_cwd(&self, alias: &str) -> anyhow::Result<CellRootPathBuf> {
+    pub fn resolve_alias_to_path_in_cwd(
+        &self,
+        alias: &str,
+    ) -> buck2_error::Result<CellRootPathBuf> {
         let data = self.data()?;
         let cell = data.cwd_cell_alias_resolver.resolve(alias)?;
         Ok(data.cell_resolver.get(cell)?.path().to_buf())
     }
 
-    fn data(&self) -> anyhow::Result<&ImmediateConfigContextData> {
+    fn data(&self) -> buck2_error::Result<&ImmediateConfigContextData> {
         self.data
             .get_or_try_init(|| {
                 let roots = find_invocation_roots(self.cwd)?;
@@ -150,19 +152,19 @@ impl<'a> ImmediateConfigContext<'a> {
                     }
                 };
 
-                anyhow::Ok(ImmediateConfigContextData {
+                buck2_error::Ok(ImmediateConfigContextData {
                     cell_resolver: cfg.cell_resolver,
                     cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
                     daemon_startup_config,
                     project_filesystem: roots.project_root,
                 })
             })
-            .context("Error creating cell resolver")
+            .buck_error_context("Error creating cell resolver")
     }
 }
 
-fn is_paranoid_enabled(path: &AbsPath) -> anyhow::Result<bool> {
-    if let Some(p) = buck2_env_anyhow!("BUCK_PARANOID", type=bool)? {
+fn is_paranoid_enabled(path: &AbsPath) -> buck2_error::Result<bool> {
+    if let Some(p) = buck2_env!("BUCK_PARANOID", type=bool)? {
         return Ok(p);
     }
 
@@ -171,10 +173,12 @@ fn is_paranoid_enabled(path: &AbsPath) -> anyhow::Result<bool> {
         None => return Ok(false),
     };
 
-    let info = buck2_cli_proto::ParanoidInfo::decode(bytes.as_slice()).context("Invalid data ")?;
+    let info = buck2_cli_proto::ParanoidInfo::decode(bytes.as_slice())
+        .buck_error_context("Invalid data ")?;
 
     let now = SystemTime::now();
-    let expires_at = SystemTime::try_from(info.expires_at.context("Missing expires_at")?)
-        .context("Invalid expires_at")?;
+    let expires_at =
+        SystemTime::try_from(info.expires_at.buck_error_context("Missing expires_at")?)
+            .buck_error_context("Invalid expires_at")?;
     Ok(now < expires_at)
 }

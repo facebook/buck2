@@ -14,13 +14,13 @@ use std::path::Path;
 use std::process::Command;
 use std::str;
 
-use anyhow::Context as _;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::is_open_source;
+use buck2_error::BuckErrorContext;
 use buck2_util::process::background_command;
 use termwiz::istty::IsTty;
 
@@ -33,9 +33,15 @@ enum ArgExpansionError {
     #[error("Unable to read flag file at `{path}`")]
     MissingFlagFileOnDisk { path: String },
     #[error("Unable to read flag file at `{path}`")]
-    MissingFlagFileOnDiskWithSource { source: anyhow::Error, path: String },
+    MissingFlagFileOnDiskWithSource {
+        source: buck2_error::Error,
+        path: String,
+    },
     #[error("Unable to read line in flag file `{path}`")]
-    FlagFileReadError { source: anyhow::Error, path: String },
+    FlagFileReadError {
+        source: buck2_error::Error,
+        path: String,
+    },
     #[error("Python mode file `{path}` output is not UTF-8")]
     PythonOutputNotUtf8 { path: String },
     #[error("No flag file path after @ symbol in argfile argument")]
@@ -45,14 +51,14 @@ enum ArgExpansionError {
     #[error("Python argfile command ({cmd:?}) execution failed")]
     PythonExecutionFailed { source: io::Error, cmd: Command },
     #[error("Unable to read line from stdin")]
-    StdinReadError { source: anyhow::Error },
+    StdinReadError { source: buck2_error::Error },
 }
 
 /// Log that a relative flag file was not found in CWD, but was found, and used, from the cell root
 ///
 /// This prints directly to stderr (sometimes in color). This should be safe, because flagfile
 /// expansion runs *very* early in the CLI process lifetime.
-pub fn log_relative_path_from_cell_root(requested_path: &str) -> anyhow::Result<()> {
+pub fn log_relative_path_from_cell_root(requested_path: &str) -> buck2_error::Result<()> {
     let (prefix, reset) = if io::stderr().is_tty() {
         ("\x1b[33m", "\x1b[0m")
     } else {
@@ -95,7 +101,7 @@ pub fn expand_argfiles_with_context(
     args: Vec<String>,
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
-) -> anyhow::Result<Vec<String>> {
+) -> buck2_error::Result<Vec<String>> {
     let mut expanded_args = Vec::new();
     let mut arg_iterator = args.into_iter();
 
@@ -109,7 +115,9 @@ pub fn expand_argfiles_with_context(
             "--flagfile" => {
                 let flagfile = match arg_iterator.next() {
                     Some(val) => val,
-                    None => return Err(anyhow::anyhow!(ArgExpansionError::MissingFlagFilePath)),
+                    None => {
+                        return Err(ArgExpansionError::MissingFlagFilePath.into());
+                    }
                 };
                 // TODO: We want to detect cyclic inclusion
                 let expanded_flagfile_args = resolve_and_expand_argfile(&flagfile, context, cwd)?;
@@ -118,9 +126,7 @@ pub fn expand_argfiles_with_context(
             next_arg if next_arg.starts_with('@') => {
                 let flagfile = next_arg.strip_prefix('@').unwrap();
                 if flagfile.is_empty() {
-                    return Err(anyhow::anyhow!(
-                        ArgExpansionError::MissingFlagFilePathInArgfile
-                    ));
+                    return Err(ArgExpansionError::MissingFlagFilePathInArgfile.into());
                 }
                 // TODO: We want to detect cyclic inclusion
                 let expanded_flagfile_args = resolve_and_expand_argfile(flagfile, context, cwd)?;
@@ -139,14 +145,14 @@ fn resolve_and_expand_argfile(
     path: &str,
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
-) -> anyhow::Result<Vec<String>> {
+) -> buck2_error::Result<Vec<String>> {
     let flagfile = resolve_flagfile(path, context, cwd)
-        .with_context(|| format!("Error resolving flagfile `{}`", path))?;
+        .with_buck_error_context(|| format!("Error resolving flagfile `{}`", path))?;
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
     expand_argfiles_with_context(flagfile_lines, context, cwd)
 }
 
-fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
+fn expand_argfile_contents(flagfile: &ArgFile) -> buck2_error::Result<Vec<String>> {
     match flagfile {
         ArgFile::Path(path) => {
             let mut lines = Vec::new();
@@ -193,10 +199,11 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> anyhow::Result<Vec<String>> {
                     .map(|s| s.to_owned())
                     .collect::<Vec<String>>())
             } else {
-                Err(anyhow::anyhow!(ArgExpansionError::PythonExecutableFailed {
+                Err(ArgExpansionError::PythonExecutableFailed {
                     path: path.to_string_lossy().into_owned(),
                     err: String::from_utf8_lossy(&cmd_out.stderr).to_string(),
-                }))
+                }
+                .into())
             }
         }
         ArgFile::Stdin => io::stdin()
@@ -219,7 +226,7 @@ fn resolve_flagfile(
     path: &str,
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
-) -> anyhow::Result<ArgFile> {
+) -> buck2_error::Result<ArgFile> {
     if path == "-" {
         return Ok(ArgFile::Stdin);
     }
@@ -232,7 +239,7 @@ fn resolve_flagfile(
     let resolved_path = match path_part.split_once("//") {
         Some((cell_alias, cell_relative_path)) => context
             .resolve_cell_path(cell_alias, cell_relative_path)
-            .context("Error resolving cell path")?
+            .buck_error_context("Error resolving cell path")?
             .into_abs_path_buf(),
         None => {
             let p = Path::new(path_part);

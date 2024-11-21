@@ -175,18 +175,18 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
 
         #[async_trait]
         impl EventSubscriber for ConvertToDap {
-            async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
-                self.write_console(&String::from_utf8_lossy(raw_output))
+            async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
+                Ok(self.write_console(&String::from_utf8_lossy(raw_output))?)
             }
 
-            async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
-                self.write_console(stderr)
+            async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
+                Ok(self.write_console(stderr)?)
             }
 
             async fn handle_events(
                 &mut self,
                 events: &[std::sync::Arc<BuckEvent>],
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 for ev in events {
                     match unpack_event(ev)? {
                         UnpackedBuckEvent::Instant(_, _, data) => match data {
@@ -209,11 +209,14 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
                 Ok(())
             }
 
-            async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
-                self.write_console(&format!(
+            async fn handle_error(
+                &mut self,
+                error: &buck2_error::Error,
+            ) -> buck2_error::Result<()> {
+                Ok(self.write_console(&format!(
                     "buck2 starlark-attach debugserver error: {}",
                     error
-                ))
+                ))?)
             }
         }
 
@@ -231,7 +234,7 @@ impl PartialResultHandler for DapPartialResultHandler {
         &mut self,
         mut _ctx: PartialResultCtx<'_, '_>,
         partial_res: buck2_cli_proto::DapMessage,
-    ) -> anyhow::Result<()> {
-        send_message_to_dap_client(&partial_res.dap_json)
+    ) -> buck2_error::Result<()> {
+        Ok(send_message_to_dap_client(&partial_res.dap_json)?)
     }
 }

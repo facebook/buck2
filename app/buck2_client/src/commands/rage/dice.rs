@@ -20,6 +20,7 @@ use buck2_core::fs::fs_util::create_dir_all;
 use buck2_core::fs::fs_util::remove_all;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::AnyhowContextForError;
 use buck2_util::process::async_background_command;
 
 use crate::commands::rage::manifold::manifold_leads;

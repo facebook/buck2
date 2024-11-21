@@ -8,7 +8,7 @@
  */
 
 use buck2_common::init::DaemonStartupConfig;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::ci::ci_identifiers;
 
 use crate::version::BuckVersion;
@@ -19,7 +19,7 @@ use crate::version::BuckVersion;
 /// This is used to detect nested invocations, but returning `Some` does not guarantee that this is
 /// a nested invocation.
 pub fn get_possibly_nested_invocation_daemon_uuid() -> Option<String> {
-    // Intentionally don't use `buck2_env_anyhow!` because we don't want this showing up in help output
+    // Intentionally don't use `buck2_env!` because we don't want this showing up in help output
     std::env::var("BUCK2_DAEMON_UUID").ok()
 }
 
@@ -29,7 +29,7 @@ pub fn get_possibly_nested_invocation_daemon_uuid() -> Option<String> {
 /// the constraints that the client would like the daemon to have are generated separately.
 pub fn gen_daemon_constraints(
     daemon_startup_config: &DaemonStartupConfig,
-) -> anyhow::Result<buck2_cli_proto::DaemonConstraints> {
+) -> buck2_error::Result<buck2_cli_proto::DaemonConstraints> {
     Ok(buck2_cli_proto::DaemonConstraints {
         version: version(),
         user_version: user_version()?,
@@ -45,9 +45,9 @@ pub fn version() -> String {
 
 /// Used to make sure that daemons are restarted between CI jobs if they don't properly clean up
 /// after themselves.
-pub fn user_version() -> anyhow::Result<Option<String>> {
+pub fn user_version() -> buck2_error::Result<Option<String>> {
     // This shouldn't really be necessary, but we used to check it so we'll keep it for now.
-    if let Some(id) = buck2_env_anyhow!("SANDCASTLE_ID", applicability = internal)? {
+    if let Some(id) = buck2_env!("SANDCASTLE_ID", applicability = internal)? {
         return Ok(Some(id.to_owned()));
     }
     // The `ci_identifiers` function reports better identifiers earlier, so taking the first one is

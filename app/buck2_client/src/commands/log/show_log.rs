@@ -43,7 +43,7 @@ impl ShowLogCommand {
                 stdio::print_bytes(b"\n")?;
             }
 
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })
         .into()
     }

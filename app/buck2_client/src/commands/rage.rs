@@ -657,17 +657,17 @@ fn print_log_summary(index: usize, log_summary: &Option<EventLogSummary>) -> any
         let cmd = build_info::format_cmd(&log_summary.invocation);
 
         let timestamp: DateTime<Local> = log_summary.timestamp.into();
-        buck2_client_ctx::eprintln!(
+        Ok(buck2_client_ctx::eprintln!(
             "{:<7} {}    {}",
             format!("[{}].", index),
             timestamp.format("%c %Z"),
             cmd
-        )
+        )?)
     } else {
-        buck2_client_ctx::eprintln!(
+        Ok(buck2_client_ctx::eprintln!(
             "{:<7} <<Unable to display information>>",
             format!("[{}].", index),
-        )
+        )?)
     }
 }
 

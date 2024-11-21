@@ -73,7 +73,7 @@ impl<R> FromResidual<CommandFailure> for CommandOutcome<R> {
 
 impl<R, E> FromResidual<Result<Infallible, E>> for CommandOutcome<R>
 where
-    E: Into<anyhow::Error>,
+    E: Into<buck2_error::Error>,
 {
     fn from_residual(result: Result<Infallible, E>) -> Self {
         match result {
@@ -83,8 +83,8 @@ where
     }
 }
 
-impl<T> FromResidual<CommandFailure> for anyhow::Result<T> {
-    fn from_residual(residual: CommandFailure) -> anyhow::Result<T> {
+impl<T> FromResidual<CommandFailure> for buck2_error::Result<T> {
+    fn from_residual(residual: CommandFailure) -> buck2_error::Result<T> {
         // Err(residual.0.in)
         Err(residual.0.into())
     }

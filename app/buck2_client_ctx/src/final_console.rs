@@ -27,7 +27,7 @@ impl FinalConsole {
         Self { is_tty: false }
     }
 
-    fn stderr_colored(&self, message: &str, color: Color) -> anyhow::Result<()> {
+    fn stderr_colored(&self, message: &str, color: Color) -> buck2_error::Result<()> {
         if self.is_tty {
             let sc = StyledContent::new(
                 ContentStyle {
@@ -46,22 +46,22 @@ impl FinalConsole {
     }
 
     /// Print the given message to stderr, in red if possible
-    pub fn print_error(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_error(&self, message: &str) -> buck2_error::Result<()> {
         self.stderr_colored(message, Color::DarkRed)
     }
 
     /// Print the given message to stderr, in yellow if possible
-    pub fn print_warning(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_warning(&self, message: &str) -> buck2_error::Result<()> {
         self.stderr_colored(message, Color::Yellow)
     }
 
     /// Print the given message to stderr, in green if possible
-    pub fn print_success(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_success(&self, message: &str) -> buck2_error::Result<()> {
         self.stderr_colored(message, Color::Green)
     }
 
     /// Print a string directly to stderr with no extra formatting
-    pub fn print_stderr(&self, message: &str) -> anyhow::Result<()> {
+    pub fn print_stderr(&self, message: &str) -> buck2_error::Result<()> {
         crate::eprintln!("{}", message)
     }
 }

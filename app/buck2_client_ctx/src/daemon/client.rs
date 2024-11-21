@@ -12,7 +12,6 @@ use std::fs::File;
 use std::mem;
 use std::time::Duration;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::new_generic::NewGenericRequest;
@@ -22,6 +21,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
 use fs4::FileExt;
@@ -89,7 +89,7 @@ impl BuckdLifecycleLock {
     pub async fn lock_with_timeout(
         daemon_dir: DaemonDir,
         deadline: StartupDeadline,
-    ) -> anyhow::Result<BuckdLifecycleLock> {
+    ) -> buck2_error::Result<BuckdLifecycleLock> {
         create_dir_all(&daemon_dir.path)?;
         let lifecycle_path = daemon_dir.path.as_path().join(Self::BUCKD_LIFECYCLE);
         let file = File::create(lifecycle_path)?;
@@ -110,7 +110,7 @@ impl BuckdLifecycleLock {
     }
 
     /// Remove everything except `buckd.lifecycle` file which is the lock file.
-    pub fn clean_daemon_dir(&self) -> anyhow::Result<()> {
+    pub fn clean_daemon_dir(&self) -> buck2_error::Result<()> {
         let mut seen_lifecycle = false;
         for p in fs_util::read_dir(&self.daemon_dir.path)? {
             let p = p?;
@@ -217,7 +217,7 @@ fn grpc_to_stream(
 }
 
 impl<'a> BuckdClient<'a> {
-    fn open_tailers(&mut self) -> anyhow::Result<()> {
+    fn open_tailers(&mut self) -> buck2_error::Result<()> {
         let tailers = FileTailers::new(&self.daemon_dir)?;
         self.tailers = Some(tailers);
 
@@ -232,7 +232,7 @@ impl<'a> BuckdClient<'a> {
         request: T,
         partial_result_handler: &mut Handler,
         console_interaction: Option<ConsoleInteractionStream<'i>>,
-    ) -> anyhow::Result<CommandOutcome<Res>>
+    ) -> buck2_error::Result<CommandOutcome<Res>>
     where
         Command: for<'b> FnOnce(
             &'b mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
@@ -264,7 +264,7 @@ impl<'a> BuckdClient<'a> {
             .await
     }
 
-    pub async fn status(&mut self, snapshot: bool) -> anyhow::Result<StatusResponse> {
+    pub async fn status(&mut self, snapshot: bool) -> buck2_error::Result<StatusResponse> {
         let outcome = self
             .events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
@@ -272,18 +272,19 @@ impl<'a> BuckdClient<'a> {
                 self.client.status(Request::new(StatusRequest { snapshot }))
             })
             .await;
-        // TODO(nmj): We have a number of things that wish to use status() and return an anyhow::Result,
+        // TODO(nmj): We have a number of things that wish to use status() and return an buck2_error::Result,
         // for now we'll just turn a "CommandMessage" into a error, but that's really not what we
         // want long term.
         match outcome? {
             CommandOutcome::Success(r) => Ok(r),
-            CommandOutcome::Failure(_) => {
-                Err(anyhow::anyhow!("Unexpected failure message in status()"))
-            }
+            CommandOutcome::Failure(_) => Err(buck2_error::buck2_error!(
+                [],
+                "Unexpected failure message in status()"
+            )),
         }
     }
 
-    pub async fn set_log_filter(&mut self, req: SetLogFilterRequest) -> anyhow::Result<()> {
+    pub async fn set_log_filter(&mut self, req: SetLogFilterRequest) -> buck2_error::Result<()> {
         self.client.set_log_filter(Request::new(req)).await?;
 
         Ok(())
@@ -295,12 +296,12 @@ pub struct FlushingBuckdClient<'a, 'b> {
 }
 
 impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
-    fn enter(&mut self) -> anyhow::Result<()> {
+    fn enter(&mut self) -> buck2_error::Result<()> {
         self.inner.open_tailers()?;
         Ok(())
     }
 
-    async fn exit(&mut self) -> anyhow::Result<()> {
+    async fn exit(&mut self) -> buck2_error::Result<()> {
         self.inner
             .events_ctx
             .flush(mem::take(&mut self.inner.tailers))
@@ -330,7 +331,7 @@ impl PartialResultHandler for NoPartialResultHandler {
         &mut self,
         _ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match partial_res {}
     }
 }
@@ -346,7 +347,7 @@ impl PartialResultHandler for StdoutPartialResultHandler {
         &mut self,
         mut ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         ctx.stdout(&partial_res.data).await
     }
 }
@@ -363,7 +364,7 @@ macro_rules! stream_method {
             req: $req,
             console_interaction: Option<ConsoleInteractionStream<'_>>,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
-        ) -> anyhow::Result<CommandOutcome<$res>> {
+        ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
             let res = self
                 .inner
@@ -395,7 +396,7 @@ macro_rules! bidirectional_stream_method {
             context: ClientContext,
             requests: impl Stream<Item = $req> + Send + Sync + 'static,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
-        ) -> anyhow::Result<CommandOutcome<$res>> {
+        ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
             let req = create_client_stream(context, requests);
             let res = self
@@ -420,7 +421,7 @@ macro_rules! oneshot_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
-        pub async fn $method(&mut self, req: $req) -> anyhow::Result<CommandOutcome<$res>> {
+        pub async fn $method(&mut self, req: $req) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
             let res = self
                 .inner
@@ -442,7 +443,7 @@ macro_rules! debug_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
-        pub async fn $method(&mut self, req: $req) -> anyhow::Result<$res> {
+        pub async fn $method(&mut self, req: $req) -> buck2_error::Result<$res> {
             self.enter()?;
             let out = self.inner.client.$method(Request::new(req)).await;
             self.exit().await?;
@@ -454,7 +455,7 @@ macro_rules! debug_method {
 /// Wrap a method that exists on the BuckdClient, with flushing.
 macro_rules! wrap_method {
      ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
-         pub async fn $method(&mut self, $($param: $param_type)*) -> anyhow::Result<$res> {
+         pub async fn $method(&mut self, $($param: $param_type)*) -> buck2_error::Result<$res> {
              self.enter()?;
              let out = self
                  .inner
@@ -588,8 +589,9 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
         context: buck2_cli_proto::ClientContext,
         req: NewGenericRequest,
         stdin: Option<ConsoleInteractionStream<'_>>,
-    ) -> anyhow::Result<CommandOutcome<NewGenericResponse>> {
-        let req = serde_json::to_string(&req).context("Could not serialize `NewGenericRequest`")?;
+    ) -> buck2_error::Result<CommandOutcome<NewGenericResponse>> {
+        let req = serde_json::to_string(&req)
+            .buck_error_context("Could not serialize `NewGenericRequest`")?;
         let req = buck2_cli_proto::NewGenericRequestMessage {
             context: Some(context),
             new_generic_request: req,
@@ -600,7 +602,7 @@ impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
         match command_outcome {
             CommandOutcome::Success(resp) => {
                 let resp = serde_json::from_str(&resp.new_generic_response)
-                    .context("Could not deserialize `NewGenericResponse`")?;
+                    .buck_error_context("Could not deserialize `NewGenericResponse`")?;
                 Ok(CommandOutcome::Success(resp))
             }
             CommandOutcome::Failure(code) => Ok(CommandOutcome::Failure(code)),

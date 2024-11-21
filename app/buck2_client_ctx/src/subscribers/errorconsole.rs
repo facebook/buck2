@@ -21,7 +21,7 @@ impl EventSubscriber for ErrorConsole {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let buck2_cli_proto::CommandResult {
             result: Some(buck2_cli_proto::command_result::Result::Error(e)),
         } = result

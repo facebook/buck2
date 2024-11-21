@@ -33,7 +33,7 @@ pub(crate) struct SystemWarningComponent<'a> {
     pub(crate) first_build_since_rebase: bool,
 }
 
-fn warning_styled(text: &str) -> anyhow::Result<Line> {
+fn warning_styled(text: &str) -> buck2_error::Result<Line> {
     // cross term doesn't directly define orange as a color
     let orange = Color::Rgb {
         r: (244),

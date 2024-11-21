@@ -105,7 +105,10 @@ macro_rules! echo {
 }
 
 // Report only if at least double time has passed since reporting interval
-fn echo_system_warning_exponential(warning: SystemWarningTypes, msg: &str) -> anyhow::Result<()> {
+fn echo_system_warning_exponential(
+    warning: SystemWarningTypes,
+    msg: &str,
+) -> buck2_error::Result<()> {
     if let Some((last_reported, every_x)) =
         ELAPSED_SYSTEM_WARNING_MAP.lock().unwrap().get_mut(&warning)
     {
@@ -226,7 +229,7 @@ where
         self.last_print_time = Instant::now();
     }
 
-    fn print_stats_while_waiting(&mut self) -> anyhow::Result<()> {
+    fn print_stats_while_waiting(&mut self) -> buck2_error::Result<()> {
         let snapshots = self.observer().two_snapshots();
 
         if let Some(h) = self
@@ -280,7 +283,7 @@ where
         Ok(())
     }
 
-    fn print_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
+    fn print_action_error(&mut self, error: &buck2_data::ActionError) -> buck2_error::Result<()> {
         let display = display::display_action_error(error, TargetDisplayOptions::for_log())?;
         let message = display.simple_format_with_timestamps(with_timestamps);
         if self.tty_mode == TtyMode::Disabled {
@@ -298,7 +301,7 @@ where
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.verbosity.print_status() {
             for x in display_file_watcher_end(file_watcher) {
                 echo!("{}", x)?;
@@ -308,7 +311,7 @@ where
         Ok(())
     }
 
-    pub(crate) async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    pub(crate) async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         self.update_event_observer(event).await?;
 
         self.handle_event_inner(event).await?;
@@ -328,7 +331,7 @@ where
         Ok(())
     }
 
-    async fn handle_event_inner(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    async fn handle_event_inner(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         match unpack_event(event)? {
             buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanStart(_, _, data) => {
                 match data {
@@ -399,7 +402,7 @@ where
         &mut self,
         err: &buck2_data::StructuredError,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if err.quiet {
             return Ok(());
         }
@@ -412,7 +415,7 @@ where
         &mut self,
         _command: &buck2_data::CommandStart,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if cfg!(fbcode_build) {
             echo!(
                 "Buck UI: https://www.internalfb.com/buck2/{}",
@@ -429,7 +432,7 @@ where
         &mut self,
         _command: &buck2_data::CommandEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let snapshots = self.observer().two_snapshots();
 
         if self.verbosity.print_status() && self.observer().action_stats().log_stats() {
@@ -472,7 +475,7 @@ where
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let action_id = display::display_action_identity(
             action.key.as_ref(),
             action.name.as_ref(),
@@ -510,7 +513,7 @@ where
     pub(crate) async fn handle_action_error(
         &mut self,
         error: &buck2_data::ActionError,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.print_action_error(error)?;
         self.action_errors.push(error.clone());
         Ok(())
@@ -520,7 +523,7 @@ where
         &mut self,
         test_info: &buck2_data::TestDiscovery,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(data) = &test_info.data {
             match data {
                 buck2_data::test_discovery::Data::Session(buck2_data::TestSessionInfo { info }) => {
@@ -538,7 +541,7 @@ where
         &mut self,
         result: &buck2_data::TestResult,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(msg) = display::format_test_result(result)? {
             let mut buffer = String::new();
 
@@ -552,7 +555,7 @@ where
         Ok(())
     }
 
-    pub(crate) async fn handle_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    pub(crate) async fn handle_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         echo!("{}", stderr)?;
         self.notify_printed();
         Ok(())
@@ -564,7 +567,7 @@ impl<E> EventSubscriber for SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+    async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
         // We expect output that gets here to already have been buffered if possible (because it
         // primarily gets to us through a GRPC layer that already needs buffering), so we
         // unconditionally flush it.
@@ -574,21 +577,21 @@ where
         Ok(())
     }
 
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for ev in events {
             self.handle_event(ev).await?;
         }
         Ok(())
     }
 
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         self.handle_stderr(stderr).await
     }
 
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let errors = std::mem::take(&mut self.action_errors);
 
         if !errors.is_empty() {
@@ -607,7 +610,7 @@ where
             .await
     }
 
-    async fn tick(&mut self, _: &Tick) -> anyhow::Result<()> {
+    async fn tick(&mut self, _: &Tick) -> buck2_error::Result<()> {
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.expect_spans;
 
@@ -703,7 +706,7 @@ where
         Ok(())
     }
 
-    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
         // We don't need to do any cleanup to exit.
         Ok(())
     }

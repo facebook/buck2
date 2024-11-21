@@ -66,14 +66,14 @@ impl TraceIoCommand {
         buckd: &mut BuckdClientConnector<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> anyhow::Result<CommandOutcome<TraceIoResponse>> {
-        buckd
+        Ok(buckd
             .with_flushing()
             .trace_io(
                 req,
                 ctx.stdin().console_interaction_stream(self.console_opts()),
                 &mut NoPartialResultHandler,
             )
-            .await
+            .await?)
     }
 }
 

@@ -79,7 +79,7 @@ impl CriticalPathCommand {
                 }
             }
 
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })
         .into()
     }

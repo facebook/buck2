@@ -63,7 +63,7 @@ impl<'c> TimedListBody<'c> {
         single_child: BuckEventSpanHandle,
         remaining_children: usize,
         display_platform: bool,
-    ) -> anyhow::Result<TimedRow> {
+    ) -> buck2_error::Result<TimedRow> {
         let time_speed = self.state.time_speed;
         let info = root.info();
         let child_info = single_child.info();
@@ -109,7 +109,7 @@ impl<'c> TimedListBody<'c> {
         )
     }
 
-    fn draw_root(&self, root: &BuckEventSpanHandle) -> anyhow::Result<Vec<TimedRow>> {
+    fn draw_root(&self, root: &BuckEventSpanHandle) -> buck2_error::Result<Vec<TimedRow>> {
         let time_speed = self.state.time_speed;
         let config = &self.state.config;
         let two_lines = config.two_lines;
@@ -313,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normal() -> anyhow::Result<()> {
+    fn test_normal() -> buck2_error::Result<()> {
         let tick = Tick::now();
 
         let label = Arc::new(BuckEvent::new(
@@ -382,7 +382,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remaining() -> anyhow::Result<()> {
+    fn test_remaining() -> buck2_error::Result<()> {
         let tick = Tick::now();
 
         let e1 = BuckEvent::new(
@@ -469,7 +469,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_remaining_with_pending() -> anyhow::Result<()> {
+    async fn test_remaining_with_pending() -> buck2_error::Result<()> {
         let tick = Tick::now();
 
         let mut state = SuperConsoleState::new(
@@ -542,7 +542,7 @@ mod tests {
     }
 
     #[test]
-    fn test_children() -> anyhow::Result<()> {
+    fn test_children() -> buck2_error::Result<()> {
         let tick = Tick::now();
 
         let parent = SpanId::next();

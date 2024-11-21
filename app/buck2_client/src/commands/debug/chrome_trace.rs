@@ -23,6 +23,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::retrieve_nth_recent_log;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
@@ -973,7 +974,8 @@ impl ChromeTraceCommand {
         let log = match self.path {
             Some(path) => path.resolve(&ctx.working_dir),
             None => retrieve_nth_recent_log(
-                ctx.paths().context("Error identifying log dir")?,
+                ctx.paths()
+                    .buck_error_context("Error identifying log dir")?,
                 self.recent.unwrap_or(0),
             )?
             .path()

@@ -15,8 +15,8 @@ use std::io::Seek;
 use std::io::SeekFrom;
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use tokio::sync::mpsc::UnboundedSender;
@@ -47,11 +47,10 @@ impl FileTailer {
         file: AbsNormPathBuf,
         sender: UnboundedSender<FileTailerEvent>,
         stdout_or_stderr: StdoutOrStderr,
-    ) -> anyhow::Result<FileTailer> {
-        let mut reader = BufReader::new(
-            File::open(&file)
-                .with_context(|| format!("Error setting up tailer for {}", file.display()))?,
-        );
+    ) -> buck2_error::Result<FileTailer> {
+        let mut reader = BufReader::new(File::open(&file).with_buck_error_context(|| {
+            format!("Error setting up tailer for {}", file.display())
+        })?);
 
         reader.seek(SeekFrom::End(0))?;
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -78,7 +77,7 @@ impl FileTailer {
         mut reader: BufReader<File>,
         stdout_or_stderr: StdoutOrStderr,
         mut sender: UnboundedSender<FileTailerEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut interval = tokio::time::interval(Duration::from_millis(200));
         let mut rx = rx.fuse();
 
@@ -111,12 +110,12 @@ impl FileTailer {
                     }
                     line = Vec::new();
                 }
-                anyhow::Ok((sender, reader))
+                buck2_error::Ok((sender, reader))
             })
             .await??;
         }
 
-        anyhow::Ok(())
+        buck2_error::Ok(())
     }
 }
 
@@ -135,7 +134,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_tailer_stdout() -> anyhow::Result<()> {
+    async fn test_tailer_stdout() -> buck2_error::Result<()> {
         let mut file = tempfile::NamedTempFile::new()?;
         file.write_all(b"before\n")?;
 
@@ -177,7 +176,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_tailer_stderr() -> anyhow::Result<()> {
+    async fn test_tailer_stderr() -> buck2_error::Result<()> {
         let mut file = tempfile::NamedTempFile::new()?;
         file.write_all(b"before\n")?;
 

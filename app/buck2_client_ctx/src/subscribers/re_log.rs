@@ -43,7 +43,9 @@ impl<'a> ReLog<'a> {
         }
     }
 
-    fn log_upload(&mut self) -> impl Future<Output = anyhow::Result<()>> + 'static + Send + Sync {
+    fn log_upload(
+        &mut self,
+    ) -> impl Future<Output = buck2_error::Result<()>> + 'static + Send + Sync {
         // We put `None` in place of re_session_id which means we will only attempt to upload
         // the logs once no matter how many times this function is called
         let session_id = self.re_session_id.take();
@@ -59,11 +61,11 @@ impl<'a> ReLog<'a> {
 
 #[async_trait]
 impl<'a> EventSubscriber for ReLog<'a> {
-    async fn exit(&mut self) -> anyhow::Result<()> {
+    async fn exit(&mut self) -> buck2_error::Result<()> {
         self.log_upload().await
     }
 
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for event in events {
             match unpack_event(event)? {
                 UnpackedBuckEvent::Instant(
@@ -95,7 +97,10 @@ impl<'a> Drop for ReLog<'a> {
     }
 }
 
-async fn log_upload_impl(session_id: String, isolation_dir: FileNameBuf) -> anyhow::Result<()> {
+async fn log_upload_impl(
+    session_id: String,
+    isolation_dir: FileNameBuf,
+) -> buck2_error::Result<()> {
     if !should_upload_log()? {
         return Ok(());
     }

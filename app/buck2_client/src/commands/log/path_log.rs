@@ -7,9 +7,9 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::retrieve_all_logs;
 
 use crate::commands::log::options::EventLogOptions;
@@ -35,14 +35,17 @@ impl PathLogCommand {
 
         ctx.instant_command_no_log("log-path", |ctx| async move {
             let paths = if all {
-                retrieve_all_logs(ctx.paths().context("Error identifying log dir")?)?
+                retrieve_all_logs(
+                    ctx.paths()
+                        .buck_error_context("Error identifying log dir")?,
+                )?
             } else {
                 vec![event_log_options.get(&ctx).await?]
             };
             for path in paths {
                 buck2_client_ctx::println!("{}", path.path().display())?;
             }
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })
         .into()
     }

@@ -118,7 +118,7 @@ impl PartialResultHandler for LspPartialResultHandler {
         &mut self,
         mut ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let lsp_message: lsp_server::Message = serde_json::from_str(&partial_res.lsp_json)?;
         let mut buffer = Vec::new();
         lsp_message.write(&mut buffer)?;

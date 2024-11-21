@@ -209,7 +209,7 @@ impl CommonBuildConfigurationOptions {
         matches: &clap::ArgMatches,
         immediate_ctx: &ImmediateConfigContext<'_>,
         cwd: &AbsWorkingDir,
-    ) -> anyhow::Result<Vec<ConfigOverride>> {
+    ) -> buck2_error::Result<Vec<ConfigOverride>> {
         fn with_indices<'a, T>(
             collection: &'a [T],
             name: &str,
@@ -238,7 +238,7 @@ impl CommonBuildConfigurationOptions {
                     _ => (None, config_value.as_str()),
                 };
 
-                anyhow::Ok((
+                buck2_error::Ok((
                     index,
                     ConfigOverride {
                         cell,
@@ -247,7 +247,7 @@ impl CommonBuildConfigurationOptions {
                     },
                 ))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
         let config_file_args = with_indices(&self.config_files, "config_files", matches)
             .map(|(index, file)| {
@@ -276,7 +276,7 @@ impl CommonBuildConfigurationOptions {
                     },
                 ))
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<buck2_error::Result<Vec<_>>>()?;
 
         let mut ordered_merged_configs: Vec<(usize, ConfigOverride)> = config_file_args;
         ordered_merged_configs.extend(config_values_args);

@@ -45,7 +45,7 @@ impl Replayer {
         log_path: EventLogPathBuf,
         speed: Option<f64>,
         preload: bool,
-    ) -> anyhow::Result<(Self, Invocation)> {
+    ) -> buck2_error::Result<(Self, Invocation)> {
         let (invocation, events) = log_path.unpack_stream().await?;
 
         let events = if preload {
@@ -89,7 +89,7 @@ impl Syncher {
     ///
     /// The first event will be sent immediately. Each subsequent event will be sent with a delay
     /// based on its time since that first event.
-    fn synch_playback_time(&mut self, event: &buck2_data::BuckEvent) -> anyhow::Result<Sleep> {
+    fn synch_playback_time(&mut self, event: &buck2_data::BuckEvent) -> buck2_error::Result<Sleep> {
         let event_time = SystemTime::try_from(event.timestamp.as_ref().unwrap().clone())?;
         let (sync_start, log_start) = self.start.get_or_insert((Instant::now(), event_time));
         let log_offset_time = event_time.duration_since(*log_start)?;

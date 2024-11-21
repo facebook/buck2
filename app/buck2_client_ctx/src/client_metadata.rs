@@ -9,7 +9,7 @@
 
 use std::str::FromStr;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -38,7 +38,7 @@ impl FromStr for ClientMetadata {
 
         let (key, value) = value
             .split_once('=')
-            .with_context(|| ClientMetadataError::InvalidFormat(value.to_owned()))?;
+            .with_buck_error_context(|| ClientMetadataError::InvalidFormat(value.to_owned()))?;
 
         if !REGEX.is_match(key) {
             return Err(ClientMetadataError::InvalidKey(key.to_owned()).into());

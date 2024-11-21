@@ -275,7 +275,7 @@ impl SummaryCommand {
                 }
             }
             buck2_client_ctx::eprintln!("{}", stats)?;
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })
         .into()
     }

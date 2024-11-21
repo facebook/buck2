@@ -13,7 +13,7 @@ use std::time::Instant;
 use buck2_cli_proto::daemon_api_client::*;
 use buck2_cli_proto::*;
 use buck2_data::error::ErrorTag;
-use buck2_error::buck2_error_anyhow;
+use buck2_error::buck2_error;
 use buck2_wrapper_common::kill;
 use buck2_wrapper_common::pid::Pid;
 use sysinfo::ProcessRefreshKind;
@@ -35,7 +35,7 @@ const FORCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 pub async fn kill_command_impl(
     lifecycle_lock: &BuckdLifecycleLock,
     reason: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let process = match BuckdProcessInfo::load(lifecycle_lock.daemon_dir()) {
         Ok(p) => p,
         Err(e) => {
@@ -104,7 +104,7 @@ pub(crate) async fn kill(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     info: &DaemonProcessInfo,
     reason: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let pid = Pid::from_i64(info.pid)?;
     let callers = get_callers_for_kill();
 
@@ -157,7 +157,7 @@ pub(crate) async fn kill(
     hard_kill_impl(pid, time_req_sent, time_to_kill).await
 }
 
-pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
+pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> buck2_error::Result<()> {
     let pid = Pid::from_i64(info.pid)?;
 
     hard_kill_impl(pid, Instant::now(), FORCE_SHUTDOWN_TIMEOUT).await
@@ -166,14 +166,18 @@ pub(crate) async fn hard_kill(info: &DaemonProcessInfo) -> anyhow::Result<()> {
 pub(crate) async fn hard_kill_until(
     info: &DaemonProcessInfo,
     deadline: Instant,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let pid = Pid::from_i64(info.pid)?;
 
     let now = Instant::now();
     hard_kill_impl(pid, now, deadline.saturating_duration_since(now)).await
 }
 
-async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyhow::Result<()> {
+async fn hard_kill_impl(
+    pid: Pid,
+    start_at: Instant,
+    deadline: Duration,
+) -> buck2_error::Result<()> {
     tracing::info!(
         "Killing PID {} with status {}",
         pid,
@@ -202,7 +206,7 @@ async fn hard_kill_impl(pid: Pid, start_at: Instant, deadline: Duration) -> anyh
     }
 
     let elapsed_s = timestamp_after_kill.elapsed().as_secs_f32();
-    Err(buck2_error_anyhow!(
+    Err(buck2_error!(
         [ErrorTag::DaemonWontDieFromKill],
         "Daemon pid {pid} did not die after kill within {elapsed_s:.1}s (status: {status})"
     ))

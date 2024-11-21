@@ -76,7 +76,7 @@ enum ArgErrors {
 }
 
 impl CommonAttributeArgs {
-    pub fn get(&self) -> anyhow::Result<Vec<String>> {
+    pub fn get(&self) -> buck2_error::Result<Vec<String>> {
         if !self.output_attributes.is_empty() {
             soft_error!(
                 "output_attributes",

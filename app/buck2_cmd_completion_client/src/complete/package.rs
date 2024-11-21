@@ -86,7 +86,7 @@ impl<'a> PackageCompleter<'a> {
         CommandOutcome::Success(self.results.into())
     }
 
-    async fn complete_partial_cells(&mut self, given_path: &str) -> anyhow::Result<()> {
+    async fn complete_partial_cells(&mut self, given_path: &str) -> buck2_error::Result<()> {
         let cell_resolver = &self.cell_configs.cell_resolver;
         let alias_resolver = self
             .cell_configs
@@ -340,7 +340,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_as_both_directory_and_target_root() -> anyhow::Result<()> {
+    async fn test_completes_as_both_directory_and_target_root() -> buck2_error::Result<()> {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -363,7 +363,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_cell_correctly_from_a_different_cell() -> anyhow::Result<()> {
+    async fn test_completes_cell_correctly_from_a_different_cell() -> buck2_error::Result<()> {
         let (roots, cwd) = in_dir("cell2")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -454,7 +454,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_empty_string_completes_both_cells_and_dirs() -> anyhow::Result<()> {
+    async fn test_empty_string_completes_both_cells_and_dirs() -> buck2_error::Result<()> {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -480,7 +480,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_empty_string_also_completes_colon_if_in_target_dir() -> anyhow::Result<()> {
+    async fn test_empty_string_also_completes_colon_if_in_target_dir() -> buck2_error::Result<()> {
         let (roots, cwd) = in_dir("cell1")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -508,7 +508,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_single_slash_to_double_slash_in_root() -> anyhow::Result<()> {
+    async fn test_completes_single_slash_to_double_slash_in_root() -> buck2_error::Result<()> {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -519,7 +519,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_root_children_of_double_slash() -> anyhow::Result<()> {
+    async fn test_completes_root_children_of_double_slash() -> buck2_error::Result<()> {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -530,7 +530,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_single_slash_to_double_slash_in_sub_cell() -> anyhow::Result<()> {
+    async fn test_completes_single_slash_to_double_slash_in_sub_cell() -> buck2_error::Result<()> {
         let (roots, cwd) = in_dir("cell1")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_cell_children_of_double_slash() -> anyhow::Result<()> {
+    async fn test_completes_cell_children_of_double_slash() -> buck2_error::Result<()> {
         let (roots, cwd) = in_dir("cell1")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -552,7 +552,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_normalizes_absolute_paths() -> anyhow::Result<()> {
+    async fn test_normalizes_absolute_paths() -> buck2_error::Result<()> {
         let (roots, cwd) = in_root()?;
         let absolute_partial = cwd.path().as_path().join("bare");
         let uut = PackageCompleter::new(&cwd, &roots).await?;
@@ -564,7 +564,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_bails_on_nonexistent_path() -> anyhow::Result<()> {
+    async fn test_bails_on_nonexistent_path() -> buck2_error::Result<()> {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -575,7 +575,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_bails_on_nonexistent_path_in_subcell() -> anyhow::Result<()> {
+    async fn test_bails_on_nonexistent_path_in_subcell() -> buck2_error::Result<()> {
         let (roots, cwd) = in_root()?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -587,7 +587,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_package_completion_completes_packages_with_cell_aliases_as_aliases()
-    -> anyhow::Result<()> {
+    -> buck2_error::Result<()> {
         let (roots, cwd) = in_dir("cell1/buck2/prelude")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -599,7 +599,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_package_completion_only_uses_aliases_in_cells_definining_them()
-    -> anyhow::Result<()> {
+    -> buck2_error::Result<()> {
         let (roots, cwd) = in_dir("cell1/buck2")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 
@@ -610,7 +610,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_completes_cell_aliases_alongside_cells() -> anyhow::Result<()> {
+    async fn test_completes_cell_aliases_alongside_cells() -> buck2_error::Result<()> {
         let (roots, cwd) = in_dir("cell1/buck2/prelude")?;
         let uut = PackageCompleter::new(&cwd, &roots).await?;
 

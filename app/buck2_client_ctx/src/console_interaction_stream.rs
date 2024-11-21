@@ -48,7 +48,7 @@ mod interactive_terminal {
     use std::io::IsTerminal;
     use std::os::unix::io::AsRawFd;
 
-    use anyhow::Context as _;
+    use buck2_error::BuckErrorContext;
     use termios::*;
 
     pub struct InteractiveTerminal {
@@ -56,7 +56,7 @@ mod interactive_terminal {
     }
 
     impl InteractiveTerminal {
-        pub fn enable() -> anyhow::Result<Option<Self>> {
+        pub fn enable() -> buck2_error::Result<Option<Self>> {
             let fd = std::io::stdin().as_raw_fd();
 
             if !std::io::stdin().is_terminal() {
@@ -84,7 +84,8 @@ mod interactive_terminal {
                 return Ok(None);
             }
 
-            let orig = Termios::from_fd(fd).context("Failed to access current termios")?;
+            let orig =
+                Termios::from_fd(fd).buck_error_context("Failed to access current termios")?;
 
             let mut termios = orig;
 
@@ -95,14 +96,14 @@ mod interactive_terminal {
             termios.c_cc[VMIN] = 1;
             termios.c_cc[VTIME] = 0;
 
-            tcsetattr(fd, TCSANOW, &termios).context("Failed to set termios")?;
+            tcsetattr(fd, TCSANOW, &termios).buck_error_context("Failed to set termios")?;
 
             Ok(Some(Self { orig }))
         }
 
-        pub fn disable(&mut self) -> anyhow::Result<()> {
+        pub fn disable(&mut self) -> buck2_error::Result<()> {
             let fd = std::io::stdin().as_raw_fd();
-            tcsetattr(fd, TCSANOW, &self.orig).context("Failed to reset termios")?;
+            tcsetattr(fd, TCSANOW, &self.orig).buck_error_context("Failed to reset termios")?;
             Ok(())
         }
     }
@@ -113,11 +114,11 @@ mod interactive_terminal {
     pub struct InteractiveTerminal;
 
     impl InteractiveTerminal {
-        pub fn enable() -> anyhow::Result<Option<Self>> {
+        pub fn enable() -> buck2_error::Result<Option<Self>> {
             Ok(None)
         }
 
-        pub fn disable(&mut self) -> anyhow::Result<()> {
+        pub fn disable(&mut self) -> buck2_error::Result<()> {
             Ok(())
         }
     }
@@ -176,12 +177,12 @@ impl SuperConsoleToggle {
 
 #[async_trait::async_trait]
 pub trait SuperConsoleInteraction: Send + Sync {
-    async fn toggle(&mut self) -> anyhow::Result<Option<SuperConsoleToggle>>;
+    async fn toggle(&mut self) -> buck2_error::Result<Option<SuperConsoleToggle>>;
 }
 
 #[async_trait::async_trait]
 impl<'a> SuperConsoleInteraction for ConsoleInteractionStream<'a> {
-    async fn toggle(&mut self) -> anyhow::Result<Option<SuperConsoleToggle>> {
+    async fn toggle(&mut self) -> buck2_error::Result<Option<SuperConsoleToggle>> {
         match self.stdin.read_u8().await {
             Ok(c) => {
                 let c: char = c.into();
@@ -208,7 +209,7 @@ impl<'a> SuperConsoleInteraction for ConsoleInteractionStream<'a> {
             {
                 futures::future::pending().await
             }
-            Err(e) => Err(anyhow::Error::from(e).context("Error reading char from console")),
+            Err(e) => Err(buck2_error::Error::from(e).context("Error reading char from console")),
         }
     }
 }
@@ -217,7 +218,7 @@ pub struct NoopSuperConsoleInteraction;
 
 #[async_trait::async_trait]
 impl SuperConsoleInteraction for NoopSuperConsoleInteraction {
-    async fn toggle(&mut self) -> anyhow::Result<Option<SuperConsoleToggle>> {
+    async fn toggle(&mut self) -> buck2_error::Result<Option<SuperConsoleToggle>> {
         futures::future::pending().await
     }
 }

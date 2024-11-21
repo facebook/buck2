@@ -92,7 +92,7 @@ impl PartialResultHandler for CaptureStdout {
         &mut self,
         _ctx: PartialResultCtx<'_, '_>,
         partial_res: Self::PartialResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.buf.extend(partial_res.data);
         Ok(())
     }
@@ -102,12 +102,12 @@ struct TracingSubscriber;
 
 #[async_trait]
 impl EventSubscriber for TracingSubscriber {
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         tracing::info!("{}", stderr);
         Ok(())
     }
 
-    async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, error: &buck2_error::Error) -> buck2_error::Result<()> {
         tracing::info!("{:#}", error);
         Ok(())
     }
@@ -115,7 +115,7 @@ impl EventSubscriber for TracingSubscriber {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         tracing::info!("{:?}", result);
         Ok(())
     }

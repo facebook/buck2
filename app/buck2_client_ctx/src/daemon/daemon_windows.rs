@@ -16,7 +16,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     _exe: &Path,
     _args: impl IntoIterator<Item = &'a str>,
     _daemon_env_vars: &[(&OsStr, &OsStr)],
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     #[derive(Debug, buck2_error::Error)]
     #[error("not Windows")]
     struct NotWindows;
@@ -30,7 +30,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     exe: &Path,
     args: impl IntoIterator<Item = &'a str>,
     daemon_env_vars: &[(&OsStr, &OsStr)],
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     use std::collections::HashMap;
     use std::ffi::c_void;
     use std::ffi::OsString;
@@ -39,7 +39,8 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     use std::os::windows::ffi::OsStrExt;
     use std::ptr;
 
-    use anyhow::Context;
+    use buck2_error::buck2_error;
+    use buck2_error::BuckErrorContext;
     use buck2_util::os::win::os_str::os_str_to_wide_null_term;
     use winapi::shared::minwindef::DWORD;
     use winapi::shared::minwindef::FALSE;
@@ -116,18 +117,21 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     }
 
     // Inspiration from rust stdlib at `std/src/sys/windows/process.rs`
-    fn ensure_no_nuls(s: &OsStr) -> anyhow::Result<&OsStr> {
+    fn ensure_no_nuls(s: &OsStr) -> buck2_error::Result<&OsStr> {
         if s.encode_wide().any(|b| b == 0) {
-            Err(anyhow::anyhow!(format!(
-                "nul byte found in provided data: {:?}",
-                s
-            )))
+            Err(buck2_error!(
+                [],
+                "{}",
+                format!("null byte found in provided data: {:?}", s)
+            ))
         } else {
             Ok(s)
         }
     }
 
-    fn make_envp(extra_env_vars: &[(&OsStr, &OsStr)]) -> anyhow::Result<(*mut c_void, Box<[u16]>)> {
+    fn make_envp(
+        extra_env_vars: &[(&OsStr, &OsStr)],
+    ) -> buck2_error::Result<(*mut c_void, Box<[u16]>)> {
         if extra_env_vars.is_empty() {
             Ok((ptr::null_mut(), Box::new([])))
         } else {
@@ -143,13 +147,15 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
             for (k, v) in env.into_iter() {
                 blk.extend(
                     ensure_no_nuls(&k)
-                        .with_context(|| format!("Reading environment variable {:?}", k))?
+                        .with_buck_error_context(|| {
+                            format!("Reading environment variable {:?}", k)
+                        })?
                         .encode_wide(),
                 );
                 blk.push('=' as u16);
                 blk.extend(
                     ensure_no_nuls(&v)
-                        .with_context(|| {
+                        .with_buck_error_context(|| {
                             format!("Reading value {:?} of environment variable {:?}", v, k)
                         })?
                         .encode_wide(),
@@ -190,7 +196,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
         )
     };
     if status == 0 {
-        return Err(anyhow::anyhow!(io::Error::last_os_error()));
+        return Err(buck2_error::Error::from(io::Error::last_os_error()));
     }
     unsafe { CloseHandle(pinfo.hThread) };
     unsafe { CloseHandle(pinfo.hProcess) };

@@ -13,10 +13,11 @@ use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::CommandExecutionDetails;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -111,11 +112,11 @@ struct TimeSpeed {
 const TIMESPEED_DEFAULT: f64 = 1.0;
 
 impl TimeSpeed {
-    pub(crate) fn new(speed_value: Option<f64>) -> anyhow::Result<Self> {
+    pub(crate) fn new(speed_value: Option<f64>) -> buck2_error::Result<Self> {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
         if speed <= 0.0 {
-            return Err(anyhow::anyhow!("Time speed cannot be negative!"));
+            return Err(buck2_error!([], "Time speed cannot be negative!"));
         }
         Ok(TimeSpeed { speed })
     }
@@ -300,7 +301,7 @@ impl StatefulSuperConsole {
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
         build_count_dir: Option<AbsNormPathBuf>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut builder = Self::console_builder();
         if let Some(stream) = stream {
             builder.write_to(stream);
@@ -325,7 +326,7 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
         build_count_dir: Option<AbsNormPathBuf>,
-    ) -> anyhow::Result<Option<Self>> {
+    ) -> buck2_error::Result<Option<Self>> {
         match Self::console_builder().build()? {
             None => Ok(None),
             Some(sc) => Ok(Some(Self::new(
@@ -350,7 +351,7 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
         build_count_dir: Option<AbsNormPathBuf>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let header = format!("Command: {}.", command_name);
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
@@ -401,7 +402,7 @@ impl StatefulSuperConsole {
         lines
     }
 
-    async fn handle_event(&mut self, ev: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    async fn handle_event(&mut self, ev: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         match self {
             Self::Running(c) => c.handle_event(ev).await,
             Self::Finalized(c) => c.handle_event(ev).await,
@@ -433,7 +434,7 @@ impl SuperConsoleState {
         expect_spans: bool,
         config: SuperConsoleConfig,
         build_count_dir: Option<AbsNormPathBuf>,
-    ) -> anyhow::Result<SuperConsoleState> {
+    ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
             time_speed: TimeSpeed::new(replay_speed)?,
@@ -467,7 +468,7 @@ impl StatefulSuperConsoleImpl {
         what: &str,
         key: char,
         var: impl FnOnce(&mut Self) -> &mut bool,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let var = var(self);
         *var = !*var;
         let on_off = match *var {
@@ -478,12 +479,12 @@ impl StatefulSuperConsoleImpl {
             .await
     }
 
-    async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         self.state.update_event_observer(event).await?;
 
         self.handle_inner_event(event)
             .await
-            .with_context(|| display::InvalidBuckEvent(event.clone()))?;
+            .with_buck_error_context(|| display::InvalidBuckEvent(event.clone()).to_string())?;
 
         if self.verbosity.print_all_commands() {
             let options = WhatRanOptions::default();
@@ -499,7 +500,7 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    async fn handle_inner_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    async fn handle_inner_event(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         match unpack_event(event)? {
             buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanStart(_, _, _) => Ok(()),
             buck2_event_observer::unpack_event::UnpackedBuckEvent::SpanEnd(_, _, data) => {
@@ -544,7 +545,7 @@ impl StatefulSuperConsoleImpl {
         }
     }
 
-    async fn handle_stderr(&mut self, msg: &str) -> anyhow::Result<()> {
+    async fn handle_stderr(&mut self, msg: &str) -> buck2_error::Result<()> {
         self.super_console
             .emit(msg.lines().map(Line::sanitized).collect());
         Ok(())
@@ -553,7 +554,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_structured_error(
         &mut self,
         err: &buck2_data::StructuredError,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if err.quiet {
             return Ok(());
         }
@@ -570,7 +571,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_file_watcher_end(
         &mut self,
         file_watcher: &buck2_data::FileWatcherEnd,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.verbosity.print_status() {
             self.super_console.emit(Lines(
                 display_file_watcher_end(file_watcher).into_map(|x| Line::sanitized(&x)),
@@ -583,7 +584,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_console_message(
         &mut self,
         message: &buck2_data::ConsoleMessage,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // TODO(nmj): Maybe better handling of messages that have color data in them. Right now
         //            they're just stripped
         self.super_console.emit(Lines::from_multiline_string(
@@ -596,7 +597,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_console_warning(
         &mut self,
         message: &buck2_data::ConsoleWarning,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let style = ContentStyle {
             foreground_color: Some(Color::Yellow),
             ..Default::default()
@@ -609,7 +610,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_action_execution_end(
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if action.error.is_some() {
             // Don't handle action errors here. We deal with them as a part of a separate
             // `ActionError` event
@@ -643,7 +644,10 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    async fn handle_action_error(&mut self, error: &buck2_data::ActionError) -> anyhow::Result<()> {
+    async fn handle_action_error(
+        &mut self,
+        error: &buck2_data::ActionError,
+    ) -> buck2_error::Result<()> {
         let mut lines = vec![];
         let display_platform = self.state.config.display_platform;
 
@@ -683,7 +687,10 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    async fn handle_test_result(&mut self, result: &buck2_data::TestResult) -> anyhow::Result<()> {
+    async fn handle_test_result(
+        &mut self,
+        result: &buck2_data::TestResult,
+    ) -> buck2_error::Result<()> {
         if let Some(msg) = display::format_test_result(result)? {
             self.super_console.emit(msg);
         }
@@ -694,7 +701,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_console_preferences(
         &mut self,
         prefs: &buck2_data::ConsolePreferences,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.state.config.max_lines = prefs.max_lines.try_into()?;
 
         Ok(())
@@ -703,7 +710,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_console_interaction(
         &mut self,
         c: &Option<SuperConsoleToggle>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match c {
             Some(c) => match c {
                 SuperConsoleToggle::Dice => {
@@ -773,7 +780,7 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
+    async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
         self.state.current_tick = tick.dupe();
         self.super_console.render(&BuckRootComponent {
             header: &self.header,
@@ -785,7 +792,7 @@ impl StatefulSuperConsoleImpl {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let lines = StatefulSuperConsole::render_result_errors(result);
         self.super_console.emit(lines);
         Ok(())
@@ -805,14 +812,14 @@ impl StatefulSuperConsoleImpl {
 
 #[async_trait]
 impl EventSubscriber for StatefulSuperConsole {
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for ev in events {
             self.handle_event(ev).await?;
         }
         Ok(())
     }
 
-    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+    async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
         self.finalize()?;
         match self {
             Self::Running(_) => unreachable!(),
@@ -820,7 +827,7 @@ impl EventSubscriber for StatefulSuperConsole {
         }
     }
 
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         match self {
             StatefulSuperConsole::Running(c) => c.handle_stderr(stderr).await,
             StatefulSuperConsole::Finalized(c) => c.handle_stderr(stderr).await,
@@ -830,7 +837,7 @@ impl EventSubscriber for StatefulSuperConsole {
     async fn handle_console_interaction(
         &mut self,
         c: &Option<SuperConsoleToggle>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Self::Running(super_console) = self {
             super_console.handle_console_interaction(c).await?;
         }
@@ -841,7 +848,7 @@ impl EventSubscriber for StatefulSuperConsole {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Running(c) => c.handle_command_result(result).await?,
             Self::Finalized(c) => c.handle_command_result(result).await?,
@@ -850,14 +857,14 @@ impl EventSubscriber for StatefulSuperConsole {
         Ok(())
     }
 
-    async fn tick(&mut self, tick: &Tick) -> anyhow::Result<()> {
+    async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
         if let Self::Running(super_console) = self {
             super_console.tick(tick).await?;
         }
         Ok(())
     }
 
-    async fn handle_error(&mut self, _error: &buck2_error::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
         self.finalize()?;
         Ok(())
     }
@@ -1010,7 +1017,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_transfer_state_to_simpleconsole() -> anyhow::Result<()> {
+    async fn test_transfer_state_to_simpleconsole() -> buck2_error::Result<()> {
         let trace_id = TraceId::new();
         let mut console = StatefulSuperConsole::new_with_root_forced(
             trace_id.dupe(),
@@ -1077,7 +1084,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_default_layout() -> anyhow::Result<()> {
+    async fn test_default_layout() -> buck2_error::Result<()> {
         let trace_id = TraceId::new();
         let now = SystemTime::now();
         let tick = Tick::now();
@@ -1157,7 +1164,7 @@ mod tests {
                 .test_output_mut()?
                 .frames
                 .pop()
-                .context("No frame was emitted")?,
+                .buck_error_context("No frame was emitted")?,
             StatefulSuperConsole::Finalized(_) => {
                 panic!("Console was downgraded");
             }
@@ -1181,7 +1188,7 @@ mod tests {
     }
 
     #[test]
-    fn test_session_info() -> anyhow::Result<()> {
+    fn test_session_info() -> buck2_error::Result<()> {
         let info = SessionInfo {
             trace_id: TraceId::null(),
             test_session: Some(buck2_data::TestSessionInfo {
@@ -1235,7 +1242,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_tailer_stderr() -> anyhow::Result<()> {
+    async fn test_tailer_stderr() -> buck2_error::Result<()> {
         let trace_id = TraceId::new();
         let tick = Tick::now();
 
@@ -1259,7 +1266,7 @@ mod tests {
                 .test_output_mut()?
                 .frames
                 .pop()
-                .context("No frame was emitted")?,
+                .buck_error_context("No frame was emitted")?,
             StatefulSuperConsole::Finalized(_) => {
                 panic!("Console was downgraded");
             }

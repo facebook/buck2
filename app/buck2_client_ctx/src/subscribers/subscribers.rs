@@ -30,9 +30,9 @@ impl<'a> EventSubscribers<'a> {
     pub(crate) async fn for_each_subscriber<'b, Fut>(
         &'b mut self,
         f: impl FnMut(&'b mut Box<dyn EventSubscriber + 'a>) -> Fut,
-    ) -> anyhow::Result<()>
+    ) -> buck2_error::Result<()>
     where
-        Fut: Future<Output = anyhow::Result<()>> + 'b,
+        Fut: Future<Output = buck2_error::Result<()>> + 'b,
     {
         let mut futures: FuturesUnordered<_> = self.subscribers.iter_mut().map(f).collect();
         while let Some(res) = futures.next().await {
@@ -41,7 +41,7 @@ impl<'a> EventSubscribers<'a> {
         Ok(())
     }
 
-    pub(crate) async fn handle_exit(&mut self) -> anyhow::Result<()> {
+    pub(crate) async fn handle_exit(&mut self) -> buck2_error::Result<()> {
         let mut r = Ok(());
         for subscriber in &mut self.subscribers {
             // Exit all subscribers, do not stop on first one.
@@ -72,7 +72,7 @@ impl<'a> EventSubscribers<'a> {
             .filter_map(|s| s.as_error_observer())
     }
 
-    pub(crate) async fn eprintln(&mut self, message: &str) -> anyhow::Result<()> {
+    pub(crate) async fn eprintln(&mut self, message: &str) -> buck2_error::Result<()> {
         self.for_each_subscriber(|s| {
             // TODO(nga): this is not a tailer.
             s.handle_tailer_stderr(message)

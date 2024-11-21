@@ -9,7 +9,6 @@
 
 use std::time::Duration;
 
-use anyhow::Context as _;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
@@ -17,6 +16,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_error::BuckErrorContext;
 
 /// Kill the buck daemon.
 ///
@@ -41,7 +41,7 @@ impl KillCommand {
                 StartupDeadline::duration_from_now(Duration::from_secs(10))?,
             )
             .await
-            .with_context(|| "Error locking buckd lifecycle.lock")?;
+            .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
 
             buck2_client_ctx::daemon::client::kill::kill_command_impl(
                 &lifecycle_lock,

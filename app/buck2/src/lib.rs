@@ -12,7 +12,6 @@
 
 use std::thread;
 
-use anyhow::Context as _;
 use buck2_audit::AuditCommand;
 use buck2_client::commands::build::BuildCommand;
 use buck2_client::commands::bxl::BxlCommand;
@@ -54,6 +53,7 @@ use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env_anyhow;
 use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
@@ -197,7 +197,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         &mut immediate_config,
         process.working_dir,
     )
-    .context("Error expanding argsfiles")?;
+    .buck_error_context("Error expanding argsfiles")?;
 
     // Override arg0 in `buck2 help`.
     if let Some(arg0) = buck2_env_anyhow!("BUCK2_ARG0")? {
@@ -209,7 +209,8 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     let opt: Opt = Opt::from_arg_matches(&matches)?;
 
     if opt.common_opts.help_wrapper {
-        return ExitResult::err(anyhow::anyhow!(
+        return ExitResult::err(buck2_error!(
+            [],
             "`--help-wrapper` should have been handled by the wrapper"
         ));
     }

@@ -21,7 +21,6 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::command_result;
 use buck2_common::build_count::BuildCount;
@@ -35,11 +34,12 @@ use buck2_data::ErrorReport;
 use buck2_data::ProcessedErrorReport;
 use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
+use buck2_error::buck2_error;
 use buck2_error::classify::best_error;
 use buck2_error::classify::source_area;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_error::Tier;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_event_observer::action_stats;
@@ -372,13 +372,14 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         is_success: bool,
         command_name: &str,
-    ) -> anyhow::Result<Option<BuildCount>> {
+    ) -> buck2_error::Result<Option<BuildCount>> {
         if let Some(stats) = &self.file_watcher_stats {
             if let Some(merge_base) = &stats.branched_from_revision {
                 match &self.parsed_target_patterns {
                     None => {
                         if is_success {
-                            return Err(anyhow::anyhow!(
+                            return Err(buck2_error!(
+                                [],
                                 "successful {} commands should have resolved target patterns",
                                 command_name
                             ));
@@ -391,7 +392,7 @@ impl<'a> InvocationRecorder<'a> {
                                 build_count
                                     .increment(merge_base, v, is_success)
                                     .await
-                                    .context("Error recording build count"),
+                                    .buck_error_context("Error recording build count"),
                             )
                             .transpose()
                         } else {
@@ -825,11 +826,12 @@ impl<'a> InvocationRecorder<'a> {
 
         if let Some(path) = &self.write_to_path {
             let res = (|| {
-                let out = fs_util::create_file(path).context("Error opening")?;
+                let out = fs_util::create_file(path).buck_error_context("Error opening")?;
                 let mut out = std::io::BufWriter::new(out);
-                serde_json::to_writer(&mut out, event.event()).context("Error writing")?;
-                out.flush().context("Error flushing")?;
-                anyhow::Ok(())
+                serde_json::to_writer(&mut out, event.event())
+                    .buck_error_context("Error writing")?;
+                out.flush().buck_error_context("Error flushing")?;
+                buck2_error::Ok(())
             })();
 
             if let Err(e) = &res {
@@ -883,7 +885,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         command: &buck2_data::CommandStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
         self.time_to_command_start = Some(self.start_time.elapsed());
         Ok(())
@@ -893,7 +895,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         command: &buck2_data::CommandEnd,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut command = command.clone();
         self.command_errors
             .extend(std::mem::take(&mut command.errors));
@@ -902,13 +904,17 @@ impl<'a> InvocationRecorder<'a> {
         let command_end = match event.data() {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "handle_command_end was passed a CommandEnd not contained in a SpanEndEvent"
                 ));
             }
         };
         self.command_duration = command_end.duration;
-        let command_data = command.data.as_ref().context("Missing command data")?;
+        let command_data = command
+            .data
+            .as_ref()
+            .buck_error_context("Missing command data")?;
         let build_count = match command_data {
             buck2_data::command_end::Data::Build(..)
             | buck2_data::command_end::Data::Test(..)
@@ -938,7 +944,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         command: &buck2_data::CommandCriticalStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
         self.time_to_command_critical_section = Some(self.start_time.elapsed());
         Ok(())
@@ -947,7 +953,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         command: &buck2_data::CommandCriticalEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
         Ok(())
     }
@@ -956,7 +962,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         _action: &buck2_data::ActionExecutionStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.time_to_first_action_execution.is_none() {
             self.time_to_first_action_execution = Some(self.start_time.elapsed());
         }
@@ -966,7 +972,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         action: &buck2_data::ActionExecutionEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if action.kind == buck2_data::ActionKind::Run as i32 {
             if action_stats::was_fallback_action(action) {
                 self.run_fallback_count += 1;
@@ -1017,7 +1023,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         _analysis: &buck2_data::AnalysisStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.time_to_first_analysis
             .get_or_insert_with(|| self.start_time.elapsed());
         Ok(())
@@ -1027,7 +1033,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         _eval: &buck2_data::LoadBuildFileStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.time_to_load_first_build_file
             .get_or_insert_with(|| self.start_time.elapsed());
         Ok(())
@@ -1037,7 +1043,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         executor_stage: &buck2_data::ExecutorStageStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match &executor_stage.stage {
             Some(buck2_data::executor_stage_start::Stage::Re(re_stage)) => match &re_stage.stage {
                 Some(buck2_data::re_stage::Stage::Execute(_)) => {
@@ -1064,7 +1070,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         cache_upload: &buck2_data::CacheUploadEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if cache_upload.success {
             self.cache_upload_count += 1;
         }
@@ -1076,7 +1082,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         upload: &buck2_data::DepFileUploadEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if upload.success {
             self.dep_file_upload_count += 1;
         }
@@ -1088,7 +1094,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         session: &buck2_data::RemoteExecutionSessionCreated,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.re_session_id = Some(session.session_id.clone());
         self.re_experiment_name = Some(session.experiment_name.clone());
         Ok(())
@@ -1098,7 +1104,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         materialization: &buck2_data::MaterializationEnd,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.materialization_output_size += materialization.total_bytes;
         Ok(())
     }
@@ -1106,7 +1112,7 @@ impl<'a> InvocationRecorder<'a> {
     fn handle_materializer_state_info(
         &mut self,
         materializer_state_info: &buck2_data::MaterializerStateInfo,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.initial_materializer_entries_from_sqlite =
             Some(materializer_state_info.num_entries_from_sqlite);
         Ok(())
@@ -1116,11 +1122,12 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         _bxl_ensure_artifacts_end: &buck2_data::BxlEnsureArtifactsEnd,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let bxl_ensure_artifacts_end = match event.data() {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "handle_bxl_ensure_artifacts_end was passed a BxlEnsureArtifacts not contained in a SpanEndEvent"
                 ));
             }
@@ -1133,13 +1140,16 @@ impl<'a> InvocationRecorder<'a> {
     fn handle_install_finished(
         &mut self,
         install_finished: &buck2_data::InstallFinished,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.install_duration = install_finished.duration.clone();
         self.install_device_metadata = install_finished.device_metadata.clone();
         Ok(())
     }
 
-    fn handle_system_info(&mut self, system_info: &buck2_data::SystemInfo) -> anyhow::Result<()> {
+    fn handle_system_info(
+        &mut self,
+        system_info: &buck2_data::SystemInfo,
+    ) -> buck2_error::Result<()> {
         self.system_info = system_info.clone();
         Ok(())
     }
@@ -1148,7 +1158,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         test_info: &buck2_data::TestDiscovery,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match &test_info.data {
             Some(buck2_data::test_discovery::Data::Session(session_info)) => {
                 self.test_info = Some(session_info.info.clone());
@@ -1163,7 +1173,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         _test_discovery: &buck2_data::TestDiscoveryStart,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.time_to_first_test_discovery
             .get_or_insert_with(|| self.start_time.elapsed());
         Ok(())
@@ -1173,7 +1183,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         info: &buck2_data::BuildGraphExecutionInfo,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut duration = Duration::default();
 
         for node in &info.critical_path {
@@ -1196,12 +1206,12 @@ impl<'a> InvocationRecorder<'a> {
     fn handle_io_provider_info(
         &mut self,
         io_provider_info: &buck2_data::IoProviderInfo,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.eden_version = io_provider_info.eden_version.to_owned();
         Ok(())
     }
 
-    fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> anyhow::Result<()> {
+    fn handle_tag(&mut self, tag: &buck2_data::TagEvent) -> buck2_error::Result<()> {
         self.tags.extend(tag.tags.iter().cloned());
         Ok(())
     }
@@ -1209,7 +1219,7 @@ impl<'a> InvocationRecorder<'a> {
     fn handle_concurrent_commands(
         &mut self,
         concurrent_commands: &buck2_data::ConcurrentCommands,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         concurrent_commands.trace_ids.iter().for_each(|c| {
             self.concurrent_command_ids.insert(c.clone());
         });
@@ -1222,7 +1232,7 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         update: &buck2_data::Snapshot,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.max_malloc_bytes_active =
             max(self.max_malloc_bytes_active, update.malloc_bytes_active);
         self.max_malloc_bytes_allocated = max(
@@ -1353,7 +1363,7 @@ impl<'a> InvocationRecorder<'a> {
         file_watcher: &buck2_data::FileWatcherEnd,
         duration: Option<&prost_types::Duration>,
         _event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // We might receive this event twice, so ... deal with it by merging the two.
         // See: https://fb.workplace.com/groups/buck2dev/permalink/3396726613948720/
         self.file_watcher_stats =
@@ -1370,12 +1380,15 @@ impl<'a> InvocationRecorder<'a> {
     fn handle_parsed_target_patterns(
         &mut self,
         patterns: &buck2_data::ParsedTargetPatterns,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.parsed_target_patterns = Some(patterns.clone());
         Ok(())
     }
 
-    fn handle_structured_error(&mut self, err: &buck2_data::StructuredError) -> anyhow::Result<()> {
+    fn handle_structured_error(
+        &mut self,
+        err: &buck2_data::StructuredError,
+    ) -> buck2_error::Result<()> {
         if let Some(soft_error_category) = err.soft_error_category.as_ref() {
             self.soft_error_categories
                 .insert(soft_error_category.to_owned());
@@ -1396,11 +1409,12 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         _command: &buck2_data::DiceBlockConcurrentCommandEnd,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let block_concurrent_command = match event.data() {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "handle_dice_block_concurrent_command_end was passed a DiceBlockConcurrentCommandEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1422,11 +1436,12 @@ impl<'a> InvocationRecorder<'a> {
         &mut self,
         _command: &buck2_data::DiceCleanupEnd,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let dice_cleanup_end = match event.data() {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "handle_dice_cleanup_end was passed a DiceCleanupEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1444,7 +1459,7 @@ impl<'a> InvocationRecorder<'a> {
         Ok(())
     }
 
-    async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         // TODO(nga): query now once in `EventsCtx`.
         let now = SystemTime::now();
         if let Ok(delay) = now.duration_since(event.timestamp()) {
@@ -1455,7 +1470,7 @@ impl<'a> InvocationRecorder<'a> {
 
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => {
-                match start.data.as_ref().context("Missing `start`")? {
+                match start.data.as_ref().buck_error_context("Missing `start`")? {
                     buck2_data::span_start_event::Data::Command(command) => {
                         self.handle_command_start(command, event)
                     }
@@ -1481,7 +1496,7 @@ impl<'a> InvocationRecorder<'a> {
                 }
             }
             buck2_data::buck_event::Data::SpanEnd(ref end) => {
-                match end.data.as_ref().context("Missing `end`")? {
+                match end.data.as_ref().buck_error_context("Missing `end`")? {
                     buck2_data::span_end_event::Data::Command(command) => {
                         self.handle_command_end(command, event).await
                     }
@@ -1521,7 +1536,7 @@ impl<'a> InvocationRecorder<'a> {
                 }
             }
             buck2_data::buck_event::Data::Instant(ref instant) => {
-                match instant.data.as_ref().context("Missing `data`")? {
+                match instant.data.as_ref().buck_error_context("Missing `data`")? {
                     buck2_data::instant_event::Data::ReSession(session) => {
                         self.handle_re_session_created(session, event)
                     }
@@ -1641,7 +1656,7 @@ impl<'a> Drop for InvocationRecorder<'a> {
 
 #[async_trait]
 impl<'a> EventSubscriber for InvocationRecorder<'a> {
-    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> anyhow::Result<()> {
+    async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for event in events {
             self.handle_event(event).await?;
         }
@@ -1651,7 +1666,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
     async fn handle_console_interaction(
         &mut self,
         c: &Option<SuperConsoleToggle>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match c {
             Some(c) => self
                 .tags
@@ -1664,7 +1679,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
     async fn handle_command_result(
         &mut self,
         result: &buck2_cli_proto::CommandResult,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.has_command_result = true;
         match &result.result {
             Some(command_result::Result::BuildResponse(res)) => {
@@ -1686,12 +1701,12 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
         Ok(())
     }
 
-    async fn handle_error(&mut self, error: &buck2_error::Error) -> anyhow::Result<()> {
+    async fn handle_error(&mut self, error: &buck2_error::Error) -> buck2_error::Result<()> {
         self.client_errors.push(error.clone());
         Ok(())
     }
 
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         if self.server_stderr.len() > 100_000 {
             // Proper truncation of the head is tricky, and for practical purposes
             // discarding the whole thing is fine.
@@ -1708,7 +1723,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
         Ok(())
     }
 
-    async fn exit(&mut self) -> anyhow::Result<()> {
+    async fn exit(&mut self) -> buck2_error::Result<()> {
         self.has_end_of_stream = true;
         Ok(())
     }
@@ -1782,7 +1797,7 @@ pub(crate) fn try_get_invocation_recorder<'a>(
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-) -> anyhow::Result<Box<InvocationRecorder<'a>>> {
+) -> buck2_error::Result<Box<InvocationRecorder<'a>>> {
     let write_to_path = opts
         .unstable_write_invocation_record
         .as_ref()

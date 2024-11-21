@@ -17,11 +17,11 @@ pub struct StdoutStderrForwarder;
 
 #[async_trait]
 impl EventSubscriber for StdoutStderrForwarder {
-    async fn handle_tailer_stderr(&mut self, stderr: &str) -> anyhow::Result<()> {
+    async fn handle_tailer_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         crate::eprintln!("{}", stderr)?;
         Ok(())
     }
-    async fn handle_output(&mut self, raw_output: &[u8]) -> anyhow::Result<()> {
+    async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
         // Lossy conversion is a bit awkward here, but so is printing stdout to stderr anyway. If
         // that happens our output is going to be pretty busted anyway.
         crate::eprint!("{}", String::from_utf8_lossy(raw_output))?;

@@ -598,7 +598,7 @@ mod tests {
     }
 
     #[test]
-    fn test_different_sizes_dont_fail() -> anyhow::Result<()> {
+    fn test_different_sizes_dont_fail() -> buck2_error::Result<()> {
         let phase_stats = &phase_stats();
         let progress_stats = &progress_stats();
         let action_stats = &action_stats();
@@ -630,7 +630,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rendering_golden() -> anyhow::Result<()> {
+    fn test_rendering_golden() -> buck2_error::Result<()> {
         let mut all_output = String::new();
 
         fn draw(
@@ -750,7 +750,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remaining() -> anyhow::Result<()> {
+    fn test_remaining() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -780,7 +780,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remaining_with_pending() -> anyhow::Result<()> {
+    fn test_remaining_with_pending() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -811,7 +811,7 @@ mod tests {
     }
 
     #[test]
-    fn test_children() -> anyhow::Result<()> {
+    fn test_children() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,
@@ -843,7 +843,7 @@ mod tests {
     }
 
     #[test]
-    fn test_simple_header_final() -> anyhow::Result<()> {
+    fn test_simple_header_final() -> buck2_error::Result<()> {
         let action_stats = ActionStats {
             local_actions: 0,
             remote_actions: 0,

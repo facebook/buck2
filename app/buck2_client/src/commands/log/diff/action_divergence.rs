@@ -196,7 +196,7 @@ impl ActionDivergenceCommand {
             if !divergence_found {
                 buck2_client_ctx::println!("No divergent actions found.")?;
             }
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })
         .into()
     }
