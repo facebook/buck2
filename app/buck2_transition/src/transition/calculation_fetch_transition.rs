@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::transition::TransitionAttrProvider;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_error::starlark_error::from_starlark;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use dupe::OptionDupedExt;
@@ -50,9 +51,7 @@ impl FetchTransition for DiceComputations<'_> {
             .map_err(|_| buck2_error::Error::new(FetchTransitionError::NotFound(id.clone())))?
             .0;
 
-        transition
-            .downcast_anyhow()
-            .map_err(buck2_error::Error::from)
+        transition.downcast_starlark().map_err(from_starlark)
     }
 }
 

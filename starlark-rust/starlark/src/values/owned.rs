@@ -140,16 +140,15 @@ impl OwnedFrozenValue {
     }
 
     /// `downcast`, but return an error for human instead of original value.
-    pub fn downcast_anyhow<T: StarlarkValue<'static>>(
+    pub fn downcast_starlark<T: StarlarkValue<'static>>(
         self,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<T>> {
+    ) -> crate::Result<OwnedFrozenValueTyped<T>> {
         match self.downcast() {
             Ok(v) => Ok(v),
-            Err(this) => Err(OwnedError::WrongType(
+            Err(this) => Err(crate::Error::new_value(OwnedError::WrongType(
                 T::TYPE,
                 this.value.to_value().to_string_for_type_error(),
-            )
-            .into()),
+            ))),
         }
     }
 

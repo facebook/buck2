@@ -19,6 +19,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
@@ -491,7 +492,7 @@ impl FrozenProviderCollectionValue {
 
     pub fn try_from_value(value: OwnedFrozenValue) -> buck2_error::Result<Self> {
         Ok(Self {
-            value: value.downcast_anyhow()?,
+            value: value.downcast_starlark().map_err(from_starlark)?,
         })
     }
 

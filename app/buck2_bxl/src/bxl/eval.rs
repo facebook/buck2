@@ -24,6 +24,7 @@ use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
 use buck2_data::StarlarkFailNoStacktrace;
 use buck2_error::buck2_error;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
@@ -370,7 +371,9 @@ pub(crate) fn get_bxl_callable(
 ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
     let callable = bxl_module.env().get_any_visibility(&spec.name)?.0;
 
-    Ok(callable.downcast_anyhow::<FrozenBxlFunction>()?)
+    callable
+        .downcast_starlark::<FrozenBxlFunction>()
+        .map_err(from_starlark)
 }
 
 pub(crate) struct CliResolutionCtx<'a> {

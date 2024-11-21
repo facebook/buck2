@@ -40,6 +40,7 @@ use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -391,7 +392,8 @@ impl RunAction {
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Self> {
         let starlark_values = starlark_values
-            .downcast_anyhow()
+            .downcast_starlark()
+            .map_err(from_starlark)
             .internal_error("Must be `run_action_values`")?;
 
         Self::unpack(&starlark_values)?;
