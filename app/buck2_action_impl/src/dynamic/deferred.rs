@@ -33,8 +33,8 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_error::buck2_error_anyhow;
-use buck2_error::internal_error_anyhow;
+use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
@@ -97,7 +97,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
     lambda: Value<'v>,
     args: DynamicLambdaArgs<'v>,
-) -> anyhow::Result<ProviderCollection<'v>> {
+) -> buck2_error::Result<ProviderCollection<'v>> {
     let pos;
     let named;
     let (pos, named): (&[_], &[(_, _)]) = match &args {
@@ -135,7 +135,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
     let provider_collection = match args {
         DynamicLambdaArgs::OldPositional { .. } => {
             if !return_value.is_none() {
-                return Err(buck2_error_anyhow!(
+                return Err(buck2_error!(
                     [],
                     "dynamic_output lambda must return `None`, got: `{0}`",
                     return_value.to_string_for_type_error()
@@ -164,7 +164,7 @@ async fn execute_lambda(
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
-) -> anyhow::Result<RecordedAnalysisValues> {
+) -> buck2_error::Result<RecordedAnalysisValues> {
     if let BaseDeferredKey::BxlLabel(key) = &lambda.as_ref().static_fields.owner {
         Ok(eval_bxl_for_dynamic_output(
             key,
@@ -193,7 +193,7 @@ async fn execute_lambda(
             let mut declared_actions = None;
             let mut declared_artifacts = None;
 
-            let output: anyhow::Result<_> = try {
+            let output: buck2_error::Result<_> = try {
                 let env = Module::new();
 
                 let analysis_registry = {
@@ -245,7 +245,7 @@ async fn execute_lambda(
                         }
                         (None, DynamicLambdaCtxDataSpec::New { .. })
                         | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
-                            Err(internal_error_anyhow!(
+                            Err(internal_error!(
                                 "Unexpected combination of attr_values and spec"
                             ))?;
                             unreachable!();
@@ -259,7 +259,7 @@ async fn execute_lambda(
                     )?;
                     let providers = eval.heap().alloc(providers);
                     let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
-                        .internal_error_anyhow("Just allocated ProviderCollection")?;
+                        .internal_error("Just allocated ProviderCollection")?;
 
                     ctx.assert_no_promises()?;
 
@@ -306,7 +306,7 @@ pub(crate) async fn prepare_and_execute_lambda(
     // the grand scheme of things that's probably not a huge deal.
     ensure_artifacts_built(&lambda.as_ref().static_fields.artifact_values, ctx).await?;
 
-    Ok(span_async_simple(
+    span_async_simple(
         buck2_data::DynamicLambdaStart {
             owner: Some(lambda.as_ref().static_fields.owner.to_proto().into()),
         },
@@ -350,13 +350,13 @@ pub(crate) async fn prepare_and_execute_lambda(
         },
         buck2_data::DeferredEvaluationEnd {},
     )
-    .await?)
+    .await
 }
 
 async fn ensure_artifacts_built(
     materialized_artifacts: &IndexSet<Artifact>,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if materialized_artifacts.is_empty() {
         return Ok(());
     }
@@ -380,7 +380,7 @@ pub struct InputArtifactsMaterialized(());
 async fn materialize_inputs(
     materialized_artifacts: &IndexSet<Artifact>,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<InputArtifactsMaterialized> {
+) -> buck2_error::Result<InputArtifactsMaterialized> {
     if materialized_artifacts.is_empty() {
         return Ok(InputArtifactsMaterialized(()));
     }
@@ -405,7 +405,7 @@ async fn materialize_inputs(
 async fn resolve_dynamic_values(
     dynamic_values: &IndexSet<DynamicValue>,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<HashMap<DynamicValue, FrozenProviderCollectionValue>> {
+) -> buck2_error::Result<HashMap<DynamicValue, FrozenProviderCollectionValue>> {
     if dynamic_values.is_empty() {
         return Ok(HashMap::new());
     }
@@ -418,7 +418,7 @@ async fn resolve_dynamic_values(
                     .analysis_values
                     .provider_collection()?
                     .to_owned();
-                anyhow::Ok((dynamic_value.dupe(), result))
+                buck2_error::Ok((dynamic_value.dupe(), result))
             })
         })
         .await?;
@@ -451,7 +451,7 @@ fn artifact_values<'v>(
     _: InputArtifactsMaterialized,
     artifact_fs: &ArtifactFs,
     heap: &'v Heap,
-) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>> {
+) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>> {
     let mut artifact_values_dict = Vec::with_capacity(artifact_values.len());
     for x in artifact_values {
         let k = StarlarkArtifact::new(x.dupe());
@@ -470,7 +470,8 @@ fn outputs<'v>(
     outputs: &[BoundBuildArtifact],
     registry: &mut AnalysisRegistry<'v>,
     heap: &'v Heap,
-) -> anyhow::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>> {
+) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkDeclaredArtifact>>>
+{
     let mut outputs_dict = Vec::with_capacity(outputs.len());
     for x in outputs {
         let k = StarlarkArtifact::new(x.dupe().into_artifact());
@@ -489,7 +490,7 @@ fn new_attr_value<'v>(
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
     env: &'v Module,
-) -> anyhow::Result<Value<'v>> {
+) -> buck2_error::Result<Value<'v>> {
     match value {
         DynamicAttrValue::Output(artifact) => {
             let declared = registry.declare_dynamic_output(artifact.as_base_artifact())?;
@@ -512,7 +513,7 @@ fn new_attr_value<'v>(
         DynamicAttrValue::DynamicValue(v) => {
             let v = resolved_dynamic_values
                 .get(v)
-                .internal_error_anyhow("Missing resolved dynamic value")?;
+                .internal_error("Missing resolved dynamic value")?;
             Ok(env.heap().alloc(StarlarkResolvedDynamicValue {
                 value: v.add_heap_ref_static(env.frozen_heap()),
             }))
@@ -531,7 +532,7 @@ fn new_attr_value<'v>(
                         env,
                     )
                 })
-                .collect::<anyhow::Result<Vec<_>>>()?;
+                .collect::<buck2_error::Result<Vec<_>>>()?;
             Ok(env.heap().alloc(AllocList(xs)))
         }
         DynamicAttrValue::Dict(xs) => {
@@ -549,7 +550,7 @@ fn new_attr_value<'v>(
                     )?,
                 );
                 if prev.is_some() {
-                    return Err(buck2_error_anyhow!([], "Duplicate key in dict"));
+                    return Err(buck2_error!([], "Duplicate key in dict"));
                 }
             }
             Ok(env.heap().alloc(AllocDict(r)))
@@ -567,7 +568,7 @@ fn new_attr_value<'v>(
                         env,
                     )
                 })
-                .collect::<anyhow::Result<Vec<_>>>()?;
+                .collect::<buck2_error::Result<Vec<_>>>()?;
             Ok(env.heap().alloc(AllocTuple(xs)))
         }
         DynamicAttrValue::Option(option) => match option {
@@ -592,9 +593,9 @@ fn new_attr_values<'v>(
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
     env: &'v Module,
-) -> anyhow::Result<Box<[(String, Value<'v>)]>> {
+) -> buck2_error::Result<Box<[(String, Value<'v>)]>> {
     if values.values.len() != callable.attrs.len() {
-        return Err(internal_error_anyhow!("Parameter count mismatch"));
+        return Err(internal_error!("Parameter count mismatch"));
     }
     callable
         .attrs
@@ -625,11 +626,11 @@ pub fn dynamic_lambda_ctx_data<'v>(
     artifact_fs: &ArtifactFs,
     digest_config: DigestConfig,
     env: &'v Module,
-) -> anyhow::Result<DynamicLambdaCtxData<'v>> {
+) -> buck2_error::Result<DynamicLambdaCtxData<'v>> {
     let self_key = Arc::new(self_key);
 
     if &dynamic_lambda.as_ref().static_fields.owner != self_key.owner() {
-        return Err(internal_error_anyhow!(
+        return Err(internal_error!(
             "Dynamic lambda owner `{}` does not match self key `{}`",
             dynamic_lambda.as_ref().static_fields.owner,
             self_key
@@ -657,7 +658,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
                 env.heap(),
             )?;
             if !dynamic_lambda.static_fields.dynamic_values.is_empty() {
-                return Err(internal_error_anyhow!(
+                return Err(internal_error!(
                     "Non-empty `dynamic_value` for `dynamic_output`"
                 ));
             }

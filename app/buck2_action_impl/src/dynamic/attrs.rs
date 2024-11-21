@@ -16,7 +16,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
-use buck2_error::buck2_error_anyhow;
+use buck2_error::buck2_error;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::typing::Ty;
@@ -162,7 +162,7 @@ impl<'v> DynamicAttrValue<Value<'v>, OutputArtifact> {
     fn bind(
         self,
         bind: &mut DynamicActionsOutputArtifactBinder,
-    ) -> anyhow::Result<DynamicAttrValue<Value<'v>, BoundBuildArtifact>> {
+    ) -> buck2_error::Result<DynamicAttrValue<Value<'v>, BoundBuildArtifact>> {
         match self {
             DynamicAttrValue::Output(output) => Ok(DynamicAttrValue::Output(bind.bind(output)?)),
             DynamicAttrValue::ArtifactValue(v) => Ok(DynamicAttrValue::ArtifactValue(v)),
@@ -172,13 +172,13 @@ impl<'v> DynamicAttrValue<Value<'v>, OutputArtifact> {
                 xs.into_vec()
                     .into_iter()
                     .map(|x| x.bind(bind))
-                    .collect::<anyhow::Result<_>>()?,
+                    .collect::<buck2_error::Result<_>>()?,
             )),
             DynamicAttrValue::Tuple(xs) => Ok(DynamicAttrValue::Tuple(
                 xs.into_vec()
                     .into_iter()
                     .map(|x| x.bind(bind))
-                    .collect::<anyhow::Result<_>>()?,
+                    .collect::<buck2_error::Result<_>>()?,
             )),
             DynamicAttrValue::Dict(xs) => {
                 let mut r = SmallMap::with_capacity(xs.len());
@@ -237,7 +237,7 @@ impl<'v> DynamicAttrValues<Value<'v>, OutputArtifact> {
     pub(crate) fn bind(
         self,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<DynamicAttrValues<Value<'v>, BoundBuildArtifact>> {
+    ) -> buck2_error::Result<DynamicAttrValues<Value<'v>, BoundBuildArtifact>> {
         let DynamicAttrValues { values } = self;
         let mut bind = DynamicActionsOutputArtifactBinder::new(key);
         Ok(DynamicAttrValues {
@@ -245,7 +245,7 @@ impl<'v> DynamicAttrValues<Value<'v>, OutputArtifact> {
                 .into_vec()
                 .into_iter()
                 .map(|v| v.bind(&mut bind))
-                .collect::<anyhow::Result<_>>()?,
+                .collect::<buck2_error::Result<_>>()?,
         })
     }
 }
@@ -294,7 +294,7 @@ impl DynamicAttrType {
     pub(crate) fn coerce<'v>(
         &self,
         value: Value<'v>,
-    ) -> anyhow::Result<DynamicAttrValue<Value<'v>, OutputArtifact>> {
+    ) -> buck2_error::Result<DynamicAttrValue<Value<'v>, OutputArtifact>> {
         match self {
             DynamicAttrType::Output => {
                 let artifact = <&StarlarkOutputArtifact>::unpack_value_err(value)?;
@@ -312,7 +312,7 @@ impl DynamicAttrType {
             }
             DynamicAttrType::Value(ty) => {
                 if !ty.matches(value) {
-                    return Err(buck2_error_anyhow!(
+                    return Err(buck2_error!(
                         [],
                         "Expecting a value of type `{}`, got: {}",
                         ty,
@@ -335,7 +335,7 @@ impl DynamicAttrType {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (key, value) in dict.iter_hashed() {
                     if !key_ty.matches(key.into_key()) {
-                        return Err(buck2_error_anyhow!(
+                        return Err(buck2_error!(
                             [],
                             "Expecting a key of type `{}`, got: {}",
                             key_ty,
@@ -349,7 +349,7 @@ impl DynamicAttrType {
             DynamicAttrType::Tuple(elem_tys) => {
                 let tuple = <&TupleRef>::unpack_value_err(value)?;
                 if tuple.len() != elem_tys.len() {
-                    return Err(buck2_error_anyhow!(
+                    return Err(buck2_error!(
                         [],
                         "Expecting a tuple of length {}, got: {}",
                         elem_tys.len(),

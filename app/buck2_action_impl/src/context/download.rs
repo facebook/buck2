@@ -9,13 +9,13 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::OutputArtifactArg;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_common::cas_digest::CasDigest;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
 use chrono::TimeZone;
@@ -58,7 +58,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_executable: bool,
         #[starlark(require = named, default = false)] is_deferrable: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
@@ -105,11 +105,11 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] is_tree: bool,
         #[starlark(require = named, default = false)] is_directory: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         let mut registry = this.state()?;
 
         let digest = CasDigest::parse_digest(digest, this.digest_config.cas_digest_config())
-            .with_context(|| CasArtifactError::InvalidDigest(digest.to_owned()))?
+            .with_buck_error_context(|| CasArtifactError::InvalidDigest(digest.to_owned()))?
             .0;
 
         let use_case = RemoteExecutorUseCase::new(use_case.to_owned());
@@ -117,7 +117,9 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         let expires_after_timestamp = Utc.timestamp_opt(expires_after_timestamp, 0).unwrap();
 
         let kind = match (is_tree, is_directory) {
-            (true, true) => return Err(CasArtifactError::TreeAndDirectory.into()),
+            (true, true) => {
+                return Err(buck2_error::Error::from(CasArtifactError::TreeAndDirectory).into());
+            }
             (false, true) => ArtifactKind::Directory(DirectoryKind::Directory),
             (true, false) => ArtifactKind::Directory(DirectoryKind::Tree),
             (false, false) => ArtifactKind::File,

@@ -31,7 +31,7 @@ fn create_dir_tree<'v>(
     output: OutputArtifactArg<'v>,
     srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
     copy: bool,
-) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     // validate that the moves are valid, and move them into inputs
     let action = UnregisteredSymlinkedDirAction::new(copy, srcs)?;
     let inputs = action.inputs();
@@ -52,7 +52,7 @@ fn copy_file_impl<'v>(
     src: ValueAsArtifactLike<'v>,
     copy: CopyMode,
     output_type: OutputType,
-) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
     let src = src.0;
 
     let artifact = src.get_artifact_group()?;
@@ -85,17 +85,17 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word
         // `file` in it
-        copy_file_impl(
+        Ok(copy_file_impl(
             eval,
             this,
             dest,
             src,
             CopyMode::Copy,
             OutputType::FileOrDirectory,
-        )
+        )?)
     }
 
     /// Creates a symlink to the source `artifact` at the destination (which can be a string
@@ -106,17 +106,17 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
         // `copy_file` can copy either a file or a directory, even though its name has the word
         // `file` in it
-        copy_file_impl(
+        Ok(copy_file_impl(
             eval,
             this,
             dest,
             src,
             CopyMode::Symlink,
             OutputType::FileOrDirectory,
-        )
+        )?)
     }
 
     /// Make a copy of a directory.
@@ -125,8 +125,15 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsArtifactLike<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        copy_file_impl(eval, this, dest, src, CopyMode::Copy, OutputType::Directory)
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+        Ok(copy_file_impl(
+            eval,
+            this,
+            dest,
+            src,
+            CopyMode::Copy,
+            OutputType::Directory,
+        )?)
     }
 
     /// Returns an `artifact` that is a directory containing symlinks.
@@ -136,8 +143,8 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        create_dir_tree(eval, this, output, srcs, false)
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+        Ok(create_dir_tree(eval, this, output, srcs, false)?)
     }
 
     /// Returns an `artifact` which is a directory containing copied files.
@@ -147,7 +154,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        create_dir_tree(eval, this, output, srcs, true)
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+        Ok(create_dir_tree(eval, this, output, srcs, true)?)
     }
 }

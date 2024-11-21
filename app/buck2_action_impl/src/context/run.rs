@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
@@ -26,6 +25,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info:
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use either::Either;
 use host_sharing::WeightClass;
@@ -180,7 +180,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
         #[starlark(require = named, default=UnpackList::default())]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
             tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact>>,
@@ -259,16 +259,18 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             (None, None) => WeightClass::Permits(1),
             (Some(v), None) => {
                 if v < 1 {
-                    return Err(RunActionError::InvalidWeight(v).into());
+                    return Err(buck2_error::Error::from(RunActionError::InvalidWeight(v)).into());
                 } else {
                     WeightClass::Permits(v as usize)
                 }
             }
             (None, Some(v)) => WeightClass::Percentage(
-                WeightPercentage::try_new(v).context("Invalid `weight_percentage`")?,
+                WeightPercentage::try_new(v).buck_error_context("Invalid `weight_percentage`")?,
             ),
             (Some(..), Some(..)) => {
-                return Err(RunActionError::DuplicateWeightsSpecified.into());
+                return Err(
+                    buck2_error::Error::from(RunActionError::DuplicateWeightsSpecified).into(),
+                );
             }
         };
 
@@ -296,11 +298,13 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 let count = tagged.map_or(0, |t| t.len());
 
                 if count != 1 {
-                    return Err(RunActionError::InvalidDepFileOutputs {
-                        key: (*key).to_owned(),
-                        count,
-                    }
-                    .into());
+                    return Err(
+                        buck2_error::Error::from(RunActionError::InvalidDepFileOutputs {
+                            key: (*key).to_owned(),
+                            count,
+                        })
+                        .into(),
+                    );
                 }
 
                 match dep_files_configuration.labels.entry(tag.dupe()) {
@@ -308,10 +312,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                         v.insert(Arc::from(key));
                     }
                     small_map::Entry::Occupied(o) => {
-                        return Err(RunActionError::ConflictingDepFiles {
-                            first: (**o.get()).to_owned(),
-                            second: (*key).to_owned(),
-                        }
+                        return Err(buck2_error::Error::from(
+                            RunActionError::ConflictingDepFiles {
+                                first: (**o.get()).to_owned(),
+                                second: (*key).to_owned(),
+                            },
+                        )
                         .into());
                     }
                 }
@@ -322,15 +328,15 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             (Some(env_var), Some(path)) => {
                 let path: ForwardRelativePathBuf = path.try_into()?;
                 this.state()?.claim_output_path(eval, &path)?;
-                Ok(Some(MetadataParameter { env_var, path }))
+                buck2_error::Ok(Some(MetadataParameter { env_var, path }))
             }
-            (Some(_), None) => Err(anyhow::anyhow!(RunActionError::MetadataPathMissing)),
-            (None, Some(_)) => Err(anyhow::anyhow!(RunActionError::MetadataEnvVarMissing)),
+            (Some(_), None) => Err(RunActionError::MetadataPathMissing.into()),
+            (None, Some(_)) => Err(RunActionError::MetadataEnvVarMissing.into()),
             (None, None) => Ok(None),
         }?;
 
         if artifacts.outputs.is_empty() {
-            return Err(RunActionError::NoOutputsSpecified.into());
+            return Err(buck2_error::Error::from(RunActionError::NoOutputsSpecified).into());
         }
         let heap = eval.heap();
 

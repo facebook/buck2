@@ -10,8 +10,7 @@
 use std::cell::OnceCell;
 use std::iter;
 
-use anyhow::Context;
-use buck2_error::buck2_error_anyhow;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
@@ -43,9 +42,9 @@ pub fn new_dynamic_actions_callable<'v>(
     >,
     attrs: SmallMap<String, &'v StarlarkDynamicAttrType>,
     callback_param: &DynamicActionsCallbackParam,
-) -> anyhow::Result<DynamicActionsCallable<'v>> {
+) -> buck2_error::Result<DynamicActionsCallable<'v>> {
     if attrs.contains_key(callback_param.name) {
-        return Err(buck2_error_anyhow!([], "Cannot define `actions` attribute"));
+        return Err(buck2_error!([], "Cannot define `actions` attribute"));
     }
     let attrs: SmallMap<String, DynamicAttrType> = attrs
         .into_iter()
@@ -68,7 +67,7 @@ pub fn new_dynamic_actions_callable<'v>(
             &DynamicActionsCallbackReturnType::starlark_type_repr(),
         )
         .into_anyhow_result()
-        .context("`impl` function must be callable with given params")?;
+        .buck_error_context("`impl` function must be callable with given params")?;
 
     let callable_ty = Ty::function(
         ParamSpec::new_named_only(attrs.iter().map(|(name, ty)| {
@@ -102,8 +101,8 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
             DynamicActionsCallbackReturnType,
         >,
         #[starlark(require = named)] attrs: SmallMap<String, &'v StarlarkDynamicAttrType>,
-    ) -> anyhow::Result<DynamicActionsCallable<'v>> {
-        new_dynamic_actions_callable(r#impl, attrs, &P_ACTIONS)
+    ) -> starlark::Result<DynamicActionsCallable<'v>> {
+        Ok(new_dynamic_actions_callable(r#impl, attrs, &P_ACTIONS)?)
     }
 
     const DynamicActions: StarlarkValueAsType<StarlarkDynamicActions> = StarlarkValueAsType::new();

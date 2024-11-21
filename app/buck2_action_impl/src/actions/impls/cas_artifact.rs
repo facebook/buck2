@@ -12,7 +12,6 @@ use std::slice;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
@@ -125,11 +124,11 @@ impl CasArtifactAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredCasArtifactAction,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if !inputs.is_empty() {
-            return Err(anyhow::anyhow!(
-                CasArtifactActionDeclarationError::WrongNumberOfInputs(inputs.len())
-            ));
+            return Err(
+                CasArtifactActionDeclarationError::WrongNumberOfInputs(inputs.len()).into(),
+            );
         }
 
         let outputs_len = outputs.len();
@@ -138,9 +137,9 @@ impl CasArtifactAction {
         let output = match (outputs.next(), outputs.next()) {
             (Some(output), None) => output,
             _ => {
-                return Err(anyhow::anyhow!(
-                    CasArtifactActionDeclarationError::WrongNumberOfOutputs(outputs_len)
-                ));
+                return Err(
+                    CasArtifactActionDeclarationError::WrongNumberOfOutputs(outputs_len).into(),
+                );
             }
         };
 
@@ -150,7 +149,7 @@ impl CasArtifactAction {
     async fn execute_for_offline(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> buck2_error::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let outputs = offline::declare_copy_from_offline_cache(ctx, &self.output).await?;
 
         Ok((
@@ -216,18 +215,18 @@ impl IncrementalActionExecutable for CasArtifactAction {
             })?
             .into_iter()
             .next()
-            .context("get_digest_expirations did not return anything")?
+            .buck_error_context("get_digest_expirations did not return anything")?
             .1;
 
         if expiration < self.inner.expires_after {
-            return Err(
-                anyhow::Error::new(CasArtifactActionExecutionError::InvalidExpiration {
+            return Err(buck2_error::Error::new(
+                CasArtifactActionExecutionError::InvalidExpiration {
                     digest: self.inner.digest.dupe(),
                     declared_expiration: self.inner.expires_after,
                     effective_expiration: expiration,
-                })
-                .into(),
-            );
+                },
+            )
+            .into());
         }
 
         let value = match self.inner.kind {
@@ -241,9 +240,14 @@ impl IncrementalActionExecutable for CasArtifactAction {
                             self.inner.re_use_case,
                         )
                         .await
-                        .map_err(anyhow::Error::from)
-                        .and_then(|trees| trees.into_iter().next().context("RE response was empty"))
-                        .with_context(|| {
+                        .map_err(buck2_error::Error::from)
+                        .and_then(|trees| {
+                            trees
+                                .into_iter()
+                                .next()
+                                .buck_error_context("RE response was empty")
+                        })
+                        .with_buck_error_context(|| {
                             format!("Error downloading tree: {}", self.inner.digest)
                         })?,
                     DirectoryKind::Directory => {
@@ -255,11 +259,13 @@ impl IncrementalActionExecutable for CasArtifactAction {
                                 self.inner.re_use_case,
                             )
                             .await
-                            .map_err(anyhow::Error::from)
+                            .map_err(buck2_error::Error::from)
                             .and_then(|dirs| {
-                                dirs.into_iter().next().context("RE response was empty")
+                                dirs.into_iter()
+                                    .next()
+                                    .buck_error_context("RE response was empty")
                             })
-                            .with_context(|| {
+                            .with_buck_error_context(|| {
                                 format!("Error downloading dir: {}", self.inner.digest)
                             })?;
                         re_directory_to_re_tree(root_directory, &re_client, self.inner.re_use_case)

@@ -13,7 +13,6 @@ use std::slice;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
@@ -37,6 +36,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_core::category::CategoryRef;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -84,7 +84,7 @@ impl UnregisteredWriteJsonAction {
     pub(crate) fn cli<'v>(
         artifact: Value<'v>,
         content: Value<'v>,
-    ) -> anyhow::Result<WriteJsonCommandLineArg<'v>> {
+    ) -> buck2_error::Result<WriteJsonCommandLineArg<'v>> {
         Ok(WriteJsonCommandLineArg { artifact, content })
     }
 }
@@ -116,7 +116,7 @@ impl WriteJsonAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteJsonAction,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         validate_json(JsonUnpack::unpack_value_err(contents.value())?)?;
 
         let mut outputs = outputs.into_iter();
@@ -140,7 +140,7 @@ impl WriteJsonAction {
         })
     }
 
-    fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<Vec<u8>> {
+    fn get_contents(&self, fs: &ExecutorFs) -> buck2_error::Result<Vec<u8>> {
         let mut writer = Vec::new();
         json::write_json(
             JsonUnpack::unpack_value_err(self.contents.value())?,
@@ -184,7 +184,7 @@ impl Action for WriteJsonAction {
     }
 
     fn aquery_attributes(&self, fs: &ExecutorFs) -> IndexMap<String, String> {
-        let res: anyhow::Result<String> = try { String::from_utf8(self.get_contents(fs)?)? };
+        let res: buck2_error::Result<String> = try { String::from_utf8(self.get_contents(fs)?)? };
         // TODO(cjhopman): We should change this api to support returning a Result.
         indexmap! {
             "contents".to_owned() => match res {
@@ -220,10 +220,10 @@ impl IncrementalActionExecutable for WriteJsonAction {
             .await?
             .into_iter()
             .next()
-            .context("Write did not execute")?;
+            .buck_error_context("Write did not execute")?;
 
         let wall_time = execution_start
-            .context("Action did not set execution_start")?
+            .buck_error_context("Action did not set execution_start")?
             .elapsed();
 
         Ok((

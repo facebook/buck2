@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 use std::io::Write;
 
-use anyhow::Context;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::audit_dep_files::AUDIT_DEP_FILES;
 use buck2_core::category::Category;
@@ -19,6 +18,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceTransaction;
@@ -44,7 +44,7 @@ async fn audit_dep_files(
     let key = DepFilesKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
 
     let state = get_dep_files(&key)
-        .with_context(|| format!("Failed to find dep files for key `{}`", key))?;
+        .with_buck_error_context(|| format!("Failed to find dep files for key `{}`", key))?;
 
     let dep_files = read_dep_files(
         state.has_signatures(),
@@ -53,8 +53,8 @@ async fn audit_dep_files(
         ctx.per_transaction_data().get_materializer().as_ref(),
     )
     .await
-    .context("Failed to read dep files")?
-    .context("Dep fils have expired")?;
+    .buck_error_context("Failed to read dep files")?
+    .buck_error_context("Dep fils have expired")?;
 
     let fingerprints = state.locked_compute_fingerprints(
         Cow::Owned(dep_files),

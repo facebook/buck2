@@ -12,7 +12,6 @@ use std::slice;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
@@ -30,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_core::category::CategoryRef;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -88,7 +88,7 @@ impl WriteAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteAction,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut outputs = outputs.into_iter();
 
         let output = match (outputs.next(), outputs.next()) {
@@ -118,7 +118,7 @@ impl WriteAction {
         })
     }
 
-    fn get_contents(&self, fs: &ExecutorFs) -> anyhow::Result<String> {
+    fn get_contents(&self, fs: &ExecutorFs) -> buck2_error::Result<String> {
         let mut cli = Vec::<String>::new();
 
         let mut ctx = if let Some(macro_files) = &self.inner.macro_files {
@@ -211,10 +211,10 @@ impl IncrementalActionExecutable for WriteAction {
             .await?
             .into_iter()
             .next()
-            .context("Write did not execute")?;
+            .buck_error_context("Write did not execute")?;
 
         let wall_time = execution_start
-            .context("Action did not set execution_start")?
+            .buck_error_context("Action did not set execution_start")?
             .elapsed();
 
         Ok((

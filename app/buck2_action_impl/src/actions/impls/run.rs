@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::ops::ControlFlow;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
@@ -138,24 +137,18 @@ pub(crate) fn new_executor_preference(
     local_only: bool,
     prefer_local: bool,
     prefer_remote: bool,
-) -> anyhow::Result<ExecutorPreference> {
+) -> buck2_error::Result<ExecutorPreference> {
     match (local_only, prefer_local, prefer_remote) {
         (true, false, false) => Ok(ExecutorPreference::LocalRequired),
-        (true, false, true) => Err(anyhow::anyhow!(
-            LocalPreferenceError::LocalOnlyAndPreferRemote
-        )),
+        (true, false, true) => Err(LocalPreferenceError::LocalOnlyAndPreferRemote.into()),
         (false, true, false) => Ok(ExecutorPreference::LocalPreferred),
-        (false, true, true) => Err(anyhow::anyhow!(
-            LocalPreferenceError::PreferLocalAndPreferRemote
-        )),
+        (false, true, true) => Err(LocalPreferenceError::PreferLocalAndPreferRemote.into()),
         (false, false, false) => Ok(ExecutorPreference::Default),
         (false, false, true) => Ok(ExecutorPreference::RemotePreferred),
-        (true, true, false) => Err(anyhow::anyhow!(
-            LocalPreferenceError::LocalOnlyAndPreferLocal
-        )),
-        (true, true, true) => Err(anyhow::anyhow!(
-            LocalPreferenceError::LocalOnlyAndPreferLocalAndPreferRemote
-        )),
+        (true, true, false) => Err(LocalPreferenceError::LocalOnlyAndPreferLocal.into()),
+        (true, true, true) => {
+            Err(LocalPreferenceError::LocalOnlyAndPreferLocalAndPreferRemote.into())
+        }
     }
 }
 
@@ -183,7 +176,7 @@ impl UnregisteredAction for UnregisteredRunAction {
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
-        let starlark_values = starlark_data.internal_error_anyhow("module data to be present")?;
+        let starlark_values = starlark_data.internal_error("module data to be present")?;
         let run_action = RunAction::new(*self, starlark_values, outputs, error_handler)?;
         Ok(Box::new(run_action))
     }
@@ -247,11 +240,15 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
 }
 
 impl FrozenStarlarkRunActionValues {
-    pub(crate) fn worker<'v>(&'v self) -> anyhow::Result<Option<ValueOf<'v, &'v WorkerInfo<'v>>>> {
+    pub(crate) fn worker<'v>(
+        &'v self,
+    ) -> buck2_error::Result<Option<ValueOf<'v, &'v WorkerInfo<'v>>>> {
         let Some(worker) = self.worker else {
             return Ok(None);
         };
-        ValueOf::unpack_value_err(worker.to_value()).map(Some)
+        ValueOf::unpack_value_err(worker.to_value())
+            .map_err(buck2_error::Error::from)
+            .map(Some)
     }
 }
 
@@ -291,17 +288,18 @@ enum ExecuteResult {
 impl RunAction {
     fn unpack(
         values: &OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
-    ) -> anyhow::Result<UnpackedRunActionValues> {
+    ) -> buck2_error::Result<UnpackedRunActionValues> {
         let exe: &dyn CommandLineArgLike = &*values.exe;
         let args: &dyn CommandLineArgLike = &*values.args;
         let env = match values.env {
             None => Vec::new(),
             Some(env) => {
-                let d = DictRef::from_value(env.to_value().get()).context("expecting dict")?;
+                let d = DictRef::from_value(env.to_value().get())
+                    .buck_error_context("expecting dict")?;
                 let mut res = Vec::with_capacity(d.len());
                 for (k, v) in d.iter() {
                     res.push((
-                        k.unpack_str().context("expecting string")?,
+                        k.unpack_str().buck_error_context("expecting string")?,
                         ValueAsCommandLineLike::unpack_value_err(v)?.0,
                     ));
                 }
@@ -329,7 +327,7 @@ impl RunAction {
         &self,
         action_execution_ctx: &dyn ActionExecutionCtx,
         artifact_visitor: &mut impl CommandLineArtifactVisitor,
-    ) -> anyhow::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
+    ) -> buck2_error::Result<(ExpandedCommandLine, Option<WorkerSpec>)> {
         let fs = &action_execution_ctx.executor_fs();
         let mut cli_ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values)?;
@@ -361,7 +359,7 @@ impl RunAction {
             .add_to_command_line(&mut args_rendered, &mut cli_ctx)?;
         values.args.visit_artifacts(artifact_visitor)?;
 
-        let cli_env: anyhow::Result<SortedVectorMap<_, _>> = values
+        let cli_env: buck2_error::Result<SortedVectorMap<_, _>> = values
             .env
             .into_iter()
             .map(|(k, v)| {
@@ -391,10 +389,10 @@ impl RunAction {
         starlark_values: OwnedFrozenValue,
         outputs: IndexSet<BuildArtifact>,
         error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let starlark_values = starlark_values
             .downcast_anyhow()
-            .internal_error_anyhow("Must be `run_action_values`")?;
+            .internal_error("Must be `run_action_values`")?;
 
         Self::unpack(&starlark_values)?;
 
@@ -416,7 +414,7 @@ impl RunAction {
         &self,
         visitor: &mut impl RunActionVisitor,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<PreparedRunAction> {
+    ) -> buck2_error::Result<PreparedRunAction> {
         let executor_fs = ctx.executor_fs();
         let fs = executor_fs.fs();
 
@@ -491,7 +489,7 @@ impl RunAction {
         action_digest: &ActionDigest,
         result: CommandExecutionResult,
         dep_file_bundle: &Option<DepFileBundle>,
-    ) -> anyhow::Result<ControlFlow<CommandExecutionResult, CommandExecutionManager>> {
+    ) -> buck2_error::Result<ControlFlow<CommandExecutionResult, CommandExecutionManager>> {
         // If it's served by the regular action cache no need to verify anything here.
         if !result.was_served_by_remote_dep_file_cache() {
             return Ok(ControlFlow::Break(result));

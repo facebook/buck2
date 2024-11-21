@@ -85,7 +85,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] pretty: bool,
         #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<impl AllocValue<'v>> {
+    ) -> starlark::Result<impl AllocValue<'v>> {
         let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
@@ -140,7 +140,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] with_inputs: bool,
         #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<
+    ) -> starlark::Result<
         Either<
             ValueTyped<'v, StarlarkDeclaredArtifact>,
             (
@@ -152,11 +152,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn count_write_to_file_macros(
             args_allowed: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> anyhow::Result<u32> {
+        ) -> buck2_error::Result<u32> {
             if !args_allowed && cli.contains_arg_attr() {
-                return Err(anyhow::anyhow!(
-                    WriteActionError::ArgAttrsDetectedButNotAllowed
-                ));
+                return Err(WriteActionError::ArgAttrsDetectedButNotAllowed.into());
             }
 
             struct WriteToFileMacrosCounter {
@@ -191,7 +189,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> anyhow::Result<SmallSet<ArtifactGroup>> {
+        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
             if !with_inputs {
                 return Ok(Default::default());
             }

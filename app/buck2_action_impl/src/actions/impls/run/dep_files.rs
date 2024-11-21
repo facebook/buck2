@@ -13,7 +13,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_action_metadata_proto::DepFileInputs;
 use buck2_action_metadata_proto::RemoteDepFile;
@@ -32,7 +31,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisito
 use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::category::Category;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -78,8 +77,8 @@ static DEP_FILES: Lazy<DashMap<DepFilesKey, Arc<DepFileState>>> = Lazy::new(Dash
 
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.
-fn keep_directories() -> anyhow::Result<bool> {
-    buck2_env_anyhow!("BUCK2_KEEP_DEP_FILE_DIRECTORIES", bool)
+fn keep_directories() -> buck2_error::Result<bool> {
+    buck2_env!("BUCK2_KEEP_DEP_FILE_DIRECTORIES", bool)
 }
 
 /// Forget about all dep files. This isn't really meant to be commonly used, but if an invalid dep
@@ -452,7 +451,7 @@ impl DepFileBundle {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
         declared_outputs: &[BuildArtifact],
-    ) -> anyhow::Result<(Option<(ActionOutputs, ActionExecutionMetadata)>, bool)> {
+    ) -> buck2_error::Result<(Option<(ActionOutputs, ActionExecutionMetadata)>, bool)> {
         // Get the action outputs (if cache hit) and an indicator on whether a full lookup operation should be performed
         let (outputs, check_filtered_inputs) = span_async_simple(
             buck2_data::MatchDepFilesStart {
@@ -487,7 +486,7 @@ impl DepFileBundle {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
         declared_outputs: &[BuildArtifact],
-    ) -> anyhow::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
+    ) -> buck2_error::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
         let matching_result = span_async_simple(
             buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs: true,
@@ -525,7 +524,7 @@ impl DepFileBundle {
         fs: &ArtifactFs,
         materializer: &dyn Materializer,
         found: &RemoteDepFile,
-    ) -> anyhow::Result<bool> {
+    ) -> buck2_error::Result<bool> {
         // Everything in the common digest structure is included in the remote dep file key,
         // so they should be the same but it's good to double check.
         let common = &self.common_digests;
@@ -579,7 +578,7 @@ impl DepFileBundle {
             materializer,
         )
         .await
-        .context("Error reading dep files")?;
+        .buck_error_context("Error reading dep files")?;
 
         let dep_files = match dep_files {
             Some(dep_files) => dep_files,
@@ -620,7 +619,7 @@ pub(crate) fn make_dep_file_bundle<'a>(
     visitor: DepFilesCommandLineVisitor<'_>,
     expanded_command_line_digest: ExpandedCommandLineDigest,
     execution_paths: &'a CommandExecutionPaths,
-) -> anyhow::Result<DepFileBundle> {
+) -> buck2_error::Result<DepFileBundle> {
     let input_directory_digest = execution_paths
         .input_directory()
         .fingerprint()
@@ -685,7 +684,7 @@ pub(crate) async fn match_if_identical_action(
     cli_digest: &ExpandedCommandLineDigest,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
-) -> anyhow::Result<(Option<ActionOutputs>, bool)> {
+) -> buck2_error::Result<(Option<ActionOutputs>, bool)> {
     let previous_state = match get_dep_files(key) {
         Some(d) => d.dupe(),
         None => return Ok((None, false)),
@@ -725,7 +724,7 @@ pub(crate) async fn match_or_clear_dep_file(
     declared_inputs: &PartitionedInputs<ActionSharedDirectory>,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
-) -> anyhow::Result<Option<ActionOutputs>> {
+) -> buck2_error::Result<Option<ActionOutputs>> {
     let previous_state = match get_dep_files(key) {
         Some(d) => d.dupe(),
         None => return Ok(None),
@@ -763,7 +762,7 @@ enum InitialDepFileLookupResult {
 async fn outputs_match(
     ctx: &dyn ActionExecutionCtx,
     previous_state: &Arc<DepFileState>,
-) -> anyhow::Result<bool> {
+) -> buck2_error::Result<bool> {
     let fs = ctx.fs();
 
     // Finally, we need to make sure that the artifacts in the materializer actually
@@ -828,7 +827,7 @@ async fn dep_files_match(
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
     ctx: &dyn ActionExecutionCtx,
-) -> anyhow::Result<bool> {
+) -> buck2_error::Result<bool> {
     let initial_check = check_action(
         key,
         previous_state,
@@ -853,7 +852,7 @@ async fn dep_files_match(
         ctx.materializer(),
     )
     .await
-    .context(
+    .buck_error_context(
         "Error reading persisted dep files. \
             Fix the command that produced an invalid dep file. \
             You may also use `buck2 debug flush-dep-files` to drop all dep file state.",
@@ -915,7 +914,7 @@ pub(crate) async fn read_dep_files(
     declared_dep_files: &DeclaredDepFiles,
     fs: &ArtifactFs,
     materializer: &dyn Materializer,
-) -> anyhow::Result<Option<ConcreteDepFiles>> {
+) -> buck2_error::Result<Option<ConcreteDepFiles>> {
     // NOTE: We only materialize if we haven't computed our signatures yet, since we know we
     // can't have computed our signatures without having read the dep file already. In an ideal
     // world this wouldn't be necessary, but in practice contention on the materializer makes
@@ -928,9 +927,9 @@ pub(crate) async fn read_dep_files(
         };
     }
 
-    let dep_files = declared_dep_files
-        .read(fs)
-        .context("Error reading dep files, verify that the action produced valid output")?;
+    let dep_files = declared_dep_files.read(fs).buck_error_context(
+        "Error reading dep files, verify that the action produced valid output",
+    )?;
 
     Ok(dep_files)
 }
@@ -955,10 +954,10 @@ async fn eagerly_compute_fingerprints(
     materializer: &dyn Materializer,
     shared_declared_inputs: &PartitionedInputs<ActionSharedDirectory>,
     declared_dep_files: &DeclaredDepFiles,
-) -> anyhow::Result<StoredFingerprints> {
+) -> buck2_error::Result<StoredFingerprints> {
     let dep_files = read_dep_files(false, declared_dep_files, artifact_fs, materializer)
         .await?
-        .context("Dep file not found")?;
+        .buck_error_context("Dep file not found")?;
 
     let fingerprints = compute_fingerprints(
         shared_declared_inputs.clone().unshare(),
@@ -975,7 +974,7 @@ pub(crate) async fn populate_dep_files(
     dep_file_bundle: DepFileBundle,
     result: &ActionOutputs,
     was_produced_locally: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let DepFileBundle {
         declared_dep_files,
         dep_files_key,
@@ -1082,7 +1081,7 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
     fn to_directories(
         &self,
         ctx: &dyn ActionExecutionCtx,
-    ) -> anyhow::Result<PartitionedInputs<ActionDirectoryBuilder>> {
+    ) -> buck2_error::Result<PartitionedInputs<ActionDirectoryBuilder>> {
         let reduce = |inputs: &[ArtifactGroup]| {
             let mut builder = ActionDirectoryBuilder::empty();
 
@@ -1091,7 +1090,7 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
                 input.add_to_directory(&mut builder, ctx.fs())?;
             }
 
-            anyhow::Ok(builder)
+            buck2_error::Ok(builder)
         };
 
         Ok(PartitionedInputs {
@@ -1099,7 +1098,7 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
             tagged: self
                 .tagged
                 .iter()
-                .map(|(tag, inputs)| anyhow::Ok((tag.dupe(), reduce(inputs)?)))
+                .map(|(tag, inputs)| buck2_error::Ok((tag.dupe(), reduce(inputs)?)))
                 .collect::<Result<_, _>>()?,
         })
     }
@@ -1270,7 +1269,7 @@ impl DeclaredDepFiles {
 
     /// Read this set of dep files, producing ConcreteDepFiles. This can then be used to compute
     /// signatures for the input set that was used, and for future input sets.
-    fn read(&self, fs: &ArtifactFs) -> anyhow::Result<Option<ConcreteDepFiles>> {
+    fn read(&self, fs: &ArtifactFs) -> buck2_error::Result<Option<ConcreteDepFiles>> {
         let mut contents = HashMap::with_capacity(self.tagged.len());
 
         for declared_dep_file in self.tagged.values() {
@@ -1278,7 +1277,7 @@ impl DeclaredDepFiles {
 
             let dep_file = declared_dep_file.output.resolve_path(fs)?;
 
-            let read_dep_file: anyhow::Result<()> = try {
+            let read_dep_file: buck2_error::Result<()> = try {
                 let dep_file_path = fs.fs().resolve(&dep_file);
                 let dep_file = fs_util::read_to_string_if_exists(&dep_file_path)?;
 
@@ -1287,7 +1286,12 @@ impl DeclaredDepFiles {
                     None => {
                         soft_error!(
                             "missing_dep_file",
-                            anyhow::anyhow!("Dep file is missing at {}", dep_file_path).into()
+                            buck2_error::buck2_error!(
+                                [],
+                                "Dep file is missing at {}",
+                                dep_file_path
+                            )
+                            .into()
                         )?;
                         return Ok(None);
                     }
@@ -1301,12 +1305,12 @@ impl DeclaredDepFiles {
 
                     // On windows, valid dep files can contain backslashes in paths, normalize them.
                     let path = ForwardRelativePathNormalizer::normalize_path(line)
-                        .buck_error_context_anyhow("Invalid line encountered in dep file")?;
+                        .buck_error_context("Invalid line encountered in dep file")?;
                     selector.select(path.as_ref());
                 }
             };
 
-            read_dep_file.with_context(|| {
+            read_dep_file.with_buck_error_context(|| {
                 format!(
                     "Action execution produced an invalid `{}` dep file at `{}`",
                     declared_dep_file.label, dep_file,
@@ -1334,7 +1338,7 @@ enum MaterializeDepFilesError {
     #[error("Error materializing dep file")]
     MaterializationFailed {
         #[source]
-        source: anyhow::Error,
+        source: buck2_error::Error,
     },
 
     #[error("A dep file was not found")]

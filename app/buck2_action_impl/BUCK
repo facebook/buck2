@@ -22,7 +22,6 @@ rust_library(
         "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:sha1",
-        "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_action_metadata_proto:buck2_action_metadata_proto",

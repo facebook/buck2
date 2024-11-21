@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
@@ -65,7 +64,9 @@ impl UnregisteredSymlinkedDirAction {
     /// Validate that no output path is duplicated or overlapping.
     /// Duplicates are easy - overlapping only happens with symlinks to directories (a bad idea),
     /// and would look like `a` and `a/b` both being given.
-    fn validate_args(args: &mut [(ArtifactGroup, Box<ForwardRelativePath>)]) -> anyhow::Result<()> {
+    fn validate_args(
+        args: &mut [(ArtifactGroup, Box<ForwardRelativePath>)],
+    ) -> buck2_error::Result<()> {
         // We sort the inputs. They are morally a set, so it shouldn't matter too much,
         // and this lets us implement the overlap check more easily.
         args.sort_by(|x, y| x.1.cmp(&y.1));
@@ -95,7 +96,7 @@ impl UnregisteredSymlinkedDirAction {
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args<'v>(
         srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
         SmallSet<ArtifactGroup>,
     )> {
@@ -106,11 +107,11 @@ impl UnregisteredSymlinkedDirAction {
             .into_iter()
             .map(|(k, as_artifact)| {
                 let associates = as_artifact.0.get_associated_artifacts();
-                anyhow::Ok((
+                buck2_error::Ok((
                     (
                         as_artifact.0.get_artifact_group()?,
                         ForwardRelativePathBuf::try_from(k.to_owned())
-                            .buck_error_context_anyhow("dict key must be a forward relative path")?
+                            .buck_error_context("dict key must be a forward relative path")?
                             .into_box(),
                     ),
                     associates,
@@ -131,11 +132,13 @@ impl UnregisteredSymlinkedDirAction {
     pub(crate) fn new<'v>(
         copy: bool,
         srcs: UnpackDictEntries<&'v str, ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.
             //        Once we use a proper Value parser this should all get cleaned up.
-            .with_context(|| ValueError::IncorrectParameterTypeNamed("srcs".to_owned()))?;
+            .buck_error_context(
+                ValueError::IncorrectParameterTypeNamed("srcs".to_owned()).to_string(),
+            )?;
         // Overlapping check make sense for non-copy mode only.
         // When directories are copied into the same destination, the ordering defines how files are overwritten.
         if !copy {
@@ -238,7 +241,7 @@ impl IncrementalActionExecutable for SymlinkedDirAction {
                 .artifact_values(group)
                 .iter()
                 .into_singleton()
-                .context("Input did not dereference to exactly one artifact")?;
+                .buck_error_context("Input did not dereference to exactly one artifact")?;
 
             let src = src_artifact.resolve_path(ctx.fs())?;
             let dest = output.join(dest);
@@ -290,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_symlinked_dir_validation() {
-        fn validate(paths: &[&str]) -> anyhow::Result<()> {
+        fn validate(paths: &[&str]) -> buck2_error::Result<()> {
             let a = ArtifactGroup::Artifact(mk_artifact());
             let mut xs = paths.map(|x| {
                 (

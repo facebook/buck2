@@ -12,7 +12,6 @@ use std::cell::RefCell;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
@@ -81,7 +80,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
 
 pub type DynamicActionsCallbackReturnType = ListType<AbstractProvider>;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum DynamicActionCallableError {
     #[error("DynamicActionCallable can be called only if frozen")]
     NotFrozen,
@@ -167,9 +166,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let me = me
-            .unpack_frozen()
-            .internal_error_anyhow("me must be frozen")?;
+        let me = me.unpack_frozen().internal_error("me must be frozen")?;
         let me = FrozenValueTyped::new_err(me)?;
         let attr_values: DynamicAttrValues<Value, OutputArtifact> =
             self.signature.parser(args, eval, |parser, _eval| {
@@ -177,7 +174,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
                 for (name, attr_ty) in &self.attrs {
                     let value = attr_ty
                         .coerce(parser.next()?)
-                        .with_context(|| format!("Error coercing attribute `{name}`"))?;
+                        .with_buck_error_context(|| format!("Error coercing attribute `{name}`"))?;
                     attr_values.push(value);
                 }
                 Ok(DynamicAttrValues {
@@ -216,7 +213,7 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
 
         let name = name
             .into_inner()
-            .context(DynamicActionCallableError::NotExported)?;
+            .buck_error_context(DynamicActionCallableError::NotExported)?;
 
         let signature = ParametersSpec::new_named_only(
             &name,

@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
@@ -35,6 +34,7 @@ use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -101,20 +101,19 @@ impl WriteMacrosToFileAction {
         identifier: String,
         contents: OwnedFrozenValue,
         outputs: IndexSet<BuildArtifact>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if outputs.is_empty() {
-            Err(anyhow::anyhow!(
-                WriteMacrosActionValidationError::NoOutputsSpecified
-            ))
+            Err(WriteMacrosActionValidationError::NoOutputsSpecified.into())
         } else if ValueAsCommandLineLike::unpack_value(contents.value())
             .into_anyhow_result()?
             .is_none()
         {
-            Err(anyhow::anyhow!(
+            Err(
                 WriteMacrosActionValidationError::ContentsNotCommandLineValue(
-                    contents.value().to_repr()
+                    contents.value().to_repr(),
                 )
-            ))
+                .into(),
+            )
         } else {
             Ok(Self {
                 identifier,
@@ -180,7 +179,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
                     .visit_write_to_file_macros(&mut macro_writer)?;
 
                 if self.outputs.len() != output_contents.len() {
-                    return Err(anyhow::Error::new(
+                    return Err(buck2_error::Error::new(
                         WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts,
                     )
                     .into());
@@ -199,7 +198,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
             .await?;
 
         let wall_time = execution_start
-            .context("Action did not set execution_start")?
+            .buck_error_context("Action did not set execution_start")?
             .elapsed();
 
         let output_values = std::iter::zip(self.outputs.iter(), values.into_iter())

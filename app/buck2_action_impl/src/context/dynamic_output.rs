@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::BoundBuildArtifact;
@@ -23,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackAr
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::environment::MethodsBuilder;
@@ -60,7 +60,10 @@ impl DynamicActionsOutputArtifactBinder {
         }
     }
 
-    pub(crate) fn bind(&mut self, output: OutputArtifact) -> anyhow::Result<BoundBuildArtifact> {
+    pub(crate) fn bind(
+        &mut self,
+        output: OutputArtifact,
+    ) -> buck2_error::Result<BoundBuildArtifact> {
         // We create ActionKeys that point directly to the dynamic_lambda's
         // output rather than our own. This saves the resolution of the key from
         // needing to first lookup our result just to get forwarded to the lambda's result.
@@ -84,13 +87,13 @@ impl DynamicActionsOutputArtifactBinder {
 fn output_artifacts_to_lambda_build_artifacts(
     dynamic_key: &DynamicLambdaResultsKey,
     outputs: IndexSet<OutputArtifact>,
-) -> anyhow::Result<Box<[BoundBuildArtifact]>> {
+) -> buck2_error::Result<Box<[BoundBuildArtifact]>> {
     let mut bind = DynamicActionsOutputArtifactBinder::new(dynamic_key);
 
     outputs
         .into_iter()
         .map(|output| bind.bind(output))
-        .collect::<anyhow::Result<_>>()
+        .collect::<buck2_error::Result<_>>()
 }
 
 #[starlark_module]
@@ -148,13 +151,13 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             ),
             NoneType,
         >,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         // TODO(nga): delete.
         let _unused = inputs;
 
         // Parameter validation
         if outputs.items.is_empty() {
-            return Err(DynamicOutputError::EmptyOutput.into());
+            return Err(buck2_error::Error::from(DynamicOutputError::EmptyOutput).into());
         }
 
         // Conversion
@@ -206,12 +209,15 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     fn dynamic_output_new<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,
-    ) -> anyhow::Result<StarlarkDynamicValue> {
+    ) -> starlark::Result<StarlarkDynamicValue> {
         let dynamic_actions = dynamic_actions
             .data
-            .try_borrow_mut()?
+            .try_borrow_mut()
+            .map_err(buck2_error::Error::from)?
             .take()
-            .context("dynamic_action data can be used only in one `dynamic_output_new` call")?;
+            .buck_error_context(
+                "dynamic_action data can be used only in one `dynamic_output_new` call",
+            )?;
         let StarlarkDynamicActionsData {
             attr_values,
             callable,

@@ -18,7 +18,7 @@ use buck2_build_api::dynamic::storage::DYNAMIC_LAMBDA_PARAMS_STORAGES;
 use buck2_core::deferred::dynamic::DynamicLambdaIndex;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::AnyLifetime;
@@ -48,15 +48,15 @@ pub(crate) struct FrozenDynamicLambdaParamsStorageImpl {
 impl<'v> DynamicLambdaParamsStorageImpl<'v> {
     pub(crate) fn get<'a>(
         storage: &'a mut AnalysisValueStorage<'v>,
-    ) -> anyhow::Result<&'a mut DynamicLambdaParamsStorageImpl<'v>> {
+    ) -> buck2_error::Result<&'a mut DynamicLambdaParamsStorageImpl<'v>> {
         storage
             .lambda_params
             .as_any_mut()
             .downcast_mut()
-            .internal_error_anyhow("Wrong type for lambda params storage")
+            .internal_error("Wrong type for lambda params storage")
     }
 
-    pub fn next_dynamic_actions_key(&self) -> anyhow::Result<DynamicLambdaResultsKey> {
+    pub fn next_dynamic_actions_key(&self) -> buck2_error::Result<DynamicLambdaResultsKey> {
         let index = DynamicLambdaIndex::new(self.lambda_params.len().try_into()?);
         Ok(DynamicLambdaResultsKey::new(self.self_key.dupe(), index))
     }
@@ -65,9 +65,9 @@ impl<'v> DynamicLambdaParamsStorageImpl<'v> {
         &mut self,
         key: DynamicLambdaResultsKey,
         lambda_params: DynamicLambdaParams<'v>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if &self.self_key != key.holder_key() {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Wrong lambda owner: expecting `{}`, got `{}`",
                 self.self_key,
                 key
@@ -82,9 +82,9 @@ impl FrozenDynamicLambdaParamsStorageImpl {
     pub(crate) fn lookup_lambda<'f>(
         storage: OwnedRefFrozenRef<'f, FrozenAnalysisValueStorage>,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
+    ) -> buck2_error::Result<OwnedRefFrozenRef<'f, FrozenDynamicLambdaParams>> {
         if key.holder_key() != &storage.as_ref().self_key {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Wrong owner for lambda: expecting `{}`, got `{}`",
                 storage.as_ref().self_key,
                 key
@@ -94,10 +94,10 @@ impl FrozenDynamicLambdaParamsStorageImpl {
             s.lambda_params
                 .as_any()
                 .downcast_ref::<FrozenDynamicLambdaParamsStorageImpl>()
-                .internal_error_anyhow("Wrong type for lambda params storage")?
+                .internal_error("Wrong type for lambda params storage")?
                 .lambda_params
                 .get(key)
-                .with_internal_error_anyhow(|| format!("missing lambda `{}`", key))
+                .with_internal_error(|| format!("missing lambda `{}`", key))
         })
     }
 }

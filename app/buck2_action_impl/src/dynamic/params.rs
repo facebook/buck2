@@ -76,7 +76,7 @@ pub struct FrozenDynamicLambdaParams {
 impl FrozenDynamicLambdaParams {
     pub(crate) fn attributes<'v>(
         &'v self,
-    ) -> anyhow::Result<Option<ValueOfUnchecked<'v, StructRef<'static>>>> {
+    ) -> buck2_error::Result<Option<ValueOfUnchecked<'v, StructRef<'static>>>> {
         let Some(attributes) = self.attributes else {
             return Ok(None);
         };
@@ -85,13 +85,13 @@ impl FrozenDynamicLambdaParams {
 
     pub(crate) fn plugins<'v>(
         &'v self,
-    ) -> anyhow::Result<Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>> {
+    ) -> buck2_error::Result<Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>> {
         let Some(plugins) = self.plugins else {
             return Ok(None);
         };
         Ok(Some(
             ValueTypedComplex::new(plugins.to_value())
-                .internal_error_anyhow("plugins must be AnalysisPlugins")?,
+                .internal_error("plugins must be AnalysisPlugins")?,
         ))
     }
 

@@ -10,7 +10,6 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
@@ -25,6 +24,7 @@ use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::category::CategoryRef;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -85,7 +85,7 @@ impl CopyAction {
         copy: CopyMode,
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         // TODO: Exclude other variants once they become available here. For now, this is a noop.
         match inputs.iter().into_singleton() {
             Some(ArtifactGroup::Artifact(..) | ArtifactGroup::Promise(..)) => {}
@@ -96,9 +96,7 @@ impl CopyAction {
         };
 
         if outputs.len() != 1 {
-            Err(anyhow::anyhow!(
-                CopyActionValidationError::WrongNumberOfOutputs(outputs.len())
-            ))
+            Err(CopyActionValidationError::WrongNumberOfOutputs(outputs.len()).into())
         } else {
             Ok(CopyAction {
                 copy,
@@ -164,7 +162,7 @@ impl IncrementalActionExecutable for CopyAction {
             .artifact_values(self.input())
             .iter()
             .into_singleton()
-            .context("Input did not dereference to exactly one artifact")?;
+            .buck_error_context("Input did not dereference to exactly one artifact")?;
 
         let artifact_fs = ctx.fs();
         let src = input.resolve_path(artifact_fs)?;

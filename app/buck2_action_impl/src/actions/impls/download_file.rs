@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
@@ -30,6 +29,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
+use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
@@ -104,15 +104,11 @@ impl DownloadFileAction {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredDownloadFileAction,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if !inputs.is_empty() {
-            Err(anyhow::anyhow!(
-                DownloadFileActionError::WrongNumberOfInputs(inputs.len())
-            ))
+            Err(DownloadFileActionError::WrongNumberOfInputs(inputs.len()).into())
         } else if outputs.len() != 1 {
-            Err(anyhow::anyhow!(
-                DownloadFileActionError::WrongNumberOfOutputs(outputs.len())
-            ))
+            Err(DownloadFileActionError::WrongNumberOfOutputs(outputs.len()).into())
         } else {
             Ok(Self {
                 inputs: inputs.into_iter().collect(),
@@ -142,7 +138,7 @@ impl DownloadFileAction {
         &self,
         client: &HttpClient,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<Option<FileMetadata>> {
+    ) -> buck2_error::Result<Option<FileMetadata>> {
         if !self.inner.is_deferrable {
             return Ok(None);
         }
@@ -177,14 +173,15 @@ impl DownloadFileAction {
             .map(|content_length| {
                 let content_length = content_length
                     .to_str()
-                    .context("Header is not valid utf-8")?;
-                let content_length_number = content_length
-                    .parse()
-                    .with_context(|| format!("Header is not a number: `{}`", content_length))?;
-                anyhow::Ok(content_length_number)
+                    .buck_error_context("Header is not valid utf-8")?;
+                let content_length_number =
+                    content_length.parse().with_buck_error_context(|| {
+                        format!("Header is not a number: `{}`", content_length)
+                    })?;
+                buck2_error::Ok(content_length_number)
             })
             .transpose()
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 format!(
                     "Request to `{}` returned an invalid `{}` header",
                     url,
@@ -211,7 +208,7 @@ impl DownloadFileAction {
     async fn execute_for_offline(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
-    ) -> anyhow::Result<(ActionOutputs, ActionExecutionMetadata)> {
+    ) -> buck2_error::Result<(ActionOutputs, ActionExecutionMetadata)> {
         let outputs = offline::declare_copy_from_offline_cache(ctx, self.output()).await?;
 
         Ok((
