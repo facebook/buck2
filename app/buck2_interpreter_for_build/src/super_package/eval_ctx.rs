@@ -44,7 +44,7 @@ pub struct PackageFileEvalCtx {
 impl PackageFileEvalCtx {
     fn cfg_constructor(
         extra: Option<&OwnedFrozenRef<FrozenPackageFileExtra>>,
-    ) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+    ) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
         let Some(extra) = extra else {
             return Ok(None);
         };
@@ -62,7 +62,7 @@ impl PackageFileEvalCtx {
     pub(crate) fn build_super_package(
         self,
         extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>>,
-    ) -> anyhow::Result<SuperPackage> {
+    ) -> buck2_error::Result<SuperPackage> {
         let cfg_constructor = Self::cfg_constructor(extra.as_ref())?;
 
         let package_values = match &extra {

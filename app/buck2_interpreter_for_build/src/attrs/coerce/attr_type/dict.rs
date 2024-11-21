@@ -29,7 +29,7 @@ impl AttrTypeCoerce for DictAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         if let Some(dict) = DictRef::from_value(value) {
             let mut res = Vec::with_capacity(dict.len());
             if self.sorted {
@@ -54,10 +54,7 @@ impl AttrTypeCoerce for DictAttrType {
             }
             Ok(CoercedAttr::Dict(DictLiteral(ctx.intern_dict(res))))
         } else {
-            Err(anyhow::anyhow!(CoercionError::type_error(
-                Dict::TYPE,
-                value,
-            )))
+            Err(CoercionError::type_error(Dict::TYPE, value).into())
         }
     }
 

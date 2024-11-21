@@ -12,7 +12,6 @@ use std::io;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
@@ -49,17 +48,19 @@ pub struct SuperPackageValuesImpl {
 }
 
 impl SuperPackageValuesImpl {
-    pub(crate) fn get(values: &dyn SuperPackageValues) -> anyhow::Result<&SuperPackageValuesImpl> {
+    pub(crate) fn get(
+        values: &dyn SuperPackageValues,
+    ) -> buck2_error::Result<&SuperPackageValuesImpl> {
         values
             .as_any()
             .downcast_ref::<SuperPackageValuesImpl>()
-            .internal_error_anyhow("Expecting SuperPackageValuesImpl")
+            .internal_error("Expecting SuperPackageValuesImpl")
     }
 
     pub(crate) fn merge(
         parent: &Arc<dyn SuperPackageValues>,
         this_package: SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
-    ) -> anyhow::Result<Arc<dyn SuperPackageValues>> {
+    ) -> buck2_error::Result<Arc<dyn SuperPackageValues>> {
         if this_package.is_empty() {
             Ok(parent.dupe())
         } else {
@@ -116,9 +117,10 @@ pub(crate) struct FrozenStarlarkPackageValue(FrozenValue);
 pub(crate) struct OwnedFrozenStarlarkPackageValue(OwnedFrozenValue);
 
 impl<'v> StarlarkPackageValue<'v> {
-    pub(crate) fn new(value: Value<'v>) -> anyhow::Result<StarlarkPackageValue<'v>> {
-        serde_json::to_writer(io::sink(), &value)
-            .context("Value must be serializable to JSON to be stored as package value")?;
+    pub(crate) fn new(value: Value<'v>) -> buck2_error::Result<StarlarkPackageValue<'v>> {
+        serde_json::to_writer(io::sink(), &value).buck_error_context(
+            "Value must be serializable to JSON to be stored as package value",
+        )?;
         Ok(StarlarkPackageValue(value))
     }
 }
@@ -132,7 +134,8 @@ impl<'v> Freeze for StarlarkPackageValue<'v> {
         // Error is possible if either:
         // * package value is modified after `write_package_value`
         // * frozen value is not valid JSON even if original value was
-        StarlarkPackageValue::new(frozen.to_value()).context("Frozen value is not valid JSON")?;
+        StarlarkPackageValue::new(frozen.to_value())
+            .buck_error_context("Frozen value is not valid JSON")?;
 
         Ok(FrozenStarlarkPackageValue(frozen))
     }
@@ -148,11 +151,11 @@ impl OwnedFrozenStarlarkPackageValue {
         OwnedFrozenStarlarkPackageValue(OwnedFrozenValue::new(owner, value.0))
     }
 
-    pub(crate) fn to_json_value(&self) -> anyhow::Result<serde_json::Value> {
+    pub(crate) fn to_json_value(&self) -> buck2_error::Result<serde_json::Value> {
         self.0
             .value()
             .to_json_value()
-            .internal_error_anyhow("Not valid JSON, should have been validated at construction")
+            .internal_error("Not valid JSON, should have been validated at construction")
     }
 
     pub(crate) fn owned_frozen_value(&self) -> &OwnedFrozenValue {
@@ -172,8 +175,8 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] value: Value<'v>,
         #[starlark(require = named, default = false)] overwrite: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<NoneType> {
-        let key = MetadataKeyRef::new(key)?;
+    ) -> starlark::Result<NoneType> {
+        let key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
 
         let package_ctx = BuildContext::from_context(eval)?
             .additional
@@ -182,12 +185,20 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
         let package_file_extra = PackageFileExtra::get_or_init(eval)?;
 
         if package_file_extra.package_values.borrow().contains_key(key) {
-            return Err(PackageValueError::KeyAlreadySetInThisFile(key.to_owned()).into());
+            return Err(
+                buck2_error::Error::from(PackageValueError::KeyAlreadySetInThisFile(
+                    key.to_owned(),
+                ))
+                .into(),
+            );
         }
 
         if !overwrite {
             if package_ctx.parent.package_values().contains_key(key) {
-                return Err(PackageValueError::KeySetInParentFile(key.to_owned()).into());
+                return Err(
+                    buck2_error::Error::from(PackageValueError::KeySetInParentFile(key.to_owned()))
+                        .into(),
+                );
             }
         }
 
@@ -210,8 +221,8 @@ pub(crate) fn register_read_package_value(globals: &mut GlobalsBuilder) {
     fn read_package_value<'v>(
         #[starlark(require = pos)] key: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        let key = MetadataKeyRef::new(key)?;
+    ) -> starlark::Result<Value<'v>> {
+        let key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
 
         let build_ctx = BuildContext::from_context(eval)?;
         let build_ctx = build_ctx
@@ -246,8 +257,8 @@ pub(crate) fn register_read_package_value(globals: &mut GlobalsBuilder) {
     fn read_parent_package_value<'v>(
         #[starlark(require = pos)] key: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
-        let key = MetadataKeyRef::new(key)?;
+    ) -> starlark::Result<Value<'v>> {
+        let key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
 
         let package_ctx = BuildContext::from_context(eval)?
             .additional

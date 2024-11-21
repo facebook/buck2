@@ -10,10 +10,10 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter::types::transition::transition_id_from_value;
@@ -78,10 +78,13 @@ pub(crate) trait AttributeExt {
         default: Option<Value<'v>>,
         doc: &str,
         coercer: AttrType,
-    ) -> anyhow::Result<StarlarkAttribute>;
+    ) -> buck2_error::Result<StarlarkAttribute>;
 
     /// An `attr` which is not allowed to have a default as a relative label.
-    fn check_not_relative_label<'v>(default: Option<Value<'v>>, attr: &str) -> anyhow::Result<()>;
+    fn check_not_relative_label<'v>(
+        default: Option<Value<'v>>,
+        attr: &str,
+    ) -> buck2_error::Result<()>;
 }
 
 impl AttributeExt for Attribute {
@@ -91,7 +94,7 @@ impl AttributeExt for Attribute {
         default: Option<Value<'v>>,
         doc: &str,
         coercer: AttrType,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> buck2_error::Result<StarlarkAttribute> {
         let default = match default {
             None => None,
             Some(x) => Some(Arc::new(
@@ -101,7 +104,7 @@ impl AttributeExt for Attribute {
                         &attr_coercion_context_for_bzl(eval)?,
                         x,
                     )
-                    .context("Error coercing attribute default")?,
+                    .buck_error_context("Error coercing attribute default")?,
             )),
         };
         Ok(StarlarkAttribute::new(Attribute::new(
@@ -110,7 +113,10 @@ impl AttributeExt for Attribute {
     }
 
     /// An `attr` which is not allowed to have a default as a relative label.
-    fn check_not_relative_label<'v>(default: Option<Value<'v>>, attr: &str) -> anyhow::Result<()> {
+    fn check_not_relative_label<'v>(
+        default: Option<Value<'v>>,
+        attr: &str,
+    ) -> buck2_error::Result<()> {
         if let Some(as_str) = default.and_then(|x| x.unpack_str()) {
             if ProvidersLabel::maybe_relative_label(as_str) {
                 return Err(DepError::DepRelativeDefault {
@@ -127,7 +133,7 @@ impl AttributeExt for Attribute {
 /// Coerction context for evaluating bzl files (attr default, transition rules).
 pub(crate) fn attr_coercion_context_for_bzl<'v>(
     eval: &Evaluator<'v, '_, '_>,
-) -> anyhow::Result<BuildAttrCoercionContext> {
+) -> buck2_error::Result<BuildAttrCoercionContext> {
     let build_context = BuildContext::from_context(eval)?;
     Ok(BuildAttrCoercionContext::new_no_package(
         build_context.cell_info().cell_resolver().dupe(),
@@ -153,10 +159,10 @@ enum DepError {
 }
 
 /// Common code to handle `providers` argument of dep-like attrs.
-fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> anyhow::Result<ProviderIdSet> {
+fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> buck2_error::Result<ProviderIdSet> {
     Ok(ProviderIdSet::from(providers.try_map(
         |v| match v.as_provider_callable() {
-            Some(callable) => anyhow::Ok(callable.id()?.dupe()),
+            Some(callable) => buck2_error::Ok(callable.id()?.dupe()),
             None => Err(ValueError::IncorrectParameterTypeNamed("providers".to_owned()).into()),
         },
     )?))
@@ -189,9 +195,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] validate: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let _unused = validate;
-        Attribute::attr(eval, default, doc, AttrType::string())
+        Ok(Attribute::attr(eval, default, doc, AttrType::string())?)
     }
 
     /// Takes a list from the user, supplies a list to the rule.
@@ -201,9 +207,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::list(inner.coercer_for_inner()?);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
@@ -216,11 +222,11 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.exec_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::exec_dep(required_providers);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
@@ -233,11 +239,11 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.toolchain_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::toolchain_dep(required_providers);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     fn transition_dep<'v>(
@@ -248,7 +254,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let transition_id = transition_id_from_value(cfg)?;
@@ -282,11 +288,11 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.configured_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::configured_dep(required_providers);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     fn split_transition_dep<'v>(
@@ -297,7 +303,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.split_transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let transition_id = transition_id_from_value(cfg)?;
@@ -330,8 +336,13 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
-        Attribute::attr(eval, default, doc, AttrType::plugin_dep(kind.plugin_kind))
+    ) -> starlark::Result<StarlarkAttribute> {
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::plugin_dep(kind.plugin_kind),
+        )?)
     }
 
     /// Takes a target from the user, as a string, and supplies a dependency to the rule.
@@ -351,7 +362,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let plugin_kinds = match pulls_and_pushes_plugins {
@@ -372,7 +383,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
         };
 
         let coercer = AttrType::dep(required_providers, plugin_kinds);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     /// Takes most builtin literals and passes them to the rule as a string.
@@ -382,8 +393,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
-        Attribute::attr(eval, default, doc, AttrType::any())
+    ) -> starlark::Result<StarlarkAttribute> {
+        Ok(Attribute::attr(eval, default, doc, AttrType::any())?)
     }
 
     /// Takes a boolean and passes it to the rule as a boolean.
@@ -392,8 +403,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
-        Attribute::attr(eval, default, doc, AttrType::bool())
+    ) -> starlark::Result<StarlarkAttribute> {
+        Ok(Attribute::attr(eval, default, doc, AttrType::bool())?)
     }
 
     /// Takes a value that may be `None` or some inner type, and passes either `None` or the
@@ -408,14 +419,15 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::option(inner.coercer_for_inner()?);
         let attr = Attribute::attr(eval, default, doc, coercer)?;
 
         match attr.default() {
-            Some(default) if !default.may_return_none() => {
-                Err(AttrError::OptionDefaultNone(default.as_display_no_ctx().to_string()).into())
-            }
+            Some(default) if !default.may_return_none() => Err(buck2_error::Error::from(
+                AttrError::OptionDefaultNone(default.as_display_no_ctx().to_string()),
+            )
+            .into()),
             _ => Ok(attr),
         }
     }
@@ -430,9 +442,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] inner: &StarlarkAttribute,
         #[starlark(require = named, default = "")] doc: &str,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let Some(default) = inner.default().duped() else {
-            return Err(AttrError::DefaultOnlyMustHaveDefault.into());
+            return Err(buck2_error::Error::from(AttrError::DefaultOnlyMustHaveDefault).into());
         };
         Ok(StarlarkAttribute::new(Attribute::new_default_only(
             default,
@@ -448,8 +460,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
-        Attribute::attr(eval, default, doc, AttrType::label())
+    ) -> starlark::Result<StarlarkAttribute> {
+        Ok(Attribute::attr(eval, default, doc, AttrType::label())?)
     }
 
     /// Takes a dict from the user, supplies a dict to the rule.
@@ -462,9 +474,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::dict(key.coercer_for_inner()?, value.coercer_for_inner()?, sorted);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     /// Takes a command line argument from the user and supplies a `cmd_args` compatible value to the rule.
@@ -479,9 +491,14 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] anon_target_compatible: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let _unused = json;
-        Attribute::attr(eval, default, doc, AttrType::arg(anon_target_compatible))
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::arg(anon_target_compatible),
+        )?)
     }
 
     /// Takes a string from one of the variants given, and gives that string to the rule.
@@ -494,31 +511,31 @@ fn attr_module(registry: &mut MethodsBuilder) {
         >,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         // Value seems to usually be a `[String]`, listing the possible values of the
         // enumeration. Unfortunately, for things like `exported_lang_preprocessor_flags`
         // it ends up being `Type` which doesn't match the data we see.
-        Attribute::attr(
+        Ok(Attribute::attr(
             eval,
             default.map(|v| v.value),
             doc,
             AttrType::enumeration(variants.items)?,
-        )
+        )?)
     }
 
     fn configuration_label<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         // TODO(nga): explain how this is different from `dep`.
         //   This probably meant to be similar to `label`, but not configurable.
-        Attribute::attr(
+        Ok(Attribute::attr(
             eval,
             None,
             doc,
             AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY),
-        )
+        )?)
     }
 
     /// Currently an alias for `attrs.string`.
@@ -527,8 +544,8 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
-        Attribute::attr(eval, default, doc, AttrType::string())
+    ) -> starlark::Result<StarlarkAttribute> {
+        Ok(Attribute::attr(eval, default, doc, AttrType::string())?)
     }
 
     fn set<'v>(
@@ -538,10 +555,10 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let _unused = sorted;
         let coercer = AttrType::list(value_type.coercer_for_inner()?);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     fn named_set<'v>(
@@ -551,13 +568,13 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let value_coercer = value_type.coercer_for_inner()?;
         let coercer = AttrType::one_of(vec![
             AttrType::dict(AttrType::string(), value_coercer.dupe(), sorted),
             AttrType::list(value_coercer),
         ]);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     /// Given a list of alternative attributes, selects the first that matches and gives that to the rule.
@@ -567,9 +584,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::one_of(args.items.into_try_map(|arg| arg.coercer_for_inner())?);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     /// Takes a tuple of values and gives a tuple to the rule.
@@ -579,9 +596,9 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         let coercer = AttrType::tuple(args.items.into_try_map(|arg| arg.coercer_for_inner())?);
-        Attribute::attr(eval, default, doc, coercer)
+        Ok(Attribute::attr(eval, default, doc, coercer)?)
     }
 
     /// Takes an int from the user, supplies an int to the rule.
@@ -590,23 +607,23 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
-        Attribute::attr(eval, default, doc, AttrType::int())
+    ) -> starlark::Result<StarlarkAttribute> {
+        Ok(Attribute::attr(eval, default, doc, AttrType::int())?)
     }
 
     fn query<'v>(
         #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
-        Attribute::attr(eval, None, doc, AttrType::query())
+    ) -> starlark::Result<StarlarkAttribute> {
+        Ok(Attribute::attr(eval, None, doc, AttrType::query())?)
     }
 
     fn versioned<'v>(
         #[starlark(this)] _this: Value<'v>,
         value_type: &StarlarkAttribute,
         #[starlark(require = named, default = "")] doc: &str,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         // A versioned field looks like:
         // [ ({"key":"value1"}, arg), ({"key":"value2"}, arg) ]
         let element_type = AttrType::tuple(vec![
@@ -632,9 +649,14 @@ fn attr_module(registry: &mut MethodsBuilder) {
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkAttribute> {
+    ) -> starlark::Result<StarlarkAttribute> {
         Attribute::check_not_relative_label(default, "attrs.source")?;
-        Attribute::attr(eval, default, doc, AttrType::source(allow_directory))
+        Ok(Attribute::attr(
+            eval,
+            default,
+            doc,
+            AttrType::source(allow_directory),
+        )?)
     }
 }
 

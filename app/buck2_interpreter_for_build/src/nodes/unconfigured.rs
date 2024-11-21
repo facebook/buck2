@@ -32,7 +32,7 @@ pub trait TargetNodeExt: Sized {
         package: Arc<Package>,
         internals: &ModuleInternals,
         param_parser: &mut ParametersParser<'v, '_>,
-    ) -> anyhow::Result<Self>;
+    ) -> buck2_error::Result<Self>;
 
     fn from_params<'v>(
         rule: Arc<Rule>,
@@ -42,7 +42,7 @@ pub trait TargetNodeExt: Sized {
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,
-    ) -> anyhow::Result<Self>;
+    ) -> buck2_error::Result<Self>;
 }
 
 impl TargetNodeExt for TargetNode {
@@ -52,7 +52,7 @@ impl TargetNodeExt for TargetNode {
         package: Arc<Package>,
         internals: &ModuleInternals,
         param_parser: &mut ParametersParser<'v, '_>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let (name, indices, attr_values) = rule.attributes.start_parse(param_parser, 1)?;
 
         for (_, _, _) in indices {
@@ -82,7 +82,7 @@ impl TargetNodeExt for TargetNode {
         arg_count: usize,
         ignore_attrs_for_profiling: bool,
         call_stack: Option<CallStack>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if ignore_attrs_for_profiling {
             return Self::from_params_ignore_attrs_for_profiling(
                 rule,

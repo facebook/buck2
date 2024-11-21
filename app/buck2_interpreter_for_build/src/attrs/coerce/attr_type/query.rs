@@ -32,14 +32,14 @@ pub trait QueryAttrTypeExt {
     fn coerce(
         ctx: &dyn AttrCoercionContext,
         query: String,
-    ) -> anyhow::Result<QueryAttrBase<ProvidersLabel>>;
+    ) -> buck2_error::Result<QueryAttrBase<ProvidersLabel>>;
 }
 
 impl QueryAttrTypeExt for QueryAttrType {
     fn coerce(
         ctx: &dyn AttrCoercionContext,
         query: String,
-    ) -> anyhow::Result<QueryAttrBase<ProvidersLabel>> {
+    ) -> buck2_error::Result<QueryAttrBase<ProvidersLabel>> {
         // parse the expr to do validation and to extract the literals.
         let parsed_query = parse_expr(&query)?;
 
@@ -89,7 +89,7 @@ impl AttrTypeCoerce for QueryAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let query = value
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;

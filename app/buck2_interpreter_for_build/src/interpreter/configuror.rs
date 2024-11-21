@@ -84,7 +84,7 @@ impl BuildInterpreterConfiguror {
         skip_targets_with_duplicate_names: bool,
         additional_globals: Option<AdditionalGlobalsFn>,
         global_target_interner: Arc<ConcurrentTargetLabelInterner>,
-    ) -> anyhow::Result<Arc<Self>> {
+    ) -> buck2_error::Result<Arc<Self>> {
         Ok(Arc::new(Self {
             prelude_import,
             host_info: HostInfo::new(host_platform, host_architecture, host_xcode_version),
@@ -118,7 +118,7 @@ impl BuildInterpreterConfiguror {
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
         implicit_import: Option<&Arc<ImplicitImport>>,
-    ) -> anyhow::Result<ModuleInternals> {
+    ) -> buck2_error::Result<ModuleInternals> {
         let record_target_call_stack = self.record_target_call_stack;
         let skip_targets_with_duplicate_names = self.skip_targets_with_duplicate_names;
         let package_implicits = implicit_import.map(|spec| {

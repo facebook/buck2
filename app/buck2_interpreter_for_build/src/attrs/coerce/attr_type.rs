@@ -50,7 +50,7 @@ pub trait AttrTypeExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         self.this().0.inner.coerce_item(configurable, ctx, value)
     }
 
@@ -59,7 +59,7 @@ pub trait AttrTypeExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         self.coerce_with_default(configurable, ctx, value, None)
     }
 
@@ -69,7 +69,7 @@ pub trait AttrTypeExt {
         ctx: &dyn AttrCoercionContext,
         value: Value,
         default: Option<&CoercedAttr>,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         CoercedAttr::coerce(self.this(), configurable, ctx, value, default)
     }
 
@@ -90,7 +90,7 @@ pub trait AttrTypeInnerExt {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr>;
+    ) -> buck2_error::Result<CoercedAttr>;
 
     fn starlark_type(&self) -> TyMaybeSelect;
 }
@@ -101,7 +101,7 @@ impl AttrTypeInnerExt for AttrTypeInner {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         match self {
             Self::Any(x) => x.coerce_item(configurable, ctx, value),
             Self::Arg(x) => x.coerce_item(configurable, ctx, value),

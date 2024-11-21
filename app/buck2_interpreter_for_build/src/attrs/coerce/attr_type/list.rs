@@ -28,7 +28,7 @@ impl AttrTypeCoerce for ListAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let list = coerce_list(value)?;
         Ok(CoercedAttr::List(ListLiteral(ctx.intern_list(
             list.try_map(|v| (self.inner).coerce(configurable, ctx, *v))?,
@@ -40,7 +40,7 @@ impl AttrTypeCoerce for ListAttrType {
     }
 }
 
-pub(crate) fn coerce_list<'v>(value: Value<'v>) -> anyhow::Result<&'v [Value<'v>]> {
+pub(crate) fn coerce_list<'v>(value: Value<'v>) -> buck2_error::Result<&'v [Value<'v>]> {
     if let Some(list) = ListRef::from_value(value) {
         Ok(list.content())
     } else if let Some(list) = TupleRef::from_value(value) {

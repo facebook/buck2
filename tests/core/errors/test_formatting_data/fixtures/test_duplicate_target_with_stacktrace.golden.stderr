@@ -9,6 +9,7 @@ Caused by:
           make_target("foo")
       * duplicate_target/make_target.bzl:9, in make_target
           stub(name = name)
+    
     error: Attempted to register target root//duplicate_target:foo twice, first registered at:
       Traceback (most recent call last):
         * duplicate_target/TARGETS.fixture:3, in <module>
@@ -21,4 +22,3 @@ Caused by:
     9 |     stub(name = name)
       |     ^^^^^^^^^^^^^^^^^
       |
-    

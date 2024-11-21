@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -38,7 +38,7 @@ pub trait AttributeCoerceExt {
         configurable: AttrIsConfigurable,
         coercer_ctx: &dyn AttrCoercionContext,
         value: Value<'v>,
-    ) -> anyhow::Result<CoercedValue>;
+    ) -> buck2_error::Result<CoercedValue>;
 
     fn docstring(&self) -> Option<DocString>;
 
@@ -54,7 +54,7 @@ impl AttributeCoerceExt for Attribute {
         configurable: AttrIsConfigurable,
         coercer_ctx: &dyn AttrCoercionContext,
         value: Value<'v>,
-    ) -> anyhow::Result<CoercedValue> {
+    ) -> buck2_error::Result<CoercedValue> {
         if self.is_default_only() {
             if value.is_none() {
                 return Ok(CoercedValue::Default);
@@ -68,7 +68,7 @@ impl AttributeCoerceExt for Attribute {
                 .coercer()
                 .coerce_with_default(configurable, coercer_ctx, value, default.map(|x| &**x))
                 .map(CoercedValue::Custom)
-                .with_context(|| {
+                .with_buck_error_context(|| {
                     format!(
                         "Error coercing attribute `{}` of type `{}`",
                         param_name, self

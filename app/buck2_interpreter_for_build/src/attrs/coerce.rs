@@ -29,7 +29,7 @@ pub trait AttrTypeCoerce {
         configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr>;
+    ) -> buck2_error::Result<CoercedAttr>;
 
     fn starlark_type(&self) -> TyMaybeSelect;
 }

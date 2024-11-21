@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_util::late_binding::LateBinding;
@@ -82,7 +82,7 @@ pub struct FrozenPackageFileExtra {
 
 /// Resolve `FrozenPackageFileExtra.cfg_constructor` to a `CfgConstructorImpl`.
 pub static MAKE_CFG_CONSTRUCTOR: LateBinding<
-    fn(OwnedFrozenValue) -> anyhow::Result<Arc<dyn CfgConstructorImpl>>,
+    fn(OwnedFrozenValue) -> buck2_error::Result<Arc<dyn CfgConstructorImpl>>,
 > = LateBinding::new("MAKE_CFG_CONSTRUCTOR");
 
 // TODO(nga): this does not need to be fully starlark_value,
@@ -110,10 +110,10 @@ impl<'v> Freeze for PackageFileExtra<'v> {
             .map(|(k, v)| {
                 let v = v
                     .freeze(freezer)
-                    .with_context(|| format!("freezing `{k}`"))?;
+                    .with_buck_error_context(|| format!("freezing `{k}`"))?;
                 Ok((k, v))
             })
-            .collect::<anyhow::Result<SmallMap<MetadataKey, FrozenStarlarkPackageValue>>>()?;
+            .collect::<buck2_error::Result<SmallMap<MetadataKey, FrozenStarlarkPackageValue>>>()?;
         Ok(FrozenPackageFileExtra {
             cfg_constructor,
             package_values,
@@ -124,7 +124,7 @@ impl<'v> Freeze for PackageFileExtra<'v> {
 impl<'v> PackageFileExtra<'v> {
     pub fn get_or_init(
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<&'v PackageFileExtra<'v>> {
+    ) -> buck2_error::Result<&'v PackageFileExtra<'v>> {
         Ok(InterpreterExtraValue::get(eval.module())?
             .package_extra
             .get_or_init(Default::default))
@@ -134,7 +134,7 @@ impl<'v> PackageFileExtra<'v> {
 impl FrozenPackageFileExtra {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<Option<OwnedFrozenRef<FrozenPackageFileExtra>>> {
+    ) -> buck2_error::Result<Option<OwnedFrozenRef<FrozenPackageFileExtra>>> {
         Ok(FrozenInterpreterExtraValue::get(module)?
             .into_owned_frozen_ref()
             .try_map_option(|x| x.value.package_extra.as_ref()))

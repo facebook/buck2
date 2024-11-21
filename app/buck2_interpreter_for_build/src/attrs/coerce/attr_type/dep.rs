@@ -30,10 +30,10 @@ impl AttrTypeCoerce for DepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let label = value
             .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
         let label = ctx.coerce_providers_label(label)?;
 
@@ -51,24 +51,21 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let (label_value, platform_value): (Value, Value) = UnpackValue::unpack_value(value)
             .into_anyhow_result()?
             .ok_or_else(|| {
-                anyhow::anyhow!(CoercionError::type_error(
-                    "Tuple must be a pair of two strings",
-                    value,
-                ))
+                CoercionError::type_error("Tuple must be a pair of two strings", value)
             })?;
 
         let label_string = label_value
             .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
         let label = ctx.coerce_providers_label(label_string)?;
 
         let platform_string = platform_value
             .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
         let platform = ctx.coerce_target_label(platform_string)?;
 
         Ok(CoercedAttr::ExplicitConfiguredDep(Box::new(

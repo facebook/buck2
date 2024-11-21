@@ -32,9 +32,12 @@ pub trait BuckConfigsViewForStarlark {
     fn read_current_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
-    ) -> anyhow::Result<Option<Arc<str>>>;
+    ) -> buck2_error::Result<Option<Arc<str>>>;
 
-    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>>;
+    fn read_root_cell_config(
+        &mut self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Arc<str>>>;
 }
 
 struct BuckConfigsInner<'a> {
@@ -96,7 +99,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         section: Hashed<&str>,
         key: Hashed<&str>,
         from_root_cell: bool,
-    ) -> anyhow::Result<Option<FrozenStringValue>> {
+    ) -> buck2_error::Result<Option<FrozenStringValue>> {
         let hash = Self::mix_hashes(section.hash().get(), key.hash().get());
 
         let mut inner = self.inner.borrow_mut();
@@ -148,7 +151,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         &self,
         section: StringValue,
         key: StringValue,
-    ) -> anyhow::Result<Option<FrozenStringValue>> {
+    ) -> buck2_error::Result<Option<FrozenStringValue>> {
         // Note here we reuse the hashes of `section` and `key`,
         // if `read_config` is called repeatedly with the same constant arguments:
         // `StringValue` caches the hashes.
@@ -159,7 +162,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         &self,
         section: StringValue,
         key: StringValue,
-    ) -> anyhow::Result<Option<FrozenStringValue>> {
+    ) -> buck2_error::Result<Option<FrozenStringValue>> {
         // Note here we reuse the hashes of `section` and `key`,
         // if `read_config` is called repeatedly with the same constant arguments:
         // `StringValue` caches the hashes.
@@ -191,12 +194,15 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
     fn read_current_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
-    ) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(self.buckconfig.lookup(self.ctx, key)?)
+    ) -> buck2_error::Result<Option<Arc<str>>> {
+        self.buckconfig.lookup(self.ctx, key)
     }
 
-    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
-        Ok(self.root_buckconfig.lookup(self.ctx, key)?)
+    fn read_root_cell_config(
+        &mut self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Arc<str>>> {
+        self.root_buckconfig.lookup(self.ctx, key)
     }
 }
 
@@ -218,14 +224,17 @@ impl BuckConfigsViewForStarlark for LegacyConfigsViewForStarlark {
     fn read_current_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
-    ) -> anyhow::Result<Option<Arc<str>>> {
+    ) -> buck2_error::Result<Option<Arc<str>>> {
         Ok(self
             .current_cell_config
             .get(key)
             .map(|v| v.to_owned().into()))
     }
 
-    fn read_root_cell_config(&mut self, key: BuckconfigKeyRef) -> anyhow::Result<Option<Arc<str>>> {
+    fn read_root_cell_config(
+        &mut self,
+        key: BuckconfigKeyRef,
+    ) -> buck2_error::Result<Option<Arc<str>>> {
         Ok(self.root_cell_config.get(key).map(|v| v.to_owned().into()))
     }
 }

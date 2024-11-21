@@ -7,8 +7,8 @@
  * of this source tree.
  */
 
-use anyhow::Context as _;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_node::attrs::attr_type::metadata::MetadataAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -45,11 +45,9 @@ impl AttrTypeCoerce for MetadataAttrType {
         configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
-            return Err(internal_error_anyhow!(
-                "Metadata attribute is not configurable"
-            ));
+            return Err(internal_error!("Metadata attribute is not configurable"));
         }
 
         let dict = match DictRef::from_value(value) {
@@ -66,7 +64,7 @@ impl AttrTypeCoerce for MetadataAttrType {
 
             let key = MetadataKeyRef::new(key)?;
 
-            let value = value.to_json_value().with_context(|| {
+            let value = value.to_json_value().with_buck_error_context(|| {
                 MetadataAttrTypeCoerceError::ValueIsNotJson {
                     key: key.to_owned(),
                     value: value.to_repr(),

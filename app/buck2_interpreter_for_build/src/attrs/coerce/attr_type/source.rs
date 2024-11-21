@@ -42,10 +42,10 @@ impl AttrTypeCoerce for SourceAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let source_label = value
             .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
         let label_err = if source_label.contains(':') {
             match ctx.coerce_providers_label(source_label) {

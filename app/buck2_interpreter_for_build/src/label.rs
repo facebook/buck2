@@ -34,7 +34,7 @@ pub mod testing {
         fn label<'v>(
             s: &str,
             eval: &mut Evaluator<'v, '_, '_>,
-        ) -> anyhow::Result<StarlarkConfiguredProvidersLabel> {
+        ) -> starlark::Result<StarlarkConfiguredProvidersLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
                 s,
@@ -45,7 +45,12 @@ pub mod testing {
                 ParsedPattern::Target(package, target_name, providers) => {
                     providers.into_providers_label(package, target_name.as_ref())
                 }
-                _ => return Err(LabelCreatorError::ExpectedProvider(s.to_owned()).into()),
+                _ => {
+                    return Err(
+                        buck2_error::Error::from(LabelCreatorError::ExpectedProvider(s.to_owned()))
+                            .into(),
+                    );
+                }
             };
             Ok(StarlarkConfiguredProvidersLabel::new(
                 target.configure(ConfigurationData::testing_new()),
@@ -55,7 +60,7 @@ pub mod testing {
         fn target_label<'v>(
             s: &str,
             eval: &mut Evaluator<'v, '_, '_>,
-        ) -> anyhow::Result<StarlarkTargetLabel> {
+        ) -> starlark::Result<StarlarkTargetLabel> {
             let c = BuildContext::from_context(eval)?;
             let target = match ParsedPattern::<TargetPatternExtra>::parse_precise(
                 s,
@@ -66,7 +71,12 @@ pub mod testing {
                 ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
                     TargetLabel::new(package, target_name.as_ref())
                 }
-                _ => return Err(LabelCreatorError::ExpectedTarget(s.to_owned()).into()),
+                _ => {
+                    return Err(buck2_error::Error::from(LabelCreatorError::ExpectedTarget(
+                        s.to_owned(),
+                    ))
+                    .into());
+                }
             };
             Ok(StarlarkTargetLabel::new(target))
         }

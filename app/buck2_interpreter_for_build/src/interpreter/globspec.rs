@@ -11,10 +11,10 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 
-use anyhow::Context;
 use buck2_common::package_listing::file_listing::PackageFileListing;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
+use buck2_error::BuckErrorContext;
 use derivative::Derivative;
 
 #[derive(Debug, buck2_error::Error)]
@@ -49,9 +49,9 @@ impl Debug for GlobPattern {
 }
 
 impl GlobPattern {
-    fn new(pattern: &str) -> anyhow::Result<GlobPattern> {
+    fn new(pattern: &str) -> buck2_error::Result<GlobPattern> {
         let parsed_pattern = glob::Pattern::new(pattern)
-            .with_context(|| format!("Error creating globspec for `{}`", pattern))?;
+            .with_buck_error_context(|| format!("Error creating globspec for `{}`", pattern))?;
         if pattern.contains("//") {
             return Err(GlobError::DoubleSlash(pattern.to_owned()).into());
         }
@@ -117,7 +117,7 @@ impl GlobSpec {
     pub(crate) fn new<P: AsRef<str>, Q: AsRef<str>>(
         patterns: &[P],
         excludes: &[Q],
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut glob_patterns = Vec::new();
         let mut glob_excludes = Vec::new();
         let mut exact_matches = HashSet::new();
@@ -192,7 +192,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_glob_match() -> anyhow::Result<()> {
+    fn test_glob_match() -> buck2_error::Result<()> {
         let spec = GlobSpec::new(
             &[
                 "abc*",
@@ -223,7 +223,7 @@ mod tests {
     }
 
     #[test]
-    fn test_glob_match_case_insensitive() -> anyhow::Result<()> {
+    fn test_glob_match_case_insensitive() -> buck2_error::Result<()> {
         // NOTE: We probably should change this. But for now, let's codify the current behavior
         // since that's probably something that should require a migration.
 
@@ -236,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_glob() -> anyhow::Result<()> {
+    fn test_resolve_glob() -> buck2_error::Result<()> {
         let spec = GlobSpec::new(&["abc*", "**/*.java", "*/*/*.txt"], &["excluded/**/*"])?;
 
         let package_listing = PackageFileListing::testing_new(&[

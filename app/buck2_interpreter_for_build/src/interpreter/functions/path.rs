@@ -54,7 +54,7 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default=UnpackListOrTuple::default())]
         exclude: UnpackListOrTuple<String>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, UnpackList<String>>> {
+    ) -> starlark::Result<ValueOfUnchecked<'v, UnpackList<String>>> {
         let extra = ModuleInternals::from_context(eval, "glob")?;
         let spec = GlobSpec::new(&include.items, &exclude.items)?;
         let res = extra.resolve_glob(&spec).map(|path| path.as_str());
@@ -64,7 +64,7 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
     /// `package_name()` can only be called in buildfiles (e.g. BUCK files) or PACKAGE files, and returns the name of the package.
     /// E.g. inside `foo//bar/baz/BUCK` the output will be `bar/baz`.
     /// E.g. inside `foo//bar/PACKAGE` the output will be `bar`.
-    fn package_name(eval: &mut Evaluator) -> anyhow::Result<String> {
+    fn package_name(eval: &mut Evaluator) -> starlark::Result<String> {
         // An (IMO) unfortunate choice in the skylark api is that this just gives the cell-relative
         //  path of the package (which isn't a unique "name" for the package)
         Ok(BuildContext::from_context(eval)?
@@ -78,7 +78,7 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
     /// E.g. inside `foo//bar/PACKAGE` the output will be `bar`.
     ///
     /// This function is identical to `package_name`.
-    fn get_base_path(eval: &mut Evaluator) -> anyhow::Result<String> {
+    fn get_base_path(eval: &mut Evaluator) -> starlark::Result<String> {
         Ok(BuildContext::from_context(eval)?
             .base_path()?
             .path()
@@ -88,7 +88,7 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
     /// Like `get_cell_name()` but prepends a leading `@` for compatibility with Buck1.
     /// You should call `get_cell_name()` instead, and if you really want the `@`,
     /// prepend it yourself.
-    fn repository_name(eval: &mut Evaluator) -> anyhow::Result<String> {
+    fn repository_name(eval: &mut Evaluator) -> starlark::Result<String> {
         // In Buck v1 the repository name has a leading `@` on it, so match that with v2.
         // In practice, most users do `repository_name()[1:]` to drop it.
         Ok(format!(
@@ -104,7 +104,7 @@ pub(crate) fn register_path(builder: &mut GlobalsBuilder) {
     /// For example, inside `foo//bar/baz/BUCK` the output will be `foo`.
     /// If that `BUCK` file does a `load("hello//world.bzl", "something")` then
     /// the result in that `.bzl` file will also be `foo`.
-    fn get_cell_name(eval: &mut Evaluator) -> anyhow::Result<String> {
+    fn get_cell_name(eval: &mut Evaluator) -> starlark::Result<String> {
         Ok(BuildContext::from_context(eval)?
             .cell_info()
             .name()

@@ -27,7 +27,7 @@ impl AttrTypeCoerce for EnumAttrType {
         _configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         match value.unpack_str() {
             Some(s) => {
                 // Enum names in Buck can be specified upper or lower case,

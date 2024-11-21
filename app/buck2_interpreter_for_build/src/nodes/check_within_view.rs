@@ -54,7 +54,7 @@ pub(crate) fn check_within_view(
     pkg: PackageLabel,
     attr_type: &AttrType,
     within_view: &WithinViewSpecification,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if within_view == &WithinViewSpecification::PUBLIC {
         // Shortcut.
         return Ok(());
@@ -132,9 +132,9 @@ pub(crate) fn check_within_view(
         }
     }
 
-    Ok(attr.traverse(
+    attr.traverse(
         attr_type,
         pkg.dupe(),
         &mut WithinViewCheckTraversal { pkg, within_view },
-    )?)
+    )
 }

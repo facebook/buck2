@@ -12,10 +12,10 @@ use std::fmt;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::late_binding_ty::TransitionReprLate;
@@ -168,7 +168,7 @@ impl<'v> RuleCallable<'v> {
         uses_plugins: Vec<PluginKind>,
         artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<RuleCallable<'v>> {
+    ) -> buck2_error::Result<RuleCallable<'v>> {
         // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
         // TODO(nmj): Verify that names are valid. This is technically handled by the Params
         //                 objects, but will blow up in a friendlier way here.
@@ -189,7 +189,7 @@ impl<'v> RuleCallable<'v> {
                     Ok((name.to_owned(), value.clone_attribute()))
                 }
             })
-            .collect::<anyhow::Result<Vec<(String, Attribute)>>>()?;
+            .collect::<buck2_error::Result<Vec<(String, Attribute)>>>()?;
 
         let cfg = cfg.try_map(transition_id_from_value)?;
 
@@ -338,9 +338,11 @@ pub struct FrozenRuleCallable {
 }
 starlark_simple_value!(FrozenRuleCallable);
 
-fn unpack_frozen_rule(rule: FrozenValue) -> anyhow::Result<FrozenRef<'static, FrozenRuleCallable>> {
+fn unpack_frozen_rule(
+    rule: FrozenValue,
+) -> buck2_error::Result<FrozenRef<'static, FrozenRuleCallable>> {
     rule.downcast_frozen_ref::<FrozenRuleCallable>()
-        .context("Expecting FrozenRuleCallable")
+        .buck_error_context("Expecting FrozenRuleCallable")
 }
 
 pub(crate) fn init_frozen_rule_get_impl() {
@@ -454,8 +456,8 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         uses_plugins: UnpackListOrTuple<PluginKindArg>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<RuleCallable<'v>> {
-        RuleCallable::new(
+    ) -> starlark::Result<RuleCallable<'v>> {
+        Ok(RuleCallable::new(
             StarlarkCallable::unchecked_new(r#impl.0),
             attrs,
             cfg.map(|v| v.get()),
@@ -469,7 +471,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
                 .collect(),
             None,
             eval,
-        )
+        )?)
     }
 
     /// Define an anon rule, similar to how a normal rule is defined, except with an extra `artifact_promise_mappings` field. This
@@ -488,8 +490,8 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<RuleCallable<'v>> {
-        RuleCallable::new(
+    ) -> starlark::Result<RuleCallable<'v>> {
+        Ok(RuleCallable::new(
             r#impl,
             attrs,
             None,
@@ -504,6 +506,6 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
                     .collect::<SmallMap<_, _>>(),
             }),
             eval,
-        )
+        )?)
     }
 }

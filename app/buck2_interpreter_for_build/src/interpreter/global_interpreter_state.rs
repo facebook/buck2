@@ -49,7 +49,7 @@ impl GlobalInterpreterState {
         interpreter_configuror: Arc<BuildInterpreterConfiguror>,
         disable_starlark_types: bool,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let global_env = interpreter_configuror.globals();
 
         Ok(Self {
@@ -72,15 +72,16 @@ impl GlobalInterpreterState {
 
 #[async_trait]
 pub trait HasGlobalInterpreterState {
-    async fn get_global_interpreter_state(&mut self)
-    -> anyhow::Result<Arc<GlobalInterpreterState>>;
+    async fn get_global_interpreter_state(
+        &mut self,
+    ) -> buck2_error::Result<Arc<GlobalInterpreterState>>;
 }
 
 #[async_trait]
 impl HasGlobalInterpreterState for DiceComputations<'_> {
     async fn get_global_interpreter_state(
         &mut self,
-    ) -> anyhow::Result<Arc<GlobalInterpreterState>> {
+    ) -> buck2_error::Result<Arc<GlobalInterpreterState>> {
         #[derive(Clone, Dupe, Allocative)]
         struct GisValue(Arc<GlobalInterpreterState>);
 

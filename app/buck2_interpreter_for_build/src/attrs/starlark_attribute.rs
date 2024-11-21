@@ -53,7 +53,7 @@ impl StarlarkAttribute {
     }
 
     /// Coercer to put into higher lever coercer (e. g. for `attrs.list(xxx)`).
-    pub fn coercer_for_inner(&self) -> anyhow::Result<AttrType> {
+    pub fn coercer_for_inner(&self) -> buck2_error::Result<AttrType> {
         if self.0.is_default_only() {
             return Err(StarlarkAttributeError::DefaultOnlyInNested.into());
         }

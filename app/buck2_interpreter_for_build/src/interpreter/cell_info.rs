@@ -24,7 +24,7 @@ impl InterpreterCellInfo {
         cell_name: BuildFileCell,
         cell_resolver: CellResolver,
         cell_alias_resolver: CellAliasResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(Self {
             cell_name,
             cell_resolver,

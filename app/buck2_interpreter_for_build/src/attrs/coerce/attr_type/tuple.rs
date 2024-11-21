@@ -31,7 +31,7 @@ impl AttrTypeCoerce for TupleAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let coerce = |value, items: &[Value]| {
             // Use comparison rather than equality below. If the tuple is too short,
             // it is implicitly extended using None.
@@ -46,10 +46,11 @@ impl AttrTypeCoerce for TupleAttrType {
                 }
                 Ok(CoercedAttr::Tuple(TupleLiteral(ctx.intern_list(res))))
             } else {
-                Err(anyhow::anyhow!(CoercionError::type_error(
+                Err(CoercionError::type_error(
                     &format!("Tuple of at most length {}", self.xs.len()),
-                    value
-                )))
+                    value,
+                )
+                .into())
             }
         };
         if let Some(list) = TupleRef::from_value(value) {
@@ -57,10 +58,7 @@ impl AttrTypeCoerce for TupleAttrType {
         } else if let Some(list) = ListRef::from_value(value) {
             coerce(value, list.content())
         } else {
-            Err(anyhow::anyhow!(CoercionError::type_error(
-                TupleRef::TYPE,
-                value,
-            )))
+            Err(CoercionError::type_error(TupleRef::TYPE, value).into())
         }
     }
 

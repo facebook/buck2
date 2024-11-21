@@ -137,7 +137,7 @@ pub(crate) fn register_host_info(builder: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn host_info<'v>(
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
+    ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
         // Keeping this `speculative_exec_safe` is safe because BuildContext's `HostInfo`,
         // even when evaluated speculatively, is going to be the same across all interpreters
         // that might reuse each other's output.

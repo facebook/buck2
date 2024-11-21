@@ -41,7 +41,7 @@ fn parse_visibility(
     cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
-) -> anyhow::Result<VisibilitySpecification> {
+) -> buck2_error::Result<VisibilitySpecification> {
     let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
     for pattern in patterns {
         if pattern == VisibilityPattern::PUBLIC {
@@ -63,7 +63,7 @@ fn parse_within_view(
     cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
-) -> anyhow::Result<WithinViewSpecification> {
+) -> buck2_error::Result<WithinViewSpecification> {
     let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
     for pattern in patterns {
         if pattern == VisibilityPattern::PUBLIC {
@@ -90,11 +90,11 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
         #[starlark(require=named, default=UnpackListOrTuple::default())]
         within_view: UnpackListOrTuple<String>,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
         let package_file_eval_ctx = match &build_context.additional {
             PerFileTypeContext::Package(package_file_eval_ctx) => package_file_eval_ctx,
-            _ => return Err(PackageFileError::NotPackage.into()),
+            _ => return Err(buck2_error::Error::from(PackageFileError::NotPackage).into()),
         };
         let visibility = parse_visibility(
             &visibility.items,
@@ -110,7 +110,7 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
         )?;
 
         match &mut *package_file_eval_ctx.visibility.borrow_mut() {
-            Some(_) => return Err(PackageFileError::AtMostOnce.into()),
+            Some(_) => return Err(buck2_error::Error::from(PackageFileError::AtMostOnce).into()),
             x => {
                 *x = Some(PackageFileVisibilityFields {
                     visibility,

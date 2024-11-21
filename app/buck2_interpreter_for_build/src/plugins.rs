@@ -182,7 +182,7 @@ fn register_plugins_methods(r: &mut GlobalsBuilder) {
     ///
     /// The value returned should always be immediately bound to a global, like `MyPluginKind =
     /// plugins.kind()`
-    fn kind<'v>(eval: &mut Evaluator<'v, '_, '_>) -> anyhow::Result<StarlarkPluginKind> {
+    fn kind<'v>(eval: &mut Evaluator<'v, '_, '_>) -> starlark::Result<StarlarkPluginKind> {
         let cell_path = BuildContext::from_context(eval)?
             .starlark_path()
             .path()

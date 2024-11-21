@@ -25,7 +25,7 @@ impl AttrTypeCoerce for LabelAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let label = value
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;

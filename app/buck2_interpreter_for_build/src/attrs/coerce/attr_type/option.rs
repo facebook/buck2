@@ -24,7 +24,7 @@ impl AttrTypeCoerce for OptionAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         if value.is_none() {
             Ok(CoercedAttr::None)
         } else {

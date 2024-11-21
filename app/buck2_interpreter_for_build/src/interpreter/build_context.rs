@@ -80,7 +80,7 @@ impl PerFileTypeContext {
     /// For example, for `foo//bar/PACKAGE` this returns `foo//bar`.
     /// For `foo//bar/baz/BUCK` this returns `foo//bar/baz`.
     /// Throws an error if it's used in any other context.
-    fn base_path(&self) -> anyhow::Result<CellPath> {
+    fn base_path(&self) -> buck2_error::Result<CellPath> {
         match self {
             PerFileTypeContext::Build(module) => {
                 Ok(module.buildfile_path().package().to_cell_path())
@@ -97,7 +97,10 @@ impl PerFileTypeContext {
         self.starlark_path().file_type()
     }
 
-    pub(crate) fn require_build(&self, function_name: &str) -> anyhow::Result<&ModuleInternals> {
+    pub(crate) fn require_build(
+        &self,
+        function_name: &str,
+    ) -> buck2_error::Result<&ModuleInternals> {
         match self {
             PerFileTypeContext::Build(internals) => Ok(internals),
             x => {
@@ -106,7 +109,7 @@ impl PerFileTypeContext {
         }
     }
 
-    pub(crate) fn into_build(self) -> anyhow::Result<ModuleInternals> {
+    pub(crate) fn into_build(self) -> buck2_error::Result<ModuleInternals> {
         match self {
             PerFileTypeContext::Build(internals) => Ok(internals),
             x => Err(BuildContextError::NotBuildFileNoFunction(x.file_type()).into()),
@@ -116,7 +119,7 @@ impl PerFileTypeContext {
     pub(crate) fn require_package_file(
         &self,
         function_name: &str,
-    ) -> anyhow::Result<&PackageFileEvalCtx> {
+    ) -> buck2_error::Result<&PackageFileEvalCtx> {
         match self {
             PerFileTypeContext::Package(ctx) => Ok(ctx),
             x => Err(
@@ -125,7 +128,7 @@ impl PerFileTypeContext {
         }
     }
 
-    pub(crate) fn into_package_file(self) -> anyhow::Result<PackageFileEvalCtx> {
+    pub(crate) fn into_package_file(self) -> buck2_error::Result<PackageFileEvalCtx> {
         match self {
             PerFileTypeContext::Package(ctx) => Ok(ctx),
             x => Err(BuildContextError::NotPackageFileNoFunction(x.file_type()).into()),
@@ -191,7 +194,7 @@ impl<'a> BuildContext<'a> {
 
     pub fn from_context<'v, 'a1>(
         eval: &Evaluator<'v, 'a1, 'a>,
-    ) -> anyhow::Result<&'a1 BuildContext<'a>> {
+    ) -> buck2_error::Result<&'a1 BuildContext<'a>> {
         let f = || eval.extra?.downcast_ref::<BuildContext>();
         f().ok_or_else(|| BuildContextError::UnavailableDuringAnalysis.into())
     }
@@ -208,7 +211,7 @@ impl<'a> BuildContext<'a> {
         self.cell_info.cell_resolver()
     }
 
-    pub fn require_package(&self) -> anyhow::Result<PackageLabel> {
+    pub fn require_package(&self) -> buck2_error::Result<PackageLabel> {
         match &self.additional {
             PerFileTypeContext::Build(module) => Ok(module.buildfile_path().package()),
             _ => Err(BuildContextError::PackageOnlyFromBuildFile.into()),
@@ -219,7 +222,7 @@ impl<'a> BuildContext<'a> {
         self.additional.starlark_path()
     }
 
-    pub(crate) fn base_path(&self) -> anyhow::Result<CellPath> {
+    pub(crate) fn base_path(&self) -> buck2_error::Result<CellPath> {
         self.additional.base_path()
     }
 }
@@ -233,7 +236,10 @@ pub(crate) fn init_starlark_path_from_build_context() {
 /// EvalResult at the end of interpreting
 impl ModuleInternals {
     /// Try to get this inner context from the `ctx.extra` property.
-    pub fn from_context<'a>(ctx: &'a Evaluator, function_name: &str) -> anyhow::Result<&'a Self> {
+    pub fn from_context<'a>(
+        ctx: &'a Evaluator,
+        function_name: &str,
+    ) -> buck2_error::Result<&'a Self> {
         BuildContext::from_context(ctx)?
             .additional
             .require_build(function_name)

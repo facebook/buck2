@@ -27,11 +27,13 @@ pub(crate) fn register_set_starlark_peak_allocated_byte_limit(globals: &mut Glob
     fn set_starlark_peak_allocated_byte_limit<'v>(
         #[starlark(require = pos)] value: u64,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let build_ctx = BuildContext::from_context(eval)?;
         let limit = &build_ctx.starlark_peak_allocated_byte_limit;
         if limit.get().is_some() || limit.set(Some(value)).is_err() {
-            return Err(StarlarkPeakMemoryError::MemorySetInThisFile().into());
+            return Err(
+                buck2_error::Error::from(StarlarkPeakMemoryError::MemorySetInThisFile()).into(),
+            );
         }
         Ok(NoneType)
     }

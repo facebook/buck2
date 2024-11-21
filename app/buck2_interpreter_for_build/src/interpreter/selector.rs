@@ -11,6 +11,7 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -171,9 +172,13 @@ impl<'v> StarlarkSelector<'v> {
             eval.eval_function(func, &[val], &[])?
                 .unpack_bool()
                 .ok_or_else(|| {
-                    starlark::Error::new_kind(starlark::ErrorKind::Native(anyhow::anyhow!(
-                        "Expected testing function to have a boolean return type"
-                    )))
+                    starlark::Error::new_kind(starlark::ErrorKind::Native(
+                        buck2_error::buck2_error!(
+                            [],
+                            "Expected testing function to have a boolean return type"
+                        )
+                        .into(),
+                    ))
                 })
         }
 
@@ -276,7 +281,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
 
     fn select<'v>(
         #[starlark(require = pos)] d: ValueOf<'v, DictType<StringValue<'v>, Value<'v>>>,
-    ) -> anyhow::Result<StarlarkSelector<'v>> {
+    ) -> starlark::Result<StarlarkSelector<'v>> {
         Ok(StarlarkSelector::new(d))
     }
 
@@ -323,7 +328,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     fn select_equal_internal<'v>(
         #[starlark(require = pos)] left: Value<'v>,
         #[starlark(require = pos)] right: Value<'v>,
-    ) -> anyhow::Result<bool> {
+    ) -> starlark::Result<bool> {
         Ok(left.to_repr() == right.to_repr())
     }
 }

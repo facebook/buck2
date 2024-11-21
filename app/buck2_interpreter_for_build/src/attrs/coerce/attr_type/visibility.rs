@@ -38,7 +38,7 @@ impl AttrTypeCoerce for VisibilityAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
             return Err(VisibilityAttrTypeCoerceError::AttrTypeNotConfigurable.into());
         }
@@ -55,7 +55,7 @@ impl AttrTypeCoerce for VisibilityAttrType {
 pub(crate) fn parse_visibility_with_view(
     ctx: &dyn AttrCoercionContext,
     attr: Value,
-) -> anyhow::Result<VisibilityWithinViewBuilder> {
+) -> buck2_error::Result<VisibilityWithinViewBuilder> {
     let list = match coerce_list(attr) {
         Ok(list) => list,
         Err(e) => {

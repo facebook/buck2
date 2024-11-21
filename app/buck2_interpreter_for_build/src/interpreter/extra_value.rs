@@ -51,12 +51,12 @@ impl<'v> Freeze for InterpreterExtraValue<'v> {
 }
 
 impl<'v> InterpreterExtraValue<'v> {
-    pub(crate) fn get(module: &'v Module) -> anyhow::Result<&'v InterpreterExtraValue<'v>> {
+    pub(crate) fn get(module: &'v Module) -> buck2_error::Result<&'v InterpreterExtraValue<'v>> {
         Ok(&module
             .extra_value()
-            .internal_error_anyhow("Extra value is missing")?
+            .internal_error("Extra value is missing")?
             .downcast_ref::<StarlarkAnyComplex<InterpreterExtraValue>>()
-            .internal_error_anyhow("Extra value had wrong type")?
+            .internal_error("Extra value had wrong type")?
             .value)
     }
 }
@@ -64,13 +64,13 @@ impl<'v> InterpreterExtraValue<'v> {
 impl FrozenInterpreterExtraValue {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>>
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>>
     {
         module
             .owned_extra_value()
-            .internal_error_anyhow("Extra value is missing")?
+            .internal_error("Extra value is missing")?
             .downcast()
             .ok()
-            .internal_error_anyhow("Extra value had wrong type")
+            .internal_error("Extra value had wrong type")
     }
 }

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_node::attrs::attr_type::visibility::VisibilityAttrType;
 use buck2_node::attrs::attr_type::within_view::WithinViewAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -25,11 +25,9 @@ impl AttrTypeCoerce for WithinViewAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         if configurable == AttrIsConfigurable::Yes {
-            return Err(internal_error_anyhow!(
-                "Within view attribute is not configurable"
-            ));
+            return Err(internal_error!("Within view attribute is not configurable"));
         }
         Ok(CoercedAttr::WithinView(
             parse_visibility_with_view(ctx, value)?.build_within_view(),

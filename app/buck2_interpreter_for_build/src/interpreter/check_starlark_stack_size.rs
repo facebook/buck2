@@ -73,7 +73,7 @@ pub(crate) async fn check_starlark_stack_size(
                             false,
                         )
                     })
-                    .internal_error_anyhow("Failed to parse check module")?;
+                    .internal_error("Failed to parse check module")?;
                     match eval.eval_module(ast, &Globals::standard()) {
                         Err(e) if e.to_string().contains("Starlark call stack overflow") => Ok(()),
                         Err(p) => Err(from_starlark_with_options(

@@ -25,10 +25,10 @@ impl AttrTypeCoerce for BoolAttrType {
         _configurable: AttrIsConfigurable,
         _ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         match value.unpack_bool() {
             Some(s) => Ok(CoercedAttr::Bool(BoolLiteral(s))),
-            None => Err(anyhow::anyhow!(CoercionError::type_error("bool", value))),
+            None => Err(CoercionError::type_error("bool", value).into()),
         }
     }
 

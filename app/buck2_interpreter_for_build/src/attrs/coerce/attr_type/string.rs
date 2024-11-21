@@ -26,13 +26,10 @@ impl AttrTypeCoerce for StringAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         match value.unpack_str() {
             Some(s) => Ok(CoercedAttr::String(StringLiteral(ctx.intern_str(s)))),
-            None => Err(anyhow::anyhow!(CoercionError::type_error(
-                STRING_TYPE,
-                value
-            ))),
+            None => Err(CoercionError::type_error(STRING_TYPE, value).into()),
         }
     }
 

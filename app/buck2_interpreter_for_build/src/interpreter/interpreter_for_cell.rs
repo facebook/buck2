@@ -108,12 +108,12 @@ impl ParseData {
         ast: AstModule,
         implicit_imports: Vec<OwnedStarlarkModulePath>,
         resolver: &dyn LoadResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut loads = implicit_imports.into_map(|x| (None, x));
         for x in ast.loads() {
             let path = resolver
                 .resolve_load(x.module_id, Some(&x.span))
-                .with_buck_error_context_anyhow(|| {
+                .with_buck_error_context(|| {
                     format!(
                         "Error loading `load` of `{}` from `{}`",
                         x.module_id, x.span
@@ -262,14 +262,14 @@ struct EvalResult {
 }
 
 impl InterpreterForCell {
-    fn verbose_gc() -> anyhow::Result<bool> {
+    fn verbose_gc() -> buck2_error::Result<bool> {
         match std::env::var_os("BUCK2_STARLARK_VERBOSE_GC") {
             Some(val) => Ok(!val.is_empty()),
             None => Ok(false),
         }
     }
 
-    fn is_ignore_attrs_for_profiling() -> anyhow::Result<bool> {
+    fn is_ignore_attrs_for_profiling() -> buck2_error::Result<bool> {
         // If unsure, feel free to break this code or just delete it.
         // It is intended only for profiling of very specific use cases.
         let ignore_attrs_for_profiling = match std::env::var_os("BUCK2_IGNORE_ATTRS_FOR_PROFILING")
@@ -290,7 +290,7 @@ impl InterpreterForCell {
         cell_info: InterpreterCellInfo,
         global_state: Arc<GlobalInterpreterState>,
         implicit_import_paths: Arc<ImplicitImportPaths>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(Self {
             global_state,
             cell_info,
@@ -304,14 +304,14 @@ impl InterpreterForCell {
         &self,
         starlark_path: StarlarkPath<'_>,
         loaded_modules: &LoadedModules,
-    ) -> anyhow::Result<Module> {
+    ) -> buck2_error::Result<Module> {
         let env = Module::new();
 
         if let Some(prelude_import) = self.prelude_import(starlark_path) {
             let prelude_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(prelude_import.import_path()))
-                .with_internal_error_anyhow(|| {
+                .with_internal_error(|| {
                     format!(
                         "Should've had an env for the prelude import `{}`",
                         prelude_import,
@@ -344,7 +344,7 @@ impl InterpreterForCell {
         super_package: SuperPackage,
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
-    ) -> anyhow::Result<(Module, ModuleInternals)> {
+    ) -> buck2_error::Result<(Module, ModuleInternals)> {
         let internals = self.global_state.configuror.new_extra_context(
             &self.cell_info,
             build_file.clone(),
@@ -360,7 +360,7 @@ impl InterpreterForCell {
             let root_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(&root_import))
-                .with_internal_error_anyhow(|| {
+                .with_internal_error(|| {
                     format!("Should've had an env for the root import `{}`", root_import,)
                 })?
                 .env();
@@ -421,7 +421,7 @@ impl InterpreterForCell {
         self: &Arc<Self>,
         import: StarlarkPath,
         content: String,
-    ) -> anyhow::Result<ParseResult> {
+    ) -> buck2_error::Result<ParseResult> {
         // Indentation with tabs is prohibited by starlark spec and configured starlark dialect.
         // This check also prohibits tabs even where spaces are not significant,
         // for example inside parentheses in function call arguments,
@@ -473,10 +473,8 @@ impl InterpreterForCell {
         self: &Arc<Self>,
         import: StarlarkPath<'_>,
         import_string: &str,
-    ) -> anyhow::Result<OwnedStarlarkModulePath> {
-        Ok(self
-            .load_resolver(import)
-            .resolve_load(import_string, None)?)
+    ) -> buck2_error::Result<OwnedStarlarkModulePath> {
+        self.load_resolver(import).resolve_load(import_string, None)
     }
 
     fn eval(
@@ -488,7 +486,7 @@ impl InterpreterForCell {
         extra_context: PerFileTypeContext,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<EvalResult> {
+    ) -> buck2_error::Result<EvalResult> {
         let import = extra_context.starlark_path();
         let globals = self.global_state.globals();
         let file_loader =
@@ -526,10 +524,10 @@ impl InterpreterForCell {
 
                     eval_provider
                         .evaluation_complete(&mut eval)
-                        .buck_error_context_anyhow("Profiler finalization failed")?;
+                        .buck_error_context("Profiler finalization failed")?;
                     eval_provider
                         .visit_frozen_module(None)
-                        .buck_error_context_anyhow("Profiler heap visitation failed")?;
+                        .buck_error_context("Profiler heap visitation failed")?;
 
                     cpu_instruction_count
                 }
@@ -556,7 +554,7 @@ impl InterpreterForCell {
         ast: AstModule,
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
-    ) -> anyhow::Result<FrozenModule> {
+    ) -> buck2_error::Result<FrozenModule> {
         let env = self.create_env(starlark_path.into(), &loaded_modules)?;
         let extra_context = match starlark_path {
             StarlarkModulePath::LoadFile(bzl) => PerFileTypeContext::Bzl(BzlEvalCtx {
@@ -582,7 +580,7 @@ impl InterpreterForCell {
             eval_provider,
             typecheck,
         )?;
-        env.freeze()
+        Ok(env.freeze()?)
     }
 
     pub(crate) fn eval_package_file(
@@ -593,7 +591,7 @@ impl InterpreterForCell {
         buckconfigs: &mut dyn BuckConfigsViewForStarlark,
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
-    ) -> anyhow::Result<SuperPackage> {
+    ) -> buck2_error::Result<SuperPackage> {
         let env = self.create_env(
             StarlarkPath::PackageFile(package_file_path),
             &loaded_modules,
@@ -650,7 +648,7 @@ impl InterpreterForCell {
         loaded_modules: LoadedModules,
         eval_provider: &mut dyn StarlarkEvaluatorProvider,
         unstable_typecheck: bool,
-    ) -> anyhow::Result<EvaluationResultWithStats> {
+    ) -> buck2_error::Result<EvaluationResultWithStats> {
         let (env, internals) = self.create_build_env(
             build_file,
             &listing,

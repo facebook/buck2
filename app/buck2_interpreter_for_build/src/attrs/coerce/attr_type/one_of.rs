@@ -25,7 +25,7 @@ impl AttrTypeCoerce for OneOfAttrType {
         configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let mut errs = Vec::new();
         // Bias towards the start of the list - try and use success/failure from first in preference
         for (i, x) in self.xs.iter().enumerate() {
@@ -37,7 +37,7 @@ impl AttrTypeCoerce for OneOfAttrType {
                 }
             }
         }
-        Err(CoercionError::one_of_many(errs))
+        Err(CoercionError::one_of_many(errs).into())
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

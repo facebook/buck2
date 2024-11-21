@@ -18,6 +18,7 @@ Caused by:
     1: Traceback (most recent call last):
          * attr_coercion/TARGETS.fixture:3, in <module>
              int_rule(
+       
        error: Error coercing attribute `x` of `root//attr_coercion:int_rule`
         --> attr_coercion/TARGETS.fixture:3:1
          |
@@ -27,7 +28,6 @@ Caused by:
        6 | | )
          | |_^
          |
-       
     2: Error coercing attribute `x` of type `attrs.int()`
     3: Error coercing "foobar"
     4: Expected value of type `int`, got value with type `string` (value was `"foobar"`)

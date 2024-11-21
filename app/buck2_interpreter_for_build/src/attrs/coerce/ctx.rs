@@ -163,17 +163,20 @@ impl BuildAttrCoercionContext {
         )
     }
 
-    pub fn parse_pattern<P: PatternType>(&self, value: &str) -> anyhow::Result<ParsedPattern<P>> {
-        Ok(ParsedPattern::parsed_opt_absolute(
+    pub fn parse_pattern<P: PatternType>(
+        &self,
+        value: &str,
+    ) -> buck2_error::Result<ParsedPattern<P>> {
+        ParsedPattern::parsed_opt_absolute(
             value,
             self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
             self.cell_name,
             &self.cell_resolver,
             &self.cell_alias_resolver,
-        )?)
+        )
     }
 
-    fn coerce_label_no_cache(&self, value: &str) -> anyhow::Result<ProvidersLabel> {
+    fn coerce_label_no_cache(&self, value: &str) -> buck2_error::Result<ProvidersLabel> {
         // TODO(nmj): Make this take an import path / package
         match self.parse_pattern::<ProvidersPatternExtra>(value)? {
             ParsedPattern::Target(package, target_name, providers) => {
@@ -186,7 +189,7 @@ impl BuildAttrCoercionContext {
     fn require_enclosing_package(
         &self,
         msg: &str,
-    ) -> anyhow::Result<&(PackageLabel, PackageListing)> {
+    ) -> buck2_error::Result<&(PackageLabel, PackageListing)> {
         self.enclosing_package.as_ref().ok_or_else(|| {
             BuildAttrCoercionContextError::NotBuildFileContext(msg.to_owned()).into()
         })
@@ -289,7 +292,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         &self,
         pattern: &str,
     ) -> buck2_error::Result<ParsedPattern<TargetPatternExtra>> {
-        Ok(self.parse_pattern(pattern)?)
+        self.parse_pattern(pattern)
     }
 
     fn visit_query_function_literals(

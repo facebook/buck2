@@ -9,10 +9,10 @@
 
 use std::collections::HashMap;
 
-use anyhow::Context;
 use buck2_core::target::label::label::TargetLabelRef;
 use buck2_core::target::name::TargetNameRef;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
@@ -47,7 +47,7 @@ pub trait AttributeSpecExt {
         &'a self,
         param_parser: &mut ParametersParser<'v, '_>,
         size_hint: usize,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         // "name" attribute value.
         &'v TargetNameRef,
         // Remaining attributes.
@@ -61,7 +61,7 @@ pub trait AttributeSpecExt {
         param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         internals: &ModuleInternals,
-    ) -> anyhow::Result<(&'v TargetNameRef, AttrValues)>;
+    ) -> buck2_error::Result<(&'v TargetNameRef, AttrValues)>;
 
     /// Returns a starlark Parameters for the rule callable.
     fn signature(&self, rule_name: String) -> ParametersSpec<Value<'_>>;
@@ -77,7 +77,7 @@ impl AttributeSpecExt for AttributeSpec {
         &'a self,
         param_parser: &mut ParametersParser<'v, '_>,
         size_hint: usize,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         &'v TargetNameRef,
         impl ExactSizeIterator<Item = (&'a str, AttributeId, &'a Attribute)> + 'a,
         AttrValues,
@@ -95,9 +95,7 @@ impl AttributeSpecExt for AttributeSpec {
                 name
             }
             _ => {
-                return Err(internal_error_anyhow!(
-                    "First attribute is `name`, it is known"
-                ));
+                return Err(internal_error!("First attribute is `name`, it is known"));
             }
         };
         let name = TargetNameRef::new(name)?;
@@ -110,7 +108,7 @@ impl AttributeSpecExt for AttributeSpec {
         param_parser: &mut ParametersParser<'v, '_>,
         arg_count: usize,
         internals: &ModuleInternals,
-    ) -> anyhow::Result<(&'v TargetNameRef, AttrValues)> {
+    ) -> buck2_error::Result<(&'v TargetNameRef, AttrValues)> {
         let (name, indices, mut attr_values) = self.start_parse(param_parser, arg_count)?;
 
         let target_label = TargetLabelRef::new(internals.buildfile_path().package(), name);
@@ -133,7 +131,7 @@ impl AttributeSpecExt for AttributeSpec {
                         internals.attr_coercion_context(),
                         v,
                     )
-                    .with_context(|| {
+                    .with_buck_error_context(|| {
                         format!(
                             "Error coercing attribute `{}` of `{}`",
                             attr_name, target_label,
@@ -179,7 +177,7 @@ impl AttributeSpecExt for AttributeSpec {
         if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
             let within_view = match within_view {
                 CoercedAttr::WithinView(within_view) => within_view,
-                _ => return Err(internal_error_anyhow!("`within_view` coerced incorrectly")),
+                _ => return Err(internal_error!("`within_view` coerced incorrectly")),
             };
             for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
                 check_within_view(
@@ -188,7 +186,7 @@ impl AttributeSpecExt for AttributeSpec {
                     a.attr.coercer(),
                     within_view,
                 )
-                .with_context(|| {
+                .with_buck_error_context(|| {
                     format!(
                         "checking `within_view` for attribute `{}` of `{}`",
                         a.name, target_label,

@@ -64,15 +64,15 @@ pub type CellsData = (CellAliasResolver, CellResolver, LegacyBuckConfig);
 
 /// The same as `run_starlark_test`, but just make sure the parse succeeds;
 /// ignore the targets
-pub fn run_simple_starlark_test(content: &str) -> anyhow::Result<()> {
+pub fn run_simple_starlark_test(content: &str) -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     match tester.run_starlark_test(content) {
         Ok(_) => Ok(()),
-        Err(e) => Err(anyhow::Error::from(e)),
+        Err(e) => Err(buck2_error::Error::from(e)),
     }
 }
 
-pub fn cells(extra_root_config: Option<&str>) -> anyhow::Result<CellsData> {
+pub fn cells(extra_root_config: Option<&str>) -> buck2_error::Result<CellsData> {
     let resolver = CellResolver::testing_with_name_and_path(
         CellName::testing_new("root"),
         CellRootPathBuf::new(ProjectRelativePath::empty().to_owned()),
@@ -132,11 +132,11 @@ pub fn expect_error<T>(result: buck2_error::Result<T>, content: &str, expected: 
 }
 
 impl Tester {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> buck2_error::Result<Self> {
         Self::with_cells(cells(None)?)
     }
 
-    pub fn with_cells(cells_data: CellsData) -> anyhow::Result<Self> {
+    pub fn with_cells(cells_data: CellsData) -> buck2_error::Result<Self> {
         let (cell_alias_resolver, cell_resolver, root_config) = cells_data;
         Ok(Self {
             cell_alias_resolver,
@@ -160,7 +160,7 @@ impl Tester {
         self.prelude_path = Some(PreludePath::testing_new(prelude_import));
     }
 
-    fn interpreter(&self) -> anyhow::Result<Arc<InterpreterForCell>> {
+    fn interpreter(&self) -> buck2_error::Result<Arc<InterpreterForCell>> {
         let build_file_cell = BuildFileCell::new(self.cell_alias_resolver.resolve_self());
         let import_paths = ImplicitImportPaths::parse(
             &self.root_config,
@@ -208,7 +208,11 @@ impl Tester {
 
     /// Evaluate an import, and add it to the existing loaded_modules() map to be
     /// used with `eval_build_file`
-    pub fn add_import(&mut self, path: &ImportPath, content: &str) -> anyhow::Result<LoadedModule> {
+    pub fn add_import(
+        &mut self,
+        path: &ImportPath,
+        content: &str,
+    ) -> buck2_error::Result<LoadedModule> {
         let loaded = self.eval_import(path, content, self.loaded_modules.clone())?;
         self.loaded_modules
             .map
@@ -224,7 +228,7 @@ impl Tester {
         path: &ImportPath,
         content: &str,
         loaded_modules: LoadedModules,
-    ) -> anyhow::Result<LoadedModule> {
+    ) -> buck2_error::Result<LoadedModule> {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())??;
@@ -253,7 +257,7 @@ impl Tester {
         path: &BuildFilePath,
         content: &str,
         package_listing: PackageListing,
-    ) -> anyhow::Result<EvaluationResult> {
+    ) -> buck2_error::Result<EvaluationResult> {
         self.eval_build_file_with_loaded_modules(
             path,
             content,
@@ -270,7 +274,7 @@ impl Tester {
         content: &str,
         loaded_modules: LoadedModules,
         package_listing: PackageListing,
-    ) -> anyhow::Result<EvaluationResult> {
+    ) -> buck2_error::Result<EvaluationResult> {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())??;

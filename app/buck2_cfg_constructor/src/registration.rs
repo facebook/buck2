@@ -114,7 +114,7 @@ impl<'v> Freeze for StarlarkCfgConstructor<'v> {
 
 fn make_cfg_constructor(
     cfg_constructor: OwnedFrozenValue,
-) -> anyhow::Result<Arc<dyn CfgConstructorImpl>> {
+) -> buck2_error::Result<Arc<dyn CfgConstructorImpl>> {
     let cfg_constructor = cfg_constructor.downcast_anyhow::<FrozenStarlarkCfgConstructor>()?;
     let (
         cfg_constructor_pre_constraint_analysis,

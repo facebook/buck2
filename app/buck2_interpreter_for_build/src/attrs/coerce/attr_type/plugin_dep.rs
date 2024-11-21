@@ -25,12 +25,12 @@ impl AttrTypeCoerce for PluginDepAttrType {
         _configurable: AttrIsConfigurable,
         ctx: &dyn AttrCoercionContext,
         value: Value,
-    ) -> anyhow::Result<CoercedAttr> {
+    ) -> buck2_error::Result<CoercedAttr> {
         let label = value
             .unpack_str()
-            .ok_or_else(|| anyhow::anyhow!(CoercionError::type_error(STRING_TYPE, value)))?;
+            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
-        Ok(ctx.coerce_target_label(label).map(CoercedAttr::PluginDep)?)
+        ctx.coerce_target_label(label).map(CoercedAttr::PluginDep)
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {
