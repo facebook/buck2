@@ -94,14 +94,22 @@ _BUCKCONFIG_LOG_JSON_KEYS = _buck_config_log_keys(json = True)
 _BUCKCONFIG_LOG_ALL = read_root_config("buckconfig", "log_all_in_json") in ("True", "true")
 LOG_BUCKCONFIGS = bool(_BUCKCONFIG_LOG_KEYS or _BUCKCONFIG_LOG_JSON_KEYS or _BUCKCONFIG_LOG_ALL)
 
-def _log_read_config(section: str, key: str):
+# optional fields
+_BUCKCONFIG_LOG_CALLSTACK = read_root_config("buckconfig", "log_callstack") in ("True", "true")
+_BUCKCONFIG_LOG_VALUE = read_root_config("buckconfig", "log_value") in ("True", "true")
+
+def _log_read_config(read_func, section: str, key: str, default = None):
+    value = read_func(section, key, default)
+
+    maybe_value_dict = {"value": value} if _BUCKCONFIG_LOG_VALUE else {}
+    maybe_callstack_dict = {"call_stack": call_stack()} if _BUCKCONFIG_LOG_CALLSTACK else {}
     if _BUCKCONFIG_LOG_ALL:
         output = {
             "starlark_log_all_buckconfigs": {
                 "cell": get_cell_name(),
                 "key": key,
                 "section": section,
-            },
+            } | maybe_value_dict | maybe_callstack_dict,
         }
 
         # This only prints if buckconfig is set
@@ -114,7 +122,7 @@ def _log_read_config(section: str, key: str):
                 "starlark_log_buckconfig": {
                     "call_stack": call_stack(),
                     "cell": get_cell_name(),
-                },
+                } | maybe_value_dict,
             }
 
             # This only prints if buckconfig is set
@@ -129,19 +137,10 @@ def _log_read_config(section: str, key: str):
             # buildifier: disable=print
             print("========starlark_log_buckconfig========\n{}\n".format(call_stack()))
 
-def read_config_with_logging(
-        section: str,
-        key: str,
-        default = None):
-    _log_read_config(section, key)
-    return read_config(section, key, default)
+    return value
 
-def read_root_config_with_logging(
-        section: str,
-        key: str,
-        default = None):
-    _log_read_config(section, key)
-    return read_root_config(section, key, default)
+read_config_with_logging = partial(_log_read_config, read_config)
+read_root_config_with_logging = partial(_log_read_config, read_root_config)
 
 _read_config = read_config_with_logging if LOG_BUCKCONFIGS else read_config
 _read_root_config = read_root_config_with_logging if LOG_BUCKCONFIGS else read_root_config
