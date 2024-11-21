@@ -10,7 +10,6 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::build_request::build_providers;
 use buck2_cli_proto::build_request::BuildProviders;
@@ -36,7 +35,7 @@ use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
@@ -197,7 +196,7 @@ impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
 pub fn print_build_result(
     console: &FinalConsole,
     errors: &[buck2_data::ErrorReport],
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     for error in errors {
         console.print_error(&error.message)?;
     }
@@ -242,7 +241,7 @@ impl StreamingCommand for BuildCommand {
                         .map(|p| {
                             p.resolve(&ctx.working_dir)
                                 .into_string()
-                                .with_buck_error_context_anyhow(|| {
+                                .with_buck_error_context(|| {
                                     format!(
                                         "Failed to convert output hashes file path ({}) to string",
                                         p.display()
@@ -274,7 +273,7 @@ impl StreamingCommand for BuildCommand {
             print_build_failed(&console)?;
         }
 
-        if buck2_env_anyhow!("BUCK2_TEST_BUILD_ERROR", bool, applicability = testing)? {
+        if buck2_env!("BUCK2_TEST_BUILD_ERROR", bool, applicability = testing)? {
             return buck2_error!([], "Injected Build Response Error").into();
         }
 
@@ -300,7 +299,7 @@ impl StreamingCommand for BuildCommand {
                     stdout,
                 )
                 .await
-                .context("Error requesting specific output path for --out")?;
+                .buck_error_context("Error requesting specific output path for --out")?;
             }
 
             if let Some(format) = self.show_output.format() {
@@ -341,15 +340,15 @@ impl StreamingCommand for BuildCommand {
 pub(crate) fn print_build_succeeded(
     console: &FinalConsole,
     ctx: &ClientCommandContext<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if ctx.verbosity.print_success_message() {
         console.print_success("BUILD SUCCEEDED")?;
     }
     Ok(())
 }
 
-pub(crate) fn print_build_failed(console: &FinalConsole) -> anyhow::Result<()> {
-    Ok(console.print_error("BUILD FAILED")?)
+pub(crate) fn print_build_failed(console: &FinalConsole) -> buck2_error::Result<()> {
+    console.print_error("BUILD FAILED")
 }
 
 pub(crate) fn print_outputs(
@@ -358,7 +357,7 @@ pub(crate) fn print_outputs(
     root_path: Option<String>,
     format: PrintOutputsFormat,
     show_all_outputs: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let root_path = root_path.map(PathBuf::from);
     let mut print = PrintOutputs::new(out, root_path, format)?;
 
@@ -396,14 +395,14 @@ mod tests {
 
     use super::*;
 
-    fn parse(args: &[&str]) -> anyhow::Result<BuildCommand> {
+    fn parse(args: &[&str]) -> buck2_error::Result<BuildCommand> {
         Ok(BuildCommand::try_parse_from(
             std::iter::once("program").chain(args.iter().copied()),
         )?)
     }
 
     #[test]
-    fn infos_default() -> anyhow::Result<()> {
+    fn infos_default() -> buck2_error::Result<()> {
         let opts = parse(&[])?;
 
         assert_eq!(opts.default_info(), Action::Build);
@@ -414,7 +413,7 @@ mod tests {
     }
 
     #[test]
-    fn infos_noop() -> anyhow::Result<()> {
+    fn infos_noop() -> buck2_error::Result<()> {
         let opts = parse(&[
             "--skip-test-info",
             "--build-default-info",
@@ -429,7 +428,7 @@ mod tests {
     }
 
     #[test]
-    fn infos_configure() -> anyhow::Result<()> {
+    fn infos_configure() -> buck2_error::Result<()> {
         let opts = parse(&["--skip-default-info"])?;
         assert_eq!(opts.default_info(), Action::Skip);
 
@@ -443,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    fn infos_validation() -> anyhow::Result<()> {
+    fn infos_validation() -> buck2_error::Result<()> {
         // Test duplicate args
         assert_matches!(
             parse(&["--build-default-info", "--skip-default-info"]),

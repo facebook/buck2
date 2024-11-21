@@ -17,12 +17,12 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::retrieve_nth_recent_log;
 use buck2_event_log::read::EventLogPathBuf;
@@ -100,7 +100,7 @@ impl ChromeTraceFirstPass {
         }
     }
 
-    fn handle_event(&mut self, event: &BuckEvent) -> anyhow::Result<()> {
+    fn handle_event(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(ref start) => {
                 match start.data.as_ref() {
@@ -211,7 +211,7 @@ struct ChromeTraceClosedSpan {
 }
 
 impl ChromeTraceClosedSpan {
-    fn to_json(self) -> anyhow::Result<serde_json::Value> {
+    fn to_json(self) -> buck2_error::Result<serde_json::Value> {
         Ok(json!(
             {
                 "name": self.open.name,
@@ -321,7 +321,7 @@ where
     }
 
     /// Process the given timestamp and flush if needed and update next_flush accordingly
-    fn process_timestamp(&mut self, timestamp: SystemTime) -> anyhow::Result<()> {
+    fn process_timestamp(&mut self, timestamp: SystemTime) -> buck2_error::Result<()> {
         if self.next_flush == SystemTime::UNIX_EPOCH {
             self.next_flush = timestamp + Self::BUCKET_DURATION;
         }
@@ -342,28 +342,28 @@ where
             })
     }
 
-    fn set(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
+    fn set(&mut self, timestamp: SystemTime, key: &str, amount: T) -> buck2_error::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.counter_entry(key);
         entry.value = amount;
         Ok(())
     }
 
-    fn bump(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
+    fn bump(&mut self, timestamp: SystemTime, key: &str, amount: T) -> buck2_error::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.counter_entry(key);
         entry.value += amount;
         Ok(())
     }
 
-    fn subtract(&mut self, timestamp: SystemTime, key: &str, amount: T) -> anyhow::Result<()> {
+    fn subtract(&mut self, timestamp: SystemTime, key: &str, amount: T) -> buck2_error::Result<()> {
         self.process_timestamp(timestamp)?;
         let entry = self.counter_entry(key);
         entry.value -= amount;
         Ok(())
     }
 
-    fn flush(&mut self) -> anyhow::Result<()> {
+    fn flush(&mut self) -> buck2_error::Result<()> {
         // Output size optimization: omit counters that were previously, and still are, zero.
         let mut counters_to_zero = Vec::new();
         let mut counters_to_output = json!({});
@@ -427,7 +427,7 @@ where
         Ok(())
     }
 
-    pub fn flush_all_to(&mut self, output: &mut Vec<serde_json::Value>) -> anyhow::Result<()> {
+    pub fn flush_all_to(&mut self, output: &mut Vec<serde_json::Value>) -> buck2_error::Result<()> {
         self.flush()?;
         output.append(&mut self.trace_events);
         Ok(())
@@ -457,7 +457,7 @@ impl AverageRateOfChangeCounters {
         timestamp: SystemTime,
         key: &str,
         amount: u64,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // We only plot if there exists a previous item to compute the rate of change off of
         if let Some(previous) = self.previous_timestamp_and_amount_by_key.get(key) {
             let secs_since_last_datapoint =
@@ -497,7 +497,7 @@ impl SpanCounters {
         event: &BuckEvent,
         key: &'static str,
         amount: i32,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.open_spans
             .insert(event.span_id().unwrap(), (key, amount));
         self.counter.bump(event.timestamp(), key, amount)
@@ -507,7 +507,7 @@ impl SpanCounters {
         &mut self,
         _end: &buck2_data::SpanEndEvent,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some((key, value)) = self.open_spans.remove(&event.span_id().unwrap()) {
             self.counter.subtract(event.timestamp(), key, value)?;
         }
@@ -557,7 +557,7 @@ impl ChromeTraceWriter {
         &mut self,
         track_key: SpanCategorization,
         event: &BuckEvent,
-    ) -> anyhow::Result<Option<SpanTrackAssignment>> {
+    ) -> buck2_error::Result<Option<SpanTrackAssignment>> {
         let parent_track_id = event.parent_id().and_then(|parent_id| {
             self.open_spans
                 .get(&parent_id)
@@ -588,7 +588,7 @@ impl ChromeTraceWriter {
         }
     }
 
-    pub fn to_writer<W>(mut self, file: W) -> anyhow::Result<()>
+    pub fn to_writer<W>(mut self, file: W) -> buck2_error::Result<()>
     where
         W: Write,
     {
@@ -612,7 +612,11 @@ impl ChromeTraceWriter {
         Ok(())
     }
 
-    fn open_span(&mut self, event: &BuckEvent, span: ChromeTraceOpenSpan) -> anyhow::Result<()> {
+    fn open_span(
+        &mut self,
+        event: &BuckEvent,
+        span: ChromeTraceOpenSpan,
+    ) -> buck2_error::Result<()> {
         self.open_spans.insert(event.span_id().unwrap(), span);
         Ok(())
     }
@@ -622,7 +626,7 @@ impl ChromeTraceWriter {
         event: &BuckEvent,
         name: String,
         track_key: SpanCategorization,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // Allocate this span to its parent's track or to a new track.
         let track = self.assign_track_for_span(track_key, event)?;
         if let Some(track) = track {
@@ -644,7 +648,7 @@ impl ChromeTraceWriter {
         Ok(())
     }
 
-    fn handle_event(&mut self, event: &Arc<BuckEvent>) -> anyhow::Result<()> {
+    fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(buck2_data::SpanStartEvent {
                 data: Some(start_data),
@@ -916,13 +920,13 @@ impl ChromeTraceWriter {
         &mut self,
         end: &buck2_data::SpanEndEvent,
         event: &BuckEvent,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         self.span_counters.handle_event_end(end, event)?;
         if let Some(open) = self.open_spans.remove(&event.span_id().unwrap()) {
             let duration = end
                 .duration
                 .as_ref()
-                .context("Expected SpanEndEvent to have duration")?
+                .buck_error_context("Expected SpanEndEvent to have duration")?
                 .try_into_duration()?;
             if let SpanTrackAssignment::Owned(track_id) = &open.track {
                 self.unused_track_ids
@@ -940,7 +944,7 @@ impl ChromeTraceWriter {
 impl ChromeTraceCommand {
     async fn load_events(
         log_path: EventLogPathBuf,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         Invocation,
         BoxStream<'static, buck2_error::Result<BuckEvent>>,
     )> {
@@ -955,9 +959,13 @@ impl ChromeTraceCommand {
         Ok((invocation, Box::pin(stream)))
     }
 
-    fn trace_path_from_dir(dir: AbsPathBuf, log: &std::path::Path) -> anyhow::Result<AbsPathBuf> {
+    fn trace_path_from_dir(
+        dir: AbsPathBuf,
+        log: &std::path::Path,
+    ) -> buck2_error::Result<AbsPathBuf> {
         match log.file_name() {
-            None => Err(anyhow::anyhow!(
+            None => Err(buck2_error!(
+                [],
                 "Could not determine filename from event log path: `{:#}`",
                 log.display()
             )),
@@ -984,7 +992,8 @@ impl ChromeTraceCommand {
 
         let trace_path = self.trace_path.resolve(&ctx.working_dir);
         let dest_path = if trace_path.is_dir() {
-            Self::trace_path_from_dir(trace_path, &log).context("Could not determine trace path")?
+            Self::trace_path_from_dir(trace_path, &log)
+                .buck_error_context("Could not determine trace path")?
         } else {
             trace_path
         };
@@ -1003,13 +1012,15 @@ impl ChromeTraceCommand {
         ExitResult::success()
     }
 
-    async fn trace_writer(log: EventLogPathBuf) -> anyhow::Result<ChromeTraceWriter> {
+    async fn trace_writer(log: EventLogPathBuf) -> buck2_error::Result<ChromeTraceWriter> {
         let (invocation, mut stream) = Self::load_events(log.clone()).await?;
         let mut first_pass = ChromeTraceFirstPass::new();
         while let Some(event) = tokio_stream::StreamExt::try_next(&mut stream).await? {
             first_pass
                 .handle_event(&event)
-                .with_context(|| display::InvalidBuckEvent(Arc::new(event.clone())))?;
+                .with_buck_error_context(|| {
+                    display::InvalidBuckEvent(Arc::new(event.clone())).to_string()
+                })?;
         }
 
         let mut writer = ChromeTraceWriter::new(invocation, first_pass);
@@ -1020,7 +1031,7 @@ impl ChromeTraceCommand {
             let event = Arc::new(event);
             writer
                 .handle_event(&event)
-                .with_context(|| display::InvalidBuckEvent(event))?;
+                .with_buck_error_context(|| display::InvalidBuckEvent(event).to_string())?;
         }
         Ok(writer)
     }

@@ -10,12 +10,12 @@
 use std::cmp;
 use std::iter;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::env::registry::Applicability;
 use buck2_core::env::registry::EnvInfoEntry;
 use buck2_core::env::registry::ENV_INFO;
+use buck2_error::BuckErrorContext;
 
 /// Print help for environment variables used by buck2.
 #[derive(Debug, clap::Parser)]
@@ -52,12 +52,12 @@ impl HelpEnvCommand {
             .iter()
             .map(|e| e.name.len())
             .max()
-            .context("No environment variables stored defined, this is a bug")?;
+            .buck_error_context("No environment variables stored defined, this is a bug")?;
         let longest_ty = env_info
             .iter()
             .map(|e| e.ty_short().len())
             .max()
-            .context("No environment variables stored defined, this is a bug")?;
+            .buck_error_context("No environment variables stored defined, this is a bug")?;
         let longest_default = env_info
             .iter()
             .filter_map(|e| e.default)

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::trace_io_request;
 use buck2_cli_proto::TraceIoRequest;
@@ -65,15 +64,15 @@ impl TraceIoCommand {
         req: TraceIoRequest,
         buckd: &mut BuckdClientConnector<'_>,
         ctx: &mut ClientCommandContext<'_>,
-    ) -> anyhow::Result<CommandOutcome<TraceIoResponse>> {
-        Ok(buckd
+    ) -> buck2_error::Result<CommandOutcome<TraceIoResponse>> {
+        buckd
             .with_flushing()
             .trace_io(
                 req,
                 ctx.stdin().console_interaction_stream(self.console_opts()),
                 &mut NoPartialResultHandler,
             )
-            .await?)
+            .await
     }
 }
 
@@ -140,13 +139,13 @@ impl StreamingCommand for TraceIoCommand {
                         })
                         .collect(),
                     repository: RepositoryMetadata::from_cwd()
-                        .buck_error_context_anyhow("creating repository metadata")?,
+                        .buck_error_context("creating repository metadata")?,
                 };
                 let serialized = serde_json::to_string(&manifest)
-                    .context("serializing offline archive manifest to json")?;
+                    .buck_error_context("serializing offline archive manifest to json")?;
                 if let Some(output_path) = &out {
                     fs_util::write(output_path.resolve(&ctx.working_dir), &serialized)
-                        .context("writing offline archive manifest")?;
+                        .buck_error_context("writing offline archive manifest")?;
                 } else {
                     buck2_client_ctx::println!("{}", serialized)?;
                 }

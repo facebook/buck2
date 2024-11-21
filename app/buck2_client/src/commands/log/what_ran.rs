@@ -11,10 +11,10 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Write;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::re_platform::Property;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::fmt_duration;
 use buck2_event_observer::what_ran;
@@ -126,37 +126,35 @@ impl WhatRanCommand {
             show_std_err,
             omit_empty_std_err,
         } = self;
-        buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
+        buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(|w| {
             let mut output = OutputFormatWithWriter {
                 format: transform_format(output, w),
                 include_std_err: show_std_err,
                 omit_empty_std_err,
             };
-            Ok(
-                ctx.instant_command_no_log("log-what-ran", |ctx| async move {
-                    let log_path = event_log.get(&ctx).await?;
+            ctx.instant_command_no_log("log-what-ran", |ctx| async move {
+                let log_path = event_log.get(&ctx).await?;
 
-                    let (invocation, events) = log_path.unpack_stream().await?;
+                let (invocation, events) = log_path.unpack_stream().await?;
 
-                    buck2_client_ctx::eprintln!(
-                        "Showing commands from: {}{}",
-                        invocation.display_command_line(),
-                        if options.filter_category.is_some() {
-                            ", filtered by action category"
-                        } else {
-                            ""
-                        }
-                    )?;
+                buck2_client_ctx::eprintln!(
+                    "Showing commands from: {}{}",
+                    invocation.display_command_line(),
+                    if options.filter_category.is_some() {
+                        ", filtered by action category"
+                    } else {
+                        ""
+                    }
+                )?;
 
-                    let options = WhatRanCommandOptions {
-                        options,
-                        failed,
-                        incomplete,
-                    };
-                    WhatRanCommandState::execute(events, &mut output, &options).await?;
-                    buck2_error::Ok(())
-                })?,
-            )
+                let options = WhatRanCommandOptions {
+                    options,
+                    failed,
+                    incomplete,
+                };
+                WhatRanCommandState::execute(events, &mut output, &options).await?;
+                buck2_error::Ok(())
+            })
         })?;
         ExitResult::success()
     }
@@ -177,19 +175,22 @@ impl WhatRanEntry {
         output: &mut impl WhatRanOutputWriter,
         data: &Option<buck2_data::span_end_event::Data>,
         options: &WhatRanCommandOptions,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let action = WhatRanRelevantAction::from_buck_data(
-            self.event.data.as_ref().context("Checked above")?,
+            self.event
+                .data
+                .as_ref()
+                .buck_error_context("Checked above")?,
         );
         let options_regex = what_ran::WhatRanOptionsRegex::from_options(&options.options)?;
         for repro in self.reproducers.iter() {
             what_ran::emit_what_ran_entry(
                 action,
                 CommandReproducer::from_buck_data(
-                    repro.data.as_ref().context("Checked above")?,
+                    repro.data.as_ref().buck_error_context("Checked above")?,
                     options_regex.options,
                 )
-                .context("Checked above")?,
+                .buck_error_context("Checked above")?,
                 data,
                 output,
                 &options_regex,
@@ -221,7 +222,7 @@ impl WhatRanCommandState {
         mut events: impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin + Send,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanCommandOptions,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut cmd = Self::default();
 
         while let Some(event) = events.try_next().await? {
@@ -248,7 +249,7 @@ impl WhatRanCommandState {
         event: Box<buck2_data::BuckEvent>,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanCommandOptions,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(data) = &event.data {
             if WhatRanRelevantAction::from_buck_data(data).is_some() {
                 self.known_actions.insert(
@@ -570,7 +571,7 @@ mod tests {
     }
 
     #[test]
-    fn serialize_what_ran_command_no_extr() -> anyhow::Result<()> {
+    fn serialize_what_ran_command_no_extr() -> buck2_error::Result<()> {
         let command = make_base_command();
 
         let expected = r#"{
@@ -595,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn serialize_what_ran_command_with_extra() -> anyhow::Result<()> {
+    fn serialize_what_ran_command_with_extra() -> buck2_error::Result<()> {
         let mut command = make_base_command();
         let cases = &["case".to_owned()];
         command.extra = Some(JsonExtra::TestCases(cases));
@@ -627,7 +628,7 @@ mod tests {
     }
 
     #[test]
-    fn serialize_what_ran_command_in_re() -> anyhow::Result<()> {
+    fn serialize_what_ran_command_in_re() -> buck2_error::Result<()> {
         let command = make_base_command_in_re();
 
         let expected = r#"{

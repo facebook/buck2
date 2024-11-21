@@ -61,7 +61,7 @@ impl StreamingCommand for HeapDumpCommand {
             .unstable_heap_dump(UnstableHeapDumpRequest {
                 destination_path: path.to_str()?.to_owned(),
                 test_executor_destination_path: test_executor_path
-                    .map(|v| -> anyhow::Result<String> { Ok(v.to_str()?.to_owned()) })
+                    .map(|v| -> buck2_error::Result<String> { Ok(v.to_str()?.to_owned()) })
                     .transpose()?,
             })
             .await?;

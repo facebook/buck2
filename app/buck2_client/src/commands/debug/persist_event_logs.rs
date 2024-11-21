@@ -9,7 +9,6 @@
 
 use std::time::SystemTime;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::chunk_reader::ChunkReader;
@@ -21,6 +20,8 @@ use buck2_core::soft_error;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::PersistEventLogSubprocess;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::sink::remote::RemoteEventSink;
@@ -95,11 +96,11 @@ impl PersistEventLogsCommand {
     async fn write_and_upload(
         self,
         stdin: impl io::AsyncBufRead + Unpin,
-    ) -> (anyhow::Result<()>, anyhow::Result<()>) {
+    ) -> (buck2_error::Result<()>, buck2_error::Result<()>) {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let file = match create_log_file(self.local_path).await {
             Ok(f) => Mutex::new(f),
-            Err(e) => return (Err(e), Err(anyhow::anyhow!("Not tried"))),
+            Err(e) => return (Err(e), Err(buck2_error::buck2_error!([], "Not tried"))),
         };
         let write = write_task(&file, tx, stdin);
         let upload = upload_task(&file, rx, self.manifold_name, self.no_upload);
@@ -114,7 +115,7 @@ async fn write_task(
     file_mutex: &Mutex<File>,
     tx: tokio::sync::mpsc::UnboundedSender<u64>,
     mut stdin: impl io::AsyncBufRead + Unpin,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut write_position = 0;
     loop {
         let mut buf = vec![0; 64 * 1024]; // maximum pipe size in linux
@@ -132,7 +133,7 @@ async fn write_task(
     Ok(())
 }
 
-async fn create_log_file(local_path: AbsPathBuf) -> Result<tokio::fs::File, anyhow::Error> {
+async fn create_log_file(local_path: AbsPathBuf) -> Result<tokio::fs::File, buck2_error::Error> {
     let file = OpenOptions::new()
         .create(true)
         .append(true)
@@ -140,7 +141,7 @@ async fn create_log_file(local_path: AbsPathBuf) -> Result<tokio::fs::File, anyh
         .read(true)
         .open(&local_path)
         .await
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Failed to open event log for writing at `{}`",
                 local_path.display()
@@ -154,7 +155,7 @@ async fn upload_task(
     mut rx: tokio::sync::mpsc::UnboundedReceiver<u64>,
     manifold_name: String,
     no_upload: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if no_upload {
         return Ok(());
     }
@@ -215,7 +216,7 @@ impl<'a> Uploader<'a> {
         file_mutex: &'a Mutex<File>,
         manifold_path: &'a str,
         manifold_client: &'a ManifoldClient,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let manifold = manifold_client.start_chunked_upload(
             manifold::Bucket::EVENT_LOGS,
             manifold_path,
@@ -232,11 +233,11 @@ impl<'a> Uploader<'a> {
     }
 
     /// Uploads at most 'chunk size' bytes to Manifold
-    async fn upload_chunk(&mut self) -> anyhow::Result<()> {
+    async fn upload_chunk(&mut self) -> buck2_error::Result<()> {
         let mut file = self.file_mutex.lock().await;
         file.seek(io::SeekFrom::Start(self.manifold.position()))
             .await
-            .context("Failed to seek log file")?;
+            .buck_error_context("Failed to seek log file")?;
         let buf = self.reader.read(&mut *file).await?;
         drop(file);
 
@@ -248,7 +249,7 @@ impl<'a> Uploader<'a> {
         self.total_bytes += n
     }
 
-    fn can_fill_chunk(&mut self) -> anyhow::Result<bool> {
+    fn can_fill_chunk(&mut self) -> buck2_error::Result<bool> {
         Ok(self
             .total_bytes
             .checked_sub(self.manifold.position())
@@ -269,16 +270,16 @@ async fn write_to_file(
     file: &mut File,
     write_position: u64,
     buf: &[u8],
-) -> Result<(), anyhow::Error> {
+) -> Result<(), buck2_error::Error> {
     file.seek(io::SeekFrom::Start(write_position))
         .await
-        .context("Failed to seek log file")?;
+        .buck_error_context("Failed to seek log file")?;
     file.write_all(buf).await?;
     file.flush().await?;
     Ok(())
 }
 
-fn status_from_result(res: anyhow::Result<()>) -> (Vec<String>, Option<String>, bool) {
+fn status_from_result(res: buck2_error::Result<()>) -> (Vec<String>, Option<String>, bool) {
     // Returns a tuple of error messages, error category, and success/failure
     if let Err(e) = res {
         let status = (
@@ -293,7 +294,7 @@ fn status_from_result(res: anyhow::Result<()>) -> (Vec<String>, Option<String>, 
     }
 }
 
-fn categorize_error(err: &anyhow::Error) -> &'static str {
+fn categorize_error(err: &buck2_error::Error) -> &'static str {
     // This is for internal error tracking in `logview buck2`
     // Each category should point to 1 root cause
     // In case any of this is to be changed, just give a heads up
@@ -355,14 +356,16 @@ fn create_scribe_sink(ctx: &ClientCommandContext) -> buck2_error::Result<Option<
 
 #[cfg(test)]
 mod tests {
+    use buck2_error::buck2_error;
+
     use super::*;
 
     #[test]
     fn test_categorize_error() {
-        let err = anyhow::anyhow!("CertificateRequired");
+        let err = buck2_error!([], "CertificateRequired");
         assert_eq!(categorize_error(&err), "persist_log_certificate_required");
 
-        let err = anyhow::anyhow!("Some other error");
+        let err = buck2_error!([], "Some other error");
         assert_eq!(categorize_error(&err), "persist_log_other");
     }
 }

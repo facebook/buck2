@@ -9,7 +9,6 @@
 
 use std::process::Stdio;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::temp_path::TempPath;
@@ -17,7 +16,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::find_log_by_trace_id;
 use buck2_event_log::file_names::retrieve_nth_recent_log;
 use buck2_event_log::read::EventLogPathBuf;
@@ -77,7 +76,8 @@ impl EventLogOptions {
             }
         } else {
             retrieve_nth_recent_log(
-                ctx.paths().context("Error identifying log dir")?,
+                ctx.paths()
+                    .buck_error_context("Error identifying log dir")?,
                 self.recent.unwrap_or(0),
             )
         }
@@ -95,7 +95,7 @@ impl EventLogOptions {
         &self,
         trace_id: &TraceId,
         ctx: &ClientCommandContext<'_>,
-    ) -> anyhow::Result<AbsPathBuf> {
+    ) -> buck2_error::Result<AbsPathBuf> {
         let manifold_file_name = FileNameBuf::try_from(format!(
             "{}{}",
             trace_id,
@@ -131,7 +131,7 @@ impl EventLogOptions {
                 .path()
                 .as_os_str()
                 .to_str()
-                .context("temp_path is not valid UTF-8")?,
+                .buck_error_context("temp_path is not valid UTF-8")?,
         ];
         buck2_client_ctx::eprintln!("Spawning: manifold {}", args.join(" "))?;
         let command = async_background_command("manifold")
@@ -150,7 +150,11 @@ impl EventLogOptions {
             .into());
         }
 
-        fs_util::create_dir_all(log_path.parent().context("Error identifying log dir")?)?;
+        fs_util::create_dir_all(
+            log_path
+                .parent()
+                .buck_error_context("Error identifying log dir")?,
+        )?;
         fs_util::rename(temp_path.path(), &log_path)?;
         buck2_client_ctx::eprintln!("Downloaded event-log to `{}`", log_path.display())?;
 

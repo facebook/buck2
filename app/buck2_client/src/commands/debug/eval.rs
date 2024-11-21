@@ -59,7 +59,7 @@ impl StreamingCommand for EvalCommand {
                 context,
                 NewGenericRequest::DebugEval(DebugEvalRequest {
                     paths: self.paths.try_map(|p| {
-                        anyhow::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned())
+                        buck2_error::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned())
                     })?,
                 }),
                 ctx.stdin()

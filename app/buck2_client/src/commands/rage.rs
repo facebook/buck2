@@ -22,7 +22,6 @@ use std::process::Stdio;
 use std::time::Duration;
 use std::time::SystemTime;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -36,6 +35,7 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::RageResult;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::do_find_log_by_trace_id;
 use buck2_event_log::file_names::get_local_logs;
 use buck2_event_log::read::EventLogPathBuf;
@@ -114,7 +114,7 @@ impl RageCommand {
         })
     }
 
-    async fn exec_impl(self, mut ctx: ClientCommandContext<'_>) -> anyhow::Result<()> {
+    async fn exec_impl(self, mut ctx: ClientCommandContext<'_>) -> buck2_error::Result<()> {
         let paths = ctx.paths()?;
         let daemon_dir = paths.daemon_dir()?;
         let stderr_path = daemon_dir.buckd_stderr();
@@ -283,7 +283,7 @@ impl RageCommand {
         event_log_dump: RageSection<String>,
         build_info: RageSection<build_info::BuildInfo>,
         re_logs: RageSection<String>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut string_data: std::collections::HashMap<String, _> = [
             ("dice_dump", dice_dump.output()),
             ("materializer_state", materializer_state.output()),
@@ -354,7 +354,7 @@ impl RageCommand {
         command: impl FnOnce() -> Fut,
     ) -> LocalBoxFuture<RageSection<T>>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
         T: std::fmt::Display + 'a,
     {
         let timeout = Duration::from_secs(self.timeout);
@@ -367,7 +367,7 @@ impl RageCommand {
         command: Option<impl FnOnce() -> Fut>,
     ) -> LocalBoxFuture<RageSection<T>>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
         T: std::fmt::Display + 'a,
     {
         let timeout = Duration::from_secs(self.timeout);
@@ -411,7 +411,7 @@ where
         command: impl FnOnce() -> Fut,
     ) -> LocalBoxFuture<'a, Self>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
     {
         let fut = command();
         let title = title.to_owned();
@@ -434,7 +434,7 @@ where
         command: Option<impl FnOnce() -> Fut>,
     ) -> LocalBoxFuture<'a, Self>
     where
-        Fut: Future<Output = anyhow::Result<T>> + 'a,
+        Fut: Future<Output = buck2_error::Result<T>> + 'a,
     {
         if let Some(command) = command {
             Self::get(title, timeout, command)
@@ -494,7 +494,7 @@ async fn upload_daemon_stderr(
     path: AbsNormPathBuf,
     manifold: &ManifoldClient,
     manifold_id: &str,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     file_to_manifold(manifold, &path, format!("flat/{}.stderr", manifold_id)).await
 }
 
@@ -502,7 +502,7 @@ async fn upload_event_logs(
     path: &EventLogPathBuf,
     manifold: &ManifoldClient,
     manifold_id: &str,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     let filename = format!("flat/{}-event_log{}", manifold_id, path.extension());
     file_to_manifold(manifold, path.path(), filename).await
 }
@@ -511,7 +511,7 @@ async fn upload_re_logs_impl(
     manifold: &ManifoldClient,
     re_logs_dir: &AbsNormPath,
     re_session_id: String,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     let bucket = Bucket::RAGE_DUMPS;
     let filename = format!("flat/{}-re_logs.zst", &re_session_id);
     upload_re_logs::upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename)
@@ -524,7 +524,7 @@ async fn dispatch_result_event(
     sink: Option<&RemoteEventSink>,
     rage_id: &TraceId,
     result: RageResult,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let data = Some(Data::RageResult(result));
     dispatch_event_to_scribe(sink, rage_id, InstantEvent { data }).await?;
     Ok(())
@@ -534,7 +534,7 @@ async fn dispatch_event_to_scribe(
     sink: Option<&RemoteEventSink>,
     trace_id: &TraceId,
     event: InstantEvent,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if let Some(sink) = sink {
         sink.send_now(BuckEvent::new(
             SystemTime::now(),
@@ -570,7 +570,7 @@ async fn maybe_select_invocation(
     stdin: &mut Stdin,
     logdir: &AbsNormPathBuf,
     command: &RageCommand,
-) -> anyhow::Result<Option<EventLogPathBuf>> {
+) -> buck2_error::Result<Option<EventLogPathBuf>> {
     if command.no_invocation {
         return Ok(None);
     };
@@ -598,7 +598,7 @@ async fn log_index(
     stdin: &mut Stdin,
     logs: &[EventLogPathBuf],
     invocation_offset: Option<usize>,
-) -> Result<usize, anyhow::Error> {
+) -> Result<usize, buck2_error::Error> {
     let index = match invocation_offset {
         Some(i) => i,
         None => {
@@ -612,7 +612,7 @@ async fn log_index(
 async fn user_prompt_select_log<'a>(
     stdin: impl AsyncBufRead + Unpin,
     logs: &'a [EventLogPathBuf],
-) -> anyhow::Result<usize> {
+) -> buck2_error::Result<usize> {
     buck2_client_ctx::eprintln!("Which buck invocation would you like to report?\n")?;
     let logs_summary = futures::future::join_all(
         logs.iter()
@@ -637,7 +637,7 @@ async fn get_user_selection<P>(
     mut stdin: impl AsyncBufRead + Unpin,
     prompt: &str,
     predicate: P,
-) -> anyhow::Result<usize>
+) -> buck2_error::Result<usize>
 where
     P: Fn(usize) -> bool,
 {
@@ -652,7 +652,10 @@ where
     }
 }
 
-fn print_log_summary(index: usize, log_summary: &Option<EventLogSummary>) -> anyhow::Result<()> {
+fn print_log_summary(
+    index: usize,
+    log_summary: &Option<EventLogSummary>,
+) -> buck2_error::Result<()> {
     if let Some(log_summary) = log_summary {
         let cmd = build_info::format_cmd(&log_summary.invocation);
 
@@ -671,7 +674,7 @@ fn print_log_summary(index: usize, log_summary: &Option<EventLogSummary>) -> any
     }
 }
 
-async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
+async fn output_rage(no_paste: bool, output: &str) -> buck2_error::Result<()> {
     if no_paste {
         buck2_client_ctx::println!("{}", output)?;
     } else {
@@ -693,7 +696,7 @@ async fn output_rage(no_paste: bool, output: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
+async fn generate_paste(title: &str, content: &str) -> buck2_error::Result<String> {
     let mut pastry = async_background_command("pastry")
         .args(["--title", title])
         .stdin(Stdio::piped())
@@ -701,21 +704,21 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .context(RageError::PastrySpawnError)?;
+        .buck_error_context(RageError::PastrySpawnError)?;
     let mut stdin = pastry.stdin.take().expect("Stdin should open");
 
     let writer = async move {
         stdin
             .write_all(content.as_bytes())
             .await
-            .context(RageError::PastryWriteError)
+            .buck_error_context(RageError::PastryWriteError)
     };
 
     let reader = async move {
         let output = tokio::time::timeout(Duration::from_secs(10), pastry.wait_with_output())
             .await
-            .context(RageError::PastryTimeout)?
-            .context(RageError::PastryOutputError)?;
+            .buck_error_context(RageError::PastryTimeout)?
+            .buck_error_context(RageError::PastryOutputError)?;
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr).to_string();
             let code = output
@@ -724,7 +727,8 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
                 .ok_or_else(|| RageError::PastryCommandError(1, error.clone()))?;
             return Err(RageError::PastryCommandError(code, error).into());
         }
-        let output = String::from_utf8(output.stdout).context(RageError::PastryOutputError)?;
+        let output =
+            String::from_utf8(output.stdout).buck_error_context(RageError::PastryOutputError)?;
         Ok(output)
     };
 
@@ -733,7 +737,9 @@ async fn generate_paste(title: &str, content: &str) -> anyhow::Result<String> {
     Ok(paste)
 }
 
-async fn get_trace_id(invocation: &Option<EventLogPathBuf>) -> anyhow::Result<Option<TraceId>> {
+async fn get_trace_id(
+    invocation: &Option<EventLogPathBuf>,
+) -> buck2_error::Result<Option<TraceId>> {
     let invocation_id = match invocation {
         None => None,
         Some(invocation) => Some(invocation.uuid_from_filename()?),

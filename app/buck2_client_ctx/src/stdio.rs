@@ -163,6 +163,7 @@ where
         Ok(()) => {}
         Err(e) => {
             let e: anyhow::Error = e.into();
+            // TODO(minglunli): Take a close look at this downcast and try to get rid of it
             return match e.downcast::<io::Error>() {
                 Ok(io_error) => Err(ClientIoError::new(io_error).into()),
                 Err(e) => Err(e),

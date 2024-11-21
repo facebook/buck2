@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CleanStaleRequest;
 use buck2_cli_proto::CleanStaleResponse;
@@ -21,6 +20,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
+use buck2_error::BuckErrorContext;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
@@ -48,7 +48,7 @@ pub enum KeepSinceArg {
 pub fn parse_clean_stale_args(
     stale: Option<Option<humantime::Duration>>,
     keep_since_time: Option<i64>,
-) -> anyhow::Result<Option<KeepSinceArg>> {
+) -> buck2_error::Result<Option<KeepSinceArg>> {
     let arg = match (stale, keep_since_time) {
         (Some(Some(human_duration)), None) => {
             let duration = chrono::Duration::from_std(human_duration.into())?;
@@ -104,11 +104,13 @@ impl StreamingCommand for CleanStaleCommand {
             KeepSinceArg::Duration(duration) => {
                 let keep_since_time: DateTime<Utc> = Utc::now()
                     .checked_sub_signed(duration)
-                    .context("Duration underflow")?;
+                    .buck_error_context("Duration underflow")?;
                 buck2_client_ctx::eprintln!(
                     "Cleaning artifacts more than {} old",
                     humantime::format_duration(
-                        duration.to_std().context("Error converting duration")?
+                        duration
+                            .to_std()
+                            .buck_error_context("Error converting duration")?
                     ),
                 )?;
                 // Round up to next second since timestamp below is rounded down
@@ -118,7 +120,7 @@ impl StreamingCommand for CleanStaleCommand {
             KeepSinceArg::Time(timestamp) => Utc
                 .timestamp_opt(timestamp, 0)
                 .single()
-                .context("Invalid timestamp")?,
+                .buck_error_context("Invalid timestamp")?,
         };
 
         let context = ctx.client_context(matches, &self)?;

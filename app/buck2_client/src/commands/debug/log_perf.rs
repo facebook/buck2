@@ -65,7 +65,7 @@ impl LogPerfCommand {
                 total_alloc
             )?;
 
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })?;
         ExitResult::success()
     }

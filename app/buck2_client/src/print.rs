@@ -24,7 +24,7 @@ impl<W: Write> PrintOutputs<W> {
         mut out: W,
         root_path: Option<PathBuf>,
         format: PrintOutputsFormat,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         if format == PrintOutputsFormat::Json {
             write!(out, "{{")?;
         }
@@ -36,7 +36,7 @@ impl<W: Write> PrintOutputs<W> {
         })
     }
 
-    pub fn output(&mut self, target: &str, path: Option<&str>) -> anyhow::Result<()> {
+    pub fn output(&mut self, target: &str, path: Option<&str>) -> buck2_error::Result<()> {
         let windows_path;
         let absolute_path;
         let absolute_path_lossy;
@@ -77,7 +77,7 @@ impl<W: Write> PrintOutputs<W> {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> anyhow::Result<()> {
+    pub fn finish(&mut self) -> buck2_error::Result<()> {
         if self.format == PrintOutputsFormat::Json {
             writeln!(self.out, "}}")?;
         }
@@ -94,7 +94,7 @@ mod tests {
     use super::PrintOutputsFormat;
 
     #[test]
-    fn test() -> anyhow::Result<()> {
+    fn test() -> buck2_error::Result<()> {
         for (format, root_path, expected) in [
             (
                 PrintOutputsFormat::Plain,
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn test_json_empty() -> anyhow::Result<()> {
+    fn test_json_empty() -> buck2_error::Result<()> {
         let mut out = Vec::new();
         let mut print = PrintOutputs::new(&mut out, None, PrintOutputsFormat::Json)?;
         print.finish()?;

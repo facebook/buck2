@@ -63,7 +63,7 @@ impl RootCommand {
         self,
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let root = if matches!(self.kind, RootKind::Daemon) {
             ctx.paths()?.daemon_dir()?.path
         } else {

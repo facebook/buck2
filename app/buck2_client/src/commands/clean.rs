@@ -11,7 +11,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
@@ -98,7 +97,7 @@ impl CleanCommand {
                 let console = &self.common_opts.console_opts.final_console();
 
                 if self.dry_run {
-                    return Ok(clean(buck_out_dir, daemon_dir, console, None).await?);
+                    return clean(buck_out_dir, daemon_dir, console, None).await;
                 }
 
                 // Kill the daemon and make sure a new daemon does not spin up while we're performing clean up operations
@@ -112,7 +111,7 @@ impl CleanCommand {
 
                 kill_command_impl(&lifecycle_lock, "`buck2 clean` was invoked").await?;
 
-                Ok(clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await?)
+                clean(buck_out_dir, daemon_dir, console, Some(&lifecycle_lock)).await
             },
         )
         .into()
@@ -129,7 +128,7 @@ async fn clean(
     console: &FinalConsole,
     // None means "dry run".
     lifecycle_lock: Option<&BuckdLifecycleLock>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut paths_to_clean = Vec::new();
     if buck_out_dir.exists() {
         paths_to_clean =
@@ -137,7 +136,7 @@ async fn clean(
         if lifecycle_lock.is_some() {
             tokio::task::spawn_blocking(move || clean_buck_out_with_retry(&buck_out_dir))
                 .await?
-                .context("Failed to spawn clean")?;
+                .buck_error_context("Failed to spawn clean")?;
         }
     }
 
@@ -154,7 +153,9 @@ async fn clean(
     Ok(())
 }
 
-fn collect_paths_to_clean(buck_out_path: &AbsNormPathBuf) -> anyhow::Result<Vec<AbsNormPathBuf>> {
+fn collect_paths_to_clean(
+    buck_out_path: &AbsNormPathBuf,
+) -> buck2_error::Result<Vec<AbsNormPathBuf>> {
     let mut paths_to_clean = vec![];
     let dir = fs_util::read_dir(buck_out_path)?;
     for entry in dir {
@@ -170,7 +171,7 @@ fn collect_paths_to_clean(buck_out_path: &AbsNormPathBuf) -> anyhow::Result<Vec<
 /// the daemon can fail with this error: `The process cannot access the
 /// file because it is being used by another process.`. To get around this,
 /// add a single retry.
-fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> anyhow::Result<()> {
+fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     let mut result = clean_buck_out(path);
     match result {
         Ok(_) => {
@@ -187,7 +188,7 @@ fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> anyhow::Result<()> {
     result
 }
 
-fn clean_buck_out(path: &AbsNormPathBuf) -> anyhow::Result<()> {
+fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     let walk = WalkDir::new(path);
     let thread_pool = ThreadPool::new(num_cpus::get());
     let error = Arc::new(Mutex::new(None));

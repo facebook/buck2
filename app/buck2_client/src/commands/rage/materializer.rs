@@ -19,6 +19,7 @@ use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::subscribers::subscriber::EventSubscriber;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::manifold::ManifoldClient;
+use buck2_error::buck2_error;
 use futures::future::BoxFuture;
 use futures::future::Shared;
 
@@ -31,7 +32,7 @@ pub async fn upload_materializer_data(
     manifold: &ManifoldClient,
     manifold_id: &String,
     materializer_data: MaterializerRageUploadData,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     let mut buckd =
         buckd.await?.with_subscribers(EventSubscribers::new(
             vec![Box::new(TracingSubscriber) as _],
@@ -66,7 +67,7 @@ pub async fn upload_materializer_data(
 
     match outcome {
         CommandOutcome::Success(..) => {}
-        CommandOutcome::Failure(..) => return Err(anyhow::anyhow!("Command failed")),
+        CommandOutcome::Failure(..) => return Err(buck2_error!([], "Command failed")),
     }
 
     let manifold_filename = format!("flat/{}_materializer_{}", manifold_id, materializer_data);

@@ -134,7 +134,7 @@ impl<'a> From<&'a Record> for AggregatedRecord<'a> {
 fn write_output<T: Display + Serialize>(
     output: &mut LogCommandOutputFormatWithWriter,
     record: &T,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     match output {
         LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{}", record)?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
@@ -174,9 +174,9 @@ impl WhatMaterializedCommand {
             sort_by_total_bytes,
             aggregate_by_ext,
         } = self;
-        buck2_client_ctx::stdio::print_with_writer::<anyhow::Error, _>(|w| {
+        buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(|w| {
             let mut output = transform_format(output, w);
-            Ok(ctx.instant_command_no_log("log-what-materialized", |ctx| async move {
+            ctx.instant_command_no_log("log-what-materialized", |ctx| async move {
                 let log_path = event_log.get(&ctx).await?;
 
                 let (invocation, mut events) = log_path.unpack_stream().await?;
@@ -223,7 +223,7 @@ impl WhatMaterializedCommand {
                 }
 
                 buck2_error::Ok(())
-            })?)
+            })
         })?;
         ExitResult::success()
     }

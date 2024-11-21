@@ -237,7 +237,7 @@ pub struct TargetsCommand {
 
 impl TargetsCommand {
     #[allow(clippy::if_same_then_else)]
-    fn output_format(&self) -> anyhow::Result<OutputFormat> {
+    fn output_format(&self) -> buck2_error::Result<OutputFormat> {
         if self.json {
             if self.json_lines || self.stats {
                 return Err(TargetsError::IncompatibleArguments.into());
@@ -264,7 +264,7 @@ impl TargetsCommand {
 
     /// Return each of the strings that were supplied as arguments to `--package-values-regex` or,
     /// if `--package-values` is used, return an empty string that effectively matches all package values.
-    fn package_values_as_regexes(&self) -> anyhow::Result<Vec<String>> {
+    fn package_values_as_regexes(&self) -> buck2_error::Result<Vec<String>> {
         if self.package_values {
             if self.package_values_regex.is_empty() {
                 Ok(vec![String::new()])

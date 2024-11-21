@@ -126,7 +126,7 @@ impl StreamingCommand for CqueryCommand {
                         .profile_options
                         .profile_output
                         .as_ref()
-                        .map(|p| anyhow::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned()))
+                        .map(|p| buck2_error::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned()))
                         .transpose()?,
                 },
                 ctx.stdin()

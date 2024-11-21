@@ -11,7 +11,6 @@ use std::borrow::Cow;
 use std::io;
 use std::path::Path;
 
-use anyhow::Context;
 use buck2_cli_proto::build_target::BuildOutput;
 use buck2_cli_proto::BuildTarget;
 use buck2_client_ctx::exit_result::ClientIoError;
@@ -24,6 +23,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use futures::TryStreamExt;
 
@@ -57,7 +57,7 @@ pub(super) async fn copy_to_out(
     root_path: &ProjectRoot,
     working_dir: &AbsWorkingDir,
     out: &OutputDestinationArg,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     struct OutputToBeCopied {
         from_path: AbsNormPathBuf,
         is_dir: bool,
@@ -78,14 +78,16 @@ pub(super) async fn copy_to_out(
 
         let single_default_output = match default_outputs.len() {
             0 => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "target {} produced zero default outputs",
                     target.target
                 ));
             }
             1 => &default_outputs[0],
             n => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "target {} produced {} outputs, choice of output is ambiguous",
                     target.target,
                     n
@@ -98,7 +100,7 @@ pub(super) async fn copy_to_out(
             .join(ForwardRelativePath::new(&single_default_output.path)?);
         let output_meta = tokio::fs::metadata(&output_path)
             .await
-            .context("Error inspecting file metadata")?;
+            .buck_error_context("Error inspecting file metadata")?;
         let is_dir = output_meta.is_dir();
 
         outputs_to_be_copied.push(OutputToBeCopied {
@@ -112,7 +114,8 @@ pub(super) async fn copy_to_out(
             // Check no output is a directory. We allow outputting any number of
             // files (including 0) to stdout.
             if let Some(dir_i) = outputs_to_be_copied.iter().position(|o| o.is_dir) {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "target {} produces a default output that is a directory, and cannot be sent to stdout",
                     targets[dir_i].target,
                 ));
@@ -121,7 +124,8 @@ pub(super) async fn copy_to_out(
         OutputDestinationArg::Path(..) => {
             // Check we are outputting exactly 1 target. Okay if directory.
             if outputs_to_be_copied.len() != 1 {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "build command built multiple top-level targets, choice of output is ambiguous"
                 ));
             }
@@ -157,9 +161,9 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
     src_path: P,
     dst_path: Q,
     context: &CopyContext,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     // Make symlinks overwrite items which were already present at destination path
-    fs_util::remove_all(&dst_path).context(format!(
+    fs_util::remove_all(&dst_path).buck_error_context(format!(
         "Removing pre-existing item at path {:?}",
         src_path.as_ref()
     ))?;
@@ -171,7 +175,7 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
         if symlink_target_abs_path.starts_with(&context.relative_symlink_boundary) {
             // Symlink is not pointing outside the original output we are copying.
             // Just keep it as it is.
-            fs_util::read_link(&src_path).context(format!(
+            fs_util::read_link(&src_path).buck_error_context(format!(
                 "Reading value of a symlink to be copied {:?}",
                 src_path.as_ref()
             ))?
@@ -198,14 +202,14 @@ async fn copy_directory<
     src: P,
     dst: Q,
     context: &CopyContext,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     tokio::fs::create_dir_all(dst.as_ref()).await?;
     let stream = tokio_stream::wrappers::ReadDirStream::new(
         tokio::fs::read_dir(src.as_ref())
             .await
-            .context(format!("reading directory {:?}", src.as_ref()))?,
+            .buck_error_context(format!("reading directory {:?}", src.as_ref()))?,
     )
-    .err_into::<anyhow::Error>();
+    .err_into::<buck2_error::Error>();
 
     stream
         .try_for_each(|entry| async move {
@@ -215,18 +219,18 @@ async fn copy_directory<
             if file_type.is_dir() {
                 copy_directory(&entry_source_path, &entry_destination_path, context)
                     .await
-                    .context(format!("Copying subdirectory {:?}", entry.path()))
+                    .buck_error_context(format!("Copying subdirectory {:?}", entry.path()))
             } else if file_type.is_symlink() {
                 let copy_context = context.clone();
                 tokio::task::spawn_blocking(move || {
                     copy_symlink(&entry_source_path, &entry_destination_path, &copy_context)
                 })
                 .await
-                .context(format!("Copying symlink {:?}", &entry.path()))?
+                .buck_error_context(format!("Copying symlink {:?}", &entry.path()))?
             } else {
                 tokio::fs::copy(&entry.path(), &entry_destination_path)
                     .await
-                    .context(format!("Copying file {:?}", entry.path()))
+                    .buck_error_context(format!("Copying file {:?}", entry.path()))
                     .map(|_| ())
             }
         })
@@ -235,14 +239,19 @@ async fn copy_directory<
     Ok(())
 }
 
-async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
+async fn copy_file(src: &Path, dst: &Path) -> buck2_error::Result<()> {
     if let Some(parent) = dst.parent() {
         if !parent.exists() {
             tokio::fs::create_dir_all(parent).await?;
         }
     }
     let dest_path = match dst.is_dir() {
-        true => Cow::Owned(dst.join(src.file_name().context("Failed getting output name")?)),
+        true => Cow::Owned(
+            dst.join(
+                src.file_name()
+                    .buck_error_context("Failed getting output name")?,
+            ),
+        ),
         false => Cow::Borrowed(dst),
     };
 
@@ -251,10 +260,12 @@ async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
     match tokio::fs::copy(src, &dest_path).await {
         Ok(..) => Ok(()),
         Err(e) if e.raw_os_error() == Some(libc::ETXTBSY) => {
-            let dir = dest_path.parent().context("Output path has no parent")?;
+            let dir = dest_path
+                .parent()
+                .buck_error_context("Output path has no parent")?;
             let mut tmp_name = dest_path
                 .file_name()
-                .context("Output path has no file name")?
+                .buck_error_context("Output path has no file name")?
                 .to_owned();
             tmp_name.push(".buck2.tmp");
             let tmp_path = dir.join(tmp_name);
@@ -266,8 +277,8 @@ async fn copy_file(src: &Path, dst: &Path) -> anyhow::Result<()> {
     }
 }
 
-fn convert_broken_pipe_error(e: io::Error) -> anyhow::Error {
-    anyhow::Error::new(ClientIoError::new(e)).context("Error writing build artifact to --out")
+fn convert_broken_pipe_error(e: io::Error) -> buck2_error::Error {
+    buck2_error::Error::new(ClientIoError::new(e)).context("Error writing build artifact to --out")
 }
 
 #[cfg(test)]
@@ -280,7 +291,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_copy_directory() -> anyhow::Result<()> {
+    async fn test_copy_directory() -> buck2_error::Result<()> {
         let src_dir = tempfile::tempdir()?;
         // <tmp>
         // ├── bar
@@ -387,13 +398,13 @@ mod tests {
         // Second time to check everything overwrites fine
         copy_directory(src_path, dst_path, &copy_context)
             .await
-            .context("copy second time")?;
+            .buck_error_context("copy second time")?;
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_copy_directory_with_symlink_pointing_externally() -> anyhow::Result<()> {
+    async fn test_copy_directory_with_symlink_pointing_externally() -> buck2_error::Result<()> {
         let src_dir = tempfile::tempdir()?;
         let src_path = fs_util::canonicalize(AbsPath::new(src_dir.path())?)?;
         // <tmp>
@@ -438,7 +449,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_copy_symlink() -> anyhow::Result<()> {
+    async fn test_copy_symlink() -> buck2_error::Result<()> {
         test_copy_symlink_parametrized(&|_| Ok(()), false)?;
         test_copy_symlink_parametrized(&|_| Ok(()), true)?;
         // Check that symlink overwrites regular file in output directory
@@ -460,9 +471,9 @@ mod tests {
     }
 
     fn test_copy_symlink_parametrized(
-        prepare_dst_dir: &dyn Fn(&TempDir) -> anyhow::Result<()>,
+        prepare_dst_dir: &dyn Fn(&TempDir) -> buck2_error::Result<()>,
         is_directory_symlink: bool,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let src_dir = tempfile::tempdir()?;
         let src_symlink_target_path = src_dir.path().join("bar");
         let src_symlink_path = src_dir.path().join("foo");
@@ -521,7 +532,7 @@ mod tests {
         use super::super::*;
 
         #[tokio::test]
-        async fn test_copy_file() -> anyhow::Result<()> {
+        async fn test_copy_file() -> buck2_error::Result<()> {
             let dir = tempfile::tempdir()?;
             let out = dir.path().join("sleep");
 
@@ -538,7 +549,7 @@ mod tests {
                 .arg("10000")
                 .kill_on_drop(true)
                 .spawn()
-                .context("Error spawning")?;
+                .buck_error_context("Error spawning")?;
 
             // This will fail if we don't handle ETXTBSY.
             copy_file(Path::new("/bin/sleep"), &out).await?;

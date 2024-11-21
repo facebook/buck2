@@ -51,7 +51,7 @@ pub(crate) async fn upload_re_logs(
     re_logs_dir: &AbsNormPath,
     session_id: &str,
     bucket_path: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let logs_path = re_logs_dir
         .join(ForwardRelativePath::new(session_id)?)
         .join(ForwardRelativePath::new("REClientFolly.log")?);

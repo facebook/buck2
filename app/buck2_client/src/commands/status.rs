@@ -9,7 +9,6 @@
 
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_cli_proto::StatusResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
@@ -19,6 +18,7 @@ use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
+use buck2_error::BuckErrorContext;
 use chrono::DateTime;
 use humantime::format_duration;
 use walkdir::WalkDir;
@@ -43,7 +43,7 @@ impl StatusCommand {
         self,
         _matches: &clap::ArgMatches,
         ctx: ClientCommandContext<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         ctx.with_runtime(|ctx| async move {
             if self.all {
                 let mut daemon_dirs = Vec::new();
@@ -107,9 +107,9 @@ impl StatusCommand {
     }
 }
 
-fn timestamp_to_string(seconds: u64, nanos: u32) -> anyhow::Result<String> {
+fn timestamp_to_string(seconds: u64, nanos: u32) -> buck2_error::Result<String> {
     Ok(DateTime::from_timestamp(seconds as i64, nanos)
-        .context(StatusError::NativeDateTime)?
+        .buck_error_context(StatusError::NativeDateTime)?
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string())
 }
@@ -119,7 +119,7 @@ fn duration_to_string(duration: Duration) -> String {
     format_duration(duration).to_string()
 }
 
-fn process_status(status: StatusResponse) -> anyhow::Result<serde_json::Value> {
+fn process_status(status: StatusResponse) -> buck2_error::Result<serde_json::Value> {
     let timestamp = match status.start_time {
         None => "unknown".to_owned(),
         Some(timestamp) => timestamp_to_string(timestamp.seconds as u64, timestamp.nanos as u32)?,

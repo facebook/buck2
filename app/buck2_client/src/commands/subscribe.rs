@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_cli_proto::protobuf_util::ProtobufSplitter;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -205,7 +204,7 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
     ) -> buck2_error::Result<()> {
         let response = partial_res
             .response
-            .context("Empty `SubscriptionResponseWrapper`")?;
+            .buck_error_context("Empty `SubscriptionResponseWrapper`")?;
 
         if let Some(buck2_subscription_proto::subscription_response::Response::Goodbye(goodbye)) =
             &response.response
@@ -216,12 +215,13 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
         self.buffer.clear();
 
         if self.json {
-            serde_json::to_writer(&mut self.buffer, &response).context("JSON encoding failed")?;
+            serde_json::to_writer(&mut self.buffer, &response)
+                .buck_error_context("JSON encoding failed")?;
             self.buffer.push(b'\n');
         } else {
             response
                 .encode_length_delimited(&mut self.buffer)
-                .context("Encoding failed")?;
+                .buck_error_context("Encoding failed")?;
         }
 
         ctx.stdout(&self.buffer).await

@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_util::process::async_background_command;
 
 #[derive(Debug, buck2_error::Error)]
@@ -25,7 +25,7 @@ enum CommandResult {
     RepoNotFound,
 }
 
-pub async fn get_info() -> anyhow::Result<String> {
+pub async fn get_info() -> buck2_error::Result<String> {
     let hg_info = get_hg_info().await;
     if let Ok(CommandResult::Ok(output)) = hg_info {
         return Ok(output);
@@ -39,7 +39,7 @@ pub async fn get_info() -> anyhow::Result<String> {
     Ok("Current directory is not inside a repository (tried hg and git)".to_owned())
 }
 
-async fn get_hg_info() -> anyhow::Result<CommandResult> {
+async fn get_hg_info() -> buck2_error::Result<CommandResult> {
     let result = async_background_command("hg")
         .args(["snapshot", "create"])
         .env("HGPLAIN", "1")
@@ -77,7 +77,7 @@ async fn get_hg_info() -> anyhow::Result<CommandResult> {
     Ok(CommandResult::Ok(format!("{}{}", revision, snapshot)))
 }
 
-async fn get_git_info() -> anyhow::Result<CommandResult> {
+async fn get_git_info() -> buck2_error::Result<CommandResult> {
     let commit_hash = async_background_command("git")
         .args(["log", "-1", "--format=%H"])
         .output()
@@ -107,6 +107,6 @@ async fn get_git_info() -> anyhow::Result<CommandResult> {
     )))
 }
 
-fn from_utf8(result: Vec<u8>, subject: &str) -> anyhow::Result<String> {
-    String::from_utf8(result).context(SourceControlError::Utf8(subject.to_owned()))
+fn from_utf8(result: Vec<u8>, subject: &str) -> buck2_error::Result<String> {
+    String::from_utf8(result).buck_error_context(SourceControlError::Utf8(subject.to_owned()))
 }

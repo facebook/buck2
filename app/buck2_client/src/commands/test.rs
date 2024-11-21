@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::CounterWithExamples;
 use buck2_cli_proto::TestRequest;
@@ -32,6 +31,7 @@ use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_c
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use superconsole::Line;
 use superconsole::Span;
@@ -42,9 +42,9 @@ fn forward_output_to_path(
     output: &str,
     path_arg: &PathArg,
     working_dir: &AbsWorkingDir,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     fs_util::write(path_arg.resolve(working_dir), output)
-        .context("Failed to write test executor output to path")
+        .buck_error_context("Failed to write test executor output to path")
 }
 
 fn print_error_counter(
@@ -52,7 +52,7 @@ fn print_error_counter(
     counter: &CounterWithExamples,
     error_type: &str,
     symbol: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     if counter.count > 0 {
         console.print_error(&format!("{} {}", counter.count, error_type))?;
         for test_name in &counter.example_tests {
@@ -224,7 +224,7 @@ impl StreamingCommand for TestCommand {
                             t.try_into()
                         })
                         .transpose()
-                        .context("Invalid `timeout`")?,
+                        .buck_error_context("Invalid `timeout`")?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
                 },
                 ctx.stdin()
@@ -241,11 +241,23 @@ impl StreamingCommand for TestCommand {
         let listing_failed = statuses
             .listing_failed
             .as_ref()
-            .context("Missing `listing_failed`")?;
-        let passed = statuses.passed.as_ref().context("Missing `passed`")?;
-        let failed = statuses.failed.as_ref().context("Missing `failed`")?;
-        let fatals = statuses.fatals.as_ref().context("Missing `fatals`")?;
-        let skipped = statuses.skipped.as_ref().context("Missing `skipped`")?;
+            .buck_error_context("Missing `listing_failed`")?;
+        let passed = statuses
+            .passed
+            .as_ref()
+            .buck_error_context("Missing `passed`")?;
+        let failed = statuses
+            .failed
+            .as_ref()
+            .buck_error_context("Missing `failed`")?;
+        let fatals = statuses
+            .fatals
+            .as_ref()
+            .buck_error_context("Missing `fatals`")?;
+        let skipped = statuses
+            .skipped
+            .as_ref()
+            .buck_error_context("Missing `skipped`")?;
 
         let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.errors)?;

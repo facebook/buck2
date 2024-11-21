@@ -88,7 +88,7 @@ fn get_action_execution_data<'a>(
 
 async fn get_digest_map(
     mut events: impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin + Send,
-) -> anyhow::Result<LinkedHashMap<ActionKey, ActionExecutionData>> {
+) -> buck2_error::Result<LinkedHashMap<ActionKey, ActionExecutionData>> {
     let mut out = LinkedHashMap::new();
 
     while let Some(event) = events.try_next().await? {
@@ -111,7 +111,7 @@ fn print_divergence_msg(
     action: &ActionKey,
     ad1: Option<&ActionExecutionData>,
     ad2: &ActionExecutionData,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let action_identity = display_action_identity(
         Some(action),
         ad2.name.as_ref(),

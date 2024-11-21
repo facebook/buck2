@@ -9,7 +9,6 @@
 
 use std::time::Duration;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_cli_proto::target_profile;
@@ -33,6 +32,7 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 
 use super::bxl::BxlCommandOptions;
@@ -268,11 +268,12 @@ impl StreamingCommand for ProfileSubcommand {
         } = response;
 
         let elapsed = elapsed
-            .context("Missing duration")
+            .buck_error_context("Missing duration")
             .and_then(|d| {
-                Duration::try_from(d).map_err(|_| anyhow::anyhow!("Duration is negative"))
+                Duration::try_from(d)
+                    .map_err(|_| buck2_error::buck2_error!([], "Duration is negative"))
             })
-            .context("Elapsed is invalid")?;
+            .buck_error_context("Elapsed is invalid")?;
 
         buck2_client_ctx::println!(
             "Starlark {:?} profile has been written to {}",

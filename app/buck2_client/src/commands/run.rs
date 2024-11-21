@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::build_request::build_providers;
 use buck2_cli_proto::build_request::BuildProviders;
@@ -33,6 +32,7 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
@@ -159,7 +159,7 @@ impl StreamingCommand for RunCommand {
         std::env::remove_var(BUCK_WRAPPER_UUID_ENV_VAR);
 
         if let Some(file_path) = self.command_args_file {
-            let mut output = File::create(&file_path).with_context(|| {
+            let mut output = File::create(&file_path).with_buck_error_context(|| {
                 format!("Failed to create/open `{}` to print command", file_path)
             })?;
 
@@ -170,11 +170,11 @@ impl StreamingCommand for RunCommand {
                 is_fix_script: false,
                 print_command: false,
             };
-            let serialized =
-                serde_json::to_string(&command).context("Failed to serialize command")?;
+            let serialized = serde_json::to_string(&command)
+                .buck_error_context("Failed to serialize command")?;
             output
                 .write_all(serialized.as_bytes())
-                .context("Failed to write command")?;
+                .buck_error_context("Failed to write command")?;
 
             return ExitResult::success();
         }
