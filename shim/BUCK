@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
 load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:go.bzl", "system_go_bootstrap_toolchain", "system_go_toolchain")
@@ -71,5 +72,10 @@ system_rust_toolchain(
 
 remote_test_execution_toolchain(
     name = "remote_test_execution",
+    visibility = ["PUBLIC"],
+)
+
+noop_test_toolchain(
+    name = "test",
     visibility = ["PUBLIC"],
 )
