@@ -1416,7 +1416,6 @@ robolectric_test = prelude_rule(
                 Robolectric only runs in offline mode with buck. Specify the relative
                  directory containing all the jars Robolectric uses at runtime.
             """),
-            "robolectric_manifest": attrs.option(attrs.source(), default = None, doc = "DEPRECATED. Use `manifest` attribute."),
             "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
