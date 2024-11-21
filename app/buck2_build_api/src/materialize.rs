@@ -9,10 +9,10 @@
 
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_error::BuckErrorContext;
 use dashmap::DashSet;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -28,7 +28,7 @@ pub async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     materialization_context: &MaterializationContext,
-) -> anyhow::Result<ArtifactGroupValues> {
+) -> buck2_error::Result<ArtifactGroupValues> {
     let values = ctx.ensure_artifact_group(artifact_group).await?;
 
     if let MaterializationContext::Materialize { force } = materialization_context {
@@ -54,7 +54,7 @@ pub async fn materialize_artifact_group(
             .boxed()
         })
         .await
-        .context("Failed to materialize artifacts")?;
+        .buck_error_context("Failed to materialize artifacts")?;
     }
 
     Ok(values)

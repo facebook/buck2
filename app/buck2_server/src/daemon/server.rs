@@ -174,14 +174,14 @@ impl BuckdServerInitPreferences {
         digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
     ) -> anyhow::Result<Arc<Dice>> {
-        configure_dice_for_buck(
+        Ok(configure_dice_for_buck(
             io,
             digest_config,
             Some(root_config),
             self.detect_cycles,
             self.which_dice,
         )
-        .await
+        .await?)
     }
 }
 

@@ -67,7 +67,7 @@ impl UnregisteredAction for UnregisteredWriteAction {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
 
         let write_action = WriteAction::new(contents, inputs, outputs, *self)?;
@@ -151,7 +151,7 @@ impl Action for WriteAction {
         buck2_data::ActionKind::Write
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&[]))
     }
 

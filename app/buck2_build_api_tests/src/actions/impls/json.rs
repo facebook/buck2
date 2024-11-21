@@ -17,6 +17,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use dupe::Dupe;
 use indoc::indoc;
@@ -56,7 +57,7 @@ fn test_tagging() -> anyhow::Result<()> {
             let artifact = artifact
                 .0
                 .get_bound_artifact()
-                .context("Not a bound artifact")?
+                .buck_error_context("Not a bound artifact")?
                 .dupe();
 
             visit_json_artifacts(tagged, &mut AssertVisitor { tag, artifact })?;

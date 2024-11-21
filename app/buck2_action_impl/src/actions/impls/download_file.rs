@@ -87,7 +87,7 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(DownloadFileAction::new(inputs, outputs, *self)?))
     }
 }
@@ -231,7 +231,7 @@ impl Action for DownloadFileAction {
         buck2_data::ActionKind::DownloadFile
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&self.inputs))
     }
 

@@ -201,7 +201,7 @@ pub struct AnalysisData {
 
 impl AnalysisData {
     pub fn providers(&self) -> buck2_error::Result<FrozenProviderCollectionValue> {
-        Ok(self.analysis.lookup_inner(&self.target)?)
+        self.analysis.lookup_inner(&self.target)
     }
 
     pub fn analysis_result(&self) -> &AnalysisResult {
@@ -260,9 +260,9 @@ pub enum PackageLabelOption {
 impl NodeKey for ActionQueryNodeRef {}
 
 impl ActionQueryNodeRef {
-    pub fn require_action(&self) -> anyhow::Result<&ActionKey> {
+    pub fn require_action(&self) -> buck2_error::Result<&ActionKey> {
         match self {
-            Self::Analysis(a) => Err(anyhow::anyhow!("Not an action: {}", a)),
+            Self::Analysis(a) => Err(buck2_error::buck2_error!([], "Not an action: {}", a)),
             Self::Action(a) => Ok(a),
         }
     }
@@ -286,7 +286,7 @@ impl QueryTarget for ActionQueryNode {
 
     /// Return the path to the buildfile that defines this target, e.g. `fbcode//foo/bar/TARGETS`
     fn buildfile_path(&self) -> &BuildFilePath {
-        // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicking.
+        // TODO(cjhopman): In addition to implementing this, we should be able to return an buck2_error::Error here rather than panicking.
         unimplemented!("buildfile not yet implemented in aquery")
     }
 
@@ -374,7 +374,7 @@ impl QueryTarget for ActionQueryNode {
             if k == key {
                 res = Some(func(Some(attr)));
             }
-            Ok::<(), anyhow::Error>(())
+            Ok::<(), buck2_error::Error>(())
         })
         .unwrap();
         match res {
@@ -387,7 +387,7 @@ impl QueryTarget for ActionQueryNode {
         &self,
         mut _func: F,
     ) -> Result<(), E> {
-        // TODO(cjhopman): In addition to implementing this, we should be able to return an anyhow::Error here rather than panicking.
+        // TODO(cjhopman): In addition to implementing this, we should be able to return an buck2_error::Error here rather than panicking.
         unimplemented!("inputs not yet implemented in aquery")
     }
 }
@@ -465,7 +465,7 @@ pub static PRINT_ACTION_NODE: LateBinding<
         json: bool,
         output_attributes: &'a [String],
         cell_resolver: &'a CellResolver,
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>,
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<()>> + Send + 'a>>,
 > = LateBinding::new("PRINT_ACTION_NODE");
 
 /// Use of "configured_attr_to_value" in `buck2_transition` from `buck2_analysis`.

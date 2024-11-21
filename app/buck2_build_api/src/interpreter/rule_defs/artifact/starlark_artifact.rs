@@ -116,7 +116,7 @@ impl Serialize for StarlarkArtifact {
 }
 
 impl StarlarkArtifactLike for StarlarkArtifact {
-    fn as_output_error(&self) -> anyhow::Error {
+    fn as_output_error(&self) -> buck2_error::Error {
         match self.artifact.as_parts().0 {
             BaseArtifactKind::Source(_) => ArtifactError::SourceArtifactAsOutput {
                 repr: self.to_string(),
@@ -130,7 +130,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         }
     }
 
-    fn get_bound_artifact(&self) -> anyhow::Result<Artifact> {
+    fn get_bound_artifact(&self) -> buck2_error::Result<Artifact> {
         Ok(self.artifact.dupe())
     }
 
@@ -153,31 +153,34 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         }
     }
 
-    fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup> {
+    fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup> {
         Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
     }
 
-    fn basename<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn basename<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         StarlarkArtifactHelpers::basename(&self.artifact, heap)
     }
 
-    fn extension<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn extension<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         StarlarkArtifactHelpers::extension(&self.artifact, heap)
     }
 
-    fn is_source<'v>(&'v self) -> anyhow::Result<bool> {
+    fn is_source<'v>(&'v self) -> buck2_error::Result<bool> {
         Ok(self.artifact.is_source())
     }
 
-    fn owner<'v>(&'v self) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
+    fn owner<'v>(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
         StarlarkArtifactHelpers::owner(&self.artifact)
     }
 
-    fn short_path<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn short_path<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         StarlarkArtifactHelpers::short_path(&self.artifact, heap)
     }
 
-    fn as_output<'v>(&'v self, _this: Value<'v>) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
+    fn as_output<'v>(
+        &'v self,
+        _this: Value<'v>,
+    ) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
         match self.artifact.as_parts().0 {
             BaseArtifactKind::Source(_) => Err(ArtifactError::SourceArtifactAsOutput {
                 repr: self.to_string(),
@@ -195,14 +198,14 @@ impl StarlarkArtifactLike for StarlarkArtifact {
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact> {
         Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe().project(path, hide_prefix),
             associated_artifacts: self.associated_artifacts.dupe(),
         }))
     }
 
-    fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact> {
+    fn without_associated_artifacts<'v>(&'v self) -> buck2_error::Result<EitherStarlarkArtifact> {
         Ok(EitherStarlarkArtifact::Artifact(StarlarkArtifact {
             artifact: self.artifact.dupe(),
             associated_artifacts: AssociatedArtifacts::new(),
@@ -212,7 +215,7 @@ impl StarlarkArtifactLike for StarlarkArtifact {
     fn with_associated_artifacts<'v>(
         &'v self,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact> {
         let artifacts = artifacts
             .items
             .iter()
@@ -237,12 +240,15 @@ impl CommandLineArgLike for StarlarkArtifact {
         &self,
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         cli.push_arg(ctx.resolve_artifact(&self.artifact)?.into_string());
         Ok(())
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         visitor.visit_input(ArtifactGroup::Artifact(self.artifact.dupe()), None);
         self.associated_artifacts
             .iter()
@@ -257,7 +263,7 @@ impl CommandLineArgLike for StarlarkArtifact {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 }
@@ -288,7 +294,7 @@ impl StarlarkArtifactHelpers {
     pub(crate) fn basename<'v>(
         artifact: &Artifact,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> buck2_error::Result<StringValue<'v>> {
         artifact
             .get_path()
             .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
@@ -299,7 +305,7 @@ impl StarlarkArtifactHelpers {
     pub(crate) fn extension<'v>(
         artifact: &Artifact,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> buck2_error::Result<StringValue<'v>> {
         artifact.get_path().with_filename(|filename| {
             Ok(StarlarkArtifactHelpers::alloc_extension(
                 filename?.extension(),
@@ -313,7 +319,7 @@ impl StarlarkArtifactHelpers {
     /// action was not created by a rule.
     pub(crate) fn owner(
         artifact: &Artifact,
-    ) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
         match artifact.owner() {
             None => Ok(None),
             Some(BaseDeferredKey::TargetLabel(target)) => {
@@ -330,7 +336,7 @@ impl StarlarkArtifactHelpers {
     pub(crate) fn short_path<'v>(
         artifact: &Artifact,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> buck2_error::Result<StringValue<'v>> {
         artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))

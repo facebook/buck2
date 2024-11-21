@@ -53,10 +53,10 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 /// `StarlarkArtifact` and `StarlarkDeclaredArtifact`
 pub trait StarlarkArtifactLike: Display {
     /// Returns an apppropriate error for when this is used in a location that expects an output declaration.
-    fn as_output_error(&self) -> anyhow::Error;
+    fn as_output_error(&self) -> buck2_error::Error;
 
     /// Gets the bound main artifact, or errors if the artifact is not bound
-    fn get_bound_artifact(&self) -> anyhow::Result<Artifact>;
+    fn get_bound_artifact(&self) -> buck2_error::Result<Artifact>;
 
     /// Gets any associated artifacts that should be materialized along with the bound artifact
     fn get_associated_artifacts(&self) -> Option<&AssociatedArtifacts>;
@@ -82,7 +82,7 @@ pub trait StarlarkArtifactLike: Display {
     }
 
     /// Gets a copy of the StarlarkArtifact, ensuring that the artifact is bound.
-    fn get_bound_starlark_artifact(&self) -> anyhow::Result<StarlarkArtifact> {
+    fn get_bound_starlark_artifact(&self) -> buck2_error::Result<StarlarkArtifact> {
         let artifact = self.get_bound_artifact()?;
         let associated_artifacts = self.get_associated_artifacts();
         Ok(StarlarkArtifact {
@@ -93,32 +93,32 @@ pub trait StarlarkArtifactLike: Display {
     }
 
     /// Gets the artifact group.
-    fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup>;
+    fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup>;
 
-    fn basename<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>>;
+    fn basename<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 
-    fn extension<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>>;
+    fn extension<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 
-    fn is_source<'v>(&'v self) -> anyhow::Result<bool>;
+    fn is_source<'v>(&'v self) -> buck2_error::Result<bool>;
 
-    fn owner<'v>(&'v self) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>>;
+    fn owner<'v>(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>>;
 
-    fn short_path<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>>;
+    fn short_path<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>>;
 
-    fn as_output<'v>(&'v self, this: Value<'v>) -> anyhow::Result<StarlarkOutputArtifact<'v>>;
+    fn as_output<'v>(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>>;
 
     fn project<'v>(
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> anyhow::Result<EitherStarlarkArtifact>;
+    ) -> buck2_error::Result<EitherStarlarkArtifact>;
 
-    fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact>;
+    fn without_associated_artifacts<'v>(&'v self) -> buck2_error::Result<EitherStarlarkArtifact>;
 
     fn with_associated_artifacts<'v>(
         &'v self,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<EitherStarlarkArtifact>;
+    ) -> buck2_error::Result<EitherStarlarkArtifact>;
 }
 
 /// Helper type to unpack artifacts.

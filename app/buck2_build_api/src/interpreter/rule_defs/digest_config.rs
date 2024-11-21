@@ -60,19 +60,19 @@ impl<'v> AllocValue<'v> for StarlarkDigestConfig {
 
 #[starlark_module]
 fn digest_config_methods(builder: &mut MethodsBuilder) {
-    fn allows_sha1(this: &StarlarkDigestConfig) -> anyhow::Result<bool> {
+    fn allows_sha1(this: &StarlarkDigestConfig) -> starlark::Result<bool> {
         Ok(this.digest_config.cas_digest_config().allows_sha1())
     }
 
-    fn allows_sha256(this: &StarlarkDigestConfig) -> anyhow::Result<bool> {
+    fn allows_sha256(this: &StarlarkDigestConfig) -> starlark::Result<bool> {
         Ok(this.digest_config.cas_digest_config().allows_sha256())
     }
 
-    fn allows_blake3(this: &StarlarkDigestConfig) -> anyhow::Result<bool> {
+    fn allows_blake3(this: &StarlarkDigestConfig) -> starlark::Result<bool> {
         Ok(this.digest_config.cas_digest_config().allows_blake3())
     }
 
-    fn allows_blake3_keyed(this: &StarlarkDigestConfig) -> anyhow::Result<bool> {
+    fn allows_blake3_keyed(this: &StarlarkDigestConfig) -> starlark::Result<bool> {
         Ok(this.digest_config.cas_digest_config().allows_blake3_keyed())
     }
 }

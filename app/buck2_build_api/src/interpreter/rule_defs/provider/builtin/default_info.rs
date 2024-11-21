@@ -12,10 +12,10 @@ use std::iter;
 use std::ptr;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api_derive::internal_provider;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -147,7 +147,7 @@ pub struct DefaultInfoGen<V: ValueLifetimeless> {
     other_outputs: ValueOfUncheckedGeneric<V, ListType<ValueAsCommandLineLike<'static>>>,
 }
 
-fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
+fn validate_default_info(info: &FrozenDefaultInfo) -> buck2_error::Result<()> {
     // Check length of default outputs
     let default_output_list = ListRef::from_value(info.default_outputs.get().to_value())
         .expect("should be a list from constructor");
@@ -155,7 +155,7 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> anyhow::Result<()> {
         tracing::info!("DefaultInfo.default_output should only have a maximum of 1 item.");
         // TODO use soft_error when landed
         // TODO error rather than soft warning
-        // return Err(anyhow::anyhow!(
+        // return Err(buck2_error::buck2_error!(
         //     "DefaultInfo.default_output can only have a maximum of 1 item."
         // ));
     }
@@ -206,12 +206,12 @@ impl FrozenDefaultInfo {
     fn get_sub_target_providers_impl(
         &self,
         name: &str,
-    ) -> anyhow::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
+    ) -> buck2_error::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
         FrozenDictRef::from_frozen_value(self.sub_targets.get())
-            .context("sub_targets should be a dict-like object")?
+            .buck_error_context("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
-                FrozenValueTyped::new_err(v).context(
+                FrozenValueTyped::new_err(v).buck_error_context(
                     "Values inside of a frozen provider should be frozen provider collection",
                 )
             })
@@ -227,12 +227,12 @@ impl FrozenDefaultInfo {
 
     fn default_outputs_impl(
         &self,
-    ) -> anyhow::Result<impl Iterator<Item = anyhow::Result<StarlarkArtifact>> + '_> {
+    ) -> buck2_error::Result<impl Iterator<Item = buck2_error::Result<StarlarkArtifact>> + '_> {
         let list = ListRef::from_frozen_value(self.default_outputs.get())
-            .context("Should be list of artifacts")?;
+            .buck_error_context("Should be list of artifacts")?;
 
         Ok(list.iter().map(|v| {
-            let frozen_value = v.unpack_frozen().context("should be frozen")?;
+            let frozen_value = v.unpack_frozen().buck_error_context("should be frozen")?;
 
             Ok(
                 if let Some(starlark_artifact) = frozen_value.downcast_ref::<StarlarkArtifact>() {
@@ -241,7 +241,7 @@ impl FrozenDefaultInfo {
                     // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
                     let artifact_like = ValueAsArtifactLike::unpack_value(frozen_value.to_value())
                         .into_anyhow_result()?
-                        .context("Should be list of artifacts")?;
+                        .buck_error_context("Should be list of artifacts")?;
                     artifact_like.0.get_bound_starlark_artifact()?
                 },
             )
@@ -261,19 +261,20 @@ impl FrozenDefaultInfo {
 
     fn sub_targets_impl(
         &self,
-    ) -> anyhow::Result<
-        impl Iterator<Item = anyhow::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>> + '_,
+    ) -> buck2_error::Result<
+        impl Iterator<Item = buck2_error::Result<(&str, FrozenRef<'static, FrozenProviderCollection>)>>
+        + '_,
     > {
         let sub_targets = FrozenDictRef::from_frozen_value(self.sub_targets.get())
-            .context("sub_targets should be a dict-like object")?;
+            .buck_error_context("sub_targets should be a dict-like object")?;
 
         Ok(sub_targets.iter().map(|(k, v)| {
-            anyhow::Ok((
+            buck2_error::Ok((
                 k.to_value()
                     .unpack_str()
-                    .context("sub_targets should have string keys")?,
+                    .buck_error_context("sub_targets should have string keys")?,
                 v.downcast_frozen_ref::<FrozenProviderCollection>()
-                    .context(
+                    .buck_error_context(
                         "Values inside of a frozen provider should be frozen provider collection",
                     )?,
             ))
@@ -401,7 +402,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
             Value<'v>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<DefaultInfo<'v>> {
+    ) -> starlark::Result<DefaultInfo<'v>> {
         let heap = eval.heap();
 
         // support both list and singular options for now until we migrate all the rules.
@@ -419,7 +420,9 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                     ValueOfUnchecked::<ListType<_>>::new(eval.heap().alloc(AllocList::EMPTY))
                 }
                 (Some(_), Some(_)) => {
-                    return Err(DefaultOutputError::ConflictingArguments.into());
+                    return Err(
+                        buck2_error::Error::from(DefaultOutputError::ConflictingArguments).into(),
+                    );
                 }
             };
 
@@ -435,7 +438,7 @@ fn default_info_creator(builder: &mut GlobalsBuilder) {
                     ),
                 ))
             })
-            .collect::<anyhow::Result<Vec<(StringValue<'v>, _)>>>()?;
+            .collect::<buck2_error::Result<Vec<(StringValue<'v>, _)>>>()?;
 
         Ok(DefaultInfo {
             default_outputs: valid_default_outputs,

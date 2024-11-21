@@ -108,7 +108,7 @@ impl BuildTargetResult {
     pub async fn collect_stream(
         mut stream: impl Stream<Item = BuildEvent> + Unpin,
         fail_fast: bool,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         // Create a map of labels to outputs, but retain the expected index of each output.
         let mut res = HashMap::<
             ConfiguredProvidersLabel,
@@ -146,9 +146,9 @@ impl BuildTargetResult {
                 ConfiguredBuildEventVariant::Execution(execution_variant) => {
                     let is_err = {
                         let results = res.get_mut(label.as_ref())
-                            .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                            .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {}", label))?
                             .as_mut()
-                            .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?;
+                            .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{}`", label))?;
                         match execution_variant {
                             ConfiguredBuildEventExecutionVariant::Validation { result } => {
                                 if let Err(e) = result {
@@ -176,9 +176,9 @@ impl BuildTargetResult {
                     configured_graph_size,
                 } => {
                     res.get_mut(label.as_ref())
-                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::GraphSize before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphSize before ConfiguredBuildEventVariant::Prepared for {}", label))?
                          .as_mut()
-                         .with_internal_error_anyhow(|| format!("ConfiguredBuildEventVariant::GraphSize for a skipped target: `{}`", label))?
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphSize for a skipped target: `{}`", label))?
                          .configured_graph_size = Some(configured_graph_size);
                 }
                 ConfiguredBuildEventVariant::Error { err } => {
@@ -339,7 +339,7 @@ async fn build_configured_label_inner<'a>(
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
-) -> anyhow::Result<BoxStream<'a, ConfiguredBuildEvent>> {
+) -> buck2_error::Result<BoxStream<'a, ConfiguredBuildEvent>> {
     let artifact_fs = ctx.get().get_artifact_fs().await?;
 
     let (outputs, run_args, target_rule_type_name) = {

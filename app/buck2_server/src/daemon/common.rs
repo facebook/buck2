@@ -167,7 +167,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         &self,
         artifact_fs: &ArtifactFs,
         executor_config: &CommandExecutorConfig,
-    ) -> anyhow::Result<CommandExecutorResponse> {
+    ) -> buck2_error::Result<CommandExecutorResponse> {
         // 30GB is the max RE can currently support.
         const DEFAULT_RE_MAX_INPUT_FILE_BYTES: u64 = 30 * 1024 * 1024 * 1024;
 
@@ -196,10 +196,11 @@ impl HasCommandExecutor for CommandExecutorFactory {
             });
 
             if self.strategy.ban_local() {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    [],
                     "The desired execution strategy (`{:?}`) is incompatible with the local executor",
                     self.strategy,
-                )).input_anyhow();
+                )).input();
             }
 
             return Ok(CommandExecutorResponse {

@@ -208,7 +208,7 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
         loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
     ) -> anyhow::Result<TargetSet<Self>> {
-        get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await
+        Ok(get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await?)
     }
 }
 

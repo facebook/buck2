@@ -30,7 +30,7 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_hasher::NoDigest;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use dupe::Dupe;
@@ -78,9 +78,9 @@ impl ActionsRegistry {
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
-    ) -> anyhow::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact> {
         if !self.pending.is_empty() {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "output for dynamic_output/actions declared after actions: {}, {:?}",
                 artifact,
                 self.pending.map(|v| v.key())
@@ -108,7 +108,7 @@ impl ActionsRegistry {
         &mut self,
         path: &ForwardRelativePath,
         declaration_location: Option<FileSpan>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         fn display_location_opt(location: Option<&FileSpan>) -> &dyn std::fmt::Display {
             location.map_or(&"<unknown>" as _, |l| l as _)
         }
@@ -119,12 +119,11 @@ impl ActionsRegistry {
         {
             Ok(None) => Ok(()),
             Ok(Some(conflict)) => match conflict {
-                DirectoryEntry::Leaf(location) => {
-                    Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPath(
-                        path.to_owned(),
-                        display_location_opt(location.as_ref()).to_string(),
-                    )))
-                }
+                DirectoryEntry::Leaf(location) => Err(ActionErrors::ConflictingOutputPath(
+                    path.to_owned(),
+                    display_location_opt(location.as_ref()).to_string(),
+                )
+                .into()),
                 DirectoryEntry::Dir(conflict_dir) => {
                     let conflicting_paths = conflict_dir
                         .ordered_walk_leaves()
@@ -137,15 +136,13 @@ impl ActionsRegistry {
                             )
                         })
                         .collect::<Vec<_>>();
-                    Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(
-                        path.to_owned(),
-                        conflicting_paths,
-                    )))
+                    Err(
+                        ActionErrors::ConflictingOutputPaths(path.to_owned(), conflicting_paths)
+                            .into(),
+                    )
                 }
             },
-            Err(DirectoryInsertError::EmptyPath) => {
-                Err(anyhow::anyhow!(ActionErrors::EmptyOutputPath))
-            }
+            Err(DirectoryInsertError::EmptyPath) => Err(ActionErrors::EmptyOutputPath.into()),
             Err(DirectoryInsertError::CannotTraverseLeaf { path: conflict }) => {
                 let location =
                     match directory::find::find(self.claimed_output_paths.as_ref(), &conflict) {
@@ -159,10 +156,7 @@ impl ActionsRegistry {
                     display_location_opt(location),
                 );
 
-                Err(anyhow::anyhow!(ActionErrors::ConflictingOutputPaths(
-                    path.to_owned(),
-                    vec![conflict],
-                )))
+                Err(ActionErrors::ConflictingOutputPaths(path.to_owned(), vec![conflict]).into())
             }
         }
     }
@@ -174,7 +168,7 @@ impl ActionsRegistry {
         path: ForwardRelativePathBuf,
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
-    ) -> anyhow::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact> {
         let (path, hidden) = match prefix {
             None => (path, 0),
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
@@ -195,7 +189,7 @@ impl ActionsRegistry {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
         action: A,
-    ) -> anyhow::Result<ActionKey> {
+    ) -> buck2_error::Result<ActionKey> {
         let key = ActionKey::new(
             self_key.dupe(),
             // If there are declared_dynamic_outputs, then the analysis that created this one has
@@ -225,7 +219,7 @@ impl ActionsRegistry {
     pub fn ensure_bound(
         self,
         analysis_value_fetcher: &AnalysisValueFetcher,
-    ) -> anyhow::Result<RecordedActions> {
+    ) -> buck2_error::Result<RecordedActions> {
         for artifact in self.artifacts {
             artifact.ensure_bound()?;
         }
@@ -357,13 +351,11 @@ impl RecordedActions {
         }
     }
 
-    pub fn lookup(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
+    pub fn lookup(&self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
         self.actions
             .get(key)
             .duped()
-            .with_internal_error_anyhow(|| {
-                format!("action key missing in recorded actions {}", key)
-            })
+            .with_internal_error(|| format!("action key missing in recorded actions {}", key))
     }
 
     /// Iterates over the actions created in this analysis.

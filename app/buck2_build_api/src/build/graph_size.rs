@@ -69,6 +69,6 @@ impl Key for GraphSizeKey {
 pub async fn get_configured_graph_size(
     ctx: &mut DiceComputations<'_>,
     key: &ConfiguredTargetLabel,
-) -> anyhow::Result<MaybeCompatible<u64>> {
-    Ok(ctx.compute(&GraphSizeKey(key.dupe())).await??)
+) -> buck2_error::Result<MaybeCompatible<u64>> {
+    ctx.compute(&GraphSizeKey(key.dupe())).await?
 }

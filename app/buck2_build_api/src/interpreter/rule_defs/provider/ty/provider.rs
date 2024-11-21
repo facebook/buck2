@@ -27,7 +27,7 @@ pub(crate) fn ty_provider(
     // Use default matcher from `StarlarkValue` if `None`.
     matcher: Option<TypeMatcherFactory>,
     fields: SortedMap<String, Ty>,
-) -> anyhow::Result<Ty> {
+) -> buck2_error::Result<Ty> {
     Ok(Ty::custom(TyUser::new(
         name.to_owned(),
         base,

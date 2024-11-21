@@ -95,7 +95,7 @@ pub trait UnregisteredAction: Allocative {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>>;
+    ) -> buck2_error::Result<Box<dyn Action>>;
 }
 
 /// A registered, immutable 'Action' that is fully bound. All it's 'Artifact's, both inputs and
@@ -110,7 +110,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
 
     /// All the input 'Artifact's, both sources and built artifacts, that are required for
     /// executing this artifact. While nothing enforces it, this should be a pure function.
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>>;
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>>;
 
     /// All the outputs this 'Artifact' will generate. Just like inputs, this should be a pure
     /// function.
@@ -212,7 +212,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
-    ) -> anyhow::Result<PreparedAction>;
+    ) -> buck2_error::Result<PreparedAction>;
 
     async fn action_cache(
         &mut self,
@@ -227,7 +227,7 @@ pub trait ActionExecutionCtx: Send + Sync {
         execution_result: &CommandExecutionResult,
         re_result: Option<TActionResult2>,
         dep_file_entry: Option<&mut dyn IntoRemoteDepFile>,
-    ) -> anyhow::Result<CacheUploadResult>;
+    ) -> buck2_error::Result<CacheUploadResult>;
 
     /// Executes a command
     /// TODO(bobyf) this seems like it deserves critical sections?
@@ -250,7 +250,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// Clean up all the output directories for this action. This requires a mutable reference
     /// because you shouldn't be doing anything else with the ActionExecutionCtx while cleaning the
     /// outputs.
-    async fn cleanup_outputs(&mut self) -> anyhow::Result<()>;
+    async fn cleanup_outputs(&mut self) -> buck2_error::Result<()>;
 
     /// Get the value of an Artifact. This Artifact _must_ have been declared
     /// as an input to the associated action or a panic will be raised.
@@ -408,7 +408,7 @@ impl ActionToBeRegistered {
         self,
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         self.action
             .register(self.inputs, self.outputs, starlark_data, error_handler)
     }

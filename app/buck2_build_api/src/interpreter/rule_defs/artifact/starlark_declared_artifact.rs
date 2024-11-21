@@ -19,6 +19,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -124,14 +125,15 @@ impl StarlarkDeclaredArtifact {
 }
 
 impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
-    fn as_output_error(&self) -> anyhow::Error {
+    fn as_output_error(&self) -> buck2_error::Error {
         // This shouldn't ever be called for StarlarkDeclaredArtifact
-        anyhow::anyhow!(
+        buck2_error!(
+            [],
             "error trying to use declared artifact as an output, this indicates an internal buck error"
         )
     }
 
-    fn get_bound_artifact(&self) -> anyhow::Result<Artifact> {
+    fn get_bound_artifact(&self) -> buck2_error::Result<Artifact> {
         Ok(self.artifact.dupe().ensure_bound()?.into_artifact())
     }
 
@@ -154,17 +156,17 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         }
     }
 
-    fn get_artifact_group(&self) -> anyhow::Result<ArtifactGroup> {
+    fn get_artifact_group(&self) -> buck2_error::Result<ArtifactGroup> {
         Ok(ArtifactGroup::Artifact(self.get_bound_artifact()?))
     }
 
-    fn basename<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn basename<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         self.artifact
             .get_path()
             .with_filename(|filename| Ok(heap.alloc_str(filename?.as_str())))
     }
 
-    fn extension<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn extension<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         self.artifact.get_path().with_filename(|filename| {
             Ok(StarlarkArtifactHelpers::alloc_extension(
                 filename?.extension(),
@@ -173,11 +175,11 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         })
     }
 
-    fn is_source<'v>(&'v self) -> anyhow::Result<bool> {
+    fn is_source<'v>(&'v self) -> buck2_error::Result<bool> {
         Ok(false)
     }
 
-    fn owner<'v>(&'v self) -> anyhow::Result<Option<StarlarkConfiguredProvidersLabel>> {
+    fn owner<'v>(&'v self) -> buck2_error::Result<Option<StarlarkConfiguredProvidersLabel>> {
         match self.artifact.owner() {
             None => Ok(None),
             Some(x) => Ok(match x {
@@ -189,16 +191,16 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         }
     }
 
-    fn short_path<'v>(&'v self, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn short_path<'v>(&'v self, heap: &'v Heap) -> buck2_error::Result<StringValue<'v>> {
         self.artifact
             .get_path()
             .with_short_path(|short_path| Ok(heap.alloc_str(short_path.as_str())))
     }
 
-    fn as_output<'v>(&'v self, this: Value<'v>) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
+    fn as_output<'v>(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
         Ok(StarlarkOutputArtifact::new(
             ValueTyped::<StarlarkDeclaredArtifact>::new_err(this)
-                .internal_error_anyhow("Type must have been checked earlier")?,
+                .internal_error("Type must have been checked earlier")?,
         ))
     }
 
@@ -206,7 +208,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         &'v self,
         path: &ForwardRelativePath,
         hide_prefix: bool,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact> {
         // Not sure if this.declaration_location is or the project() call is more appropriate here.
         Ok(EitherStarlarkArtifact::DeclaredArtifact(
             StarlarkDeclaredArtifact {
@@ -217,7 +219,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
         ))
     }
 
-    fn without_associated_artifacts<'v>(&'v self) -> anyhow::Result<EitherStarlarkArtifact> {
+    fn without_associated_artifacts<'v>(&'v self) -> buck2_error::Result<EitherStarlarkArtifact> {
         Ok(EitherStarlarkArtifact::DeclaredArtifact(
             StarlarkDeclaredArtifact {
                 declaration_location: self.declaration_location.dupe(),
@@ -230,7 +232,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     fn with_associated_artifacts<'v>(
         &'v self,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
+    ) -> buck2_error::Result<EitherStarlarkArtifact> {
         let artifacts = artifacts
             .items
             .iter()
@@ -258,14 +260,18 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
         &self,
         _cli: &mut dyn CommandLineBuilder,
         _ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // TODO: proper error message
-        Err(anyhow::anyhow!(
+        Err(buck2_error!(
+            [],
             "proper error here; we should not be adding mutable starlark objects to clis"
         ))
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         visitor.visit_input(
             ArtifactGroup::Artifact(self.artifact.dupe().ensure_bound()?.into_artifact()),
             None,
@@ -283,7 +289,7 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 }

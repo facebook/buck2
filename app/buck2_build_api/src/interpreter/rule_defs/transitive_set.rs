@@ -85,7 +85,7 @@ pub(crate) enum TransitiveSetError {
         name: String,
 
         #[source]
-        error: anyhow::Error,
+        error: buck2_error::Error,
     },
 
     #[error("Error evaluating transitive set reduction {}", .name)]
@@ -93,7 +93,7 @@ pub(crate) enum TransitiveSetError {
         name: String,
 
         #[source]
-        error: anyhow::Error,
+        error: buck2_error::Error,
     },
 
     #[error(

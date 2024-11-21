@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use buck2_util::hash::BuckHasherBuilder;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
@@ -37,7 +37,7 @@ where
     TransitiveSetGen<V>: TransitiveSetLike<'v>,
 {
     TransitiveSetLike::from_value(child)
-        .with_context(|| {
+        .with_buck_error_context(|| {
             format!(
                 "Invalid set: expected {:?}, got: {:?}",
                 std::any::type_name::<V>(),

@@ -28,21 +28,21 @@ pub enum ExecuteError {
         real: OutputType,
     },
     Error {
-        error: anyhow::Error,
+        error: buck2_error::Error,
     },
     CommandExecutionError {
         error: Option<buck2_error::Error>,
     },
 }
 
-impl From<anyhow::Error> for ExecuteError {
-    fn from(error: anyhow::Error) -> Self {
+impl From<buck2_error::Error> for ExecuteError {
+    fn from(error: buck2_error::Error) -> Self {
         Self::Error { error }
     }
 }
 
-impl From<buck2_error::Error> for ExecuteError {
-    fn from(error: buck2_error::Error) -> Self {
+impl From<anyhow::Error> for ExecuteError {
+    fn from(error: anyhow::Error) -> Self {
         Self::Error {
             error: error.into(),
         }

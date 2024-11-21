@@ -59,7 +59,7 @@ impl FrozenExecutionPlatformRegistrationInfo {
     // TODO(cjhopman): If we impl this on the non-frozen one, we can check validity when constructed rather than only when used.
     pub fn platforms(
         &self,
-    ) -> anyhow::Result<Vec<FrozenRef<'static, FrozenExecutionPlatformInfo>>> {
+    ) -> buck2_error::Result<Vec<FrozenRef<'static, FrozenExecutionPlatformInfo>>> {
         ListRef::from_frozen_value(self.platforms.get())
             .ok_or_else(|| {
                 ExecutionPlatformRegistrationTypeError::ExpectedListOfPlatforms(
@@ -73,16 +73,17 @@ impl FrozenExecutionPlatformRegistrationInfo {
                     .expect("should be frozen")
                     .downcast_frozen_ref::<FrozenExecutionPlatformInfo>()
                     .ok_or_else(|| {
-                        anyhow::anyhow!(ExecutionPlatformRegistrationTypeError::NotAPlatform(
+                        ExecutionPlatformRegistrationTypeError::NotAPlatform(
                             v.to_repr(),
                             v.get_type().to_owned(),
-                        ))
+                        )
+                        .into()
                     })
             })
-            .collect::<anyhow::Result<_>>()
+            .collect::<buck2_error::Result<_>>()
     }
 
-    pub fn fallback(&self) -> anyhow::Result<ExecutionPlatformFallback> {
+    pub fn fallback(&self) -> buck2_error::Result<ExecutionPlatformFallback> {
         if self.fallback.get().is_none() {
             return Ok(ExecutionPlatformFallback::UseUnspecifiedExec);
         }
@@ -96,12 +97,11 @@ impl FrozenExecutionPlatformRegistrationInfo {
         match fallback.unpack_str() {
             Some("error") => Ok(ExecutionPlatformFallback::Error),
             Some("use_unspecified") => Ok(ExecutionPlatformFallback::UseUnspecifiedExec),
-            _ => Err(anyhow::anyhow!(
-                ExecutionPlatformRegistrationTypeError::InvalidFallback(
-                    fallback.to_repr(),
-                    fallback.get_type().to_owned(),
-                )
-            )),
+            _ => Err(ExecutionPlatformRegistrationTypeError::InvalidFallback(
+                fallback.to_repr(),
+                fallback.get_type().to_owned(),
+            )
+            .into()),
         }
     }
 }
@@ -114,7 +114,7 @@ fn info_creator(globals: &mut GlobalsBuilder) {
             ListType<ValueTypedComplex<'v, ExecutionPlatformInfo<'v>>>,
         >,
         #[starlark(require = named, default = NoneOr::None)] fallback: NoneOr<Value<'v>>,
-    ) -> anyhow::Result<ExecutionPlatformRegistrationInfo<'v>> {
+    ) -> starlark::Result<ExecutionPlatformRegistrationInfo<'v>> {
         Ok(ExecutionPlatformRegistrationInfo {
             platforms: ValueOfUnchecked::new(platforms.value),
             fallback: ValueOfUnchecked::new(match fallback {

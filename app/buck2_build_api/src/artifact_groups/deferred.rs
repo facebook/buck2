@@ -44,7 +44,7 @@ impl TransitiveSetKey {
     pub async fn lookup(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
         lookup_deferred_holder(ctx, &self.0)
             .await?
             .lookup_transitive_set(self)

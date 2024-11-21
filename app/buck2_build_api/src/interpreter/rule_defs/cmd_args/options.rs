@@ -79,12 +79,10 @@ enum CommandLineArgError {
 }
 
 impl QuoteStyle {
-    pub fn parse(s: &str) -> anyhow::Result<QuoteStyle> {
+    pub fn parse(s: &str) -> buck2_error::Result<QuoteStyle> {
         match s {
             "shell" => Ok(QuoteStyle::Shell),
-            _ => Err(anyhow::anyhow!(CommandLineArgError::UnknownQuotingStyle(
-                s.to_owned()
-            ))),
+            _ => Err(CommandLineArgError::UnknownQuotingStyle(s.to_owned()).into()),
         }
     }
 }
@@ -449,7 +447,7 @@ pub(crate) enum RelativeOrigin<'v> {
 }
 
 impl<'v> RelativeOrigin<'v> {
-    pub(crate) fn resolve<C>(&self, ctx: &C) -> anyhow::Result<RelativePathBuf>
+    pub(crate) fn resolve<C>(&self, ctx: &C) -> buck2_error::Result<RelativePathBuf>
     where
         C: CommandLineContext + ?Sized,
     {
@@ -496,8 +494,8 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         f: impl for<'b> FnOnce(
             &'b mut dyn CommandLineBuilder,
             &'b mut dyn CommandLineContext,
-        ) -> anyhow::Result<R>,
-    ) -> anyhow::Result<R> {
+        ) -> buck2_error::Result<R>,
+    ) -> buck2_error::Result<R> {
         struct ExtrasBuilder<'a, 'v> {
             builder: &'a mut dyn CommandLineBuilder,
             opts: &'a CommandLineOptionsRef<'v, 'a>,
@@ -517,7 +515,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             fn resolve_project_path(
                 &self,
                 path: ProjectRelativePathBuf,
-            ) -> anyhow::Result<CommandLineLocation> {
+            ) -> buck2_error::Result<CommandLineLocation> {
                 let Self {
                     ctx,
                     relative_to,
@@ -564,7 +562,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 self.ctx.fs()
             }
 
-            fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
+            fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
                 let macro_path = self.ctx.next_macro_file_path()?;
                 if let Some(relative_to_path) = &self.relative_to {
                     Ok(relative_to_path.relative(macro_path))
@@ -672,7 +670,10 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         }
     }
 
-    pub(crate) fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
+    pub(crate) fn relative_to_path<C>(
+        &self,
+        ctx: &C,
+    ) -> buck2_error::Result<Option<RelativePathBuf>>
     where
         C: CommandLineContext + ?Sized,
     {
@@ -681,18 +682,17 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             None => return Ok(None),
         };
 
-        let origin = value.unpack().into_anyhow_result().internal_error_anyhow(
-            "Must be a valid RelativeOrigin as this was checked in the setter",
-        )?;
+        let origin = value
+            .unpack()
+            .into_anyhow_result()
+            .internal_error("Must be a valid RelativeOrigin as this was checked in the setter")?;
         let mut relative_path = origin.resolve(ctx)?;
         for _ in 0..parent {
             if !relative_path.pop() {
-                return Err(
-                    anyhow::anyhow!(CommandLineArgError::TooManyParentCalls).context(format!(
-                        "Error accessing {}-th parent of {}",
-                        parent, origin
-                    )),
-                );
+                return Err(CommandLineArgError::TooManyParentCalls).buck_error_context(format!(
+                    "Error accessing {}-th parent of {}",
+                    parent, origin
+                ));
             }
         }
 

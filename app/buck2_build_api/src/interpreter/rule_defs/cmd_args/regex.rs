@@ -42,7 +42,7 @@ pub(crate) enum CmdArgsRegex<'v> {
 }
 
 impl<'v> CmdArgsRegex<'v> {
-    pub(crate) fn validate(&self) -> anyhow::Result<()> {
+    pub(crate) fn validate(&self) -> buck2_error::Result<()> {
         match self {
             CmdArgsRegex::Str(pattern) => {
                 // Validate that regex is valid

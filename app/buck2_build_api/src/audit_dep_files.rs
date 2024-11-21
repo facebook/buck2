@@ -24,5 +24,5 @@ pub static AUDIT_DEP_FILES: LateBinding<
         Category,
         Option<String>,
         &'a mut (dyn Write + Send),
-    ) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>,
+    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<()>> + Send + 'a>>,
 > = LateBinding::new("AUDIT_DEP_FILES");

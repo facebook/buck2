@@ -35,7 +35,7 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         key: &DynamicLambdaResultsKey,
-    ) -> anyhow::Result<Arc<DynamicLambdaResult>> {
+    ) -> buck2_error::Result<Arc<DynamicLambdaResult>> {
         Ok(dice.compute(&DynamicLambdaDiceKey(key.dupe())).await??)
     }
 }

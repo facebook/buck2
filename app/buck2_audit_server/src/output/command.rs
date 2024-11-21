@@ -47,7 +47,7 @@ async fn audit_output<'v>(
     cell_resolver: CellResolver,
     dice_ctx: &'v mut DiceComputations<'_>,
     global_cfg_options: &'v GlobalCfgOptions,
-) -> anyhow::Result<Option<AuditOutputResult>> {
+) -> buck2_error::Result<Option<AuditOutputResult>> {
     let buck_out_parser = BuckOutPathParser::new(cell_resolver);
     let parsed = buck_out_parser.parse(output_path)?;
 
@@ -63,9 +63,7 @@ async fn audit_output<'v>(
             path_after_target_name,
         ),
         _ => {
-            return Err(anyhow::anyhow!(AuditOutputError::UnsupportedPathType(
-                output_path.to_owned()
-            )));
+            return Err(AuditOutputError::UnsupportedPathType(output_path.to_owned()).into());
         }
     };
 

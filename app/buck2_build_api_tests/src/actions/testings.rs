@@ -92,7 +92,7 @@ impl UnregisteredAction for SimpleUnregisteredAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(SimpleAction {
             inputs: BoxSliceSet::from(inputs),
             outputs: BoxSliceSet::from(outputs),
@@ -109,7 +109,7 @@ impl Action for SimpleAction {
         buck2_data::ActionKind::NotSet
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(self.inputs.as_slice()))
     }
 

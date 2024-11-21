@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
@@ -117,7 +116,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         remote_execution_resource_units: NoneOr<i64>,
         #[starlark(default=UnpackList::default(), require = named)]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
-    ) -> anyhow::Result<StarlarkCommandExecutorConfig> {
+    ) -> starlark::Result<StarlarkCommandExecutorConfig> {
         let command_executor_config = {
             let remote_execution_max_input_files_mebibytes =
                 remote_execution_max_input_files_mebibytes.into_option();
@@ -134,10 +133,10 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             } else {
                 let re_properties = DictRef::from_value(remote_execution_properties.to_value())
                     .ok_or_else(|| {
-                        CommandExecutorConfigErrors::RePropertiesNotADict(
+                        buck2_error::Error::from(CommandExecutorConfigErrors::RePropertiesNotADict(
                             remote_execution_properties.to_value().to_repr(),
                             remote_execution_properties.to_value().get_type().to_owned(),
-                        )
+                        ))
                     })?;
 
                 Some(RePlatformFields {
@@ -160,7 +159,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             } else {
                 let re_use_case = remote_execution_use_case
                     .unpack_str()
-                    .context("remote_execution_use_case is not a string")?;
+                    .buck_error_context("remote_execution_use_case is not a string")?;
                 Some(RemoteExecutorUseCase::new(re_use_case.to_owned()))
             };
 
@@ -169,7 +168,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             } else {
                 let re_action_key = remote_execution_action_key
                     .unpack_str()
-                    .context("remote_execution_action_key is not a string")?;
+                    .buck_error_context("remote_execution_action_key is not a string")?;
                 Some(re_action_key.to_owned())
             };
 
@@ -184,13 +183,13 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 let re_max_input_files_bytes = remote_execution_max_input_files_mebibytes
                     .map(u64::try_from)
                     .transpose()
-                    .context("remote_execution_max_input_files_mebibytes is negative")?
+                    .buck_error_context("remote_execution_max_input_files_mebibytes is negative")?
                     .map(|b| b * 1024 * 1024);
 
                 let re_max_queue_time_ms = remote_execution_queue_time_threshold_s
                     .map(u64::try_from)
                     .transpose()
-                    .context("remote_execution_queue_time_threshold_s is negative")?
+                    .buck_error_context("remote_execution_queue_time_threshold_s is negative")?
                     .map(|t| t * 1000);
 
                 Some(RemoteExecutorOptions {
@@ -218,7 +217,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             let max_cache_upload_bytes = max_cache_upload_mebibytes
                 .map(u64::try_from)
                 .transpose()
-                .context("max_cache_upload_mebibytes is negative")?
+                .buck_error_context("max_cache_upload_mebibytes is negative")?
                 .map(|b| b * 1024 * 1024);
 
             let cache_upload_behavior = if allow_cache_uploads {
@@ -254,13 +253,14 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 
                     Executor::RemoteEnabled(RemoteEnabledExecutorOptions {
                         executor,
-                        re_properties: re_properties.context(
+                        re_properties: re_properties.buck_error_context(
                             CommandExecutorConfigErrors::MissingField(
                                 "remote_execution_properties",
                             ),
                         )?,
-                        re_use_case: re_use_case
-                            .context(CommandExecutorConfigErrors::MissingField("re_use_case"))?,
+                        re_use_case: re_use_case.buck_error_context(
+                            CommandExecutorConfigErrors::MissingField("re_use_case"),
+                        )?,
                         re_action_key,
                         cache_upload_behavior,
                         remote_cache_enabled,
@@ -286,7 +286,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 // If remote cache is disabled, also disable the remote dep file cache as well
                 (Some(local), None, false) => Executor::Local(local),
                 (None, None, _) => {
-                    return Err(CommandExecutorConfigErrors::NoExecutor.into());
+                    return Err(
+                        buck2_error::Error::from(CommandExecutorConfigErrors::NoExecutor).into(),
+                    );
                 }
             };
 

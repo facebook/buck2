@@ -10,6 +10,7 @@
 use std::fmt;
 
 use buck2_error::ErrorTag;
+use buck2_error::__for_macro::AsDynError;
 use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
 
@@ -26,10 +27,6 @@ pub struct ActionError {
 
 impl std::error::Error for ActionError {
     fn provide<'a>(&'a self, request: &mut std::error::Request<'a>) {
-        if let ExecuteError::Error { error } = &self.execute_error {
-            error.provide(request);
-        }
-
         let is_command_failure = self.last_command.as_ref().is_some_and(|c| {
             matches!(
                 c.status,
@@ -56,8 +53,7 @@ impl std::error::Error for ActionError {
             // Or if the action produced the wrong type
             ExecuteError::WrongOutputType { .. } => tags.push(ErrorTag::ActionWrongOutputType),
             ExecuteError::Error { error } => {
-                let err = buck2_error::Error::from_anyhow_ref(error);
-                tags.extend(err.tags());
+                tags.extend(error.tags());
             }
         };
 
@@ -72,7 +68,7 @@ impl std::error::Error for ActionError {
 
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self.execute_error {
-            ExecuteError::Error { error } => error.source(),
+            ExecuteError::Error { error } => Some(error.as_dyn_error()),
             _ => None,
         }
     }

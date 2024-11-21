@@ -23,7 +23,7 @@ pub enum UnpackArtifactOrDeclaredArtifact<'v> {
 }
 
 impl<'v> UnpackArtifactOrDeclaredArtifact<'v> {
-    pub fn artifact(&self) -> anyhow::Result<Artifact> {
+    pub fn artifact(&self) -> buck2_error::Result<Artifact> {
         match self {
             UnpackArtifactOrDeclaredArtifact::Artifact(x) => Ok(x.artifact.dupe()),
             UnpackArtifactOrDeclaredArtifact::DeclaredArtifact(x) => x.get_bound_artifact(),

@@ -13,7 +13,7 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -87,9 +87,9 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
-    fn projection_name(&self) -> anyhow::Result<&'v str> {
+    fn projection_name(&self) -> buck2_error::Result<&'v str> {
         TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?
+            .buck_error_context("Invalid transitive_set")?
             .projection_name(self.projection)
     }
 }
@@ -99,7 +99,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
     /// This function allows us to treat those two as the same.
     /// TODO(cjhopman): It may be better to wrap the list case in a new CommandLineArgLike impl when returned from
     /// the projection. Then we'd only have to verify the contents type once and it might be a bit simpler to use.
-    pub(super) fn as_command_line(v: V) -> anyhow::Result<impl CommandLineArgLike + 'v> {
+    pub(super) fn as_command_line(v: V) -> buck2_error::Result<impl CommandLineArgLike + 'v> {
         enum Impl<'v> {
             Item(&'v dyn CommandLineArgLike),
             List(&'v [Value<'v>]),
@@ -113,7 +113,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                 &self,
                 cli: &mut dyn CommandLineBuilder,
                 context: &mut dyn CommandLineContext,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 match self {
                     Impl::Item(v) => v.add_to_command_line(cli, context),
                     Impl::List(items) => {
@@ -148,7 +148,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
             fn visit_write_to_file_macros(
                 &self,
                 visitor: &mut dyn WriteToFileMacroVisitor,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 match self {
                     Impl::Item(v) => v.visit_write_to_file_macros(visitor),
                     Impl::List(items) => {
@@ -165,7 +165,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
             fn visit_artifacts(
                 &self,
                 visitor: &mut dyn CommandLineArtifactVisitor,
-            ) -> anyhow::Result<()> {
+            ) -> buck2_error::Result<()> {
                 match self {
                     Impl::Item(v) => v.visit_artifacts(visitor),
                     Impl::List(items) => {
@@ -220,15 +220,15 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         &self,
         builder: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?;
+            .buck_error_context("Invalid transitive_set")?;
 
         for node in set.iter(self.ordering).values() {
             let projection = node
                 .projections
                 .get(self.projection)
-                .context("Invalid projection id")?;
+                .buck_error_context("Invalid projection id")?;
 
             TransitiveSetArgsProjection::as_command_line(*projection)?
                 .add_to_command_line(builder, context)?;
@@ -237,9 +237,12 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         Ok(())
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?;
+            .buck_error_context("Invalid transitive_set")?;
 
         visitor.visit_input(
             ArtifactGroup::TransitiveSetProjection(Arc::new(TransitiveSetProjectionKey {
@@ -262,7 +265,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // TODO(cjhopman): This seems wrong, there's no verification that the projected
         // values don't have write_to_file_macros in them.
         Ok(())
@@ -274,7 +277,7 @@ fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
     fn traverse<'v>(
         this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
             transitive_set: this.typed.transitive_set,
             projection: this.typed.projection,

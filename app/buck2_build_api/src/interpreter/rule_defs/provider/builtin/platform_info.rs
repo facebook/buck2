@@ -37,8 +37,8 @@ pub struct PlatformInfoGen<V: ValueLifetimeless> {
 }
 
 impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
-    pub fn to_configuration(&self) -> anyhow::Result<ConfigurationData> {
-        Ok(ConfigurationData::from_platform(
+    pub fn to_configuration(&self) -> buck2_error::Result<ConfigurationData> {
+        ConfigurationData::from_platform(
             self.label
                 .to_value()
                 .get()
@@ -48,7 +48,7 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
             ConfigurationInfo::from_value(self.configuration.get().to_value())
                 .expect("type checked during construction")
                 .to_configuration_data()?,
-        )?)
+        )
     }
 }
 
@@ -56,7 +56,7 @@ impl<'v> PlatformInfo<'v> {
     pub fn from_configuration(
         cfg: &ConfigurationData,
         heap: &'v Heap,
-    ) -> anyhow::Result<PlatformInfo<'v>> {
+    ) -> buck2_error::Result<PlatformInfo<'v>> {
         let label = heap.alloc_str(cfg.label()?);
         let configuration = heap.alloc(ConfigurationInfo::from_configuration_data(
             cfg.data()?,
@@ -75,7 +75,7 @@ fn platform_info_creator(globals: &mut GlobalsBuilder) {
     fn PlatformInfo<'v>(
         #[starlark(require = named)] label: StringValue<'v>,
         #[starlark(require = named)] configuration: ValueOf<'v, &'v ConfigurationInfo<'v>>,
-    ) -> anyhow::Result<PlatformInfo<'v>> {
+    ) -> starlark::Result<PlatformInfo<'v>> {
         Ok(PlatformInfo {
             label: label.to_value_of_unchecked().cast(),
             configuration: ValueOfUnchecked::<FrozenConfigurationInfo>::new(configuration.value),

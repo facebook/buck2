@@ -52,7 +52,7 @@ pub struct ValidationInfoGen<V: ValueLifetimeless> {
     validations: ValueOfUncheckedGeneric<V, Vec<FrozenStarlarkValidationSpec>>,
 }
 
-fn validate_validation_info<'v, V>(info: &ValidationInfoGen<V>) -> anyhow::Result<()>
+fn validate_validation_info<'v, V>(info: &ValidationInfoGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
@@ -91,7 +91,7 @@ fn validation_info_creator(globals: &mut GlobalsBuilder) {
             'v,
             ListType<&'v StarlarkValidationSpec<'v>>,
         >,
-    ) -> anyhow::Result<ValidationInfo<'v>> {
+    ) -> starlark::Result<ValidationInfo<'v>> {
         let result = ValidationInfo {
             validations: ValueOfUnchecked::new(validations.value),
         };

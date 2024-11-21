@@ -11,7 +11,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use anyhow::Context;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -35,7 +34,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 enum ValidationSpecError {
     #[error("Name of validation spec should not be empty")]
     EmptyName,
@@ -107,7 +106,7 @@ where
     }
 }
 
-fn validate_validation_spec<'v, V>(spec: &StarlarkValidationSpecGen<V>) -> anyhow::Result<()>
+fn validate_validation_spec<'v, V>(spec: &StarlarkValidationSpecGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
@@ -119,7 +118,7 @@ where
     let artifact = match artifact.0.get_bound_artifact() {
         Ok(bound_artifact) => bound_artifact,
         Err(e) => {
-            return Err(e).context(ValidationSpecError::ValidationResultIsNotBound);
+            return Err(e.context(ValidationSpecError::ValidationResultIsNotBound));
         }
     };
     if artifact.is_source() {
@@ -173,7 +172,7 @@ pub fn register_validation_spec(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] name: StringValue<'v>,
         #[starlark(require = named)] validation_result: ValueOf<'v, ValueAsArtifactLike<'v>>,
         #[starlark(require = named, default = false)] optional: bool,
-    ) -> anyhow::Result<StarlarkValidationSpec<'v>> {
+    ) -> starlark::Result<StarlarkValidationSpec<'v>> {
         let result = StarlarkValidationSpec {
             name: name.to_value_of_unchecked().cast(),
             validation_result: validation_result.as_unchecked().cast(),

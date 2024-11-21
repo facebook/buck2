@@ -12,7 +12,7 @@ use std::fmt::Display;
 use std::iter;
 
 use allocative::Allocative;
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -74,15 +74,15 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetJsonProjectionGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
-    fn projection_name(&self) -> anyhow::Result<&'v str> {
+    fn projection_name(&self) -> buck2_error::Result<&'v str> {
         TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?
+            .buck_error_context("Invalid transitive_set")?
             .projection_name(self.projection)
     }
 
-    pub(crate) fn to_projection_key(&self) -> anyhow::Result<TransitiveSetProjectionKey> {
+    pub(crate) fn to_projection_key(&self) -> buck2_error::Result<TransitiveSetProjectionKey> {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?;
+            .buck_error_context("Invalid transitive_set")?;
 
         Ok(TransitiveSetProjectionKey {
             key: set.key().dupe(),
@@ -92,12 +92,14 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
 }
 
 impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
-    pub fn iter_values<'a>(&'a self) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    pub fn iter_values<'a>(
+        &'a self,
+    ) -> buck2_error::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
     where
         'v: 'a,
     {
         let set = TransitiveSet::from_value(self.transitive_set.to_value())
-            .context("Invalid transitive_set")?;
+            .buck_error_context("Invalid transitive_set")?;
         set.iter_projection_values(self.ordering, self.projection)
     }
 }
@@ -120,7 +122,7 @@ fn transitive_set_json_projection_methods(builder: &mut MethodsBuilder) {
     fn traverse<'v>(
         this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
             transitive_set: this.typed.transitive_set,
             projection: this.typed.projection,

@@ -164,7 +164,10 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
 
             impl WriteToFileMacroVisitor for WriteToFileMacrosCounter {
-                fn visit_write_to_file_macro(&mut self, _m: &ResolvedMacro) -> anyhow::Result<()> {
+                fn visit_write_to_file_macro(
+                    &mut self,
+                    _m: &ResolvedMacro,
+                ) -> buck2_error::Result<()> {
                     self.count += 1;
                     Ok(())
                 }
@@ -173,8 +176,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     &mut self,
                     _gen: &dyn Fn(
                         &dyn CommandLineContext,
-                    ) -> anyhow::Result<Option<RelativePathBuf>>,
-                ) -> anyhow::Result<()> {
+                    )
+                        -> buck2_error::Result<Option<RelativePathBuf>>,
+                ) -> buck2_error::Result<()> {
                     Ok(())
                 }
             }

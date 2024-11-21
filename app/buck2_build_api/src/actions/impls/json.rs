@@ -11,8 +11,8 @@ use std::io::sink;
 use std::io::Write;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -57,11 +57,11 @@ pub struct SerializeValue<'a, 'v> {
     pub absolute: bool,
 }
 
-struct AnyhowResultOfSerializedValue<'a, 'v> {
-    result: anyhow::Result<SerializeValue<'a, 'v>>,
+struct Buck2ErrorResultOfSerializedValue<'a, 'v> {
+    result: buck2_error::Result<SerializeValue<'a, 'v>>,
 }
 
-impl<'a, 'v> Serialize for AnyhowResultOfSerializedValue<'a, 'v> {
+impl<'a, 'v> Serialize for Buck2ErrorResultOfSerializedValue<'a, 'v> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -74,21 +74,16 @@ impl<'a, 'v> Serialize for AnyhowResultOfSerializedValue<'a, 'v> {
 }
 
 impl<'a, 'v> SerializeValue<'a, 'v> {
-    fn with_value(&self, x: Value<'v>) -> AnyhowResultOfSerializedValue<'a, 'v> {
-        AnyhowResultOfSerializedValue {
-            result: JsonUnpack::unpack_value_err(x).map(|value| SerializeValue {
-                value,
-                fs: self.fs,
-                absolute: self.absolute,
-            }),
+    fn with_value(&self, x: Value<'v>) -> Buck2ErrorResultOfSerializedValue<'a, 'v> {
+        Buck2ErrorResultOfSerializedValue {
+            result: JsonUnpack::unpack_value_err(x)
+                .map_err(buck2_error::Error::from)
+                .map(|value| SerializeValue {
+                    value,
+                    fs: self.fs,
+                    absolute: self.absolute,
+                }),
         }
-    }
-}
-
-fn err_anyhow<R, E: serde::ser::Error>(res: anyhow::Result<R>) -> Result<R, E> {
-    match res {
-        Ok(v) => Ok(v),
-        Err(e) => Err(serde::ser::Error::custom(format!("{:#}", e))),
     }
 }
 
@@ -126,7 +121,7 @@ pub enum JsonArtifact<'v> {
 }
 
 impl<'v> JsonArtifact<'v> {
-    fn artifact(&self) -> anyhow::Result<Artifact> {
+    fn artifact(&self) -> buck2_error::Result<Artifact> {
         match self {
             JsonArtifact::ValueAsArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
             JsonArtifact::StarlarkOutputArtifact(x) => match x.unpack() {
@@ -185,7 +180,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
             }
             JsonUnpack::Enum(x) => x.serialize(serializer),
             JsonUnpack::TransitiveSetJsonProjection(x) => {
-                serializer.collect_seq(err_anyhow(x.iter_values())?.map(|v| self.with_value(v)))
+                serializer.collect_seq(err(x.iter_values())?.map(|v| self.with_value(v)))
             }
             JsonUnpack::TargetLabel(x) => {
                 // Users could do this with `str(ctx.label.raw_target())`, but in some benchmarks that causes
@@ -205,9 +200,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         serializer.serialize_str("")
                     }
                     Some(fs) => {
-                        let path = err(err_anyhow(x.artifact())?.resolve_path(fs.fs()))?;
+                        let path = err(err(x.artifact())?.resolve_path(fs.fs()))?;
                         let path = with_command_line_context(fs, self.absolute, |ctx| {
-                            err_anyhow(ctx.resolve_project_path(path)).map(|loc| loc.into_string())
+                            err(ctx.resolve_project_path(path)).map(|loc| loc.into_string())
                         })?;
                         serializer.serialize_str(&path)
                     }
@@ -230,7 +225,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         let mut items = Vec::<String>::new();
 
                         with_command_line_context(fs, self.absolute, |ctx| {
-                            err_anyhow(x.as_command_line_arg().add_to_command_line(&mut items, ctx))
+                            err(x.as_command_line_arg().add_to_command_line(&mut items, ctx))
                         })?;
 
                         // We change the type, based on the value - singleton = String, otherwise list.
@@ -262,7 +257,7 @@ fn is_singleton_cmdargs(x: CommandLineArg) -> bool {
     }
 }
 
-pub fn validate_json(x: JsonUnpack) -> anyhow::Result<()> {
+pub fn validate_json(x: JsonUnpack) -> buck2_error::Result<()> {
     write_json(x, None, &mut sink(), false, false)
 }
 
@@ -272,7 +267,7 @@ pub fn write_json(
     mut writer: &mut dyn Write,
     pretty: bool,
     absolute: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let value = SerializeValue {
         value,
         fs,
@@ -287,15 +282,15 @@ pub fn write_json(
         } else {
             serde_json::to_writer(&mut writer, &value)?;
         }
-        anyhow::Ok(())
+        buck2_error::Ok(())
     })()
-    .context("Error converting to JSON for `write_json`")
+    .buck_error_context("Error converting to JSON for `write_json`")
 }
 
 pub fn visit_json_artifacts(
     v: Value,
     visitor: &mut dyn CommandLineArtifactVisitor,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     match JsonUnpack::unpack_value_err(v)? {
         JsonUnpack::None(_)
         | JsonUnpack::String(_)

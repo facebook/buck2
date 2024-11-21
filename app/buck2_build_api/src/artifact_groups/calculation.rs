@@ -11,7 +11,6 @@ use std::iter::zip;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
@@ -24,7 +23,7 @@ use buck2_common::file_ops::PathMetadata;
 use buck2_common::file_ops::PathMetadataOrRedirection;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_directory::directory::directory_data::DirectoryData;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -61,7 +60,7 @@ pub trait ArtifactGroupCalculation {
     async fn ensure_artifact_group(
         &mut self,
         input: &ArtifactGroup,
-    ) -> anyhow::Result<ArtifactGroupValues>;
+    ) -> buck2_error::Result<ArtifactGroupValues>;
 }
 
 #[async_trait]
@@ -70,7 +69,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
     async fn ensure_artifact_group(
         &mut self,
         input: &ArtifactGroup,
-    ) -> anyhow::Result<ArtifactGroupValues> {
+    ) -> buck2_error::Result<ArtifactGroupValues> {
         // TODO consider if we need to cache this
         let resolved_artifacts = input.resolved_artifact(self).await?;
         ensure_artifact_group_staged(self, resolved_artifacts.clone())
@@ -100,7 +99,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
 pub(crate) fn ensure_artifact_group_staged<'a>(
     ctx: &'a mut DiceComputations,
     input: ResolvedArtifactGroup<'a>,
-) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
     match input {
         ResolvedArtifactGroup::Artifact(artifact) => {
             ensure_artifact_staged(ctx, artifact.clone()).left_future()
@@ -116,7 +115,7 @@ pub(crate) fn ensure_artifact_group_staged<'a>(
 pub(super) fn ensure_base_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     artifact: BaseArtifactKind,
-) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
     match artifact {
         BaseArtifactKind::Build(built) => ensure_build_artifact_staged(dice, built).left_future(),
         BaseArtifactKind::Source(source) => {
@@ -129,7 +128,7 @@ pub(super) fn ensure_base_artifact_staged<'a>(
 pub(super) fn ensure_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     artifact: Artifact,
-) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
     let ArtifactKind { base, path } = artifact.data();
     match path.is_empty() {
         true => ensure_base_artifact_staged(dice, base.clone()).left_future(),
@@ -143,7 +142,7 @@ pub(super) fn ensure_artifact_staged<'a>(
 fn ensure_build_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     built: BuildArtifact,
-) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
     ActionCalculation::build_action(dice, built.key()).map(move |action_outputs| {
         let action_outputs = action_outputs?;
         if let Some(value) = action_outputs.get(built.get_path()) {
@@ -160,7 +159,7 @@ fn ensure_build_artifact_staged<'a>(
 fn ensure_source_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
     source: SourceArtifact,
-) -> impl Future<Output = anyhow::Result<EnsureArtifactGroupReady>> + 'a {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + 'a {
     async move {
         Ok(EnsureArtifactGroupReady::Single(
             path_artifact_value(dice, Arc::new(source.get_path().to_cell_path()))
@@ -208,7 +207,7 @@ impl EnsureArtifactGroupReady {
     pub(crate) fn to_group_values<'v>(
         self,
         resolved_artifact_group: &ResolvedArtifactGroup<'v>,
-    ) -> anyhow::Result<ArtifactGroupValues> {
+    ) -> buck2_error::Result<ArtifactGroupValues> {
         match self {
             EnsureArtifactGroupReady::TransitiveSet(values) => Ok(values),
             EnsureArtifactGroupReady::Single(value) => match resolved_artifact_group {
@@ -222,7 +221,7 @@ impl EnsureArtifactGroupReady {
         }
     }
 
-    fn unpack_single(self) -> anyhow::Result<ArtifactValue> {
+    fn unpack_single(self) -> buck2_error::Result<ArtifactValue> {
         match self {
             EnsureArtifactGroupReady::Single(value) => Ok(value),
             EnsureArtifactGroupReady::TransitiveSet(..) => {
@@ -275,7 +274,7 @@ fn _assert_ensure_artifact_group_future_size() {
 async fn dir_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
-) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
+) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     // We keep running into this performance footgun where a large directory is declared
     // as a source on a toolchain, and then every BuildKey using that toolchain ends up taking
     // a DICE edge on PathMetadataKey of every file inside that directory, blowing up Buck2's
@@ -309,7 +308,7 @@ async fn dir_artifact_value(
                         let value =
                             path_artifact_value(ctx, Arc::new(self.0.as_ref().join(&x.file_name)))
                                 .await?;
-                        anyhow::Ok((x.file_name.clone(), value))
+                        buck2_error::Ok((x.file_name.clone(), value))
                     }
                     .boxed()
                 })
@@ -338,7 +337,7 @@ async fn dir_artifact_value(
 async fn path_artifact_value(
     ctx: &mut DiceComputations<'_>,
     cell_path: Arc<CellPath>,
-) -> anyhow::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
+) -> buck2_error::Result<ActionDirectoryEntry<ActionSharedDirectory>> {
     let raw = DiceFileComputations::read_path_metadata(ctx, cell_path.as_ref().as_ref()).await?;
     match PathMetadataOrRedirection::from(raw) {
         PathMetadataOrRedirection::PathMetadata(meta) => match meta {
@@ -373,7 +372,7 @@ impl Key for EnsureProjectedArtifactKey {
         let ArtifactKind { base, path } = &self.0;
 
         if path.is_empty() {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "EnsureProjectedArtifactKey with non-empty projected path"
             )
             .into());
@@ -395,11 +394,13 @@ impl Key for EnsureProjectedArtifactKey {
         insert_artifact(&mut builder, base_path.as_ref(), &base_value)?;
 
         let value = extract_artifact_value(&builder, &base_path.join(path), digest_config)
-            .with_buck_error_context_anyhow(|| {
+            .with_buck_error_context(|| {
                 format!("The path `{path}` cannot be projected in the artifact `{base}`")
             })?
-            .with_context(|| format!("The path `{path}` does not exist in the artifact `{base}`"))
-            .tag_anyhow(buck2_error::ErrorTag::ProjectMissingPath)?;
+            .with_buck_error_context(|| {
+                format!("The path `{path}` does not exist in the artifact `{base}`")
+            })
+            .tag(buck2_error::ErrorTag::ProjectMissingPath)?;
 
         Ok(value)
     }
@@ -478,7 +479,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let digest_config = ctx.global_data().get_digest_config();
 
             let values = ArtifactGroupValues::new(values, children, &artifact_fs, digest_config)
-                .context("Failed to construct ArtifactGroupValues")?;
+                .buck_error_context("Failed to construct ArtifactGroupValues")?;
 
             Ok(values)
         })()

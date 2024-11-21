@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use assert_matches::assert_matches;
 use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::artifact::artifact_type::testing::ArtifactTestingExt;
 use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
@@ -88,27 +87,19 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
     {
         let expected_conflicts = vec!["foo/a/1 declared at <unknown>".to_owned()];
         let prefix_claimed = ForwardRelativePathBuf::unchecked_new("foo/a/1/some/path".into());
-        assert_matches!(
-            actions.claim_output_path(&prefix_claimed, None),
-            Err(e) => {
-                assert_matches!(
-                    e.downcast_ref::<ActionErrors>(),
-                    Some(ActionErrors::ConflictingOutputPaths(_inserted, existing)) => {
-                        assert_eq!(existing, &expected_conflicts);
-                    }
-                );
-            }
-        );
+
+        let actual = actions
+            .claim_output_path(&prefix_claimed, None)
+            .unwrap_err();
+        let expected: buck2_error::Error =
+            ActionErrors::ConflictingOutputPaths(prefix_claimed, expected_conflicts).into();
+        assert_eq!(actual.to_string(), expected.to_string());
     }
 
-    assert_matches!(
-        actions.claim_output_path(&out1, None),
-        Err(e) => {
-            assert_matches!(
-                e.downcast_ref::<ActionErrors>(),
-                Some(ActionErrors::ConflictingOutputPath(..))
-            );
-        }
+    let err = actions.claim_output_path(&out1, None).unwrap_err();
+    assert!(
+        err.category_key()
+            .ends_with("ActionErrors::ConflictingOutputPath")
     );
 
     {
@@ -117,17 +108,11 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
             "foo/a/1 declared at <unknown>".to_owned(),
             "foo/a/2 declared at <unknown>".to_owned(),
         ];
-        assert_matches!(
-            actions.claim_output_path(&overwrite_dir, None),
-            Err(e) => {
-                assert_matches!(
-                    e.downcast_ref::<ActionErrors>(),
-                    Some(ActionErrors::ConflictingOutputPaths(_inserted, existing)) => {
-                        assert_eq!(existing, &expected_conflicts);
-                    }
-                );
-            }
-        );
+
+        let actual = actions.claim_output_path(&overwrite_dir, None).unwrap_err();
+        let expected: buck2_error::Error =
+            ActionErrors::ConflictingOutputPaths(overwrite_dir, expected_conflicts).into();
+        assert_eq!(actual.to_string(), expected.to_string());
     }
 
     Ok(())
@@ -231,14 +216,13 @@ fn finalizing_actions() -> anyhow::Result<()> {
 fn duplicate_category_singleton_actions() {
     let result =
         category_identifier_test(&[("singleton_category", None), ("singleton_category", None)])
-            .unwrap_err()
-            .downcast::<ActionErrors>()
-            .unwrap();
+            .unwrap_err();
 
-    assert!(matches!(
-        result,
-        ActionErrors::ActionCategoryDuplicateSingleton(_)
-    ));
+    assert!(
+        result
+            .category_key()
+            .ends_with("ActionErrors::ActionCategoryDuplicateSingleton")
+    );
 }
 
 #[test]
@@ -247,19 +231,18 @@ fn duplicate_category_identifier() {
         ("cxx_compile", Some("foo.cpp")),
         ("cxx_compile", Some("foo.cpp")),
     ])
-    .unwrap_err()
-    .downcast::<ActionErrors>()
-    .unwrap();
+    .unwrap_err();
 
-    assert!(matches!(
-        result,
-        ActionErrors::ActionCategoryIdentifierNotUnique(_, _)
-    ),);
+    assert!(
+        result
+            .category_key()
+            .ends_with("ActionErrors::ActionCategoryIdentifierNotUnique")
+    );
 }
 
 fn category_identifier_test(
     action_names: &[(&'static str, Option<&'static str>)],
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let base = DeferredHolderKey::testing_new("cell//pkg:foo");
     let mut actions = ActionsRegistry::new(
         base.dupe(),

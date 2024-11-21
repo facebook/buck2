@@ -436,7 +436,7 @@ async fn build_targets(
         .right_stream(),
     };
 
-    BuildTargetResult::collect_stream(stream, fail_fast).await
+    Ok(BuildTargetResult::collect_stream(stream, fail_fast).await?)
 }
 
 fn build_targets_in_universe<'a>(

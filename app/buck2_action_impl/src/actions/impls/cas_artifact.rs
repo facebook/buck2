@@ -109,7 +109,7 @@ impl UnregisteredAction for UnregisteredCasArtifactAction {
         outputs: IndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         Ok(Box::new(CasArtifactAction::new(inputs, outputs, *self)?))
     }
 }
@@ -170,7 +170,7 @@ impl Action for CasArtifactAction {
         buck2_data::ActionKind::CasArtifact
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&[]))
     }
 

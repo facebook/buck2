@@ -224,10 +224,7 @@ async fn eval_post_constraint_analysis<'v>(
                 .map_err(from_starlark)?;
 
             // Type check + unpack
-            Ok(
-                <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?
-                    .to_configuration()?,
-            )
+            <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()
         },
     )
     .await

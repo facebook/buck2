@@ -82,7 +82,7 @@ pub fn add_output_to_arg(
     builder: &mut dyn ArgBuilder,
     ctx: &mut dyn CommandLineContext,
     artifact: &StarlarkArtifact,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let path = ctx
         .resolve_artifact(&artifact.get_bound_artifact()?)?
         .into_string();
@@ -94,7 +94,7 @@ fn add_outputs_to_arg(
     builder: &mut dyn ArgBuilder,
     ctx: &mut dyn CommandLineContext,
     outputs_list: &[StarlarkArtifact],
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
         if i != 0 {
             builder.push_str(" ");
@@ -109,7 +109,7 @@ impl ResolvedMacro {
         &self,
         builder: &mut dyn ArgBuilder,
         ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Source(artifact) => {
                 let s = ctx.resolve_artifact(artifact)?.into_string();
@@ -132,7 +132,10 @@ impl ResolvedMacro {
         Ok(())
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Location(info) => {
                 info.for_each_output(&mut |i| visitor.visit_input(i, None))?;
@@ -224,13 +227,13 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
         &self,
         cmdline_builder: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         struct Builder {
             arg: String,
         }
 
         impl Builder {
-            fn push_path(&mut self, ctx: &mut dyn CommandLineContext) -> anyhow::Result<()> {
+            fn push_path(&mut self, ctx: &mut dyn CommandLineContext) -> buck2_error::Result<()> {
                 let next_path = ctx.next_macro_file_path()?;
                 self.push_str(next_path.as_str());
                 Ok(())
@@ -267,7 +270,10 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
         Ok(())
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         for part in &*self.parts {
             if let ResolvedStringWithMacrosPart::Macro(_, val) = part {
                 val.visit_artifacts(visitor)?;
@@ -284,7 +290,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         for part in &*self.parts {
             match part {
                 ResolvedStringWithMacrosPart::String(_) => {

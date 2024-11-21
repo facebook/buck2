@@ -23,7 +23,7 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
@@ -105,14 +105,14 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn new_from_owner(
         owner: BaseDeferredKey,
         execution_platform: ExecutionPlatformResolution,
-    ) -> anyhow::Result<AnalysisRegistry<'v>> {
+    ) -> buck2_error::Result<AnalysisRegistry<'v>> {
         Self::new_from_owner_and_deferred(execution_platform, DeferredHolderKey::Base(owner))
     }
 
     pub fn new_from_owner_and_deferred(
         execution_platform: ExecutionPlatformResolution,
         self_key: DeferredHolderKey,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(AnalysisRegistry {
             actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
             artifact_groups: ArtifactGroupRegistry::new(),
@@ -129,7 +129,7 @@ impl<'v> AnalysisRegistry<'v> {
         &mut self,
         eval: &Evaluator<'_, '_, '_>,
         path: &ForwardRelativePath,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let declaration_location = eval.call_stack_top_location();
         self.actions.claim_output_path(path, declaration_location)
     }
@@ -137,7 +137,7 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
-    ) -> anyhow::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact> {
         self.actions.declare_dynamic_output(artifact)
     }
 
@@ -147,7 +147,7 @@ impl<'v> AnalysisRegistry<'v> {
         filename: &str,
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
-    ) -> anyhow::Result<DeclaredArtifact> {
+    ) -> buck2_error::Result<DeclaredArtifact> {
         // We want this artifact to be a file/directory inside the current context, which means
         // things like `..` and the empty path `.` can be bad ideas. The `::new` method checks for those
         // things and fails if they are present.
@@ -182,7 +182,7 @@ impl<'v> AnalysisRegistry<'v> {
         eval: &Evaluator<'v2, '_, '_>,
         value: OutputArtifactArg<'v2>,
         output_type: OutputType,
-    ) -> anyhow::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
+    ) -> buck2_error::Result<(ArtifactDeclaration<'v2>, OutputArtifact)> {
         let declaration_location = eval.call_stack_top_location();
         let heap = eval.heap();
         let declared_artifact = match value {
@@ -220,7 +220,7 @@ impl<'v> AnalysisRegistry<'v> {
         action: A,
         associated_value: Option<Value<'v>>,
         error_handler: Option<StarlarkCallable<'v>>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let id = self.actions.register(
             &self.analysis_value_storage.self_key,
             inputs,
@@ -265,8 +265,8 @@ impl<'v> AnalysisRegistry<'v> {
             .insert(promise_artifact_id, short_path);
     }
 
-    pub fn assert_no_promises(&self) -> anyhow::Result<()> {
-        Ok(self.anon_targets.assert_no_promises()?)
+    pub fn assert_no_promises(&self) -> buck2_error::Result<()> {
+        self.anon_targets.assert_no_promises()
     }
 
     pub fn num_declared_actions(&self) -> u64 {
@@ -282,8 +282,8 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn finalize(
         self,
         env: &'v Module,
-    ) -> anyhow::Result<
-        impl FnOnce(Module) -> anyhow::Result<(FrozenModule, RecordedAnalysisValues)> + 'static,
+    ) -> buck2_error::Result<
+        impl FnOnce(Module) -> buck2_error::Result<(FrozenModule, RecordedAnalysisValues)> + 'static,
     > {
         let AnalysisRegistry {
             actions,
@@ -399,11 +399,11 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
             action_data: action_data
                 .into_iter()
                 .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-                .collect::<anyhow::Result<_>>()?,
+                .collect::<buck2_error::Result<_>>()?,
             transitive_sets: transitive_sets
                 .into_iter()
                 .map(|(k, v)| Ok((k, FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)?)))
-                .collect::<anyhow::Result<_>>()?,
+                .collect::<buck2_error::Result<_>>()?,
             lambda_params: lambda_params.freeze(freezer)?,
             result_value: result_value.freeze(freezer)?,
         })
@@ -444,7 +444,7 @@ impl<'v> AnalysisValueStorage<'v> {
     }
 
     /// Write self to `module` extra value.
-    fn write_to_module(self, module: &'v Module) -> anyhow::Result<()> {
+    fn write_to_module(self, module: &'v Module) -> buck2_error::Result<()> {
         let extra_v = AnalysisExtraValue::get_or_init(module)?;
         let res = extra_v.analysis_value_storage.set(
             module
@@ -452,19 +452,17 @@ impl<'v> AnalysisValueStorage<'v> {
                 .alloc_typed(StarlarkAnyComplex { value: self }),
         );
         if res.is_err() {
-            return Err(internal_error_anyhow!(
-                "analysis_value_storage is already set"
-            ));
+            return Err(internal_error!("analysis_value_storage is already set"));
         }
         Ok(())
     }
 
     pub(crate) fn register_transitive_set<
-        F: FnOnce(TransitiveSetKey) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>>,
+        F: FnOnce(TransitiveSetKey) -> buck2_error::Result<ValueTyped<'v, TransitiveSet<'v>>>,
     >(
         &mut self,
         func: F,
-    ) -> anyhow::Result<ValueTyped<'v, TransitiveSet<'v>>> {
+    ) -> buck2_error::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         let key = TransitiveSetKey::new(
             self.self_key.dupe(),
             TransitiveSetIndex(self.transitive_sets.len().try_into()?),
@@ -478,9 +476,9 @@ impl<'v> AnalysisValueStorage<'v> {
         &mut self,
         id: ActionKey,
         action_data: (Option<Value<'v>>, Option<StarlarkCallable<'v>>),
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if &self.self_key != id.holder_key() {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Wrong action owner: expecting `{}`, got `{}`",
                 self.self_key,
                 id
@@ -493,23 +491,25 @@ impl<'v> AnalysisValueStorage<'v> {
     pub fn set_result_value(
         &self,
         providers: ValueTypedComplex<'v, ProviderCollection<'v>>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.result_value.set(providers).is_err() {
-            return Err(internal_error_anyhow!("result_value is already set"));
+            return Err(internal_error!("result_value is already set"));
         }
         Ok(())
     }
 }
 
 impl AnalysisValueFetcher {
-    fn extra_value(&self) -> anyhow::Result<Option<(&FrozenAnalysisValueStorage, &FrozenHeapRef)>> {
+    fn extra_value(
+        &self,
+    ) -> buck2_error::Result<Option<(&FrozenAnalysisValueStorage, &FrozenHeapRef)>> {
         match &self.frozen_module {
             None => Ok(None),
             Some(module) => {
                 let analysis_extra_value = FrozenAnalysisExtraValue::get(module)?
                     .value
                     .analysis_value_storage
-                    .internal_error_anyhow("analysis_value_storage not set")?
+                    .internal_error("analysis_value_storage not set")?
                     .as_ref();
                 Ok(Some((&analysis_extra_value.value, module.frozen_heap())))
             }
@@ -520,13 +520,13 @@ impl AnalysisValueFetcher {
     pub fn get_action_data(
         &self,
         id: &ActionKey,
-    ) -> anyhow::Result<(Option<OwnedFrozenValue>, Option<OwnedFrozenValue>)> {
+    ) -> buck2_error::Result<(Option<OwnedFrozenValue>, Option<OwnedFrozenValue>)> {
         let Some((storage, heap_ref)) = self.extra_value()? else {
             return Ok((None, None));
         };
 
         if id.holder_key() != &storage.self_key {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Wrong action owner: expecting `{}`, got `{}`",
                 storage.self_key,
                 id
@@ -548,13 +548,13 @@ impl AnalysisValueFetcher {
     pub(crate) fn get_recorded_values(
         &self,
         actions: RecordedActions,
-    ) -> anyhow::Result<RecordedAnalysisValues> {
+    ) -> buck2_error::Result<RecordedAnalysisValues> {
         let analysis_storage = match &self.frozen_module {
             None => None,
             Some(module) => Some(FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
                 v.value
                     .analysis_value_storage
-                    .internal_error_anyhow("analysis_value_storage not set")
+                    .internal_error("analysis_value_storage not set")
             })?),
         };
 
@@ -619,9 +619,9 @@ impl RecordedAnalysisValues {
     pub(crate) fn lookup_transitive_set(
         &self,
         key: &TransitiveSetKey,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
         if key.holder_key() != &self.self_key {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Wrong owner for transitive set: expecting `{}`, got `{}`",
                 self.self_key,
                 key
@@ -629,14 +629,14 @@ impl RecordedAnalysisValues {
         }
         self.analysis_storage
             .as_ref()
-            .with_internal_error_anyhow(|| format!("Missing analysis storage for `{key}`"))?
+            .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
             .maybe_map(|v| v.value.transitive_sets.get(key).copied())
-            .with_internal_error_anyhow(|| format!("Missing transitive set `{key}`"))
+            .with_internal_error(|| format!("Missing transitive set `{key}`"))
     }
 
-    pub fn lookup_action(&self, key: &ActionKey) -> anyhow::Result<ActionLookup> {
+    pub fn lookup_action(&self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
         if key.holder_key() != &self.self_key {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Wrong owner for action: expecting `{}`, got `{}`",
                 self.self_key,
                 key
@@ -652,11 +652,11 @@ impl RecordedAnalysisValues {
 
     pub fn analysis_storage(
         &self,
-    ) -> anyhow::Result<OwnedRefFrozenRef<'_, FrozenAnalysisValueStorage>> {
+    ) -> buck2_error::Result<OwnedRefFrozenRef<'_, FrozenAnalysisValueStorage>> {
         Ok(self
             .analysis_storage
             .as_ref()
-            .internal_error_anyhow("missing analysis storage")?
+            .internal_error("missing analysis storage")?
             .as_owned_ref_frozen_ref()
             .map(|v| &v.value))
     }
@@ -668,16 +668,16 @@ impl RecordedAnalysisValues {
             .flat_map(|v| v.value.lambda_params.iter_dynamic_lambda_outputs())
     }
 
-    pub fn provider_collection(&self) -> anyhow::Result<FrozenProviderCollectionValueRef<'_>> {
+    pub fn provider_collection(&self) -> buck2_error::Result<FrozenProviderCollectionValueRef<'_>> {
         let analysis_storage = self
             .analysis_storage
             .as_ref()
-            .internal_error_anyhow("missing analysis storage")?;
+            .internal_error("missing analysis storage")?;
         let value = analysis_storage
             .as_ref()
             .value
             .result_value
-            .internal_error_anyhow("missing provider collection")?;
+            .internal_error("missing provider collection")?;
         unsafe {
             Ok(FrozenProviderCollectionValueRef::new(
                 analysis_storage.owner(),

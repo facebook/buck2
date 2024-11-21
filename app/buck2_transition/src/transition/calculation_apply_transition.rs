@@ -249,7 +249,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
         configured_attrs: &OrderedMap<&str, Arc<ConfiguredAttr>>,
         cfg: &ConfigurationData,
         transition_id: &TransitionId,
-    ) -> anyhow::Result<Arc<TransitionApplied>> {
+    ) -> buck2_error::Result<Arc<TransitionApplied>> {
         #[derive(Debug, Eq, PartialEq, Hash, Clone, Display, Allocative)]
         #[display("{} ({}){}", transition_id, cfg, self.fmt_attrs())]
         struct TransitionKey {
@@ -332,6 +332,6 @@ impl TransitionCalculation for TransitionCalculationImpl {
             attrs,
         };
 
-        ctx.compute(&key).await?.map_err(anyhow::Error::from)
+        ctx.compute(&key).await?.map_err(buck2_error::Error::from)
     }
 }

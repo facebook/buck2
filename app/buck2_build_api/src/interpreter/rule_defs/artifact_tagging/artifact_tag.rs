@@ -104,7 +104,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-    ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
+    ) -> starlark::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::new(inner, this.dupe());
 
         Ok(
@@ -122,7 +122,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_inputs<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-    ) -> anyhow::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
+    ) -> starlark::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
         let value = TaggedValue::inputs_only(inner, this.dupe());
 
         Ok(

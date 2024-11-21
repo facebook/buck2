@@ -12,12 +12,11 @@ use std::fmt::Display;
 use std::mem;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
 use buck2_error::starlark_error::from_starlark;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -114,7 +113,7 @@ impl<'v> Dependency<'v> {
         StarlarkConfiguredProvidersLabel::from_value(self.label.get()).unwrap()
     }
 
-    pub fn execution_platform(&self) -> anyhow::Result<Option<&ExecutionPlatformResolution>> {
+    pub fn execution_platform(&self) -> buck2_error::Result<Option<&ExecutionPlatformResolution>> {
         let execution_platform: ValueOfUnchecked<NoneOr<&StarlarkExecutionPlatformResolution>> =
             self.execution_platform.cast();
         match execution_platform.unpack().into_anyhow_result()? {
@@ -143,7 +142,7 @@ where
             .to_value()
             .at(index, heap)
             .map_err(from_starlark)
-            .with_context(|| format!("Error accessing dependencies of `{}`", self.label))
+            .with_buck_error_context(|| format!("Error accessing dependencies of `{}`", self.label))
             .map_err(Into::into)
     }
 
@@ -181,11 +180,11 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         this: &Dependency<'v>,
         #[starlark(require = pos)] subtarget: &str,
         heap: &'v Heap,
-    ) -> anyhow::Result<Dependency<'v>> {
+    ) -> starlark::Result<Dependency<'v>> {
         let di = this.provider_collection.default_info()?;
-        let providers = di
-            .get_sub_target_providers(subtarget)
-            .ok_or_else(|| DependencyError::UnknownSubtarget(subtarget.to_owned()))?;
+        let providers = di.get_sub_target_providers(subtarget).ok_or_else(|| {
+            buck2_error::Error::from(DependencyError::UnknownSubtarget(subtarget.to_owned()))
+        })?;
         let lbl = StarlarkConfiguredProvidersLabel::from_value(this.label.get())
             .unwrap()
             .inner();
@@ -207,10 +206,13 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &Dependency<'v>,
         index: Value<'v>,
-    ) -> anyhow::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
-        this.provider_collection
+    ) -> starlark::Result<NoneOr<ValueOfUnchecked<'v, AbstractProvider>>> {
+        Ok(this
+            .provider_collection
             .get(index)
-            .with_context(|| format!("Error accessing dependencies of `{}`", this.label))
+            .with_buck_error_context(|| {
+                format!("Error accessing dependencies of `{}`", this.label)
+            })?)
     }
 }
 

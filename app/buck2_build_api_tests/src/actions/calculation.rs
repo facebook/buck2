@@ -211,7 +211,7 @@ async fn make_default_dice_state(
             &self,
             artifact_fs: &ArtifactFs,
             _config: &CommandExecutorConfig,
-        ) -> anyhow::Result<CommandExecutorResponse> {
+        ) -> buck2_error::Result<CommandExecutorResponse> {
             let executor = Arc::new(DryRunExecutor::new(
                 self.dry_run_tracker.dupe(),
                 artifact_fs.clone(),

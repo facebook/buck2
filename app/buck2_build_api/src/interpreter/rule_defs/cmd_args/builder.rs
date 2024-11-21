@@ -70,7 +70,7 @@ impl CommandLineContext for DefaultCommandLineContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation> {
         Ok(CommandLineLocation::from_relative_path(
             path.into(),
             self.fs.path_separator(),
@@ -81,21 +81,17 @@ impl CommandLineContext for DefaultCommandLineContext<'_> {
         self.fs
     }
 
-    fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
+    fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
         if let Some((files, pos)) = self.maybe_macros_state {
             if pos >= files.len() {
-                return Err(anyhow::anyhow!(
-                    CommandLineBuilderErrors::InconsistentNumberOfMacroArtifacts
-                ));
+                return Err(CommandLineBuilderErrors::InconsistentNumberOfMacroArtifacts.into());
             }
             self.maybe_macros_state = Some((files, pos + 1));
             Ok(self
                 .resolve_project_path(files[pos].resolve_path(self.fs.fs())?)?
                 .into_relative())
         } else {
-            Err(anyhow::anyhow!(
-                CommandLineBuilderErrors::WriteToFileMacroNotSupported
-            ))
+            Err(CommandLineBuilderErrors::WriteToFileMacroNotSupported.into())
         }
     }
 }
@@ -116,7 +112,7 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation> {
         Ok(CommandLineLocation::from_root(
             self.0.fs().fs().fs(),
             path.into(),
@@ -128,11 +124,12 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
         self.0.fs()
     }
 
-    fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
+    fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
         let executor_fs = self.0.fs();
         let mut path = executor_fs.fs().fs().root().to_path_buf();
         path.extend(self.0.next_macro_file_path()?.iter());
-        RelativePathBuf::from_path(path).map_err(|e| anyhow::anyhow!(e))
+        RelativePathBuf::from_path(path)
+            .map_err(|e| buck2_error::buck2_error!([], "{}", e.to_string()))
     }
 }
 
@@ -154,7 +151,7 @@ mod tests {
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 
     #[test]
-    fn adds_args_and_builds() -> anyhow::Result<()> {
+    fn adds_args_and_builds() -> buck2_error::Result<()> {
         let project_fs =
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
                 .unwrap();

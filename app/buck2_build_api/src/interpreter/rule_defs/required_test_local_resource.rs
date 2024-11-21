@@ -52,11 +52,12 @@ pub fn register_required_test_local_resource(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] name: String,
         #[starlark(require = named, default = true)] listing: bool,
         #[starlark(require = named, default = true)] execution: bool,
-    ) -> anyhow::Result<StarlarkRequiredTestLocalResource> {
+    ) -> starlark::Result<StarlarkRequiredTestLocalResource> {
         if !(listing || execution) {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                [],
                 "`RequiredTestLocalResource` should not be disabled for both listing and execution stages",
-            ));
+            ).into());
         }
         Ok(StarlarkRequiredTestLocalResource {
             name,

@@ -30,8 +30,8 @@ use starlark_map::small_set::SmallSet;
 
 // Returns a tuple of compatible and incompatible targets.
 fn split_compatible_incompatible(
-    targets: impl IntoIterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>,
-) -> anyhow::Result<(
+    targets: impl IntoIterator<Item = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>>,
+) -> buck2_error::Result<(
     TargetSet<ConfiguredTargetNode>,
     SmallSet<ConfiguredTargetLabel>,
 )> {
@@ -56,7 +56,9 @@ pub async fn get_maybe_compatible_targets<'a>(
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_cfg_options: &GlobalCfgOptions,
     keep_going: bool,
-) -> anyhow::Result<impl Iterator<Item = anyhow::Result<MaybeCompatible<ConfiguredTargetNode>>>> {
+) -> buck2_error::Result<
+    impl Iterator<Item = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>>,
+> {
     let mut by_package_fns: Vec<_> = Vec::new();
 
     for (_package, result) in loaded_targets {
@@ -69,7 +71,7 @@ pub async fn get_maybe_compatible_targets<'a>(
                                 let target = ctx
                                     .get_configured_target(target.label(), global_cfg_options)
                                     .await?;
-                                anyhow::Ok(ctx.get_configured_target_node(&target).await?)
+                                buck2_error::Ok(ctx.get_configured_target_node(&target).await?)
                             }
                             .boxed()
                         })
@@ -81,7 +83,7 @@ pub async fn get_maybe_compatible_targets<'a>(
             Err(e) => {
                 // TODO(@wendyy) - log the error
                 if !keep_going {
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         }
@@ -97,7 +99,7 @@ pub async fn get_compatible_targets(
     ctx: &mut DiceComputations<'_>,
     loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
     global_cfg_options: &GlobalCfgOptions,
-) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     let maybe_compatible_targets =
         get_maybe_compatible_targets(ctx, loaded_targets, global_cfg_options, false).await?;
 
@@ -118,7 +120,7 @@ pub async fn load_compatible_patterns(
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     global_cfg_options: &GlobalCfgOptions,
     skip_missing_targets: MissingTargetBehavior,
-) -> anyhow::Result<TargetSet<ConfiguredTargetNode>> {
+) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     let loaded_patterns = load_patterns(ctx, parsed_patterns, skip_missing_targets).await?;
     get_compatible_targets(
         ctx,

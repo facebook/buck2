@@ -24,7 +24,7 @@ impl CommandLineArgLike for StarlarkCellPath {
         &self,
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let path = ctx.resolve_cell_path(self.0.as_ref())?.into_string();
         cli.push_arg(path);
         Ok(())
@@ -37,7 +37,7 @@ impl CommandLineArgLike for StarlarkCellPath {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 }

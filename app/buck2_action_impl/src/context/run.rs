@@ -216,7 +216,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 self.inner.visit_output(artifact, tag);
             }
 
-            fn push_frame(&mut self) -> anyhow::Result<()> {
+            fn push_frame(&mut self) -> buck2_error::Result<()> {
                 self.depth += 1;
                 if self.depth > 1000 {
                     return Err(RunActionError::ArtifactVisitRecursionLimitExceeded.into());

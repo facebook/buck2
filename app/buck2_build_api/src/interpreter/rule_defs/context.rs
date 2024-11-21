@@ -14,7 +14,6 @@ use std::fmt;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -70,14 +69,14 @@ pub struct AnalysisActions<'v> {
 }
 
 impl<'v> AnalysisActions<'v> {
-    pub fn state(&self) -> anyhow::Result<RefMut<AnalysisRegistry<'v>>> {
+    pub fn state(&self) -> buck2_error::Result<RefMut<AnalysisRegistry<'v>>> {
         let state = self
             .state
             .try_borrow_mut()
-            .internal_error_anyhow("AnalysisActions.state is already borrowed")?;
+            .internal_error("AnalysisActions.state is already borrowed")?;
         RefMut::filter_map(state, |x| x.as_mut())
             .ok()
-            .internal_error_anyhow("state to be present during execution")
+            .internal_error("state to be present during execution")
     }
 
     pub async fn run_promises(
@@ -108,7 +107,7 @@ impl<'v> AnalysisActions<'v> {
     pub async fn assert_short_paths_and_resolve(
         &self,
         dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let (short_path_assertions, consumer_analysis_artifacts) = {
             let state = self.state()?;
             (
@@ -228,7 +227,7 @@ impl<'v> AnalysisContext<'v> {
         heap.alloc_typed(analysis_context)
     }
 
-    pub fn assert_no_promises(&self) -> anyhow::Result<()> {
+    pub fn assert_no_promises(&self) -> buck2_error::Result<()> {
         self.actions.state()?.assert_no_promises()
     }
 
@@ -297,7 +296,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
         Ok(this
             .0
             .attrs
-            .context("`attrs` is not available for `dynamic_output` or BXL")?)
+            .buck_error_context("`attrs` is not available for `dynamic_output` or BXL")?)
     }
 
     /// Returns an `actions` value containing functions to define actual actions that are run.
@@ -328,7 +327,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
         Ok(this
             .0
             .plugins
-            .context("`plugins` is not available for `dynamic_output` or BXL")?)
+            .buck_error_context("`plugins` is not available for `dynamic_output` or BXL")?)
     }
 }
 

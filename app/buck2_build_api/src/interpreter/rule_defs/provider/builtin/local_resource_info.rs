@@ -76,7 +76,7 @@ pub struct LocalResourceInfoGen<V: ValueLifetimeless> {
     setup_timeout_seconds: ValueOfUncheckedGeneric<V, NoneOr<UnpackFloat>>,
 }
 
-fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> anyhow::Result<()>
+fn validate_local_resource_info<'v, V>(info: &LocalResourceInfoGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
@@ -86,20 +86,22 @@ where
         .unpack()
         .into_anyhow_result()?;
     if env_vars.entries.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error::buck2_error!(
+            [],
             "Value for `resource_env_vars` field is an empty dictionary: `{}`",
             info.resource_env_vars
         ));
     }
 
     let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.get().to_value())
-        .internal_error_anyhow("Validated in constructor")?;
+        .internal_error("Validated in constructor")?;
     let setup_is_empty = match setup.unpack() {
         Either::Left(a) => a.is_empty(),
         Either::Right(b) => b.is_empty(),
     };
     if setup_is_empty {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error::buck2_error!(
+            [],
             "Value for `setup` field is an empty command line: `{}`",
             info.setup
         ));
@@ -121,7 +123,7 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
             ValueOf<'v, UnpackFloat>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<LocalResourceInfo<'v>> {
+    ) -> starlark::Result<LocalResourceInfo<'v>> {
         let setup = StarlarkCmdArgs::try_from_value_typed(setup)?;
         let result = LocalResourceInfo {
             setup: ValueOfUnchecked::<FrozenStarlarkCmdArgs>::new(eval.heap().alloc(setup)),

@@ -12,7 +12,6 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
@@ -168,7 +167,7 @@ impl<V: ValueLifetimeless> TransitiveSetGen<V> {
 }
 
 impl<'v> NodeGen<Value<'v>> {
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<NodeGen<FrozenValue>> {
+    fn freeze(self, freezer: &Freezer) -> buck2_error::Result<NodeGen<FrozenValue>> {
         let Self { value, projections } = self;
 
         let value = value.freeze(freezer)?;
@@ -186,26 +185,26 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         definition.to_value().ptr_eq(self.definition.to_value())
     }
 
-    pub fn projection_name(&'v self, projection: usize) -> anyhow::Result<&'v str> {
+    pub fn projection_name(&'v self, projection: usize) -> buck2_error::Result<&'v str> {
         let def = self.definition.as_ref();
 
         Ok(def
             .operations()
             .projections
             .get_index(projection)
-            .context("Invalid projection id")?
+            .buck_error_context("Invalid projection id")?
             .0
             .as_str())
     }
 
-    pub fn get_projection_value(&self, projection: usize) -> anyhow::Result<Option<V>> {
+    pub fn get_projection_value(&self, projection: usize) -> buck2_error::Result<Option<V>> {
         match &self.node {
             None => Ok(None),
             Some(node) => Ok(Some(
                 *node
                     .projections
                     .get(projection)
-                    .context("Invalid projection id")?,
+                    .buck_error_context("Invalid projection id")?,
             )),
         }
     }
@@ -219,9 +218,9 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
 
     pub(crate) fn definition(
         &self,
-    ) -> anyhow::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
+    ) -> buck2_error::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
         ValueTypedComplex::unpack_value_err(self.definition.to_value())
-            .internal_error_anyhow("Must be a TransitiveSetDefinition")
+            .internal_error("Must be a TransitiveSetDefinition")
     }
 }
 
@@ -229,7 +228,7 @@ impl FrozenTransitiveSet {
     pub fn get_projection_sub_inputs(
         &self,
         projection: usize,
-    ) -> anyhow::Result<Vec<ArtifactGroup>> {
+    ) -> buck2_error::Result<Vec<ArtifactGroup>> {
         let mut sub_inputs = Vec::new();
 
         if let Some(projection) = self.get_projection_value(projection)? {
@@ -241,7 +240,8 @@ impl FrozenTransitiveSet {
 
         // Reuse the same projection for children sets.
         for v in self.children.iter() {
-            let v = TransitiveSet::from_value(v.to_value()).context("Invalid deferred")?;
+            let v =
+                TransitiveSet::from_value(v.to_value()).buck_error_context("Invalid deferred")?;
             sub_inputs.push(ArtifactGroup::TransitiveSetProjection(Arc::new(
                 TransitiveSetProjectionKey {
                     key: v.key().dupe(),
@@ -282,7 +282,7 @@ where
     pub fn iter_values<'a>(
         &'a self,
         ordering: TransitiveSetOrdering,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    ) -> buck2_error::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
     where
         'v: 'a,
     {
@@ -297,7 +297,7 @@ where
         &'a self,
         ordering: TransitiveSetOrdering,
         projection: usize,
-    ) -> anyhow::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
+    ) -> buck2_error::Result<Box<dyn Iterator<Item = Value<'v>> + 'a>>
     where
         'v: 'a,
     {
@@ -308,7 +308,7 @@ where
         if let Some(v) = iter.peek() {
             v.projections
                 .get(projection)
-                .context("Invalid projection")?;
+                .buck_error_context("Invalid projection")?;
         }
 
         Ok(Box::new(iter.map(move |node| {
@@ -380,7 +380,7 @@ impl<'v> TransitiveSet<'v> {
         value: Option<Value<'v>>,
         children: impl IntoIterator<Item = Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let def: &dyn TransitiveSetDefinitionLike = &*definition;
         if !def.has_id() {
             return Err(TransitiveSetError::TransitiveSetUsedBeforeAssignment.into());
@@ -423,11 +423,11 @@ impl<'v> TransitiveSet<'v> {
                             validate_json(JsonUnpack::unpack_value_err(projected_value)?)?;
                         }
                     }
-                    anyhow::Ok(projected_value)
+                    buck2_error::Ok(projected_value)
                 })
                 .collect::<Result<Box<[_]>, _>>()?;
 
-            anyhow::Ok(NodeGen { value, projections })
+            buck2_error::Ok(NodeGen { value, projections })
         })?;
 
         let reductions = def
@@ -437,10 +437,9 @@ impl<'v> TransitiveSet<'v> {
             .enumerate()
             .map(|(idx, (name, reduce))| {
                 let children_values = children_sets.try_map(|c| {
-                    c.reductions
-                        .get(idx)
-                        .copied()
-                        .with_context(|| format!("Child {} is missing reduction {}", c, idx))
+                    c.reductions.get(idx).copied().with_buck_error_context(|| {
+                        format!("Child {} is missing reduction {}", c, idx)
+                    })
                 })?;
                 let children_values = eval.heap().alloc(AllocList(children_values));
 
@@ -453,7 +452,7 @@ impl<'v> TransitiveSet<'v> {
                         name: name.clone(),
                     })?;
 
-                anyhow::Ok(reduced)
+                buck2_error::Ok(reduced)
             })
             .collect::<Result<Box<[_]>, _>>()?;
 
@@ -461,7 +460,7 @@ impl<'v> TransitiveSet<'v> {
             key,
             definition:
             // Cast lifetime from 'v to 'static
-            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<FrozenTransitiveSetDefinition>::to_frozen_value(definition)).context("internal error")?,
+            FrozenValueTyped::<FrozenTransitiveSetDefinition>::new(FrozenValueTyped::<FrozenTransitiveSetDefinition>::to_frozen_value(definition)).buck_error_context("internal error")?,
             node,
             reductions,
             children,
@@ -491,7 +490,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
-    ) -> anyhow::Result<TransitiveSetJsonProjection<'v>> {
+    ) -> starlark::Result<TransitiveSetJsonProjection<'v>> {
         let def = this.typed.definition;
 
         let index = def
@@ -509,7 +508,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
         projection: &str,
         #[starlark(require = named, default = "preorder")] ordering: &str,
-    ) -> anyhow::Result<TransitiveSetArgsProjection<'v>> {
+    ) -> starlark::Result<TransitiveSetArgsProjection<'v>> {
         let def = this.typed.definition;
 
         let index = def
@@ -526,36 +525,39 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
     fn reduce<'v>(
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
         reduction: &str,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let def = this.typed.definition;
 
         let index = match def.operations().reductions.get_index_of(reduction) {
             Some(index) => index,
             None => {
-                return Err(TransitiveSetError::ReductionDoesNotExist {
-                    reduction: reduction.into(),
-                    valid_reductions: def
-                        .operations()
-                        .reductions
-                        .keys()
-                        .map(String::from)
-                        .collect::<Vec<_>>(),
-                }
-                .into());
+                return Err(
+                    buck2_error::Error::from(TransitiveSetError::ReductionDoesNotExist {
+                        reduction: reduction.into(),
+                        valid_reductions: def
+                            .operations()
+                            .reductions
+                            .keys()
+                            .map(String::from)
+                            .collect::<Vec<_>>(),
+                    })
+                    .into(),
+                );
             }
         };
 
-        this.typed
+        Ok(this
+            .typed
             .reductions
             .get(index)
             .copied()
-            .with_context(|| format!("Missing reduction {}", index))
+            .with_buck_error_context(|| format!("Missing reduction {}", index))?)
     }
 
     fn traverse<'v>(
         this: ValueOf<'v, &'v TransitiveSet<'v>>,
         #[starlark(require = named, default = "preorder")] ordering: &str,
-    ) -> anyhow::Result<TransitiveSetTraversal<'v>> {
+    ) -> starlark::Result<TransitiveSetTraversal<'v>> {
         Ok(TransitiveSetTraversal {
             inner: this.value,
             ordering: TransitiveSetOrdering::parse(ordering)?,

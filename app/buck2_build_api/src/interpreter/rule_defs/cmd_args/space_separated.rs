@@ -66,7 +66,7 @@ mod tests {
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 
     #[test]
-    fn cmdline_builder() -> anyhow::Result<()> {
+    fn cmdline_builder() -> buck2_error::Result<()> {
         let mut s = String::new();
         SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
         assert_eq!("", &s);

@@ -36,7 +36,7 @@ impl TypeMatcher for ProviderMatcher {
     }
 }
 
-fn mk_ty_provider() -> anyhow::Result<Ty> {
+fn mk_ty_provider() -> buck2_error::Result<Ty> {
     Ok(Ty::custom(TyUser::new(
         UserProvider::TYPE.to_owned(),
         // Builtin providers behave like `UserProvider`.

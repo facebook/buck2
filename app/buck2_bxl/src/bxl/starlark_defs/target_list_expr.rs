@@ -417,7 +417,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 let maybe_compatible: Vec<_> = if keep_going {
                     maybe_compatible.filter_map(|r| r.ok()).collect()
                 } else {
-                    maybe_compatible.collect::<anyhow::Result<_>>()?
+                    maybe_compatible.collect::<buck2_error::Result<_>>()?
                 };
 
                 let result = filter_incompatible(maybe_compatible, ctx)?;
@@ -640,7 +640,7 @@ async fn unpack_string_literal<'v>(
             )
             .await?;
 
-            let maybe_compatible = maybe_compatible.collect::<anyhow::Result<_>>()?;
+            let maybe_compatible = maybe_compatible.collect::<buck2_error::Result<_>>()?;
             Ok(SingleOrCompatibleConfiguredTargets::Compatibles(
                 maybe_compatible,
             ))

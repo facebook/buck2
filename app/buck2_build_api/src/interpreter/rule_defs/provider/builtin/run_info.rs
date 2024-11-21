@@ -53,7 +53,7 @@ fn run_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = StarlarkCommandLineValueUnpack::List(ListRef::empty()))]
         args: StarlarkCommandLineValueUnpack<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<RunInfo<'v>> {
+    ) -> starlark::Result<RunInfo<'v>> {
         let heap = eval.heap();
         let valid_args = StarlarkCmdArgs::try_from_value_typed(args)?;
         Ok(RunInfo {
@@ -71,7 +71,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
             .expect("a command line from construction")
             .0
@@ -79,7 +79,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
         Ok(())
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
             .expect("a command line from construction")
             .0
@@ -97,7 +100,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 }

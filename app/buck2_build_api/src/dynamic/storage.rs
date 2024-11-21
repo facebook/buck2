@@ -23,7 +23,7 @@ pub trait DynamicLambdaParamsStorage<'v>: Trace<'v> + Debug + Allocative + Send 
     fn freeze(
         self: Box<Self>,
         freezer: &Freezer,
-    ) -> anyhow::Result<Box<dyn FrozenDynamicLambdaParamsStorage>>;
+    ) -> buck2_error::Result<Box<dyn FrozenDynamicLambdaParamsStorage>>;
 }
 
 pub trait FrozenDynamicLambdaParamsStorage: Debug + Allocative + Send + Sync + 'static {

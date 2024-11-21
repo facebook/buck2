@@ -12,8 +12,8 @@ use std::sync::atomic;
 use std::sync::atomic::AtomicU64;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api_derive::internal_provider;
+use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -63,7 +63,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
             ValueOf<'v, usize>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<WorkerInfo<'v>> {
+    ) -> starlark::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
         let valid_exe = StarlarkCmdArgs::try_from_value(exe)?;
         let exe = ValueOfUnchecked::new(heap.alloc(valid_exe));
@@ -92,18 +92,21 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
     }
 }
 
-fn validate_worker_info<'v, V>(info: &WorkerInfoGen<V>) -> anyhow::Result<()>
+fn validate_worker_info<'v, V>(info: &WorkerInfoGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {
-    let exe = StarlarkCmdArgs::try_from_value(info.exe.get().to_value()).with_context(|| {
-        format!(
-            "Value for `exe` field is not a command line: `{}`",
-            info.exe
-        )
-    })?;
+    let exe = StarlarkCmdArgs::try_from_value(info.exe.get().to_value()).with_buck_error_context(
+        || {
+            format!(
+                "Value for `exe` field is not a command line: `{}`",
+                info.exe
+            )
+        },
+    )?;
     if exe.is_empty() {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error::buck2_error!(
+            [],
             "Value for `exe` field is an empty command line: `{}`",
             info.exe
         ));

@@ -219,7 +219,7 @@ pub trait HasActionExecutor {
     async fn get_action_executor(
         &mut self,
         config: &CommandExecutorConfig,
-    ) -> anyhow::Result<Arc<BuckActionExecutor>>;
+    ) -> buck2_error::Result<Arc<BuckActionExecutor>>;
 }
 
 #[async_trait]
@@ -227,7 +227,7 @@ impl HasActionExecutor for DiceComputations<'_> {
     async fn get_action_executor(
         &mut self,
         executor_config: &CommandExecutorConfig,
-    ) -> anyhow::Result<Arc<BuckActionExecutor>> {
+    ) -> buck2_error::Result<Arc<BuckActionExecutor>> {
         let artifact_fs = self.get_artifact_fs().await?;
         let digest_config = self.global_data().get_digest_config();
 
@@ -388,11 +388,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
-    ) -> anyhow::Result<PreparedAction> {
-        Ok(self
-            .executor
+    ) -> buck2_error::Result<PreparedAction> {
+        self.executor
             .command_executor
-            .prepare_action(request, self.digest_config())?)
+            .prepare_action(request, self.digest_config())
     }
 
     async fn action_cache(
@@ -506,7 +505,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         execution_result: &CommandExecutionResult,
         re_result: Option<TActionResult2>,
         dep_file_bundle: Option<&mut dyn IntoRemoteDepFile>,
-    ) -> anyhow::Result<CacheUploadResult> {
+    ) -> buck2_error::Result<CacheUploadResult> {
         let action = self.target();
         Ok(self
             .executor
@@ -524,7 +523,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .await?)
     }
 
-    async fn cleanup_outputs(&mut self) -> anyhow::Result<()> {
+    async fn cleanup_outputs(&mut self) -> buck2_error::Result<()> {
         // Delete all outputs before we start, so things will be clean.
         let output_paths = self
             .outputs
@@ -541,7 +540,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .materializer
             .invalidate_many(output_paths.clone())
             .await
-            .buck_error_context_anyhow("Failed to invalidate output directory")?;
+            .buck_error_context("Failed to invalidate output directory")?;
 
         self.executor
             .blocking_executor
@@ -552,7 +551,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                 self.cancellations,
             )
             .await
-            .buck_error_context_anyhow("Failed to cleanup output directory")?;
+            .buck_error_context("Failed to cleanup output directory")?;
 
         Ok(())
     }
@@ -803,7 +802,7 @@ mod tests {
                 buck2_data::ActionKind::NotSet
             }
 
-            fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+            fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
                 Ok(Cow::Borrowed(self.inputs.as_slice()))
             }
 
@@ -947,7 +946,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_path_missing() -> anyhow::Result<()> {
+    fn test_cleanup_path_missing() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs_util::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
@@ -960,7 +959,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_path_present() -> anyhow::Result<()> {
+    fn test_cleanup_path_present() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs_util::create_dir_all(fs.resolve(ProjectRelativePath::unchecked_new("foo/bar/qux")))?;
@@ -977,7 +976,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_path_overlap() -> anyhow::Result<()> {
+    fn test_cleanup_path_overlap() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs.write_file(ProjectRelativePath::unchecked_new("foo/bar"), "xx", false)?;
@@ -994,7 +993,7 @@ mod tests {
     }
 
     #[test]
-    fn test_cleanup_path_overlap_deep() -> anyhow::Result<()> {
+    fn test_cleanup_path_overlap_deep() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let fs = fs.path();
         fs.write_file(ProjectRelativePath::unchecked_new("foo/bar"), "xx", false)?;

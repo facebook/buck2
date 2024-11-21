@@ -58,7 +58,7 @@ impl<'v> Freeze for AnalysisExtraValue<'v> {
 }
 
 impl<'v> AnalysisExtraValue<'v> {
-    pub fn get(module: &'v Module) -> anyhow::Result<Option<&'v AnalysisExtraValue<'v>>> {
+    pub fn get(module: &'v Module) -> buck2_error::Result<Option<&'v AnalysisExtraValue<'v>>> {
         let Some(extra) = module.extra_value() else {
             return Ok(None);
         };
@@ -69,7 +69,7 @@ impl<'v> AnalysisExtraValue<'v> {
         ))
     }
 
-    pub fn get_or_init(module: &'v Module) -> anyhow::Result<&'v AnalysisExtraValue<'v>> {
+    pub fn get_or_init(module: &'v Module) -> buck2_error::Result<&'v AnalysisExtraValue<'v>> {
         if let Some(extra) = Self::get(module)? {
             return Ok(extra);
         }
@@ -78,17 +78,18 @@ impl<'v> AnalysisExtraValue<'v> {
                 .heap()
                 .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
         )?;
-        Self::get(module)?.internal_error_anyhow("extra_value must be set")
+        Self::get(module)?.internal_error("extra_value must be set")
     }
 }
 
 impl FrozenAnalysisExtraValue {
     pub fn get(
         module: &FrozenModule,
-    ) -> anyhow::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisExtraValue>>> {
-        module
+    ) -> buck2_error::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisExtraValue>>>
+    {
+        Ok(module
             .owned_extra_value()
-            .internal_error_anyhow("extra_value not set")?
-            .downcast_anyhow()
+            .internal_error("extra_value not set")?
+            .downcast_anyhow()?)
     }
 }

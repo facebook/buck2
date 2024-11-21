@@ -34,7 +34,7 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -62,11 +62,11 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("Action data should be present");
 
         if !inputs.is_empty() {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "Input artifacts mut be empty for write macros action"
             ));
         }
@@ -131,7 +131,7 @@ impl Action for WriteMacrosToFileAction {
         buck2_data::ActionKind::WriteMacrosToFile
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&[]))
     }
 
@@ -234,7 +234,10 @@ impl<'a> MacroToFileWriter<'a> {
 }
 
 impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
-    fn visit_write_to_file_macro(&mut self, resolved_macro: &ResolvedMacro) -> anyhow::Result<()> {
+    fn visit_write_to_file_macro(
+        &mut self,
+        resolved_macro: &ResolvedMacro,
+    ) -> buck2_error::Result<()> {
         let content = {
             let mut builder = MacroOutput {
                 result: String::new(),
@@ -250,8 +253,8 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
 
     fn set_current_relative_to_path(
         &mut self,
-        gen: &dyn Fn(&dyn CommandLineContext) -> anyhow::Result<Option<RelativePathBuf>>,
-    ) -> anyhow::Result<()> {
+        gen: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
+    ) -> buck2_error::Result<()> {
         self.relative_to_path = gen(&DefaultCommandLineContext::new(self.fs))?;
         Ok(())
     }
@@ -283,7 +286,7 @@ impl CommandLineContext for MacroContext<'_> {
     fn resolve_project_path(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> anyhow::Result<CommandLineLocation> {
+    ) -> buck2_error::Result<CommandLineLocation> {
         Ok(CommandLineLocation::from_relative_path(
             self.relativize_path(path),
             self.fs.path_separator(),
@@ -294,7 +297,7 @@ impl CommandLineContext for MacroContext<'_> {
         self.fs
     }
 
-    fn next_macro_file_path(&mut self) -> anyhow::Result<RelativePathBuf> {
+    fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
         unreachable!("write-to-file macros could not be nested")
     }
 }

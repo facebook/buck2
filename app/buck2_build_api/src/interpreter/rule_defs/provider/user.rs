@@ -172,7 +172,7 @@ pub(crate) fn user_provider_creator<'v>(
     callable: FrozenRef<'static, UserProviderCallableData>,
     eval: &Evaluator<'v, '_, '_>,
     param_parser: &mut ParametersParser<'v, '_>,
-) -> anyhow::Result<Value<'v>> {
+) -> buck2_error::Result<Value<'v>> {
     let heap = eval.heap();
     let values = callable
         .fields
@@ -194,7 +194,7 @@ pub(crate) fn user_provider_creator<'v>(
                 None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
             },
         })
-        .collect::<anyhow::Result<Box<[Value]>>>()?;
+        .collect::<buck2_error::Result<Box<[Value]>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,
         attributes: values,

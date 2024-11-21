@@ -13,6 +13,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -88,8 +89,8 @@ impl<'v> StarlarkOutputArtifact<'v> {
         }
     }
 
-    pub(crate) fn inner(&self) -> anyhow::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        ValueTyped::new_err(self.declared_artifact.get()).with_internal_error_anyhow(|| {
+    pub(crate) fn inner(&self) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
+        ValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
             format!(
                 "Must be a declared artifact: `{}`",
                 self.declared_artifact.get().to_string_for_type_error()
@@ -97,14 +98,14 @@ impl<'v> StarlarkOutputArtifact<'v> {
         })
     }
 
-    pub fn artifact(&self) -> anyhow::Result<OutputArtifact> {
+    pub fn artifact(&self) -> buck2_error::Result<OutputArtifact> {
         Ok(self.inner()?.output_artifact())
     }
 }
 
 impl FrozenStarlarkOutputArtifact {
-    pub(crate) fn inner(&self) -> anyhow::Result<FrozenValueTyped<StarlarkArtifact>> {
-        FrozenValueTyped::new_err(self.declared_artifact.get()).with_internal_error_anyhow(|| {
+    pub(crate) fn inner(&self) -> buck2_error::Result<FrozenValueTyped<StarlarkArtifact>> {
+        FrozenValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
             format!(
                 "Must be a declared artifact: `{}`",
                 self.declared_artifact
@@ -115,13 +116,11 @@ impl FrozenStarlarkOutputArtifact {
         })
     }
 
-    pub fn artifact(&self) -> anyhow::Result<OutputArtifact> {
+    pub fn artifact(&self) -> buck2_error::Result<OutputArtifact> {
         let artifact = self.inner()?.artifact();
-        artifact
-            .as_output_artifact()
-            .with_internal_error_anyhow(|| {
-                format!("Expecting artifact to be output artifact, got {artifact}")
-            })
+        artifact.as_output_artifact().with_internal_error(|| {
+            format!("Expecting artifact to be output artifact, got {artifact}")
+        })
     }
 }
 
@@ -134,14 +133,18 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
         &self,
         _cli: &mut dyn CommandLineBuilder,
         _ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // TODO: proper error message
-        Err(anyhow::anyhow!(
+        Err(buck2_error::buck2_error!(
+            [],
             "proper error here; we should not be adding mutable starlark objects to clis"
         ))
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         visitor.visit_output(self.artifact()?, None);
         Ok(())
     }
@@ -153,7 +156,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 }
@@ -177,7 +180,7 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
         &self,
         cli: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         cli.push_arg(
             ctx.resolve_artifact(&self.inner()?.artifact())?
                 .into_string(),
@@ -185,7 +188,10 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
         Ok(())
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         visitor.visit_output(self.artifact()?, None);
         Ok(())
     }
@@ -197,7 +203,7 @@ impl CommandLineArgLike for FrozenStarlarkOutputArtifact {
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 }

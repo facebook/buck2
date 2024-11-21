@@ -8,10 +8,10 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
@@ -56,7 +56,7 @@ pub struct InstallInfoGen<V: ValueLifetimeless> {
 }
 
 impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
-    pub fn get_installer(&self) -> anyhow::Result<ConfiguredProvidersLabel> {
+    pub fn get_installer(&self) -> buck2_error::Result<ConfiguredProvidersLabel> {
         let label = StarlarkConfiguredProvidersLabel::from_value(self.installer.get().to_value())
             .ok_or_else(|| {
                 InstallInfoProviderErrors::ExpectedLabel(
@@ -75,7 +75,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
 
     fn get_files_iter<'a>(
         files: &'a DictRef<'v>,
-    ) -> impl Iterator<Item = anyhow::Result<(&'v str, ValueAsArtifactLike<'v>)>> + 'a {
+    ) -> impl Iterator<Item = buck2_error::Result<(&'v str, ValueAsArtifactLike<'v>)>> + 'a {
         files.iter().map(|(k, v)| {
             let k = k
                 .unpack_str()
@@ -92,14 +92,14 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
         })
     }
 
-    pub fn get_files(&self) -> anyhow::Result<SmallMap<&'v str, Artifact>> {
+    pub fn get_files(&self) -> buck2_error::Result<SmallMap<&'v str, Artifact>> {
         Self::get_files_iter(&self.get_files_dict())
             .map(|x| {
                 let (k, v) = x?;
                 Ok((
                     k,
                     v.0.get_bound_artifact()
-                        .with_context(|| format!("For key `{k}`"))?,
+                        .with_buck_error_context(|| format!("For key `{k}`"))?,
                 ))
             })
             .collect()
@@ -111,7 +111,7 @@ fn install_info_creator(globals: &mut GlobalsBuilder) {
     fn InstallInfo<'v>(
         installer: ValueOf<'v, &'v StarlarkConfiguredProvidersLabel>,
         files: ValueOf<'v, DictType<&'v str, ValueAsArtifactLike<'v>>>,
-    ) -> anyhow::Result<InstallInfo<'v>> {
+    ) -> starlark::Result<InstallInfo<'v>> {
         let info = InstallInfo {
             installer: installer.as_unchecked().cast(),
             files: files.as_unchecked().cast(),
@@ -121,7 +121,7 @@ fn install_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-fn validate_install_info<'v, V>(info: &InstallInfoGen<V>) -> anyhow::Result<()>
+fn validate_install_info<'v, V>(info: &InstallInfoGen<V>) -> buck2_error::Result<()>
 where
     V: ValueLike<'v>,
 {

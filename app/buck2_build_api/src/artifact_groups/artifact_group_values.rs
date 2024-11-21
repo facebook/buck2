@@ -12,7 +12,6 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_directory::directory::directory::Directory;
@@ -41,13 +40,13 @@ impl ArtifactGroupValues {
         children: Vec<Self>,
         artifact_fs: &ArtifactFs,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut builder = ActionDirectoryBuilder::empty();
 
         for (artifact, value) in values.iter() {
             let path = artifact
                 .resolve_path(artifact_fs)
-                .buck_error_context_anyhow("Invalid artifact")?;
+                .buck_error_context("Invalid artifact")?;
             insert_artifact(&mut builder, path.as_ref(), value)?;
         }
 
@@ -59,11 +58,11 @@ impl ArtifactGroupValues {
                 .0
                 .directory
                 .as_ref()
-                .context("TransitiveSetProjection was missing directory!")?;
+                .buck_error_context("TransitiveSetProjection was missing directory!")?;
 
             builder
                 .merge(child_dir.to_builder())
-                .context("Merge failed")?;
+                .buck_error_context("Merge failed")?;
         }
 
         let directory = builder
@@ -89,7 +88,7 @@ impl ArtifactGroupValues {
         &self,
         builder: &mut ActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if let Some(d) = self.0.directory.as_ref() {
             builder.merge(d.to_builder())?;
             return Ok(());
@@ -235,7 +234,7 @@ impl ArtifactGroupValuesDyn for ArtifactGroupValues {
         builder: &mut ActionDirectoryBuilder,
         artifact_fs: &ArtifactFs,
     ) -> buck2_error::Result<()> {
-        Ok(self.add_to_directory(builder, artifact_fs)?)
+        self.add_to_directory(builder, artifact_fs)
     }
 }
 

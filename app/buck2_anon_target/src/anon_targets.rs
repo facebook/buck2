@@ -493,9 +493,8 @@ impl AnonAttrCtx {
 }
 
 pub(crate) fn init_eval_anon_target() {
-    EVAL_ANON_TARGET.init(|ctx, key| {
-        Box::pin(async move { Ok(AnonTargetKey::downcast(key)?.resolve(ctx).await?) })
-    });
+    EVAL_ANON_TARGET
+        .init(|ctx, key| Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await }));
 }
 
 pub(crate) fn init_get_promised_artifact() {

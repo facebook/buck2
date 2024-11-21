@@ -85,7 +85,7 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
         }
     }
 
-    pub fn to_configuration_data(&self) -> anyhow::Result<ConfigurationDataData> {
+    pub fn to_configuration_data(&self) -> buck2_error::Result<ConfigurationDataData> {
         let ConfigSettingData {
             constraints,
             buckconfigs,
@@ -146,7 +146,7 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
             UnpackDictEntries<&'v str, UnpackAndDiscard<&'v str>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ConfigurationInfo<'v>> {
+    ) -> starlark::Result<ConfigurationInfo<'v>> {
         let mut new_constraints = SmallMap::new();
         for (constraint_setting, constraint_value) in constraints.entries {
             let constraint_setting_hashed = constraint_setting
@@ -156,9 +156,11 @@ fn configuration_info_creator(globals: &mut GlobalsBuilder) {
             let constraint_setting_from_constraint_value =
                 constraint_value.typed.setting().typed.label();
             if *constraint_setting.typed != *constraint_setting_from_constraint_value {
-                return Err(ConfigurationInfoError::ConstraintsKeyValueMismatch(
-                    constraint_setting.value.to_string(),
-                    constraint_value.to_string(),
+                return Err(buck2_error::Error::from(
+                    ConfigurationInfoError::ConstraintsKeyValueMismatch(
+                        constraint_setting.value.to_string(),
+                        constraint_value.to_string(),
+                    ),
                 )
                 .into());
             }

@@ -64,7 +64,7 @@ impl TransitionAttrProvider for TransitionGetAttrs {
         &self,
         ctx: &mut DiceComputations<'_>,
         transition_id: &TransitionId,
-    ) -> anyhow::Result<Option<Arc<[String]>>> {
+    ) -> buck2_error::Result<Option<Arc<[String]>>> {
         let transition = ctx.fetch_transition(transition_id).await?;
         Ok(transition.attrs_names.as_ref().duped())
     }

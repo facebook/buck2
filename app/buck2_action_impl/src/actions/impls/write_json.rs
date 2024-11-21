@@ -96,7 +96,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         let contents = starlark_data.expect("module data to be present");
         let action = WriteJsonAction::new(contents, inputs, outputs, *self)?;
         Ok(Box::new(action))
@@ -159,7 +159,7 @@ impl Action for WriteJsonAction {
         buck2_data::ActionKind::Write
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         Ok(Cow::Borrowed(&[]))
     }
 
@@ -278,13 +278,16 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> 
         &self,
         builder: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.artifact.to_value())?
             .0
             .add_to_command_line(builder, context)
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         let artifact = self.artifact.to_value();
         let content = self.content.to_value();
         ValueAsCommandLineLike::unpack_value_err(artifact)?
@@ -301,7 +304,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> 
     fn visit_write_to_file_macros(
         &self,
         _visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         // In the write_json implementation, the commandlinebuilders we use don't support args.
         Ok(())
     }

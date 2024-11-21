@@ -267,11 +267,12 @@ impl ProviderLookUp<ConfiguredTargetNode> for LinearRecomputeDiceComputations<'_
         &self,
         t: &ConfiguredTargetNode,
     ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
-        self.get()
+        Ok(self
+            .get()
             .get_providers(&ConfiguredProvidersLabel::new(
                 t.label().dupe(),
                 ProvidersName::Default,
             ))
-            .await
+            .await?)
     }
 }

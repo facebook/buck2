@@ -182,7 +182,7 @@ impl UnregisteredAction for UnregisteredRunAction {
         outputs: IndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
-    ) -> anyhow::Result<Box<dyn Action>> {
+    ) -> buck2_error::Result<Box<dyn Action>> {
         let starlark_values = starlark_data.internal_error_anyhow("module data to be present")?;
         let run_action = RunAction::new(*self, starlark_values, outputs, error_handler)?;
         Ok(Box::new(run_action))
@@ -706,7 +706,7 @@ impl Action for RunAction {
         buck2_data::ActionKind::Run
     }
 
-    fn inputs(&self) -> anyhow::Result<Cow<'_, [ArtifactGroup]>> {
+    fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
         let values = Self::unpack(&self.starlark_values)?;
         let mut artifact_visitor = SimpleCommandLineArtifactVisitor::new();
         values.args.visit_artifacts(&mut artifact_visitor)?;

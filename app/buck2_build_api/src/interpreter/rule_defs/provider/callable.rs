@@ -16,7 +16,6 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
 use buck2_error::BuckErrorContext;
@@ -125,7 +124,7 @@ fn create_callable_function_signature(
     function_name: &str,
     fields: &IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
     ret_ty: Ty,
-) -> anyhow::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
+) -> buck2_error::Result<(ParametersSpec<FrozenValue>, TyCallable)> {
     let (parameters_spec, param_spec) = param_specs(
         function_name,
         [],
@@ -144,7 +143,7 @@ fn create_callable_function_signature(
         None,
     )
     .into_anyhow_result()
-    .internal_error_anyhow("Must have created correct signature")?;
+    .internal_error("Must have created correct signature")?;
 
     Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))
 }
@@ -515,8 +514,8 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
 fn provider_field_parse_type<'v>(
     ty: Value<'v>,
     eval: &mut Evaluator<'v, '_, '_>,
-) -> anyhow::Result<TypeCompiled<FrozenValue>> {
-    TypeCompiled::new(ty, eval.heap()).map(|ty| ty.to_frozen(eval.frozen_heap()))
+) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
+    Ok(TypeCompiled::new(ty, eval.heap()).map(|ty| ty.to_frozen(eval.frozen_heap()))?)
 }
 
 #[starlark_module]
@@ -526,7 +525,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
         #[starlark(require=pos)] ty: Value<'v>,
         #[starlark(require=named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<UserProviderField> {
+    ) -> starlark::Result<UserProviderField> {
         let ty = provider_field_parse_type(ty, eval)?;
         let default = match default {
             None => None,
@@ -539,16 +538,21 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                     Some(eval.frozen_heap().alloc(AllocDict::EMPTY))
                 } else {
                     // Dealing only with frozen values is much easier.
-                    return Err(ProviderCallableError::InvalidDefaultValue.into());
+                    return Err(buck2_error::Error::from(
+                        ProviderCallableError::InvalidDefaultValue,
+                    )
+                    .into());
                 }
             }
         };
         if let Some(default) = default {
             if !ty.matches(default.to_value()) {
-                return Err(ProviderCallableError::InvalidDefaultValueType(
-                    default.to_string(),
-                    default.to_value().get_type(),
-                    ty.as_ty().dupe(),
+                return Err(buck2_error::Error::from(
+                    ProviderCallableError::InvalidDefaultValueType(
+                        default.to_string(),
+                        default.to_value().get_type(),
+                        ty.as_ty().dupe(),
+                    ),
                 )
                 .into());
             }
@@ -578,7 +582,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
             SmallMap<String, Value<'v>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<UserProviderCallable> {
+    ) -> starlark::Result<UserProviderCallable> {
         let docstring = DocString::from_docstring(DocStringKind::Starlark, doc);
         let path = starlark_path_from_build_context(eval)?.path();
 
@@ -594,7 +598,12 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                     .map(|name| (name.clone(), UserProviderField::default()))
                     .collect();
                 if new_fields.len() != fields.items.len() {
-                    return Err(ProviderCallableError::NonUniqueFields(fields.items).into());
+                    return Err(
+                        buck2_error::Error::from(ProviderCallableError::NonUniqueFields(
+                            fields.items,
+                        ))
+                        .into(),
+                    );
                 }
                 new_fields
             }
@@ -608,7 +617,7 @@ pub fn register_provider(builder: &mut GlobalsBuilder) {
                         new_fields.insert(name, field.dupe());
                     } else {
                         let ty = provider_field_parse_type(field, eval)
-                            .with_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?;
+                            .with_buck_error_context(|| format!("Field `{name}` type `{field}` is not created with `provider_field`, and cannot be evaluated as a type"))?;
                         new_fields.insert(name, UserProviderField { ty, default: None });
                     }
                 }

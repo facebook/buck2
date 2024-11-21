@@ -240,7 +240,12 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.clone().get_artifact_fs().await?;
+        let fs = self
+            .dice
+            .clone()
+            .get_artifact_fs()
+            .await
+            .map_err(anyhow::Error::from)?;
         let pre_create_dirs = Arc::new(pre_create_dirs);
 
         let ExecuteData {
@@ -362,7 +367,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             timeout,
             host_sharing_requirements,
         } = key;
-        let fs = dice.get_artifact_fs().await?;
+        let fs = dice.get_artifact_fs().await.map_err(anyhow::Error::from)?;
         let test_info = Self::get_test_info(dice, &test_target).await?;
         let (test_executor, re_cache_enabled) = Self::get_test_executor(
             dice,

@@ -18,7 +18,6 @@ use std::hash::Hasher;
 use std::io::BufWriter;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -36,6 +35,7 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_error::UniqueRootId;
 use buck2_events::errors::create_error_report;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -542,7 +542,7 @@ pub async fn build_report_opts<'a>(
     ctx: &mut DiceComputations<'a>,
     cell_resolver: &CellResolver,
     build_opts: &CommonBuildOptions,
-) -> anyhow::Result<BuildReportOpts> {
+) -> buck2_error::Result<BuildReportOpts> {
     let esto = &build_opts.unstable_build_report_filename;
     let build_report_opts = BuildReportOpts {
         print_unconfigured_section: ctx
@@ -606,7 +606,7 @@ pub fn generate_build_report(
                 .as_abs_path()
                 .join(opts.unstable_build_report_filename),
         )
-        .context("Error writing build report")?;
+        .buck_error_context("Error writing build report")?;
         let mut file = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut file, &build_report)?
     } else {

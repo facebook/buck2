@@ -124,7 +124,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
     fn freeze(
         self: Box<Self>,
         freezer: &Freezer,
-    ) -> anyhow::Result<Box<dyn FrozenDynamicLambdaParamsStorage>> {
+    ) -> buck2_error::Result<Box<dyn FrozenDynamicLambdaParamsStorage>> {
         let DynamicLambdaParamsStorageImpl {
             self_key,
             lambda_params,
@@ -132,7 +132,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
         let lambda_params = lambda_params
             .into_iter_hashed()
             .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<buck2_error::Result<_>>()?;
         Ok(Box::new(FrozenDynamicLambdaParamsStorageImpl {
             self_key,
             lambda_params,

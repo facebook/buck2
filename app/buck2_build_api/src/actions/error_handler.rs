@@ -115,7 +115,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(this)] _this: &'v StarlarkActionErrorContext,
         #[starlark(require = named)] file: String,
         #[starlark(require = named, default = NoneOr::None)] line: NoneOr<u64>,
-    ) -> anyhow::Result<StarlarkActionErrorLocation> {
+    ) -> starlark::Result<StarlarkActionErrorLocation> {
         // @TODO(wendyy) - actually enforce/validate the path types.
         Ok(StarlarkActionErrorLocation {
             file,
@@ -141,7 +141,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] locations: NoneOr<
             UnpackListOrTuple<&'v StarlarkActionErrorLocation>,
         >,
-    ) -> anyhow::Result<StarlarkActionSubError<'v>> {
+    ) -> starlark::Result<StarlarkActionSubError<'v>> {
         Ok(StarlarkActionSubError {
             category,
             message: message.into_option(),
@@ -364,7 +364,7 @@ pub(crate) fn register_action_error_handler_for_testing(builder: &mut GlobalsBui
     fn new_test_action_error_ctx(
         #[starlark(require=named, default = "")] stderr: &str,
         #[starlark(require=named, default = "")] stdout: &str,
-    ) -> anyhow::Result<StarlarkActionErrorContext> {
+    ) -> starlark::Result<StarlarkActionErrorContext> {
         Ok(StarlarkActionErrorContext {
             stderr: stderr.to_owned(),
             stdout: stdout.to_owned(),

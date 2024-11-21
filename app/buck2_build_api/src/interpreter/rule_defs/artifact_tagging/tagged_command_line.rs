@@ -77,13 +77,16 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
             .0
             .add_to_command_line(cli, context)
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         let mut visitor = self.inner.wrap_visitor(visitor);
 
         ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
@@ -99,7 +102,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
             .0
             .visit_write_to_file_macros(visitor)

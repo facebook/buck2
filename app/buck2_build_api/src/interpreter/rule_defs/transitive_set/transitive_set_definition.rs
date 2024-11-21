@@ -12,8 +12,8 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::bzl::ImportPath;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::path::StarlarkPath;
 use derive_more::Display;
@@ -155,7 +155,7 @@ impl<V: ValueLifetimeless> TransitiveSetOperationsGen<V> {
         &self,
         kind: TransitiveSetProjectionKind,
         proj: &str,
-    ) -> anyhow::Result<usize> {
+    ) -> buck2_error::Result<usize> {
         let index = match self.projections.get_index_of(proj) {
             Some(index) => index,
             None => {
@@ -249,7 +249,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
                     ..TyUserParams::default()
                 },
             )?);
-            anyhow::Ok(TransitiveSetDefinitionExported {
+            buck2_error::Ok(TransitiveSetDefinitionExported {
                 id,
                 set_ty,
                 set_type_instance_id,
@@ -284,7 +284,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         let exported = self
             .exported
             .get()
-            .context("cannot hash a transitive_set_definition without id")?;
+            .buck_error_context("cannot hash a transitive_set_definition without id")?;
         exported.id.hash(hasher);
         Ok(())
     }
@@ -433,7 +433,7 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
             >,
         >,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<TransitiveSetDefinition<'v>> {
+    ) -> starlark::Result<TransitiveSetDefinition<'v>> {
         let projections: SmallMap<_, _> = args_projections
             .into_iter()
             .flat_map(|v| v.into_iter())
@@ -472,7 +472,12 @@ pub fn register_transitive_set(builder: &mut GlobalsBuilder) {
         Ok(TransitiveSetDefinition::new(
             match starlark_path {
                 StarlarkPath::LoadFile(import_path) => import_path.clone(),
-                _ => return Err(TransitiveSetDefinitionError::TransitiveSetOnlyInBzl.into()),
+                _ => {
+                    return Err(buck2_error::Error::from(
+                        TransitiveSetDefinitionError::TransitiveSetOnlyInBzl,
+                    )
+                    .into());
+                }
             },
             TransitiveSetOperations {
                 projections,

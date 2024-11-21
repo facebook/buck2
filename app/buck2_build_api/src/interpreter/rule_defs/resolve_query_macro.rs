@@ -58,7 +58,7 @@ impl ResolvedQueryMacro {
         &self,
         builder: &mut dyn ArgBuilder,
         ctx: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Outputs(list) => {
                 let mut first = true;
@@ -103,7 +103,7 @@ impl ResolvedQueryMacro {
     pub fn visit_artifacts(
         &self,
         visitor: &mut dyn CommandLineArtifactVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Outputs(list) => {
                 for target_outputs in list.iter() {

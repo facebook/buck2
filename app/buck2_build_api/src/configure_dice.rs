@@ -35,7 +35,7 @@ pub async fn configure_dice_for_buck(
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
     which_dice: Option<WhichDice>,
-) -> anyhow::Result<Arc<Dice>> {
+) -> buck2_error::Result<Arc<Dice>> {
     let detect_cycles = detect_cycles.map_or_else(
         || {
             root_config
@@ -80,7 +80,7 @@ pub async fn configure_dice_for_buck(
 fn determine_which_dice(
     root_config: Option<&LegacyBuckConfig>,
     which_dice: Option<WhichDice>,
-) -> anyhow::Result<WhichDice> {
+) -> buck2_error::Result<WhichDice> {
     if let Some(v) = which_dice {
         return Ok(v);
     }
@@ -148,7 +148,7 @@ mod tests {
     }
 
     #[test]
-    fn test_determine_which_dice() -> anyhow::Result<()> {
+    fn test_determine_which_dice() -> buck2_error::Result<()> {
         assert_eq!(
             WhichDice::Modern,
             determine_which_dice(

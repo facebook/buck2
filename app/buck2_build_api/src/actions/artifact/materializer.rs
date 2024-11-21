@@ -27,7 +27,10 @@ use crate::build_signals::HasBuildSignals;
 
 #[async_trait]
 pub trait ArtifactMaterializer {
-    async fn materialize(&mut self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf>;
+    async fn materialize(
+        &mut self,
+        artifact: &Artifact,
+    ) -> buck2_error::Result<ProjectRelativePathBuf>;
 
     /// called to materialized the final set of requested artifacts for the build of a target.
     /// This method will render events in superconsole
@@ -35,12 +38,15 @@ pub trait ArtifactMaterializer {
         &mut self,
         artifact: &BuildArtifact,
         required: bool,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 #[async_trait]
 impl ArtifactMaterializer for DiceComputations<'_> {
-    async fn materialize(&mut self, artifact: &Artifact) -> anyhow::Result<ProjectRelativePathBuf> {
+    async fn materialize(
+        &mut self,
+        artifact: &Artifact,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
         let path = artifact.resolve_path(&artifact_fs)?;
@@ -52,7 +58,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
         &mut self,
         artifact: &BuildArtifact,
         required: bool,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
         let artifact_fs = self.get_artifact_fs().await?;
         let path = artifact_fs.resolve_build(artifact.get_path());
@@ -66,7 +72,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
             async move {
                 let now = Instant::now();
 
-                let result: anyhow::Result<_> = try {
+                let result: buck2_error::Result<_> = try {
                     if required {
                         materializer.ensure_materialized(vec![path]).await?;
                     } else {

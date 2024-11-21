@@ -636,12 +636,12 @@ async fn build_files(
                         },
                         |ctx| {
                             async move {
-                                Ok(materialize_artifact_group(
+                                materialize_artifact_group(
                                     ctx,
                                     &artifact,
                                     &MaterializationContext::Materialize { force: true },
                                 )
-                                .await?)
+                                .await
                             }
                             .boxed()
                         },

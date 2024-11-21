@@ -602,7 +602,7 @@ async fn test_targets(
                 let error_stream = futures::stream::iter(driver.error_events);
                 let error_target_result = BuildTargetResult::collect_stream(error_stream, false)
                     .await
-                    .context("Failed to collect error events")?;
+                    .buck_error_context_anyhow("Failed to collect error events")?;
 
                 driver.build_target_result.extend(error_target_result);
 
@@ -1145,7 +1145,7 @@ fn run_tests<'a, 'b>(
 
             (async move {
                 fut.await
-                    .context("Failed to notify test executor of a new test")?;
+                    .buck_error_context_anyhow("Failed to notify test executor of a new test")?;
                 Ok(providers_label)
             })
             .boxed()

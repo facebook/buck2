@@ -93,7 +93,7 @@ impl PromiseArtifact {
         Self { artifact, id }
     }
 
-    pub fn get_err(&self) -> anyhow::Result<&Artifact> {
+    pub fn get_err(&self) -> buck2_error::Result<&Artifact> {
         match self.artifact.get() {
             Some(v) => Ok(v),
             None => Err(PromiseArtifactResolveError::PromiseNotYetResolved.into()),
@@ -112,7 +112,7 @@ impl PromiseArtifact {
         &self,
         artifact: Artifact,
         expected_short_path: &Option<ForwardRelativePathBuf>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let bound = artifact;
         if bound.is_source() {
             return Err(PromiseArtifactResolveError::SourceArtifact.into());
@@ -120,7 +120,7 @@ impl PromiseArtifact {
         if let Some(expected_short_path) = expected_short_path {
             bound.get_path().with_short_path(|artifact_short_path| {
                 if artifact_short_path != expected_short_path {
-                    Err(anyhow::Error::from(
+                    Err(buck2_error::Error::from(
                         PromiseArtifactResolveError::ShortPathMismatch(
                             expected_short_path.clone(),
                             artifact_short_path.to_string(),

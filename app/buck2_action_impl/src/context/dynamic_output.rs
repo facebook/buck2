@@ -162,12 +162,12 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .items
             .iter()
             .map(|x| x.artifact())
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<buck2_error::Result<_>>()?;
         let outputs = outputs
             .items
             .iter()
             .map(|x| x.artifact())
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<buck2_error::Result<_>>()?;
 
         let attributes = this.attributes;
         let plugins = this.plugins;

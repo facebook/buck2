@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_error::starlark_error::from_starlark;
 use dupe::Dupe;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValueTyped;
@@ -37,7 +38,7 @@ impl ArtifactGroupRegistry {
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
         Ok(analysis_value_storage.register_transitive_set(move |key| {
             let set = TransitiveSet::new_from_values(key.dupe(), definition, value, children, eval)
-                .map_err(|e| e.into_anyhow())?;
+                .map_err(from_starlark)?;
             Ok(eval.heap().alloc_typed(set))
         })?)
     }
@@ -45,7 +46,7 @@ impl ArtifactGroupRegistry {
     pub(crate) fn ensure_bound(
         self,
         _analysis_value_fetcher: &AnalysisValueFetcher,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         Ok(())
     }
 }

@@ -8,7 +8,7 @@
  */
 
 use allocative::Allocative;
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -39,18 +39,17 @@ pub enum TransitiveSetOrdering {
 }
 
 impl TransitiveSetOrdering {
-    pub fn parse(s: &str) -> anyhow::Result<TransitiveSetOrdering> {
+    pub fn parse(s: &str) -> buck2_error::Result<TransitiveSetOrdering> {
         // NOTE: If this list is updated, update the OrderingUnexpectedValue error text.
         match s {
             "preorder" => Ok(Self::Preorder),
             "postorder" => Ok(Self::Postorder),
             "topological" => Ok(Self::Topological),
             "bfs" => Ok(Self::Bfs),
-            _ => Err(anyhow::anyhow!(
-                TransitiveSetError::OrderingUnexpectedValue {
-                    ordering: s.to_owned()
-                }
-            )),
+            _ => Err(TransitiveSetError::OrderingUnexpectedValue {
+                ordering: s.to_owned(),
+            }
+            .into()),
         }
     }
 }
@@ -81,7 +80,8 @@ where
     Self: ProvidesStaticType<'v>,
 {
     fn iterate_collect(&self, _heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
-        let tset = TransitiveSet::from_value(self.inner.to_value()).context("Invalid inner")?;
+        let tset =
+            TransitiveSet::from_value(self.inner.to_value()).buck_error_context("Invalid inner")?;
         Ok(tset.iter_values(self.ordering)?.collect())
     }
 }
@@ -115,8 +115,8 @@ where
     Self: ProvidesStaticType<'v>,
 {
     fn iterate_collect(&self, _heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
-        let set =
-            TransitiveSet::from_value(self.transitive_set.to_value()).context("Invalid inner")?;
+        let set = TransitiveSet::from_value(self.transitive_set.to_value())
+            .buck_error_context("Invalid inner")?;
         Ok(set
             .iter_projection_values(self.ordering, self.projection)?
             .collect())

@@ -55,7 +55,7 @@ pub struct ExecutionPlatformInfoGen<V: ValueLifetimeless> {
 }
 
 impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
-    pub fn to_execution_platform(&self) -> anyhow::Result<ExecutionPlatform> {
+    pub fn to_execution_platform(&self) -> buck2_error::Result<ExecutionPlatform> {
         let target = self
             .label
             .cast::<&StarlarkTargetLabel>()
@@ -95,7 +95,7 @@ fn info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named)] label: ValueTyped<'v, StarlarkTargetLabel>,
         #[starlark(require = named)] configuration: ValueTypedComplex<'v, ConfigurationInfo<'v>>,
         #[starlark(require = named)] executor_config: ValueTyped<'v, StarlarkCommandExecutorConfig>,
-    ) -> anyhow::Result<ExecutionPlatformInfo<'v>> {
+    ) -> starlark::Result<ExecutionPlatformInfo<'v>> {
         let info = ExecutionPlatformInfo {
             label: label.to_value_of_unchecked(),
             configuration: ValueOfUnchecked::new(configuration.to_value()),

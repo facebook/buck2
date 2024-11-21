@@ -229,7 +229,7 @@ pub(crate) fn build<'v>(
                     .await;
 
                 // TODO (torozco): support --fail-fast in BXL.
-                Ok(BuildTargetResult::collect_stream(
+                BuildTargetResult::collect_stream(
                     futures::stream::iter(
                         per_spec_results
                             .into_iter()
@@ -238,7 +238,7 @@ pub(crate) fn build<'v>(
                     ),
                     false,
                 )
-                .await?)
+                .await
             }
             .boxed_local()
         })

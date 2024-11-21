@@ -13,7 +13,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
@@ -25,6 +24,7 @@ use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
 use buck2_error::starlark_error::from_starlark;
+use buck2_error::BuckErrorContext;
 use buck2_event_observer::action_util::get_action_digest;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
@@ -75,7 +75,7 @@ async fn build_action_impl(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     key: &ActionKey,
-) -> anyhow::Result<ActionOutputs> {
+) -> buck2_error::Result<ActionOutputs> {
     // Compute is only called if we have cache miss
     debug!("compute {}", key);
 
@@ -99,7 +99,7 @@ async fn build_action_no_redirect(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext<'_>,
     action: Arc<RegisteredAction>,
-) -> anyhow::Result<ActionOutputs> {
+) -> buck2_error::Result<ActionOutputs> {
     let materialized_inputs = {
         let inputs = action.inputs()?;
 
@@ -109,7 +109,7 @@ async fn build_action_no_redirect(
             |ctx, v| {
                 async move {
                     let resolved = v.resolved_artifact(ctx).await?;
-                    anyhow::Ok(
+                    buck2_error::Ok(
                         ensure_artifact_group_staged(ctx, resolved.clone())
                             .await?
                             .to_group_values(&resolved)?,
@@ -139,7 +139,7 @@ async fn build_action_no_redirect(
     let executor = ctx
         .get_action_executor(action.execution_config())
         .await
-        .context(format!("for action `{}`", action))?;
+        .buck_error_context(format!("for action `{}`", action))?;
 
     let now = Instant::now();
     let action = &action;
@@ -464,7 +464,7 @@ pub struct ActionExtraData {
 }
 
 struct ActionExecutionData {
-    action_result: anyhow::Result<ActionOutputs>,
+    action_result: buck2_error::Result<ActionOutputs>,
     wall_time: Option<std::time::Duration>,
     queue_duration: Option<std::time::Duration>,
     extra_data: ActionExtraData,
@@ -477,7 +477,7 @@ impl ActionCalculation {
     pub async fn get_action(
         ctx: &mut DiceComputations<'_>,
         action_key: &ActionKey,
-    ) -> anyhow::Result<Arc<RegisteredAction>> {
+    ) -> buck2_error::Result<Arc<RegisteredAction>> {
         // In the typical case, this lookup is only going to require a single deferred holder lookup. There's three cases:
         // 1. a normal action defined in analysis: lookup the holder for that analysis, get the action
         // 2. an action bound to a dynamic_output and then bound to an action there: the initial holder_key will actually
@@ -494,7 +494,7 @@ impl ActionCalculation {
                 fn get_action_recurse<'a>(
                     ctx: &'a mut DiceComputations<'_>,
                     action_key: &'a ActionKey,
-                ) -> BoxFuture<'a, anyhow::Result<Arc<RegisteredAction>>> {
+                ) -> BoxFuture<'a, buck2_error::Result<Arc<RegisteredAction>>> {
                     async move { ActionCalculation::get_action(ctx, action_key).await }.boxed()
                 }
                 get_action_recurse(ctx, &action_key).await
@@ -505,18 +505,18 @@ impl ActionCalculation {
     pub fn build_action<'a>(
         ctx: &'a mut DiceComputations<'_>,
         action_key: &ActionKey,
-    ) -> impl Future<Output = anyhow::Result<ActionOutputs>> + 'a {
+    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + 'a {
         // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
         ctx.compute(BuildKey::ref_cast(action_key))
-            .map(|v| v?.map_err(anyhow::Error::from))
+            .map(|v| v?.map_err(buck2_error::Error::from))
     }
 
     pub fn build_artifact<'a>(
         ctx: &'a mut DiceComputations<'_>,
         artifact: &BuildArtifact,
-    ) -> impl Future<Output = anyhow::Result<ActionOutputs>> + 'a {
+    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + 'a {
         Self::build_action(ctx, artifact.key())
     }
 }
@@ -628,7 +628,7 @@ pub async fn command_details(
 pub async fn get_target_rule_type_name(
     ctx: &mut DiceComputations<'_>,
     label: &ConfiguredTargetLabel,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     Ok(ctx
         .get_configured_target_node(label)
         .await?

@@ -120,8 +120,8 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     /// either an `Artifact`, or is a bound `Artifact` (You cannot bind twice)
     fn as_output<'v>(
         this: ValueOf<'v, &'v dyn StarlarkArtifactLike>,
-    ) -> anyhow::Result<StarlarkOutputArtifact<'v>> {
-        this.typed.as_output(this.value)
+    ) -> starlark::Result<StarlarkOutputArtifact<'v>> {
+        Ok(this.typed.as_output(this.value)?)
     }
 
     /// Create an artifact that lives at path relative from this artifact.
@@ -134,17 +134,17 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
         this: &'v dyn StarlarkArtifactLike,
         #[starlark(require = pos)] path: &str,
         #[starlark(require = named, default = false)] hide_prefix: bool,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
+    ) -> starlark::Result<EitherStarlarkArtifact> {
         let path = ForwardRelativePath::new(path)?;
-        this.project(path, hide_prefix)
+        Ok(this.project(path, hide_prefix)?)
     }
 
     /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, except
     /// with no associated artifacts
     fn without_associated_artifacts<'v>(
         this: &'v dyn StarlarkArtifactLike,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
-        this.without_associated_artifacts()
+    ) -> starlark::Result<EitherStarlarkArtifact> {
+        Ok(this.without_associated_artifacts()?)
     }
 
     /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, but with
@@ -152,7 +152,7 @@ pub(crate) fn artifact_methods(builder: &mut MethodsBuilder) {
     fn with_associated_artifacts<'v>(
         this: &'v dyn StarlarkArtifactLike,
         artifacts: UnpackList<ValueAsArtifactLike<'v>>,
-    ) -> anyhow::Result<EitherStarlarkArtifact> {
-        this.with_associated_artifacts(artifacts)
+    ) -> starlark::Result<EitherStarlarkArtifact> {
+        Ok(this.with_associated_artifacts(artifacts)?)
     }
 }

@@ -478,7 +478,7 @@ async fn print_action_node(
     json: bool,
     output_attributes: &[String],
     cell_resolver: &CellResolver,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     // Dot/DotCompact output format don't make sense here.
     let unstable_output_format = if json {
         QueryOutputFormat::Json
@@ -495,14 +495,14 @@ async fn print_action_node(
     let mut result = TargetSet::new();
     result.insert(action);
 
-    query_result_printer
+    Ok(query_result_printer
         .print_single_output(
             stdout,
             QueryEvaluationValue::TargetSet(result),
             false,
             ShouldPrintProviders::No,
         )
-        .await
+        .await?)
 }
 
 pub(crate) fn init_print_action_node() {

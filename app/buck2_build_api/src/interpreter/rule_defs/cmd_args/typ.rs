@@ -180,7 +180,7 @@ impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
         }
     }
 
-    fn relative_to_path<C>(&self, ctx: &C) -> anyhow::Result<Option<RelativePathBuf>>
+    fn relative_to_path<C>(&self, ctx: &C) -> buck2_error::Result<Option<RelativePathBuf>>
     where
         C: CommandLineContext + ?Sized,
     {
@@ -200,7 +200,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match self.0.options() {
             None => {
                 for item in self.0.items() {
@@ -223,7 +223,10 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
         }
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         if !self.ignore_artifacts() {
             for item in self.0.items().iter().chain(self.0.hidden().iter()) {
                 visitor.push_frame()?;
@@ -249,7 +252,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike for FieldsRef<'v, F> {
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         visitor.set_current_relative_to_path(&|ctx| self.relative_to_path(ctx))?;
 
         for item in self.0.items() {
@@ -495,11 +498,14 @@ impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         FieldsRef(self.0.borrow(), PhantomData).add_to_command_line(cli, context)
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         FieldsRef(self.0.borrow(), PhantomData).visit_artifacts(visitor)
     }
 
@@ -510,7 +516,7 @@ impl<'v> CommandLineArgLike for StarlarkCmdArgs<'v> {
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         FieldsRef(self.0.borrow(), PhantomData).visit_write_to_file_macros(visitor)
     }
 }
@@ -524,11 +530,14 @@ impl CommandLineArgLike for FrozenStarlarkCmdArgs {
         &self,
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         FieldsRef(self, PhantomData).add_to_command_line(cli, context)
     }
 
-    fn visit_artifacts(&self, visitor: &mut dyn CommandLineArtifactVisitor) -> anyhow::Result<()> {
+    fn visit_artifacts(
+        &self,
+        visitor: &mut dyn CommandLineArtifactVisitor,
+    ) -> buck2_error::Result<()> {
         FieldsRef(self, PhantomData).visit_artifacts(visitor)
     }
 
@@ -539,7 +548,7 @@ impl CommandLineArgLike for FrozenStarlarkCmdArgs {
     fn visit_write_to_file_macros(
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         FieldsRef(self, PhantomData).visit_write_to_file_macros(visitor)
     }
 }
@@ -572,11 +581,13 @@ impl<'v> StarlarkCmdArgs<'v> {
         Self::default()
     }
 
-    pub fn try_from_value(value: Value<'v>) -> anyhow::Result<Self> {
+    pub fn try_from_value(value: Value<'v>) -> buck2_error::Result<Self> {
         Self::try_from_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)
     }
 
-    pub fn try_from_value_typed(value: StarlarkCommandLineValueUnpack<'v>) -> anyhow::Result<Self> {
+    pub fn try_from_value_typed(
+        value: StarlarkCommandLineValueUnpack<'v>,
+    ) -> buck2_error::Result<Self> {
         let mut builder = Self::new();
         builder.0.get_mut().add_value_typed(value)?;
         Ok(builder)
@@ -591,11 +602,14 @@ pub enum StarlarkCommandLineValueUnpack<'v> {
 }
 
 impl<'v> StarlarkCommandLineData<'v> {
-    fn add_value(&mut self, value: Value<'v>) -> anyhow::Result<()> {
+    fn add_value(&mut self, value: Value<'v>) -> buck2_error::Result<()> {
         self.add_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)
     }
 
-    fn add_value_typed(&mut self, value: StarlarkCommandLineValueUnpack<'v>) -> anyhow::Result<()> {
+    fn add_value_typed(
+        &mut self,
+        value: StarlarkCommandLineValueUnpack<'v>,
+    ) -> buck2_error::Result<()> {
         match value {
             StarlarkCommandLineValueUnpack::List(values) => self.add_values(values.content())?,
             StarlarkCommandLineValueUnpack::CommandLineArg(value) => self.items.push(value),
@@ -606,7 +620,7 @@ impl<'v> StarlarkCommandLineData<'v> {
     /// Check the types of a list of values, and modify `data` accordingly
     ///
     /// The values must be one of: CommandLineArgLike or a list thereof.
-    fn add_values(&mut self, values: &[Value<'v>]) -> anyhow::Result<()> {
+    fn add_values(&mut self, values: &[Value<'v>]) -> buck2_error::Result<()> {
         self.items.reserve(values.len());
         for value in values {
             self.add_value(*value)?
@@ -615,7 +629,7 @@ impl<'v> StarlarkCommandLineData<'v> {
     }
 
     /// Add values to the artifact that don't show up on the command line, but do for dependency
-    fn add_hidden(&mut self, value: StarlarkCommandLineValueUnpack<'v>) -> anyhow::Result<()> {
+    fn add_hidden(&mut self, value: StarlarkCommandLineValueUnpack<'v>) -> buck2_error::Result<()> {
         match value {
             StarlarkCommandLineValueUnpack::List(values) => {
                 for value in values.content() {
@@ -684,7 +698,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     fn add<'v>(
         mut this: StarlarkCommandLineMut<'v>,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+    ) -> starlark::Result<StarlarkCommandLineMut<'v>> {
         this.borrow.add_values(&args.items)?;
         Ok(this)
     }
@@ -708,14 +722,14 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
         mut this: StarlarkCommandLineMut<'v>,
         #[starlark(require = pos)] directory: ValueOf<'v, RelativeOrigin<'v>>,
         #[starlark(require = named, default = 0u32)] parent: u32,
-    ) -> anyhow::Result<StarlarkCommandLineMut<'v>> {
+    ) -> starlark::Result<StarlarkCommandLineMut<'v>> {
         this.borrow.options_mut().relative_to = Some((directory.as_unchecked(), parent));
         Ok(this)
     }
 
     /// Returns a copy of the `cmd_args` such that any modifications to the original or the returned value will not impact each other.
     /// Note that this is a shallow copy, so any inner `cmd_args` can still be modified.
-    fn copy<'v>(this: Value<'v>) -> anyhow::Result<StarlarkCmdArgs<'v>> {
+    fn copy<'v>(this: Value<'v>) -> starlark::Result<StarlarkCmdArgs<'v>> {
         Ok(cmd_args(this).copy())
     }
 
@@ -862,7 +876,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
             (CmdArgsRegex<'v>, StringValue<'v>),
             UnpackList<(CmdArgsRegex<'v>, StringValue<'v>)>,
         >,
-    ) -> anyhow::Result<StarlarkCmdArgs<'v>> {
+    ) -> starlark::Result<StarlarkCmdArgs<'v>> {
         let quote = quote.try_map(QuoteStyle::parse)?;
         let mut builder = StarlarkCommandLineData::default();
         if delimiter.is_some()
