@@ -99,10 +99,9 @@ def get_aapt2_link(
             aapt2_command.add(["--debug-mode"])
 
         if filter_locales and len(locales) > 0:
-            aapt2_command.add("-c")
-
-            # "NONE" means "en", update the list of locales
-            aapt2_command.add(cmd_args([locale if locale != "NONE" else "en" for locale in locales], delimiter = ","))
+            for locale in locales:
+                # "NONE" means "en", update the list of locales
+                aapt2_command.add(["-c", locale if locale != "NONE" else "en"])
 
         for compiled_resource_apk in compiled_resource_apks:
             aapt2_command.add(["-I", compiled_resource_apk])
