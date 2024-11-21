@@ -79,7 +79,7 @@ impl<'a> CompletionResults<'a> {
     async fn buildfile_names(
         &mut self,
         abs_dir: &AbsNormPath,
-    ) -> anyhow::Result<&Vec<FileNameBuf>> {
+    ) -> buck2_error::Result<&Vec<FileNameBuf>> {
         let relative_to_project = self.roots.project_root.relativize(abs_dir)?;
         let cell_configs = &self.cell_configs;
         let cell_name = cell_configs.cell_resolver.find(&relative_to_project)?;

@@ -107,7 +107,7 @@ fn print_completion_script(
     shell_arg: Shell,
     options_only: bool,
     cmd: &mut Command,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let wrapper = if options_only {
         options_wrapper(shell_arg)
     } else {
@@ -143,7 +143,8 @@ fn print_completion_script(
     }
 
     if !found_insertion_point {
-        Err(anyhow::anyhow!(
+        Err(buck2_error::buck2_error!(
+            [],
             "Failed to find {} in {:?} completion template",
             COMPLETION_INSERTION_POINT,
             shell_arg
@@ -153,7 +154,10 @@ fn print_completion_script(
     }
 }
 
-fn option_completions(shell: clap_complete::Shell, cmd: &mut Command) -> anyhow::Result<String> {
+fn option_completions(
+    shell: clap_complete::Shell,
+    cmd: &mut Command,
+) -> buck2_error::Result<String> {
     let mut v = Vec::new();
     // FIXME: it appears that this might silently swallow errors; would require a PR to fix
     generate(shell, cmd, cmd.get_name().to_owned(), &mut v);

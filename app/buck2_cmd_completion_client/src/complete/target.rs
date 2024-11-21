@@ -127,7 +127,7 @@ impl<'a> TargetCompleter<'a> {
         cwd: &AbsWorkingDir,
         roots: &'a InvocationRoots,
         target_resolver: &'a mut dyn TargetResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let cell_configs =
             Arc::new(BuckConfigBasedCells::parse_with_config_args(&roots.project_root, &[]).await?);
         Ok(Self {

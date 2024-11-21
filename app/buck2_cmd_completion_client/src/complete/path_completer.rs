@@ -25,7 +25,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
         cwd: &AbsWorkingDir,
         sanitizer: &'b PathSanitizer,
         results: &'b mut CompletionResults<'a>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Ok(Self {
             cwd: cwd.to_owned(),
             sanitizer,
@@ -89,7 +89,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
         CommandOutcome::Success(())
     }
 
-    fn completes_to_dir(&self, partial: &SanitizedPath) -> anyhow::Result<bool> {
+    fn completes_to_dir(&self, partial: &SanitizedPath) -> buck2_error::Result<bool> {
         let partial_path = partial.abs_path();
         let partial_base = partial_path.file_name().unwrap().to_str().unwrap();
 
@@ -107,7 +107,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
         Ok(false)
     }
 
-    fn sanitize(&self, given: &str) -> anyhow::Result<SanitizedPath> {
+    fn sanitize(&self, given: &str) -> buck2_error::Result<SanitizedPath> {
         self.sanitizer.sanitize(given)
     }
 }
