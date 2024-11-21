@@ -56,7 +56,9 @@ use crate::nodes::calculation::ExecutionPlatformConstraints;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
 pub enum ConfigurationError {
-    #[error("Expected a ConfigurationInfo provider from `{0}`.")]
+    #[error(
+        "`{0}` target doesn't have a `ConfigurationInfo` provider so it can't be selected. Possible selectable rules are `config_setting` and `constraint_value`."
+    )]
     MissingConfigurationInfoProvider(TargetLabel),
     #[error("Expected `{0}` to be a `platform()` target, but it had no `PlatformInfo` provider.")]
     MissingPlatformInfo(TargetLabel),
