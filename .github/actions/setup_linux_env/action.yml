@@ -12,9 +12,6 @@ runs:
     with:
       toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
       components: clippy
-  - uses: Swatinem/rust-cache@v2
-    with:
-      prefix-key: buck2-upload
   - run: sudo apt-get update
     shell: bash
   - run: sudo apt-get install opam libzstd-dev python3-pip
