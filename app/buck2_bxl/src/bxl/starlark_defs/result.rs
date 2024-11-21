@@ -126,7 +126,7 @@ where
 #[starlark_module]
 fn result_methods(builder: &mut MethodsBuilder) {
     /// Returns true if the result is an `Ok` value, false if it is an Error
-    fn is_ok<'v>(this: ValueTypedComplex<'v, StarlarkResult<'v>>) -> anyhow::Result<bool> {
+    fn is_ok<'v>(this: ValueTypedComplex<'v, StarlarkResult<'v>>) -> starlark::Result<bool> {
         Ok(match this.unpack() {
             either::Either::Left(x) => x.is_ok(),
             either::Either::Right(x) => x.is_ok(),
@@ -135,10 +135,10 @@ fn result_methods(builder: &mut MethodsBuilder) {
 
     /// Unwrap the result, returning the inner value if the result is `Ok`.
     /// If the result is an `Error`, it will fail
-    fn unwrap<'v>(this: ValueTypedComplex<'v, StarlarkResult<'v>>) -> anyhow::Result<Value<'v>> {
+    fn unwrap<'v>(this: ValueTypedComplex<'v, StarlarkResult<'v>>) -> starlark::Result<Value<'v>> {
         match this.unpack() {
-            either::Either::Left(x) => x.unwrap(),
-            either::Either::Right(x) => x.unwrap(),
+            either::Either::Left(x) => Ok(x.unwrap()?),
+            either::Either::Right(x) => Ok(x.unwrap()?),
         }
     }
 
@@ -146,10 +146,10 @@ fn result_methods(builder: &mut MethodsBuilder) {
     /// If the result is an `Ok`, it will fail
     fn unwrap_err<'v>(
         this: ValueTypedComplex<'v, StarlarkResult<'v>>,
-    ) -> anyhow::Result<StarlarkError> {
+    ) -> starlark::Result<StarlarkError> {
         match this.unpack() {
-            either::Either::Left(x) => x.unwrap_err(),
-            either::Either::Right(x) => x.unwrap_err(),
+            either::Either::Left(x) => Ok(x.unwrap_err()?),
+            either::Either::Right(x) => Ok(x.unwrap_err()?),
         }
     }
 }
@@ -158,7 +158,7 @@ impl<T> StarlarkResultGen<T> {
     pub(crate) fn from_result(res: buck2_error::Result<T>) -> Self {
         match res {
             Ok(val) => Self::Ok(val),
-            Err(err) => Self::Err(buck2_error::Error::from(err)),
+            Err(err) => Self::Err(err),
         }
     }
 
@@ -171,14 +171,14 @@ impl<T> StarlarkResultGen<T> {
 }
 
 impl<'v, V: ValueLike<'v>> StarlarkResultGen<V> {
-    fn unwrap(&self) -> anyhow::Result<Value<'v>> {
+    fn unwrap(&self) -> buck2_error::Result<Value<'v>> {
         match self {
             StarlarkResultGen::Ok(val) => Ok(val.to_value()),
             StarlarkResultGen::Err(err) => Err(BxlResultError::UnwrapOnError(err.dupe()).into()),
         }
     }
 
-    fn unwrap_err(&self) -> anyhow::Result<StarlarkError> {
+    fn unwrap_err(&self) -> buck2_error::Result<StarlarkError> {
         match self {
             StarlarkResultGen::Ok(val) => {
                 let display_str = format!("{}", val);

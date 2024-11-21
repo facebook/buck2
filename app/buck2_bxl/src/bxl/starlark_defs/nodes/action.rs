@@ -15,6 +15,7 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::OwnedActionAttr;
 use buck2_build_api::actions::RegisteredAction;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_error::buck2_error;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_query::query::environment::QueryTarget;
 use derive_more::Display;
@@ -76,12 +77,12 @@ fn action_methods(builder: &mut MethodsBuilder) {
     ///     action = ctx.audit().output("buck-out/path/to/__target__/artifact", "your_target_platform")
     ///     ctx.output.print(action.owner())
     /// ```
-    fn owner<'v>(this: StarlarkAction) -> anyhow::Result<StarlarkConfiguredTargetLabel> {
+    fn owner<'v>(this: StarlarkAction) -> starlark::Result<StarlarkConfiguredTargetLabel> {
         match this.0.owner() {
             BaseDeferredKey::TargetLabel(label) => {
                 Ok(StarlarkConfiguredTargetLabel::new(label.dupe()))
             }
-            _ => Err(anyhow::anyhow!("BXL and anon targets not supported.")),
+            _ => Err(buck2_error!([], "BXL and anon targets not supported.").into()),
         }
     }
 }
@@ -120,7 +121,7 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
         let mut result = Vec::new();
         this.0.attrs_for_each(|k, v| {
             result.push((k.to_owned(), StarlarkActionAttr(v.to_owned())));
-            anyhow::Ok(())
+            buck2_error::Ok(())
         })?;
 
         Ok(heap.alloc(AllocStruct(result)))
@@ -130,7 +131,7 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
     fn action<'v>(
         this: &StarlarkActionQueryNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneOr<ValueTyped<'v, StarlarkAction>>> {
+    ) -> starlark::Result<NoneOr<ValueTyped<'v, StarlarkAction>>> {
         let action = this.0.action();
         match action {
             None => Ok(NoneOr::None),
@@ -142,7 +143,7 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
     fn analysis<'v>(
         this: &StarlarkActionQueryNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneOr<ValueTyped<'v, StarlarkAnalysisResult>>> {
+    ) -> starlark::Result<NoneOr<ValueTyped<'v, StarlarkAnalysisResult>>> {
         match this.0.analysis_opt() {
             Some(a) => Ok(NoneOr::Other(heap.alloc_typed(
                 StarlarkAnalysisResult::new(
@@ -181,7 +182,7 @@ impl<'v> StarlarkValue<'v> for StarlarkActionAttr {
 #[starlark_module]
 fn action_attr_methods(builder: &mut MethodsBuilder) {
     /// Returns the value of this attribute.
-    fn value<'v>(this: &StarlarkActionAttr, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+    fn value<'v>(this: &StarlarkActionAttr, heap: &'v Heap) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str(&this.0.0))
     }
 }

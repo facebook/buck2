@@ -21,13 +21,13 @@ pub trait BxlServerCommands: Send + Sync + 'static {
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::BxlRequest,
-    ) -> anyhow::Result<buck2_cli_proto::BxlResponse>;
+    ) -> buck2_error::Result<buck2_cli_proto::BxlResponse>;
     async fn bxl_profile(
         &self,
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ProfileRequest,
-    ) -> anyhow::Result<buck2_cli_proto::ProfileResponse>;
+    ) -> buck2_error::Result<buck2_cli_proto::ProfileResponse>;
 }
 
 pub static BXL_SERVER_COMMANDS: LateBinding<&'static dyn BxlServerCommands> =

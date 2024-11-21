@@ -310,21 +310,21 @@ impl BxlContextCoreData {
     pub(crate) fn resolve_target_platfrom(
         &self,
         target_platform: ValueAsStarlarkTargetLabel<'_>,
-    ) -> anyhow::Result<Option<TargetLabel>> {
-        Ok(target_platform.parse_target_platforms(
+    ) -> buck2_error::Result<Option<TargetLabel>> {
+        target_platform.parse_target_platforms(
             self.target_alias_resolver(),
             self.cell_resolver(),
             self.cell_alias_resolver(),
             self.cell_name(),
             &self.global_cfg_options().target_platform,
-        )?)
+        )
     }
 
     pub(crate) fn resolve_global_cfg_options(
         &self,
         target_platform: ValueAsStarlarkTargetLabel<'_>,
         modifiers: Vec<String>,
-    ) -> anyhow::Result<GlobalCfgOptions> {
+    ) -> buck2_error::Result<GlobalCfgOptions> {
         let target_platform = self.resolve_target_platfrom(target_platform);
         let global_cfg_options = target_platform.map(|target_platform| GlobalCfgOptions {
             target_platform,

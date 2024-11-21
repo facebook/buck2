@@ -111,7 +111,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkTargetNode,
         #[starlark(require=pos)] key: &str,
         heap: &'v Heap,
-    ) -> anyhow::Result<NoneOr<Value<'v>>> {
+    ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(NodeAttributeGetter::get_attr(this, key, heap)?)
     }
 
@@ -127,7 +127,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn get_attrs<'v>(
         this: &StarlarkTargetNode,
         heap: &'v Heap,
-    ) -> anyhow::Result<SmallMap<StringValue<'v>, Value<'v>>> {
+    ) -> starlark::Result<SmallMap<StringValue<'v>, Value<'v>>> {
         Ok(NodeAttributeGetter::get_attrs(this, heap)?)
     }
 
@@ -147,7 +147,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn has_attr<'v>(
         this: &StarlarkTargetNode,
         #[starlark(require=pos)] key: &str,
-    ) -> anyhow::Result<bool> {
+    ) -> starlark::Result<bool> {
         Ok(NodeAttributeGetter::has_attr(this, key))
     }
 
@@ -243,7 +243,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn deps<'v>(
         this: &'v StarlarkTargetNode,
-    ) -> anyhow::Result<AllocList<impl IntoIterator<Item = StarlarkTargetLabel> + 'v>> {
+    ) -> starlark::Result<AllocList<impl IntoIterator<Item = StarlarkTargetLabel> + 'v>> {
         Ok(AllocList(
             this.0
                 .deps()

@@ -104,7 +104,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         #[starlark(this)] _this: &'v StarlarkLazyCtx,
         #[starlark(require = pos)] lazy0: &'v StarlarkLazy,
         #[starlark(require = pos)] lazy1: &'v StarlarkLazy,
-    ) -> anyhow::Result<StarlarkLazy> {
+    ) -> starlark::Result<StarlarkLazy> {
         Ok(StarlarkLazy::new_join(lazy0.dupe(), lazy1.dupe()))
     }
 
@@ -123,7 +123,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     fn join_all<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyCtx,
         #[starlark(require = pos)] operations: UnpackList<&StarlarkLazy>,
-    ) -> anyhow::Result<StarlarkLazy> {
+    ) -> starlark::Result<StarlarkLazy> {
         Ok(StarlarkLazy::new_batch(
             operations.into_iter().map(|o| o.dupe()),
         ))
@@ -142,7 +142,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     fn analysis<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyCtx,
         #[starlark(require = pos)] label: ConfiguredProvidersLabelArg<'v>,
-    ) -> anyhow::Result<StarlarkLazy> {
+    ) -> starlark::Result<StarlarkLazy> {
         let configured_providers_label = label.configured_providers_label();
         Ok(StarlarkLazy::new_analysis(configured_providers_label))
     }
@@ -183,7 +183,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
-    ) -> anyhow::Result<StarlarkLazy> {
+    ) -> starlark::Result<StarlarkLazy> {
         let global_cfg_options = this
             .ctx
             .resolve_global_cfg_options(target_platform, modifiers.items);
@@ -205,7 +205,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     fn unconfigured_target_node<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyCtx,
         #[starlark(require = pos)] expr: TargetNodeOrTargetLabelOrStr<'v>,
-    ) -> anyhow::Result<StarlarkLazy> {
+    ) -> starlark::Result<StarlarkLazy> {
         let expr = OwnedTargetNodeArg::from_ref(&expr);
         Ok(StarlarkLazy::new_unconfigured_target_node(expr))
     }
@@ -216,7 +216,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
-    ) -> anyhow::Result<StarlarkLazyCqueryCtx> {
+    ) -> starlark::Result<StarlarkLazyCqueryCtx> {
         let global_cfg_options = this
             .ctx
             .resolve_global_cfg_options(target_platform, modifiers.items)?;

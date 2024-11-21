@@ -68,7 +68,7 @@ pub(crate) enum SingleOrMappedQueryEvaluationValue<T: QueryTarget> {
 impl<T: NodeLike> SingleOrMappedQueryEvaluationValue<T> {
     pub(crate) fn from_query_evaluation_result(
         result: QueryEvaluationResult<T>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         match result {
             QueryEvaluationResult::Single(v) => Ok(Self::Single(v)),
             QueryEvaluationResult::Multiple(multi) => Ok(Self::Map(
@@ -81,7 +81,7 @@ impl<T: NodeLike> SingleOrMappedQueryEvaluationValue<T> {
         }
     }
 
-    pub(crate) fn into_value<'v>(self, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    pub(crate) fn into_value<'v>(self, heap: &'v Heap) -> buck2_error::Result<Value<'v>> {
         Ok(match self {
             SingleOrMappedQueryEvaluationValue::Single(res) => match res {
                 QueryEvaluationValue::TargetSet(targets) => {
@@ -110,7 +110,7 @@ impl<T: NodeLike> SingleOrMappedQueryEvaluationValue<T> {
                             },
                         ))
                     })
-                    .collect::<anyhow::Result<_>>()?,
+                    .collect::<buck2_error::Result<_>>()?,
             )),
         })
     }

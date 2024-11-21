@@ -52,7 +52,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn artifacts<'v>(
         this: Value<'v>,
-    ) -> anyhow::Result<NoneOr<StarlarkProvidersArtifactIterable<'v>>> {
+    ) -> starlark::Result<NoneOr<StarlarkProvidersArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
             BxlBuildResult::None => Ok(NoneOr::None),
             BxlBuildResult::Built { .. } => {
@@ -70,7 +70,9 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     ///     for target, value in ctx.build(ctx.cli_args.target).items():
     ///         ctx.output.print(value.failures())
     /// ```
-    fn failures<'v>(this: Value<'v>) -> anyhow::Result<NoneOr<StarlarkFailedArtifactIterable<'v>>> {
+    fn failures<'v>(
+        this: Value<'v>,
+    ) -> starlark::Result<NoneOr<StarlarkFailedArtifactIterable<'v>>> {
         match &this.downcast_ref::<StarlarkBxlBuildResult>().unwrap().0 {
             BxlBuildResult::None => Ok(NoneOr::None),
             BxlBuildResult::Built { .. } => {

@@ -26,7 +26,7 @@ impl BxlServerCommands for BxlServerCommandsInstance {
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::BxlRequest,
-    ) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
+    ) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
         Ok(bxl_command(ctx, partial_result_dispatcher, req).await?)
     }
 
@@ -35,8 +35,8 @@ impl BxlServerCommands for BxlServerCommandsInstance {
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: buck2_cli_proto::ProfileRequest,
-    ) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
-        bxl_profile_command(ctx, partial_result_dispatcher, req).await
+    ) -> buck2_error::Result<buck2_cli_proto::ProfileResponse> {
+        Ok(bxl_profile_command(ctx, partial_result_dispatcher, req).await?)
     }
 }
 

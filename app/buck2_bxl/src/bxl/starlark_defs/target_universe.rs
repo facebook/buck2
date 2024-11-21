@@ -76,7 +76,7 @@ impl<'v> StarlarkTargetUniverse<'v> {
     pub(crate) async fn new(
         ctx: ValueTyped<'v, BxlContext<'v>>,
         target_set: TargetSet<ConfiguredTargetNode>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let target_universe = CqueryUniverse::build(&target_set)?;
         let target_set = target_universe
             .get_from_targets(target_set.iter().map(|i| i.label().unconfigured().dupe()));
@@ -95,14 +95,14 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
     fn target_set<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
+    ) -> starlark::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
         Ok(heap.alloc_typed(StarlarkTargetSet::from(this.target_set.clone())))
     }
 
     /// The target set of the entire target universe.
     fn universe_target_set<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(StarlarkTargetSet::from(
             this.target_universe
                 .iter()

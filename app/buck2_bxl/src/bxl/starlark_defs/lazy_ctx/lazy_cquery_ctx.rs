@@ -87,7 +87,7 @@ fn lazy_cquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] target_universe: NoneOr<
             UnpackListOrTuple<String>,
         >,
-    ) -> anyhow::Result<StarlarkLazy> {
+    ) -> starlark::Result<StarlarkLazy> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),
             NoneOr::Other(query_args) => query_args.into_strings(),

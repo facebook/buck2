@@ -13,7 +13,6 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -23,7 +22,9 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::buck2_error;
 use buck2_error::starlark_error::from_starlark_with_options;
+use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use derivative::Derivative;
 use derive_more::Display;
@@ -166,9 +167,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(default = " ")] sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let mut first = true;
-        let mut write = |d: &dyn Display| -> anyhow::Result<()> {
+        let mut write = |d: &dyn Display| -> buck2_error::Result<()> {
             if !first {
                 write!(this.sink.borrow_mut(), "{}{}", sep, d)?;
             } else {
@@ -203,7 +204,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                                         &this.project_fs,
                                         &this.artifact_fs,
                                     )?;
-                                    Ok(write(&path)?)
+                                    write(&path)
                                 },
                                 dice,
                             )
@@ -214,7 +215,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             }
         }
 
-        writeln!(this.sink.borrow_mut())?;
+        if let Err(e) = writeln!(this.sink.borrow_mut()) {
+            return Err(buck2_error::Error::from(e).into());
+        }
 
         Ok(NoneType)
     }
@@ -239,7 +242,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         value: Value<'v>,
         #[starlark(require=named, default=true)] pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v, 'd> {
             value: Value<'v>,
@@ -292,9 +295,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                                             self.project_fs,
                                             self.artifact_fs,
                                         )?;
-                                        seq_ser
-                                            .serialize_element(&path)
-                                            .map_err(|err| anyhow::anyhow!(format!("{:#}", err)))?;
+                                        seq_ser.serialize_element(&path).map_err(|err| {
+                                            buck2_error!([], "{}", format!("{:#}", err))
+                                        })?;
                                         Ok(())
                                     },
                                     dice,
@@ -336,8 +339,11 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 async_ctx: &BxlEvalExtra::from_context(eval)?.dice,
             },
         )
-        .context("Error writing to JSON for `write_json`")?;
-        writeln!(this.sink.borrow_mut())?;
+        .buck_error_context("Error writing to JSON for `write_json`")?;
+
+        if let Err(e) = writeln!(this.sink.borrow_mut()) {
+            return Err(buck2_error::Error::from(e).into());
+        }
 
         Ok(NoneType)
     }
@@ -360,7 +366,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     fn ensure<'v>(
         this: &OutputStream,
         artifact: ArtifactArg<'v>,
-    ) -> anyhow::Result<EnsuredArtifact> {
+    ) -> starlark::Result<EnsuredArtifact> {
         let artifact = artifact.into_ensured_artifact();
         populate_ensured_artifacts(this, EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
 
@@ -388,7 +394,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         // TODO(nga): must be either positional or named.
         artifacts: EnsureMultipleArtifactsArg<'v>,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         match artifacts {
             EnsureMultipleArtifactsArg::None(_) => Ok(heap.alloc(Vec::<EnsuredArtifact>::new())),
             EnsureMultipleArtifactsArg::EnsuredArtifactArgs(list) => {
@@ -399,7 +405,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                         EnsuredArtifactOrGroup::Artifact(artifact.clone()),
                     )?;
 
-                    Ok::<EnsuredArtifact, anyhow::Error>(artifact)
+                    Ok::<EnsuredArtifact, buck2_error::Error>(artifact)
                 })?;
 
                 Ok(heap.alloc(artifacts))
@@ -435,7 +441,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                             )?),
                         ))
                     })
-                    .collect::<anyhow::Result<_>>()?,
+                    .collect::<buck2_error::Result<_>>()?,
             ))),
             EnsureMultipleArtifactsArg::CmdLine(cmd_line) => {
                 // TODO(nga): we should not be doing that here.
@@ -461,7 +467,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
 
 pub(crate) fn get_cmd_line_inputs<'v>(
     cmd_line: &'v dyn CommandLineArgLike,
-) -> anyhow::Result<StarlarkCommandLineInputs> {
+) -> buck2_error::Result<StarlarkCommandLineInputs> {
     let mut visitor = SimpleCommandLineArtifactVisitor::new();
     cmd_line.visit_artifacts(&mut visitor)?;
     let inputs = StarlarkCommandLineInputs {
@@ -475,7 +481,7 @@ pub(crate) fn get_artifact_path_display(
     abs: bool,
     project_fs: &ProjectRoot,
     artifact_fs: &ArtifactFs,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     let resolved = artifact_path.resolve(artifact_fs)?;
     Ok(if abs {
         project_fs.resolve(&resolved).to_string()
@@ -487,7 +493,7 @@ pub(crate) fn get_artifact_path_display(
 fn populate_ensured_artifacts(
     output_stream: &OutputStream,
     ensured: EnsuredArtifactOrGroup,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     output_stream
         .artifacts_to_ensure
         .borrow_mut()
@@ -500,7 +506,7 @@ fn populate_ensured_artifacts(
 fn get_artifacts_from_bxl_build_result(
     bxl_build_result: &StarlarkBxlBuildResult,
     output_stream: &OutputStream,
-) -> anyhow::Result<Vec<EnsuredArtifact>> {
+) -> buck2_error::Result<Vec<EnsuredArtifact>> {
     match &bxl_build_result.0 {
         BxlBuildResult::None => Ok(Vec::new()),
         BxlBuildResult::Built { result, .. } => result
@@ -525,6 +531,6 @@ fn get_artifacts_from_bxl_build_result(
                 )?;
                 artifact
             })
-            .collect::<anyhow::Result<_>>(),
+            .collect::<buck2_error::Result<_>>(),
     }
 }

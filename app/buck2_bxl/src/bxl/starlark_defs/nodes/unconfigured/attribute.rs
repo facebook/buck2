@@ -122,7 +122,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     ///     node = ctx.uquery().owner("bin/TARGETS")[0]
     ///     ctx.output.print(node.attrs.name.value())
     /// ```
-    fn value<'v>(this: &StarlarkCoercedAttr, heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+    fn value<'v>(this: &StarlarkCoercedAttr, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         Ok(this.0.to_value(this.1.dupe(), heap)?)
     }
 }

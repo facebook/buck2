@@ -975,10 +975,10 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    BXL_SERVER_COMMANDS
+                    Ok(BXL_SERVER_COMMANDS
                         .get()?
                         .bxl(ctx, partial_result_dispatcher, req)
-                        .await
+                        .await?)
                 })
             },
         )
@@ -1351,10 +1351,10 @@ impl DaemonApi for BuckdServer {
                             profile_command(ctx, partial_result_dispatcher, req).await
                         }
                         buck2_cli_proto::profile_request::ProfileOpts::BxlProfile(_) => {
-                            BXL_SERVER_COMMANDS
+                            Ok(BXL_SERVER_COMMANDS
                                 .get()?
                                 .bxl_profile(ctx, partial_result_dispatcher, req)
-                                .await
+                                .await?)
                         }
                     }
                 })

@@ -84,7 +84,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     ///     providers = ctx.analysis("//:bin").providers()
     ///     ctx.output.print(providers[FooInfo])
     /// ```
-    fn providers<'v>(this: &'v StarlarkAnalysisResult) -> anyhow::Result<FrozenValue> {
+    fn providers<'v>(this: &'v StarlarkAnalysisResult) -> starlark::Result<FrozenValue> {
         unsafe {
             // SAFETY:: this actually just returns a FrozenValue from in the StarlarkAnalysisResult
             // which is kept alive for 'v
@@ -112,7 +112,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     fn as_dependency<'v>(
         this: &'v StarlarkAnalysisResult,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<ValueTyped<'v, Dependency<'v>>> {
+    ) -> starlark::Result<ValueTyped<'v, Dependency<'v>>> {
         Ok(eval.heap().alloc_typed(Dependency::new(
             eval.heap(),
             this.label.dupe(),

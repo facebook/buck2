@@ -53,7 +53,7 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     /// ```
     fn ctarget_set(
         nodes: Option<UnpackList<StarlarkConfiguredTargetNode>>,
-    ) -> anyhow::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(StarlarkTargetSet::from_iter(
             nodes
                 .unwrap_or(UnpackList::default())
@@ -74,7 +74,7 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     /// ```
     fn utarget_set(
         nodes: Option<UnpackList<StarlarkTargetNode>>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet::from_iter(
             nodes
                 .unwrap_or(UnpackList::default())
@@ -97,7 +97,7 @@ pub(crate) fn register_file_set_function(builder: &mut GlobalsBuilder) {
     ///     ctx.output.print(type(files))
     ///     ctx.output.print(len(files))
     /// ```
-    fn file_set() -> anyhow::Result<StarlarkFileSet> {
+    fn file_set() -> starlark::Result<StarlarkFileSet> {
         Ok(StarlarkFileSet(FileSet::new(IndexSet::new())))
     }
 }
@@ -131,7 +131,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
         heap: &'v Heap,
-    ) -> anyhow::Result<StringValue<'v>> {
+    ) -> starlark::Result<StringValue<'v>> {
         let path = match this {
             ValueAsArtifactLikeUnpack::Artifact(a) => {
                 let artifact = a.artifact();
@@ -148,7 +148,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                 ctx.project_fs(),
                 ctx.artifact_fs(),
             )?,
-            _ => return Err(PromiseArtifactsNotSupported.into()),
+            _ => return Err(buck2_error::Error::from(PromiseArtifactsNotSupported).into()),
         };
 
         Ok(heap.alloc_str(&path))
@@ -177,7 +177,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
         heap: &'v Heap,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let inputs = get_cmd_line_inputs(cmd_line.0)?;
         let mut result = Vec::new();
 
@@ -230,7 +230,7 @@ pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
     /// ```
     ///
     /// This function is only accessible through Bxl.
-    fn now(eval: &mut Evaluator) -> anyhow::Result<StarlarkInstant> {
+    fn now(eval: &mut Evaluator) -> starlark::Result<StarlarkInstant> {
         BxlEvalExtra::from_context(eval)?;
         Ok(StarlarkInstant(Instant::now()))
     }

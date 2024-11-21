@@ -181,7 +181,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
@@ -206,7 +206,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn inputs<'v>(
         this: &StarlarkUQueryCtx<'v>,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkFileSet> {
+    ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
             .via_dice(|dice, _| {
@@ -233,7 +233,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         regex: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
@@ -342,7 +342,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkUQueryCtx<'v>,
         regex: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this
             .ctx
             .via_dice(|dice, _| {
@@ -395,7 +395,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
     fn buildfile<'v>(
         this: &StarlarkUQueryCtx<'v>,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkFileSet> {
+    ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
             .via_dice(|dice, _| {
@@ -484,7 +484,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         attribute: &str,
         value: &str,
         targets: TargetListExprArg<'v>,
-    ) -> anyhow::Result<StarlarkTargetSet<TargetNode>> {
+    ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(this.ctx.via_dice(|dice, _| {
             dice.via(|dice| {
                 async {
@@ -516,7 +516,7 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
         query: &'v str,
         #[starlark(default = NoneOr::None)] query_args: NoneOr<UnpackUnconfiguredQueryArgs<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let query_args = match query_args {
             NoneOr::None => Vec::new(),
             NoneOr::Other(query_args) => query_args.into_strings(),
