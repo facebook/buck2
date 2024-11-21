@@ -22,7 +22,9 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
+use starlark::values::ValueOfUncheckedGeneric;
 
+use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 
@@ -102,7 +104,7 @@ where
 #[display("Traversal({}[\"{}\"])", transitive_set, projection)]
 #[repr(C)]
 pub struct TransitiveSetProjectionTraversalGen<V: ValueLifetimeless> {
-    pub(super) transitive_set: V,
+    pub(super) transitive_set: ValueOfUncheckedGeneric<V, FrozenTransitiveSet>,
     pub projection: usize,
     pub ordering: TransitiveSetOrdering,
 }
@@ -115,7 +117,7 @@ where
     Self: ProvidesStaticType<'v>,
 {
     fn iterate_collect(&self, _heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
-        let set = TransitiveSet::from_value(self.transitive_set.to_value())
+        let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .buck_error_context("Invalid inner")?;
         Ok(set
             .iter_projection_values(self.ordering, self.projection)?

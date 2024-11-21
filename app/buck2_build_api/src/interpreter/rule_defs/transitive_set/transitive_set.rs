@@ -44,6 +44,7 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
+use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 
 use crate::actions::impls::json::validate_json;
@@ -498,7 +499,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .get_index_of_projection(TransitiveSetProjectionKind::Json, projection)?;
 
         Ok(TransitiveSetJsonProjection {
-            transitive_set: this.value,
+            transitive_set: ValueOfUnchecked::<FrozenTransitiveSet>::new(this.value),
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
         })
@@ -516,7 +517,7 @@ fn transitive_set_methods(builder: &mut MethodsBuilder) {
             .get_index_of_projection(TransitiveSetProjectionKind::Args, projection)?;
 
         Ok(TransitiveSetArgsProjection {
-            transitive_set: this.value,
+            transitive_set: ValueOfUnchecked::<FrozenTransitiveSet>::new(this.value),
             projection: index,
             ordering: TransitiveSetOrdering::parse(ordering)?,
         })
