@@ -163,11 +163,15 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] aliases: NoneOr<Value<'v>>,
         #[starlark(require = named, default = NoneOr::None)] extra_data: NoneOr<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
         let ctx = match &build_context.additional {
             PerFileTypeContext::Package(ctx) => ctx,
-            _ => return Err(RegisterCfgConstructorError::NotPackageRoot.into()),
+            _ => {
+                return Err(
+                    buck2_error::Error::from(RegisterCfgConstructorError::NotPackageRoot).into(),
+                );
+            }
         };
         if ctx.path.dir()
             != CellPathRef::new(
@@ -175,11 +179,15 @@ pub(crate) fn register_set_cfg_constructor(globals: &mut GlobalsBuilder) {
                 CellRelativePath::empty(),
             )
         {
-            return Err(RegisterCfgConstructorError::NotPackageRoot.into());
+            return Err(
+                buck2_error::Error::from(RegisterCfgConstructorError::NotPackageRoot).into(),
+            );
         }
         let package_file_extra: &PackageFileExtra = PackageFileExtra::get_or_init(eval)?;
         if package_file_extra.cfg_constructor.get().is_some() {
-            return Err(RegisterCfgConstructorError::AlreadyRegistered.into());
+            return Err(
+                buck2_error::Error::from(RegisterCfgConstructorError::AlreadyRegistered).into(),
+            );
         }
         package_file_extra.cfg_constructor.get_or_init(|| {
             eval.heap().alloc_complex(StarlarkCfgConstructor {

@@ -82,8 +82,8 @@ async fn eval_pre_constraint_analysis<'v>(
     extra_data: Option<&'v OwnedFrozenValue>,
     module: &'v Module,
     print: &'v EventDispatcherPrintHandler,
-) -> anyhow::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
-    Ok(with_starlark_eval_provider(
+) -> buck2_error::Result<(Vec<String>, Value<'v>, Evaluator<'v, 'v, 'v>)> {
+    with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
@@ -144,13 +144,13 @@ async fn eval_pre_constraint_analysis<'v>(
             Ok((refs.items, params, eval))
         },
     )
-    .await?)
+    .await
 }
 
 async fn analyze_constraints(
     ctx: &mut DiceComputations<'_>,
     refs: Vec<String>,
-) -> anyhow::Result<SmallMap<String, FrozenProviderCollectionValue>> {
+) -> buck2_error::Result<SmallMap<String, FrozenProviderCollectionValue>> {
     let cell_resolver = &ctx.get_cell_resolver().await?;
     let cell_alias_resolver = &ctx
         .get_cell_alias_resolver(cell_resolver.root_cell())
@@ -173,7 +173,7 @@ async fn analyze_constraints(
                         ctx.get_configuration_analysis_result(&label).await?,
                     ))
                 } else {
-                    Err::<_, anyhow::Error>(
+                    Err::<_, buck2_error::Error>(
                         CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
                             label_str,
                         )
@@ -193,8 +193,8 @@ async fn eval_post_constraint_analysis<'v>(
     params: Value<'v>,
     mut eval: Evaluator<'v, '_, '_>,
     refs_providers_map: SmallMap<String, FrozenProviderCollectionValue>,
-) -> anyhow::Result<ConfigurationData> {
-    Ok(with_starlark_eval_provider(
+) -> buck2_error::Result<ConfigurationData> {
+    with_starlark_eval_provider(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
@@ -230,7 +230,7 @@ async fn eval_post_constraint_analysis<'v>(
             )
         },
     )
-    .await?)
+    .await
 }
 
 async fn eval_underlying(
@@ -241,7 +241,7 @@ async fn eval_underlying(
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
-) -> anyhow::Result<ConfigurationData> {
+) -> buck2_error::Result<ConfigurationData> {
     let module = Module::new();
     let print = EventDispatcherPrintHandler(get_dispatcher());
 
@@ -292,7 +292,7 @@ impl CfgConstructorImpl for CfgConstructor {
     ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
         let fut = async move {
-            Ok(eval_underlying(
+            eval_underlying(
                 self,
                 ctx,
                 cfg,
@@ -301,7 +301,7 @@ impl CfgConstructorImpl for CfgConstructor {
                 cli_modifiers,
                 rule_type,
             )
-            .await?)
+            .await
         };
         unsafe { Box::pin(UnsafeSendFuture::new_encapsulates_starlark(fut)) }
     }

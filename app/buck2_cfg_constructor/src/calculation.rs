@@ -10,13 +10,13 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
@@ -43,7 +43,7 @@ pub struct CfgConstructorCalculationInstance;
 
 async fn get_cfg_constructor_uncached(
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
     let root_cell = ctx.get_cell_resolver().await?.root_cell();
     let package_label = PackageLabel::new(root_cell, CellRelativePath::empty());
     // This returns empty super package if `PACKAGE` file does not exist.
@@ -53,7 +53,7 @@ async fn get_cfg_constructor_uncached(
 
 async fn get_cfg_constructor(
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     struct GetCfgConstructorKey;
 
@@ -78,7 +78,7 @@ async fn get_cfg_constructor(
 
     ctx.compute(&GetCfgConstructorKey)
         .await?
-        .map_err(anyhow::Error::from)
+        .map_err(buck2_error::Error::from)
 }
 
 #[async_trait]
@@ -111,9 +111,9 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 ctx: &mut DiceComputations,
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
-                let cfg_constructor = get_cfg_constructor(ctx)
-                    .await?
-                    .context("Internal error: Global cfg constructor instance should exist")?;
+                let cfg_constructor = get_cfg_constructor(ctx).await?.buck_error_context(
+                    "Internal error: Global cfg constructor instance should exist",
+                )?;
                 cfg_constructor
                     .eval(
                         ctx,
