@@ -7,8 +7,6 @@
 
 load("@//third-party:defs.bzl", "system_library")
 
-HOMEBREW_BREW = "boost"
-
 def boost_libs(libraries, header_only):
     system_library(
         name = "boost",
@@ -33,7 +31,7 @@ def boost_library(library: str, header_only: bool):
         packages = {
             "//os:linux-fedora": ["boost-devel"],
             "//os:linux-ubuntu": [
-                "libboost-dev" if header_only else "libboost-{}-dev".format(library),
+                "libboost-dev" if header_only else "libboost-{}-dev".format(library.replace("_", "-")),
             ],
             "//os:macos-homebrew": ["boost"],
         },
