@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use ref_cast::RefCast;
 
+use crate::__for_macro::ContextValue;
 use crate::any::recover_crate_error;
 use crate::context_value::StarlarkContext;
 use crate::error::ErrorKind;
@@ -53,6 +54,61 @@ pub fn from_starlark_with_options(
     from_starlark_impl(e, error_handling, skip_stacktrace)
 }
 
+// If the top context is a string context, then it should be popped off as otherwise
+// the error will be duplicated since the top level error is used to build the stacktrace.
+fn error_with_starlark_context(
+    e: &crate::Error,
+    starlark_context: StarlarkContext,
+) -> crate::Error {
+    let mut context_stack: Vec<ContextValue> = Vec::new();
+    let mut buck2_error = e.clone();
+
+    loop {
+        match buck2_error.0.as_ref() {
+            ErrorKind::Root(root) => {
+                let source_location = root.source_location().map(|s| s.to_owned());
+                let action_error = root.action_error().cloned();
+
+                // We want to keep the metadata but want to change the error message
+                let new_root = ErrorRoot::new(
+                    format!("{}", starlark_context),
+                    source_location,
+                    action_error,
+                );
+                let mut err = crate::Error(Arc::new(ErrorKind::Root(Box::new(new_root))));
+
+                for context in context_stack.into_iter().rev() {
+                    err = err.context(context);
+                }
+
+                return err;
+            }
+            ErrorKind::WithContext(context_value, inner) => {
+                match context_value {
+                    ContextValue::Dyn(_) => {
+                        let mut inner_err = inner.clone();
+                        for context in context_stack.into_iter().rev() {
+                            inner_err = inner_err.context(context);
+                        }
+
+                        return inner_err
+                            .clone()
+                            .context_for_starlark_backtrace(starlark_context);
+                    }
+                    ContextValue::StarlarkError(_) => {
+                        return buck2_error.context_for_starlark_backtrace(starlark_context);
+                    }
+                    _ => context_stack.push(context_value.clone()),
+                }
+
+                buck2_error = inner.clone();
+                continue;
+            }
+            _ => return buck2_error,
+        }
+    }
+}
+
 fn from_starlark_impl(
     e: starlark_syntax::Error,
     error_handling: NativeErrorHandling,
@@ -70,12 +126,7 @@ fn from_starlark_impl(
                 span: e.span().cloned(),
             };
 
-            let buck2_err = wrapper
-                .0
-                .clone()
-                .context_for_starlark_backtrace(starlark_context);
-
-            return buck2_err;
+            return error_with_starlark_context(&wrapper.0, starlark_context);
         }
     };
 
@@ -179,6 +230,9 @@ mod tests {
 
     use super::from_starlark;
     use crate::any::ProvidableMetadata;
+    use crate::buck2_error;
+    use crate::context_value::StarlarkContext;
+    use crate::starlark_error::error_with_starlark_context;
 
     #[derive(Debug, derive_more::Display)]
     struct FullMetadataError;
@@ -229,5 +283,48 @@ mod tests {
                 crate::ErrorTag::WatchmanTimeout
             ]
         );
+    }
+
+    #[test]
+    fn test_pop_dyn_error_from_context() {
+        let context_error = "Some error message that's getting popped";
+        let context_key = "Some context key";
+        let error_tag = crate::ErrorTag::IoWindowsSharingViolation;
+        let starlark_context = StarlarkContext {
+            call_stack: "Some call stack".to_owned(),
+            error_msg: "Some error message".to_owned(),
+            span: None,
+        };
+
+        let e = crate::Error::new(FullMetadataError);
+        let e = e.context(context_error);
+        let e = e.tag([error_tag]);
+        let e = e.context_for_key(context_key);
+
+        let context_popped = error_with_starlark_context(&e, starlark_context);
+
+        assert!(!context_popped.to_string().contains(context_error));
+        assert!(context_popped.tags().contains(&error_tag));
+        assert!(context_popped.category_key().ends_with(context_key));
+    }
+
+    #[test]
+    fn test_pop_base_error_from_context() {
+        let base_error = "Some base error";
+        let starlark_error = "Starlark error message";
+        let starlark_call_stack = "Some call stack";
+        let starlark_context = StarlarkContext {
+            call_stack: starlark_call_stack.to_owned(),
+            error_msg: starlark_error.to_owned(),
+            span: None,
+        };
+
+        let e = buck2_error!([], "{}", base_error);
+
+        let base_replaced = error_with_starlark_context(&e, starlark_context);
+
+        assert!(!base_replaced.to_string().contains(base_error));
+        assert!(base_replaced.to_string().contains(starlark_call_stack));
+        assert!(base_replaced.to_string().contains(starlark_error));
     }
 }

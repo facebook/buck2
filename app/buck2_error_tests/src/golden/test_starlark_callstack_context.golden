@@ -16,6 +16,5 @@ Caused by:
        9 |      rust_failure()
          |      ^^^^^^^^^^^^^^
          |
-    1: rust failure
-    2: fail 2
-    3: fail 1
+    1: fail 2
+    2: fail 1

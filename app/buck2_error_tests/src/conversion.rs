@@ -113,6 +113,7 @@ fn test_starlark_multiple_stacktrace_with_context_inbetween() {
         fn outer_rust_failure() -> starlark::Result<NoneType> {
             let e: buck2_error::Error = from_starlark(starlark_conversion_helper());
             let e = e.context("Adding a context in between backtraces");
+            let e = e.context("Error to be displayed in stacktrace");
             Err(e.into())
         }
     }
@@ -132,7 +133,7 @@ def outer_fail():
         r#"
 load('outer_import', 'outer_fail')
 outer_fail()"#,
-        "Adding a context in between backtraces",
+        "Error to be displayed in stacktrace",
     );
 
     golden_test_template(

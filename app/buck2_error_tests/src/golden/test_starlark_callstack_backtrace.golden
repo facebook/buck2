@@ -20,6 +20,5 @@ error: rust failure
   |
 
 Caused by:
-    0: rust failure
-    1: fail 2
-    2: fail 1
+    0: fail 2
+    1: fail 1

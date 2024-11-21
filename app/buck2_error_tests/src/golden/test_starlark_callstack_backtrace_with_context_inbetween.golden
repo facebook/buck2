@@ -7,7 +7,7 @@ Traceback (most recent call last):
   * outer_import.bzl:4, in outer_fail
       outer_rust_failure()
 
-error: Adding a context in between backtraces
+error: Error to be displayed in stacktrace
  --> outer_import.bzl:4:6
   |
 4 |      outer_rust_failure()
@@ -28,6 +28,5 @@ Caused by:
        9 |      rust_failure()
          |      ^^^^^^^^^^^^^^
          |
-    2: rust failure
-    3: fail 2
-    4: fail 1
+    2: fail 2
+    3: fail 1
