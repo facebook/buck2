@@ -30,7 +30,7 @@ async def test_test_skip_incompatible_targets(buck: Buck) -> None:
             f"--target-platforms={platformA}",
             test_executor="",
         ),
-        stderr_regex=f"{targetB} is incompatible with {platformA}#.*$",
+        stderr_regex=rf"{targetB}\s*is incompatible with {platformA}#.*$",
     )
 
     result = await buck.test(

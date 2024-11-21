@@ -31,7 +31,7 @@ async def test_incompatible_target_skipping(buck: Buck) -> None:
     # )
 
 
-INCOMPATIBLE_ERROR = "root//:incompatible is incompatible with"
+INCOMPATIBLE_ERROR = r"root//:incompatible\s*is incompatible with"
 
 
 @buck_test()
@@ -62,7 +62,7 @@ async def test_incompatible_target_with_incompatible_dep(buck: Buck) -> None:
     await buck.build(target, "--skip-incompatible-targets")
     await expect_failure(
         buck.build(target),
-        stderr_regex=f"{target} is incompatible with",
+        stderr_regex=rf"{target}\s*is incompatible with",
     )
 
 
@@ -104,7 +104,17 @@ async def test_error_on_dep_only_incompatible(
     ]
     if soft_error:
         result = await buck.cquery(*args)
-        assert re.search(INCOMPATIBLE_ERROR, result.stderr, re.DOTALL | re.IGNORECASE)
+        # This can't use the same INCOMPATIBLE_ERROR str as elsewhere.
+        # Because the result is a soft error, stderr has timestamps
+        # prefixing each line which makes this regex, which works elsewhere,
+        # fail here. The regex could try to match with the timestamp instead,
+        # but this is easier
+        assert re.search(
+            "root//:incompatible", result.stderr, re.DOTALL | re.IGNORECASE
+        )
+        assert re.search(
+            "is incompatible with", result.stderr, re.DOTALL | re.IGNORECASE
+        )
     else:
         await expect_failure(
             buck.cquery(*args),

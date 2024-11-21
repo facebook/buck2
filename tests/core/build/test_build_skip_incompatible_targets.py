@@ -26,7 +26,7 @@ async def test_build_skip_incompatible(buck: Buck) -> None:
             targetB,
             f"--target-platforms={platformA}",
         ),
-        stderr_regex=f"{targetB} is incompatible with {platformA}",
+        stderr_regex=rf"{targetB}\s*is incompatible with {platformA}",
     )
 
     result = await buck.build(

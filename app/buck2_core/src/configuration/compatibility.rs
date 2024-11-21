@@ -22,7 +22,7 @@ use crate::target::label::label::TargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
 enum CompatibilityErrors {
-    #[error("{0}")]
+    #[error("{0:#}")]
     #[buck2(input)]
     TargetIncompatible(IncompatiblePlatformReason),
 }
@@ -129,8 +129,8 @@ impl Display for IncompatiblePlatformReason {
             IncompatiblePlatformReasonCause::UnsatisfiedConfig(unsatisfied_config) => write!(
                 f,
                 // WARN: CI uses this message to filter targets
-                // If you change this message, please also update https://fburl.com/code/f00ezpfn
-                "{} is incompatible with {} ({} unsatisfied), check the target's compatibility attributes",
+                // If you change this message, please also update https://fburl.com/code/nvdg28nv
+                "{}\n    is incompatible with {} ({} unsatisfied), check the target's compatibility attributes",
                 self.target.unconfigured(),
                 self.target.cfg(),
                 unsatisfied_config,
