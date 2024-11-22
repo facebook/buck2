@@ -12,7 +12,6 @@ use std::fmt;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_error::BuckErrorContext;
@@ -25,6 +24,7 @@ use buck2_interpreter::types::rule::FROZEN_RULE_GET_IMPL;
 use buck2_interpreter::types::transition::transition_id_from_value;
 use buck2_node::attrs::attr::Attribute;
 use buck2_node::attrs::spec::AttributeSpec;
+use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::rule::Rule;
@@ -87,7 +87,7 @@ pub static NAME_ATTRIBUTE_FIELD: &str = "name";
 pub struct RuleCallable<'v> {
     /// The import path that contains the rule() call; stored here so we can retrieve extra
     /// information during `export_as()`
-    import_path: ImportPath,
+    rule_path: BzlOrBxlPath,
     /// Once exported, the `import_path` and `name` of the callable. Used in DICE to retrieve rule
     /// implementations
     id: RefCell<Option<StarlarkRuleType>>,
@@ -142,7 +142,7 @@ enum RuleError {
     #[error("`{0}` is not a valid attribute name")]
     InvalidParameterName(String),
     #[error("Rule defined in `{0}` must be assigned to a variable, e.g. `my_rule = rule(...)`")]
-    RuleNotAssigned(ImportPath),
+    RuleNotAssigned(BzlOrBxlPath),
     #[error(
         "Rule defined with both `is_configuration_rule` and `is_toolchain_rule`, these options are mutually exclusive"
     )]
@@ -174,8 +174,9 @@ impl<'v> RuleCallable<'v> {
         //                 objects, but will blow up in a friendlier way here.
 
         let build_context = BuildContext::from_context(eval)?;
-        let bzl_path: ImportPath = match &build_context.additional {
-            PerFileTypeContext::Bzl(bzl_path) => bzl_path.bzl_path.clone(),
+        let rule_path: BzlOrBxlPath = match &build_context.additional {
+            PerFileTypeContext::Bzl(bzl_path) => BzlOrBxlPath::Bzl(bzl_path.bzl_path.clone()),
+            PerFileTypeContext::Bxl(bxl_path) => BzlOrBxlPath::Bxl(bxl_path.clone()),
             _ => return Err(RuleError::RuleNonInBzl.into()),
         };
         let sorted_validated_attrs = attrs
@@ -205,7 +206,7 @@ impl<'v> RuleCallable<'v> {
         let ty = Ty::ty_function(attributes.ty_function());
 
         Ok(RuleCallable {
-            import_path: bzl_path,
+            rule_path,
             id: RefCell::new(None),
             implementation,
             attributes,
@@ -250,7 +251,7 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
         _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<()> {
         *self.id.borrow_mut() = Some(StarlarkRuleType {
-            import_path: self.import_path.clone(),
+            path: self.rule_path.clone(),
             name: variable_name.to_owned(),
         });
         Ok(())
@@ -287,7 +288,7 @@ impl<'v> Freeze for RuleCallable<'v> {
         let rule_docs = self.documentation_impl();
         let id = match self.id.into_inner() {
             Some(x) => x,
-            None => return Err(RuleError::RuleNotAssigned(self.import_path).into()),
+            None => return Err(RuleError::RuleNotAssigned(self.rule_path).into()),
         };
         let rule_type = Arc::new(id);
         let rule_name = rule_type.name.to_owned();

@@ -55,6 +55,7 @@ use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::bzl_or_bxl_path::BzlOrBxlPath;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::configuration::resolved::ConfigurationSettingKey;
@@ -210,7 +211,7 @@ impl ConfiguredTargetNode {
         use crate::nodes::unconfigured::testing::TargetNodeExt;
 
         let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
-            import_path: ImportPath::testing_new("cell//pkg:rules.bzl"),
+            path: BzlOrBxlPath::Bzl(ImportPath::testing_new("cell//pkg:rules.bzl")),
             name: rule_type.to_owned(),
         }));
 

@@ -37,6 +37,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -66,7 +67,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let label2 = TargetLabel::new(pkg.dupe(), name2.as_ref());
 
     let rule_type = RuleType::Starlark(Arc::new(StarlarkRuleType {
-        import_path: ImportPath::testing_new("cell//foo/bar:def.bzl"),
+        path: BzlOrBxlPath::Bzl(ImportPath::testing_new("cell//foo/bar:def.bzl")),
         name: "some_rule".to_owned(),
     }));
     let attrs1 = vec![

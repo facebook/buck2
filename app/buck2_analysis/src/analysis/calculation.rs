@@ -33,10 +33,12 @@ use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
 use buck2_events::span::SpanId;
 use buck2_interpreter::load_module::InterpreterCalculation;
+use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
+use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured::ConfiguredTargetNodeRef;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -209,9 +211,15 @@ pub async fn get_rule_spec(
     ctx: &mut DiceComputations<'_>,
     func: &StarlarkRuleType,
 ) -> buck2_error::Result<impl RuleSpec> {
-    let module = ctx
-        .get_loaded_module_from_import_path(&func.import_path)
-        .await?;
+    let module = match &func.path {
+        BzlOrBxlPath::Bxl(bxl_file_path) => {
+            let module_path = StarlarkModulePath::BxlFile(&bxl_file_path);
+            ctx.get_loaded_module(module_path).await?
+        }
+        BzlOrBxlPath::Bzl(import_path) => {
+            ctx.get_loaded_module_from_import_path(import_path).await?
+        }
+    };
     Ok(get_user_defined_rule_spec(module.env().dupe(), func))
 }
 

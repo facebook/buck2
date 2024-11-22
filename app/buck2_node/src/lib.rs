@@ -12,6 +12,7 @@
 #![allow(clippy::len_without_is_empty)]
 
 pub mod attrs;
+pub mod bzl_or_bxl_path;
 pub mod call_stack;
 pub mod cfg_constructor;
 pub mod configuration;
