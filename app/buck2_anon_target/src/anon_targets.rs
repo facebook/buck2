@@ -22,6 +22,7 @@ use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::anon_target::AnonTargetDependentAnalysisResults;
 use buck2_build_api::anon_target::AnonTargetDyn;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
@@ -88,6 +89,7 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetDependents;
 use crate::anon_target_node::AnonTarget;
+use crate::anon_target_node::AnonTargetVariant;
 use crate::bxl::eval_bxl_for_anon_target;
 use crate::promise_artifacts::PromiseArtifactRegistry;
 
@@ -341,110 +343,39 @@ impl AnonTargetKey {
                 rule: self.0.rule_type().to_string(),
             },
             async move {
-                if let BzlOrBxlPath::Bxl(_) = &self.0.rule_type().path {
-                    return cancellation
-                        .with_structured_cancellation(|observer| {
-                            eval_bxl_for_anon_target(
-                                dice,
-                                self.0.dupe(),
-                                dependents_analyses,
-                                exec_resolution,
-                                observer,
-                            )
-                            .boxed_local()
-                        })
-                        .await;
+                match (&self.0.rule_type().path, self.0.anon_target_type()) {
+                    (BzlOrBxlPath::Bxl(_), AnonTargetVariant::Bxl(global_cfg_options)) => {
+                        cancellation
+                            .with_structured_cancellation(|observer| {
+                                eval_bxl_for_anon_target(
+                                    dice,
+                                    self.0.dupe(),
+                                    global_cfg_options.dupe(),
+                                    dependents_analyses,
+                                    exec_resolution,
+                                    observer,
+                                )
+                                .boxed_local()
+                            })
+                            .await
+                    }
+                    (BzlOrBxlPath::Bzl(_), AnonTargetVariant::Bzl) => {
+                        self.eval_for_bzl(dice, dependents_analyses, exec_resolution)
+                            .await
+                    }
+                    (BzlOrBxlPath::Bxl(bxl_file_path), AnonTargetVariant::Bzl) => {
+                        Err(internal_error!(
+                            "Bxl anon target defined at {}, but AnonTarget key is bzl.",
+                            bxl_file_path
+                        ))
+                    }
+                    (BzlOrBxlPath::Bzl(import_path), AnonTargetVariant::Bxl(_)) => {
+                        Err(internal_error!(
+                            "Bzl anon target defined at {}, but AnonTarget key is bxl.",
+                            import_path
+                        ))
+                    }
                 }
-
-                let validations_from_deps = dependents_analyses.validations();
-                let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
-                let env = Module::new();
-                let print = EventDispatcherPrintHandler(get_dispatcher());
-
-                let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
-                    dice,
-                    &mut StarlarkProfilerOpt::disabled(),
-                    format!("anon_analysis:{}", self),
-                    |provider, dice| {
-                        let (mut eval, _) = provider.make(&env)?;
-                        eval.set_print_handler(&print);
-                        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-
-                        let attributes = self.0.resolve_attrs(
-                            &env,
-                            dependents_analyses,
-                            exec_resolution.clone(),
-                        )?;
-
-                        let registry = AnalysisRegistry::new_from_owner(
-                            BaseDeferredKey::AnonTarget(self.0.dupe()),
-                            exec_resolution,
-                        )?;
-
-                        let ctx = AnalysisContext::prepare(
-                            eval.heap(),
-                            Some(attributes),
-                            Some(self.0.configured_label()),
-                            // FIXME(JakobDegen): There should probably be a way to pass plugins
-                            // into anon targets
-                            Some(
-                                eval.heap()
-                                    .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-                                    .into(),
-                            ),
-                            registry,
-                            dice.global_data().get_digest_config(),
-                        );
-
-                        let list_res = rule_impl.invoke(&mut eval, ctx)?;
-                        Ok((dice, eval, ctx, list_res))
-                    },
-                )
-                .await?;
-
-                ctx.actions
-                    .run_promises(dice, &mut eval, format!("anon_analysis$promises:{}", self))
-                    .await?;
-                let res_typed = ProviderCollection::try_from_value(list_res)?;
-                let res = env.heap().alloc(res_typed);
-
-                let fulfilled_artifact_mappings = {
-                    let promise_artifact_mappings =
-                        rule_impl.promise_artifact_mappings(&mut eval)?;
-
-                    self.0.dupe().get_fulfilled_promise_artifacts(
-                        promise_artifact_mappings,
-                        res,
-                        &mut eval,
-                    )?
-                };
-
-                let res = ValueTypedComplex::new(res)
-                    .internal_error("Just allocated the provider collection")?;
-
-                // Pull the ctx object back out, and steal ctx.action's state back
-                let analysis_registry = ctx.take_state();
-                analysis_registry
-                    .analysis_value_storage
-                    .set_result_value(res)?;
-                std::mem::drop(eval);
-                let num_declared_actions = analysis_registry.num_declared_actions();
-                let num_declared_artifacts = analysis_registry.num_declared_artifacts();
-                let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
-
-                let validations = transitive_validations(
-                    validations_from_deps,
-                    recorded_values.provider_collection()?,
-                );
-
-                Ok(AnalysisResult::new(
-                    recorded_values,
-                    None,
-                    fulfilled_artifact_mappings,
-                    num_declared_actions,
-                    num_declared_artifacts,
-                    validations,
-                ))
             }
             .map(|res| {
                 let end = buck2_data::AnalysisEnd {
@@ -458,6 +389,100 @@ impl AnonTargetKey {
             }),
         )
         .await
+    }
+
+    async fn eval_for_bzl(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
+        exec_resolution: ExecutionPlatformResolution,
+    ) -> buck2_error::Result<AnalysisResult> {
+        let validations_from_deps = dependents_analyses.validations();
+        let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
+        let env = Module::new();
+        let print = EventDispatcherPrintHandler(get_dispatcher());
+
+        let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
+            dice,
+            &mut StarlarkProfilerOpt::disabled(),
+            format!("anon_analysis:{}", self),
+            |provider, dice| {
+                let (mut eval, _) = provider.make(&env)?;
+                eval.set_print_handler(&print);
+                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+
+                let attributes =
+                    self.0
+                        .resolve_attrs(&env, dependents_analyses, exec_resolution.clone())?;
+
+                let registry = AnalysisRegistry::new_from_owner(
+                    BaseDeferredKey::AnonTarget(self.0.dupe()),
+                    exec_resolution,
+                )?;
+
+                let ctx = AnalysisContext::prepare(
+                    eval.heap(),
+                    Some(attributes),
+                    Some(self.0.configured_label()),
+                    // FIXME(JakobDegen): There should probably be a way to pass plugins
+                    // into anon targets
+                    Some(
+                        eval.heap()
+                            .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                            .into(),
+                    ),
+                    registry,
+                    dice.global_data().get_digest_config(),
+                );
+
+                let list_res = rule_impl.invoke(&mut eval, ctx)?;
+                Ok((dice, eval, ctx, list_res))
+            },
+        )
+        .await?;
+
+        ctx.actions
+            .run_promises(dice, &mut eval, format!("anon_analysis$promises:{}", self))
+            .await?;
+        let res_typed = ProviderCollection::try_from_value(list_res)?;
+        let res = env.heap().alloc(res_typed);
+
+        let fulfilled_artifact_mappings = {
+            let promise_artifact_mappings = rule_impl.promise_artifact_mappings(&mut eval)?;
+
+            self.0.dupe().get_fulfilled_promise_artifacts(
+                promise_artifact_mappings,
+                res,
+                &mut eval,
+            )?
+        };
+
+        let res =
+            ValueTypedComplex::new(res).internal_error("Just allocated the provider collection")?;
+
+        // Pull the ctx object back out, and steal ctx.action's state back
+        let analysis_registry = ctx.take_state();
+        analysis_registry
+            .analysis_value_storage
+            .set_result_value(res)?;
+        std::mem::drop(eval);
+        let num_declared_actions = analysis_registry.num_declared_actions();
+        let num_declared_artifacts = analysis_registry.num_declared_artifacts();
+        let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+
+        let validations = transitive_validations(
+            validations_from_deps,
+            recorded_values.provider_collection()?,
+        );
+
+        Ok(AnalysisResult::new(
+            recorded_values,
+            None,
+            fulfilled_artifact_mappings,
+            num_declared_actions,
+            num_declared_artifacts,
+            validations,
+        ))
     }
 }
 

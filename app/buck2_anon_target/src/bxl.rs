@@ -14,12 +14,14 @@ use buck2_build_api::anon_target::AnonTargetDependentAnalysisResults;
 use buck2_build_api::anon_target::AnonTargetDyn;
 use buck2_build_api::bxl::anon_target::EVAL_BXL_FOR_ANON_TARGET;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_futures::cancellable_future::CancellationObserver;
 use dice::DiceComputations;
 
 pub(crate) async fn eval_bxl_for_anon_target(
     dice: &mut DiceComputations<'_>,
     anon_target: Arc<dyn AnonTargetDyn>,
+    global_cfg_options: GlobalCfgOptions,
     dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
     execution_platform: ExecutionPlatformResolution,
     liveness: CancellationObserver,
@@ -27,6 +29,7 @@ pub(crate) async fn eval_bxl_for_anon_target(
     (EVAL_BXL_FOR_ANON_TARGET.get()?)(
         dice,
         anon_target,
+        global_cfg_options,
         dependents_analyses,
         execution_platform,
         liveness,

@@ -76,7 +76,7 @@ pub(crate) struct AnonTarget {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
-enum AnonTargetVariant {
+pub(crate) enum AnonTargetVariant {
     Bzl,
     Bxl(GlobalCfgOptions),
 }
@@ -180,10 +180,14 @@ impl AnonTarget {
         &self.exec_cfg
     }
 
-    pub fn configured_label(&self) -> ConfiguredTargetLabel {
+    pub(crate) fn configured_label(&self) -> ConfiguredTargetLabel {
         // We need a configured label, but we don't have a real configuration (because it doesn't make sense),
         // so create a dummy version
         self.name().configure(ConfigurationData::unspecified())
+    }
+
+    pub(crate) fn anon_target_type(&self) -> &AnonTargetVariant {
+        &self.variant
     }
 }
 

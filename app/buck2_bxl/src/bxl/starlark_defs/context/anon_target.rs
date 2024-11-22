@@ -177,6 +177,7 @@ impl AnonImpl {
 async fn eval_bxl_for_anon_target(
     dice: &mut DiceComputations<'_>,
     anon_target: Arc<dyn AnonTargetDyn>,
+    global_cfg_options: GlobalCfgOptions,
     dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
     execution_platform: ExecutionPlatformResolution,
     liveness: CancellationObserver,
@@ -191,15 +192,11 @@ async fn eval_bxl_for_anon_target(
         },
         BzlOrBxlPath::Bzl(_) => return Err(BxlAnonTargetError::UnsupportedInBzl.into()),
     };
-    // TODO: get the global_cfg_options for the anon target
     let bxl_key = BxlKey::new(
         bxl_spec,
         Arc::new(OrderedMap::new()),
         false,
-        GlobalCfgOptions {
-            target_platform: None,
-            cli_modifiers: Arc::new(Vec::new()),
-        },
+        global_cfg_options,
     );
     let bxl_ctx_core_data = BxlContextCoreData::new(bxl_key.dupe(), dice).await?;
 
@@ -312,12 +309,14 @@ pub(crate) fn init_eval_bxl_for_anon_target() {
     EVAL_BXL_FOR_ANON_TARGET.init(
         |dice,
          anon_target: Arc<dyn AnonTargetDyn>,
+         global_cfg_options: GlobalCfgOptions,
          dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
          execution_platform,
          liveness| {
             Box::pin(eval_bxl_for_anon_target(
                 dice,
                 anon_target,
+                global_cfg_options,
                 dependents_analyses,
                 execution_platform,
                 liveness,

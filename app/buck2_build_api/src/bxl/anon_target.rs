@@ -12,6 +12,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_futures::cancellable_future::CancellationObserver;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
@@ -24,6 +25,7 @@ pub static EVAL_BXL_FOR_ANON_TARGET: LateBinding<
     for<'v> fn(
         dice: &'v mut DiceComputations,
         anon_target: Arc<dyn AnonTargetDyn>,
+        global_cfg_options: GlobalCfgOptions,
         dependents_analyses: AnonTargetDependentAnalysisResults<'v>,
         execution_platform: ExecutionPlatformResolution,
         liveness: CancellationObserver,
