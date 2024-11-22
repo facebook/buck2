@@ -13,10 +13,10 @@ use std::future::Future;
 use std::pin::Pin;
 
 use allocative::Allocative;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern_type::PatternType;

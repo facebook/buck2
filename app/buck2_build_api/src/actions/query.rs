@@ -18,13 +18,13 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_artifact::actions::key::ActionKey;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;

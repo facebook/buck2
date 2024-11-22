@@ -12,11 +12,11 @@ use std::iter;
 
 use allocative::Allocative;
 use buck2_build_api::configure_targets::get_maybe_compatible_targets;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;

@@ -11,7 +11,7 @@ use allocative::Allocative;
 use buck2_build_api::query::bxl::BxlCqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_CQUERY_FUNCTIONS;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;

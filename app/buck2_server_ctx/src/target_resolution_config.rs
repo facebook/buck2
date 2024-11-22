@@ -8,9 +8,9 @@
  */
 
 use buck2_cli_proto::TargetCfg;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::bound_id::BoundConfigurationId;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::TargetLabelWithExtra;
 use buck2_core::pattern::pattern_type::ConfigurationPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredTargetPatternExtra;

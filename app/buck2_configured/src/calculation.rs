@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::dice::cycles::CycleAdapterDescriptor;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;

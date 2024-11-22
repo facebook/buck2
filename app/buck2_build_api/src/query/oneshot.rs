@@ -10,8 +10,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;

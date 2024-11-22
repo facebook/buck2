@@ -8,7 +8,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;

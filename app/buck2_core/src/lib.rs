@@ -37,6 +37,7 @@ pub mod directory_digest;
 pub mod env;
 pub mod execution_types;
 pub mod fs;
+pub mod global_cfg_options;
 pub mod io_counters;
 pub mod logging;
 pub mod package;

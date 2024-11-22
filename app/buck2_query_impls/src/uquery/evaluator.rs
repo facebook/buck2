@@ -11,8 +11,8 @@
 use std::sync::Arc;
 
 use buck2_common::events::HasEvents;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;

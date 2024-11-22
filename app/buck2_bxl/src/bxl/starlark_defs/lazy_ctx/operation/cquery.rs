@@ -10,7 +10,7 @@
 use allocative::Allocative;
 use async_recursion::async_recursion;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::environment::QueryTarget;

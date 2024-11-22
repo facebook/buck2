@@ -10,9 +10,9 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;

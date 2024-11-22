@@ -15,7 +15,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
@@ -23,6 +22,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;

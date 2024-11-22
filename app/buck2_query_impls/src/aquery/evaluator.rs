@@ -12,8 +12,8 @@ use std::sync::Arc;
 
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_common::events::HasEvents;
-use buck2_common::global_cfg_options::GlobalCfgOptions;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
