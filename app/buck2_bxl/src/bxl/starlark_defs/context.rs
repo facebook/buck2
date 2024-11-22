@@ -80,8 +80,9 @@ pub(crate) mod methods;
 pub(crate) mod output;
 pub(crate) mod starlark_async;
 
+/// Errors that can occur when accessing some field of `BxlContext` for dynamic action or anon target.
 #[derive(buck2_error::Error, Debug)]
-enum BxlContextDynamicError {
+enum BxlContextError {
     #[error("`{0}()` is unsupported")]
     Unsupported(String),
     #[error("Execution platform is inherited from the root BXL")]

@@ -60,7 +60,7 @@ use crate::bxl::starlark_defs::context::build;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::context::BxlContextDynamicError;
+use crate::bxl::starlark_defs::context::BxlContextError;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::context::BxlContextType;
 use crate::bxl::starlark_defs::context::NotATargetLabelString;
@@ -100,7 +100,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .buck_error_context(BxlContextDynamicError::Unsupported("output".to_owned()))?
+            .buck_error_context(BxlContextError::Unsupported("output".to_owned()))?
             .output_stream;
         Ok(output_stream)
     }
@@ -113,7 +113,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .buck_error_context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
+            .buck_error_context(BxlContextError::Unsupported("root".to_owned()))?;
         Ok(this
             .async_ctx
             .borrow()
@@ -133,7 +133,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .buck_error_context(BxlContextDynamicError::Unsupported("root".to_owned()))?;
+            .buck_error_context(BxlContextError::Unsupported("root".to_owned()))?;
         Ok(this.cell_root_abs().to_owned().to_string())
     }
 
@@ -490,8 +490,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                                 || !exec_compatible_with.is_none()
                             {
                                 return Err(
-                                    BxlContextDynamicError::RequireSameExecutionPlatformAsRoot
-                                        .into(),
+                                    BxlContextError::RequireSameExecutionPlatformAsRoot.into()
                                 );
                             }
                             (data.exec_deps.clone(), data.toolchains.clone())
@@ -503,8 +502,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                                 || !exec_compatible_with.is_none()
                             {
                                 return Err(
-                                    BxlContextDynamicError::RequireSameExecutionPlatformAsRoot
-                                        .into(),
+                                    BxlContextError::RequireSameExecutionPlatformAsRoot.into()
                                 );
                             }
                             // We will have a soft error for accessing bxl.Actions.exec_deps and
@@ -659,7 +657,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             .data
             .context_type
             .unpack_root()
-            .buck_error_context(BxlContextDynamicError::Unsupported("cli_args".to_owned()))?
+            .buck_error_context(BxlContextError::Unsupported("cli_args".to_owned()))?
             .cli_args;
 
         Ok(cli_args)
