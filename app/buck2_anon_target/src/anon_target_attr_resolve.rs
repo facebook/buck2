@@ -17,8 +17,9 @@ use buck2_analysis::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use buck2_analysis::attrs::resolve::ctx::AttrResolutionContext;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::anon_target::AnonTargetDependentAnalysisResults;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactAttr;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
@@ -43,7 +44,6 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_targets::get_artifact_from_anon_target_analysis;
 use crate::anon_targets::AnonTargetKey;
 use crate::anon_targets::AnonTargetsError;
-use crate::promise_artifacts::PromiseArtifactAttr;
 
 // No macros in anon targets, so query results are empty. Execution platform resolution should
 // always be inherited from the anon target.
@@ -52,7 +52,7 @@ pub(crate) struct AnonTargetAttrResolutionContext<'v> {
     pub(crate) rule_analysis_attr_resolution_ctx: RuleAnalysisAttrResolutionContext<'v>,
 }
 
-pub trait AnonTargetAttrResolution {
+pub(crate) trait AnonTargetAttrResolution {
     fn resolve<'v>(
         &self,
         pkg: PackageLabel,
@@ -177,12 +177,6 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
 pub(crate) struct AnonTargetDependents {
     pub(crate) deps: Vec<ConfiguredTargetLabel>,
     pub(crate) promise_artifacts: Vec<PromiseArtifactAttr>,
-}
-
-// Container for analysis results of the anon target dependents.
-pub(crate) struct AnonTargetDependentAnalysisResults<'v> {
-    pub(crate) dep_analysis_results: Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>,
-    pub(crate) promised_artifacts: HashMap<&'v PromiseArtifactAttr, Artifact>,
 }
 
 pub(crate) trait AnonTargetAttrTraversal {

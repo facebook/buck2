@@ -9,14 +9,24 @@
 
 use std::any::Any;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_analysis::analysis::env::get_deps_from_analysis_results;
+use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::anon_target::AnonTargetDependentAnalysisResults;
+use buck2_build_api::anon_target::AnonTargetDyn;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -26,11 +36,24 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
+use buck2_error::starlark_error::from_starlark;
 use buck2_node::rule_type::StarlarkRuleType;
 use cmp_any::PartialEqAny;
+use dupe::Dupe;
+use starlark::collections::SmallMap;
+use starlark::environment::Module;
+use starlark::eval::Evaluator;
+use starlark::values::structs::AllocStruct;
+use starlark::values::structs::StructRef;
+use starlark::values::UnpackValue;
+use starlark::values::Value;
+use starlark::values::ValueOfUncheckedGeneric;
+use starlark::StarlarkResultExt;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
+use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
+use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
 pub struct AnonTarget {
@@ -87,10 +110,6 @@ impl AnonTarget {
         }
     }
 
-    pub fn rule_type(&self) -> &Arc<StarlarkRuleType> {
-        &self.rule_type
-    }
-
     pub fn name(&self) -> &TargetLabel {
         &self.name
     }
@@ -111,6 +130,83 @@ impl AnonTarget {
         // We need a configured label, but we don't have a real configuration (because it doesn't make sense),
         // so create a dummy version
         self.name().configure(ConfigurationData::unspecified())
+    }
+}
+
+impl AnonTargetDyn for AnonTarget {
+    fn rule_type(&self) -> &Arc<StarlarkRuleType> {
+        &self.rule_type
+    }
+
+    fn base_deferred_key(self: Arc<Self>) -> BaseDeferredKey {
+        BaseDeferredKey::AnonTarget(self)
+    }
+
+    fn resolve_attrs<'v>(
+        &self,
+        env: &'v Module,
+        dependents_analyses: AnonTargetDependentAnalysisResults<'v>,
+        exec_resolution: ExecutionPlatformResolution,
+    ) -> buck2_error::Result<ValueOfUncheckedGeneric<Value<'v>, StructRef<'static>>> {
+        let dep_analysis_results =
+            get_deps_from_analysis_results(dependents_analyses.dep_analysis_results)?;
+
+        // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
+        let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
+            module: &env,
+            dep_analysis_results,
+            query_results: HashMap::new(),
+            execution_platform_resolution: exec_resolution,
+        };
+
+        let resolution_ctx = AnonTargetAttrResolutionContext {
+            promised_artifacts_map: dependents_analyses.promised_artifacts,
+            rule_analysis_attr_resolution_ctx,
+        };
+
+        let mut resolved_attrs = Vec::with_capacity(self.attrs().len());
+        for (name, attr) in self.attrs().iter() {
+            resolved_attrs.push((
+                name,
+                attr.resolve_single(self.name().pkg(), &resolution_ctx)?,
+            ));
+        }
+        let attributes = env
+            .heap()
+            .alloc_typed_unchecked(AllocStruct(resolved_attrs))
+            .cast();
+        Ok(attributes)
+    }
+
+    fn get_fulfilled_promise_artifacts<'v>(
+        self: Arc<Self>,
+        promise_artifact_mappings: SmallMap<String, Value<'v>>,
+        anon_target_result: Value<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> buck2_error::Result<HashMap<PromiseArtifactId, Artifact>> {
+        let mut fulfilled_artifact_mappings = HashMap::new();
+
+        for (id, func) in promise_artifact_mappings.values().enumerate() {
+            let artifact = eval
+                .eval_function(*func, &[anon_target_result], &[])
+                .map_err(from_starlark)?;
+
+            let promise_id = PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.dupe()), id);
+
+            match ValueAsArtifactLike::unpack_value(artifact).into_anyhow_result()? {
+                Some(artifact) => {
+                    fulfilled_artifact_mappings
+                        .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);
+                }
+                None => {
+                    return Err(
+                        PromiseArtifactResolveError::NotAnArtifact(artifact.to_repr()).into(),
+                    );
+                }
+            }
+        }
+
+        Ok(fulfilled_artifact_mappings)
     }
 }
 

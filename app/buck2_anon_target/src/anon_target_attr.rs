@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_build_api::artifact_groups::promise::PromiseArtifactAttr;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
@@ -36,7 +37,6 @@ use serde::Serializer;
 use serde_json::to_value;
 
 use crate::anon_target_attr_resolve::AnonTargetAttrTraversal;
-use crate::promise_artifacts::PromiseArtifactAttr;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub enum AnonTargetAttr {
@@ -182,7 +182,7 @@ impl AnonTargetAttr {
     }
 
     #[allow(unused)]
-    pub fn traverse_anon_attr<'a>(
+    pub(crate) fn traverse_anon_attr<'a>(
         &'a self,
         traversal: &mut dyn AnonTargetAttrTraversal,
     ) -> buck2_error::Result<()> {

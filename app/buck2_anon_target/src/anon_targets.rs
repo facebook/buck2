@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::mem;
 use std::sync::Arc;
@@ -15,9 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::get_rule_spec;
-use buck2_analysis::analysis::env::get_deps_from_analysis_results;
 use buck2_analysis::analysis::env::transitive_validations;
-use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::analysis::env::RuleSpec;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
@@ -25,12 +22,12 @@ use buck2_build_api::analysis::anon_targets_registry::AnonTargetsRegistryDyn;
 use buck2_build_api::analysis::anon_targets_registry::ANON_TARGET_REGISTRY_NEW;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
+use buck2_build_api::anon_target::AnonTargetDyn;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactResolveError;
 use buck2_build_api::deferred::calculation::EVAL_ANON_TARGET;
 use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
@@ -47,7 +44,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -74,23 +70,17 @@ use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::Module;
-use starlark::eval::Evaluator;
 use starlark::values::dict::UnpackDictEntries;
-use starlark::values::structs::AllocStruct;
 use starlark::values::Trace;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkResultExt;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
-use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
-use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 use crate::anon_target_attr_resolve::AnonTargetDependents;
 use crate::anon_target_node::AnonTarget;
 use crate::promise_artifacts::PromiseArtifactRegistry;
@@ -290,16 +280,7 @@ impl AnonTargetKey {
     ) -> buck2_error::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
-        let validations_from_deps = dependents_analyses
-            .dep_analysis_results
-            .iter()
-            .filter_map(|(label, analysis_result)| {
-                analysis_result
-                    .validations
-                    .dupe()
-                    .map(|v| ((*label).dupe(), v))
-            })
-            .collect::<SmallMap<_, _>>();
+        let validations_from_deps = dependents_analyses.validations();
 
         let exec_resolution = ExecutionPlatformResolution::new(
             Some(
@@ -332,34 +313,11 @@ impl AnonTargetKey {
                         eval.set_print_handler(&print);
                         eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-                        let dep_analysis_results = get_deps_from_analysis_results(
-                            dependents_analyses.dep_analysis_results,
+                        let attributes = self.0.resolve_attrs(
+                            &env,
+                            dependents_analyses,
+                            exec_resolution.clone(),
                         )?;
-
-                        // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
-                        let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
-                            module: &env,
-                            dep_analysis_results,
-                            query_results: HashMap::new(),
-                            execution_platform_resolution: exec_resolution.clone(),
-                        };
-
-                        let resolution_ctx = AnonTargetAttrResolutionContext {
-                            promised_artifacts_map: dependents_analyses.promised_artifacts,
-                            rule_analysis_attr_resolution_ctx,
-                        };
-
-                        let mut resolved_attrs = Vec::with_capacity(self.0.attrs().len());
-                        for (name, attr) in self.0.attrs().iter() {
-                            resolved_attrs.push((
-                                name,
-                                attr.resolve_single(self.0.name().pkg(), &resolution_ctx)?,
-                            ));
-                        }
-                        let attributes = env
-                            .heap()
-                            .alloc_typed_unchecked(AllocStruct(resolved_attrs))
-                            .cast();
 
                         let registry = AnalysisRegistry::new_from_owner(
                             BaseDeferredKey::AnonTarget(self.0.dupe()),
@@ -397,7 +355,11 @@ impl AnonTargetKey {
                     let promise_artifact_mappings =
                         rule_impl.promise_artifact_mappings(&mut eval)?;
 
-                    self.get_fulfilled_promise_artifacts(promise_artifact_mappings, res, &mut eval)?
+                    self.0.dupe().get_fulfilled_promise_artifacts(
+                        promise_artifact_mappings,
+                        res,
+                        &mut eval,
+                    )?
                 };
 
                 let res = ValueTypedComplex::new(res)
@@ -439,38 +401,6 @@ impl AnonTargetKey {
             }),
         )
         .await
-    }
-
-    fn get_fulfilled_promise_artifacts<'v>(
-        &self,
-        promise_artifact_mappings: SmallMap<String, Value<'v>>,
-        anon_target_result: Value<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<HashMap<PromiseArtifactId, Artifact>> {
-        let mut fulfilled_artifact_mappings = HashMap::new();
-
-        for (id, func) in promise_artifact_mappings.values().enumerate() {
-            let artifact = eval
-                .eval_function(*func, &[anon_target_result], &[])
-                .map_err(from_starlark)?;
-
-            let promise_id =
-                PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.0.clone()), id);
-
-            match ValueAsArtifactLike::unpack_value(artifact).into_anyhow_result()? {
-                Some(artifact) => {
-                    fulfilled_artifact_mappings
-                        .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);
-                }
-                None => {
-                    return Err(
-                        PromiseArtifactResolveError::NotAnArtifact(artifact.to_repr()).into(),
-                    );
-                }
-            }
-        }
-
-        Ok(fulfilled_artifact_mappings)
     }
 }
 

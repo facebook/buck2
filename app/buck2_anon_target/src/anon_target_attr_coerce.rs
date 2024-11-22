@@ -11,6 +11,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::iter;
 
+use buck2_build_api::artifact_groups::promise::PromiseArtifactAttr;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
@@ -46,7 +47,6 @@ use starlark::StarlarkResultExt;
 
 use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_targets::AnonAttrCtx;
-use crate::promise_artifacts::PromiseArtifactAttr;
 
 pub trait AnonTargetAttrTypeCoerce {
     fn coerce_item(&self, ctx: &AnonAttrCtx, value: Value) -> buck2_error::Result<AnonTargetAttr>;

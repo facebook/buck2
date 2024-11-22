@@ -22,6 +22,7 @@ use std::sync::Once;
 
 pub mod actions;
 pub mod analysis;
+pub mod anon_target;
 pub mod artifact_groups;
 pub mod attrs;
 pub mod audit_cell;

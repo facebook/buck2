@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::fmt;
 use std::fmt::Debug;
 use std::sync::Arc;
 use std::sync::OnceLock;
@@ -15,7 +14,6 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::artifact_groups::promise::PromiseArtifactId;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::codemap::FileSpan;
@@ -65,29 +63,5 @@ impl PromiseArtifactRegistry {
             artifact: artifact.dupe(),
         });
         Ok(artifact)
-    }
-}
-
-// When passing promise artifacts into anon targets, we will coerce them into this type.
-// During resolve, we look up the analysis of the target that produced the promise artifact,
-// assert short paths, and produce a new `StarlarkPromiseArtifact` with the `OnceLock` resolved.
-#[allow(unused)]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
-pub(crate) struct PromiseArtifactAttr {
-    pub(crate) id: PromiseArtifactId,
-    pub(crate) short_path: Option<ForwardRelativePathBuf>,
-}
-
-impl fmt::Display for PromiseArtifactAttr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO(@wendyy) - we should figure out what to do about the declaration location.
-        // It's possible that 2 targets produce the same promise artifact and try to pass
-        // it into a downstream target, so then there would be 2 declaration locations.
-        write!(f, "<promise artifact attr (id = {})", self.id)?;
-        if let Some(short_path) = &self.short_path {
-            write!(f, " with short_path `{}`", short_path)?;
-        }
-        write!(f, ">")?;
-        Ok(())
     }
 }
