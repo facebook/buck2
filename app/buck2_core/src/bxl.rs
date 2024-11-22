@@ -8,10 +8,11 @@
  */
 
 use allocative::Allocative;
-use buck2_core::cells::build_file_cell::BuildFileCell;
-use buck2_core::cells::cell_path::CellPath;
-use buck2_core::cells::name::CellName;
-use buck2_core::cells::paths::CellRelativePathBuf;
+
+use crate::cells::build_file_cell::BuildFileCell;
+use crate::cells::cell_path::CellPath;
+use crate::cells::name::CellName;
+use crate::cells::paths::CellRelativePathBuf;
 
 /// Path of a `bxl` file for `bxl` commands
 #[derive(

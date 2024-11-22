@@ -25,6 +25,7 @@ pub mod error;
 mod ascii_char_set;
 pub mod async_once_cell;
 pub mod build_file_path;
+pub mod bxl;
 pub mod bzl;
 pub mod category;
 pub mod cells;

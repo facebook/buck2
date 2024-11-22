@@ -12,6 +12,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
+use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -21,7 +22,6 @@ use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 
 use crate::file_type::StarlarkFileType;
-use crate::paths::bxl::BxlFilePath;
 use crate::paths::module::StarlarkModulePath;
 use crate::paths::package::PackageFilePath;
 

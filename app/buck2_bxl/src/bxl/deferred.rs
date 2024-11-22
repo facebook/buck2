@@ -31,12 +31,12 @@ mod tests {
     use buck2_common::dice::data::testing::SetTestingIoProvider;
     use buck2_common::global_cfg_options::GlobalCfgOptions;
     use buck2_core::base_deferred_key::BaseDeferredKey;
+    use buck2_core::bxl::BxlFilePath;
     use buck2_core::execution_types::execution::ExecutionPlatformResolution;
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::digest_config::DigestConfig;
     use buck2_execute::digest_config::SetDigestConfig;
-    use buck2_interpreter::paths::bxl::BxlFilePath;
     use dice::testing::DiceBuilder;
     use dice::DiceComputations;
     use dice::UserComputationData;

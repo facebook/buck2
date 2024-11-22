@@ -13,10 +13,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_core::bxl::BxlFilePath;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
-use buck2_interpreter::paths::bxl::BxlFilePath;
 use cli_args::CliArgs;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
