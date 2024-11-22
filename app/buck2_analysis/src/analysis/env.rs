@@ -423,7 +423,7 @@ pub fn get_user_defined_rule_spec(
 
                 (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
             };
-            eval.eval_function(rule_impl.0.to_value(), &[ctx.to_value()], &[])
+            eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])
                 .map_err(|e| from_starlark(e).into())
         }
 

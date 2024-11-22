@@ -72,6 +72,7 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 
 pub(crate) mod actions;
 pub(crate) mod analysis;
+pub(crate) mod anon_target;
 pub(crate) mod build;
 pub(crate) mod dynamic;
 pub(crate) mod fs;
