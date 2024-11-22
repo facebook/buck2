@@ -18,7 +18,7 @@ use buck2_client::commands::bxl::BxlCommand;
 use buck2_client::commands::clean::CleanCommand;
 use buck2_client::commands::ctargets::ConfiguredTargetsCommand;
 use buck2_client::commands::debug::DebugCommand;
-use buck2_client::commands::expand_external_cell::ExpandExternalCellCommand;
+use buck2_client::commands::expand_external_cell::ExpandExternalCellsCommand;
 use buck2_client::commands::explain::ExplainCommand;
 use buck2_client::commands::help_env::HelpEnvCommand;
 use buck2_client::commands::init::InitCommand;
@@ -256,7 +256,7 @@ pub(crate) enum CommandKind {
     Init(InitCommand),
     #[clap(hide = true)] // TODO iguridi: remove
     Explain(ExplainCommand),
-    ExpandExternalCell(ExpandExternalCellCommand),
+    ExpandExternalCell(ExpandExternalCellsCommand),
     Install(InstallCommand),
     Kill(KillCommand),
     Killall(KillallCommand),

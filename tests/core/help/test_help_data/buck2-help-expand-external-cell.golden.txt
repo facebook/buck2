@@ -10,13 +10,16 @@ edit the files directly in the repo and see those edits reflected in your build.
 Note that this creates a point-in-time snapshot. The files in the repo will not be updated if you eg
 change the git commit of the cell in the future.
 
-Usage: buck2 expand-external-cell [OPTIONS] <CELL>
+Usage: buck2 expand-external-cell [OPTIONS] [CELLS]...
 
 Arguments:
-  <CELL>
+  [CELLS]...
 
 
 Options:
+      --all-cells
+          Expand all cells that Buck2 knows about
+
   -h, --help
           Print help (see a summary with '-h')
 

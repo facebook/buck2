@@ -12,8 +12,8 @@ use buck2_cli_proto::new_generic::CompleteRequest;
 use buck2_cli_proto::new_generic::CompleteResponse;
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::DebugEvalResponse;
-use buck2_cli_proto::new_generic::ExpandExternalCellRequest;
-use buck2_cli_proto::new_generic::ExpandExternalCellResponse;
+use buck2_cli_proto::new_generic::ExpandExternalCellsRequest;
+use buck2_cli_proto::new_generic::ExpandExternalCellsResponse;
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -26,7 +26,7 @@ use crate::commands::build::build_command;
 use crate::commands::complete::complete_command;
 use crate::commands::ctargets::configured_targets_command;
 use crate::commands::debug_eval::debug_eval_command;
-use crate::commands::expand_external_cell::expand_external_cell_command;
+use crate::commands::expand_external_cells::expand_external_cells_command;
 use crate::commands::explain::explain_command;
 use crate::commands::install::install_command;
 use crate::commands::query::aquery::aquery_command;
@@ -130,13 +130,13 @@ impl OtherServerCommands for OtherServerCommandsInstance {
         explain_command(ctx, partial_result_dispatcher, req).await
     }
 
-    async fn expand_external_cell(
+    async fn expand_external_cells(
         &self,
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: ExpandExternalCellRequest,
-    ) -> anyhow::Result<ExpandExternalCellResponse> {
-        expand_external_cell_command(ctx, partial_result_dispatcher, req).await
+        req: ExpandExternalCellsRequest,
+    ) -> anyhow::Result<ExpandExternalCellsResponse> {
+        expand_external_cells_command(ctx, partial_result_dispatcher, req).await
     }
 }
 

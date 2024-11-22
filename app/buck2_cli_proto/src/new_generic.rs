@@ -7,6 +7,9 @@
  * of this source tree.
  */
 
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use serde::Deserialize;
 use serde::Serialize;
@@ -18,7 +21,7 @@ pub enum NewGenericRequest {
     Materialize(MaterializeRequest),
     DebugEval(DebugEvalRequest),
     Explain(ExplainRequest),
-    ExpandExternalCell(ExpandExternalCellRequest),
+    ExpandExternalCells(ExpandExternalCellsRequest),
     Complete(CompleteRequest),
     Docs(DocsRequest),
 }
@@ -28,7 +31,7 @@ pub enum NewGenericResponse {
     Materialize(MaterializeResponse),
     DebugEval(DebugEvalResponse),
     Explain(ExplainResponse),
-    ExpandExternalCell(ExpandExternalCellResponse),
+    ExpandExternalCells(ExpandExternalCellsResponse),
     Complete(CompleteResponse),
     Docs(DocsResponse),
 }
@@ -66,13 +69,14 @@ pub struct ExplainRequest {
 pub struct ExplainResponse {}
 
 #[derive(Serialize, Deserialize)]
-pub struct ExpandExternalCellRequest {
-    pub cell_name: String,
+pub enum ExpandExternalCellsRequest {
+    All,
+    Specific(BTreeSet<String>),
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct ExpandExternalCellResponse {
-    pub path: String,
+pub struct ExpandExternalCellsResponse {
+    pub paths: BTreeMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize)]

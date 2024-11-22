@@ -45,10 +45,10 @@ pub(crate) async fn new_generic_command(
                 .explain(context, partial_result_dispatcher, m)
                 .await?,
         ),
-        NewGenericRequest::ExpandExternalCell(e) => NewGenericResponse::ExpandExternalCell(
+        NewGenericRequest::ExpandExternalCells(e) => NewGenericResponse::ExpandExternalCells(
             OTHER_SERVER_COMMANDS
                 .get()?
-                .expand_external_cell(context, partial_result_dispatcher, e)
+                .expand_external_cells(context, partial_result_dispatcher, e)
                 .await?,
         ),
         NewGenericRequest::Docs(d) => NewGenericResponse::Docs(

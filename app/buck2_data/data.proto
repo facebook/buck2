@@ -810,7 +810,7 @@ message CommandStart {
     ConfiguredTargetsCommandStart ctargets = 38;
     StarlarkDebugAttachCommandStart starlark_debug_attach = 39;
     ExplainCommandStart explain = 40;
-    ExpandExternalCellCommandStart expand_external_cell = 41;
+    ExpandExternalCellsCommandStart expand_external_cell = 41;
     CompleteCommandStart complete = 42;
   }
 }
@@ -877,7 +877,7 @@ message FileStatusCommandStart {}
 
 message ProfileCommandStart {}
 
-message ExpandExternalCellCommandStart {}
+message ExpandExternalCellsCommandStart {}
 
 message CompleteCommandStart {}
 
@@ -905,7 +905,7 @@ message CommandEnd {
     ConfiguredTargetsCommandEnd ctargets = 38;
     StarlarkDebugAttachCommandEnd starlark_debug_attach = 39;
     ExplainCommandEnd explain = 40;
-    ExpandExternalCellCommandEnd expand_external_cell = 41;
+    ExpandExternalCellsCommandEnd expand_external_cell = 41;
     CompleteCommandEnd complete = 42;
   }
 
@@ -1014,7 +1014,7 @@ message FileStatusCommandEnd {}
 
 message ProfileCommandEnd {}
 
-message ExpandExternalCellCommandEnd {}
+message ExpandExternalCellsCommandEnd {}
 
 message CompleteCommandEnd {}
 

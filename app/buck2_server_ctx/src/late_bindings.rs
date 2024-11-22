@@ -12,8 +12,8 @@ use buck2_cli_proto::new_generic::CompleteRequest;
 use buck2_cli_proto::new_generic::CompleteResponse;
 use buck2_cli_proto::new_generic::DebugEvalRequest;
 use buck2_cli_proto::new_generic::DebugEvalResponse;
-use buck2_cli_proto::new_generic::ExpandExternalCellRequest;
-use buck2_cli_proto::new_generic::ExpandExternalCellResponse;
+use buck2_cli_proto::new_generic::ExpandExternalCellsRequest;
+use buck2_cli_proto::new_generic::ExpandExternalCellsResponse;
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::ExplainResponse;
 use buck2_util::late_binding::LateBinding;
@@ -89,12 +89,12 @@ pub trait OtherServerCommands: Send + Sync + 'static {
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: ExplainRequest,
     ) -> anyhow::Result<ExplainResponse>;
-    async fn expand_external_cell(
+    async fn expand_external_cells(
         &self,
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        req: ExpandExternalCellRequest,
-    ) -> anyhow::Result<ExpandExternalCellResponse>;
+        req: ExpandExternalCellsRequest,
+    ) -> anyhow::Result<ExpandExternalCellsResponse>;
 }
 
 pub static OTHER_SERVER_COMMANDS: LateBinding<&'static dyn OtherServerCommands> =
