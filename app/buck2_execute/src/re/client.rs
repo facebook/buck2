@@ -228,8 +228,7 @@ impl RemoteExecutionClient {
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
-        let res = self
-            .data
+        self.data
             .executes
             .op(self.data.client.execute(
                 action_digest,
@@ -244,15 +243,7 @@ impl RemoteExecutionClient {
                 re_resource_units,
                 knobs,
             ))
-            .await?;
-
-        if let ExecuteResponseOrCancelled::Response(resp) = &res {
-            self.data
-                .local_cache
-                .update(&resp.executed_action_details.storage_stats.local_cache_stats);
-        }
-
-        Ok(res)
+            .await
     }
 
     pub async fn materialize_files(
