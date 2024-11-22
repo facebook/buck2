@@ -11,10 +11,20 @@ configured_alias(
     platform = "config//platform/macos:base",
 )
 
+platform(
+    name = "dummy_binary_for_signing_platform",
+    constraint_values = [
+        "config//cpu/constraints:arm64",
+    ],
+    deps = [
+        "config//platform/macos:base",
+    ],
+)
+
 cxx_binary(
     name = "dummy_binary_for_signing",
     srcs = ["dummy_binary_for_signing.c"],
-    default_target_platform = "config//platform/macos:base",
+    default_target_platform = ":dummy_binary_for_signing_platform",
 )
 
 python_library(
