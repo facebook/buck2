@@ -32,6 +32,7 @@ use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
 use buck2_events::span::SpanId;
+use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
@@ -207,10 +208,10 @@ pub async fn get_dep_analysis<'v>(
     .await
 }
 
-pub async fn get_rule_spec(
+pub async fn get_loaded_module<'v>(
     ctx: &mut DiceComputations<'_>,
     func: &StarlarkRuleType,
-) -> buck2_error::Result<impl RuleSpec> {
+) -> buck2_error::Result<LoadedModule> {
     let module = match &func.path {
         BzlOrBxlPath::Bxl(bxl_file_path) => {
             let module_path = StarlarkModulePath::BxlFile(&bxl_file_path);
@@ -220,6 +221,14 @@ pub async fn get_rule_spec(
             ctx.get_loaded_module_from_import_path(import_path).await?
         }
     };
+    Ok(module)
+}
+
+pub async fn get_rule_spec(
+    ctx: &mut DiceComputations<'_>,
+    func: &StarlarkRuleType,
+) -> buck2_error::Result<impl RuleSpec> {
+    let module = get_loaded_module(ctx, func).await?;
     Ok(get_user_defined_rule_spec(module.env().dupe(), func))
 }
 

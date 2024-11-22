@@ -18,8 +18,8 @@ Info = provider(fields = {
 def _my_anon_impl(bxl_ctx: bxl.Context, attrs: struct) -> list[Provider]:
     action = bxl_ctx.bxl_actions().actions
     out = action.write("res.txt", "foo_bar")
-    hello = action.write("hello.txt", "hello")
-    world = action.write("world.txt", "world")
+    hello = action.write("hello.txt", "hello" + str(attrs.x))
+    world = action.write("world.txt", "world" + str(attrs.x))
     info = Info(
         x = attrs.x,
         hello = hello,
@@ -39,5 +39,56 @@ def _define_anon(_ctx: bxl.Context):
 
 define_anon = bxl_main(
     impl = _define_anon,
+    cli_args = {},
+)
+
+def _eval_anon_bxl(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+
+    promise0 = actions.anon_target(anon, attrs = {"x": 2}).promise
+    anon_res0 = ctx.resolve(actions, promise0)
+    _assert_eq(anon_res0[Info].x, 2)
+
+    promise1 = actions.anon_target(anon, attrs = {"x": 42}).promise
+    anon_res1 = ctx.resolve(actions, promise1)
+    _assert_eq(anon_res1[Info].x, 42)
+
+eval_anon_bxl = bxl_main(
+    impl = _eval_anon_bxl,
+    cli_args = {},
+)
+
+def _check_content_impl(bxl_ctx: bxl.Context, src: ArtifactValue, content: str, out: OutputArtifact):
+    src = src.read_string()
+    _assert_eq(src, content)
+    bxl_actions = bxl_ctx.bxl_actions().actions
+    bxl_actions.write(out, src + "bar")
+    return []
+
+_check_content = bxl.dynamic_actions(
+    impl = _check_content_impl,
+    attrs = {
+        "content": dynattrs.value(str),
+        "out": dynattrs.output(),
+        "src": dynattrs.artifact_value(),
+    },
+)
+
+def _check_anon_ouput_artifact(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+    promise = actions.anon_target(anon, attrs = {"x": 42}).promise
+    anon_res = ctx.resolve(actions, promise)
+
+    output = actions.declare_output("output")
+
+    actions.dynamic_output_new(_check_content(
+        src = anon_res[Info].hello,
+        out = output.as_output(),
+        content = "hello42",
+    ))
+    ctx.output.ensure(output)
+
+check_anon_ouput_artifact = bxl_main(
+    impl = _check_anon_ouput_artifact,
     cli_args = {},
 )

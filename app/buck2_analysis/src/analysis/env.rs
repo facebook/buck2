@@ -48,6 +48,7 @@ use futures::Future;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenRef;
 use starlark::values::Value;
@@ -394,6 +395,47 @@ pub fn transitive_validations(
     }
 }
 
+fn get_rule_callable<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
+    module: &FrozenModule,
+    name: &str,
+) -> buck2_error::Result<FrozenValue> {
+    let rule_callable = module
+        .get_any_visibility(name)
+        .with_buck_error_context(|| format!("Couldn't find rule `{}`", name))?
+        .0;
+    let rule_callable = rule_callable.owned_value(eval.frozen_heap());
+    let rule_callable = rule_callable
+        .unpack_frozen()
+        .internal_error_anyhow("Must be frozen")?;
+    Ok(rule_callable)
+}
+
+pub fn get_rule_impl<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
+    module: &FrozenModule,
+    name: &str,
+) -> buck2_error::Result<FrozenValue> {
+    let rule_callable = get_rule_callable(eval, module, name)?;
+    let rule_impl = (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?;
+    Ok(rule_impl)
+}
+
+pub fn promise_artifact_mappings<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
+    module: &FrozenModule,
+    name: &str,
+) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
+    let rule_callable = get_rule_callable(eval, module, name)?;
+    let frozen_promise_artifact_mappings =
+        (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?;
+
+    Ok(frozen_promise_artifact_mappings
+        .iter()
+        .map(|(frozen_string, frozen_func)| (frozen_string.to_string(), frozen_func.to_value()))
+        .collect::<SmallMap<_, _>>())
+}
+
 pub fn get_user_defined_rule_spec(
     module: FrozenModule,
     rule_type: &StarlarkRuleType,
@@ -409,20 +451,7 @@ pub fn get_user_defined_rule_spec(
             eval: &mut Evaluator<'v, '_, '_>,
             ctx: ValueTyped<'v, AnalysisContext<'v>>,
         ) -> buck2_error::Result<Value<'v>> {
-            let rule_callable = self
-                .module
-                .get_any_visibility(&self.name)
-                .with_buck_error_context(|| format!("Couldn't find rule `{}`", self.name))?
-                .0;
-            let rule_impl = {
-                // Need to free up the starlark_ctx borrow before we return
-                let rule_callable = rule_callable.owned_value(eval.frozen_heap());
-                let rule_callable = rule_callable
-                    .unpack_frozen()
-                    .internal_error("Must be frozen")?;
-
-                (FROZEN_RULE_GET_IMPL.get()?)(rule_callable)?
-            };
+            let rule_impl = get_rule_impl(eval, &self.module, &self.name)?;
             eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])
                 .map_err(|e| from_starlark(e).into())
         }
@@ -431,27 +460,7 @@ pub fn get_user_defined_rule_spec(
             &self,
             eval: &mut Evaluator<'v, '_, '_>,
         ) -> buck2_error::Result<SmallMap<String, Value<'v>>> {
-            let rule_callable = self
-                .module
-                .get_any_visibility(&self.name)
-                .with_buck_error_context(|| format!("Couldn't find rule `{}`", self.name))?
-                .0;
-            let frozen_promise_artifact_mappings = {
-                // Need to free up the starlark_ctx borrow before we return
-                let rule_callable = rule_callable.owned_value(eval.frozen_heap());
-                let rule_callable = rule_callable
-                    .unpack_frozen()
-                    .internal_error("Must be frozen")?;
-
-                (FROZEN_PROMISE_ARTIFACT_MAPPINGS_GET_IMPL.get()?)(rule_callable)?
-            };
-
-            Ok(frozen_promise_artifact_mappings
-                .iter()
-                .map(|(frozen_string, frozen_func)| {
-                    (frozen_string.to_string(), frozen_func.to_value())
-                })
-                .collect::<SmallMap<_, _>>())
+            promise_artifact_mappings(eval, &self.module, &self.name)
         }
     }
 

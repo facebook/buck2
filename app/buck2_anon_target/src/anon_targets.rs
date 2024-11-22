@@ -59,6 +59,7 @@ use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -83,6 +84,7 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_coerce::AnonTargetAttrTypeCoerce;
 use crate::anon_target_attr_resolve::AnonTargetDependents;
 use crate::anon_target_node::AnonTarget;
+use crate::bxl::eval_bxl_for_anon_target;
 use crate::promise_artifacts::PromiseArtifactRegistry;
 
 #[derive(Debug, Trace, Allocative, ProvidesStaticType)]
@@ -121,9 +123,9 @@ impl Key for AnonTargetKey {
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
+        cancellation: &CancellationContext,
     ) -> Self::Value {
-        Ok(self.run_analysis(ctx).await?)
+        Ok(self.run_analysis(ctx, cancellation).await?)
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -269,18 +271,19 @@ impl AnonTargetKey {
     fn run_analysis<'a>(
         &'a self,
         dice: &'a mut DiceComputations<'_>,
+        cancellation: &'a CancellationContext<'_>,
     ) -> BoxFuture<'a, buck2_error::Result<AnalysisResult>> {
-        let fut = async move { self.run_analysis_impl(dice).await };
+        let fut = async move { self.run_analysis_impl(dice, cancellation).await };
         Box::pin(unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) })
     }
 
     async fn run_analysis_impl(
         &self,
         dice: &mut DiceComputations<'_>,
+        cancellation: &CancellationContext<'_>,
     ) -> buck2_error::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
-        let validations_from_deps = dependents_analyses.validations();
 
         let exec_resolution = ExecutionPlatformResolution::new(
             Some(
@@ -294,16 +297,32 @@ impl AnonTargetKey {
             Vec::new(),
         );
 
-        let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
-        let env = Module::new();
-        let print = EventDispatcherPrintHandler(get_dispatcher());
-
         span_async(
             buck2_data::AnalysisStart {
                 target: Some(self.0.as_proto().into()),
                 rule: self.0.rule_type().to_string(),
             },
             async move {
+                if let BzlOrBxlPath::Bxl(_) = &self.0.rule_type().path {
+                    return cancellation
+                        .with_structured_cancellation(|observer| {
+                            eval_bxl_for_anon_target(
+                                dice,
+                                self.0.dupe(),
+                                dependents_analyses,
+                                exec_resolution,
+                                observer,
+                            )
+                            .boxed_local()
+                        })
+                        .await;
+                }
+
+                let validations_from_deps = dependents_analyses.validations();
+                let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
+                let env = Module::new();
+                let print = EventDispatcherPrintHandler(get_dispatcher());
+
                 let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
                     dice,
                     &mut StarlarkProfilerOpt::disabled(),

@@ -25,6 +25,7 @@ pub fn init_late_bindings() {
         bxl::starlark_defs::context::dynamic::init_eval_bxl_for_dynamic_output();
         bxl::calculation::init_bxl_calculation_impl();
         commands::init_bxl_server_commands();
+        bxl::starlark_defs::context::anon_target::init_eval_bxl_for_anon_target();
     });
 }
 

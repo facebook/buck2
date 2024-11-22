@@ -49,7 +49,7 @@ async def test_bxl_dynamic_with_bxl_ctx(buck: Buck) -> None:
 
 
 # Very simple test that the exec_deps/toolchains get propagatd to the dynamic bxl_ctx correctly
-@buck_test()
+@buck_test(allow_soft_errors=True)
 async def test_bxl_dynamic_execution_resolution(buck: Buck) -> None:
     result = await buck.bxl(
         "//:dynamic.bxl:dynamic_test_execution_resolution",

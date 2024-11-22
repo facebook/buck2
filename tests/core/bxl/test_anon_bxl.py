@@ -24,3 +24,17 @@ async def test_define_wrong_type_anon_bxl(buck: Buck) -> None:
         buck.bxl("//wrong_type_anon_bxl.bxl:wrong_type"),
         stderr_regex="Type of parameter `impl` doesn't match,",
     )
+
+
+@buck_test()
+async def test_eval_anon_bxl(buck: Buck) -> None:
+    await buck.bxl(
+        "//anon_bxl.bxl:eval_anon_bxl",
+    )
+
+
+@buck_test()
+async def test_check_anon_ouput_artifact(buck: Buck) -> None:
+    await buck.bxl(
+        "//anon_bxl.bxl:check_anon_ouput_artifact",
+    )

@@ -120,6 +120,7 @@ pub(crate) enum BxlContextType<'v> {
     Root(RootBxlContextData<'v>),
     /// Context passed to `ctx` parameter to the dynamic lambda entry function
     Dynamic(DynamicBxlContextData),
+    AnonTarget,
 }
 
 impl<'v> BxlContextType<'v> {
@@ -127,6 +128,7 @@ impl<'v> BxlContextType<'v> {
         match &self {
             BxlContextType::Root(root) => Ok(root),
             BxlContextType::Dynamic(_) => Err(buck2_error!([], "Expected root BXL context type")),
+            BxlContextType::AnonTarget => Err(buck2_error!([], "Expected root BXL context type")),
         }
     }
 }
@@ -139,6 +141,9 @@ impl<'v> Display for BxlContextType<'v> {
             }
             BxlContextType::Dynamic(_) => {
                 write!(f, "dynamic")
+            }
+            BxlContextType::AnonTarget => {
+                write!(f, "anon_target")
             }
         }
     }
@@ -398,6 +403,29 @@ impl<'v> BxlContext<'v> {
         })
     }
 
+    pub(crate) fn new_anon(
+        heap: &'v Heap,
+        core: Rc<BxlContextCoreData>,
+        async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
+        digest_config: DigestConfig,
+        analysis_registry: AnalysisRegistry<'v>,
+        attributes: ValueOfUnchecked<'v, StructRef<'static>>,
+    ) -> buck2_error::Result<Self> {
+        Ok(Self {
+            async_ctx,
+            data: BxlContextNoDice {
+                state: heap.alloc_typed(AnalysisActions {
+                    state: RefCell::new(Some(analysis_registry)),
+                    attributes: Some(attributes),
+                    plugins: None,
+                    digest_config,
+                }),
+                context_type: BxlContextType::AnonTarget,
+                core,
+            },
+        })
+    }
+
     /// runs the async computation over dice as sync,
     /// This should generally only be called at the top level functions in bxl.
     /// Within the lambdas, use the existing reference to Dice provided instead of calling nested
@@ -471,8 +499,10 @@ impl<'v> BxlContext<'v> {
         Ok((analysis_registry, artifacts))
     }
 
-    /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
-    pub(crate) fn take_state_dynamic(&self) -> buck2_error::Result<AnalysisRegistry<'v>> {
+    /// Take the state for dynamic action or anon target
+    pub(crate) fn take_state_dynamic_or_anon_impl(
+        &self,
+    ) -> buck2_error::Result<AnalysisRegistry<'v>> {
         let state = self.data.state.as_ref();
         state.state()?.assert_no_promises()?;
 
@@ -481,6 +511,16 @@ impl<'v> BxlContext<'v> {
             .borrow_mut()
             .take()
             .expect("nothing to have stolen state yet"))
+    }
+
+    /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
+    pub(crate) fn take_state_dynamic(&self) -> buck2_error::Result<AnalysisRegistry<'v>> {
+        self.take_state_dynamic_or_anon_impl()
+    }
+
+    /// Must take an `AnalysisContext` which has never had `take_state` called on it before.
+    pub(crate) fn take_state_anon(&self) -> buck2_error::Result<AnalysisRegistry<'v>> {
+        self.take_state_dynamic_or_anon_impl()
     }
 }
 
@@ -494,6 +534,7 @@ impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
         match &self.context_type {
             BxlContextType::Root(root) => writeln!(root.error_stream.sink.borrow_mut(), "{}", msg)?,
             BxlContextType::Dynamic(_) => console_message(msg),
+            BxlContextType::AnonTarget => console_message(msg),
         }
         Ok(())
     }

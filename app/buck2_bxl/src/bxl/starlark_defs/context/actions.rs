@@ -18,11 +18,15 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
+use buck2_error::buck2_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
@@ -210,6 +214,18 @@ impl<'v> BxlActions<'v> {
             toolchains,
         })
     }
+
+    fn is_anon_target_or_dyn_action(&self) -> buck2_error::Result<bool> {
+        let key = &self.actions.state()?.analysis_value_storage.self_key;
+        Ok(match key {
+            DeferredHolderKey::Base(base_deferred_key) => match base_deferred_key {
+                BaseDeferredKey::AnonTarget(_) => true,
+                BaseDeferredKey::TargetLabel(_) => false,
+                BaseDeferredKey::BxlLabel(_) => false,
+            },
+            DeferredHolderKey::DynamicLambda(_) => true,
+        })
+    }
 }
 
 async fn alloc_deps<'v, 'c>(
@@ -284,6 +300,14 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlActions,
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
+        if this.is_anon_target_or_dyn_action()? {
+            soft_error!(
+                "bxl_acessing_exec_platform",
+                buck2_error!([], "Anon target or dynamic action accesses bxl.Actions.exec_deps."),
+                quiet: true
+            )?;
+        }
+
         Ok(this.exec_deps)
     }
 
@@ -293,6 +317,13 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlActions,
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
+        if this.is_anon_target_or_dyn_action()? {
+            soft_error!(
+                "bxl_acessing_exec_platform",
+                buck2_error!([], "Anon target or dynamic action accesses bxl.Actions.toolchains."),
+                quiet: true
+            )?;
+        }
         Ok(this.toolchains)
     }
 }

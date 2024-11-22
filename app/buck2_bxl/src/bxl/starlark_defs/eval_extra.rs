@@ -22,6 +22,7 @@ use crate::bxl::starlark_defs::context::ErrorPrinter;
 enum BxlEvalExtraType {
     Root { error_sink: Rc<RefCell<dyn Write>> },
     Dynamic,
+    AnonTarget,
 }
 
 /// A tag that is only available when running in Bxl, to guard Bxl
@@ -63,6 +64,17 @@ impl<'e> BxlEvalExtra<'e> {
         }
     }
 
+    pub(crate) fn new_anon(
+        dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
+        core: Rc<BxlContextCoreData>,
+    ) -> Self {
+        Self {
+            dice,
+            core,
+            eval_extra_type: BxlEvalExtraType::AnonTarget,
+        }
+    }
+
     pub(crate) fn from_context<'v, 'a>(
         eval: &Evaluator<'v, 'a, 'e>,
     ) -> buck2_error::Result<&'a BxlEvalExtra<'e>> {
@@ -87,6 +99,7 @@ impl<'e> ErrorPrinter for BxlEvalExtra<'e> {
         match &self.eval_extra_type {
             BxlEvalExtraType::Root { error_sink } => writeln!(error_sink.borrow_mut(), "{}", msg)?,
             BxlEvalExtraType::Dynamic => console_message(msg),
+            BxlEvalExtraType::AnonTarget => console_message(msg),
         }
         Ok(())
     }

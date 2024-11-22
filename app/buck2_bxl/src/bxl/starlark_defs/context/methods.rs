@@ -496,6 +496,21 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                             }
                             (data.exec_deps.clone(), data.toolchains.clone())
                         }
+                        BxlContextType::AnonTarget => {
+                            if !exec_deps.is_none()
+                                || !toolchains.is_none()
+                                || !target_platform.is_none()
+                                || !exec_compatible_with.is_none()
+                            {
+                                return Err(
+                                    BxlContextDynamicError::RequireSameExecutionPlatformAsRoot
+                                        .into(),
+                                );
+                            }
+                            // We will have a soft error for accessing bxl.Actions.exec_deps and
+                            // bxl.Actions.toolchains for anon targets and dynamic actions
+                            (vec![].into(), vec![].into())
+                        }
                     };
 
                     BxlActions::new(
