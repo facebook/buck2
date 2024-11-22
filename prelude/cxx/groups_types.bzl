@@ -92,3 +92,6 @@ Group = record(
     attrs = GroupAttrs,
     definition_type = field(GroupDefinition, GroupDefinition("explicit")),
 )
+
+def should_discard_group(group: [Group, None]) -> bool:
+    return group != None and group.attrs.discard_group

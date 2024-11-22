@@ -85,6 +85,7 @@ load(
     ":groups_types.bzl",
     "MATCH_ALL_LABEL",
     "NO_MATCH_LABEL",
+    "should_discard_group",
 )
 load(
     ":link.bzl",
@@ -480,8 +481,7 @@ def get_filtered_labels_to_links_map(
 
         if is_forced_shared_linkage:
             # filter out any dependencies to be discarded
-            group = link_groups.get(target_link_group)
-            if group != None and group.attrs.discard_group:
+            if should_discard_group(link_groups.get(target_link_group)):
                 continue
 
             # If this target is a link group root library, we
@@ -502,7 +502,8 @@ def get_filtered_labels_to_links_map(
                     # 1. It belongs to current link group (unique symbols across graph)
                     # 2. It matches all link groups (can duplicate symbols across graph)
                     # 3. It forces static linkage (can duplicate symbols across graph)
-                    add_link(target, output_style_for_static_strategy)
+                    if not should_discard_group(link_groups.get(target_link_group)):
+                        add_link(target, output_style_for_static_strategy)
 
                 elif not target_link_group or target_link_group == NO_MATCH_LABEL:
                     # Target directly linked dynamically if:
@@ -518,7 +519,8 @@ def get_filtered_labels_to_links_map(
             else:  # static or static_pic
                 # Always add force-static libs to the link.
                 if is_force_static_lib:
-                    add_link(target, output_style)
+                    if not should_discard_group(link_groups.get(target_link_group)):
+                        add_link(target, output_style)
                 elif not target_link_group and not link_group:
                     # Ungrouped linkable targets belong to the unlabeled executable
                     add_link(target, output_style)
@@ -939,7 +941,7 @@ def create_link_groups(
     link_group_shared_links = {}
     specs = []
     for link_group_spec in link_group_specs:
-        if link_group_spec.group.attrs.discard_group:
+        if should_discard_group(link_group_spec.group):
             # Don't create a link group for deps that we want to drop
             continue
         specs.append(link_group_spec)
