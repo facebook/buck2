@@ -28,6 +28,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
+use crate::global_cfg_options::GlobalCfgOptions;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::name::EQ_SIGN_SUBST;
 
@@ -46,6 +47,8 @@ pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync +
     fn to_proto(&self) -> BaseDeferredKeyProto;
     fn into_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
     fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution;
+    /// bxl anon target or bxl dynamic action node or bxl itself will return cfg else None
+    fn global_cfg_options(&self) -> Option<GlobalCfgOptions>;
 }
 
 #[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]

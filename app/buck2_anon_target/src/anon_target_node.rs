@@ -32,6 +32,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
@@ -56,7 +57,7 @@ use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
-pub struct AnonTarget {
+pub(crate) struct AnonTarget {
     /// Not necessarily a "real" target label that actually exists, but could be.
     name: TargetLabel,
     /// The type of the rule we are running.
@@ -64,28 +65,39 @@ pub struct AnonTarget {
     /// The attributes the target was defined with.
     /// We use a sorted map since we want to iterate in a defined order.
     attrs: SortedMap<String, AnonTargetAttr>,
-    /// The hash of the `rule_type` and `attrs`
-    hash: String,
     /// The execution configuration - same as the parent.
     exec_cfg: ConfigurationNoExec,
+    /// The hash of the `rule_type` and `attrs` for bzl anon targets.
+    /// Or
+    /// The hash of the `rule_type`, `attrs` and `global_cfg_options` for bxl anon targets.
+    hash: String,
+    /// Variant of the anon target, either bxl or bzl.
+    variant: AnonTargetVariant,
+}
+
+#[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative)]
+enum AnonTargetVariant {
+    Bzl,
+    Bxl(GlobalCfgOptions),
 }
 
 impl fmt::Display for AnonTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} (anon: {}) ({})", self.name, self.hash, self.exec_cfg)
+        write!(
+            f,
+            "{} (anon: {}) ({})",
+            self.name(),
+            self.partial_hash(),
+            self.exec_cfg()
+        )
     }
 }
 
 impl AnonTarget {
-    pub(crate) fn as_proto(&self) -> buck2_data::AnonTarget {
-        buck2_data::AnonTarget {
-            name: Some(self.name.as_proto()),
-            execution_configuration: Some(self.exec_cfg.cfg().as_proto()),
-            hash: self.hash.clone(),
-        }
-    }
-
-    fn mk_hash(rule_type: &StarlarkRuleType, attrs: &SortedMap<String, AnonTargetAttr>) -> String {
+    fn mk_hash_bzl(
+        rule_type: &StarlarkRuleType,
+        attrs: &SortedMap<String, AnonTargetAttr>,
+    ) -> String {
         // This is the same hasher as we use for Configuration, so is probably fine.
         // But quite possibly should be a crypto hasher in future.
         let mut hasher = DefaultHasher::new();
@@ -94,35 +106,77 @@ impl AnonTarget {
         format!("{:x}", hasher.finish())
     }
 
-    pub fn new(
+    fn mk_hash_bxl(
+        rule_type: &StarlarkRuleType,
+        attrs: &SortedMap<String, AnonTargetAttr>,
+        global_cfg_options: &GlobalCfgOptions,
+    ) -> String {
+        let mut hasher = DefaultHasher::new();
+        rule_type.hash(&mut hasher);
+        attrs.hash(&mut hasher);
+        global_cfg_options.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    }
+
+    pub(crate) fn as_proto(&self) -> buck2_data::AnonTarget {
+        buck2_data::AnonTarget {
+            name: Some(self.name().as_proto()),
+            execution_configuration: Some(self.exec_cfg().cfg().as_proto()),
+            hash: self.partial_hash().to_owned(),
+        }
+    }
+
+    pub(crate) fn new(
         rule_type: Arc<StarlarkRuleType>,
         name: TargetLabel,
         attrs: SortedMap<String, AnonTargetAttr>,
         exec_cfg: ConfigurationNoExec,
     ) -> Self {
-        let hash = Self::mk_hash(&rule_type, &attrs);
-        Self {
+        let hash = Self::mk_hash_bzl(&rule_type, &attrs);
+        AnonTarget {
             name,
             rule_type,
             attrs,
-            hash,
             exec_cfg,
+            hash,
+            variant: AnonTargetVariant::Bzl,
         }
     }
 
-    pub fn name(&self) -> &TargetLabel {
+    pub(crate) fn new_bxl(
+        rule_type: Arc<StarlarkRuleType>,
+        name: TargetLabel,
+        attrs: SortedMap<String, AnonTargetAttr>,
+        exec_cfg: ConfigurationNoExec,
+        global_cfg_options: GlobalCfgOptions,
+    ) -> Self {
+        let hash = Self::mk_hash_bxl(&rule_type, &attrs, &global_cfg_options);
+        AnonTarget {
+            name,
+            rule_type,
+            attrs,
+            exec_cfg,
+            hash,
+            variant: AnonTargetVariant::Bxl(global_cfg_options),
+        }
+    }
+
+    pub(crate) fn name(&self) -> &TargetLabel {
         &self.name
     }
 
-    pub fn attrs(&self) -> &SortedMap<String, AnonTargetAttr> {
+    pub(crate) fn attrs(&self) -> &SortedMap<String, AnonTargetAttr> {
         &self.attrs
     }
 
-    pub fn rule_type_attrs_hash(&self) -> &str {
+    /// The hash of the rule type and attributes for bzl anon targets.
+    /// Or
+    /// The hash of the rule type, attributes and global_cfg_options for bxl anon targets.
+    fn partial_hash(&self) -> &str {
         &self.hash
     }
 
-    pub fn exec_cfg(&self) -> &ConfigurationNoExec {
+    pub(crate) fn exec_cfg(&self) -> &ConfigurationNoExec {
         &self.exec_cfg
     }
 
@@ -247,7 +301,7 @@ impl BaseDeferredKeyDyn for AnonTarget {
             } else {
                 "/"
             },
-            self.rule_type_attrs_hash(),
+            self.partial_hash(),
             "/__",
             self.name().name().as_str(),
             "__",
@@ -275,5 +329,12 @@ impl BaseDeferredKeyDyn for AnonTarget {
     fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
         // TODO(wendyy) support exec platforms for anon targets
         unimplemented!("Execution platforms are not supported for anon targets (yet)")
+    }
+
+    fn global_cfg_options(&self) -> Option<GlobalCfgOptions> {
+        match &self.variant {
+            AnonTargetVariant::Bzl => None,
+            AnonTargetVariant::Bxl(global_cfg_options) => Some(global_cfg_options.dupe()),
+        }
     }
 }

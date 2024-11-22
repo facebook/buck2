@@ -259,7 +259,8 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state()?;
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
-        let key = registry.anon_target_key(rule, attrs)?;
+        let owner_key = this.analysis_value_storage.self_key.owner();
+        let key = registry.anon_target_key(rule, attrs, owner_key)?;
         registry.register_one(anon_target_promise, key.clone())?;
 
         Ok(StarlarkAnonTarget::new(
@@ -287,8 +288,9 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
 
         let mut anon_targets = Vec::new();
         let mut promises_to_join = Vec::new();
+        let owner_key = this.analysis_value_storage.self_key.owner();
         rules.items.into_try_map(|(rule, attributes)| {
-            let key = registry.anon_target_key(rule, attributes)?;
+            let key = registry.anon_target_key(rule, attributes, owner_key)?;
             let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
 
             promises_to_join.push(anon_target_promise);

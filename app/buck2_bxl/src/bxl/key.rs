@@ -252,4 +252,8 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
     fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {
         &self.execution_resolution.resolved_execution
     }
+
+    fn global_cfg_options(&self) -> Option<GlobalCfgOptions> {
+        Some(self.key.global_cfg_options.dupe())
+    }
 }

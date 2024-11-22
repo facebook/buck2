@@ -34,6 +34,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderColle
 use buck2_configured::nodes::calculation::find_execution_platform_by_configuration;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -44,6 +45,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -60,6 +62,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::internal::internal_attrs;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
+use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -78,6 +81,7 @@ use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
+use starlark_map::sorted_map::SortedMap;
 
 use crate::anon_promises::AnonPromises;
 use crate::anon_target_attr::AnonTargetAttr;
@@ -143,11 +147,16 @@ impl AnonTargetKey {
         ))
     }
 
-    pub(crate) fn new<'v>(
+    fn prepare_anon_target_data<'v>(
         execution_platform: &ExecutionPlatformResolution,
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
-    ) -> buck2_error::Result<Self> {
+    ) -> buck2_error::Result<(
+        Arc<StarlarkRuleType>,
+        TargetLabel,
+        SortedMap<String, AnonTargetAttr>,
+        ConfigurationNoExec,
+    )> {
         let mut name = None;
         let internal_attrs = internal_attrs();
 
@@ -192,13 +201,42 @@ impl AnonTargetKey {
             None => Self::create_name(&rule.rule_type().name)?,
             Some(name) => name,
         };
-
-        Ok(Self(Arc::new(AnonTarget::new(
+        Ok((
             rule.rule_type().dupe(),
             name,
             attrs.into(),
             execution_platform.cfg().dupe(),
-        ))))
+        ))
+    }
+
+    pub(crate) fn new<'v>(
+        execution_platform: &ExecutionPlatformResolution,
+        rule: ValueTyped<'v, FrozenRuleCallable>,
+        attributes: UnpackDictEntries<&'v str, Value<'v>>,
+        owner_key: &BaseDeferredKey,
+    ) -> buck2_error::Result<Self> {
+        let (rule_type, name, attrs, exec_cfg) =
+            Self::prepare_anon_target_data(execution_platform, rule, attributes)?;
+
+        let global_cfg_options = match owner_key {
+            BaseDeferredKey::TargetLabel(_) => None,
+            BaseDeferredKey::AnonTarget(anon) => anon.global_cfg_options(),
+            BaseDeferredKey::BxlLabel(bxl) => bxl.0.global_cfg_options(),
+        };
+        let anon_target = match (&rule_type.path, global_cfg_options) {
+            (BzlOrBxlPath::Bzl(_), _) => AnonTarget::new(rule_type, name, attrs, exec_cfg),
+            (BzlOrBxlPath::Bxl(_), Some(global_cfg_options)) => {
+                AnonTarget::new_bxl(rule_type, name, attrs, exec_cfg, global_cfg_options)
+            }
+            (BzlOrBxlPath::Bxl(bxl_file_path), None) => {
+                return Err(internal_error!(
+                    "Bxl anon target defined at {} must have global configuration options.",
+                    bxl_file_path
+                ));
+            }
+        };
+
+        Ok(Self(Arc::new(anon_target)))
     }
 
     /// We need to parse a TargetLabel from a String, but it doesn't matter if the pieces aren't
@@ -515,8 +553,9 @@ impl<'v> AnonTargetsRegistry<'v> {
         &self,
         rule: ValueTyped<'v, FrozenRuleCallable>,
         attributes: UnpackDictEntries<&'v str, Value<'v>>,
+        owner_key: &BaseDeferredKey,
     ) -> buck2_error::Result<AnonTargetKey> {
-        AnonTargetKey::new(&self.execution_platform, rule, attributes)
+        AnonTargetKey::new(&self.execution_platform, rule, attributes, owner_key)
     }
 
     pub(crate) fn register_one(
