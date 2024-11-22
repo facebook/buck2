@@ -5,8 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//cfg/modifier:cfg_constructor.bzl?v2_only", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
-load("@prelude//cfg/modifier:common.bzl?v2_only", "MODIFIER_METADATA_KEY")
+load("@prelude//cfg/modifier:cfg_constructor.bzl", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
+load("@prelude//cfg/modifier:common.bzl", "MODIFIER_METADATA_KEY")
 
 SHIM_ALIASES = {
     "fedora": "shim//os/linux/distro/constraints:fedora",

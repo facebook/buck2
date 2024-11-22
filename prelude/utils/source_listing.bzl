@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load(":source_listing_impl.bzl?v2_only", "SourceListingInfoAlias", "source_listing_impl")
+load(":source_listing_impl.bzl", "SourceListingInfoAlias", "source_listing_impl")
 
 SourceListingInfo = SourceListingInfoAlias
 

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:is_buck2_internal.bzl?v2_only", "yes")
+load("@prelude//:is_buck2_internal.bzl", "yes")
 
 def is_buck2():
     return yes == True
