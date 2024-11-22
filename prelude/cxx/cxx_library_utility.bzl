@@ -47,7 +47,7 @@ def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     )
 
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return ctx.attrs.exported_deps + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
+    return getattr(ctx.attrs, "exported_deps", []) + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     flags = cxx_attr_linker_flags(ctx)

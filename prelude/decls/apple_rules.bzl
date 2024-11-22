@@ -179,7 +179,6 @@ apple_binary = prelude_rule(
             "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
             "enable_cxx_interop": attrs.bool(default = False),
             "executable_name": attrs.option(attrs.string(), default = None),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
             "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),

@@ -191,7 +191,7 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
     # passing apple_library's cxx flags through that must be used for all downward PCM compilations.
     pcm_targets = get_swift_pcm_anon_targets(
         ctx,
-        ctx.attrs.deps + ctx.attrs.exported_deps,
+        ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", []),
         swift_cxx_flags,
         ctx.attrs.enable_cxx_interop,
     )
@@ -820,7 +820,7 @@ def _add_swift_module_map_args(
     sdk_swiftmodule_deps_tset = [sdk_swiftmodule_deps_tset] if sdk_swiftmodule_deps_tset else []
     all_deps_tset = ctx.actions.tset(
         SwiftCompiledModuleTset,
-        children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tset,
+        children = _get_swift_paths_tsets(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])) + [pcm_deps_tset, sdk_deps_tset] + sdk_swiftmodule_deps_tset,
     )
     swift_module_map_artifact = write_swift_module_map_with_deps(
         ctx,
@@ -847,7 +847,7 @@ def _add_swift_deps_flags(
             "-disable-implicit-swift-modules",
         ])
     else:
-        depset = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(ctx.attrs.deps + ctx.attrs.exported_deps))
+        depset = ctx.actions.tset(SwiftCompiledModuleTset, children = _get_swift_paths_tsets(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])))
         cmd.add(depset.project_as_args("module_search_path"))
 
         implicit_search_path_tset = get_implicit_framework_search_path_providers(
@@ -864,7 +864,7 @@ def _add_clang_deps_flags(
     if uses_explicit_modules(ctx):
         cmd.add(pcm_deps_tset.project_as_args("clang_importer_flags"))
     else:
-        inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + ctx.attrs.exported_deps)
+        inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", []))
         preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
         cmd.add(cmd_args(preprocessors.set.project_as_args("args"), prepend = "-Xcc"))
         cmd.add(cmd_args(preprocessors.set.project_as_args("modular_args"), prepend = "-Xcc"))
@@ -977,7 +977,7 @@ def get_swift_dependency_info(
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
         artifacts = [output_module] if output_module != None else [],
-        children = get_external_debug_info_tsets(ctx.attrs.deps + ctx.attrs.exported_deps),
+        children = get_external_debug_info_tsets(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])),
         label = ctx.label,
         tags = [ArtifactInfoTag("swiftmodule")],
     )
@@ -1126,9 +1126,9 @@ def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module
 
 def _exported_deps(ctx) -> list[Dependency]:
     if ctx.attrs.reexport_all_header_dependencies:
-        return ctx.attrs.exported_deps + ctx.attrs.deps
+        return getattr(ctx.attrs, "exported_deps", []) + ctx.attrs.deps
     else:
-        return ctx.attrs.exported_deps
+        return getattr(ctx.attrs, "exported_deps", [])
 
 def _should_compile_with_evolution(ctx) -> bool:
     if ctx.attrs.enable_library_evolution != None:
