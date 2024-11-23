@@ -11,7 +11,6 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -72,13 +71,11 @@ impl Key for InterpreterResultsKey {
         ctx: &mut DiceComputations,
         _cancellation: &CancellationContext,
     ) -> Self::Value {
-        let now = Instant::now();
-
-        let (result, spans) =
+        let ((duration, result), spans) =
             async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe())).await;
 
         ctx.store_evaluation_data(IntepreterResultsKeyActivationData {
-            duration: now.elapsed(),
+            duration,
             result: result.dupe(),
             spans,
         })?;
@@ -102,14 +99,17 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        let mut interpreter = ctx
+    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
+        match ctx
             .get_interpreter_calculator(
                 package.cell_name(),
                 BuildFileCell::new(package.cell_name()),
             )
-            .await?;
-        interpreter.eval_build_file(package.dupe()).await
+            .await
+        {
+            Ok(mut interpreter) => interpreter.eval_build_file(package.dupe()).await,
+            Err(e) => (Duration::ZERO, Err(e.into())),
+        }
     }
 
     fn get_interpreter_results<'a>(
@@ -253,6 +253,7 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
 }
 
 pub struct IntepreterResultsKeyActivationData {
+    /// Duration of just the starlark evaluation of the build file.
     pub duration: Duration,
     pub result: buck2_error::Result<Arc<EvaluationResult>>,
     pub spans: SmallVec<[SpanId; 1]>,

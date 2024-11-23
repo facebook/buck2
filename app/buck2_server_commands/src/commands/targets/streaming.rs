@@ -297,7 +297,8 @@ async fn load_targets(
         dice.get_interpreter_results(package.dupe()).await?
     } else {
         dice.get_interpreter_results_uncached(package.dupe())
-            .await?
+            .await
+            .1?
     };
 
     match spec {

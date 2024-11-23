@@ -61,6 +61,7 @@ async fn test_package_value_same_dir_package_file() {
     let result = interpreter
         .eval_build_file(PackageLabel::testing_parse("root//headphones"))
         .await
+        .1
         .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
@@ -106,6 +107,7 @@ async fn test_package_value_parent_dir_package_file() {
     let result = interpreter
         .eval_build_file(PackageLabel::testing_parse("root//trackpad"))
         .await
+        .1
         .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
@@ -138,7 +140,8 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         .unwrap();
     let err = interpreter
         .eval_build_file(PackageLabel::testing_parse("root//foo"))
-        .await;
+        .await
+        .1;
     assert!(
         format!("{:?}", err)
             .contains("key set in parent `PACKAGE` file, and overwrite flag is not set"),
@@ -223,6 +226,7 @@ async fn test_read_parent_package_value() {
     let result = interpreter
         .eval_build_file(PackageLabel::testing_parse("root//foo"))
         .await
+        .1
         .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
@@ -286,6 +290,7 @@ async fn test_read_parent_package_value_from_bzl() {
     let result = interpreter
         .eval_build_file(PackageLabel::testing_parse("root//foo"))
         .await
+        .1
         .unwrap();
 
     let target_nodes: Vec<_> = result.targets().values().collect();
@@ -318,7 +323,8 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
         .unwrap();
     let err = interpreter
         .eval_build_file(PackageLabel::testing_parse("root//foo"))
-        .await;
+        .await
+        .1;
     assert!(
         format!("{:?}", err)
             .contains("In a Package context, consider using `read_parent_package_value`"),

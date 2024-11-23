@@ -8,6 +8,8 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -484,107 +486,120 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     pub async fn eval_build_file(
         &mut self,
         package: PackageLabel,
-    ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        let ((), listing, profile_mode) = self
-            .ctx
-            .try_compute3(
-                |ctx| check_starlark_stack_size(ctx).boxed(),
-                |ctx| Self::resolve_package_listing(ctx, package.dupe()).boxed(),
-                |ctx| ctx.get_profile_mode_for_loading(package).boxed(),
+    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
+        let mut now = None;
+        let eval_result: buck2_error::Result<_> = try {
+            let ((), listing, profile_mode) = self
+                .ctx
+                .try_compute3(
+                    |ctx| check_starlark_stack_size(ctx).boxed(),
+                    |ctx| Self::resolve_package_listing(ctx, package.dupe()).boxed(),
+                    |ctx| ctx.get_profile_mode_for_loading(package).boxed(),
+                )
+                .await?;
+
+            let profiler_opt = profile_mode.profile_mode().map(|profile_mode| {
+                StarlarkProfiler::new(profile_mode.dupe(), false, ProfileTarget::Loading(package))
+            });
+
+            let mut profiler = match profiler_opt {
+                None => StarlarkProfilerOptVal::Disabled,
+                Some(profiler) => StarlarkProfilerOptVal::Profiler(profiler),
+            };
+
+            let build_file_path =
+                BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
+            let (ast, deps) = self
+                .prepare_eval(StarlarkPath::BuildFile(&build_file_path))
+                .await?;
+            let super_package = self
+                .eval_package_file_for_build_file(package.dupe(), &listing)
+                .await?;
+
+            let package_boundary_exception = self
+                .ctx
+                .get_package_boundary_exception(package.as_cell_path())
+                .await?
+                .is_some();
+            let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
+            let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
+            let module_id = build_file_path.to_string();
+            let cell_str = build_file_path.cell().as_str().to_owned();
+            let start_event = buck2_data::LoadBuildFileStart {
+                cell: cell_str.clone(),
+                module_id: module_id.clone(),
+            };
+
+            let configs = &self.configs;
+            let ctx = &mut *self.ctx;
+
+            now = Some(Instant::now());
+            let mut eval_result = with_starlark_eval_provider(
+                ctx,
+                &mut profiler.as_mut(),
+                format!("load_buildfile:{}", &package),
+                move |provider, ctx| {
+                    let mut buckconfigs =
+                        ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
+
+                    span(start_event, move || {
+                        let result_with_stats = configs
+                            .eval_build_file(
+                                &build_file_path,
+                                &mut buckconfigs,
+                                listing,
+                                super_package,
+                                package_boundary_exception,
+                                ast,
+                                deps.get_loaded_modules(),
+                                provider,
+                                false,
+                            )
+                            .with_buck_error_context(|| {
+                                DiceCalculationDelegateError::EvalBuildFileError(build_file_path)
+                            });
+                        let error = result_with_stats.as_ref().err().map(|e| format!("{:#}", e));
+                        let starlark_peak_allocated_bytes = result_with_stats
+                            .as_ref()
+                            .ok()
+                            .map(|rs| rs.starlark_peak_allocated_bytes);
+                        let cpu_instruction_count = result_with_stats
+                            .as_ref()
+                            .ok()
+                            .and_then(|rs| rs.cpu_instruction_count);
+                        let result = result_with_stats.map(|rs| rs.result);
+                        let target_count = result.as_ref().ok().map(|rs| rs.targets().len() as u64);
+
+                        (
+                            result,
+                            buck2_data::LoadBuildFileEnd {
+                                module_id,
+                                cell: cell_str,
+                                target_count,
+                                starlark_peak_allocated_bytes,
+                                cpu_instruction_count,
+                                error,
+                            },
+                        )
+                    })
+                },
             )
             .await?;
-
-        let profiler_opt = profile_mode.profile_mode().map(|profile_mode| {
-            StarlarkProfiler::new(profile_mode.dupe(), false, ProfileTarget::Loading(package))
-        });
-
-        let mut profiler = match profiler_opt {
-            None => StarlarkProfilerOptVal::Disabled,
-            Some(profiler) => StarlarkProfilerOptVal::Profiler(profiler),
+            let profile_data = profiler.finish()?;
+            if eval_result.starlark_profile.is_some() {
+                return (
+                    now.unwrap().elapsed(),
+                    Err(internal_error!("starlark_profile field must not be set yet").into()),
+                );
+            }
+            eval_result.starlark_profile = profile_data.map(|d| Arc::new(d) as _);
+            eval_result
         };
 
-        let build_file_path = BuildFilePath::new(package.dupe(), listing.buildfile().to_owned());
-        let (ast, deps) = self
-            .prepare_eval(StarlarkPath::BuildFile(&build_file_path))
-            .await?;
-        let super_package = self
-            .eval_package_file_for_build_file(package.dupe(), &listing)
-            .await?;
-
-        let package_boundary_exception = self
-            .ctx
-            .get_package_boundary_exception(package.as_cell_path())
-            .await?
-            .is_some();
-        let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
-        let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
-        let module_id = build_file_path.to_string();
-        let cell_str = build_file_path.cell().as_str().to_owned();
-        let start_event = buck2_data::LoadBuildFileStart {
-            cell: cell_str.clone(),
-            module_id: module_id.clone(),
-        };
-
-        let configs = &self.configs;
-        let ctx = &mut *self.ctx;
-
-        let mut eval_result = with_starlark_eval_provider(
-            ctx,
-            &mut profiler.as_mut(),
-            format!("load_buildfile:{}", &package),
-            move |provider, ctx| {
-                let mut buckconfigs =
-                    ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
-
-                span(start_event, move || {
-                    let result_with_stats = configs
-                        .eval_build_file(
-                            &build_file_path,
-                            &mut buckconfigs,
-                            listing,
-                            super_package,
-                            package_boundary_exception,
-                            ast,
-                            deps.get_loaded_modules(),
-                            provider,
-                            false,
-                        )
-                        .with_buck_error_context(|| {
-                            DiceCalculationDelegateError::EvalBuildFileError(build_file_path)
-                        });
-                    let error = result_with_stats.as_ref().err().map(|e| format!("{:#}", e));
-                    let starlark_peak_allocated_bytes = result_with_stats
-                        .as_ref()
-                        .ok()
-                        .map(|rs| rs.starlark_peak_allocated_bytes);
-                    let cpu_instruction_count = result_with_stats
-                        .as_ref()
-                        .ok()
-                        .and_then(|rs| rs.cpu_instruction_count);
-                    let result = result_with_stats.map(|rs| rs.result);
-                    let target_count = result.as_ref().ok().map(|rs| rs.targets().len() as u64);
-
-                    (
-                        result,
-                        buck2_data::LoadBuildFileEnd {
-                            module_id,
-                            cell: cell_str,
-                            target_count,
-                            starlark_peak_allocated_bytes,
-                            cpu_instruction_count,
-                            error,
-                        },
-                    )
-                })
-            },
+        (
+            now.map_or(Duration::ZERO, |v| v.elapsed()),
+            eval_result.map(Arc::new),
         )
-        .await?;
-        let profile_data = profiler.finish()?;
-        if eval_result.starlark_profile.is_some() {
-            return Err(internal_error!("starlark_profile field must not be set yet").into());
-        }
-        eval_result.starlark_profile = profile_data.map(|d| Arc::new(d) as _);
-        Ok(Arc::new(eval_result))
     }
 }
 

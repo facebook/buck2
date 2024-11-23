@@ -8,6 +8,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_core::package::PackageLabel;
@@ -30,7 +31,7 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> buck2_error::Result<Arc<EvaluationResult>>;
+    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>);
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
@@ -50,7 +51,7 @@ pub trait TargetGraphCalculation {
     async fn get_interpreter_results_uncached(
         &mut self,
         package: PackageLabel,
-    ) -> buck2_error::Result<Arc<EvaluationResult>>;
+    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>);
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
@@ -79,11 +80,11 @@ impl TargetGraphCalculation for DiceComputations<'_> {
     async fn get_interpreter_results_uncached(
         &mut self,
         package: PackageLabel,
-    ) -> buck2_error::Result<Arc<EvaluationResult>> {
-        TARGET_GRAPH_CALCULATION_IMPL
-            .get()?
-            .get_interpreter_results_uncached(self, package)
-            .await
+    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
+        match TARGET_GRAPH_CALCULATION_IMPL.get() {
+            Ok(calc) => calc.get_interpreter_results_uncached(self, package).await,
+            Err(e) => (Duration::ZERO, Err(e)),
+        }
     }
 
     fn get_interpreter_results(
