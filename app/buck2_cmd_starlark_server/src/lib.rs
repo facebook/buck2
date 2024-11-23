@@ -57,7 +57,7 @@ pub(crate) trait StarlarkServerSubcommand: Send + Sync + 'static {
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         client_server_ctx: ClientContext,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 async fn server_starlark_command_inner(
@@ -84,7 +84,7 @@ async fn parse_command_and_execute(
     context: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let command: StarlarkSubcommand = serde_json::from_str(&req.serialized_opts)?;
     as_server_subcommand(&command)
         .server_execute(

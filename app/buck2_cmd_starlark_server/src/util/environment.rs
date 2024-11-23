@@ -36,7 +36,7 @@ impl Environment {
         cell: CellName,
         path_type: StarlarkFileType,
         dice: &mut DiceTransaction,
-    ) -> anyhow::Result<Environment> {
+    ) -> buck2_error::Result<Environment> {
         // Find the information from the globals
         let globals = INTERPRETER_CALCULATION_IMPL.get()?.global_env(dice).await?;
 
@@ -72,7 +72,7 @@ impl Environment {
         &self,
         path_type: StarlarkFileType,
         dice: &DiceTransaction,
-    ) -> anyhow::Result<HashSet<String>> {
+    ) -> buck2_error::Result<HashSet<String>> {
         let mut dice = dice.clone();
         let mut names = HashSet::new();
 

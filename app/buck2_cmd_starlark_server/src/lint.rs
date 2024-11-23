@@ -12,7 +12,6 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_starlark_client::lint::StarlarkLintCommand;
@@ -21,6 +20,7 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -56,7 +56,7 @@ impl<'a> Cache<'a> {
     pub(crate) async fn get_names(
         &mut self,
         path: &StarlarkPath<'_>,
-    ) -> anyhow::Result<Arc<HashSet<String>>> {
+    ) -> buck2_error::Result<Arc<HashSet<String>>> {
         let path_type = path.file_type();
         let cell = path.cell();
         if let Some(res) = self.cached.get(&(cell, path_type)) {
@@ -74,14 +74,14 @@ async fn lint_file(
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
     cache: &mut Cache<'_>,
-) -> anyhow::Result<Vec<Lint>> {
+) -> buck2_error::Result<Vec<Lint>> {
     let dialect = path.file_type().dialect(false);
     let proj_path = cell_resolver.resolve_path(path.path().as_ref().as_ref())?;
     let path_str = proj_path.to_string();
     let content = io
         .read_file_if_exists(proj_path)
         .await?
-        .with_context(|| format!("File not found: `{}`", path_str))?;
+        .with_buck_error_context(|| format!("File not found: `{}`", path_str))?;
     match AstModule::parse(&path_str, content.clone(), &dialect) {
         Ok(ast) => Ok(ast.lint(Some(&*cache.get_names(path).await?))),
         Err(err) => {
@@ -108,8 +108,8 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cell_resolver = &ctx.get_cell_resolver().await?;
                 let io = &ctx.global_data().get_io_provider();
@@ -136,9 +136,9 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
                         "Found no lints in {} files",
                         files.len()
                     )?;
-                    Ok(())
+                    anyhow::Ok(())
                 }
             })
-            .await
+            .await?)
     }
 }

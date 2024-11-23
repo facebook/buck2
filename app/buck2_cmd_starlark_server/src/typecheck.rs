@@ -10,7 +10,6 @@
 use std::collections::HashMap;
 use std::io::Write;
 
-use anyhow::Context;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
@@ -20,6 +19,8 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
@@ -52,7 +53,7 @@ struct Cache<'a> {
 }
 
 impl<'a> Cache<'a> {
-    async fn typecheck(&mut self, path: OwnedStarlarkPath) -> anyhow::Result<()> {
+    async fn typecheck(&mut self, path: OwnedStarlarkPath) -> buck2_error::Result<()> {
         self.run(path).await?;
         Ok(())
     }
@@ -61,7 +62,7 @@ impl<'a> Cache<'a> {
         &mut self,
         cell: CellName,
         path_type: StarlarkFileType,
-    ) -> anyhow::Result<Globals> {
+    ) -> buck2_error::Result<Globals> {
         match self.oracle.get(&(cell, path_type)) {
             Some(g) => Ok(g.dupe()),
             None => {
@@ -74,7 +75,7 @@ impl<'a> Cache<'a> {
         }
     }
 
-    async fn get(&mut self, path: OwnedStarlarkModulePath) -> anyhow::Result<Interface> {
+    async fn get(&mut self, path: OwnedStarlarkModulePath) -> buck2_error::Result<Interface> {
         match self.cache.get(&path) {
             Some(x) => Ok(x.dupe()),
             None => {
@@ -86,7 +87,7 @@ impl<'a> Cache<'a> {
     }
 
     #[async_recursion]
-    async fn run(&mut self, path: OwnedStarlarkPath) -> anyhow::Result<Interface> {
+    async fn run(&mut self, path: OwnedStarlarkPath) -> buck2_error::Result<Interface> {
         let path_ref = path.borrow();
         writeln!(self.stderr, "Type checking: {path_ref}")?;
         let proj_path = self
@@ -97,7 +98,7 @@ impl<'a> Cache<'a> {
             .io
             .read_file_if_exists(proj_path)
             .await?
-            .with_context(|| format!("File not found: `{path_str}`"))?;
+            .with_buck_error_context(|| format!("File not found: `{path_str}`"))?;
 
         let mut dice = self.dice.clone();
         let interp = dice
@@ -133,7 +134,7 @@ impl<'a> Cache<'a> {
             for x in errors {
                 writeln!(self.stdout, "{x}")?;
             }
-            Err(anyhow::anyhow!("Detected {errors_count} errors"))
+            Err(buck2_error!([], "Detected {errors_count} errors"))
         }
     }
 }
@@ -145,8 +146,8 @@ impl StarlarkServerSubcommand for StarlarkTypecheckCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut dice| async move {
                 let cell_resolver = &dice.get_cell_resolver().await?;
                 let io = &dice.global_data().get_io_provider();
@@ -172,6 +173,6 @@ impl StarlarkServerSubcommand for StarlarkTypecheckCommand {
                 writeln!(stderr, "Found no type errors in {file_count} files")?;
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

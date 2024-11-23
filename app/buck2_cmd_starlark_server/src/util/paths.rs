@@ -46,7 +46,7 @@ async fn starlark_file(
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
     files: &mut Vec<OwnedStarlarkPath>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let cell_path = cell_resolver.get_cell_path(&proj_path)?;
     if recursive.is_some()
         && DiceFileComputations::is_ignored(ctx, cell_path.as_ref())
@@ -129,7 +129,7 @@ pub(crate) async fn starlark_files(
     context: &dyn ServerCommandContextTrait,
     cell_resolver: &CellResolver,
     io: &dyn IoProvider,
-) -> anyhow::Result<Vec<OwnedStarlarkPath>> {
+) -> buck2_error::Result<Vec<OwnedStarlarkPath>> {
     let mut files = Vec::new();
 
     for path in paths {

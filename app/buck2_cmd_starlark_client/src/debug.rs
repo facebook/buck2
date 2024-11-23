@@ -49,7 +49,7 @@ pub struct StarlarkDebugAttachCommand {
     event_log_opts: CommonEventLogOptions,
 }
 
-pub fn write_dap_message(out: &mut impl Write, msg: &[u8]) -> anyhow::Result<()> {
+pub fn write_dap_message(out: &mut impl Write, msg: &[u8]) -> buck2_error::Result<()> {
     write!(out, "Content-Length: {}\r\n\r\n", msg.len())?;
     out.write_all(msg)?;
     out.flush()?;
@@ -57,7 +57,7 @@ pub fn write_dap_message(out: &mut impl Write, msg: &[u8]) -> anyhow::Result<()>
 }
 
 /// All DAP messages are written to stdout.
-fn send_message_to_dap_client(msg: &[u8]) -> anyhow::Result<()> {
+fn send_message_to_dap_client(msg: &[u8]) -> buck2_error::Result<()> {
     let stdout = std::io::stdout();
     let mut stdout = stdout.lock();
     write_dap_message(&mut stdout, msg)?;
@@ -148,7 +148,7 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
         struct ConvertToDap;
 
         impl ConvertToDap {
-            fn write_console(&self, msg: &str) -> anyhow::Result<()> {
+            fn write_console(&self, msg: &str) -> buck2_error::Result<()> {
                 let ev = debugserver_types::OutputEvent {
                     type_: "event".to_owned(),
                     event: "output".to_owned(),
