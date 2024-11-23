@@ -234,7 +234,7 @@ async def handle_output(  # noqa: C901
     return got_error_diag
 
 
-async def main() -> int:
+async def main() -> int:  # noqa: C901
     args = arg_parse()
 
     if args.echo:
@@ -312,6 +312,9 @@ async def main() -> int:
         prefix="rustc-args-",
         suffix=".txt",
         delete=False,
+        # This isn't set when running doctests. Once that's fixed, we won't need
+        # `tempfile`
+        dir=os.environ.get("BUCK_SCRATCH_PATH", None),
     ) as args_file:
         args_file.write("\n".join(rustc_args).encode() + b"\n")
         args_file.flush()
