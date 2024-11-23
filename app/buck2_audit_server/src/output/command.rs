@@ -114,8 +114,8 @@ impl ServerAuditSubcommand for AuditOutputCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
                 // First, we parse the buck-out path to get a target label. Next, we configure the target
                 // label and run analysis on it to get the `DeferredTable`. Then, we iterate through the
@@ -164,6 +164,6 @@ impl ServerAuditSubcommand for AuditOutputCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

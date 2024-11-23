@@ -16,6 +16,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::pattern::parse_package::parse_package;
+use buck2_error::buck2_error;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -28,8 +29,8 @@ pub(crate) async fn server_execute(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     _client_ctx: ClientContext,
-) -> anyhow::Result<()> {
-    server_ctx
+) -> buck2_error::Result<()> {
+    Ok(server_ctx
         .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
             let cwd = server_ctx.working_dir();
@@ -58,11 +59,11 @@ pub(crate) async fn server_execute(
                     &mut self,
                     module: &LoadedModule,
                     stdout: &mut dyn Write,
-                ) -> anyhow::Result<()> {
+                ) -> buck2_error::Result<()> {
                     let path = match module.path() {
                         StarlarkModulePath::LoadFile(path) => path,
                         StarlarkModulePath::BxlFile(_) => {
-                            return Err(anyhow::anyhow!("bxl be here"));
+                            return Err(buck2_error!([], "bxl be here"));
                         }
                     };
 
@@ -99,5 +100,5 @@ pub(crate) async fn server_execute(
 
             Ok(())
         })
-        .await
+        .await?)
 }

@@ -37,7 +37,7 @@ fn print_location_string(
     writer: &mut impl Write,
     location: &LegacyBuckConfigLocation,
     keyword: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     writeln!(writer, "  ({} {})", keyword, location)?;
     Ok(())
 }
@@ -46,7 +46,7 @@ fn print_location(
     writer: &mut impl Write,
     value: &LegacyBuckConfigValue,
     style: LocationStyle,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     match style {
         LocationStyle::None => {}
         LocationStyle::Direct => {
@@ -74,7 +74,7 @@ fn print_value(
     key: &str,
     value: &LegacyBuckConfigValue,
     style: ValueStyle,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     match style {
         ValueStyle::Resolved => {
             writeln!(writer, "    {} = {}", key, value.as_str())?;
@@ -109,7 +109,7 @@ struct Match<'a> {
 }
 
 impl<'a> Match<'a> {
-    fn parse(resolver: &CellAliasResolver, spec: &'a str) -> anyhow::Result<Self> {
+    fn parse(resolver: &CellAliasResolver, spec: &'a str) -> buck2_error::Result<Self> {
         let (cell, config) = match spec.split_once("//") {
             Some((cell, config)) => (Some(resolver.resolve(cell)?), config),
             None => (None, spec),
@@ -149,7 +149,7 @@ struct Matches<'a> {
 }
 
 impl<'a> Matches<'a> {
-    fn parse(resolver: &CellAliasResolver, specs: &'a [String]) -> anyhow::Result<Self> {
+    fn parse(resolver: &CellAliasResolver, specs: &'a [String]) -> buck2_error::Result<Self> {
         Ok(Self {
             matches: specs.try_map(|x| Match::parse(resolver, x))?,
         })
@@ -181,8 +181,8 @@ impl<'a> Matches<'a> {
 }
 
 trait CellConfigRenderer {
-    fn render_cell_header(&mut self, cell: CellName) -> anyhow::Result<()>;
-    fn render_section_header(&mut self, section: &str) -> anyhow::Result<()>;
+    fn render_cell_header(&mut self, cell: CellName) -> buck2_error::Result<()>;
+    fn render_section_header(&mut self, section: &str) -> buck2_error::Result<()>;
     fn render_config_key(
         &mut self,
         spec: &str,
@@ -190,8 +190,8 @@ trait CellConfigRenderer {
         section: &str,
         key: &str,
         value: LegacyBuckConfigValue<'_>,
-    ) -> anyhow::Result<()>;
-    fn flush(&mut self) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
+    fn flush(&mut self) -> buck2_error::Result<()>;
 }
 
 struct SimpleCellConfigRenderer<'a> {
@@ -202,7 +202,7 @@ struct SimpleCellConfigRenderer<'a> {
 }
 
 impl<'a> CellConfigRenderer for SimpleCellConfigRenderer<'a> {
-    fn render_cell_header(&mut self, cell: CellName) -> anyhow::Result<()> {
+    fn render_cell_header(&mut self, cell: CellName) -> buck2_error::Result<()> {
         if self.render_cell_headers {
             writeln!(&mut self.stdout, "# Cell: {cell}")?;
         }
@@ -210,7 +210,7 @@ impl<'a> CellConfigRenderer for SimpleCellConfigRenderer<'a> {
         Ok(())
     }
 
-    fn render_section_header(&mut self, section: &str) -> anyhow::Result<()> {
+    fn render_section_header(&mut self, section: &str) -> buck2_error::Result<()> {
         writeln!(&mut self.stdout, "[{section}]")?;
 
         Ok(())
@@ -223,14 +223,14 @@ impl<'a> CellConfigRenderer for SimpleCellConfigRenderer<'a> {
         _section: &str,
         key: &str,
         value: LegacyBuckConfigValue<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         print_value(&mut self.stdout, key, &value, self.value_style)?;
         print_location(&mut self.stdout, &value, self.location_style)?;
 
         Ok(())
     }
 
-    fn flush(&mut self) -> anyhow::Result<()> {
+    fn flush(&mut self) -> buck2_error::Result<()> {
         Ok(())
     }
 }
@@ -242,11 +242,11 @@ struct JsonCellConfigRenderer<'a> {
 }
 
 impl<'a> CellConfigRenderer for JsonCellConfigRenderer<'a> {
-    fn render_cell_header(&mut self, _cell: CellName) -> anyhow::Result<()> {
+    fn render_cell_header(&mut self, _cell: CellName) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    fn render_section_header(&mut self, _section: &str) -> anyhow::Result<()> {
+    fn render_section_header(&mut self, _section: &str) -> buck2_error::Result<()> {
         Ok(())
     }
 
@@ -257,7 +257,7 @@ impl<'a> CellConfigRenderer for JsonCellConfigRenderer<'a> {
         _section: &str,
         _key: &str,
         value: LegacyBuckConfigValue<'_>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let key = if self.scope_keys_to_cell && !spec.contains("//") {
             format!("{cell}//{spec}")
         } else {
@@ -269,7 +269,7 @@ impl<'a> CellConfigRenderer for JsonCellConfigRenderer<'a> {
         Ok(())
     }
 
-    fn flush(&mut self) -> anyhow::Result<()> {
+    fn flush(&mut self) -> buck2_error::Result<()> {
         writeln!(&mut self.stdout, "{}", json!(self.json_output))?;
 
         Ok(())
@@ -282,7 +282,7 @@ fn render_cell_config(
     cell: CellName,
     cell_config: LegacyBuckConfig,
     specs: &Matches<'_>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut rendered_cell_header = false;
     for (section, values) in cell_config.all_sections() {
         let mut rendered_section_header = false;
@@ -313,8 +313,8 @@ impl ServerAuditSubcommand for AuditConfigCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cwd = server_ctx.working_dir();
                 let cell_resolver = ctx.get_cell_resolver().await?;
@@ -375,8 +375,8 @@ impl ServerAuditSubcommand for AuditConfigCommand {
                     }
                 }
 
-                renderer.flush()
+                Ok(renderer.flush()?)
             })
-            .await
+            .await?)
     }
 }

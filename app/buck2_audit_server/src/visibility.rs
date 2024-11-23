@@ -39,7 +39,7 @@ enum VisibilityCommandError {
 async fn verify_visibility(
     mut ctx: DiceTransaction,
     targets: TargetSet<TargetNode>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut new_targets: TargetSet<TargetNode> = TargetSet::new();
 
     let visit = |target| {
@@ -74,7 +74,7 @@ async fn verify_visibility(
                     }
                 }
                 None => {
-                    return Err(anyhow::Error::from(
+                    return Err(buck2_error::Error::from(
                         VisibilityCommandError::DepNodeNotFound(
                             dep.to_string(),
                             target.label().name().to_string(),
@@ -90,7 +90,7 @@ async fn verify_visibility(
     }
 
     if !visibility_errors.is_empty() {
-        return Err(anyhow::anyhow!("{}", 1));
+        return Err(buck2_error::buck2_error!([], "{}", 1));
     }
 
     buck2_client_ctx::eprintln!("audit visibility succeeded")?;
@@ -104,8 +104,8 @@ impl ServerAuditSubcommand for AuditVisibilityCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
                     &mut ctx,
@@ -126,6 +126,6 @@ impl ServerAuditSubcommand for AuditVisibilityCommand {
                 verify_visibility(ctx, nodes).await?;
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

@@ -21,7 +21,7 @@ pub(crate) async fn audit_command_configured_target_labels(
     patterns: &[String],
     target_cfg: &TargetCfgWithUniverseOptions,
     server_ctx: &dyn ServerCommandContextTrait,
-) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+) -> buck2_error::Result<Vec<ConfiguredTargetLabel>> {
     let targets =
         parse_and_resolve_patterns_to_targets_from_cli_args::<ConfiguredTargetPatternExtra>(
             ctx,

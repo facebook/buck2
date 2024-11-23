@@ -27,8 +27,8 @@ pub(crate) async fn server_execute(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     _client_ctx: ClientContext,
-) -> anyhow::Result<()> {
-    server_ctx
+) -> buck2_error::Result<()> {
+    Ok(server_ctx
         .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
             let cell_resolver = dice_ctx.get_cell_resolver().await?;
             let cwd = server_ctx.working_dir();
@@ -66,5 +66,5 @@ pub(crate) async fn server_execute(
             write!(stdout, "{}", loaded_module.env().dump_debug())?;
             Ok(())
         })
-        .await
+        .await?)
 }

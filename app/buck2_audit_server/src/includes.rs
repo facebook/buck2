@@ -63,7 +63,7 @@ enum AuditIncludesError {
 async fn get_transitive_includes(
     ctx: &mut DiceComputations<'_>,
     load_result: &EvaluationResult,
-) -> anyhow::Result<Vec<ImportPath>> {
+) -> buck2_error::Result<Vec<ImportPath>> {
     // We define a simple graph of LoadedModules to traverse.
     #[derive(Clone, Dupe)]
     struct Node(LoadedModule);
@@ -149,7 +149,7 @@ async fn load_and_collect_includes(
 ) -> buck2_error::Result<Vec<ImportPath>> {
     let parent = path
         .parent()
-        .ok_or_else(|| anyhow::anyhow!(AuditIncludesError::InvalidPath(path.clone())))?;
+        .ok_or_else(|| AuditIncludesError::InvalidPath(path.clone()))?;
     let package = PackageLabel::from_cell_path(parent);
     let load_result = ctx.get_interpreter_results(package).await?;
 
@@ -160,14 +160,14 @@ async fn load_and_collect_includes(
             .file_name()
             .expect("checked that this has a parent above")
     {
-        return Err(anyhow::anyhow!(AuditIncludesError::WrongBuildfilePath(
+        return Err(AuditIncludesError::WrongBuildfilePath(
             path.clone(),
             buildfile_name.to_owned(),
-        ))
+        )
         .into());
     }
 
-    Ok(get_transitive_includes(ctx, &load_result).await?)
+    get_transitive_includes(ctx, &load_result).await
 }
 
 fn resolve_path(
@@ -175,7 +175,7 @@ fn resolve_path(
     fs: &ProjectRoot,
     current_cell_abs_path: &AbsNormPath,
     path: &str,
-) -> anyhow::Result<CellPath> {
+) -> buck2_error::Result<CellPath> {
     // To match buck1, if the path is absolute we use it as-is, but if not it is treated
     // as relative to the working dir cell root (not the working dir).
     // The easiest way to consistently handle non-canonical paths
@@ -187,7 +187,7 @@ fn resolve_path(
     let abs_path = fs_util::canonicalize(path)?;
 
     let project_path = fs.relativize(&abs_path)?;
-    Ok(cells.get_cell_path(&project_path)?)
+    cells.get_cell_path(&project_path)
 }
 
 #[async_trait]
@@ -197,8 +197,8 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cells = ctx.get_cell_resolver().await?;
                 let cwd = server_ctx.working_dir();
@@ -227,7 +227,7 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
 
                 let results: Vec<(_, buck2_error::Result<Vec<_>>)> = futures.collect().await;
                 // This is expected to not return any errors, and so we're not careful about not propagating it.
-                let to_absolute_path = move |include: ImportPath| -> anyhow::Result<_> {
+                let to_absolute_path = move |include: ImportPath| -> buck2_error::Result<_> {
                     let include = include.path();
                     let cell = cells.get(include.cell())?;
                     let path = cell.path().join(include.path());
@@ -235,7 +235,7 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                 };
                 let absolutize_paths =
                     |paths: Vec<ImportPath>| -> buck2_error::Result<Vec<AbsNormPathBuf>> {
-                        Ok(paths.into_try_map(&to_absolute_path)?)
+                        paths.into_try_map(&to_absolute_path)
                     };
                 let results: Vec<(String, buck2_error::Result<Vec<AbsNormPathBuf>>)> = results
                     .into_map(|(path, includes)| (path, includes.and_then(absolutize_paths)));
@@ -297,6 +297,6 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

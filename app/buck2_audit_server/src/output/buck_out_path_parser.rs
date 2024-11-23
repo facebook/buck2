@@ -9,7 +9,6 @@
 
 use std::iter::Peekable;
 
-use anyhow::Context;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::cells::cell_path::CellPath;
@@ -23,6 +22,8 @@ use buck2_core::package::PackageLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_core::target::name::EQ_SIGN_SUBST;
+use buck2_error::buck2_error;
+use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use itertools::Itertools;
 
@@ -86,7 +87,7 @@ pub(crate) struct BuckOutPathParser {
 fn validate_buck_out_and_isolation_prefix<'v>(
     iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
     output_path: &str,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     // Validate path starts with buck-out.
     match iter.next() {
         Some(buck_out) => {
@@ -98,17 +99,19 @@ fn validate_buck_out_and_isolation_prefix<'v>(
                         BuckOutPathParserError::MaybeBuck1Path(output_path.to_owned()).into(),
                     );
                 } else {
-                    return Err(anyhow::anyhow!("Path does not start with buck-out"));
+                    return Err(buck2_error!([], "Path does not start with buck-out"));
                 }
             }
         }
-        None => return Err(anyhow::anyhow!("Path does not start with buck-out")),
+        None => {
+            return Err(buck2_error!([], "Path does not start with buck-out"));
+        }
     }
 
     // Advance the iterator to isolation dir.
     match iter.next() {
         Some(_) => Ok(()),
-        None => Err(anyhow::anyhow!("Path does not have an isolation dir")),
+        None => Err(buck2_error!([], "Path does not have an isolation dir")),
     }
 }
 
@@ -126,12 +129,12 @@ fn get_cell_path<'v>(
     iter: &mut Peekable<impl Iterator<Item = &'v FileName> + Clone>,
     cell_resolver: &'v CellResolver,
     generated_prefix: &'v str,
-) -> anyhow::Result<BuckOutPathData> {
+) -> buck2_error::Result<BuckOutPathData> {
     let is_anon = generated_prefix == "gen-anon";
     let is_test = generated_prefix == "test";
     // Get cell name and validate it exists
     let Some(cell_name) = iter.next() else {
-        return Err(anyhow::anyhow!("Invalid cell name"));
+        return Err(buck2_error!([], "Invalid cell name"));
     };
 
     let cell_name = CellName::unchecked_new(cell_name.as_str())?;
@@ -141,7 +144,8 @@ fn get_cell_path<'v>(
 
     // Advance iterator to the config hash
     let Some(config_hash) = iter.next() else {
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error!(
+            [],
             "Path does not have a platform configuration"
         ));
     };
@@ -166,7 +170,7 @@ fn get_cell_path<'v>(
         let (cell_relative_path, anon_hash) = if is_anon {
             let path = cell_relative_path
                 .parent()
-                .with_context(|| "Invalid path for anonymous target")?
+                .with_buck_error_context(|| "Invalid path for anonymous target")?
                 .to_buf();
             let anon_hash = cell_relative_path.file_name().unwrap().as_str().to_owned();
             (path, Some(anon_hash))
@@ -194,13 +198,13 @@ fn get_cell_path<'v>(
         };
         Ok(buck_out_path_data)
     } else {
-        Err(anyhow::anyhow!("Invalid target name"))
+        Err(buck2_error!([], "Invalid target name"))
     }
 }
 
 fn get_target_name<'v>(
     iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
-) -> anyhow::Result<String> {
+) -> buck2_error::Result<String> {
     // Get target name, which is prefixed and suffixed with "__"
     match iter.next() {
         Some(raw_target_name) => {
@@ -212,7 +216,7 @@ fn get_target_name<'v>(
                     Some(next) => {
                         target_name_with_underscores = target_name_with_underscores.join(next);
                     }
-                    None => return Err(anyhow::anyhow!("Invalid target name")),
+                    None => return Err(buck2_error!([], "Invalid target name")),
                 }
             }
 
@@ -221,14 +225,14 @@ fn get_target_name<'v>(
                 &target_name_with_underscores[2..(target_name_with_underscores.len() - 2)];
             Ok(target_name.replace(EQ_SIGN_SUBST, "="))
         }
-        None => Err(anyhow::anyhow!("Invalid target name")),
+        None => Err(buck2_error!([], "Invalid target name")),
     }
 }
 
 fn get_target_label<'v>(
     iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
     path: CellPath,
-) -> anyhow::Result<TargetLabel> {
+) -> buck2_error::Result<TargetLabel> {
     let target_name = get_target_name(iter)?;
     let package = PackageLabel::from_cell_path(path.as_ref());
     let target = TargetNameRef::new(target_name.as_str())?;
@@ -239,7 +243,7 @@ fn get_target_label<'v>(
 fn get_bxl_function_label<'v>(
     iter: &mut Peekable<impl Iterator<Item = &'v FileName>>,
     path: CellPath,
-) -> anyhow::Result<BxlFunctionLabel> {
+) -> buck2_error::Result<BxlFunctionLabel> {
     let target_name = get_target_name(iter)?;
     let bxl_path = BxlFilePath::new(path)?;
     let bxl_function_label = BxlFunctionLabel {
@@ -257,22 +261,21 @@ impl BuckOutPathParser {
 
     // Validates and parses the buck-out path, returning the `BuckOutPathType`. Assumes
     // that the inputted path is not a symlink.
-    pub(crate) fn parse(&self, output_path: &str) -> anyhow::Result<BuckOutPathType> {
+    pub(crate) fn parse(&self, output_path: &str) -> buck2_error::Result<BuckOutPathType> {
         let path_as_forward_rel_path = ForwardRelativePathBuf::new(output_path.to_owned())?;
         let mut iter = path_as_forward_rel_path.iter().peekable();
 
         validate_buck_out_and_isolation_prefix(&mut iter, output_path)?;
 
-        self.parse_after_isolation_dir(iter)
-            .context(BuckOutPathParserError::MalformedOutputPath(
-                output_path.to_owned(),
-            ))
+        self.parse_after_isolation_dir(iter).buck_error_context(
+            BuckOutPathParserError::MalformedOutputPath(output_path.to_owned()),
+        )
     }
 
     fn parse_after_isolation_dir<'v>(
         &'v self,
         mut iter: Peekable<impl Iterator<Item = &'v FileName> + Clone>,
-    ) -> anyhow::Result<BuckOutPathType> {
+    ) -> buck2_error::Result<BuckOutPathType> {
         // Advance the iterator to the prefix (tmp, test, gen, gen-anon, or gen-bxl)
         match iter.next() {
             Some(part) => {
@@ -361,19 +364,20 @@ impl BuckOutPathParser {
                             common_attrs,
                         })
                     }
-                    _ => Err(anyhow::anyhow!(
+                    _ => Err(buck2_error!(
+                        [],
                         "Directory after isolation dir is invalid (should be gen, gen-bxl, gen-anon, tmp, or test)"
                     )),
                 };
 
                 // Validate for non-test outputs that the target name is not the last element in the path
                 if part != "test" && iter.peek().is_none() {
-                    Err(anyhow::anyhow!("No output artifacts found"))
+                    Err(buck2_error!([], "No output artifacts found"))
                 } else {
                     result
                 }
             }
-            None => Err(anyhow::anyhow!("Path is empty")),
+            None => Err(buck2_error!([], "Path is empty")),
         }
     }
 }
@@ -438,7 +442,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validation() -> anyhow::Result<()> {
+    fn test_validation() -> buck2_error::Result<()> {
         let (buck_out_parser, config_hash, _, _) = get_test_data();
 
         let malformed_path1 = "does/not/start/with/buck-out/blah/blah";
@@ -484,7 +488,7 @@ mod tests {
     }
 
     #[test]
-    fn test_target_output() -> anyhow::Result<()> {
+    fn test_target_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
             get_test_data();
 
@@ -521,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn test_target_output_with_slashes() -> anyhow::Result<()> {
+    fn test_target_output_with_slashes() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
             get_test_data();
 
@@ -563,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn test_target_output_with_eq_sign() -> anyhow::Result<()> {
+    fn test_target_output_with_eq_sign() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
             get_test_data();
 
@@ -605,7 +609,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tmp_output() -> anyhow::Result<()> {
+    fn test_tmp_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
             get_test_data();
 
@@ -637,7 +641,7 @@ mod tests {
     }
 
     #[test]
-    fn test_test_output() -> anyhow::Result<()> {
+    fn test_test_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
         let test_path = format!(
@@ -668,7 +672,7 @@ mod tests {
     }
 
     #[test]
-    fn test_anon_output() -> anyhow::Result<()> {
+    fn test_anon_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, expected_target_label, expected_cell_path) =
             get_test_data();
 
@@ -702,7 +706,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bxl_output() -> anyhow::Result<()> {
+    fn test_bxl_output() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
         let path = format!(
@@ -742,7 +746,7 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_package_path() -> anyhow::Result<()> {
+    fn test_empty_package_path() -> buck2_error::Result<()> {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
         let target_path = format!(

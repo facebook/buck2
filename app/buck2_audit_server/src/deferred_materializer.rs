@@ -9,7 +9,6 @@
 
 use std::io::Write;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_audit::deferred_materializer::DeferredMaterializerCommand;
 use buck2_audit::deferred_materializer::DeferredMaterializerSubcommand;
@@ -29,19 +28,19 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let mut stdout = stdout.as_writer();
 
         let materializer = server_ctx.materializer();
         let deferred_materializer = materializer
             .as_deferred_materializer_extension()
-            .context("Deferred materializer is not in use")?;
+            .buck_error_context("Deferred materializer is not in use")?;
 
         match self.subcommand {
             DeferredMaterializerSubcommand::List => {
                 let mut stream = deferred_materializer
                     .iterate()
-                    .buck_error_context_anyhow("Failed to start iterating")?;
+                    .buck_error_context("Failed to start iterating")?;
 
                 while let Some(DeferredMaterializerIterItem {
                     artifact_path,
@@ -59,7 +58,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
             DeferredMaterializerSubcommand::ListSubscriptions => {
                 let mut stream = deferred_materializer
                     .list_subscriptions()
-                    .buck_error_context_anyhow("Failed to start listing subscriptions")?;
+                    .buck_error_context("Failed to start listing subscriptions")?;
 
                 while let Some(path) = stream.next().await {
                     writeln!(stdout, "{}", path)?;
@@ -68,7 +67,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
             DeferredMaterializerSubcommand::Fsck => {
                 let mut stream = deferred_materializer
                     .fsck()
-                    .buck_error_context_anyhow("Failed to start iterating")?;
+                    .buck_error_context("Failed to start iterating")?;
 
                 let mut n = 0;
 
@@ -84,13 +83,13 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                 deferred_materializer
                     .refresh_ttls(min_ttl)
                     .await
-                    .buck_error_context_anyhow("Failed to refresh")?;
+                    .buck_error_context("Failed to refresh")?;
             }
             DeferredMaterializerSubcommand::GetRefreshLog => {
                 let text = deferred_materializer
                     .get_ttl_refresh_log()
                     .await
-                    .buck_error_context_anyhow("Failed to get_ttl_refresh_log")?;
+                    .buck_error_context("Failed to get_ttl_refresh_log")?;
 
                 write!(stdout, "{}", text)?;
             }
@@ -98,7 +97,7 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                 let text = deferred_materializer
                     .test_iter(count)
                     .await
-                    .buck_error_context_anyhow("Failed to test_iter")?;
+                    .buck_error_context("Failed to test_iter")?;
 
                 write!(stdout, "{}", text)?;
             }
@@ -106,12 +105,12 @@ impl ServerAuditSubcommand for DeferredMaterializerCommand {
                 let text = deferred_materializer
                     .flush_all_access_times()
                     .await
-                    .buck_error_context_anyhow("Failed to flush all access times")?;
+                    .buck_error_context("Failed to flush all access times")?;
 
                 write!(stdout, "{}", text)?;
             }
         }
 
-        anyhow::Ok(())
+        buck2_error::Ok(())
     }
 }

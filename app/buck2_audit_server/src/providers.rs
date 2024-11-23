@@ -35,12 +35,12 @@ impl ServerAuditSubcommand for AuditProvidersCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
                 server_execute_with_dice(self, server_ctx, stdout, ctx)
             })
-            .await
+            .await?)
     }
 }
 

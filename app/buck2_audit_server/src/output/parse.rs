@@ -26,8 +26,8 @@ impl ServerAuditSubcommand for AuditParseCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|_server_ctx, mut dice_ctx| async move {
                 let cell_resolver = dice_ctx.get_cell_resolver().await?;
                 let buck_out_parser = BuckOutPathParser::new(cell_resolver);
@@ -39,6 +39,6 @@ impl ServerAuditSubcommand for AuditParseCommand {
 
                 printer.print(&parsed_path, stdout)
             })
-            .await
+            .await?)
     }
 }

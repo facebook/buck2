@@ -35,8 +35,8 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cwd = server_ctx.working_dir();
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
@@ -72,28 +72,29 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
                                 let label = target.label().dupe();
                                 let label_to_artifact =
                                     (CLASSPATH_FOR_TARGETS.get()?)(ctx, vec![label.dupe()]).await?;
-                                anyhow::Ok((label, label_to_artifact))
+                                buck2_error::Ok((label, label_to_artifact))
                             }
                             .boxed()
                         })
                         .await?;
-                    let target_to_classpaths: anyhow::Result<IndexMap<_, _>> = target_to_artifacts
-                        .into_iter()
-                        .map(|(target, label_to_artifact)| {
-                            let classpaths: anyhow::Result<Vec<_>> = label_to_artifact
-                                .into_values()
-                                .map(|artifact| {
-                                    let path = artifact.get_path().resolve(&artifact_fs)?;
-                                    anyhow::Ok(artifact_fs.fs().resolve(&path))
-                                })
-                                .collect();
-                            // Note: We are choosing unconfigured targets here to match buck1 behavior.
-                            // This means that if same unconfigured target with different configurations are audited,
-                            // one will override the other in the output.
-                            // The replacement for this command in the future should return configured targets.
-                            anyhow::Ok((target.unconfigured().dupe(), classpaths?))
-                        })
-                        .collect();
+                    let target_to_classpaths: buck2_error::Result<IndexMap<_, _>> =
+                        target_to_artifacts
+                            .into_iter()
+                            .map(|(target, label_to_artifact)| {
+                                let classpaths: buck2_error::Result<Vec<_>> = label_to_artifact
+                                    .into_values()
+                                    .map(|artifact| {
+                                        let path = artifact.get_path().resolve(&artifact_fs)?;
+                                        buck2_error::Ok(artifact_fs.fs().resolve(&path))
+                                    })
+                                    .collect();
+                                // Note: We are choosing unconfigured targets here to match buck1 behavior.
+                                // This means that if same unconfigured target with different configurations are audited,
+                                // one will override the other in the output.
+                                // The replacement for this command in the future should return configured targets.
+                                buck2_error::Ok((target.unconfigured().dupe(), classpaths?))
+                            })
+                            .collect();
                     writeln!(
                         stdout,
                         "{}",
@@ -114,6 +115,6 @@ impl ServerAuditSubcommand for AuditClasspathCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }

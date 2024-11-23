@@ -37,12 +37,12 @@ impl ServerAuditSubcommand for AuditSubtargetsCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
                 server_execute_with_dice(self, server_ctx, stdout, ctx)
             })
-            .await
+            .await?)
     }
 }
 
@@ -95,7 +95,7 @@ async fn server_execute_with_dice(
                     if json_format {
                         fn serialize_nested_subtargets(
                             providers: &FrozenProviderCollection,
-                        ) -> anyhow::Result<serde_json::Value> {
+                        ) -> buck2_error::Result<serde_json::Value> {
                             let mut entries = serde_json::Map::new();
                             for (subtarget, providers) in
                                 providers.default_info()?.sub_targets().iter()
@@ -118,7 +118,7 @@ async fn server_execute_with_dice(
                             providers: &FrozenProviderCollection,
                             stdout: &mut StdoutPartialOutput,
                             label: &mut Subtarget,
-                        ) -> anyhow::Result<()> {
+                        ) -> buck2_error::Result<()> {
                             for (subtarget, providers) in
                                 providers.default_info()?.sub_targets().iter()
                             {

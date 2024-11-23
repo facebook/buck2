@@ -70,11 +70,11 @@ async fn parse_command_and_execute(
     req: buck2_cli_proto::GenericRequest,
 ) -> anyhow::Result<()> {
     let command: AuditCommand = serde_json::from_str(&req.serialized_opts)?;
-    command
+    Ok(command
         .server_execute(
             context,
             partial_result_dispatcher,
             req.context.expect("buck cli always sets a client context"),
         )
-        .await
+        .await?)
 }

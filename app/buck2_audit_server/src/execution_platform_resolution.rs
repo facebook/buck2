@@ -30,8 +30,8 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
-    ) -> anyhow::Result<()> {
-        server_ctx
+    ) -> buck2_error::Result<()> {
+        Ok(server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let configured_patterns = audit_command_configured_target_labels(
                     &mut ctx,
@@ -102,6 +102,6 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
 
                 Ok(())
             })
-            .await
+            .await?)
     }
 }
