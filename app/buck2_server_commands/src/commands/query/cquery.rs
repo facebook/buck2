@@ -19,7 +19,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
@@ -94,7 +94,7 @@ pub(crate) async fn cquery_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: CqueryRequest,
-) -> anyhow::Result<CqueryResponse> {
+) -> buck2_error::Result<CqueryResponse> {
     run_server_command(CqueryServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -122,7 +122,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         cquery(
             server_ctx,
             partial_result_dispatcher.as_writer(),
@@ -142,7 +142,7 @@ async fn cquery(
     mut stdout: impl Write,
     mut ctx: DiceTransaction,
     request: &CqueryRequest,
-) -> anyhow::Result<CqueryResponse> {
+) -> buck2_error::Result<CqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
@@ -165,16 +165,14 @@ async fn cquery(
     } else {
         Some(target_universe)
     };
-    let client_ctx = context
-        .as_ref()
-        .internal_error_anyhow("No client context")?;
+    let client_ctx = context.as_ref().internal_error("No client context")?;
 
     let target_call_stacks = client_ctx.target_call_stacks;
 
     let global_cfg_options = global_cfg_options_from_client_context(
         target_cfg
             .as_ref()
-            .internal_error_anyhow("target_cfg must be set")?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx,
     )
@@ -182,9 +180,7 @@ async fn cquery(
 
     let profile_mode = request
         .profile_mode
-        .map(|i| {
-            buck2_cli_proto::ProfileMode::from_i32(i).internal_error_anyhow("Invalid profile mode")
-        })
+        .map(|i| buck2_cli_proto::ProfileMode::from_i32(i).internal_error("Invalid profile mode"))
         .transpose()?;
 
     let (query_result, universes) = QUERY_FRONTEND
@@ -201,10 +197,10 @@ async fn cquery(
         .await?;
 
     if let Some(profile_mode) = profile_mode {
-        let universes = universes.internal_error_anyhow("No universes")?;
+        let universes = universes.internal_error("No universes")?;
         if universes.is_empty() {
             // Sanity check.
-            return Err(internal_error_anyhow!("Empty universes list"));
+            return Err(internal_error!("Empty universes list"));
         }
 
         write_query_profile_for_targets(
@@ -221,7 +217,7 @@ async fn cquery(
         .await?;
     } else {
         if universes.is_some() {
-            return Err(internal_error_anyhow!("We did not request universes"));
+            return Err(internal_error!("We did not request universes"));
         }
     }
 
@@ -254,7 +250,7 @@ async fn cquery(
                     .await?
             }
         };
-        anyhow::Ok(())
+        buck2_error::Ok(())
     })
     .await?;
 
@@ -266,7 +262,7 @@ impl ProviderLookUp<ConfiguredTargetNode> for LinearRecomputeDiceComputations<'_
     async fn lookup(
         &self,
         t: &ConfiguredTargetNode,
-    ) -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
+    ) -> buck2_error::Result<MaybeCompatible<FrozenProviderCollectionValue>> {
         Ok(self
             .get()
             .get_providers(&ConfiguredProvidersLabel::new(

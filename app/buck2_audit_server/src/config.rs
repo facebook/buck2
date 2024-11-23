@@ -375,7 +375,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
                     }
                 }
 
-                Ok(renderer.flush()?)
+                renderer.flush()
             })
             .await?)
     }

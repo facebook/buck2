@@ -11,7 +11,6 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
 use buck2_artifact::artifact::artifact_dump::ArtifactMetadataJson;
@@ -53,7 +52,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
@@ -97,7 +95,7 @@ pub(crate) async fn build_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::BuildRequest,
-) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
+) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     run_server_command(BuildServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -128,7 +126,7 @@ impl ServerCommandTemplate for BuildServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         build(server_ctx, ctx, &self.req).await
     }
 
@@ -152,13 +150,14 @@ async fn dump_artifacts_to_file(
     path: &str,
     provider_artifacts: &[ProviderArtifacts],
     artifact_fs: &ArtifactFs,
-) -> anyhow::Result<()> {
-    let file = std::fs::File::create(path).context("Failed to create output hash file")?;
+) -> buck2_error::Result<()> {
+    let file =
+        std::fs::File::create(path).buck_error_context("Failed to create output hash file")?;
     let writer = BufWriter::new(file);
     let mut ser = serde_json::Serializer::new(writer);
     let mut seq = ser
         .serialize_seq(None)
-        .context("Failed to write vec to output hash file")?;
+        .buck_error_context("Failed to write vec to output hash file")?;
 
     let mut dir = ActionDirectoryBuilder::empty();
     for artifact in provider_artifacts {
@@ -197,14 +196,14 @@ async fn dump_artifacts_to_file(
             info,
         };
         seq.serialize_element(&artifact_meta_json)
-            .context("Failed to write data to output hash file")?;
+            .buck_error_context("Failed to write data to output hash file")?;
     }
 
     seq.end()
-        .context("Failed to write vec end to output hash file")?;
+        .buck_error_context("Failed to write vec end to output hash file")?;
     ser.into_inner()
         .flush()
-        .context("Failed to flush output hash file")?;
+        .buck_error_context("Failed to flush output hash file")?;
     Ok(())
 }
 
@@ -212,7 +211,7 @@ async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
-) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
+) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let cwd = server_ctx.working_dir();
 
     let build_opts = expect_build_opts(request);
@@ -231,7 +230,7 @@ async fn build(
         request
             .target_cfg
             .as_ref()
-            .internal_error_anyhow("target_cfg must be set")?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &request.target_universe,
     )
@@ -241,7 +240,7 @@ async fn build(
 
     let final_artifact_materializations =
         Materializations::from_i32(request.final_artifact_materializations)
-            .with_context(|| "Invalid final_artifact_materializations")
+            .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
 
     let want_configured_graph_size = ctx
@@ -286,7 +285,7 @@ async fn process_build_result(
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
-) -> anyhow::Result<buck2_cli_proto::BuildResponse> {
+) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
     let cwd = server_ctx.working_dir();
 
@@ -341,7 +340,7 @@ async fn process_build_result(
             async {
                 dump_artifacts_to_file(output_hashes_file, &provider_artifacts, &artifact_fs)
                     .await
-                    .with_context(|| {
+                    .with_buck_error_context(|| {
                         format!("Failed to write output hashes file to {output_hashes_file}",)
                     })
             },
@@ -406,10 +405,10 @@ async fn build_targets(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
-) -> anyhow::Result<BuildTargetResult> {
+) -> buck2_error::Result<BuildTargetResult> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
-            let spec = spec.convert_pattern().context(
+            let spec = spec.convert_pattern().buck_error_context(
                 "Targets with explicit configuration can only be built when the `--target-universe=` flag is provided",
             )?;
             build_targets_with_global_target_platform(
@@ -436,7 +435,7 @@ async fn build_targets(
         .right_stream(),
     };
 
-    Ok(BuildTargetResult::collect_stream(stream, fail_fast).await?)
+    BuildTargetResult::collect_stream(stream, fail_fast).await
 }
 
 fn build_targets_in_universe<'a>(

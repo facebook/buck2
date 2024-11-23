@@ -19,7 +19,7 @@ pub fn get_host_info(
     host_platform: HostPlatformOverride,
     host_arch: HostArchOverride,
     host_xcode_override: &Option<String>,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     InterpreterHostPlatform,
     InterpreterHostArchitecture,
     Option<XcodeVersionInfo>,

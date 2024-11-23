@@ -36,7 +36,7 @@ impl StarlarkServerCommand for StarlarkServerCommandImpl {
         ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         req: buck2_cli_proto::GenericRequest,
-    ) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
+    ) -> buck2_error::Result<buck2_cli_proto::GenericResponse> {
         let start_event = buck2_data::CommandStart {
             metadata: ctx.request_metadata().await?,
             data: Some(buck2_data::StarlarkCommandStart {}.into()),
@@ -65,7 +65,7 @@ async fn server_starlark_command_inner(
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::GenericRequest,
 ) -> (
-    anyhow::Result<buck2_cli_proto::GenericResponse>,
+    buck2_error::Result<buck2_cli_proto::GenericResponse>,
     buck2_data::CommandEnd,
 ) {
     let result = parse_command_and_execute(context, partial_result_dispatcher, req)

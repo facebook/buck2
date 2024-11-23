@@ -99,7 +99,7 @@ pub enum TargetHashesFileMode {
 #[async_trait]
 trait FileHasher: Send + Sync {
     /// Obtain information about a path in some manner.
-    async fn hash_path(&self, path: &CellPath) -> anyhow::Result<Vec<u8>>;
+    async fn hash_path(&self, path: &CellPath) -> buck2_error::Result<Vec<u8>>;
 }
 
 struct PathsOnlyFileHasher {
@@ -108,7 +108,7 @@ struct PathsOnlyFileHasher {
 
 #[async_trait]
 impl FileHasher for PathsOnlyFileHasher {
-    async fn hash_path(&self, path: &CellPath) -> anyhow::Result<Vec<u8>> {
+    async fn hash_path(&self, path: &CellPath) -> buck2_error::Result<Vec<u8>> {
         if self.pseudo_changed_paths.contains(path) {
             Ok(vec![0u8])
         } else {
@@ -123,13 +123,13 @@ struct PathsAndContentsHasher {
 
 #[async_trait]
 impl FileHasher for PathsAndContentsHasher {
-    async fn hash_path(&self, cell_path: &CellPath) -> anyhow::Result<Vec<u8>> {
+    async fn hash_path(&self, cell_path: &CellPath) -> buck2_error::Result<Vec<u8>> {
         #[async_recursion]
         async fn hash_item(
             ctx: &mut DiceComputations<'_>,
             cell_path: CellPathRef<'async_recursion>,
             res: &mut Vec<u8>,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             let info = DiceFileComputations::read_path_metadata(ctx, cell_path.dupe()).await?;
             // Important that the different branches can never clash, so add a prefix byte to them
             match PathMetadataOrRedirection::from(info) {
@@ -192,9 +192,9 @@ pub(crate) trait TargetHashingTargetNode: QueryTarget {
     // Target Nodes based on type of hashing specified.
     async fn get_target_nodes(
         dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<TargetSet<Self>>;
+    ) -> buck2_error::Result<TargetSet<Self>>;
 }
 
 #[async_trait]
@@ -205,9 +205,9 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
 
     async fn get_target_nodes(
         dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<TargetSet<Self>> {
+    ) -> buck2_error::Result<TargetSet<Self>> {
         Ok(get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await?)
     }
 }
@@ -220,9 +220,9 @@ impl TargetHashingTargetNode for TargetNode {
 
     async fn get_target_nodes(
         _dice: &mut DiceComputations,
-        loaded_targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        loaded_targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         _global_cfg_options: &GlobalCfgOptions,
-    ) -> anyhow::Result<TargetSet<Self>> {
+    ) -> buck2_error::Result<TargetSet<Self>> {
         let mut target_set = TargetSet::new();
         for (_package, result) in loaded_targets {
             target_set.extend(result?);
@@ -254,7 +254,7 @@ impl TargetHashes {
         targets: TargetSet<T>,
         file_hasher: Option<Arc<dyn FileHasher>>,
         use_fast_hash: bool,
-    ) -> anyhow::Result<Self>
+    ) -> buck2_error::Result<Self>
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
@@ -298,7 +298,7 @@ impl TargetHashes {
                                         let file_hash = file_hasher.hash_path(&cell_path).await;
                                         (cell_path, file_hash)
                                     });
-                                    anyhow::Ok(())
+                                    buck2_error::Ok(())
                                 })?;
                             }
 
@@ -360,7 +360,7 @@ impl TargetHashes {
         targets: TargetSet<T>,
         file_hasher: Option<Arc<dyn FileHasher>>,
         use_fast_hash: bool,
-    ) -> anyhow::Result<Self>
+    ) -> buck2_error::Result<Self>
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
@@ -369,7 +369,7 @@ impl TargetHashes {
             .map(|target| {
                 let file_hasher = file_hasher.dupe();
                 async move {
-                    let hash_result: anyhow::Result<BuckTargetHash> = try {
+                    let hash_result: buck2_error::Result<BuckTargetHash> = try {
                         let mut hasher = TargetHashes::new_hasher(use_fast_hash);
                         TargetHashes::hash_node(&target, &mut *hasher);
 
@@ -381,7 +381,7 @@ impl TargetHashes {
                                     let file_hash = file_hasher.hash_path(&cell_path).await;
                                     (cell_path, file_hash)
                                 });
-                                anyhow::Ok(())
+                                buck2_error::Ok(())
                             })?;
 
                             let input_hashes = join_all(input_futs).await;
@@ -414,12 +414,12 @@ impl TargetHashes {
     pub(crate) async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
         mut dice: DiceTransaction,
         lookup: L,
-        targets: Vec<(PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+        targets: Vec<(PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
         global_cfg_options: &GlobalCfgOptions,
         file_hash_mode: TargetHashesFileMode,
         use_fast_hash: bool,
         target_hash_recursive: bool,
-    ) -> anyhow::Result<Self>
+    ) -> buck2_error::Result<Self>
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
@@ -473,7 +473,7 @@ impl TargetHashes {
     }
 
     fn hash_files(
-        file_digests: Vec<(CellPath, anyhow::Result<Vec<u8>>)>,
+        file_digests: Vec<(CellPath, buck2_error::Result<Vec<u8>>)>,
         mut hasher: &mut dyn BuckTargetHasher,
     ) -> buck2_error::Result<()> {
         for (path, digest) in file_digests {

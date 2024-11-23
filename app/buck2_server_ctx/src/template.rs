@@ -66,7 +66,7 @@ pub trait ServerCommandTemplate: Send + Sync {
         server_ctx: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response>;
+    ) -> buck2_error::Result<Self::Response>;
 }
 
 /// Call this function to run the command template implementation.
@@ -74,7 +74,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
     command: T,
     server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<<T as ServerCommandTemplate>::PartialResult>,
-) -> anyhow::Result<T::Response> {
+) -> buck2_error::Result<T::Response> {
     let start_event = buck2_data::CommandStart {
         metadata: server_ctx.request_metadata().await?,
         data: Some(command.start_event().into()),

@@ -126,10 +126,10 @@ pub async fn scope<F, R, Fut>(
     backend: CriticalPathBackendName,
     ctx: BuildSignalsContext,
     func: F,
-) -> anyhow::Result<R>
+) -> buck2_error::Result<R>
 where
     F: FnOnce() -> Fut + Send,
-    Fut: Future<Output = anyhow::Result<R>> + Send,
+    Fut: Future<Output = buck2_error::Result<R>> + Send,
     R: Send,
 {
     let handle = deferred.start(events, backend, ctx);

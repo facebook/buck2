@@ -21,7 +21,7 @@ use crate::ctx::ServerCommandContext;
 pub(crate) async fn trace_io_command(
     context: &ServerCommandContext<'_>,
     req: buck2_cli_proto::TraceIoRequest,
-) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
+) -> buck2_error::Result<buck2_cli_proto::TraceIoResponse> {
     let start_event = buck2_data::CommandStart {
         metadata: context.request_metadata().await?,
         data: Some(buck2_data::TraceIoCommandStart {}.into()),
@@ -61,14 +61,14 @@ pub(crate) async fn trace_io_command(
 async fn build_response_with_trace(
     context: &ServerCommandContext<'_>,
     provider: &TracingIoProvider,
-) -> anyhow::Result<buck2_cli_proto::TraceIoResponse> {
+) -> buck2_error::Result<buck2_cli_proto::TraceIoResponse> {
     // Materialize buck-out paths so they can be archived.
     let buck_out_entries: Vec<_> = provider.trace().buck_out_entries();
     context
         .materializer()
         .ensure_materialized(buck_out_entries.clone())
         .await
-        .buck_error_context_anyhow("Error materializing buck-out paths for trace")?;
+        .buck_error_context("Error materializing buck-out paths for trace")?;
 
     let mut entries = provider.trace().project_entries();
     entries.extend(buck_out_entries);

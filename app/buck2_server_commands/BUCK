@@ -9,7 +9,6 @@ rust_library(
         "src/commands/explain/*",
     ]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-recursion",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:blake3",

@@ -50,7 +50,7 @@ pub trait BlockingExecutor: Allocative + Send + Sync + 'static {
 }
 
 impl dyn BlockingExecutor {
-    pub async fn execute_io_inline<F, T>(&self, f: F) -> anyhow::Result<T>
+    pub async fn execute_io_inline<F, T>(&self, f: F) -> buck2_error::Result<T>
     where
         F: FnOnce() -> buck2_error::Result<T> + Send,
         T: Send,
@@ -61,7 +61,7 @@ impl dyn BlockingExecutor {
             Ok(())
         }))
         .await?;
-        res.buck_error_context_anyhow("Inline I/O did not execute")
+        res.buck_error_context("Inline I/O did not execute")
     }
 }
 

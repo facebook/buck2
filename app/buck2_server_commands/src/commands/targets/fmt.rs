@@ -19,7 +19,7 @@ use buck2_cli_proto::TargetsRequest;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::hacks::value_to_json;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -334,7 +334,7 @@ impl Stats {
         self.errors += 1;
     }
 
-    pub(crate) fn to_error(&self) -> Option<anyhow::Error> {
+    pub(crate) fn to_error(&self) -> Option<buck2_error::Error> {
         if self.errors == 0 {
             return None;
         }
@@ -396,9 +396,9 @@ pub(crate) fn print_target_call_stack_after_target(out: &mut String, call_stack:
 pub(crate) fn create_formatter(
     request: &TargetsRequest,
     other: &targets_request::Other,
-) -> anyhow::Result<Arc<dyn TargetFormatter>> {
+) -> buck2_error::Result<Arc<dyn TargetFormatter>> {
     let output_format = OutputFormat::from_i32(request.output_format)
-        .internal_error_anyhow("Invalid value of `output_format`")?;
+        .internal_error("Invalid value of `output_format`")?;
 
     let target_call_stacks = request.client_context()?.target_call_stacks;
 
@@ -407,7 +407,7 @@ pub(crate) fn create_formatter(
         _ => {
             // Self-check.
             if !other.output_attributes.is_empty() {
-                return Err(internal_error_anyhow!(
+                return Err(internal_error!(
                     "Attributes can only be specified when output format is JSON"
                 ));
             }
@@ -415,7 +415,7 @@ pub(crate) fn create_formatter(
     }
 
     match output_format {
-        OutputFormat::Unknown => Err(internal_error_anyhow!("`output_format` is not set")),
+        OutputFormat::Unknown => Err(internal_error!("`output_format` is not set")),
         OutputFormat::Stats => Ok(Arc::new(StatsFormat)),
         OutputFormat::Text => Ok(Arc::new(TargetNameFormat {
             target_call_stacks,

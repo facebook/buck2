@@ -26,7 +26,7 @@ pub(crate) async fn complete_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: CompleteRequest,
-) -> anyhow::Result<CompleteResponse> {
+) -> buck2_error::Result<CompleteResponse> {
     run_server_command(
         CompleteServerCommand { req },
         ctx,
@@ -51,7 +51,7 @@ impl ServerCommandTemplate for CompleteServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         mut dice: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         let cwd = server_ctx.working_dir();
         let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
             &mut dice,

@@ -61,7 +61,7 @@ impl Display for DotNodeAttrs {
 
 /// A node in the graph.
 pub(crate) trait DotNode {
-    fn attrs(&self) -> anyhow::Result<DotNodeAttrs>;
+    fn attrs(&self) -> buck2_error::Result<DotNodeAttrs>;
     fn id(&self) -> String;
 }
 
@@ -76,15 +76,15 @@ pub(crate) trait DotDigraph<'a> {
 
     fn name(&self) -> &str;
 
-    fn for_each_node<F: FnMut(&Self::Node) -> anyhow::Result<()>>(
+    fn for_each_node<F: FnMut(&Self::Node) -> buck2_error::Result<()>>(
         &'a self,
         f: F,
-    ) -> anyhow::Result<()>;
-    fn for_each_edge<F: FnMut(&DotEdge) -> anyhow::Result<()>>(
+    ) -> buck2_error::Result<()>;
+    fn for_each_edge<F: FnMut(&DotEdge) -> buck2_error::Result<()>>(
         &'a self,
         node: &Self::Node,
         f: F,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 }
 
 /// ids in dot format need to have the '"' escaped.
@@ -116,7 +116,7 @@ impl Dot {
     pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
         graph: &'a T,
         mut w: W,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
         graph.for_each_node(|node| {
             let attrs = node.attrs()?;
@@ -138,7 +138,7 @@ impl DotCompact {
     pub(crate) fn render<'a, T: DotDigraph<'a>, W: Write>(
         graph: &'a T,
         mut w: W,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         writeln!(w, "digraph {} {{", graph.name())?;
 
         let mut next_id: u32 = 0;

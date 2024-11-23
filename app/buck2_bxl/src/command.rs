@@ -12,7 +12,6 @@ use std::io;
 use std::io::Write;
 use std::sync::Arc;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -74,7 +73,7 @@ pub(crate) async fn bxl_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: BxlRequest,
-) -> anyhow::Result<BxlResponse> {
+) -> buck2_error::Result<BxlResponse> {
     run_server_command(BxlServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -104,7 +103,7 @@ impl ServerCommandTemplate for BxlServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         bxl(
             server_ctx,
             partial_result_dispatcher.as_writer(),
@@ -131,7 +130,7 @@ async fn bxl(
     stdout: impl Write,
     mut ctx: DiceTransaction,
     request: &BxlRequest,
-) -> anyhow::Result<buck2_cli_proto::BxlResponse> {
+) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
     let cwd = server_ctx.working_dir();
     let cell_resolver = ctx.get_cell_resolver().await?;
     let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
@@ -147,7 +146,7 @@ async fn bxl(
         request
             .target_cfg
             .as_ref()
-            .internal_error_anyhow("target_cfg must be set")?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx,
     )
@@ -169,7 +168,7 @@ async fn bxl(
 
     let final_artifact_materializations =
         Materializations::from_i32(request.final_artifact_materializations)
-            .with_context(|| "Invalid final_artifact_materializations")
+            .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
 
     let bxl_key = BxlKey::new(
@@ -266,7 +265,7 @@ pub(crate) async fn get_bxl_cli_args(
     bxl_label: &BxlFunctionLabel,
     bxl_args: &Vec<String>,
     cell_resolver: &CellResolver,
-) -> anyhow::Result<BxlResolvedCliArgs> {
+) -> buck2_error::Result<BxlResolvedCliArgs> {
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd)?.as_ref());
     let cell_name = cell_resolver.find(&cwd)?;
     let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
@@ -286,14 +285,14 @@ pub(crate) async fn get_bxl_cli_args(
         dice: ctx,
     };
 
-    Ok(resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await?)
+    resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await
 }
 
 async fn copy_output<W: Write>(
     mut output: W,
     dice: &mut DiceComputations<'_>,
     output_loc: &BuildArtifactPath,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let loc = dice.global_data().get_io_provider().project_root().resolve(
         &dice
             .get_artifact_fs()
@@ -394,7 +393,7 @@ pub(crate) fn parse_bxl_label_from_cli(
     bxl_label: &str,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
-) -> anyhow::Result<BxlFunctionLabel> {
+) -> buck2_error::Result<BxlFunctionLabel> {
     let current_cell = cell_resolver.get_cell_path(cwd)?;
 
     let (bxl_path, bxl_fn) = bxl_label

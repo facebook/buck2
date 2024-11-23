@@ -53,7 +53,7 @@ fn split_compatible_incompatible(
 
 pub async fn get_maybe_compatible_targets<'a>(
     ctx: &'a mut DiceComputations<'_>,
-    loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+    loaded_targets: impl IntoIterator<Item = (PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
     global_cfg_options: &GlobalCfgOptions,
     keep_going: bool,
 ) -> buck2_error::Result<
@@ -97,7 +97,7 @@ pub async fn get_maybe_compatible_targets<'a>(
 /// Converts target nodes to a set of compatible configured target nodes.
 pub async fn get_compatible_targets(
     ctx: &mut DiceComputations<'_>,
-    loaded_targets: impl IntoIterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)>,
+    loaded_targets: impl IntoIterator<Item = (PackageLabel, buck2_error::Result<Vec<TargetNode>>)>,
     global_cfg_options: &GlobalCfgOptions,
 ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
     let maybe_compatible_targets =

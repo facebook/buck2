@@ -49,7 +49,7 @@ use crate::commands::targets::fmt::TargetFormatter;
 use crate::commands::targets::fmt::TargetInfo;
 use crate::target_hash::TargetHashes;
 
-fn write_str(outputter: &mut dyn Write, s: &mut String) -> anyhow::Result<()> {
+fn write_str(outputter: &mut dyn Write, s: &mut String) -> buck2_error::Result<()> {
     outputter.write_all(s.as_bytes())?;
     s.clear();
     Ok(())
@@ -66,7 +66,7 @@ pub(crate) async fn targets_streaming(
     imports: bool,
     fast_hash: Option<bool>, // None = no hashing
     threads: Option<usize>,
-) -> anyhow::Result<Stats> {
+) -> buck2_error::Result<Stats> {
     struct Res {
         stats: Stats,           // Stats to merge in
         package: PackageLabel,  // The package I was operating on
@@ -154,7 +154,7 @@ pub(crate) async fn targets_streaming(
                                     show_err(&err.into());
                                 }
                             }
-                            anyhow::Ok(res)
+                            buck2_error::Ok(res)
                         }
                     }
                     .boxed()
@@ -250,7 +250,7 @@ pub(crate) async fn targets_streaming(
 fn stream_packages<'a, T: PatternType>(
     dice: &'a DiceTransaction,
     patterns: Vec<ParsedPattern<T>>,
-) -> impl Stream<Item = anyhow::Result<(PackageLabel, PackageSpec<T>)>> + 'a {
+) -> impl Stream<Item = buck2_error::Result<(PackageLabel, PackageSpec<T>)>> + 'a {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_paths = Vec::new();
 
@@ -288,10 +288,10 @@ async fn load_targets(
     spec: PackageSpec<TargetPatternExtra>,
     cached: bool,
     keep_going: bool,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     Arc<EvaluationResult>,
     Vec<TargetNode>,
-    Option<anyhow::Error>,
+    Option<buck2_error::Error>,
 )> {
     let result = if cached {
         dice.get_interpreter_results(package.dupe()).await?
@@ -321,7 +321,7 @@ async fn load_targets(
                 Ok((result, targets, err))
             } else {
                 let targets = targets.into_try_map(|(target, TargetPatternExtra)| {
-                    anyhow::Ok(result.resolve_target(target.as_ref())?.to_owned())
+                    buck2_error::Ok(result.resolve_target(target.as_ref())?.to_owned())
                 })?;
                 Ok((result, targets, None))
             }
@@ -337,9 +337,9 @@ async fn load_targets(
 async fn package_imports(
     dice: &mut DiceComputations<'_>,
     path: PackageLabel,
-) -> anyhow::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
-    Ok(INTERPRETER_CALCULATION_IMPL
+) -> buck2_error::Result<Option<(PackageFilePath, Vec<ImportPath>)>> {
+    INTERPRETER_CALCULATION_IMPL
         .get()?
         .get_package_file_deps(dice, path)
-        .await?)
+        .await
 }

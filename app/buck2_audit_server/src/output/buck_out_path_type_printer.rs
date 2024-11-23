@@ -34,7 +34,7 @@ impl BuckOutPathTypePrinter {
         &self,
         path_type: &BuckOutPathType,
         mut stdout: impl Write,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         if self.json {
             writeln!(
                 &mut stdout,

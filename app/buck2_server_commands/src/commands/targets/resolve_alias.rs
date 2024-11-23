@@ -19,15 +19,13 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Write;
 
-use anyhow::Context;
 use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::TargetsRequest;
 use buck2_cli_proto::TargetsResponse;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::internal_error_anyhow;
-use buck2_error::AnyhowContextForError;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -106,7 +104,7 @@ pub(crate) async fn targets_resolve_aliases(
     mut dice: DiceTransaction,
     request: &TargetsRequest,
     parsed_target_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
-) -> anyhow::Result<TargetsResponse> {
+) -> buck2_error::Result<TargetsResponse> {
     // If we are only asked to resolve aliases, then don't expand any of the patterns, and just
     // print them out. This expects the aliases to resolve to individual targets.
     let parsed_target_patterns = std::iter::zip(&request.target_patterns, parsed_target_patterns)
@@ -114,7 +112,8 @@ pub(crate) async fn targets_resolve_aliases(
             ParsedPattern::Target(package, target_name, TargetPatternExtra) => {
                 Ok((package, target_name))
             }
-            _ => Err(anyhow::anyhow!(
+            _ => Err(buck2_error::buck2_error!(
+                [],
                 "Invalid alias (does not expand to a single target): `{}`",
                 alias
             )),
@@ -145,12 +144,12 @@ pub(crate) async fn targets_resolve_aliases(
     let mut buffer = String::new();
 
     let output_format = OutputFormat::from_i32(request.output_format)
-        .internal_error_anyhow("Invalid value of `output_format`")?;
+        .internal_error("Invalid value of `output_format`")?;
 
     let json_writer;
 
     let formatter = match output_format {
-        OutputFormat::Unknown => return Err(internal_error_anyhow!("`output_format` not set")),
+        OutputFormat::Unknown => return Err(internal_error!("`output_format` not set")),
         OutputFormat::Text => &LinesWriter as &dyn ResolveAliasFormatter,
         OutputFormat::Json => {
             json_writer = JsonWriter { json_lines: false };
@@ -174,21 +173,23 @@ pub(crate) async fn targets_resolve_aliases(
         // validate it exists.
         let node = packages
             .get(package)
-            .with_context(|| format!("Package does not exist: `{}`", package))
+            .with_buck_error_context(|| format!("Package does not exist: `{}`", package))
             .and_then(|package_data| {
                 package_data
                     .as_ref()
                     .map_err(|e| e.dupe())
-                    .with_context(|| format!("Package cannot be evaluated: `{}`", package))?
+                    .with_buck_error_context(|| {
+                        format!("Package cannot be evaluated: `{}`", package)
+                    })?
                     .resolve_target(target_name)
-                    .with_context(|| {
+                    .with_buck_error_context(|| {
                         format!(
                             "Target does not exist in package `{}`: `{}`",
                             package, target_name,
                         )
                     })
             })
-            .with_context(|| format!("Invalid alias: `{}`", alias))?;
+            .with_buck_error_context(|| format!("Invalid alias: `{}`", alias))?;
 
         if needs_separator {
             formatter.separator(&mut buffer);

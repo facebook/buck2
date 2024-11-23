@@ -36,11 +36,11 @@ impl ServerAuditSubcommand for AuditProvidersCommand {
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
-        Ok(server_ctx
+        server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
                 server_execute_with_dice(self, server_ctx, stdout, ctx)
             })
-            .await?)
+            .await
     }
 }
 
@@ -56,7 +56,7 @@ async fn server_execute_with_dice(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let target_resolution_config =
         audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
 

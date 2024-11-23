@@ -109,7 +109,7 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
         mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
-        Ok(server_ctx
+        server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cell_resolver = &ctx.get_cell_resolver().await?;
                 let io = &ctx.global_data().get_io_provider();
@@ -129,16 +129,16 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
                     }
                 }
                 if lint_count > 0 {
-                    Err(anyhow::anyhow!("Found {} lints", lint_count))
+                    Err(buck2_error::buck2_error!([], "Found {} lints", lint_count))
                 } else {
                     writeln!(
                         server_ctx.stderr()?,
                         "Found no lints in {} files",
                         files.len()
                     )?;
-                    anyhow::Ok(())
+                    buck2_error::Ok(())
                 }
             })
-            .await?)
+            .await
     }
 }

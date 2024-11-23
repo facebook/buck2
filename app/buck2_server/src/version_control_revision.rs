@@ -11,8 +11,7 @@ use std::mem;
 use std::process::Output;
 use std::process::Stdio;
 
-use anyhow::Context;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::process::async_background_command;
@@ -56,13 +55,18 @@ struct ProperlyReapedChild {
 }
 
 impl ProperlyReapedChild {
-    async fn output(mut self) -> anyhow::Result<Output> {
+    async fn output(mut self) -> buck2_error::Result<Output> {
         let mut stdout = Vec::new();
         let mut stderr = Vec::new();
-        let mut child =
-            mem::take(&mut self.child).internal_error_anyhow("child field must be set")?;
-        let mut stdout_pipe = child.stdout.take().context("stdout is not piped")?;
-        let mut stderr_pipe = child.stderr.take().context("stderr is not piped")?;
+        let mut child = mem::take(&mut self.child).internal_error("child field must be set")?;
+        let mut stdout_pipe = child
+            .stdout
+            .take()
+            .buck_error_context("stdout is not piped")?;
+        let mut stderr_pipe = child
+            .stderr
+            .take()
+            .buck_error_context("stderr is not piped")?;
         let (stdout_error, stderr_error, status) = tokio::join!(
             stdout_pipe.read_to_end(&mut stdout),
             stderr_pipe.read_to_end(&mut stderr),
@@ -75,7 +79,7 @@ impl ProperlyReapedChild {
                 stdout,
                 stderr,
             }),
-            false => Err(internal_error_anyhow!("Failed to read stdout and stderr")),
+            false => Err(internal_error!("Failed to read stdout and stderr")),
         };
         reap_child(child);
         result
@@ -90,7 +94,7 @@ impl Drop for ProperlyReapedChild {
     }
 }
 
-fn reap_on_drop_command(command: &str, args: &[&str]) -> anyhow::Result<ProperlyReapedChild> {
+fn reap_on_drop_command(command: &str, args: &[&str]) -> buck2_error::Result<ProperlyReapedChild> {
     async_background_command(command)
         .args(args)
         .stdout(Stdio::piped())
@@ -139,7 +143,7 @@ async fn create_revision_data() -> buck2_data::VersionControlRevision {
     revision
 }
 
-async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> anyhow::Result<()> {
+async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> buck2_error::Result<()> {
     // We fire 2 hg command in parallel:
     //  The `hg whereami` returns the full hash of the revision
     //  The `hg status` returns if there are any local changes
@@ -194,9 +198,9 @@ async fn add_hg_data(revision: &mut buck2_data::VersionControlRevision) -> anyho
     Ok(())
 }
 
-async fn repo_type() -> anyhow::Result<&'static RepoVcs> {
-    static REPO_TYPE: OnceCell<anyhow::Result<RepoVcs>> = OnceCell::const_new();
-    async fn repo_type_impl() -> anyhow::Result<RepoVcs> {
+async fn repo_type() -> buck2_error::Result<&'static RepoVcs> {
+    static REPO_TYPE: OnceCell<buck2_error::Result<RepoVcs>> = OnceCell::const_new();
+    async fn repo_type_impl() -> buck2_error::Result<RepoVcs> {
         let (hg_output, git_output) = tokio::join!(
             reap_on_drop_command("hg", &["root"])?.output(),
             reap_on_drop_command("git", &["rev-parse", "--is-inside-work-tree"])?.output()
@@ -221,5 +225,5 @@ async fn repo_type() -> anyhow::Result<&'static RepoVcs> {
         .get_or_init(repo_type_impl)
         .await
         .as_ref()
-        .map_err(anyhow::Error::msg)
+        .map_err(|e| e.clone())
 }

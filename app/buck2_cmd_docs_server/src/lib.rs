@@ -38,7 +38,7 @@ impl DocsServerCommand for DocsServerCommandImpl {
         context: &dyn ServerCommandContextTrait,
         partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         req: DocsRequest,
-    ) -> anyhow::Result<DocsResponse> {
+    ) -> buck2_error::Result<DocsResponse> {
         run_server_command(DocsServerCmd { req }, context, partial_result_dispatcher).await
     }
 }
@@ -63,7 +63,7 @@ impl ServerCommandTemplate for DocsServerCmd {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         Ok(docs(server_ctx, ctx, &self.req).await?)
     }
 

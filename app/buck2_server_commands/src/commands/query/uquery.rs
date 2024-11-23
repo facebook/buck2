@@ -84,7 +84,7 @@ pub(crate) async fn uquery_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: UqueryRequest,
-) -> anyhow::Result<UqueryResponse> {
+) -> buck2_error::Result<UqueryResponse> {
     run_server_command(UqueryServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -104,7 +104,7 @@ impl ServerCommandTemplate for UqueryServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         uquery(
             server_ctx,
             partial_result_dispatcher.as_writer(),
@@ -124,7 +124,7 @@ async fn uquery(
     mut stdout: impl Write,
     mut ctx: DiceTransaction,
     request: &UqueryRequest,
-) -> anyhow::Result<UqueryResponse> {
+) -> buck2_error::Result<UqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
@@ -139,9 +139,7 @@ async fn uquery(
         ..
     } = request;
 
-    let client_ctx = context
-        .as_ref()
-        .internal_error_anyhow("No client context")?;
+    let client_ctx = context.as_ref().internal_error("No client context")?;
 
     let target_call_stacks = client_ctx.target_call_stacks;
 

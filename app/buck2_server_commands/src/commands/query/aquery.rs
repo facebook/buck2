@@ -58,7 +58,7 @@ pub(crate) async fn aquery_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::AqueryRequest,
-) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
+) -> buck2_error::Result<buck2_cli_proto::AqueryResponse> {
     run_server_command(AqueryServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -78,7 +78,7 @@ impl ServerCommandTemplate for AqueryServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         aquery(
             server_ctx,
             partial_result_dispatcher.as_writer(),
@@ -98,7 +98,7 @@ async fn aquery(
     mut stdout: impl Write,
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::AqueryRequest,
-) -> anyhow::Result<buck2_cli_proto::AqueryResponse> {
+) -> buck2_error::Result<buck2_cli_proto::AqueryResponse> {
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let output_configuration = QueryResultPrinter::from_request_options(
@@ -115,7 +115,7 @@ async fn aquery(
         request
             .target_cfg
             .as_ref()
-            .internal_error_anyhow("target_cfg must be set")?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx,
     )

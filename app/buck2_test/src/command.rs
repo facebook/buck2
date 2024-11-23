@@ -210,7 +210,7 @@ async fn test_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TestRequest,
-) -> anyhow::Result<TestResponse> {
+) -> buck2_error::Result<TestResponse> {
     run_server_command(TestServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -258,7 +258,7 @@ impl ServerCommandTemplate for TestServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         test(server_ctx, ctx, &self.req).await
     }
 }
@@ -267,7 +267,7 @@ async fn test(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &TestRequest,
-) -> anyhow::Result<TestResponse> {
+) -> buck2_error::Result<TestResponse> {
     // TODO (torozco): Should the --fail-fast flag work here?
 
     let cwd = server_ctx.working_dir();
@@ -279,7 +279,7 @@ async fn test(
         request
             .target_cfg
             .as_ref()
-            .internal_error_anyhow("target_cfg must be set")?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx,
     )

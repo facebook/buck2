@@ -250,7 +250,7 @@ pub async fn write_to_disk<'a>(
     digest_config: DigestConfig,
     gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
 ) -> buck2_error::Result<Vec<ArtifactValue>> {
-    Ok(io_executor
+    io_executor
         .execute_io_inline({
             move || {
                 let requests = gen()?;
@@ -278,7 +278,7 @@ pub async fn write_to_disk<'a>(
                 Ok(values)
             }
         })
-        .await?)
+        .await
 }
 
 pub async fn cas_download<'a, 'b>(

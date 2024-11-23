@@ -316,7 +316,7 @@ impl DaemonCommand {
             .build()
             .buck_error_context("Error creating Tonic Tokio runtime")?;
 
-        Ok(rt.block_on(async move {
+        rt.block_on(async move {
             // Once any item is received on the hard_shutdown_receiver, the daemon process will exit immediately.
             let (hard_shutdown_sender, mut hard_shutdown_receiver) = mpsc::unbounded();
 
@@ -391,7 +391,7 @@ impl DaemonCommand {
                     Ok(())
                 },
             }
-        })?)
+        })
     }
 
     /// We start a dedicated thread to periodically check that the files in the daemon

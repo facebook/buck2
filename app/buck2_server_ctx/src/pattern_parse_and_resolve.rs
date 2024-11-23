@@ -23,7 +23,7 @@ pub async fn parse_and_resolve_patterns_to_targets_from_cli_args<T: PatternType>
     ctx: &mut DiceComputations<'_>,
     target_patterns: &[String],
     cwd: &ProjectRelativePath,
-) -> anyhow::Result<Vec<TargetLabelWithExtra<T>>> {
+) -> buck2_error::Result<Vec<TargetLabelWithExtra<T>>> {
     let resolved_pattern =
         parse_from_cli::parse_and_resolve_patterns_from_cli_args::<T>(ctx, target_patterns, cwd)
             .await?;
@@ -55,7 +55,7 @@ pub async fn parse_and_resolve_provider_labels_from_cli_args(
     ctx: &mut DiceComputations<'_>,
     target_patterns: &[String],
     cwd: &ProjectRelativePath,
-) -> anyhow::Result<Vec<ProvidersLabel>> {
+) -> buck2_error::Result<Vec<ProvidersLabel>> {
     let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<ProvidersPatternExtra>(
         ctx,
         target_patterns,

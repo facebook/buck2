@@ -42,7 +42,7 @@ pub(crate) async fn file_status_command(
     ctx: &ServerCommandContext<'_>,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     req: buck2_cli_proto::FileStatusRequest,
-) -> anyhow::Result<buck2_cli_proto::GenericResponse> {
+) -> buck2_error::Result<buck2_cli_proto::GenericResponse> {
     run_server_command(
         FileStatusServerCommand { req },
         ctx,
@@ -75,7 +75,7 @@ impl FileStatusResult<'_> {
         path: &ProjectRelativePath,
         fs: &T,
         dice: &T,
-    ) -> anyhow::Result<()>
+    ) -> buck2_error::Result<()>
     where
         T: PartialEq + fmt::Display + ?Sized,
     {
@@ -120,7 +120,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<Self::PartialResult>,
         mut ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         let cell_resolver = &ctx.get_cell_resolver().await?;
         let project_root = server_ctx.project_root();
         let digest_config = ctx.global_data().get_digest_config();
@@ -147,7 +147,11 @@ impl ServerCommandTemplate for FileStatusServerCommand {
             .await?;
         }
         if result.bad != 0 {
-            Err(anyhow::anyhow!("Failed with {} mismatches", result.bad))
+            Err(buck2_error::buck2_error!(
+                [],
+                "Failed with {} mismatches",
+                result.bad
+            ))
         } else {
             writeln!(
                 &mut stderr,
@@ -171,7 +175,7 @@ async fn check_file_status(
     io: &dyn IoProvider,
     path: &ProjectRelativePath,
     result: &mut FileStatusResult,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     result.checking();
 
     let cell_path = cell_resolver.get_cell_path(path)?;
@@ -244,7 +248,7 @@ async fn check_file_status(
             // No point checking file types here, we'll do that when we inspect them.
             let mut fs_names = fs_read_dir
                 .iter()
-                .map(|f| anyhow::Ok(FileName::new(&f.file_name)?.to_owned()))
+                .map(|f| buck2_error::Ok(FileName::new(&f.file_name)?.to_owned()))
                 .collect::<Result<Vec<_>, _>>()?;
 
             let mut dice_names = dice_read_dir

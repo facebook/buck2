@@ -17,10 +17,10 @@ pub async fn maybe_launch_forkserver(
     root_config: &LegacyBuckConfig,
     forkserver_state_dir: &AbsNormPath,
     resource_control: &ResourceControlConfig,
-) -> anyhow::Result<Option<ForkserverClient>> {
-    use anyhow::Context;
+) -> buck2_error::Result<Option<ForkserverClient>> {
     use buck2_common::legacy_configs::key::BuckconfigKeyRef;
     use buck2_core::rollout_percentage::RolloutPercentage;
+    use buck2_error::BuckErrorContext;
 
     let config = root_config
         .parse::<RolloutPercentage>(BuckconfigKeyRef {
@@ -33,8 +33,8 @@ pub async fn maybe_launch_forkserver(
         return Ok(None);
     }
 
-    let exe = std::env::current_exe().context("Cannot access current_exe")?;
-    Ok(Some(
+    let exe = std::env::current_exe().buck_error_context("Cannot access current_exe")?;
+    Some(
         buck2_forkserver::unix::launch_forkserver(
             exe,
             &["forkserver"],
@@ -43,7 +43,7 @@ pub async fn maybe_launch_forkserver(
         )
         .await,
     )
-    .transpose()?)
+    .transpose()
 }
 
 #[cfg(not(unix))]
@@ -51,6 +51,6 @@ pub async fn maybe_launch_forkserver(
     _root_config: &LegacyBuckConfig,
     _forkserver_state_dir: &AbsNormPath,
     _resource_control: &ResourceControlConfig,
-) -> anyhow::Result<Option<ForkserverClient>> {
+) -> buck2_error::Result<Option<ForkserverClient>> {
     Ok(None)
 }

@@ -52,7 +52,7 @@ impl TargetHashOptions {
         request: &targets_request::Other,
         cell_resolver: &CellResolver,
         fs: &ProjectRoot,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let file_mode = TargetHashFileMode::from_i32(request.target_hash_file_mode)
             .expect("buck cli should send valid target hash file mode");
         let file_mode = match file_mode {
@@ -89,14 +89,14 @@ pub(crate) async fn targets_batch(
     global_cfg_options: &GlobalCfgOptions,
     hash_options: TargetHashOptions,
     keep_going: bool,
-) -> anyhow::Result<TargetsResponse> {
+) -> buck2_error::Result<TargetsResponse> {
     let results = &load_patterns(&mut dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
 
     let target_hashes = dice
         .dupe()
         .with_linear_recompute(|linear_ctx| async move {
             match hash_options.graph_type {
-                TargetHashGraphType::Configured => anyhow::Ok(Some(
+                TargetHashGraphType::Configured => buck2_error::Ok(Some(
                     TargetHashes::compute::<ConfiguredTargetNode, _>(
                         dice.dupe(),
                         ConfiguredTargetNodeLookup(&linear_ctx),

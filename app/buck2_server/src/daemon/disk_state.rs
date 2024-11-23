@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -40,7 +39,7 @@ impl DiskStateOptions {
     pub fn new(
         root_config: &LegacyBuckConfig,
         materialization_method: MaterializationMethod,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let sqlite_materializer_state = matches!(
             // We can only enable materializer state on sqlite if you use deferred materializer
             materialization_method,
@@ -66,7 +65,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     deferred_materializer_configs: &DeferredMaterializerConfigs,
     digest_config: DigestConfig,
     init_ctx: &BuckdServerInitPreferences,
-) -> anyhow::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
+) -> buck2_error::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
     if !options.sqlite_materializer_state {
         // When sqlite materializer state is disabled, we should always delete the materializer state db.
         // Otherwise, artifacts in buck-out will diverge from the state stored in db.
@@ -143,8 +142,8 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
 pub(crate) fn delete_unknown_disk_state(
     cache_dir_path: &AbsNormPath,
     known_dir_names: &[&FileName],
-) -> anyhow::Result<()> {
-    let res: anyhow::Result<()> = try {
+) -> buck2_error::Result<()> {
+    let res: buck2_error::Result<()> = try {
         if cache_dir_path.exists() {
             for entry in fs_util::read_dir(cache_dir_path)? {
                 let entry = entry?;
@@ -162,7 +161,7 @@ pub(crate) fn delete_unknown_disk_state(
         }
     };
 
-    res.with_context(|| {
+    res.with_buck_error_context(|| {
         format!(
             "deleting unrecognized caches in {} to prevent them from going stale",
             &cache_dir_path

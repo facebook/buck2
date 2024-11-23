@@ -228,13 +228,13 @@ impl<'a> ServerCommandContext<'a> {
         cert_state: CertState,
         snapshot_collector: SnapshotCollector,
         cancellations: &'a ExplicitCancellationContext,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
         let working_dir_project_relative = working_dir
             .strip_prefix(base_context.project_root.root())
             .map_err(|_| {
-                Into::<anyhow::Error>::into(DaemonCommunicationError::InvalidWorkingDirectory(
+                Into::<buck2_error::Error>::into(DaemonCommunicationError::InvalidWorkingDirectory(
                     client_context.working_dir.clone(),
                 ))
             })?;
@@ -335,7 +335,7 @@ impl<'a> ServerCommandContext<'a> {
     async fn dice_updater<'s>(
         &'s self,
         build_signals: BuildSignalsInstaller,
-    ) -> anyhow::Result<DiceCommandUpdater<'s, 'a>> {
+    ) -> buck2_error::Result<DiceCommandUpdater<'s, 'a>> {
         let execution_strategy = self
             .build_options
             .as_ref()
@@ -481,7 +481,7 @@ impl ServerCommandContext<'_> {
         }
     }
 
-    fn report_traced_config_paths(&self, paths: &HashSet<ConfigPath>) -> anyhow::Result<()> {
+    fn report_traced_config_paths(&self, paths: &HashSet<ConfigPath>) -> buck2_error::Result<()> {
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
             for config_path in paths {
                 match config_path {
@@ -529,7 +529,7 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
-    ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
+    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
         let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
         let cell_resolver = cells_and_configs.cell_resolver;
@@ -592,7 +592,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
     fn make_user_computation_data(
         &self,
         root_config: &LegacyBuckConfig,
-    ) -> anyhow::Result<UserComputationData> {
+    ) -> buck2_error::Result<UserComputationData> {
         let config_threads = root_config
             .parse(BuckconfigKeyRef {
                 section: "build",
@@ -838,7 +838,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
         &self.base_context.events
     }
 
-    fn stderr(&self) -> anyhow::Result<StderrOutputGuard<'_>> {
+    fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>> {
         Ok(StderrOutputGuard {
             _phantom: PhantomData,
             inner: BufWriter::with_capacity(
@@ -850,7 +850,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     }
 
     /// Gathers metadata to attach to events for when a command starts and stops.
-    async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>> {
+    async fn request_metadata(&self) -> buck2_error::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
@@ -900,7 +900,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
     async fn config_metadata(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<HashMap<String, String>> {
+    ) -> buck2_error::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 

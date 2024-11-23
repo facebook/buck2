@@ -33,7 +33,7 @@ pub(crate) async fn configured_targets_command(
     server_ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ConfiguredTargetsRequest,
-) -> anyhow::Result<ConfiguredTargetsResponse> {
+) -> buck2_error::Result<ConfiguredTargetsResponse> {
     run_server_command(
         ConfiguredTargetsServerCommand { req },
         server_ctx,
@@ -66,7 +66,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
         mut ctx: DiceTransaction,
-    ) -> anyhow::Result<ConfiguredTargetsResponse> {
+    ) -> buck2_error::Result<ConfiguredTargetsResponse> {
         // TODO(nga): this should accept `ConfiguredTargetPatternExtra`. And handle the universe.
         let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
             &mut ctx,
@@ -83,7 +83,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
             self.req
                 .target_cfg
                 .as_ref()
-                .internal_error_anyhow("target_cfg must be set")?,
+                .internal_error("target_cfg must be set")?,
             server_ctx,
             &mut ctx,
         )

@@ -62,14 +62,14 @@ pub trait ServerCommandContextTrait: Send + Sync {
 
     fn events(&self) -> &EventDispatcher;
 
-    fn stderr(&self) -> anyhow::Result<StderrOutputGuard<'_>>;
+    fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>>;
 
-    async fn request_metadata(&self) -> anyhow::Result<HashMap<String, String>>;
+    async fn request_metadata(&self) -> buck2_error::Result<HashMap<String, String>>;
 
     async fn config_metadata(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<HashMap<String, String>>;
+    ) -> buck2_error::Result<HashMap<String, String>>;
 
     fn log_target_pattern(
         &self,
@@ -93,30 +93,30 @@ pub struct DiceAccessor<'a> {
 
 #[async_trait]
 pub trait ServerCommandDiceContext {
-    async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
+    async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = anyhow::Result<R>> + Send,
+        Fut: Future<Output = buck2_error::Result<R>> + Send,
         R: Send;
 
     async fn with_dice_ctx_maybe_exclusive<'v, F, Fut, R>(
         &'v self,
         exec: F,
         exclusive_cmd: Option<String>,
-    ) -> anyhow::Result<R>
+    ) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = anyhow::Result<R>> + Send,
+        Fut: Future<Output = buck2_error::Result<R>> + Send,
         R: Send;
 }
 
 #[async_trait]
 impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
     /// Allows running a section of code that uses the shared DiceTransaction
-    async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> anyhow::Result<R>
+    async fn with_dice_ctx<'v, F, Fut, R>(&'v self, exec: F) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = anyhow::Result<R>> + Send,
+        Fut: Future<Output = buck2_error::Result<R>> + Send,
         R: Send,
     {
         self.with_dice_ctx_maybe_exclusive(exec, None).await
@@ -126,10 +126,10 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
         &'v self,
         exec: F,
         exclusive_cmd: Option<String>,
-    ) -> anyhow::Result<R>
+    ) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = anyhow::Result<R>> + Send,
+        Fut: Future<Output = buck2_error::Result<R>> + Send,
         R: Send,
     {
         let DiceAccessor {

@@ -10,7 +10,6 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::profile_analysis;
 use buck2_cli_proto::profile_request::ProfileOpts;
@@ -22,7 +21,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_cancellable;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
@@ -49,7 +48,7 @@ async fn generate_profile_analysis(
     target_patterns: &[String],
     target_resolution_config: TargetResolutionConfig,
     profile_mode: &StarlarkProfilerConfiguration,
-) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+) -> buck2_error::Result<Arc<StarlarkProfileDataAndStats>> {
     let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<
         ConfiguredProvidersPatternExtra,
     >(&mut ctx, target_patterns, server_ctx.working_dir())
@@ -74,22 +73,22 @@ async fn generate_profile_analysis(
         StarlarkProfilerConfiguration::ProfileAnalysis(..) => {
             profile_analysis(&mut ctx, &configured_targets)
                 .await
-                .buck_error_context_anyhow("Recursive profile analysis failed")
+                .buck_error_context("Recursive profile analysis failed")
                 .map(Arc::new)
         }
-        _ => Err(internal_error_anyhow!("Incorrect profile mode")),
+        _ => Err(internal_error!("Incorrect profile mode")),
     }
 }
 
 async fn generate_profile_loading(
     ctx: &DiceTransaction,
     package: PackageLabel,
-) -> anyhow::Result<StarlarkProfileDataAndStats> {
+) -> buck2_error::Result<StarlarkProfileDataAndStats> {
     // Self-check.
     let profile_mode = ctx.clone().get_profile_mode_for_loading(package).await?;
     match profile_mode {
         StarlarkProfileMode::None => {
-            return Err(internal_error_anyhow!("profile mode must be set in DICE"));
+            return Err(internal_error!("profile mode must be set in DICE"));
         }
         StarlarkProfileMode::Profile(_) => {}
     }
@@ -99,7 +98,7 @@ async fn generate_profile_loading(
     let starlark_profile = &eval_result
         .starlark_profile
         .as_ref()
-        .internal_error_anyhow("profile result must be set")?;
+        .internal_error("profile result must be set")?;
     Ok(StarlarkProfileDataAndStats::downcast(&***starlark_profile)?.clone())
 }
 
@@ -107,7 +106,7 @@ pub async fn profile_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::ProfileRequest,
-) -> anyhow::Result<buck2_cli_proto::ProfileResponse> {
+) -> buck2_error::Result<buck2_cli_proto::ProfileResponse> {
     run_server_command(ProfileServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -127,7 +126,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         let output = AbsPath::new(Path::new(&self.req.destination_path))?;
 
         let profile_mode =
@@ -141,7 +140,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
         {
             ProfileOpts::TargetProfile(opts) => {
                 let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
-                    .context("Invalid action")?;
+                    .buck_error_context("Invalid action")?;
 
                 let profile_data = generate_profile(
                     server_ctx,
@@ -149,7 +148,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
                     &opts.target_patterns,
                     opts.target_cfg
                         .as_ref()
-                        .internal_error_anyhow("target_cfg not set")?,
+                        .internal_error("target_cfg not set")?,
                     &opts.target_universe,
                     action,
                     &profile_mode,
@@ -159,7 +158,9 @@ impl ServerCommandTemplate for ProfileServerCommand {
                 Ok(get_profile_response(profile_data, output)?)
             }
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    [],
+                    "{}",
                     "Expected target profile opts, not BXL profile opts"
                 ));
             }
@@ -180,7 +181,7 @@ async fn generate_profile(
     target_universe: &[String],
     action: Action,
     profile_mode: &StarlarkProfilerConfiguration,
-) -> anyhow::Result<Arc<StarlarkProfileDataAndStats>> {
+) -> buck2_error::Result<Arc<StarlarkProfileDataAndStats>> {
     let target_resolution_config =
         TargetResolutionConfig::from_args(&mut ctx, target_cfg, server_ctx, target_universe)
             .await?;

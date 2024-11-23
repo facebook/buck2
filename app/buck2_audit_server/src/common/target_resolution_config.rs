@@ -17,11 +17,11 @@ pub(crate) async fn audit_command_target_resolution_config(
     target_cfg: &TargetCfgWithUniverseOptions,
     server_ctx: &dyn ServerCommandContextTrait,
 ) -> buck2_error::Result<TargetResolutionConfig> {
-    Ok(TargetResolutionConfig::from_args(
+    TargetResolutionConfig::from_args(
         ctx,
         &target_cfg.target_cfg.target_cfg(),
         server_ctx,
         &target_cfg.target_universe,
     )
-    .await?)
+    .await
 }

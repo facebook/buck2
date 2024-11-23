@@ -55,8 +55,10 @@ pub(crate) enum ShouldPrintProviders<'a, T> {
 
 #[async_trait]
 pub(crate) trait ProviderLookUp<T: QueryTarget>: Send + Sync {
-    async fn lookup(&self, t: &T)
-    -> anyhow::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
+    async fn lookup(
+        &self,
+        t: &T,
+    ) -> buck2_error::Result<MaybeCompatible<FrozenProviderCollectionValue>>;
 }
 
 #[derive(Debug)]
@@ -77,7 +79,7 @@ impl<'a, T: QueryTarget> TargetSetJsonPrinter<'a, T> {
         print_providers: ShouldPrintProviders<'a, T>,
         attributes: &'a Option<RegexSet>,
         targets: &'a TargetSet<T>,
-    ) -> anyhow::Result<TargetSetJsonPrinter<'a, T>> {
+    ) -> buck2_error::Result<TargetSetJsonPrinter<'a, T>> {
         Ok(TargetSetJsonPrinter {
             value: printable_targets(targets, print_providers, attributes, target_call_stacks)
                 .await?,
@@ -224,7 +226,7 @@ impl<'a> QueryResultPrinter<'a> {
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: i32,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Self::from_options(
             resolver,
             attributes,
@@ -237,7 +239,7 @@ impl<'a> QueryResultPrinter<'a> {
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: QueryOutputFormat,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let output_format = match (output_format, attributes.is_empty()) {
             // following buck1's behavior, if any attributes are requested we use json output instead of list output
             (QueryOutputFormat::Default, false) => QueryOutputFormat::Json,
@@ -263,7 +265,7 @@ impl<'a> QueryResultPrinter<'a> {
         multi_result: MultiQueryResult<T>,
         target_call_stacks: bool,
         print_providers: ShouldPrintProviders<'b, T>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match (self.output_format, &self.attributes) {
             // A multi-query only has interesting output with --json output. For non-json output it gets merged together.
             // TODO(cjhopman): buck1 does this really odd thing that a multi-query that requests any attributes
@@ -329,7 +331,7 @@ impl<'a> QueryResultPrinter<'a> {
         result: QueryEvaluationValue<T>,
         call_stack: bool,
         print_providers: ShouldPrintProviders<'b, T>,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match result {
             QueryEvaluationValue::TargetSet(targets) => match self.output_format {
                 QueryOutputFormat::Default => {
@@ -365,7 +367,7 @@ impl<'a> QueryResultPrinter<'a> {
                                 k.to_owned(),
                                 format!("{:#}", target.attr_display(v, AttrFmtOptions::default())),
                             );
-                            anyhow::Ok(())
+                            buck2_error::Ok(())
                         })?;
                         if let Some(name) = attrs.remove("name") {
                             writeln!(&mut inner_out, "name = {},", name)?;
@@ -453,7 +455,7 @@ async fn printable_targets<'a, T: QueryTarget>(
     print_providers: ShouldPrintProviders<'a, T>,
     attributes: &'a Option<RegexSet>,
     target_call_stacks: bool,
-) -> anyhow::Result<Vec<PrintableQueryTarget<'a, T>>> {
+) -> buck2_error::Result<Vec<PrintableQueryTarget<'a, T>>> {
     futures::future::join_all(targets.iter().map(|t| async move {
         Ok(PrintableQueryTarget {
             value: t,
@@ -469,7 +471,7 @@ async fn printable_targets<'a, T: QueryTarget>(
     }))
     .await
     .into_iter()
-    .collect::<anyhow::Result<_>>()
+    .collect::<buck2_error::Result<_>>()
 }
 
 async fn print_action_node(
@@ -495,14 +497,14 @@ async fn print_action_node(
     let mut result = TargetSet::new();
     result.insert(action);
 
-    Ok(query_result_printer
+    query_result_printer
         .print_single_output(
             stdout,
             QueryEvaluationValue::TargetSet(result),
             false,
             ShouldPrintProviders::No,
         )
-        .await?)
+        .await
 }
 
 pub(crate) fn init_print_action_node() {

@@ -16,7 +16,8 @@ use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_error::internal_error_anyhow;
+use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
@@ -41,7 +42,7 @@ pub(crate) async fn bxl_profile_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ProfileRequest,
-) -> anyhow::Result<ProfileResponse> {
+) -> buck2_error::Result<ProfileResponse> {
     run_server_command(
         BxlProfileServerCommand { req },
         ctx,
@@ -66,7 +67,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         mut ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         match self
             .req
             .profile_opts
@@ -105,7 +106,8 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                         {
                             BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
                             _ => {
-                                return Err(anyhow::anyhow!(
+                                return Err(buck2_error!(
+                                    [],
                                     "Help docs were displayed. No profiler data available"
                                 ));
                             }
@@ -114,7 +116,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                         let global_cfg_options = global_cfg_options_from_client_context(
                             opts.target_cfg
                                 .as_ref()
-                                .internal_error_anyhow("target_cfg must be set")?,
+                                .internal_error("target_cfg must be set")?,
                             server_ctx,
                             &mut ctx,
                         )
@@ -131,7 +133,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             .cancellation_context()
                             .with_structured_cancellation(|observer| {
                                 async move {
-                                    anyhow::Ok(
+                                    buck2_error::Ok(
                                         eval(
                                             &mut ctx,
                                             bxl_key,
@@ -149,14 +151,15 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             .await?
                     }
                     _ => {
-                        return Err(internal_error_anyhow!("Incorrect profile mode"));
+                        return Err(internal_error!("Incorrect profile mode"));
                     }
                 };
 
                 Ok(get_profile_response(profile_data, output)?)
             }
             _ => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error!(
+                    [],
                     "Expected BXL profile opts, not target profile opts"
                 ));
             }

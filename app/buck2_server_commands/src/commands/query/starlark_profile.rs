@@ -24,11 +24,10 @@ pub(crate) async fn write_query_profile_for_targets<'a>(
     _profile_mode: buck2_cli_proto::ProfileMode,
     output_path: Option<&str>,
     targets: impl IntoIterator<Item = PackageLabel>,
-) -> anyhow::Result<()> {
-    let output_path =
-        output_path.internal_error_anyhow("Outut path must be set for profile mode")?;
+) -> buck2_error::Result<()> {
+    let output_path = output_path.internal_error("Outut path must be set for profile mode")?;
     let output_path = AbsPath::new(Path::new(output_path))
-        .internal_error_anyhow("Output path must be set to absolute path by the client")?;
+        .internal_error("Output path must be set to absolute path by the client")?;
     do_write_query_profile_for_targets(ctx, output_path, Vec::from_iter(targets))
         .boxed()
         .await
@@ -38,7 +37,7 @@ async fn do_write_query_profile_for_targets<'a>(
     ctx: &mut DiceComputations<'_>,
     output_path: &AbsPath,
     mut targets: Vec<PackageLabel>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     // We want stable output.
     targets.sort();
     targets.dedup();
@@ -50,7 +49,7 @@ async fn do_write_query_profile_for_targets<'a>(
         let profile = eval_results
             .starlark_profile
             .as_ref()
-            .internal_error_anyhow("Starlark profile must be set")?;
+            .internal_error("Starlark profile must be set")?;
         let profile = StarlarkProfileDataAndStats::downcast(&**profile)?;
         profiles.push(profile.clone());
     }

@@ -182,7 +182,7 @@ impl<T: PatternType> LoadedPatterns<T> {
 
     pub fn iter_loaded_targets_by_package(
         &self,
-    ) -> impl Iterator<Item = (PackageLabel, anyhow::Result<Vec<TargetNode>>)> + '_ {
+    ) -> impl Iterator<Item = (PackageLabel, buck2_error::Result<Vec<TargetNode>>)> + '_ {
         self.results.iter().map(|(package, result)| {
             let targets = result
                 .as_ref()

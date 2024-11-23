@@ -10,13 +10,12 @@
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-use anyhow::Context as _;
 use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::HasCommandExecutor;
 use buck2_cli_proto::client_context::HostPlatformOverride;
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_common::memory_tracker::MemoryTracker;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
@@ -61,8 +60,10 @@ use buck2_forkserver::client::ForkserverClient;
 use dupe::Dupe;
 use host_sharing::HostSharingBroker;
 
-pub fn parse_concurrency(requested: u32) -> anyhow::Result<usize> {
-    let mut ret = requested.try_into().context("Invalid concurrency")?;
+pub fn parse_concurrency(requested: u32) -> buck2_error::Result<usize> {
+    let mut ret = requested
+        .try_into()
+        .buck_error_context("Invalid concurrency")?;
 
     if ret == 0 {
         ret = num_cpus::get();
@@ -253,7 +254,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 // in remediating prod incidents in the past, and this is the kind of thing that can easily
                 // become tribal knowledge. Keeping this does not hurt us.
                 let disable_caching =
-                    buck2_env_anyhow!("BUCK2_TEST_DISABLE_CACHING", type=bool, applicability=testing)?
+                    buck2_env!("BUCK2_TEST_DISABLE_CACHING", type=bool, applicability=testing)?
                         .unwrap_or(self.skip_cache_read);
 
                 let disable_caching = disable_caching
@@ -262,7 +263,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
                 // This is for test only as in real life, it would be silly to only use the remote dep file cache and not the regular cache
                 // This will only do anything if cache is not disabled and remote dep file cache is enabled
-                let only_remote_dep_file_cache = buck2_env_anyhow!(
+                let only_remote_dep_file_cache = buck2_env!(
                     "BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE",
                     bool,
                     applicability = testing
@@ -422,7 +423,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         let response = response
-            .with_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).input_anyhow()?;
+            .with_buck_error_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).input()?;
 
         Ok(response)
     }

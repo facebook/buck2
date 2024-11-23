@@ -17,6 +17,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_cli_proto::ClientContext;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_error::buck2_error;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -38,11 +39,11 @@ impl ServerAuditSubcommand for AuditSubtargetsCommand {
         stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
-        Ok(server_ctx
+        server_ctx
             .with_dice_ctx(move |server_ctx, ctx| {
                 server_execute_with_dice(self, server_ctx, stdout, ctx)
             })
-            .await?)
+            .await
     }
 }
 
@@ -51,7 +52,7 @@ async fn server_execute_with_dice(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     mut ctx: DiceTransaction,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     // TODO(raulgarcia4): Extract function where possible, shares a lot of code with audit providers.
     let target_resolution_config =
         audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
@@ -174,7 +175,8 @@ async fn server_execute_with_dice(
     stderr.flush()?;
 
     if at_least_one_evaluation_error {
-        Err(anyhow::anyhow!(
+        Err(buck2_error!(
+            [],
             "Evaluation of at least one target provider failed"
         ))
     } else {

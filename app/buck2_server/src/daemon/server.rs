@@ -21,7 +21,6 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_build_api::configure_dice::configure_dice_for_buck;
 use buck2_build_api::spawner::BuckSpawner;
@@ -38,7 +37,7 @@ use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::memory;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::cwd::WorkingDirectory;
@@ -173,15 +172,15 @@ impl BuckdServerInitPreferences {
         io: Arc<dyn IoProvider>,
         digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
-    ) -> anyhow::Result<Arc<Dice>> {
-        Ok(configure_dice_for_buck(
+    ) -> buck2_error::Result<Arc<Dice>> {
+        configure_dice_for_buck(
             io,
             digest_config,
             Some(root_config),
             self.detect_cycles,
             self.which_dice,
         )
-        .await?)
+        .await
     }
 }
 
@@ -200,7 +199,7 @@ impl Interceptor for BuckCheckAuthTokenInterceptor {
             return Err(Status::unauthenticated("invalid auth token"));
         }
 
-        if buck2_env_anyhow!("BUCK2_TEST_FAIL_BUCKD_AUTH", bool, applicability = testing).unwrap() {
+        if buck2_env!("BUCK2_TEST_FAIL_BUCKD_AUTH", bool, applicability = testing).unwrap() {
             return Err(Status::unauthenticated("injected auth error"));
         }
 
@@ -247,7 +246,7 @@ impl BuckdServer {
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
 
@@ -259,7 +258,8 @@ impl BuckdServer {
         )?;
 
         // Create buck-out and potentially chdir to there.
-        fs_util::create_dir_all(paths.buck_out_path()).context("Error creating buck_out_path")?;
+        fs_util::create_dir_all(paths.buck_out_path())
+            .buck_error_context("Error creating buck_out_path")?;
 
         // TODO(scottcao): make this not optional
         let cwd = {
@@ -328,7 +328,7 @@ impl BuckdServer {
                 PartialResultDispatcher<PartialRes>,
                 &ClientContext,
                 StreamingRequestHandler<Req>,
-            ) -> BoxFuture<'a, anyhow::Result<Res>>
+            ) -> BoxFuture<'a, buck2_error::Result<Res>>
             + Send
             + 'static,
         Req: TryFrom<StreamingRequest, Error = buck2_error::Error> + Send + Sync + 'static,
@@ -371,13 +371,13 @@ impl BuckdServer {
         req: Request<Req>,
         opts: impl StreamingCommandOptions<Req>,
         func: F,
-    ) -> anyhow::Result<Response<ResponseStream>>
+    ) -> buck2_error::Result<Response<ResponseStream>>
     where
         F: for<'a> FnOnce(
                 &'a ServerCommandContext,
                 PartialResultDispatcher<PartialRes>,
                 Req,
-            ) -> BoxFuture<'a, anyhow::Result<Res>>
+            ) -> BoxFuture<'a, buck2_error::Result<Res>>
             + Send
             + 'static,
         Req: HasClientContext + HasBuildOptions + Send + Sync + 'static,
@@ -445,7 +445,7 @@ impl BuckdServer {
             daemon_shutdown_channel,
             move |req, cancellations| {
                 async move {
-                    let result: anyhow::Result<Res> = try {
+                    let result: buck2_error::Result<Res> = try {
                         let base_context =
                             daemon_state.prepare_command(dispatch.dupe(), guard).await?;
 
@@ -495,7 +495,7 @@ impl BuckdServer {
                 &'a ServerCommandContext,
                 PartialResultDispatcher<PartialRes>,
                 Req,
-            ) -> BoxFuture<'a, anyhow::Result<Res>>
+            ) -> BoxFuture<'a, buck2_error::Result<Res>>
             + Send
             + 'static,
         Req: HasClientContext + HasBuildOptions + Send + Sync + 'static,
@@ -519,7 +519,7 @@ impl BuckdServer {
     async fn oneshot<
         Req,
         Res: Into<command_result::Result>,
-        Fut: Future<Output = anyhow::Result<Res>> + Send,
+        Fut: Future<Output = buck2_error::Result<Res>> + Send,
         F: FnOnce(Req) -> Fut,
     >(
         &self,
@@ -557,7 +557,7 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
         + Duration::from_nanos(proto_duration.nanos as u64))
 }
 
-fn error_to_command_result(e: anyhow::Error) -> CommandResult {
+fn error_to_command_result(e: buck2_error::Error) -> CommandResult {
     let report = create_error_report(&e.into());
     let errors = vec![report];
 
@@ -567,7 +567,7 @@ fn error_to_command_result(e: anyhow::Error) -> CommandResult {
 }
 
 fn result_to_command_result<R: Into<command_result::Result>>(
-    result: anyhow::Result<R>,
+    result: buck2_error::Result<R>,
 ) -> CommandResult {
     match result {
         Ok(result) => CommandResult {
@@ -577,7 +577,7 @@ fn result_to_command_result<R: Into<command_result::Result>>(
     }
 }
 
-fn error_to_command_progress(e: anyhow::Error) -> CommandProgress {
+fn error_to_command_progress(e: buck2_error::Error) -> CommandProgress {
     CommandProgress {
         progress: Some(command_progress::Progress::Result(Box::new(
             error_to_command_result(e),
@@ -585,7 +585,7 @@ fn error_to_command_progress(e: anyhow::Error) -> CommandProgress {
     }
 }
 
-fn error_to_response_stream(e: anyhow::Error) -> Response<ResponseStream> {
+fn error_to_response_stream(e: buck2_error::Error) -> Response<ResponseStream> {
     tonic::Response::new(Box::pin(stream::once(future::ready(Ok(
         buck2_cli_proto::MultiCommandProgress {
             messages: vec![error_to_command_progress(e)],
@@ -702,7 +702,7 @@ where
     });
     if let Err(e) = merge_task {
         return error_to_response_stream(
-            anyhow::Error::new(e).context("failed to spawn pump-events"),
+            buck2_error::Error::new(e).context("failed to spawn pump-events"),
         );
     };
 
@@ -768,12 +768,12 @@ impl<Req> StreamingCommandOptions<Req> for QueryCommandOptions {
     fn starlark_profiler_instrumentation_override(
         &self,
         _req: &Req,
-    ) -> anyhow::Result<StarlarkProfilerConfiguration> {
+    ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
         match self.profile_mode {
             None => Ok(StarlarkProfilerConfiguration::None),
             Some(mode) => {
                 let mode = buck2_cli_proto::ProfileMode::from_i32(mode)
-                    .internal_error_anyhow("invalid profile mode enum value")?;
+                    .internal_error("invalid profile mode enum value")?;
                 Ok(StarlarkProfilerConfiguration::ProfileLoading(
                     proto_to_profile_mode(mode),
                     // We enable profiling for everything,
@@ -836,7 +836,7 @@ impl DaemonApi for BuckdServer {
                 0;
                 req.response_payload_size
                     .try_into()
-                    .context("requested payload too large")?
+                    .buck_error_context("requested payload too large")?
             ];
             rand::rngs::SmallRng::seed_from_u64(10).fill_bytes(&mut payload);
 
@@ -975,10 +975,10 @@ impl DaemonApi for BuckdServer {
             DefaultCommandOptions,
             |ctx, partial_result_dispatcher, req| {
                 Box::pin(async {
-                    Ok(BXL_SERVER_COMMANDS
+                    BXL_SERVER_COMMANDS
                         .get()?
                         .bxl(ctx, partial_result_dispatcher, req)
-                        .await?)
+                        .await
                 })
             },
         )
@@ -1242,18 +1242,20 @@ impl DaemonApi for BuckdServer {
 
         let inner = req.into_inner();
         let path = inner.destination_path;
-        let res: anyhow::Result<_> = try {
+        let res: buck2_error::Result<_> = try {
             let path = Path::new(&path);
             let format_proto =
                 buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::from_i32(inner.format)
-                    .context("Invalid DICE dump format")?;
+                    .buck_error_context("Invalid DICE dump format")?;
 
             self.0
                 .daemon_state
                 .data()?
                 .spawn_dice_dump(path, format_proto)
                 .await
-                .with_context(|| format!("Failed to perform dice dump to {}", path.display()))?;
+                .with_buck_error_context(|| {
+                    format!("Failed to perform dice dump to {}", path.display())
+                })?;
 
             UnstableDiceDumpResponse {}
         };
@@ -1269,7 +1271,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.check_if_accepting_requests()?;
 
-        let res: anyhow::Result<_> = try {
+        let res: buck2_error::Result<_> = try {
             let client_ctx = req.get_ref().client_context()?;
             let trace_id = client_ctx.trace_id.parse()?;
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
@@ -1331,11 +1333,8 @@ impl DaemonApi for BuckdServer {
             fn starlark_profiler_instrumentation_override(
                 &self,
                 req: &ProfileRequest,
-            ) -> anyhow::Result<StarlarkProfilerConfiguration> {
-                Ok(starlark_profiler_configuration_from_request(
-                    req,
-                    &self.project_root,
-                )?)
+            ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
+                starlark_profiler_configuration_from_request(req, &self.project_root)
             }
         }
 
@@ -1504,7 +1503,7 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
     fn starlark_profiler_instrumentation_override(
         &self,
         _req: &Req,
-    ) -> anyhow::Result<StarlarkProfilerConfiguration> {
+    ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
         Ok(StarlarkProfilerConfiguration::None)
     }
 }
@@ -1512,9 +1511,9 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
 fn server_shutdown_signal(
     command_receiver: UnboundedReceiver<()>,
     mut shutdown_receiver: UnboundedReceiver<()>,
-) -> anyhow::Result<impl Future<Output = ()>> {
+) -> buck2_error::Result<impl Future<Output = ()>> {
     let mut duration = DEFAULT_INACTIVITY_TIMEOUT;
-    if buck2_env_anyhow!(
+    if buck2_env!(
         "BUCK2_TESTING_INACTIVITY_TIMEOUT",
         bool,
         applicability = testing

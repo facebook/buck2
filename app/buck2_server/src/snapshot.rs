@@ -94,10 +94,10 @@ impl SnapshotCollector {
         fn inner(
             snapshot: &mut buck2_data::Snapshot,
             re: &ReConnectionManager,
-        ) -> anyhow::Result<()> {
+        ) -> buck2_error::Result<()> {
             let stats = re
                 .get_network_stats()
-                .buck_error_context_anyhow("Error collecting network stats")?;
+                .buck_error_context("Error collecting network stats")?;
 
             snapshot.re_download_bytes = stats.downloaded;
             snapshot.re_upload_bytes = stats.uploaded;

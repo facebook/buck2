@@ -27,7 +27,7 @@ mod collector {
     use std::sync::Arc;
     use std::sync::Mutex;
 
-    use anyhow::Context;
+    use buck2_error::BuckErrorContext;
     use dupe::Dupe;
     use psutil::network::NetIoCountersCollector;
 
@@ -52,11 +52,11 @@ mod collector {
         /// * If a new NIC appears between collection periods, we'll start keeping
         ///   track of it.
         /// * If a NIC *disappears*, then we stop reporting on its stats.
-        pub fn collect(&self) -> anyhow::Result<Option<HashMap<String, NetworkStat>>> {
+        pub fn collect(&self) -> buck2_error::Result<Option<HashMap<String, NetworkStat>>> {
             let mut collector = self.collector.lock().expect("poisoned lock");
             let counters: HashMap<_, _> = collector
                 .net_io_counters_pernic()
-                .context("collecting old counters")?
+                .buck_error_context("collecting old counters")?
                 .into_iter()
                 .filter(|(s, _)| {
                     ["en", "eth", "wlan"]
@@ -137,13 +137,14 @@ mod collector {
             Self
         }
 
-        pub fn collect(&self) -> anyhow::Result<Option<HashMap<String, NetworkStat>>> {
+        pub fn collect(&self) -> buck2_error::Result<Option<HashMap<String, NetworkStat>>> {
             let mut counters = HashMap::new();
             let (_guard, entries) = unsafe {
                 let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
 
                 if GetIfTable2(&mut table) != NO_ERROR {
-                    return Err(anyhow::anyhow!(
+                    return Err(buck2_error::buck2_error!(
+                        [],
                         "Failed to retrieve MIB-II interface table: {}",
                         Error::last_os_error()
                     ));
@@ -207,7 +208,7 @@ mod collector {
             Self
         }
 
-        pub fn collect(&self) -> anyhow::Result<Option<HashMap<String, NetworkStat>>> {
+        pub fn collect(&self) -> buck2_error::Result<Option<HashMap<String, NetworkStat>>> {
             Ok(None)
         }
     }

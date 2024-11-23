@@ -53,7 +53,7 @@ pub(crate) async fn targets_show_outputs_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: TargetsRequest,
-) -> anyhow::Result<TargetsShowOutputsResponse> {
+) -> buck2_error::Result<TargetsShowOutputsResponse> {
     run_server_command(
         TargetsShowOutputsServerCommand { req },
         ctx,
@@ -78,7 +78,7 @@ impl ServerCommandTemplate for TargetsShowOutputsServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         targets_show_outputs(server_ctx, ctx, &self.req).await
     }
 
@@ -92,14 +92,14 @@ async fn targets_show_outputs(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &TargetsRequest,
-) -> anyhow::Result<TargetsShowOutputsResponse> {
+) -> buck2_error::Result<TargetsShowOutputsResponse> {
     let cwd = server_ctx.working_dir();
 
     let global_cfg_options = global_cfg_options_from_client_context(
         request
             .target_cfg
             .as_ref()
-            .internal_error_anyhow("target_cfg must be set")?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         &mut ctx,
     )
@@ -138,7 +138,7 @@ async fn retrieve_targets_artifacts_from_patterns(
     ctx: &mut DiceComputations<'_>,
     global_cfg_options: &GlobalCfgOptions,
     parsed_patterns: &[ParsedPattern<ProvidersPatternExtra>],
-) -> anyhow::Result<Vec<TargetsArtifacts>> {
+) -> buck2_error::Result<Vec<TargetsArtifacts>> {
     let resolved_pattern = ResolveTargetPatterns::resolve(ctx, parsed_patterns).await?;
 
     retrieve_artifacts_for_targets(ctx, resolved_pattern, global_cfg_options).await
@@ -148,7 +148,7 @@ async fn retrieve_artifacts_for_targets(
     ctx: &mut DiceComputations<'_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: &GlobalCfgOptions,
-) -> anyhow::Result<Vec<TargetsArtifacts>> {
+) -> buck2_error::Result<Vec<TargetsArtifacts>> {
     let artifacts_for_specs = ctx
         .try_compute_join(spec.specs, |ctx, (package, spec)| {
             async move {
@@ -176,7 +176,7 @@ async fn retrieve_artifacts_for_spec(
     spec: PackageSpec<ProvidersPatternExtra>,
     global_cfg_options: &GlobalCfgOptions,
     res: Arc<EvaluationResult>,
-) -> anyhow::Result<Vec<TargetsArtifacts>> {
+) -> buck2_error::Result<Vec<TargetsArtifacts>> {
     let available_targets = res.targets();
 
     let todo_targets: Vec<(ProvidersLabel, &GlobalCfgOptions)> = match spec {
@@ -213,7 +213,7 @@ async fn retrieve_artifacts_for_provider_label(
     ctx: &mut DiceComputations<'_>,
     providers_label: ProvidersLabel,
     global_cfg_options: &GlobalCfgOptions,
-) -> anyhow::Result<TargetsArtifacts> {
+) -> buck2_error::Result<TargetsArtifacts> {
     let providers_label = ctx
         .get_configured_provider_label(&providers_label, global_cfg_options)
         .await?;

@@ -16,13 +16,17 @@ pub struct AllocatorStats {
     pub bytes_allocated: Option<u64>,
 }
 
-pub fn get_allocator_stats() -> anyhow::Result<AllocatorStats> {
-    fn set(stats: &serde_json::Value, val: &str, to: &mut Option<u64>) -> anyhow::Result<()> {
+pub fn get_allocator_stats() -> buck2_error::Result<AllocatorStats> {
+    fn set(stats: &serde_json::Value, val: &str, to: &mut Option<u64>) -> buck2_error::Result<()> {
         if let serde_json::Value::Number(stat) = &stats["jemalloc"]["stats"][val] {
             *to = stat.as_u64();
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Allocator stat '{}' not found.", val))
+            Err(buck2_error::buck2_error!(
+                [],
+                "Allocator stat '{}' not found.",
+                val
+            ))
         }
     }
 
@@ -51,14 +55,18 @@ mod tests {
     use crate::jemalloc_stats::get_allocator_stats;
 
     #[test]
-    fn test_get_allocator_stats() -> anyhow::Result<()> {
+    fn test_get_allocator_stats() -> buck2_error::Result<()> {
         if has_jemalloc_stats() {
             if let Ok(alloc_stats) = get_allocator_stats() {
                 assert!(alloc_stats.bytes_active.is_some());
                 assert!(alloc_stats.bytes_allocated.is_some());
                 return Ok(());
             }
-            return Err(anyhow::anyhow!("Allocator stats not found"));
+            return Err(buck2_error::buck2_error!(
+                [],
+                "{}",
+                "Allocator stats not found"
+            ));
         }
         Ok(())
     }

@@ -26,7 +26,7 @@ pub(crate) async fn expand_external_cells_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ExpandExternalCellsRequest,
-) -> anyhow::Result<ExpandExternalCellsResponse> {
+) -> buck2_error::Result<ExpandExternalCellsResponse> {
     run_server_command(
         ExpandExternalCellsServerCommand { req },
         ctx,
@@ -57,7 +57,7 @@ impl ServerCommandTemplate for ExpandExternalCellsServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         mut ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         let cell_resolver = ctx.get_cell_resolver().await?;
         let cell_alias_resolver = ctx
             .get_cell_alias_resolver_for_dir(server_ctx.working_dir())

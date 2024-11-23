@@ -24,7 +24,7 @@ pub(crate) async fn explain_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: ExplainRequest,
-) -> anyhow::Result<ExplainResponse> {
+) -> buck2_error::Result<ExplainResponse> {
     run_server_command(ExplainServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -44,7 +44,7 @@ impl ServerCommandTemplate for ExplainServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         // TODO iguridi: make it work for OSS
         #[cfg(fbcode_build)]
         {

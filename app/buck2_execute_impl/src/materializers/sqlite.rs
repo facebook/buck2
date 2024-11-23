@@ -535,7 +535,7 @@ impl MaterializerStateSqliteDb {
         digest_config: DigestConfig,
         reject_identity: Option<&MaterializerStateIdentity>,
     ) -> buck2_error::Result<(Self, buck2_error::Result<MaterializerState>)> {
-        Ok(io_executor
+        io_executor
             .execute_io_inline(|| {
                 Self::initialize_impl(
                     materializer_state_dir,
@@ -545,7 +545,7 @@ impl MaterializerStateSqliteDb {
                     reject_identity,
                 )
             })
-            .await?)
+            .await
     }
 
     fn initialize_impl(

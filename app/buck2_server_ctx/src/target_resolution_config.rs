@@ -50,7 +50,7 @@ impl TargetResolutionConfig {
         target_cfg: &TargetCfg,
         server_ctx: &dyn ServerCommandContextTrait,
         target_universe: &[String],
-    ) -> anyhow::Result<TargetResolutionConfig> {
+    ) -> buck2_error::Result<TargetResolutionConfig> {
         let global_cfg_options =
             global_cfg_options_from_client_context(target_cfg, server_ctx, ctx).await?;
         if target_universe.is_empty() {
@@ -72,7 +72,7 @@ impl TargetResolutionConfig {
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &TargetLabel,
-    ) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+    ) -> buck2_error::Result<Vec<ConfiguredTargetLabel>> {
         match self {
             TargetResolutionConfig::Default(global_cfg_options) => Ok(vec![
                 ctx.get_configured_target(label, global_cfg_options).await?,
@@ -89,7 +89,7 @@ impl TargetResolutionConfig {
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &ProvidersLabel,
-    ) -> anyhow::Result<Vec<ConfiguredProvidersLabel>> {
+    ) -> buck2_error::Result<Vec<ConfiguredProvidersLabel>> {
         Ok(self
             .get_configured_target(ctx, label.target())
             .await?
@@ -102,7 +102,7 @@ impl TargetResolutionConfig {
         &self,
         ctx: &mut DiceComputations<'_>,
         label: &TargetLabelWithExtra<ConfiguredTargetPatternExtra>,
-    ) -> anyhow::Result<Vec<ConfiguredTargetLabel>> {
+    ) -> buck2_error::Result<Vec<ConfiguredTargetLabel>> {
         let TargetLabelWithExtra {
             target_label,
             extra,

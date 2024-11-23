@@ -15,7 +15,6 @@ use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_common::cas_digest::DigestAlgorithm;
@@ -33,7 +32,7 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::memory_tracker::MemoryTracker;
 use buck2_common::systemd::SystemdCreationDecision;
 use buck2_common::systemd::SystemdRunner;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
@@ -43,7 +42,7 @@ use buck2_core::is_open_source;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
 use buck2_error::buck2_error;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
@@ -193,18 +192,22 @@ pub struct DaemonStateData {
 }
 
 impl DaemonStateData {
-    pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
+    pub fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
         crate::daemon::dice_dump::dice_dump(self.dice_manager.unsafe_dice(), path, format)
     }
 
-    pub async fn spawn_dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
+    pub async fn spawn_dice_dump(
+        &self,
+        path: &Path,
+        format: DiceDumpFormat,
+    ) -> buck2_error::Result<()> {
         crate::daemon::dice_dump::dice_dump_spawn(self.dice_manager.unsafe_dice(), path, format)
             .await
     }
 }
 
 impl DaemonStatePanicDiceDump for DaemonStateData {
-    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()> {
+    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()> {
         self.dice_dump(path, format)
     }
 }
@@ -221,7 +224,7 @@ impl DaemonState {
     ) -> Self {
         let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), materializations)
             .await
-            .context("Error initializing DaemonStateData");
+            .buck_error_context("Error initializing DaemonStateData");
 
         if let Ok(data) = &data {
             crate::daemon::panic::initialize(data.dupe());
@@ -248,14 +251,14 @@ impl DaemonState {
         init_ctx: BuckdServerInitPreferences,
         rt: Handle,
         materializations: MaterializationMethod,
-    ) -> anyhow::Result<Arc<DaemonStateData>> {
-        if buck2_env_anyhow!(
+    ) -> buck2_error::Result<Arc<DaemonStateData>> {
+        if buck2_env!(
             "BUCK2_TEST_INIT_DAEMON_ERROR",
             bool,
             applicability = testing
         )? {
             // TODO(minglunli): Errors here don't actually make it to invocation records which should be fixed
-            return Err(anyhow::anyhow!("Injected init daemon error"));
+            return Err(buck2_error::buck2_error!([], "Injected init daemon error"));
         }
 
         let daemon_state_data_rt = rt.clone();
@@ -303,10 +306,10 @@ impl DaemonState {
                 retry_attempts,
                 message_batch_size,
             )
-            .context("failed to init scribe sink")?;
+            .buck_error_context("failed to init scribe sink")?;
 
             let default_digest_algorithm =
-                buck2_env_anyhow!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmFamily)?;
+                buck2_env!("BUCK_DEFAULT_DIGEST_ALGORITHM", type=DigestAlgorithmFamily)?;
 
             let default_digest_algorithm = default_digest_algorithm.unwrap_or_else(|| {
                 if buck2_core::is_open_source() {
@@ -327,7 +330,7 @@ impl DaemonState {
                         .collect::<Result<_, _>>()
                 })
                 .transpose()
-                .context("Invalid digest_algorithms")?
+                .buck_error_context("Invalid digest_algorithms")?
                 .unwrap_or_else(|| vec![default_digest_algorithm])
                 .into_try_map(convert_algorithm_kind)?;
 
@@ -337,11 +340,11 @@ impl DaemonState {
                 .as_deref()
                 .map(|a| convert_algorithm_kind(a.parse()?))
                 .transpose()
-                .context("Invalid source_digest_algorithm")?;
+                .buck_error_context("Invalid source_digest_algorithm")?;
 
             let digest_config =
                 DigestConfig::leak_new(digest_algorithms, preferred_source_algorithm)
-                    .context("Error initializing DigestConfig")?;
+                    .buck_error_context("Error initializing DigestConfig")?;
 
             // TODO(rafaelc): merge configs from all cells once they are consistent
             let static_metadata = Arc::new(RemoteExecutionStaticMetadata::from_legacy_config(
@@ -459,10 +462,7 @@ impl DaemonState {
                     // Using `execute_io_inline` is just out of convenience.
                     // It doesn't really matter what's used here since there's no IO-heavy
                     // operations on daemon startup
-                    Ok(delete_unknown_disk_state(
-                        &cache_dir_path,
-                        &valid_cache_dirs,
-                    )?)
+                    delete_unknown_disk_state(&cache_dir_path, &valid_cache_dirs)
                 }),
                 maybe_initialize_materializer_sqlite_db(
                     &disk_state_options,
@@ -478,7 +478,7 @@ impl DaemonState {
 
             let http_client = http_client_from_startup_config(&init_ctx.daemon_startup_config)
                 .await
-                .context("Error creating HTTP client")?
+                .buck_error_context("Error creating HTTP client")?
                 .build();
 
             let materializer_state_identity =
@@ -538,7 +538,7 @@ impl DaemonState {
                 cells.dupe(),
                 ignore_specs,
             )
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 format!(
                     "Error creating a FileWatcher for project root `{}`",
                     paths.project_root()
@@ -645,7 +645,7 @@ impl DaemonState {
 
     async fn create_memory_tracker(
         root_config: &LegacyBuckConfig,
-    ) -> anyhow::Result<Option<Arc<MemoryTracker>>> {
+    ) -> buck2_error::Result<Option<Arc<MemoryTracker>>> {
         let resource_control_config = ResourceControlConfig::from_config(root_config)?;
         if resource_control_config
             .hybrid_execution_memory_limit_gibibytes
@@ -662,9 +662,9 @@ impl DaemonState {
                     }
                     #[cfg(not(unix))]
                     {
-                        use buck2_error::internal_error_anyhow;
+                        use buck2_error::internal_error;
 
-                        Err(internal_error_anyhow!(
+                        Err(internal_error!(
                             "Not expected for resource control creation decision to be positive on non-unix."
                         ))
                     }
@@ -688,7 +688,7 @@ impl DaemonState {
         materializer_state: Option<MaterializerState>,
         http_client: HttpClient,
         daemon_dispatcher: EventDispatcher,
-    ) -> anyhow::Result<Arc<dyn Materializer>> {
+    ) -> buck2_error::Result<Arc<dyn Materializer>> {
         match materializations {
             MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
                 fs,
@@ -773,10 +773,10 @@ impl DaemonState {
         )?;
 
         self.validate_cwd()
-            .context("Error validating working directory")?;
+            .buck_error_context("Error validating working directory")?;
 
         self.validate_buck_out_mount()
-            .context("Error validating buck-out mount")?;
+            .buck_error_context("Error validating buck-out mount")?;
 
         let data = data?;
         dispatcher.instant_event(buck2_data::TagEvent {
@@ -800,11 +800,11 @@ impl DaemonState {
         })
     }
 
-    pub fn data(&self) -> anyhow::Result<Arc<DaemonStateData>> {
-        Ok(self.data.dupe()?)
+    pub fn data(&self) -> buck2_error::Result<Arc<DaemonStateData>> {
+        self.data.dupe()
     }
 
-    pub fn validate_cwd(&self) -> anyhow::Result<()> {
+    pub fn validate_cwd(&self) -> buck2_error::Result<()> {
         if let Some(working_directory) = &self.working_directory {
             let res = working_directory.is_stale().and_then(|stale| {
                 if stale {
@@ -831,7 +831,7 @@ impl DaemonState {
         Ok(())
     }
 
-    pub fn validate_buck_out_mount(&self) -> anyhow::Result<()> {
+    pub fn validate_buck_out_mount(&self) -> buck2_error::Result<()> {
         #[cfg(fbcode_build)]
         {
             use buck2_core::fs::fs_util;
@@ -868,7 +868,8 @@ impl DaemonState {
 
             soft_error!(
                 "eden_buck_out",
-                anyhow::anyhow!(
+                buck2_error::buck2_error!(
+                    [],
                     "Buck is running in an Eden repository, but `buck-out` is not redirected. \
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
@@ -881,8 +882,8 @@ impl DaemonState {
     }
 }
 
-fn convert_algorithm_kind(kind: DigestAlgorithmFamily) -> anyhow::Result<DigestAlgorithm> {
-    anyhow::Ok(match kind {
+fn convert_algorithm_kind(kind: DigestAlgorithmFamily) -> buck2_error::Result<DigestAlgorithm> {
+    buck2_error::Ok(match kind {
         DigestAlgorithmFamily::Sha1 => DigestAlgorithm::Sha1,
         DigestAlgorithmFamily::Sha256 => DigestAlgorithm::Sha256,
         DigestAlgorithmFamily::Blake3 => DigestAlgorithm::Blake3,
@@ -897,7 +898,8 @@ fn convert_algorithm_kind(kind: DigestAlgorithmFamily) -> anyhow::Result<DigestA
             {
                 // We probably should just add it as a separate buckconfig, there is
                 // zero reason not to.
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    [],
                     "{} is not supported in the open source build",
                     kind
                 ));
@@ -914,7 +916,7 @@ const DEFAULT_READ_TIMEOUT_MS: u64 = 10000;
 /// Customize an http client based on http.* legacy buckconfigs.
 async fn http_client_from_startup_config(
     config: &DaemonStartupConfig,
-) -> anyhow::Result<HttpClientBuilder> {
+) -> buck2_error::Result<HttpClientBuilder> {
     let mut builder = if is_open_source() {
         HttpClientBuilder::oss().await?
     } else {
@@ -959,7 +961,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_from_startup_config_defaults_internal() -> anyhow::Result<()> {
+    async fn test_from_startup_config_defaults_internal() -> buck2_error::Result<()> {
         let builder =
             http_client_from_startup_config(&DaemonStartupConfig::testing_empty()).await?;
         assert_eq!(DEFAULT_MAX_REDIRECTS, builder.max_redirects().unwrap());
@@ -981,7 +983,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_from_startup_config_overrides() -> anyhow::Result<()> {
+    async fn test_from_startup_config_overrides() -> buck2_error::Result<()> {
         let config = parse(
             &[(
                 "config",
@@ -1010,7 +1012,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_from_startup_config_zero_for_unset() -> anyhow::Result<()> {
+    async fn test_from_startup_config_zero_for_unset() -> buck2_error::Result<()> {
         let config = parse(
             &[(
                 "config",

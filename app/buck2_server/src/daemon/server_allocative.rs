@@ -77,7 +77,7 @@ pub(crate) async fn spawn_allocative(
     buckd_server_data: Arc<BuckdServerData>,
     path: AbsPathBuf,
     dispatcher: EventDispatcher,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     tokio::task::spawn_blocking(move || {
         let mut graph = FlameGraphBuilder::default();
         dispatcher.console_message(
@@ -105,7 +105,7 @@ pub(crate) async fn spawn_allocative(
 
         dispatcher.console_message("Profile written.".to_owned());
 
-        anyhow::Ok(())
+        buck2_error::Ok(())
     })
     .await?
 }

@@ -30,7 +30,7 @@ enum DebugEvalError {
 pub(crate) async fn debug_eval_command(
     context: &dyn ServerCommandContextTrait,
     req: DebugEvalRequest,
-) -> anyhow::Result<DebugEvalResponse> {
+) -> buck2_error::Result<DebugEvalResponse> {
     context
         .with_dice_ctx(|server_ctx, mut ctx| async move {
             let cell_resolver = ctx.get_cell_resolver().await?;

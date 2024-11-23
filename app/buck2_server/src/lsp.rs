@@ -91,7 +91,7 @@ struct DocsCacheManager {
 }
 
 impl DocsCacheManager {
-    async fn new(fs: ProjectRoot, mut dice_ctx: DiceTransaction) -> anyhow::Result<Self> {
+    async fn new(fs: ProjectRoot, mut dice_ctx: DiceTransaction) -> buck2_error::Result<Self> {
         Ok(Self {
             docs_cache: Mutex::new(Self::new_docs_cache(&fs, &mut dice_ctx).await?),
             fs,
@@ -102,7 +102,7 @@ impl DocsCacheManager {
     async fn get_cache(
         &self,
         mut current_dice_ctx: DiceTransaction,
-    ) -> anyhow::Result<MutexGuard<DocsCache>> {
+    ) -> buck2_error::Result<MutexGuard<DocsCache>> {
         let mut docs_cache = self.docs_cache.lock().await;
 
         let fs = &self.fs;
@@ -124,7 +124,7 @@ impl DocsCacheManager {
     async fn new_docs_cache<'v>(
         fs: &ProjectRoot,
         dice_ctx: &mut DiceTransaction,
-    ) -> anyhow::Result<DocsCache> {
+    ) -> buck2_error::Result<DocsCache> {
         let mut builtin_docs = Vec::new();
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
@@ -148,7 +148,7 @@ fn get_builtin_globals_docs() -> DocModule {
 async fn get_prelude_docs(
     ctx: &DiceTransaction,
     existing_globals: &HashSet<&str>,
-) -> anyhow::Result<Option<(ImportPath, DocModule)>> {
+) -> buck2_error::Result<Option<(ImportPath, DocModule)>> {
     let ctx = &mut ctx.clone();
     let cell_resolver = ctx.get_cell_resolver().await?;
     let Some(prelude_path) = prelude_path(&cell_resolver)? else {
@@ -197,7 +197,7 @@ impl DocsCache {
         location: &ImportPath,
         fs: &ProjectRoot,
         cell_resolver: &CellResolver,
-    ) -> anyhow::Result<LspUrl> {
+    ) -> buck2_error::Result<LspUrl> {
         let relative_path = cell_resolver.resolve_path(location.path().as_ref())?;
         let abs_path = fs.resolve(&relative_path);
         Ok(Url::from_file_path(abs_path).unwrap().try_into()?)
@@ -207,7 +207,7 @@ impl DocsCache {
         builtin_symbols: &[(Option<ImportPath>, DocModule)],
         fs: &ProjectRoot,
         cell_resolver: &CellResolver,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         Self::new_with_lookup(builtin_symbols, |location| async {
             Self::get_prelude_uri(location, fs, cell_resolver).await
         })
@@ -217,11 +217,11 @@ impl DocsCache {
     async fn new_with_lookup<
         'a,
         F: Fn(&'a ImportPath) -> Fut + 'a,
-        Fut: Future<Output = anyhow::Result<LspUrl>>,
+        Fut: Future<Output = buck2_error::Result<LspUrl>>,
     >(
         builtin_symbols: &'a [(Option<ImportPath>, DocModule)],
         location_lookup: F,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let mut global_urls = HashMap::with_capacity(builtin_symbols.len());
 
         let mut insert_global = |sym: String, url: LspUrl| {
@@ -233,7 +233,7 @@ impl DocsCache {
                 }
                 .into())
             } else {
-                anyhow::Ok(())
+                buck2_error::Ok(())
             }
         };
 
@@ -300,7 +300,7 @@ enum BuckLspContextError {
 impl<'a> BuckLspContext<'a> {
     async fn new(
         server_ctx: &'a dyn ServerCommandContextTrait,
-    ) -> anyhow::Result<BuckLspContext<'a>> {
+    ) -> buck2_error::Result<BuckLspContext<'a>> {
         let (fs, docs_cache_manager) = server_ctx
             .with_dice_ctx(|server_ctx, dice_ctx| async move {
                 let fs = server_ctx.project_root().clone();
@@ -322,10 +322,10 @@ impl<'a> BuckLspContext<'a> {
     // We are purposefully only holding the DICE context briefly since the LSP logic lives in a
     // long-running thread, and we don't want it to block continuously while holding DICE since
     // it will block other concurrent commands.
-    async fn with_dice_ctx<F, Fut, R>(&self, exec: F) -> anyhow::Result<R>
+    async fn with_dice_ctx<F, Fut, R>(&self, exec: F) -> buck2_error::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut + Send,
-        Fut: Future<Output = anyhow::Result<R>> + Send,
+        Fut: Future<Output = buck2_error::Result<R>> + Send,
         R: Send,
     {
         self.server_ctx
@@ -333,11 +333,11 @@ impl<'a> BuckLspContext<'a> {
             .await?
     }
 
-    async fn import_path(&self, path: &Path) -> anyhow::Result<OwnedStarlarkModulePath> {
+    async fn import_path(&self, path: &Path) -> buck2_error::Result<OwnedStarlarkModulePath> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize_any(abs_path)?;
         let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { Ok(dice_ctx.get_cell_resolver().await?) })
+            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
         let cell_path = cell_resolver.get_cell_path(&relative_path)?;
 
@@ -358,12 +358,15 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
-    async fn starlark_import_path(&self, path: &Path) -> anyhow::Result<OwnedStarlarkModulePath> {
+    async fn starlark_import_path(
+        &self,
+        path: &Path,
+    ) -> buck2_error::Result<OwnedStarlarkModulePath> {
         // The "absolute" path from LSP urls doesn't work here, they have to be relative
         // to get a ProjectRelativePath. We already guaranteed that things start with a '/'
         // (rooted from `starlark:`, see LspUrl), so just drop it.
         let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { Ok(dice_ctx.get_cell_resolver().await?) })
+            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
 
         let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
@@ -400,7 +403,7 @@ impl<'a> BuckLspContext<'a> {
         &self,
         uri: &LspUrl,
         content: String,
-    ) -> anyhow::Result<LspEvalResult> {
+    ) -> buck2_error::Result<LspEvalResult> {
         let import_path: OwnedStarlarkModulePath = match uri {
             LspUrl::File(path) => self.import_path(path).await,
             LspUrl::Starlark(path) => self.starlark_import_path(path).await,
@@ -443,13 +446,11 @@ impl<'a> BuckLspContext<'a> {
         &self,
         current_package: CellPathRef<'_>,
         literal: &str,
-    ) -> anyhow::Result<Option<StringLiteralResult>> {
+    ) -> buck2_error::Result<Option<StringLiteralResult>> {
         match ForwardRelativePath::new(literal) {
             Ok(package_relative) => {
                 let cell_resolver = self
-                    .with_dice_ctx(
-                        |mut dice_ctx| async move { Ok(dice_ctx.get_cell_resolver().await?) },
-                    )
+                    .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
                     .await?;
                 let relative_path =
                     cell_resolver.resolve_path(current_package.join(package_relative).as_ref())?;
@@ -470,7 +471,7 @@ impl<'a> BuckLspContext<'a> {
         &self,
         current_package: CellPathRef<'_>,
         literal: &str,
-    ) -> anyhow::Result<Option<StringLiteralResult>> {
+    ) -> buck2_error::Result<Option<StringLiteralResult>> {
         let (artifact_fs, cell_alias_resolver) = self
             .with_dice_ctx(|mut dice_ctx| async move {
                 Ok((
@@ -612,7 +613,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                 // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
                 // package path, an absolute path is requested, etc).
                 //
-                // anyhow::Error sort of obscures the root causes, so we just have
+                // buck2_error::Error sort of obscures the root causes, so we just have
                 // to assume if it failed, it's fine, and we can maybe try the next thing.
                 if let Ok(Some(string_literal)) = self
                     .parse_target_from_string(current_package, literal)
@@ -631,18 +632,19 @@ impl<'a> LspContext for BuckLspContext<'a> {
 
     fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
         let dispatcher = self.server_ctx.events().dupe();
-        self.runtime
+        Ok(self
+            .runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(path) => {
                         let path = self.import_path(path).await?;
 
                         self.with_dice_ctx(|mut dice_ctx| async move {
-                            Ok(DiceFileComputations::read_file_if_exists(
+                            DiceFileComputations::read_file_if_exists(
                                 &mut dice_ctx,
                                 path.borrow().path().as_ref(),
                             )
-                            .await?)
+                            .await
                         })
                         .await
                     }
@@ -659,7 +661,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                         BuckLspContextError::WrongScheme("file://".to_owned(), uri.clone()).into(),
                     ),
                 }
-            }))
+            }))?)
     }
 
     fn get_url_for_global_symbol(
@@ -697,7 +699,7 @@ pub(crate) async fn run_lsp_server_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
-) -> anyhow::Result<buck2_cli_proto::LspResponse> {
+) -> buck2_error::Result<buck2_cli_proto::LspResponse> {
     let start_event = buck2_data::CommandStart {
         metadata: ctx.request_metadata().await?,
         data: Some(buck2_data::LspCommandStart {}.into()),
@@ -717,7 +719,7 @@ async fn run_lsp_server(
     ctx: &dyn ServerCommandContextTrait,
     mut partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     mut req: StreamingRequestHandler<LspRequest>,
-) -> anyhow::Result<LspResponse> {
+) -> buck2_error::Result<LspResponse> {
     // This gets a bit messy because the various frameworks don't quite work the same way.
     // - tonic has async streams (which we pull from with .message().await)
     // - The LSP server uses crossbeam channels, which are synchronous, so we need to run
@@ -794,7 +796,7 @@ async fn run_lsp_server(
 async fn recv_from_lsp(
     to_client: crossbeam_channel::Receiver<Message>,
     mut event_sender: UnboundedSender<buck2_cli_proto::LspMessage>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     loop {
         let msg = to_client.recv()?;
 
@@ -818,7 +820,7 @@ async fn recv_from_lsp(
 fn handle_incoming_lsp_message(
     from_client: &crossbeam_channel::Sender<Message>,
     message: buck2_error::Result<LspRequest>,
-) -> anyhow::Result<Option<LspResponse>> {
+) -> buck2_error::Result<Option<LspResponse>> {
     if let Ok(m) = message {
         let message = serde_json::from_str(&m.lsp_json)?;
         if from_client.send(message).is_ok() {
@@ -860,7 +862,7 @@ mod tests {
     use crate::lsp::DocsCache;
 
     #[test]
-    fn cache_builds() -> anyhow::Result<()> {
+    fn cache_builds() -> buck2_error::Result<()> {
         const P: &str = "cell//foo:bar.bzl";
 
         let docs = vec![
@@ -900,13 +902,13 @@ mod tests {
             .build()
             .unwrap();
 
-        async fn lookup_function(location: &ImportPath) -> anyhow::Result<LspUrl> {
+        async fn lookup_function(location: &ImportPath) -> buck2_error::Result<LspUrl> {
             if location == &ImportPath::testing_new(P) {
                 Ok(LspUrl::try_from(Url::parse(
                     "file:///usr/local/dir/prelude.bzl",
                 )?)?)
             } else {
-                Err(anyhow::anyhow!("Unknown path {}", location))
+                Err(buck2_error::buck2_error!([], "Unknown path {}", location))
             }
         }
 

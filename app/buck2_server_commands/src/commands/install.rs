@@ -18,7 +18,6 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -55,7 +54,6 @@ use buck2_core::target::name::TargetName;
 use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -135,7 +133,7 @@ pub enum InstallError {
 async fn get_installer_log_directory(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: &mut DiceComputations<'_>,
-) -> anyhow::Result<AbsNormPathBuf> {
+) -> buck2_error::Result<AbsNormPathBuf> {
     let out_path = ctx.get_buck_out_path().await?;
     let filesystem = server_ctx.project_root();
     let buck_out_path = filesystem
@@ -152,7 +150,7 @@ pub(crate) async fn install_command(
     ctx: &dyn ServerCommandContextTrait,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: InstallRequest,
-) -> anyhow::Result<InstallResponse> {
+) -> buck2_error::Result<InstallResponse> {
     run_server_command(InstallServerCommand { req }, ctx, partial_result_dispatcher).await
 }
 
@@ -183,7 +181,7 @@ impl ServerCommandTemplate for InstallServerCommand {
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
-    ) -> anyhow::Result<Self::Response> {
+    ) -> buck2_error::Result<Self::Response> {
         install(server_ctx, ctx, &self.req).await
     }
 
@@ -206,7 +204,7 @@ async fn install(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &InstallRequest,
-) -> anyhow::Result<InstallResponse> {
+) -> buck2_error::Result<InstallResponse> {
     let install_request_data_vec =
         collect_install_request_data(server_ctx, &mut ctx, request).await?;
 
@@ -232,7 +230,7 @@ async fn install(
     let install_requests = ctx.compute_many(install_requests);
     try_join_all(install_requests)
         .await
-        .context("Interaction with installer failed.")?;
+        .buck_error_context("Interaction with installer failed.")?;
 
     Ok(InstallResponse {})
 }
@@ -241,14 +239,14 @@ async fn collect_install_request_data<'a>(
     server_ctx: &dyn ServerCommandContextTrait,
     ctx: &mut DiceTransaction,
     request: &InstallRequest,
-) -> anyhow::Result<impl IntoIterator<Item = InstallRequestData<'a>>> {
+) -> buck2_error::Result<impl IntoIterator<Item = InstallRequestData<'a>>> {
     let cwd = server_ctx.working_dir();
 
     let global_cfg_options = global_cfg_options_from_client_context(
         request
             .target_cfg
             .as_ref()
-            .internal_error_anyhow("target_cfg must be set")?,
+            .internal_error("target_cfg must be set")?,
         server_ctx,
         ctx,
     )
@@ -266,7 +264,7 @@ async fn collect_install_request_data<'a>(
 
     let resolved_pattern = resolved_pattern
         .convert_pattern()
-        .context("Install with explicit configuration pattern is not supported yet")?;
+        .buck_error_context("Install with explicit configuration pattern is not supported yet")?;
 
     let mut installer_to_files_map = HashMap::new();
     for (package, spec) in resolved_pattern.specs {
@@ -332,16 +330,16 @@ async fn collect_install_request_data<'a>(
     Ok(request_data_vec)
 }
 
-fn get_random_tcp_port() -> anyhow::Result<u16> {
+fn get_random_tcp_port() -> buck2_error::Result<u16> {
     let bind_address = std::net::Ipv4Addr::LOCALHOST.into();
     let socket_addr = SocketAddr::new(bind_address, 0);
     let tcp_port = TcpListener::bind(socket_addr)?.local_addr()?.port();
     Ok(tcp_port)
 }
 
-fn get_timestamp_as_string() -> anyhow::Result<String> {
+fn get_timestamp_as_string() -> buck2_error::Result<String> {
     let dt = DateTime::from_timestamp(Utc::now().timestamp(), 0)
-        .context(InstallError::NativeDateTime)?;
+        .buck_error_context(InstallError::NativeDateTime)?;
     Ok(dt.format("%Y%m%d-%H%M%S").to_string())
 }
 
@@ -357,14 +355,14 @@ async fn handle_install_request<'a>(
     install_request_data: &InstallRequestData<'_>,
     initial_installer_run_args: &[String],
     installer_debug: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
     let (artifacts_ready, (installer_ready, installer_finished, device_metadata)) = ctx
         .try_compute2(
             |ctx| {
                 async move {
                     build_files(ctx, &install_request_data.installed_targets, files_tx).await?;
-                    anyhow::Ok(Instant::now())
+                    buck2_error::Ok(Instant::now())
                 }
                 .boxed()
             },
@@ -420,7 +418,7 @@ async fn handle_install_request<'a>(
                     let device_metadata = Arc::new(Mutex::new(Vec::new()));
                     let send_files_result =
                         tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
-                            .map(anyhow::Ok)
+                            .map(buck2_error::Ok)
                             .try_for_each_concurrent(None, |file| {
                                 send_file(
                                     file,
@@ -433,8 +431,9 @@ async fn handle_install_request<'a>(
                             .await;
                     let installer_finished = Instant::now();
                     send_shutdown_command(client.clone()).await?;
-                    send_files_result.context("Failed to send artifacts to installer")?;
-                    anyhow::Ok((installer_ready, installer_finished, device_metadata))
+                    send_files_result
+                        .buck_error_context("Failed to send artifacts to installer")?;
+                    buck2_error::Ok((installer_ready, installer_finished, device_metadata))
                 }
                 .boxed()
             },
@@ -462,7 +461,7 @@ async fn handle_install_request<'a>(
         duration: install_duration.try_into().ok(),
         device_metadata,
     });
-    anyhow::Ok(())
+    buck2_error::Ok(())
 }
 
 async fn send_install_info(
@@ -470,7 +469,7 @@ async fn send_install_info(
     install_id: &str,
     install_files: &SmallMap<&str, Artifact>,
     artifact_fs: &ArtifactFs,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut files_map = HashMap::new();
     for (file_name, artifact) in install_files {
         let artifact_path = &artifact_fs
@@ -500,7 +499,8 @@ async fn send_install_info(
 
     if install_info_response.install_id != install_id {
         send_shutdown_command(client.clone()).await?;
-        return Err(anyhow::anyhow!(
+        return Err(buck2_error::buck2_error!(
+            [],
             "Received install id: {} doesn't match with the sent one: {}",
             install_info_response.install_id,
             &install_id
@@ -510,7 +510,7 @@ async fn send_install_info(
     Ok(())
 }
 
-async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> anyhow::Result<()> {
+async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> buck2_error::Result<()> {
     let response_result = client
         .shutdown_server(tonic::Request::new(ShutdownRequest {}))
         .await;
@@ -529,7 +529,7 @@ async fn build_launch_installer<'a>(
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
     installer_log_console: bool,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let frozen_providers = ctx
         .get_providers(providers_label)
         .await?
@@ -569,7 +569,7 @@ async fn build_launch_installer<'a>(
             .boxed()
         })
         .await
-        .context("Failed to build installer")?;
+        .buck_error_context("Failed to build installer")?;
 
         let build_id: &str = &get_dispatcher().trace_id().to_string();
         background_command(&run_args[0])
@@ -578,7 +578,7 @@ async fn build_launch_installer<'a>(
             .env("BUCK2_UUID", build_id)
             .stderr(get_stdio(installer_log_console)?)
             .spawn()
-            .context("Failed to spawn installer")?;
+            .buck_error_context("Failed to spawn installer")?;
 
         Ok(())
     } else {
@@ -586,7 +586,7 @@ async fn build_launch_installer<'a>(
     }
 }
 
-fn get_stdio(log_installer_console: bool) -> anyhow::Result<Stdio> {
+fn get_stdio(log_installer_console: bool) -> buck2_error::Result<Stdio> {
     if log_installer_console {
         Ok(Stdio::inherit())
     } else {
@@ -606,7 +606,7 @@ async fn build_files(
     ctx: &mut DiceComputations<'_>,
     install_files_slice: &[(ConfiguredTargetLabel, SmallMap<&str, Artifact>)],
     tx: mpsc::UnboundedSender<FileResult>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let mut file_outputs = Vec::with_capacity(install_files_slice.len());
     for (install_id, file_info) in install_files_slice {
         for (name, artifact) in file_info.into_iter() {
@@ -657,7 +657,7 @@ async fn build_files(
                     };
                     tx_clone.send(file_result)?;
                 }
-                anyhow::Ok(())
+                buck2_error::Ok(())
             }
             .boxed()
         },
@@ -666,7 +666,7 @@ async fn build_files(
     Ok(())
 }
 
-async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<Channel>> {
+async fn connect_to_installer(tcp_port: u16) -> buck2_error::Result<InstallerClient<Channel>> {
     use std::time::Duration;
 
     use buck2_common::client_utils::retrying;
@@ -685,7 +685,7 @@ async fn connect_to_installer(tcp_port: u16) -> anyhow::Result<InstallerClient<C
                 get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
             })
             .await
-            .context("Failed to connect to the installer using TCP")?;
+            .buck_error_context("Failed to connect to the installer using TCP")?;
 
             Ok(InstallerClient::new(channel)
                 .max_encoding_message_size(usize::MAX)
@@ -702,7 +702,7 @@ async fn send_file(
     mut client: InstallerClient<Channel>,
     install_log: String,
     device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let install_id = file.install_id;
     let name = file.name;
     let artifact = file.artifact;
@@ -752,7 +752,7 @@ async fn send_file(
     };
     let end = InstallEventInfoEnd {};
     span_async(start, async {
-        let mut outcome: anyhow::Result<()> = Ok(());
+        let mut outcome: buck2_error::Result<()> = Ok(());
         let response_result = client.file_ready(request).await;
         let mut response = match response_result {
             Ok(r) => r.into_inner(),

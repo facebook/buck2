@@ -22,20 +22,20 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::daemon::dice_dump::tar_dice_dump;
 
 pub(crate) trait DaemonStatePanicDiceDump: Send + Sync + 'static {
-    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> anyhow::Result<()>;
+    fn dice_dump(&self, path: &Path, format: DiceDumpFormat) -> buck2_error::Result<()>;
 }
 
 fn get_panic_dump_dir() -> PathBuf {
     temp_dir().join("buck2-dumps")
 }
 
-async fn remove_old_panic_dumps() -> anyhow::Result<()> {
+async fn remove_old_panic_dumps() -> buck2_error::Result<()> {
     const MAX_PANIC_AGE: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
     let dump_dir = get_panic_dump_dir();
     let now = SystemTime::now();
@@ -74,7 +74,7 @@ static ALREADY_DUMPED_DICE: OnceLock<()> = OnceLock::new();
 
 fn daemon_panic_hook(daemon_state: &Arc<dyn DaemonStatePanicDiceDump>, info: &PanicInfo) {
     if !buck2_core::is_open_source()
-        && buck2_env_anyhow!("BUCK2_DICE_DUMP_ON_PANIC", bool).unwrap_or_default()
+        && buck2_env!("BUCK2_DICE_DUMP_ON_PANIC", bool).unwrap_or_default()
         && ALREADY_DUMPED_DICE.set(()).is_ok()
     {
         let panic_id = TraceId::new();

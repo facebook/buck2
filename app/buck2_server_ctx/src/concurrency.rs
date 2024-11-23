@@ -18,7 +18,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_cli_proto::client_context::PreemptibleWhen;
@@ -31,7 +30,8 @@ use buck2_data::DiceSynchronizeSectionStart;
 use buck2_data::ExclusiveCommandWaitEnd;
 use buck2_data::ExclusiveCommandWaitStart;
 use buck2_data::NoActiveDiceState;
-use buck2_error::internal_error_anyhow;
+use buck2_error::internal_error;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_util::truncate::truncate;
@@ -254,7 +254,7 @@ pub trait DiceUpdater: Send + Sync {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
-    ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)>;
+    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)>;
 }
 
 #[derive(Allocative)]
@@ -341,7 +341,7 @@ impl ConcurrencyHandler {
         exit_when_different_state: bool,
         cancellations: &ExplicitCancellationContext,
         preemptible: PreemptibleWhen,
-    ) -> anyhow::Result<R>
+    ) -> buck2_error::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
         Fut: Future<Output = R> + Send,
@@ -409,7 +409,7 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
         exit_when_different_state: bool,
         preemptible: PreemptibleWhen,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
         impl Future<Output = Result<(), RecvError>>,
@@ -477,7 +477,7 @@ impl ConcurrencyHandler {
                                     async {
                                         let transaction =
                                             transaction.commit_with_data(user_data).await;
-                                        anyhow::Ok(transaction)
+                                        buck2_error::Ok(transaction)
                                     }
                                     .await,
                                     buck2_data::DiceStateUpdateEnd {},
@@ -534,7 +534,7 @@ impl ConcurrencyHandler {
                                         .map(|d| TraceId::to_string(&d.trace_id))
                                         .collect();
                                     return Err(ConcurrencyHandlerError::ExitWhenDifferentState)
-                                        .with_context(|| format!("Buck daemon is busy processing another command: {}", active_commands.join(", ")));
+                                        .with_buck_error_context(|| format!("Buck daemon is busy processing another command: {}", active_commands.join(", ")));
                                 }
                                 // We should probably show more than the first here, but for now
                                 // this is what we have.
@@ -639,17 +639,17 @@ impl ConcurrencyHandler {
         state: RunState,
         active_commands: &SmallMap<CommandId, CommandData>,
         current_command: &CommandData,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         let active_commands = format_traces(active_commands, current_command);
 
         match state {
             RunState::NestedSameState => {
                 soft_error!(
                     "nested_invocation_same_dice_state",
-                    anyhow::anyhow!(ConcurrencyHandlerError::NestedInvocationWithSameStates(
+                    ConcurrencyHandlerError::NestedInvocationWithSameStates(
                         active_commands,
                         current_command.format_argv(),
-                    ))
+                    )
                     .into()
                 )?;
             }
@@ -683,10 +683,10 @@ impl OnExecExit {
         command: CommandId,
         data: CommandData,
         mut guard: MutexGuard<'_, ConcurrencyHandlerData>,
-    ) -> anyhow::Result<Self> {
+    ) -> buck2_error::Result<Self> {
         let prev = guard.active_commands.insert(command, data);
         if prev.is_some() {
-            return Err(internal_error_anyhow!(
+            return Err(internal_error!(
                 "command id `{command}` is already registered"
             ));
         }
@@ -756,7 +756,7 @@ mod tests {
         async fn update(
             &self,
             ctx: DiceTransactionUpdater,
-        ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
             Ok((ctx, Default::default()))
         }
     }
@@ -768,7 +768,7 @@ mod tests {
         async fn update(
             &self,
             mut ctx: DiceTransactionUpdater,
-        ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
+        ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
             ctx.changed_to(vec![(K, ())])?;
             Ok((ctx, Default::default()))
         }
@@ -979,7 +979,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn parallel_invocation_different_traceid_blocks() -> anyhow::Result<()> {
+    async fn parallel_invocation_different_traceid_blocks() -> buck2_error::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
@@ -1096,7 +1096,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn parallel_invocation_exit_when_different_state() -> anyhow::Result<()> {
+    async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
@@ -1218,7 +1218,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn parallel_invocation_exit_when_preemptible() -> anyhow::Result<()> {
+    async fn parallel_invocation_exit_when_preemptible() -> buck2_error::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
@@ -1369,7 +1369,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cleanup_stage() -> anyhow::Result<()> {
+    async fn test_cleanup_stage() -> buck2_error::Result<()> {
         let key = CleanupTestKey {
             is_executing: Arc::new(Mutex::new(())),
         };
@@ -1459,7 +1459,7 @@ mod tests {
     async fn wait_for_event<F>(
         source: &mut ChannelEventSource,
         matcher: Box<F>,
-    ) -> anyhow::Result<BuckEvent>
+    ) -> buck2_error::Result<BuckEvent>
     where
         F: Fn(&BuckEvent) -> bool + Send,
     {
@@ -1476,13 +1476,13 @@ mod tests {
             }
         })
         .await
-        .context("Time out waiting for matching buck event")
+        .buck_error_context("Time out waiting for matching buck event")
     }
 
     async fn wait_for_exclusive_span_start(
         source: &mut ChannelEventSource,
         cmd: Option<&str>,
-    ) -> anyhow::Result<Option<SpanId>> {
+    ) -> buck2_error::Result<Option<SpanId>> {
         let cmd = cmd.map(|c| c.to_owned());
         Ok(wait_for_event(
             source,
@@ -1507,7 +1507,7 @@ mod tests {
     async fn wait_for_exclusive_span_end(
         source: &mut ChannelEventSource,
         span_id: Option<SpanId>,
-    ) -> anyhow::Result<BuckEvent> {
+    ) -> buck2_error::Result<BuckEvent> {
         wait_for_event(
             source,
             Box::new(|e: &BuckEvent| {
@@ -1525,7 +1525,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exclusive_command_lock() -> anyhow::Result<()> {
+    async fn exclusive_command_lock() -> buck2_error::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
         let concurrency = ConcurrencyHandler::new(dice.dupe());
         let (mut source, sink) = create_source_sink_pair();
@@ -1610,7 +1610,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_thundering_herd() -> anyhow::Result<()> {
+    async fn test_thundering_herd() -> buck2_error::Result<()> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
@@ -1645,7 +1645,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_updates_are_synchronized() -> anyhow::Result<()> {
+    async fn test_updates_are_synchronized() -> buck2_error::Result<()> {
         async fn wait_on(b: &AtomicBool) {
             while !b.load(Ordering::Relaxed) {
                 tokio::task::yield_now().await;
@@ -1667,7 +1667,7 @@ mod tests {
             async fn update(
                 &self,
                 ctx: DiceTransactionUpdater,
-            ) -> anyhow::Result<(DiceTransactionUpdater, UserComputationData)> {
+            ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
                 self.on_enter.store(true, Ordering::Relaxed);
                 wait_on(&self.allow_exit).await;
                 Ok((ctx, Default::default()))

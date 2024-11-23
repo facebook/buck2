@@ -10,10 +10,10 @@
 use core::iter::Iterator;
 use std::collections::HashMap;
 
-use anyhow::Context;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_data::action_key;
+use buck2_error::BuckErrorContext;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display::display_anon_target;
@@ -50,9 +50,12 @@ impl ActionEntry {
         &self,
         data: &buck2_data::span_end_event::Data,
         options: &WhatRanOptions,
-    ) -> anyhow::Result<Option<(String, ActionEntryData)>> {
+    ) -> buck2_error::Result<Option<(String, ActionEntryData)>> {
         let action = WhatRanRelevantAction::from_buck_data(
-            self.event.data.as_ref().context("Checked above")?,
+            self.event
+                .data
+                .as_ref()
+                .buck_error_context("Checked above")?,
         );
 
         let failed = match data {
@@ -115,7 +118,7 @@ pub(crate) async fn explain(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     req: &ExplainRequest,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let build_log = EventLogPathBuf::infer(req.log_path.clone())?;
     let (_, mut events) = build_log.unpack_stream().await?;
 

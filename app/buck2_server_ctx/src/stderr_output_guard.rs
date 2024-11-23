@@ -13,7 +13,7 @@ use std::io::Write;
 use std::marker::PhantomData;
 use std::str;
 
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_events::dispatch::EventDispatcher;
 use dupe::Dupe;
 
@@ -61,17 +61,17 @@ impl<'a> Drop for StderrOutputGuard<'a> {
 }
 
 impl StderrOutputWriter {
-    pub fn new(context: &dyn ServerCommandContextTrait) -> anyhow::Result<Self> {
+    pub fn new(context: &dyn ServerCommandContextTrait) -> buck2_error::Result<Self> {
         Ok(Self {
             dispatcher: context.events().dupe(),
             chunk_size: StderrOutputWriter::get_chunk_size()?,
         })
     }
 
-    fn get_chunk_size() -> anyhow::Result<usize> {
+    fn get_chunk_size() -> buck2_error::Result<usize> {
         // protobuf recommends each message should be under 1MB
         const DEFAULT_CHUNK_SIZE: usize = 1024 * 1024;
-        buck2_env_anyhow!("BUCK2_DEBUG_RAWOUTPUT_CHUNK_SIZE", type=usize, default=DEFAULT_CHUNK_SIZE)
+        buck2_env!("BUCK2_DEBUG_RAWOUTPUT_CHUNK_SIZE", type=usize, default=DEFAULT_CHUNK_SIZE)
     }
 
     /// Given complete valid UTF-8 string, truncate it to be no longer than given limit.
