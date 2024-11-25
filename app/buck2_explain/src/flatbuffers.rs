@@ -18,6 +18,7 @@ use flatbuffers::FlatBufferBuilder;
 use flatbuffers::WIPOffset;
 
 use crate::ActionEntryData;
+use crate::ChangedFilesEntryData;
 
 mod fbs {
     pub use crate::explain_generated::explain::Action;
@@ -41,20 +42,26 @@ enum AttrField {
 struct TargetData {
     node: ConfiguredTargetNode,
     actions: Vec<ActionEntryData>,
+    changed_files: Vec<String>,
 }
 
 pub(crate) fn gen_fbs(
     data: Vec<ConfiguredTargetNode>,
     actions: Vec<(String, ActionEntryData)>,
+    changed_files: Vec<ChangedFilesEntryData>,
 ) -> anyhow::Result<FlatBufferBuilder<'static>> {
-    // associate actions with targets when possible
-    let (target_data, other_actions_data) = {
+    // associate actions and changed files with targets when possible
+    let (target_data, other_actions_data, other_changed_files) = {
+        // These are in case we need to debug orphan actions or changed files
         let mut actions_data = vec![];
+        let mut files_changed_data = vec![];
+
         let mut data: Vec<_> = data
             .into_iter()
             .map(|node| TargetData {
                 node,
                 actions: vec![],
+                changed_files: vec![],
             })
             .collect();
 
@@ -64,6 +71,7 @@ pub(crate) fn gen_fbs(
             node_map.insert(key, node);
         }
 
+        // Actions
         for (target, entry) in actions.into_iter() {
             if let Some(target_data) = node_map.get_mut(&target) {
                 target_data.actions.push(entry);
@@ -71,7 +79,18 @@ pub(crate) fn gen_fbs(
                 actions_data.push(entry);
             }
         }
-        (data, actions_data)
+
+        // Changed files
+        for entry in changed_files.into_iter() {
+            for target in entry.targets.into_iter() {
+                if let Some(target_data) = node_map.get_mut(&target) {
+                    target_data.changed_files.push(entry.path.clone());
+                } else {
+                    files_changed_data.push(entry.path.clone());
+                }
+            }
+        }
+        (data, actions_data, files_changed_data)
     };
 
     let mut builder = FlatBufferBuilder::new();
@@ -88,11 +107,18 @@ pub(crate) fn gen_fbs(
         .collect();
     let other_actions = builder.create_vector(&other_actions);
 
+    let other_changed_files: Vec<_> = other_changed_files
+        .iter()
+        .map(|path| builder.create_shared_string(path))
+        .collect();
+    let other_changed_files = builder.create_vector(&other_changed_files);
+
     let build = fbs::Build::create(
         &mut builder,
         &fbs::BuildArgs {
             targets: Some(targets),
             other_actions: Some(other_actions),
+            other_changed_files: Some(other_changed_files),
         },
     );
     builder.finish(build, None);
@@ -112,6 +138,15 @@ fn target_to_fbs<'a>(
             .map(|action| action_to_fbs(builder, action))
             .collect();
         Some(builder.create_vector(&actions))
+    };
+
+    let changed_files = {
+        let changed_files: Vec<flatbuffers::WIPOffset<&str>> = data
+            .changed_files
+            .iter()
+            .map(|path| builder.create_shared_string(path))
+            .collect();
+        Some(builder.create_vector(&changed_files))
     };
 
     // special attrs
@@ -165,6 +200,7 @@ fn target_to_fbs<'a>(
             srcs,
             code_pointer,
             actions,
+            changed_files,
         },
     );
     Ok(target)
@@ -317,7 +353,7 @@ mod tests {
             vec![],
         );
 
-        let fbs = gen_fbs(data, vec![]).unwrap();
+        let fbs = gen_fbs(data, vec![], vec![]).unwrap();
         let fbs = fbs.finished_data();
         let build = flatbuffers::root::<Build>(fbs).unwrap();
         let target = build.targets().unwrap().get(0);

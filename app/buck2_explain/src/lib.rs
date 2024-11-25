@@ -41,12 +41,12 @@ pub struct ChangedFilesEntryData {
 pub async fn main(
     data: Vec<ConfiguredTargetNode>,
     executed_actions: Vec<(String, ActionEntryData)>,
-    _changed_files: Vec<ChangedFilesEntryData>,
+    changed_files: Vec<ChangedFilesEntryData>,
     output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
     manifold_path: Option<&str>,
 ) -> anyhow::Result<()> {
-    let fbs = flatbuffers::gen_fbs(data, executed_actions)?;
+    let fbs = flatbuffers::gen_fbs(data, executed_actions, changed_files)?;
 
     let fbs = fbs.finished_data();
     let base64 = STANDARD.encode(&fbs);

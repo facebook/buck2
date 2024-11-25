@@ -53,10 +53,12 @@ table ConfiguredTargetNode {
     label: ConfiguredTargetLabel;
     srcs: long;
     code_pointer: CodePointer;
+    changed_files: [string];
 }
 
 table Build {
     targets: [ConfiguredTargetNode];
     // Couldn't associate these with a target
     other_actions: [Action];
+    other_changed_files: [string];
 }
