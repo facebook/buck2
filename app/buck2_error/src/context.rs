@@ -72,35 +72,6 @@ pub trait BuckErrorContext<T>: Sealed {
         C: Into<ContextValue>,
         F: FnOnce() -> C;
 
-    #[track_caller]
-    fn input_anyhow(self) -> anyhow::Result<T> {
-        self.tag_anyhow(ErrorTag::Input)
-    }
-
-    #[track_caller]
-    fn tier0_anyhow(self) -> anyhow::Result<T> {
-        self.tag_anyhow(ErrorTag::Tier0)
-    }
-
-    #[track_caller]
-    fn tag_anyhow(self, tag: crate::ErrorTag) -> anyhow::Result<T> {
-        self.buck_error_context_anyhow(ContextValue::Tags(smallvec![tag]))
-    }
-
-    #[track_caller]
-    fn internal_error_anyhow(self, message: &str) -> anyhow::Result<T> {
-        self.with_internal_error_anyhow(|| message.to_owned())
-    }
-
-    #[track_caller]
-    fn with_internal_error_anyhow<F>(self, f: F) -> anyhow::Result<T>
-    where
-        F: FnOnce() -> String,
-    {
-        self.with_buck_error_context_anyhow(|| format!("{} (internal error)", f()))
-            .tag_anyhow(crate::ErrorTag::InternalError)
-    }
-
     /// Supports adding context to an error by either augmenting the most recent context if its
     /// the requested type or by adding a new context.
     #[track_caller]

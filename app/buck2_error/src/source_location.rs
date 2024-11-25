@@ -126,7 +126,7 @@ mod tests {
             Some("buck2_error/src/source_location.rs"),
         );
 
-        let e: anyhow::Error = Err::<(), _>(MyError).input_anyhow().unwrap_err();
+        let e: anyhow::Error = MyError.into();
         let e: crate::Error = e.into();
         assert_eq!(
             e.source_location(),

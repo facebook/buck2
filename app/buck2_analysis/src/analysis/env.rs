@@ -407,7 +407,7 @@ fn get_rule_callable<'v>(
     let rule_callable = rule_callable.owned_value(eval.frozen_heap());
     let rule_callable = rule_callable
         .unpack_frozen()
-        .internal_error_anyhow("Must be frozen")?;
+        .internal_error("Must be frozen")?;
     Ok(rule_callable)
 }
 
