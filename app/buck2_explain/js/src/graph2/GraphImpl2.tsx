@@ -18,6 +18,7 @@ import {formatTargetLabel} from '../formatTargetLabel'
 enum DisplayType {
   rootNode,
   passesFilters,
+  changedFiles,
   hidden,
   highlighted,
   actionsRan,
@@ -27,6 +28,7 @@ const displayTypeColors: {[key in DisplayType]: string} = {
   // https://coolors.co/1c77c3-39a9db-9ec1a3-cfe0c3-e9724c
   [DisplayType.rootNode]: '#1a181b',
   [DisplayType.passesFilters]: '#1c77c3',
+  [DisplayType.changedFiles]: '#9ec1a3',
   [DisplayType.highlighted]: '#e9724c',
   [DisplayType.actionsRan]: '#39a9db',
   [DisplayType.hidden]: 'gray', // doesn't matter
@@ -102,6 +104,10 @@ export function GraphImpl2(props: {
     // Targets with actions ran
     if (target.actionsLength() > 0) {
       node.displayType = DisplayType.actionsRan
+    }
+
+    if (target.changedFilesLength() > 0) {
+      node.displayType = DisplayType.changedFiles
     }
   }
 
