@@ -375,7 +375,7 @@ impl Deref for RegisteredAction {
     }
 }
 
-/// An 'UnregisteredAction' that is stored by the 'ActionRegistry' to be registered.
+/// An 'UnregisteredAction' that is stored by the 'ActionsRegistry' to be registered.
 /// The stored inputs have not yet been validated as bound, but will be validated upon registering.
 #[derive(Allocative)]
 struct ActionToBeRegistered {
