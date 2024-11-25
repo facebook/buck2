@@ -64,13 +64,14 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   // TODO iguridi: make it work outside of fbsource
   const codePointer = `https://www.internalfb.com/code/fbsource/${filePath}?lines=${lineNumber}`
 
-  const targetLabel = target.label()!.targetLabel()
+  const unconfiguredLabel = target.label()!.targetLabel()
+  const configuredLabel = formatTargetLabel(target.label()!)
 
   return (
     <div>
       <div className="ml-4 mt-4 mb-6">
         <a href={codePointer}>(codehub) </a>
-        <h4 className="title is-4">{targetLabel}</h4>
+        <h4 className="title is-4">{unconfiguredLabel}</h4>
         <ul>
           <li>
             <b>Rule type</b>
@@ -83,7 +84,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_ATTRS ? 'is-active' : ''}>
             <Link
               className="no-underline icon-text"
-              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_ATTRS}}>
+              to={{target: configuredLabel, target_tab: TARGET_ATTRS}}>
               Attributes
               <span className="icon">
                 <i className="fa fa-list"></i>
@@ -91,9 +92,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
             </Link>
           </li>
           <li className={tab === TARGET_DEPS ? 'is-active' : ''}>
-            <Link
-              className="no-underline"
-              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_DEPS}}>
+            <Link className="no-underline" to={{target: configuredLabel, target_tab: TARGET_DEPS}}>
               Dependencies
               <span className="icon">
                 <i className="fa fa-arrow-down"></i>
@@ -101,9 +100,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
             </Link>
           </li>
           <li className={tab === TARGET_RDEPS ? 'is-active' : ''}>
-            <Link
-              className="no-underline"
-              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_RDEPS}}>
+            <Link className="no-underline" to={{target: configuredLabel, target_tab: TARGET_RDEPS}}>
               Reverse dependencies
               <span className="icon">
                 <i className="fa fa-arrow-up"></i>
@@ -113,7 +110,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           <li className={tab === TARGET_ACTIONS ? 'is-active' : ''}>
             <Link
               className="no-underline"
-              to={{target: formatTargetLabel(target.label()!), target_tab: TARGET_ACTIONS}}>
+              to={{target: configuredLabel, target_tab: TARGET_ACTIONS}}>
               Actions
               <span className="icon">
                 <i className="fa fa-tasks"></i>
