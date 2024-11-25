@@ -96,12 +96,12 @@ def _get_absolute_path(ctx, src) -> dict[str, str]:
 def _elp_config(ctx):
     included_targets = ctx.cli_args.included_targets
 
-    all = ctx.cquery().kind("^(erlang_app|erlang_test)$", ctx.configured_targets(included_targets))
+    all = [("app", tgt) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", ctx.configured_targets(included_targets))]
     if ctx.cli_args.deps_targets:
-        all += ctx.cquery().kind("^erlang_app$", ctx.configured_targets(ctx.cli_args.deps_targets))
-    all += ctx.cquery().kind("^erlang_app$", ctx.configured_targets("prelude//erlang/..."))
+        all += [("dep", tgt) for tgt in ctx.cquery().kind("^erlang_app$", ctx.configured_targets(ctx.cli_args.deps_targets))]
+    all += [("prelude", tgt) for tgt in ctx.cquery().kind("^erlang_app$", ctx.configured_targets("prelude//erlang/..."))]
     result = {}
-    for target in all:
+    for (typ, target) in all:
         label = target.label
         label_name = label.raw_target()
 
@@ -157,6 +157,7 @@ def _elp_config(ctx):
             deps = deps_list,
             apps = apps_list,
             included_apps = included_apps_list,
+            origin = typ,
         )
     ctx.output.print_json(result)
 
