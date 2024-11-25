@@ -98,7 +98,7 @@ load(
     "create_manifest_for_extensions",
     "create_manifest_for_source_map",
 )
-load(":native_python_util.bzl", "merge_cxx_extension_info")
+load(":native_python_util.bzl", "merge_cxx_extension_info", "reduce_cxx_extension_info")
 load(":python.bzl", "PythonLibraryInfo", "info_to_interface")
 load(
     ":python_library.bzl",
@@ -570,13 +570,16 @@ def _convert_python_library_to_executable(
             # Add in dlopen-enabled libs from first-order deps.
             shared_deps = ctx.attrs.deps + ctx.attrs.preload_deps,
         )
+        extension_info_reduced = reduce_cxx_extension_info(extension_info)
         inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
 
         # Generate an additional C file as input
         static_extension_info_out = ctx.actions.declare_output("static_extension_info.cpp")
         cmd = cmd_args(python_toolchain.generate_static_extension_info[RunInfo])
         cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
-        cmd.add(cmd_args(["{}:{}".format(k, v) for k, v in extension_info.python_module_names.items()], format = "--extension={}"))
+        cmd.add(
+            extension_info.set.project_as_args("python_module_names"),
+        )
 
         # TODO we don't need to do this ...
         ctx.actions.run(cmd, category = "generate_static_extension_info")
@@ -595,15 +598,15 @@ def _convert_python_library_to_executable(
         # All deps inolved in the link.
         link_deps = (
             linkables(executable_deps + ctx.attrs.preload_deps) +
-            list(extension_info.linkable_providers.traverse())
+            extension_info_reduced.linkable_providers
         )
 
         link_group_info, auto_link_group_specs = _get_link_group_info(
             ctx,
             link_deps,
-            extension_info.dlopen_deps.values(),
-            extension_info.unembeddable_extensions,
-            extension_info.shared_only_libs.values(),
+            extension_info_reduced.dlopen_deps,
+            extension_info_reduced.unembeddable_extensions,
+            extension_info_reduced.shared_only_libs,
         )
 
         extra_binary_link_flags = []
@@ -639,13 +642,14 @@ def _convert_python_library_to_executable(
             extra_shared_libs = traverse_shared_library_info(
                 merge_shared_libraries(
                     actions = ctx.actions,
-                    deps = [d.shared_library_info for d in extension_info.shared_only_libs.values()],
+                    deps =
+                        [d.shared_library_info for d in extension_info_reduced.shared_only_libs],
                 ),
             ),
             extra_link_roots = (
-                extension_info.unembeddable_extensions.values() +
-                extension_info.dlopen_deps.values() +
-                extension_info.shared_only_libs.values() +
+                extension_info_reduced.unembeddable_extensions.values() +
+                extension_info_reduced.dlopen_deps +
+                extension_info_reduced.shared_only_libs +
                 linkables(ctx.attrs.link_group_deps)
             ),
             exe_allow_cache_upload = allow_cache_upload,
@@ -679,7 +683,7 @@ def _convert_python_library_to_executable(
                 executable_info.auto_link_groups[name],
                 link.linkable_graph.nodes.value.label,
             )
-            for name, link in extension_info.unembeddable_extensions.items()
+            for name, link in extension_info_reduced.unembeddable_extensions.items()
         }
 
         # Put native libraries into the runtime location, as we need to unpack
@@ -687,7 +691,7 @@ def _convert_python_library_to_executable(
         shared_libs = [("runtime/lib", s) for s in executable_info.shared_libs]
 
         # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
-        extra_artifacts.update(dict(extension_info.artifacts))
+        extra_artifacts.update(extension_info_reduced.artifacts)
         shared_libs.append((
             "runtime/bin",
             create_shlib(

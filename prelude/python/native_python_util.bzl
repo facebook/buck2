@@ -27,20 +27,42 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 
-LinkableProvidersTSet = transitive_set()
-
 # Info required to link cxx_python_extensions into native python binaries
 CxxExtensionLinkInfo = provider(
-    # @unsorted-dict-items
     fields = {
-        "linkable_providers": provider_field(typing.Any, default = None),  # LinkableProvidersTSet
-        "artifacts": provider_field(typing.Any, default = None),  # dict[str, typing.Any]
-        "python_module_names": provider_field(typing.Any, default = None),  # dict[str, str]
-        "dlopen_deps": provider_field(typing.Any, default = None),  # dict[ConfiguredProvidersLabel, LinkableProviders]
-        # Native python extensions that can't be linked into the main executable.
-        "unembeddable_extensions": provider_field(typing.Any, default = None),  # dict[str, LinkableProviders]
-        # Native libraries that are only available as shared libs.
-        "shared_only_libs": provider_field(typing.Any, default = None),  # dict[ConfiguredProvidersLabel, LinkableProviders]
+        "set": provider_field(typing.Any, default = None),  # "CxxExtensionTSet"
+    },
+)
+
+CxxExtensionLinkInfoMember = record(
+    linkable_providers = field([LinkableProviders, None], None),
+    artifacts = field([dict[str, Artifact], None], None),
+    python_module_names = field([dict[str, str], None], None),
+    unembeddable_extensions = field([dict[str, LinkableProviders], None], None),
+    dlopen_deps = field([dict[Label, LinkableProviders], None], None),
+    shared_only_libs = field([dict[Label, LinkableProviders], None], None),
+)
+CxxExtensionLinkInfoReduced = record(
+    linkable_providers = field(list[LinkableProviders], []),
+    artifacts = field(dict[str, Artifact], {}),
+    python_module_names = field(dict[str, str], {}),
+    unembeddable_extensions = field(dict[str, LinkableProviders], {}),
+    dlopen_deps = field(list[LinkableProviders], []),
+    shared_only_libs = field(list[LinkableProviders], []),
+)
+
+def _cxx_extension_info_python_module_names(info: CxxExtensionLinkInfoMember):
+    return cmd_args(
+        [
+            "{}:{}".format(k, v)
+            for k, v in (info.python_module_names or {}).items()
+        ],
+        format = "--extension={}",
+    )
+
+CxxExtensionTSet = transitive_set(
+    args_projections = {
+        "python_module_names": _cxx_extension_info_python_module_names,
     },
 )
 
@@ -52,11 +74,6 @@ def merge_cxx_extension_info(
         python_module_names: dict[str, str] = {},
         unembeddable_extensions: dict[str, LinkableProviders] = {},
         shared_deps: list[Dependency] = []) -> CxxExtensionLinkInfo:
-    linkable_provider_children = []
-    artifacts = dict(artifacts)
-    python_module_names = dict(python_module_names)
-    unembeddable_extensions = dict(unembeddable_extensions)
-
     dlopen_deps = {}
     shared_only_libs = {}
     for dep in shared_deps:
@@ -73,27 +90,56 @@ def merge_cxx_extension_info(
         if MergedLinkInfo in dep and LinkableRootInfo not in dep:
             shared_only_libs[dep.label] = linkable(dep)
 
+    children = []
     for dep in deps:
-        cxx_extension_info = dep.get(CxxExtensionLinkInfo)
-        if cxx_extension_info == None:
-            continue
-        linkable_provider_children.append(cxx_extension_info.linkable_providers)
-        artifacts.update(cxx_extension_info.artifacts)
-        python_module_names.update(cxx_extension_info.python_module_names)
-        unembeddable_extensions.update(cxx_extension_info.unembeddable_extensions)
-        dlopen_deps.update(cxx_extension_info.dlopen_deps)
-        shared_only_libs.update(cxx_extension_info.shared_only_libs)
-    linkable_providers_kwargs = {}
-    if linkable_providers != None:
-        linkable_providers_kwargs["value"] = linkable_providers
-    linkable_providers_kwargs["children"] = linkable_provider_children
+        info = dep.get(CxxExtensionLinkInfo)
+        if info != None:
+            children.append(info.set)
+
     return CxxExtensionLinkInfo(
-        linkable_providers = actions.tset(LinkableProvidersTSet, **linkable_providers_kwargs),
+        set = actions.tset(
+            CxxExtensionTSet,
+            value = CxxExtensionLinkInfoMember(
+                linkable_providers = linkable_providers or None,
+                artifacts = artifacts or None,
+                python_module_names = python_module_names or None,
+                unembeddable_extensions = unembeddable_extensions or None,
+                dlopen_deps = dlopen_deps or None,
+                shared_only_libs = shared_only_libs or None,
+            ),
+            children = children,
+        ),
+    )
+
+def reduce_cxx_extension_info(link_info: CxxExtensionLinkInfo) -> CxxExtensionLinkInfoReduced:
+    linkable_providers = []
+    artifacts = {}
+    python_module_names = {}
+    unembeddable_extensions = {}
+    dlopen_deps = {}
+    shared_only_libs = {}
+
+    for info in link_info.set.traverse():
+        if info.linkable_providers:
+            linkable_providers.append(info.linkable_providers)
+        if info.artifacts:
+            artifacts.update(info.artifacts)
+        if info.python_module_names:
+            python_module_names.update(info.python_module_names)
+        if info.unembeddable_extensions:
+            unembeddable_extensions.update(info.unembeddable_extensions)
+        if info.dlopen_deps:
+            dlopen_deps.update(info.dlopen_deps)
+        if info.shared_only_libs:
+            shared_only_libs.update(info.shared_only_libs)
+
+    return CxxExtensionLinkInfoReduced(
+        linkable_providers = linkable_providers,
         artifacts = artifacts,
         python_module_names = python_module_names,
         unembeddable_extensions = unembeddable_extensions,
-        dlopen_deps = dlopen_deps,
-        shared_only_libs = shared_only_libs,
+        dlopen_deps = dlopen_deps.values(),
+        shared_only_libs = shared_only_libs.values(),
     )
 
 def rewrite_static_symbols(
