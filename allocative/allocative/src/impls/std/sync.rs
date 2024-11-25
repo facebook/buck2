@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::alloc::Layout;
 use std::mem;
 use std::rc;
 use std::rc::Rc;
@@ -41,25 +42,43 @@ impl<T: Allocative> Allocative for RwLock<T> {
     }
 }
 
+#[allow(dead_code)] // Only used for its size
+#[repr(C)] // as does std
+struct RcBox<T: ?Sized> {
+    a: usize,
+    b: usize,
+    t: T,
+}
+
+impl<T: ?Sized> RcBox<T> {
+    fn layout(val: &T) -> Layout {
+        let val_layout = Layout::for_value(val);
+        // See rcbox_layout_for_value_layout in std
+        Layout::new::<RcBox<()>>()
+            .extend(val_layout)
+            .unwrap()
+            .0
+            .pad_to_align()
+    }
+}
+
 impl<T: Allocative + ?Sized> Allocative for Arc<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         {
             let visitor = visitor.enter_shared(
                 PTR_NAME,
-                // TODO(nga): 8 or 16 depending on sized or unsized.
-                mem::size_of::<*const ()>(),
+                // Possibly fat pointer for size
+                mem::size_of::<*const T>(),
+                // Force thin pointer for identity, as fat pointers can have
+                // different VTable addresses attached to the same memory
                 Arc::as_ptr(self) as *const (),
             );
             if let Some(mut visitor) = visitor {
-                #[allow(dead_code)] // Only used for its size
-                struct ArcInner(AtomicUsize, AtomicUsize);
                 {
                     let val: &T = self;
-                    let mut visitor = visitor.enter(
-                        Key::new("ArcInner"),
-                        mem::size_of::<ArcInner>() + mem::size_of_val(val),
-                    );
+                    let mut visitor =
+                        visitor.enter(Key::new("ArcInner"), RcBox::layout(val).size());
                     val.visit(&mut visitor);
                     visitor.exit();
                 }
@@ -88,19 +107,16 @@ impl<T: Allocative> Allocative for Rc<T> {
         {
             let visitor = visitor.enter_shared(
                 PTR_NAME,
-                // TODO(nga): 8 or 16 depending on sized or unsized.
-                mem::size_of::<*const ()>(),
+                // Possibly fat pointer for size
+                mem::size_of::<*const T>(),
+                // Force thin pointer for identity, as fat pointers can have
+                // different VTable addresses attached to the same memory
                 Rc::as_ptr(self) as *const (),
             );
             if let Some(mut visitor) = visitor {
-                #[allow(dead_code)] // fields `0` and `1` are never read
-                struct RcInner(AtomicUsize, AtomicUsize, ());
                 {
                     let val: &T = self;
-                    let mut visitor = visitor.enter(
-                        Key::new("RcInner"),
-                        mem::size_of::<RcInner>() + mem::size_of_val(val),
-                    );
+                    let mut visitor = visitor.enter(Key::new("RcInner"), RcBox::layout(val).size());
                     val.visit(&mut visitor);
                     visitor.exit();
                 }
@@ -196,5 +212,28 @@ impl<T: Allocative> Allocative for Mutex<T> {
             visitor.visit_field(Key::new("data"), &*data);
         }
         visitor.exit();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate as allocative;
+    use crate::golden::golden_test;
+    use crate::Allocative;
+
+    #[derive(Allocative)]
+    #[repr(align(64))]
+    struct CacheLine(u8);
+
+    #[test]
+    fn test_arc_align() {
+        assert_eq!(std::mem::size_of::<CacheLine>(), 64);
+
+        // ArcInner has two usizes, and then a 64-byte-aligned CacheLine
+        // in repr(C) order. So it should have a self size of 64 including
+        // padding.
+        golden_test!(&Arc::new(CacheLine(0)));
     }
 }

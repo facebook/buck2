@@ -3,8 +3,8 @@
 # ```
 # ALLOCATIVE_REGENERATE_TESTS=1 cargo test -p allocative
 # ```
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr 8
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr;data;alloc::string::String 16
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr;data;alloc::string::String;ptr 8
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr;data;alloc::string::String;ptr;capacity;u8 3
+allocative::impls::triomphe::ArcInnerRepr 8
+allocative::impls::triomphe::ArcInnerRepr;data;alloc::string::String 16
+allocative::impls::triomphe::ArcInnerRepr;data;alloc::string::String;ptr 8
+allocative::impls::triomphe::ArcInnerRepr;data;alloc::string::String;ptr;capacity;u8 3
 triomphe::arc::Arc<alloc::string::String>;ptr 8

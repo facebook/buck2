@@ -6,7 +6,7 @@
 alloc::vec::Vec<triomphe::arc::Arc<alloc::string::String>> 16
 alloc::vec::Vec<triomphe::arc::Arc<alloc::string::String>>;ptr 8
 alloc::vec::Vec<triomphe::arc::Arc<alloc::string::String>>;ptr;triomphe::arc::Arc<alloc::string::String>;ptr 24
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr 8
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr;data;alloc::string::String 16
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr;data;alloc::string::String;ptr 8
-allocative::impls::triomphe::<impl allocative::allocative_trait::Allocative for triomphe::arc::Arc<_>>::visit::ArcInnerRepr;data;alloc::string::String;ptr;capacity;u8 100
+allocative::impls::triomphe::ArcInnerRepr 8
+allocative::impls::triomphe::ArcInnerRepr;data;alloc::string::String 16
+allocative::impls::triomphe::ArcInnerRepr;data;alloc::string::String;ptr 8
+allocative::impls::triomphe::ArcInnerRepr;data;alloc::string::String;ptr;capacity;u8 100

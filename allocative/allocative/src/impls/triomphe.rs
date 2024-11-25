@@ -41,6 +41,13 @@ impl<H: Allocative> Allocative for HeaderWithLength<H> {
     }
 }
 
+#[repr(C)]
+struct ThinArcInnerRepr<H> {
+    _counter: AtomicUsize,
+    _header: H,
+    _len: usize,
+}
+
 impl<H: Allocative, T: Allocative> Allocative for ThinArc<H, T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
@@ -50,16 +57,11 @@ impl<H: Allocative, T: Allocative> Allocative for ThinArc<H, T> {
                 mem::size_of::<*mut u8>(),
                 ThinArc::ptr(self) as *const (),
             ) {
-                #[repr(C)]
-                struct ThinArcInnerRepr<H> {
-                    _counter: AtomicUsize,
-                    _header: H,
-                    _len: usize,
-                }
                 let size = Layout::new::<ThinArcInnerRepr<H>>()
                     .extend(Layout::array::<T>(self.slice.len()).unwrap())
                     .unwrap()
                     .0
+                    .pad_to_align()
                     .size();
                 {
                     let mut visitor =
@@ -76,6 +78,10 @@ impl<H: Allocative, T: Allocative> Allocative for ThinArc<H, T> {
     }
 }
 
+struct ArcInnerRepr {
+    _counter: AtomicUsize,
+}
+
 impl<T: Allocative + ?Sized> Allocative for Arc<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
@@ -85,19 +91,11 @@ impl<T: Allocative + ?Sized> Allocative for Arc<T> {
                 mem::size_of::<*mut T>(),
                 Arc::heap_ptr(self) as *const (),
             ) {
-                struct ArcInnerRepr {
-                    _counter: AtomicUsize,
-                }
                 let size = Layout::new::<ArcInnerRepr>()
-                    .extend(
-                        Layout::from_size_align(
-                            mem::size_of_val::<T>(self),
-                            mem::align_of_val::<T>(self),
-                        )
-                        .unwrap(),
-                    )
+                    .extend(Layout::for_value::<T>(self))
                     .unwrap()
                     .0
+                    .pad_to_align()
                     .size();
                 {
                     let mut visitor = visitor.enter(Key::for_type_name::<ArcInnerRepr>(), size);
@@ -128,5 +126,11 @@ mod tests {
         let arc = Arc::new("a".repeat(100));
         let vec = vec![arc.clone(), arc.clone(), arc];
         golden_test!(&vec);
+    }
+
+    #[test]
+    fn test_align() {
+        let arc = Arc::new(0u8);
+        golden_test!(&arc);
     }
 }
