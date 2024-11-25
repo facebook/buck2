@@ -68,6 +68,29 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   const unconfiguredLabel = target.label()!.targetLabel()
   const configuredLabel = formatTargetLabel(target.label()!)
 
+  const getRdeps = (label: string) => {
+    const {allTargets, build} = useContext(DataContext)
+
+    if (allTargets == null || build == null) {
+      return []
+    }
+
+    let rdeps: Array<string> = []
+    Object.values(allTargets).forEach(i => {
+      let target2 = build?.targets(i)
+      let depsLength = target2?.depsLength() ?? 0
+      for (let i = 0; i < depsLength; i++) {
+        const dep = formatTargetLabel(target2?.deps(i)!)
+        const rdepLabel = formatTargetLabel(target2!.label()!)
+        if (dep === label) {
+          rdeps.push(rdepLabel)
+        }
+      }
+    })
+    return rdeps
+  }
+  const rdeps: Array<string> = getRdeps(configuredLabel)
+
   return (
     <div>
       <div className="ml-4 mt-4 mb-6">
@@ -132,7 +155,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
       </div>
       {tab === TARGET_ATTRS ? <TargetAttrs target={target} /> : null}
       {tab === TARGET_DEPS ? <TargetDeps target={target} /> : null}
-      {tab === TARGET_RDEPS ? <TargetRdeps target={target} /> : null}
+      {tab === TARGET_RDEPS ? <List attr={i => rdeps[i]} length={rdeps.length} /> : null}
       {tab === TARGET_ACTIONS ? <TargetActions target={target} /> : null}
       {tab === TARGET_CHANGED_FILES ? <TargetChangedFiles target={target} /> : null}
     </div>
@@ -166,32 +189,6 @@ function TargetChangedFiles(props: {target: ConfiguredTargetNode}) {
   }
   let res = files.map(r => <ul>{r}</ul>)
   return <div className="content">{res}</div>
-}
-
-function TargetRdeps(props: {target: ConfiguredTargetNode}) {
-  const {target} = props
-  const {allTargets, build} = useContext(DataContext)
-
-  if (allTargets == null || build == null) {
-    return
-  }
-
-  const label = formatTargetLabel(target!.label()!)
-
-  let rdeps: Array<string> = []
-  Object.values(allTargets).forEach(i => {
-    let target2 = build?.targets(i)
-    let depsLength = target2?.depsLength() ?? 0
-    for (let i = 0; i < depsLength; i++) {
-      const dep = formatTargetLabel(target2?.deps(i)!)
-      const rdepLabel = formatTargetLabel(target2!.label()!)
-      if (dep === label) {
-        rdeps.push(rdepLabel)
-      }
-    }
-  })
-
-  return <List attr={i => rdeps[i]} length={rdeps.length} />
 }
 
 function TargetAttrs(props: {target: ConfiguredTargetNode}) {
