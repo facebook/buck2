@@ -37,7 +37,8 @@ impl<T> ThinBoxSliceLayout<T> {
 /// `Box<[T]>` but thin pointer.
 ///
 /// Statically allocated for empty slice.
-pub struct ThinBoxSlice<T> {
+// We don't really need `'static` here, but we hit type checker limitations.
+pub struct ThinBoxSlice<T: 'static> {
     /// Pointer to the first element, `ThinBoxSliceLayout.data`.
     ptr: NonNull<T>,
 }
@@ -45,13 +46,16 @@ pub struct ThinBoxSlice<T> {
 unsafe impl<T: Sync> Sync for ThinBoxSlice<T> {}
 unsafe impl<T: Send> Send for ThinBoxSlice<T> {}
 
-impl<T> ThinBoxSlice<T> {
+impl<T: 'static> ThinBoxSlice<T> {
     #[inline]
     pub const fn empty() -> ThinBoxSlice<T> {
-        let instance = &ThinBoxSliceLayout::<T> { len: 0, data: [] };
+        const fn instance<T>() -> &'static ThinBoxSliceLayout<T> {
+            &ThinBoxSliceLayout::<T> { len: 0, data: [] }
+        }
+
         unsafe {
             ThinBoxSlice {
-                ptr: NonNull::new_unchecked(instance.data.as_ptr() as *mut T),
+                ptr: NonNull::new_unchecked(instance::<T>().data.as_ptr() as *mut T),
             }
         }
     }
@@ -106,7 +110,7 @@ impl<T> ThinBoxSlice<T> {
     }
 }
 
-impl<T> Deref for ThinBoxSlice<T> {
+impl<T: 'static> Deref for ThinBoxSlice<T> {
     type Target = [T];
 
     #[inline]
@@ -115,7 +119,7 @@ impl<T> Deref for ThinBoxSlice<T> {
     }
 }
 
-impl<T> DerefMut for ThinBoxSlice<T> {
+impl<T: 'static> DerefMut for ThinBoxSlice<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.read_len()) }
@@ -133,7 +137,7 @@ impl<T> ThinBoxSlice<MaybeUninit<T>> {
     }
 }
 
-impl<T> Drop for ThinBoxSlice<T> {
+impl<T: 'static> Drop for ThinBoxSlice<T> {
     #[inline]
     fn drop(&mut self) {
         unsafe {
@@ -148,7 +152,7 @@ impl<T> Drop for ThinBoxSlice<T> {
     }
 }
 
-impl<T> Default for ThinBoxSlice<T> {
+impl<T: 'static> Default for ThinBoxSlice<T> {
     #[inline]
     fn default() -> Self {
         ThinBoxSlice::empty()
