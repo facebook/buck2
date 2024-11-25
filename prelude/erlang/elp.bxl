@@ -99,6 +99,7 @@ def _elp_config(ctx):
     all = ctx.cquery().kind("^(erlang_app|erlang_test)$", ctx.configured_targets(included_targets))
     if ctx.cli_args.deps_target:
         all += ctx.cquery().kind("^erlang_app$", ctx.configured_targets(ctx.cli_args.deps_target))
+    all += ctx.cquery().kind("^erlang_app$", ctx.configured_targets("prelude//erlang/..."))
     result = {}
     for target in all:
         label = target.label
