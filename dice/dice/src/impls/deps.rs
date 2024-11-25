@@ -56,6 +56,15 @@ impl RecordedDeps {
         self.update_invalidation_paths(invalidation_paths)
     }
 
+    #[cfg(test)]
+    fn record_fresh_valid_key(&mut self, index: u32) {
+        self.record(
+            DiceKey { index },
+            DiceValidity::Valid,
+            TrackedInvalidationPaths::clean(),
+        );
+    }
+
     fn update_invalidation_paths(&mut self, paths: TrackedInvalidationPaths) {
         self.invalidation_paths.update(paths)
     }
@@ -127,6 +136,14 @@ impl RecordingDepsTracker {
         self.deps.record(k, validity, invalidation_paths);
     }
 
+    #[cfg(test)]
+    fn record_fresh_valid_key(&mut self, index: u32) {
+        self.record(
+            DiceKey { index },
+            DiceValidity::Valid,
+            TrackedInvalidationPaths::clean(),
+        );
+    }
     pub(crate) fn update_invalidation_paths(
         &mut self,
         invalidation_paths: TrackedInvalidationPaths,
@@ -422,129 +439,44 @@ mod tests {
             let p1 = tracker.push_parallel(0).0;
             {
                 let s1 = p1.alloc(RecordedDeps::new());
-                s1.record(
-                    DiceKey { index: 11 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 12 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 13 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 14 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 15 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 16 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 17 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 18 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
-                s1.record(
-                    DiceKey { index: 19 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
+
+                for i in 11..=19 {
+                    s1.record_fresh_valid_key(i);
+                }
             }
             {
                 let s2 = p1.alloc(RecordedDeps::new());
-                s2.record(
-                    DiceKey { index: 21 },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
+                s2.record_fresh_valid_key(21);
                 {
                     let p2 = Box::new(Arena::new());
                     {
                         let s3 = p2.alloc(RecordedDeps::new());
-                        s3.record(
-                            DiceKey { index: 22 },
-                            DiceValidity::Valid,
-                            TrackedInvalidationPaths::clean(),
-                        );
-                        s3.record(
-                            DiceKey { index: 23 },
-                            DiceValidity::Valid,
-                            TrackedInvalidationPaths::clean(),
-                        );
+                        s3.record_fresh_valid_key(22);
+                        s3.record_fresh_valid_key(23);
                     }
                     {
                         let s3 = p2.alloc(RecordedDeps::new());
-                        s3.record(
-                            DiceKey { index: 24 },
-                            DiceValidity::Valid,
-                            TrackedInvalidationPaths::clean(),
-                        );
-                        s3.record(
-                            DiceKey { index: 25 },
-                            DiceValidity::Valid,
-                            TrackedInvalidationPaths::clean(),
-                        );
+                        s3.record_fresh_valid_key(24);
+                        s3.record_fresh_valid_key(25);
                     }
                     s2.insert_parallel(*p2);
                 }
             }
         }
 
-        tracker.record(
-            DiceKey { index: 91 },
-            DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
-        );
-        tracker.record(
-            DiceKey { index: 92 },
-            DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
-        );
-        tracker.record(
-            DiceKey { index: 93 },
-            DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
-        );
+        tracker.record_fresh_valid_key(91);
+        tracker.record_fresh_valid_key(92);
+        tracker.record_fresh_valid_key(93);
 
         {
             let p2 = tracker.push_parallel(3).0;
             for i in 0..5 {
                 let s = p2.alloc(RecordedDeps::new());
-                s.record(
-                    DiceKey { index: 32 + i },
-                    DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
-                );
+                s.record_fresh_valid_key(32 + i);
             }
         }
-        tracker.record(
-            DiceKey { index: 94 },
-            DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
-        );
-        tracker.record(
-            DiceKey { index: 95 },
-            DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
-        );
+        tracker.record_fresh_valid_key(94);
+        tracker.record_fresh_valid_key(95);
 
         let deps = tracker.collect_deps();
 
