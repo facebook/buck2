@@ -33,9 +33,15 @@ pub struct ActionEntryData {
     pub repros: Vec<String>,
 }
 
+pub struct ChangedFilesEntryData {
+    pub path: String,
+    pub targets: Vec<String>,
+}
+
 pub async fn main(
     data: Vec<ConfiguredTargetNode>,
     executed_actions: Vec<(String, ActionEntryData)>,
+    _changed_files: Vec<ChangedFilesEntryData>,
     output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
     manifold_path: Option<&str>,

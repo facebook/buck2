@@ -13,6 +13,8 @@ use std::collections::HashMap;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_data::action_key;
+use buck2_data::FileWatcherEvent;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
@@ -25,6 +27,7 @@ use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_events::span::SpanId;
 use buck2_explain::ActionEntryData;
+use buck2_explain::ChangedFilesEntryData;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -130,6 +133,7 @@ pub(crate) async fn explain(
     let mut known_actions: HashMap<SpanId, ActionEntry> = Default::default();
 
     let mut executed_actions = vec![];
+    let mut changed_files = vec![];
 
     while let Some(event) = events.try_next().await? {
         match event {
@@ -164,6 +168,17 @@ pub(crate) async fn explain(
                                     }
                                 }
                             }
+                            match &span.data {
+                                Some(buck2_data::span_end_event::Data::FileWatcher(end)) => {
+                                    let events: &[FileWatcherEvent] =
+                                        end.stats.as_ref().expect("of source eh").events.as_ref();
+                                    for event in events {
+                                        let path = event.path.clone();
+                                        changed_files.push(path);
+                                    }
+                                }
+                                _ => {}
+                            }
                         }
                         _ => {}
                     }
@@ -173,33 +188,75 @@ pub(crate) async fn explain(
         }
     }
 
-    let targets: Vec<ConfiguredTargetNode> = {
-        let target_universe: Option<&[String]> = if req.target_universe.is_empty() {
-            None
-        } else {
-            Some(&req.target_universe)
-        };
+    let target_universe: Option<&[String]> = if req.target_universe.is_empty() {
+        None
+    } else {
+        Some(&req.target_universe)
+    };
 
-        let global_cfg_options =
-            global_cfg_options_from_client_context(&req.target_cfg, server_ctx, &mut ctx).await?;
+    let global_cfg_options =
+        global_cfg_options_from_client_context(&req.target_cfg, server_ctx, &mut ctx).await?;
 
-        let (query_result, _universes) = QUERY_FRONTEND
+    let (targets, universes) = {
+        let (query_result, universes) = QUERY_FRONTEND
             .get()?
             .eval_cquery(
                 &mut ctx,
                 server_ctx.working_dir(),
                 &req.target,
                 &[],
-                global_cfg_options,
+                global_cfg_options.dupe(),
                 target_universe,
-                false,
+                true, // collect universes
             )
             .await?;
 
-        query_result
+        let universes = universes.buck_error_context_anyhow("No universes")?;
+        if universes.is_empty() {
+            // Sanity check.
+            return Err(internal_error!("Empty universes list"));
+        }
+        let universes: Vec<String> = universes
+            .iter()
+            .flat_map(|u| u.iter().map(|t| t.label().unconfigured().to_string()))
+            .collect();
+
+        let res = query_result
             .targets()
             .map(|v| v.map(|v| v.dupe()))
-            .collect::<Result<Vec<ConfiguredTargetNode>, _>>()?
+            .collect::<Result<Vec<ConfiguredTargetNode>, _>>()?;
+
+        (res, universes)
+    };
+
+    let file_update_entries = {
+        let mut file_update_entries = vec![];
+        // TODO iguridi: one by one and serially is not very smart
+        for file_change in changed_files {
+            let (targets_with_file_updates, _universes) = QUERY_FRONTEND
+                .get()?
+                .eval_cquery(
+                    &mut ctx,
+                    server_ctx.working_dir(),
+                    &format!("owner({})", file_change),
+                    &[],
+                    global_cfg_options.dupe(),
+                    Some(&universes), // TODO iguridi: pass just 1 universe?
+                    false,
+                )
+                .await?;
+
+            let targets = targets_with_file_updates
+                .targets()
+                .map(|v| v.map(|v| v.dupe()))
+                .collect::<Result<Vec<ConfiguredTargetNode>, _>>()?;
+
+            file_update_entries.push(ChangedFilesEntryData {
+                path: file_change,
+                targets: targets.into_iter().map(|t| t.label().to_string()).collect(),
+            });
+        }
+        file_update_entries
     };
 
     let all_deps = {
@@ -216,6 +273,7 @@ pub(crate) async fn explain(
     buck2_explain::main(
         all_deps,
         executed_actions,
+        file_update_entries,
         req.output.as_ref(),
         req.fbs_dump.as_ref(),
         req.manifold_path.as_deref(),
