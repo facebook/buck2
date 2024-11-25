@@ -1,0 +1,10 @@
+load(":defs.bzl", "my_rule")
+
+my_rule(
+    name = "foo",
+    bar = select({
+        "DEFAULT": select({
+            "DEFAULT": None,
+        }),
+    }),
+)
