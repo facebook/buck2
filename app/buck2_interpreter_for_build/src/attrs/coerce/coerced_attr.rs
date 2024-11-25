@@ -85,7 +85,7 @@ impl CoercedAttrExr for CoercedAttr {
                                 .ok_or_else(|| SelectError::KeyNotString(k.to_repr()))?;
                             let v = match default_attr {
                                 Some(default_attr) if v.is_none() => default_attr.clone(),
-                                _ => CoercedAttr::coerce(attr, configurable, ctx, v, None)?,
+                                _ => CoercedAttr::coerce(attr, configurable, ctx, v, default_attr)?,
                             };
                             if k == "DEFAULT" {
                                 if default.is_some() {

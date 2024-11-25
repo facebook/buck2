@@ -9,14 +9,10 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test()
 async def test_nested_select_coercion(buck: Buck) -> None:
-    # TODO(T208519965): Fix the issue
-    await expect_failure(
-        buck.uquery("//:foo"),
-        stderr_regex="Expected value of type `bool`, got value with type `NoneType`",
-    )
+    res = await buck.uquery("//:foo")
+    assert res.stdout.startswith("root//:foo")
