@@ -118,13 +118,13 @@ impl fmt::Display for PrintWrapper<'_, '_> {
 /// Invoked from `print` or `pprint` to print a value.
 pub trait PrintHandler {
     /// If this function returns error, evaluation fails with this error.
-    fn println(&self, text: &str) -> anyhow::Result<()>;
+    fn println(&self, text: &str) -> crate::Result<()>;
 }
 
 pub(crate) struct StderrPrintHandler;
 
 impl PrintHandler for StderrPrintHandler {
-    fn println(&self, text: &str) -> anyhow::Result<()> {
+    fn println(&self, text: &str) -> crate::Result<()> {
         eprintln!("{}", text);
         Ok(())
     }
@@ -136,7 +136,7 @@ pub fn print(builder: &mut GlobalsBuilder) {
     fn print(
         #[starlark(args)] args: UnpackTuple<Value>,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         // In practice most users should want to put the print somewhere else, but this does for now
         // Unfortunately, we can't use PrintWrapper because strings to_str() and Display are different.
         eval.print_handler
@@ -150,7 +150,7 @@ pub fn pprint(builder: &mut GlobalsBuilder) {
     fn pprint(
         #[starlark(args)] args: UnpackTuple<Value>,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<NoneType> {
+    ) -> starlark::Result<NoneType> {
         // In practice most users may want to put the print somewhere else, but this does for now
         eval.print_handler
             .println(&format!("{:#}", PrintWrapper(&args.items)))?;
@@ -268,7 +268,7 @@ assert_eq(["11",8], map(double, ["1",4]))
             s: Rc<RefCell<String>>,
         }
         impl PrintHandler for PrintHandlerImpl {
-            fn println(&self, s: &str) -> anyhow::Result<()> {
+            fn println(&self, s: &str) -> crate::Result<()> {
                 *self.s.borrow_mut() = s.to_owned();
                 Ok(())
             }
