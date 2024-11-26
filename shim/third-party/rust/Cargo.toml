@@ -120,7 +120,8 @@ itertools = "0.13.0"
 jemallocator = { version = "0.5.0", features = ["profiling"] }
 lalrpop = { version = "0.19.7", artifact = "bin", features = ["pico-args"] }
 lalrpop-util = "0.19.7"
-libc = "0.2.132"
+# FIXME: libc v0.2.165 breaks sysinfo crate. This is fixed in sysinfo v0.32.1.
+libc = ">=0.2.132,<0.2.165"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 linkme = { version = "0.3.17", features = ["used_linker"] }
 log = "0.4"
