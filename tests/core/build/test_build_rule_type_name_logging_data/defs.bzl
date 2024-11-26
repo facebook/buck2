@@ -40,3 +40,22 @@ nested_subtargets = rule(
     impl = _nested_subtargets,
     attrs = {},
 )
+
+def _identity_transition(platform: PlatformInfo, refs: struct) -> PlatformInfo:
+    ignore = refs  # buildifier: disable=unused-variable
+
+    return PlatformInfo(
+        label = "<transition>",
+        configuration = platform.configuration,
+    )
+
+identity_transition = transition(impl = _identity_transition, refs = {})
+
+def _three_with_transition(ctx):
+    return [DefaultInfo(default_output = ctx.actions.write("out", "three"))]
+
+three_with_transition = rule(
+    impl = _three_with_transition,
+    cfg = identity_transition,
+    attrs = {},
+)

@@ -58,11 +58,31 @@ async def test_build_two_out_of_order(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_build_rule_with_transition(buck: Buck) -> None:
+    await buck.build(
+        "//:a_writer_with_transition",
+    )
+
+    # TODO(T208425986) This should not be "forward"
+    await check_rule_type_names(buck, ["forward"])
+
+
+@buck_test()
 async def test_build_all_in_target(buck: Buck) -> None:
     await buck.build(
         "//:",
     )
-    await check_rule_type_names(buck, ["two", "nested_subtargets", "one", "one"])
+    await check_rule_type_names(
+        buck,
+        [
+            "two",
+            "forward",
+            "nested_subtargets",
+            "one",
+            "one",
+            "platform",
+        ],
+    )
 
 
 @buck_test()
@@ -70,4 +90,14 @@ async def test_build_all_recursive(buck: Buck) -> None:
     await buck.build(
         "//...",
     )
-    await check_rule_type_names(buck, ["two", "nested_subtargets", "one", "one"])
+    await check_rule_type_names(
+        buck,
+        [
+            "two",
+            "forward",
+            "nested_subtargets",
+            "one",
+            "one",
+            "platform",
+        ],
+    )
