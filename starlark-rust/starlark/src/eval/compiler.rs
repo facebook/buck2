@@ -59,7 +59,7 @@ pub(crate) fn add_span_to_expr_error(
 /// Convert syntax error to spanned evaluation exception
 #[inline(always)]
 pub(crate) fn expr_throw<'v, T>(
-    r: anyhow::Result<T>,
+    r: crate::Result<T>,
     span: FrameSpan,
     eval: &Evaluator<'v, '_, '_>,
 ) -> Result<T, EvalException> {

@@ -501,15 +501,17 @@ impl Module {
         &'v self,
         module: &FrozenModule,
         symbol: &str,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> crate::Result<Value<'v>> {
         if Self::default_visibility(symbol) != Visibility::Public {
-            return Err(EnvironmentError::CannotImportPrivateSymbol(symbol.to_owned()).into());
+            return Err(crate::Error::new_other(
+                EnvironmentError::CannotImportPrivateSymbol(symbol.to_owned()),
+            ));
         }
         match module.get_any_visibility(symbol)? {
             (v, Visibility::Public) => Ok(v.owned_value(self.frozen_heap())),
-            (_, Visibility::Private) => {
-                Err(EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()).into())
-            }
+            (_, Visibility::Private) => Err(crate::Error::new_other(
+                EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()),
+            )),
         }
     }
 

@@ -165,10 +165,10 @@ impl InterpreterFileLoader {
 impl FileLoader for InterpreterFileLoader {
     /// The Interpreter will call this to resolve and load imports for load()
     /// statements.
-    fn load(&self, path: &str) -> anyhow::Result<FrozenModule> {
+    fn load(&self, path: &str) -> starlark::Result<FrozenModule> {
         match self.info.resolve_load(path, None) {
             Ok(import) => Ok(self.find_module(import.borrow())?.dupe()),
-            Err(e) => Err(to_diagnostic(&e, path).into()),
+            Err(e) => Err(starlark::Error::new_native(to_diagnostic(&e, path))),
         }
     }
 }
@@ -176,6 +176,7 @@ impl FileLoader for InterpreterFileLoader {
 #[cfg(test)]
 mod tests {
     use buck2_error::buck2_error;
+    use buck2_error::starlark_error::from_starlark;
     use starlark::environment::Module;
 
     use super::*;
@@ -273,7 +274,7 @@ mod tests {
         let id = resolver.resolve_load(&path, None)?.to_string();
 
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
-        let loaded = loader.load(&path)?;
+        let loaded = loader.load(&path).map_err(from_starlark)?;
 
         let v = loaded.get("name").unwrap();
         assert_eq!(v.value().unpack_str(), Some(id.as_str()));
