@@ -11,6 +11,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 use buck2_client_ctx::common::PrintOutputsFormat;
+use buck2_client_ctx::exit_result::ClientIoError;
 
 pub struct PrintOutputs<W> {
     out: W,
@@ -24,7 +25,7 @@ impl<W: Write> PrintOutputs<W> {
         mut out: W,
         root_path: Option<PathBuf>,
         format: PrintOutputsFormat,
-    ) -> buck2_error::Result<Self> {
+    ) -> Result<Self, ClientIoError> {
         if format == PrintOutputsFormat::Json {
             write!(out, "{{")?;
         }
@@ -36,7 +37,7 @@ impl<W: Write> PrintOutputs<W> {
         })
     }
 
-    pub fn output(&mut self, target: &str, path: Option<&str>) -> buck2_error::Result<()> {
+    pub fn output(&mut self, target: &str, path: Option<&str>) -> Result<(), ClientIoError> {
         let windows_path;
         let absolute_path;
         let absolute_path_lossy;
@@ -77,7 +78,7 @@ impl<W: Write> PrintOutputs<W> {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> buck2_error::Result<()> {
+    pub fn finish(&mut self) -> Result<(), ClientIoError> {
         if self.format == PrintOutputsFormat::Json {
             writeln!(self.out, "}}")?;
         }

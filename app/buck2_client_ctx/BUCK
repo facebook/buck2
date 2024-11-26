@@ -42,6 +42,7 @@ rust_library(
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:crossterm",
+        "fbsource//third-party/rust:csv",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:fs4",

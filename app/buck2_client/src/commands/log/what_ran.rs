@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::re_platform::Property;
 use buck2_error::BuckErrorContext;
@@ -175,7 +176,7 @@ impl WhatRanEntry {
         output: &mut impl WhatRanOutputWriter,
         data: &Option<buck2_data::span_end_event::Data>,
         options: &WhatRanCommandOptions,
-    ) -> buck2_error::Result<()> {
+    ) -> Result<(), ClientIoError> {
         let action = WhatRanRelevantAction::from_buck_data(
             self.event
                 .data
@@ -222,7 +223,7 @@ impl WhatRanCommandState {
         mut events: impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin + Send,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanCommandOptions,
-    ) -> buck2_error::Result<()> {
+    ) -> Result<(), ClientIoError> {
         let mut cmd = Self::default();
 
         while let Some(event) = events.try_next().await? {

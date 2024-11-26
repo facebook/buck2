@@ -15,6 +15,7 @@ use std::io::Write;
 use std::path::Path;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_event_log::stream_value::StreamValue;
 use serde::Serialize;
@@ -134,7 +135,7 @@ impl<'a> From<&'a Record> for AggregatedRecord<'a> {
 fn write_output<T: Display + Serialize>(
     output: &mut LogCommandOutputFormatWithWriter,
     record: &T,
-) -> buck2_error::Result<()> {
+) -> Result<(), ClientIoError> {
     match output {
         LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{}", record)?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),

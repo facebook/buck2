@@ -278,7 +278,7 @@ async fn copy_file(src: &Path, dst: &Path) -> buck2_error::Result<()> {
 }
 
 fn convert_broken_pipe_error(e: io::Error) -> buck2_error::Error {
-    buck2_error::Error::new(ClientIoError::new(e)).context("Error writing build artifact to --out")
+    buck2_error::Error::new(ClientIoError::from(e)).context("Error writing build artifact to --out")
 }
 
 #[cfg(test)]

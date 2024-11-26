@@ -13,6 +13,7 @@ use std::fmt::Formatter;
 use std::io::Write;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::ReUploadMetrics;
 use buck2_event_log::stream_value::StreamValue;
@@ -106,7 +107,7 @@ fn get_action_record(
 fn print_uploads(
     output: &mut LogCommandOutputFormatWithWriter,
     record: &ActionRecord,
-) -> buck2_error::Result<()> {
+) -> Result<(), ClientIoError> {
     match output {
         LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{}", record)?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
@@ -121,7 +122,7 @@ fn print_uploads(
 fn print_extension_stats(
     output: &mut LogCommandOutputFormatWithWriter,
     stats_by_extension: &HashMap<String, ReUploadMetrics>,
-) -> buck2_error::Result<()> {
+) -> Result<(), ClientIoError> {
     let mut records: Vec<ExtensionRecord> = stats_by_extension
         .iter()
         .map(|(ext, m)| ExtensionRecord {
@@ -231,7 +232,7 @@ impl WhatUploadedCommand {
                     )?;
                 }
 
-                buck2_error::Ok(())
+                Ok(())
             })
         })?;
         ExitResult::success()

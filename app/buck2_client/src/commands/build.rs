@@ -30,6 +30,7 @@ use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::common::PrintOutputsFormat;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
@@ -357,7 +358,7 @@ pub(crate) fn print_outputs(
     root_path: Option<String>,
     format: PrintOutputsFormat,
     show_all_outputs: bool,
-) -> buck2_error::Result<()> {
+) -> Result<(), ClientIoError> {
     let root_path = root_path.map(PathBuf::from);
     let mut print = PrintOutputs::new(out, root_path, format)?;
 

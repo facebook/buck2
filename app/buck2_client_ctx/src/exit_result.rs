@@ -409,15 +409,44 @@ pub enum ClientIoError {
     #[buck2(environment)]
     BrokenPipe(io::Error),
     #[buck2(tier0)]
-    Other(io::Error),
+    OtherIo(io::Error),
+    #[buck2(tier0)]
+    Other(buck2_error::Error),
 }
 
-impl ClientIoError {
-    pub fn new(io_err: io::Error) -> Self {
-        if io_err.kind() == io::ErrorKind::BrokenPipe {
-            ClientIoError::BrokenPipe(io_err)
+impl From<buck2_error::Error> for ClientIoError {
+    fn from(error: buck2_error::Error) -> Self {
+        ClientIoError::Other(error)
+    }
+}
+
+impl From<csv::Error> for ClientIoError {
+    fn from(error: csv::Error) -> Self {
+        match error.kind() {
+            csv::ErrorKind::Io(_) => {}
+            _ => return ClientIoError::Other(error.into()),
+        }
+        match error.into_kind() {
+            csv::ErrorKind::Io(io_error) => ClientIoError::from(io_error),
+            // Can't clone the error or move kind and create a new csv::Error.
+            _ => unreachable!("csv::Error must be an io::Error"),
+        }
+    }
+}
+
+impl From<serde_json::Error> for ClientIoError {
+    fn from(error: serde_json::Error) -> Self {
+        let error: io::Error = error.into();
+        ClientIoError::from(error)
+    }
+}
+
+impl From<io::Error> for ClientIoError {
+    fn from(error: io::Error) -> Self {
+        if error.kind() == io::ErrorKind::BrokenPipe {
+            ClientIoError::BrokenPipe(error)
         } else {
-            ClientIoError::Other(io_err)
+            ClientIoError::OtherIo(error)
         }
     }
 }

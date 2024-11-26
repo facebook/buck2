@@ -23,6 +23,7 @@ use buck2_client_ctx::common::PrintOutputsFormat;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::query_args::CommonAttributeArgs;
@@ -412,7 +413,7 @@ async fn targets_show_outputs(
         )
         .await??;
 
-    buck2_client_ctx::stdio::print_with_writer(|out| {
+    buck2_client_ctx::stdio::print_with_writer::<ClientIoError, _>(|out| {
         let root_path = root_path.map(|root| root.to_path_buf());
         let mut print = PrintOutputs::new(out, root_path, format)?;
         for target_paths in response.targets_paths {

@@ -91,21 +91,21 @@ pub fn _print(fmt: Arguments) -> buck2_error::Result<()> {
     stdout()?
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| ClientIoError::new(e).into())
+        .map_err(|e| ClientIoError::from(e).into())
 }
 
 pub fn _eprint(fmt: Arguments) -> buck2_error::Result<()> {
     io::stderr()
         .lock()
         .write_fmt(fmt)
-        .map_err(|e| ClientIoError::new(e).into())
+        .map_err(|e| ClientIoError::from(e).into())
 }
 
 pub fn print_bytes(bytes: &[u8]) -> buck2_error::Result<()> {
     stdout()?
         .lock()
         .write_all(bytes)
-        .map_err(|e| ClientIoError::new(e).into())
+        .map_err(|e| ClientIoError::from(e).into())
 }
 
 pub fn eprint_line(line: &Line) -> buck2_error::Result<()> {
@@ -114,7 +114,7 @@ pub fn eprint_line(line: &Line) -> buck2_error::Result<()> {
 }
 
 pub fn flush() -> buck2_error::Result<()> {
-    stdout()?.flush().map_err(|e| ClientIoError::new(e).into())
+    stdout()?.flush().map_err(|e| ClientIoError::from(e).into())
 }
 
 fn stdout_to_file(stdout: &Stdout) -> buck2_error::Result<File> {
@@ -165,7 +165,7 @@ where
             let e: anyhow::Error = e.into();
             // TODO(minglunli): Take a close look at this downcast and try to get rid of it
             return match e.downcast::<io::Error>() {
-                Ok(io_error) => Err(ClientIoError::new(io_error).into()),
+                Ok(io_error) => Err(ClientIoError::from(io_error).into()),
                 Err(e) => Err(e),
             };
         }

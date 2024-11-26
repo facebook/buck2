@@ -12,6 +12,7 @@ use std::io::Write;
 use std::time::Duration;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display;
@@ -233,29 +234,33 @@ fn log_critical_path(
             critical_path.potential_improvement_duration =
                 OptionalDuration::new(entry.potential_improvement_duration.clone())?;
 
-            match &mut log_writer {
-                LogCommandOutputFormatWithWriter::Tabulated(writer) => {
-                    writeln!(
-                        writer,
-                        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-                        critical_path.kind,
-                        critical_path.name.unwrap_or_default(),
-                        critical_path.category.unwrap_or_default(),
-                        critical_path.identifier.unwrap_or_default(),
-                        critical_path.execution_kind.unwrap_or_default(),
-                        critical_path.total_duration,
-                        critical_path.user_duration,
-                        critical_path.potential_improvement_duration
-                    )?;
+            let res: Result<(), ClientIoError> = {
+                match &mut log_writer {
+                    LogCommandOutputFormatWithWriter::Tabulated(writer) => {
+                        writeln!(
+                            writer,
+                            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                            critical_path.kind,
+                            critical_path.name.unwrap_or_default(),
+                            critical_path.category.unwrap_or_default(),
+                            critical_path.identifier.unwrap_or_default(),
+                            critical_path.execution_kind.unwrap_or_default(),
+                            critical_path.total_duration,
+                            critical_path.user_duration,
+                            critical_path.potential_improvement_duration
+                        )?;
+                    }
+                    LogCommandOutputFormatWithWriter::Json(writer) => {
+                        serde_json::to_writer(writer.by_ref(), &critical_path)?;
+                        writer.write_all("\n".as_bytes())?;
+                    }
+                    LogCommandOutputFormatWithWriter::Csv(writer) => {
+                        writer.serialize(critical_path)?;
+                    }
                 }
-                LogCommandOutputFormatWithWriter::Json(writer) => {
-                    serde_json::to_writer(writer.by_ref(), &critical_path)?;
-                    writer.write_all("\n".as_bytes())?;
-                }
-                LogCommandOutputFormatWithWriter::Csv(writer) => {
-                    writer.serialize(critical_path)?;
-                }
-            }
+                Ok(())
+            };
+            res?;
         }
         Ok(())
     })?)
