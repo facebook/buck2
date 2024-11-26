@@ -65,6 +65,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_data::EndOfTestResults;
 use buck2_data::SetupLocalResourcesEnd;
 use buck2_data::SetupLocalResourcesStart;
 use buck2_data::TestDiscovery;
@@ -714,6 +715,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
     }
 
     async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()> {
+        self.events.instant_event(EndOfTestResults { exit_code });
         self.results_channel
             .unbounded_send(Ok(ExecutorMessage::ExitCode(exit_code)))
             .map_err(|_| anyhow::Error::msg("end_of_tests was received twice"))?;

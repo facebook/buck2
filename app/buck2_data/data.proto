@@ -309,7 +309,15 @@ message InstantEvent {
     // Just something for us to be able to easily propagate out internal
     // information. Used for testing.
     QuickUnstableE2eData unstable_e2e_data = 44;
+
+    /// Notification that execution of all tests for a given command is
+    /// finished.
+    EndOfTestResults end_of_test_results = 45;
   }
+}
+
+message EndOfTestResults {
+  int32 exit_code = 1;
 }
 
 // This should only be used as a mechanism to easily get information into the
