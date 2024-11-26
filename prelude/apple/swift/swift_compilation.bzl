@@ -621,12 +621,15 @@ def _compile_with_argsfile(
     prefer_local = not explicit_modules_enabled
 
     if (not cacheable) or (build_swift_incrementally and not toolchain.supports_relative_resource_dir):
-        # When Swift code is built incrementally, the swift-driver embeds
-        # absolute paths into the artifacts without relative resource dir
-        # support. In this case we can only build locally.
+        # When Swift code is built incrementally, the swift-driver embeds absolute paths into
+        # the artifacts without relative resource dir support. In this case we can only build locally.
         allow_cache_upload = False
         local_only = True
         prefer_local = False
+    elif build_swift_incrementally:
+        # Swift incremental compilation requires the swiftdep files which are only present when
+        # compiling locally. Prefer local unless otherwise overridden.
+        prefer_local = True
 
     # Make it easier to debug whether Swift actions get compiled with explicit modules or not
     category = category_prefix + ("_with_explicit_mods" if explicit_modules_enabled else "")
