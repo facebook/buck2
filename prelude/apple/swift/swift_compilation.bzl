@@ -693,6 +693,10 @@ def _get_shared_flags(
         module_name,
         "-Xfrontend",
         "-enable-cross-import-overlays",
+        "-Xfrontend",
+        "-disable-cxx-interop-requirement-at-import",
+        "-Xfrontend",
+        "-emit-clang-header-nonmodular-includes",
     ])
 
     if parse_as_library:
@@ -735,10 +739,7 @@ def _get_shared_flags(
         cmd.add(["-swift-version", ctx.attrs.swift_version])
 
     if ctx.attrs.enable_cxx_interop:
-        if toolchain.supports_swift_cxx_interoperability_mode:
-            cmd.add(["-cxx-interoperability-mode=default"])
-        else:
-            cmd.add(["-enable-experimental-cxx-interop"])
+        cmd.add(["-cxx-interoperability-mode=default"])
 
     serialize_debugging_options = _get_serialize_debugging_options_attr_value(ctx) and (not explicit_modules_enabled) and (not objc_headers) and toolchain.prefix_serialized_debugging_options
     if serialize_debugging_options:
@@ -754,19 +755,7 @@ def _get_shared_flags(
             "-no-serialize-debugging-options",
         ])
 
-    if toolchain.can_toolchain_emit_obj_c_header_textually:
-        cmd.add([
-            "-Xfrontend",
-            "-emit-clang-header-nonmodular-includes",
-        ])
-
-    if toolchain.supports_cxx_interop_requirement_at_import:
-        cmd.add([
-            "-Xfrontend",
-            "-disable-cxx-interop-requirement-at-import",
-        ])
-
-    if toolchain.supports_swift_importing_objc_forward_declarations and ctx.attrs.import_obj_c_forward_declarations and ctx.attrs.swift_version != "6":
+    if ctx.attrs.import_obj_c_forward_declarations and ctx.attrs.swift_version != "6":
         cmd.add([
             "-Xfrontend",
             "-enable-upcoming-feature",

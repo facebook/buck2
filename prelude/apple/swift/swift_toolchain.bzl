@@ -55,7 +55,6 @@ def swift_toolchain_impl(ctx):
         DefaultInfo(),
         SwiftToolchainInfo(
             architecture = ctx.attrs.architecture,
-            can_toolchain_emit_obj_c_header_textually = ctx.attrs.can_toolchain_emit_obj_c_header_textually,
             compiler = cmd_args(ctx.attrs._swiftc_wrapper[RunInfo]).add(ctx.attrs.swiftc[RunInfo]),
             compiler_flags = ctx.attrs.swiftc_flags,
             mk_swift_comp_db = ctx.attrs.make_swift_comp_db,
@@ -65,10 +64,7 @@ def swift_toolchain_impl(ctx):
             resource_dir = ctx.attrs.resource_dir,
             runtime_run_paths = ctx.attrs.runtime_run_paths,
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
-            supports_cxx_interop_requirement_at_import = ctx.attrs.supports_cxx_interop_requirement_at_import,
             supports_relative_resource_dir = ctx.attrs.supports_relative_resource_dir,
-            supports_swift_cxx_interoperability_mode = ctx.attrs.supports_swift_cxx_interoperability_mode,
-            supports_swift_importing_objc_forward_declarations = ctx.attrs.supports_swift_importing_obj_c_forward_declarations,
             swift_ide_test_tool = ctx.attrs.swift_ide_test_tool[RunInfo] if ctx.attrs.swift_ide_test_tool else None,
             swift_stdlib_tool = ctx.attrs.swift_stdlib_tool[RunInfo],
             swift_stdlib_tool_flags = ctx.attrs.swift_stdlib_tool_flags,
