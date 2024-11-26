@@ -633,7 +633,7 @@ pub async fn get_target_rule_type_name(
         .get_configured_target_node(label)
         .await?
         .require_compatible()?
-        .rule_type()
+        .underlying_rule_type()
         .name()
         .to_owned())
 }

@@ -119,6 +119,13 @@ impl TargetNodeOrForward {
         }
     }
 
+    fn underlying_rule_type(&self) -> &RuleType {
+        match self {
+            TargetNodeOrForward::TargetNode(target_node) => target_node.rule_type(),
+            TargetNodeOrForward::Forward(_, node) => node.underlying_rule_type(),
+        }
+    }
+
     fn rule_kind(&self) -> RuleKind {
         match self {
             TargetNodeOrForward::TargetNode(x) => x.rule_kind(),
@@ -431,6 +438,10 @@ impl ConfiguredTargetNode {
 
     pub fn rule_type(&self) -> &RuleType {
         self.0.target_node.rule_type()
+    }
+
+    pub fn underlying_rule_type(&self) -> &RuleType {
+        self.0.target_node.underlying_rule_type()
     }
 
     pub fn rule_kind(&self) -> RuleKind {

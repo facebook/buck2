@@ -63,8 +63,7 @@ async def test_build_rule_with_transition(buck: Buck) -> None:
         "//:a_writer_with_transition",
     )
 
-    # TODO(T208425986) This should not be "forward"
-    await check_rule_type_names(buck, ["forward"])
+    await check_rule_type_names(buck, ["three_with_transition"])
 
 
 @buck_test()
@@ -76,7 +75,7 @@ async def test_build_all_in_target(buck: Buck) -> None:
         buck,
         [
             "two",
-            "forward",
+            "three_with_transition",
             "nested_subtargets",
             "one",
             "one",
@@ -94,7 +93,7 @@ async def test_build_all_recursive(buck: Buck) -> None:
         buck,
         [
             "two",
-            "forward",
+            "three_with_transition",
             "nested_subtargets",
             "one",
             "one",
