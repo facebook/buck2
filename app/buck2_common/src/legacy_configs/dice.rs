@@ -16,7 +16,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
-use buck2_error::AnyhowContextForError;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
@@ -193,7 +192,7 @@ impl Key for LegacyBuckConfigForCellKey {
         let this_cell = cells.get(self.cell_name)?;
         let config = BuckConfigBasedCells::parse_single_cell_with_dice(ctx, this_cell.path())
             .await
-            .with_context(|| {
+            .with_buck_error_context(|| {
                 format!("Computing legacy buckconfigs for cell `{}`", self.cell_name)
             })?;
         let config = config.filter_values(should_keep_config_change);

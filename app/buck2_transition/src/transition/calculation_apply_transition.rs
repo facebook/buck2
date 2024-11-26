@@ -25,7 +25,7 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::starlark_error::from_starlark;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
@@ -164,7 +164,7 @@ async fn do_apply_transition(
                                 PackageLabelOption::TransitionAttr,
                                 module.heap(),
                             )
-                            .with_context(|| {
+                            .with_buck_error_context(|| {
                                 format!(
                                     "Error converting attribute `{}={}` to Starlark value",
                                     name.as_str(),
@@ -298,7 +298,7 @@ impl TransitionCalculation for TransitionCalculationImpl {
                         .await?
                 };
 
-                Ok(Arc::new(v.with_context(|| {
+                Ok(Arc::new(v.with_buck_error_context(|| {
                     format!("Error computing transition `{}`", self)
                 })?))
             }

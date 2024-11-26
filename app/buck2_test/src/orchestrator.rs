@@ -75,7 +75,7 @@ use buck2_data::TestRunStart;
 use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -333,7 +333,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             .get_materializer()
             .ensure_materialized(paths_to_materialize)
             .await
-            .context("Error materializing test outputs")?;
+            .buck_error_context_anyhow("Error materializing test outputs")?;
 
         Ok(ExecutionResult2 {
             status,
@@ -1043,7 +1043,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         let std_streams = std_streams
             .into_bytes()
             .await
-            .context("Error accessing test output")?;
+            .buck_error_context_anyhow("Error accessing test output")?;
         let stdout = ExecutionStream::Inline(std_streams.stdout);
         let stderr = ExecutionStream::Inline(std_streams.stderr);
 
@@ -1109,7 +1109,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             None => test_target_node
                 .execution_platform_resolution()
                 .executor_config()
-                .context("Error accessing executor config")?,
+                .buck_error_context_anyhow("Error accessing executor config")?,
         };
 
         if let TestStage::Listing(_) = &stage {
@@ -1428,7 +1428,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                         missing_target.dupe(),
                         setup
                             .await
-                            .with_context(|| {
+                            .with_buck_error_context_anyhow(|| {
                                 format!(
                                     "Error setting up local resource declared in `{}`",
                                     missing_target
@@ -1528,7 +1528,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         let std_streams = std_streams
             .into_bytes()
             .await
-            .context("Error accessing setup local resource output")?;
+            .buck_error_context_anyhow("Error accessing setup local resource output")?;
 
         match status {
             CommandExecutionStatus::Success { .. } => {}

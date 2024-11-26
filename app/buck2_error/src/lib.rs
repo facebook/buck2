@@ -36,7 +36,6 @@ use std::error::Request;
 /// the future.
 #[doc(inline)]
 pub use classify::Tier;
-pub use context::AnyhowContextForError;
 pub use context::BuckErrorContext;
 pub use context_value::TypedContext;
 pub use error::DynLateFormat;

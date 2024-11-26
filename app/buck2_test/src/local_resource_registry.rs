@@ -16,7 +16,7 @@ use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ReleaseLocalResourcesEnd;
 use buck2_data::ReleaseLocalResourcesStart;
-use buck2_error::AnyhowContextForError;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -47,7 +47,7 @@ impl LocalResourceRegistry {
                     let pid = s.owning_pid().unwrap();
                     try_terminate_process_gracefully(pid, Duration::from_secs(20))
                         .await
-                        .context(format!(
+                        .buck_error_context_anyhow(format!(
                             "Failed to kill a process with `{}` PID to release local resource `{}`",
                             pid,
                             s.source_target()

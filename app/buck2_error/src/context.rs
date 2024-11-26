@@ -156,39 +156,6 @@ where
     }
 }
 
-/// Similar to `anyhow::Context`, but works for `crate::Result`.
-pub trait AnyhowContextForError<T>: Sealed {
-    fn context<C>(self, context: C) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>;
-
-    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-        F: FnOnce() -> C;
-}
-
-impl<T> AnyhowContextForError<T> for crate::Result<T> {
-    #[inline]
-    #[track_caller]
-    fn context<C>(self, context: C) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-    {
-        self.buck_error_context_anyhow(context)
-    }
-
-    #[inline]
-    #[track_caller]
-    fn with_context<C, F>(self, f: F) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-        F: FnOnce() -> C,
-    {
-        self.with_buck_error_context_anyhow(f)
-    }
-}
-
 #[derive(Debug, buck2_error_derive::Error)]
 #[error("NoneError")]
 struct NoneError;
