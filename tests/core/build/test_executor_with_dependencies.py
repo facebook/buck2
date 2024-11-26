@@ -53,7 +53,8 @@ async def test_good_target_with_dependencies(buck: Buck) -> None:
         assert len(deps) == 1
         assert deps[0]["smc_tier"] == "noop"
         assert deps[0]["id"] == "foo"
-        assert deps[0]["reservation_id"] == "noop"
+        # reservation_id is a random string which is 20 characters long
+        assert len(deps[0]["reservation_id"]) == 20
 
     # Make sure it actually did run on RE.
     out = await read_what_ran(buck)

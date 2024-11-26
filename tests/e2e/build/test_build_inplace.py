@@ -802,7 +802,8 @@ async def test_genrule_with_remote_execution_dependencies(buck: Buck) -> None:
         assert len(deps) == 1
         assert deps[0]["smc_tier"] == "noop"
         assert deps[0]["id"] == "foo"
-        assert deps[0]["reservation_id"] == "noop"
+        # reservation_id is a random string which is 20 characters long
+        assert len(deps[0]["reservation_id"]) == 20
 
 
 async def read_io_provider_for_last_build(buck: Buck) -> None:
