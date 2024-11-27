@@ -222,7 +222,7 @@ impl ReState {
             )?);
 
             r.extend(self.render_local_cache_stat(
-                "local_cache",
+                "local_artifact_cache",
                 last.local_cache_hits_files - first.local_cache_hits_files,
                 last.local_cache_hits_bytes - first.local_cache_hits_bytes,
                 last.local_cache_misses_files - first.local_cache_misses_files,
