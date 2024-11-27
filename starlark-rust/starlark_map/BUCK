@@ -5,6 +5,11 @@ oncall("build_infra")
 rust_library(
     name = "starlark_map",
     srcs = glob(["src/**/*.rs"]),
+    metadata = {
+        "buck.cfg_modifiers": [
+            # @oss-disable: "ovr_config//rust:panic_unwind", 
+        ],
+    },
     rustc_flags = [
         "--cfg=rust_nightly",
     ],
