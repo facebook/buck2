@@ -290,7 +290,11 @@ def encode_base_jar_command(
         compiling_classpath = classpath_jars_tag.tag_artifacts(
             [dep.abi for dep in compiling_deps_list],
         )
-        compiling_classpath_snapshot = {dep.abi: dep.abi_jar_snapshot or "" for dep in compiling_deps_list} if is_incremental else {}
+
+        # The snapshot inputs are tagged for association with dep_files, but they are not marked as used,
+        # as they serve the incremental compiler's internal needs,
+        # which are utilized after the build system has determined whether a rebuild is necessary.
+        compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts({dep.abi: dep.abi_jar_snapshot or "" for dep in compiling_deps_list}) if is_incremental else {}
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
