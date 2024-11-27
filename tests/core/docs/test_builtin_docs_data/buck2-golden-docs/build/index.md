@@ -6,7 +6,6 @@
 ## InstallInfo
 ## Provider
 ## anon\_rule
-## attrs
 ## dedupe
 ## dynamic\_actions
 ## get\_base\_path

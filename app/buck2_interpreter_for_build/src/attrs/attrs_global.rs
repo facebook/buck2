@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use allocative::Allocative;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
@@ -24,23 +23,15 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::provider_id_set::ProviderIdSet;
-use derive_more::Display;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use either::Either;
 use gazebo::prelude::*;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::Methods;
-use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
-use starlark::values::starlark_value;
 use starlark::values::tuple::UnpackTuple;
-use starlark::values::NoSerialize;
-use starlark::values::ProvidesStaticType;
-use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Value;
 use starlark::values::ValueError;
@@ -187,10 +178,9 @@ fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> buck2_error::Res
 /// For simple types like `attrs.string` these are the same, for more complex types like `attrs.dep` these
 /// are different (string from the user, dependency to the rule).
 #[starlark_module]
-fn attr_module(registry: &mut MethodsBuilder) {
+fn attr_module(registry: &mut GlobalsBuilder) {
     /// Takes a string from the user, supplies a string to the rule.
     fn string<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named)] validate: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -202,7 +192,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Takes a list from the user, supplies a list to the rule.
     fn list<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] inner: &StarlarkAttribute,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -216,7 +205,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// The dependency will transition to the execution platform. Use `exec_dep` if you
     /// plan to execute things from this dependency as part of the compilation.
     fn exec_dep<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -233,7 +221,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// The dependency will be a toolchain dependency, meaning that its execution platform
     /// dependencies will be used to select the execution platform for this rule.
     fn toolchain_dep<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -247,7 +234,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn transition_dep<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] cfg: Value<'v>,
@@ -282,7 +268,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn configured_dep<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -296,7 +281,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn split_transition_dep<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named)] cfg: Value<'v>,
@@ -331,7 +315,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn plugin_dep<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] kind: PluginKindArg,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -352,7 +335,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// If supplied the `providers` argument ensures that specific providers will be present
     /// on the dependency.
     fn dep<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,
         #[starlark(require = named, default = UnpackListOrTuple::default())]
@@ -389,7 +371,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// Takes most builtin literals and passes them to the rule as a string.
     /// Discouraged, as it provides little type safety and destroys the structure.
     fn any<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named)] default: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -399,7 +380,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Takes a boolean and passes it to the rule as a boolean.
     fn bool<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -414,7 +394,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// attrs.option(attr.string(), default = None)
     /// ```
     fn option<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] inner: &StarlarkAttribute,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -439,7 +418,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// attrs.default_only(attrs.dep(default = "foo//my_package:my_target"))
     /// ```
     fn default_only<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] inner: &StarlarkAttribute,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> starlark::Result<StarlarkAttribute> {
@@ -456,7 +434,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// Takes a target (as per `deps`) and passes a `label` to the rule.
     /// Validates that the target exists, but does not introduce a dependency on it.
     fn label<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -466,7 +443,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Takes a dict from the user, supplies a dict to the rule.
     fn dict<'v>(
-        #[starlark(this)] _this: Value<'v>,
         // TODO(nga): require positional only for key and value.
         key: &StarlarkAttribute,
         value: &StarlarkAttribute,
@@ -485,7 +461,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// flag, which indicates whether the args can be passed into anon targets. Note that there is a slight memory
     /// hit when using this flag.
     fn arg<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = false)] json: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -504,7 +479,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// Takes a string from one of the variants given, and gives that string to the rule.
     /// Strings are matched case-insensitively, and always passed to the rule lowercase.
     fn r#enum<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] variants: UnpackListOrTuple<String>,
         #[starlark(require = named)] default: Option<
             ValueOf<'v, Either<StringValue<'v>, ValueTypedComplex<'v, StarlarkSelector<'v>>>>,
@@ -524,7 +498,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn configuration_label<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
@@ -540,7 +513,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Currently an alias for `attrs.string`.
     fn regex<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -549,7 +521,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn set<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] value_type: &StarlarkAttribute,
         #[starlark(require = named, default = false)] sorted: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -562,7 +533,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn named_set<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = pos)] value_type: &StarlarkAttribute,
         #[starlark(require = named, default = false)] sorted: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -579,7 +549,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Given a list of alternative attributes, selects the first that matches and gives that to the rule.
     fn one_of<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(args)] args: UnpackTuple<&StarlarkAttribute>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -591,7 +560,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Takes a tuple of values and gives a tuple to the rule.
     fn tuple<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(args)] args: UnpackTuple<&StarlarkAttribute>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -603,7 +571,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
 
     /// Takes an int from the user, supplies an int to the rule.
     fn int<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -612,7 +579,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn query<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
@@ -620,7 +586,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 
     fn versioned<'v>(
-        #[starlark(this)] _this: Value<'v>,
         value_type: &StarlarkAttribute,
         #[starlark(require = named, default = "")] doc: &str,
     ) -> starlark::Result<StarlarkAttribute> {
@@ -644,7 +609,6 @@ fn attr_module(registry: &mut MethodsBuilder) {
     /// (representing the path within this package), or a target (which must have a
     /// `DefaultInfo` with a `default_outputs` value).
     fn source<'v>(
-        #[starlark(this)] _this: Value<'v>,
         #[starlark(require = named, default = false)] allow_directory: bool,
         #[starlark(require = named)] default: Option<Value<'v>>,
         #[starlark(require = named, default = "")] doc: &str,
@@ -660,19 +624,7 @@ fn attr_module(registry: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Display, Debug, Allocative, ProvidesStaticType, NoSerialize)]
-#[display("<attrs>")]
-struct Attrs;
-
-#[starlark_value(type = "attrs")]
-impl<'v> StarlarkValue<'v> for Attrs {
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(attr_module)
-    }
-}
-
 pub(crate) fn register_attrs(globals: &mut GlobalsBuilder) {
-    globals.set("attrs", globals.frozen_heap().alloc_simple(Attrs));
+    globals.namespace("attrs", attr_module);
     register_attr_type(globals);
 }
