@@ -24,6 +24,7 @@ pub mod extra;
 pub mod factory;
 pub mod file_loader;
 pub mod file_type;
+pub mod from_freeze;
 pub mod import_paths;
 pub mod late_binding_ty;
 pub mod load_module;
