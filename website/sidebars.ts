@@ -45,8 +45,7 @@ export const sidebars: SidebarsConfig = {
           label: 'Benefits',
           items: [
             'about/benefits/compared_to_buck1',
-            isInternal() ? 'about/benefits/testimonials' : null,
-          ].flatMap(x => x !== null ? [x] : []),
+          ],
         },
         isInternal() ? 'about/knowledge_sharing' : null,
         'about/bootstrapping',

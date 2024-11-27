@@ -206,10 +206,6 @@ const globalsBasedApiDocs = [
 
 // Internal-only redirects
 const internalRedirects = !isInternal() ? [] : [
-    {
-        to: '/docs/about/benefits/testimonials',
-        from: '/docs/testimonials',
-      },
       {
         to: '/docs/about/knowledge_sharing',
         from: '/docs/knowledge_sharing',

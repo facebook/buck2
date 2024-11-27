@@ -5,13 +5,6 @@ title: Benefits When Compared to Buck1
 
 import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
 
-<FbInternalOnly>
-
-For reports from real users, see the [Testimonials](testimonials.fb.md), which
-include Workplace posts and their full context.
-
-</FbInternalOnly>
-
 ## Benefits for end users
 
 > _"`buck2 build SOME_TARGET_I_ALREADY_BUILT_BEFORE` is basically instantaneous
