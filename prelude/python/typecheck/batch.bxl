@@ -11,23 +11,23 @@ load("@prelude//python/sourcedb/filter.bxl", "do_filter")
 def _check_targets_batched(ctx: bxl.Context, checked_targets: list[Label]) -> typing.Any:
     build_result = ctx.build(checked_targets)
     output = ctx.output.ensure_multiple(build_result)
-
     return {
         label.raw_target(): [artifact.rel_path() for artifact in artifacts]
         for label, artifacts in output.items()
     }
 
-def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> list[Label]:
-    configured_targets = ctx.analysis(
-        ctx.configured_targets(
-            do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False),
-        ),
-    )
+def _should_type_check(_configured_target: bxl.ConfiguredTargetNode, analysis_result: bxl.AnalysisResult) -> bool:
+    return "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
 
+def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> list[Label]:
+    configured_targets = ctx.configured_targets(
+        do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False),
+    )
+    analysis_results = ctx.analysis(configured_targets)
     return [
-        label.configured_target().with_sub_target("typecheck")
-        for label, target in configured_targets.items()
-        if "typecheck" in target.providers()[DefaultInfo].sub_targets
+        configured_target.label.with_sub_target("typecheck")
+        for configured_target in configured_targets
+        if _should_type_check(configured_target, analysis_results[configured_target.label.with_sub_target()])
     ]
 
 def check_targets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> None:
