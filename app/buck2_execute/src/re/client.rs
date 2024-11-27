@@ -421,6 +421,8 @@ impl RemoteExecutionClientImpl {
                 use remote_execution::ThreadConfig;
 
                 let mut re_client_config = create_default_config();
+
+                // gRPC settings
                 re_client_config.action_cache_client_config.connection_count =
                     static_metadata.action_cache_connection_count;
                 re_client_config.action_cache_client_config.address =
@@ -672,6 +674,28 @@ impl RemoteExecutionClientImpl {
                 re_client_config
                     .thrift_execution_client_config
                     .concurrency_limit = static_metadata.execution_concurrency_limit;
+
+                if let Some(engine_tier) = static_metadata.engine_tier.to_owned() {
+                    re_client_config.thrift_execution_client_config.tier = engine_tier;
+                }
+
+                if static_metadata.engine_host.is_some() || static_metadata.engine_port.is_some() {
+                    if static_metadata.engine_host.is_some()
+                        && static_metadata.engine_port.is_some()
+                    {
+                        re_client_config.thrift_execution_client_config.host_port =
+                            Some(remote_execution::HostPort {
+                                host: static_metadata.engine_host.clone().unwrap(),
+                                port: static_metadata.engine_port.unwrap(),
+                                ..Default::default()
+                            });
+                    } else {
+                        return Err(buck2_error!(
+                            [],
+                            "Both engine_host and engine_port must be set if either is set"
+                        ));
+                    }
+                }
 
                 // TODO(ndmitchell): For now, we just drop RE log messages, but ideally we'd put them in our log stream.
                 let logger = slog::Logger::root(slog::Discard, slog::o!());

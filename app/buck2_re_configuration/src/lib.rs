@@ -34,6 +34,7 @@ mod fbcode {
     /// Metadata that doesn't change between executions
     #[derive(Clone, Debug, Default, Allocative)]
     pub struct RemoteExecutionStaticMetadata {
+        // gRPC settings
         pub cas_address: Option<String>,
         pub cas_connection_count: i32,
         pub cas_shared_cache: Option<String>,
@@ -44,7 +45,7 @@ mod fbcode {
         pub action_cache_connection_count: i32,
         pub engine_address: Option<String>,
         pub engine_connection_count: i32,
-
+        // End gRPC settings
         pub verbose_logging: bool,
 
         pub use_manifold_rich_client: bool,
@@ -75,8 +76,14 @@ mod fbcode {
 
         pub disable_fallocate: bool,
         pub respect_file_symlinks: bool,
+
+        // Thrift settings
         pub execute_over_thrift: bool,
         pub execution_concurrency_limit: i32,
+        pub engine_tier: Option<String>,
+        pub engine_host: Option<String>,
+        pub engine_port: Option<i32>,
+        // End Thrift settings
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -238,6 +245,18 @@ mod fbcode {
                         property: "execution_concurrency_limit",
                     })?
                     .unwrap_or(4000),
+                engine_tier: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "engine_tier",
+                })?,
+                engine_host: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "engine_host",
+                })?,
+                engine_port: legacy_config.parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "engine_port",
+                })?,
             })
         }
 
