@@ -6,7 +6,6 @@ rust_library(
     name = "buck2_action_impl",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:dashmap",

@@ -30,6 +30,7 @@ use either::Either;
 use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Trace;
 
@@ -132,7 +133,7 @@ pub struct FrozenExportedName {
 impl Freeze for MutableExportedName {
     type Frozen = FrozenExportedName;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(FrozenExportedName {
             name: self.name.into_inner(),
         })

@@ -31,6 +31,8 @@ use starlark::values::starlark_value;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -163,12 +165,16 @@ impl<'v> StarlarkValue<'v> for BxlFunction<'v> {
 
 impl<'v> Freeze for BxlFunction<'v> {
     type Frozen = FrozenBxlFunction;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let frozen_impl = self.implementation.freeze(freezer)?;
         let docs = self.docs;
         let id = match self.id.into_inner() {
             Some(x) => x,
-            None => return Err(BxlError::BxlNotAssigned(self.bxl_path.to_string()).into()),
+            None => {
+                return Err(FreezeError::new(
+                    BxlError::BxlNotAssigned(self.bxl_path.to_string()).to_string(),
+                ));
+            }
         };
         let bxl_id = Arc::new(id);
 

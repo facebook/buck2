@@ -41,6 +41,7 @@ use crate::tests::util::trim_rust_backtrace;
 use crate::values::list_or_tuple::UnpackListOrTuple;
 use crate::values::none::NoneType;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Heap;
 use crate::values::NoSerialize;
@@ -736,7 +737,7 @@ fn test_label_assign() {
 
     impl<'v> Freeze for Wrapper<'v> {
         type Frozen = FrozenWrapper;
-        fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+        fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
             Ok(FrozenWrapper)
         }
     }

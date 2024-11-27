@@ -45,6 +45,7 @@ use crate::util::arc_str::ArcStr;
 use crate::values::comparison::compare_small_map;
 use crate::values::comparison::equals_small_map;
 use crate::values::structs::unordered_hasher::UnorderedHasher;
+use crate::values::FreezeResult;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;

@@ -58,6 +58,7 @@ use crate::values::list::AllocList;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -137,7 +138,7 @@ pub struct EnumTypeGen<V: EnumCell> {
 impl<'v> Freeze for EnumTypeGen<Value<'v>> {
     type Frozen = EnumTypeGen<FrozenValue>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let EnumTypeGen {
             id,
             ty_enum_data: ty_enum_type,

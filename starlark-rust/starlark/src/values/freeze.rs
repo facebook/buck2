@@ -26,6 +26,7 @@ use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
 use starlark_syntax::slice_vec_ext::VecExt;
 
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -43,6 +44,7 @@ use crate::values::Value;
 /// # struct AdditionalData;
 ///
 /// use starlark::values::Freeze;
+/// use starlark::values::FreezeResult;
 ///
 /// #[derive(Freeze)]
 /// struct MyType<V> {
@@ -62,13 +64,13 @@ pub trait Freeze {
     /// Note during freeze, `Value` objects in `Self` might be already special forward-objects,
     /// trying to unpack these objects will crash the process.
     /// So the function is only allowed to access `Value` objects after it froze them.
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen>;
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen>;
 }
 
 impl Freeze for String {
     type Frozen = String;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<String> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<String> {
         Ok(self)
     }
 }
@@ -76,7 +78,7 @@ impl Freeze for String {
 impl Freeze for i32 {
     type Frozen = i32;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<i32> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<i32> {
         Ok(self)
     }
 }
@@ -84,7 +86,7 @@ impl Freeze for i32 {
 impl Freeze for u32 {
     type Frozen = u32;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<u32> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<u32> {
         Ok(self)
     }
 }
@@ -92,7 +94,7 @@ impl Freeze for u32 {
 impl Freeze for i64 {
     type Frozen = i64;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<i64> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<i64> {
         Ok(self)
     }
 }
@@ -100,7 +102,7 @@ impl Freeze for i64 {
 impl Freeze for u64 {
     type Frozen = u64;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<u64> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<u64> {
         Ok(self)
     }
 }
@@ -108,7 +110,7 @@ impl Freeze for u64 {
 impl Freeze for usize {
     type Frozen = usize;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<usize> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<usize> {
         Ok(self)
     }
 }
@@ -116,7 +118,7 @@ impl Freeze for usize {
 impl Freeze for bool {
     type Frozen = bool;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<bool> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<bool> {
         Ok(self)
     }
 }
@@ -124,7 +126,7 @@ impl Freeze for bool {
 impl<'v, T: 'static> Freeze for marker::PhantomData<&'v T> {
     type Frozen = PhantomData<&'static T>;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<PhantomData<&'static T>> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<PhantomData<&'static T>> {
         Ok(marker::PhantomData)
     }
 }
@@ -135,7 +137,7 @@ where
 {
     type Frozen = Vec<T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Vec<T::Frozen>> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Vec<T::Frozen>> {
         self.into_try_map(|v| v.freeze(freezer))
     }
 }
@@ -146,7 +148,7 @@ where
 {
     type Frozen = T::Frozen;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<T::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<T::Frozen> {
         self.into_inner().freeze(freezer)
     }
 }
@@ -157,7 +159,7 @@ where
 {
     type Frozen = UnsafeCell<T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(UnsafeCell::new(self.into_inner().freeze(freezer)?))
     }
 }
@@ -168,7 +170,7 @@ where
 {
     type Frozen = Option<T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         self.into_inner().freeze(freezer)
     }
 }
@@ -179,7 +181,7 @@ where
 {
     type Frozen = Box<T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(Box::new((*self).freeze(freezer)?))
     }
 }
@@ -190,7 +192,7 @@ where
 {
     type Frozen = Box<[T::Frozen]>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         self.into_vec()
             .into_try_map(|v| v.freeze(freezer))
             .map(|v| v.into_boxed_slice())
@@ -203,7 +205,7 @@ where
 {
     type Frozen = Option<T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Option<T::Frozen>> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Option<T::Frozen>> {
         self.map(|v| v.freeze(freezer)).transpose()
     }
 }
@@ -211,7 +213,7 @@ where
 impl<K: Freeze> Freeze for Hashed<K> {
     type Frozen = Hashed<K::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         // `freeze` must not change hash.
         Ok(Hashed::new_unchecked(
             self.hash(),
@@ -227,7 +229,7 @@ where
 {
     type Frozen = SmallMap<K::Frozen, V::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<SmallMap<K::Frozen, V::Frozen>> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<SmallMap<K::Frozen, V::Frozen>> {
         let mut new = SmallMap::with_capacity(self.len());
         for (key, value) in self.into_iter_hashed() {
             let hash = key.hash();
@@ -247,7 +249,7 @@ where
 {
     type Frozen = SmallSet<T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let mut new = SmallSet::with_capacity(self.len());
         for value in self.into_iter_hashed() {
             let value = value.freeze(freezer)?;
@@ -261,7 +263,7 @@ where
 impl<'v> Freeze for Value<'v> {
     type Frozen = FrozenValue;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValue> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
         freezer.freeze(self)
     }
 }
@@ -269,7 +271,7 @@ impl<'v> Freeze for Value<'v> {
 impl Freeze for FrozenValue {
     type Frozen = FrozenValue;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<FrozenValue> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<FrozenValue> {
         Ok(self)
     }
 }
@@ -277,7 +279,7 @@ impl Freeze for FrozenValue {
 impl<'v> Freeze for StringValue<'v> {
     type Frozen = FrozenStringValue;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenStringValue> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenStringValue> {
         self.freeze(freezer)
     }
 }
@@ -285,7 +287,7 @@ impl<'v> Freeze for StringValue<'v> {
 impl Freeze for () {
     type Frozen = ();
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<()> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<()> {
         Ok(())
     }
 }
@@ -293,7 +295,7 @@ impl Freeze for () {
 impl<A: Freeze> Freeze for (A,) {
     type Frozen = (A::Frozen,);
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<(A::Frozen,)> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<(A::Frozen,)> {
         Ok((self.0.freeze(freezer)?,))
     }
 }
@@ -301,7 +303,7 @@ impl<A: Freeze> Freeze for (A,) {
 impl<A: Freeze, B: Freeze> Freeze for (A, B) {
     type Frozen = (A::Frozen, B::Frozen);
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<(A::Frozen, B::Frozen)> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<(A::Frozen, B::Frozen)> {
         Ok((self.0.freeze(freezer)?, self.1.freeze(freezer)?))
     }
 }
@@ -309,7 +311,7 @@ impl<A: Freeze, B: Freeze> Freeze for (A, B) {
 impl<A: Freeze, B: Freeze, C: Freeze> Freeze for (A, B, C) {
     type Frozen = (A::Frozen, B::Frozen, C::Frozen);
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<(A::Frozen, B::Frozen, C::Frozen)> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<(A::Frozen, B::Frozen, C::Frozen)> {
         Ok((
             self.0.freeze(freezer)?,
             self.1.freeze(freezer)?,
@@ -324,7 +326,7 @@ impl<A: Freeze, B: Freeze, C: Freeze, D: Freeze> Freeze for (A, B, C, D) {
     fn freeze(
         self,
         freezer: &Freezer,
-    ) -> anyhow::Result<(A::Frozen, B::Frozen, C::Frozen, D::Frozen)> {
+    ) -> FreezeResult<(A::Frozen, B::Frozen, C::Frozen, D::Frozen)> {
         Ok((
             self.0.freeze(freezer)?,
             self.1.freeze(freezer)?,

@@ -23,6 +23,9 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::none::NoneType;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeErrorContext;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
@@ -128,14 +131,15 @@ impl<'v> StarlarkPackageValue<'v> {
 impl<'v> Freeze for StarlarkPackageValue<'v> {
     type Frozen = FrozenStarlarkPackageValue;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let frozen = self.0.freeze(freezer)?;
 
         // Error is possible if either:
         // * package value is modified after `write_package_value`
         // * frozen value is not valid JSON even if original value was
         StarlarkPackageValue::new(frozen.to_value())
-            .buck_error_context("Frozen value is not valid JSON")?;
+            .map_err(|e| FreezeError::new(e.to_string()))
+            .freeze_error_context("Frozen value is not valid JSON")?;
 
         Ok(FrozenStarlarkPackageValue(frozen))
     }

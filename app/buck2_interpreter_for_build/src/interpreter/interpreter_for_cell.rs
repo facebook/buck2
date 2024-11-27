@@ -34,6 +34,7 @@ use buck2_interpreter::file_loader::InterpreterFileLoader;
 use buck2_interpreter::file_loader::LoadResolver;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::file_type::StarlarkFileType;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::import_paths::ImplicitImportPaths;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::parse_import::parse_import;
@@ -580,7 +581,7 @@ impl InterpreterForCell {
             eval_provider,
             typecheck,
         )?;
-        Ok(env.freeze()?)
+        env.freeze().map_err(from_freeze_error)
     }
 
     pub(crate) fn eval_package_file(
@@ -623,7 +624,7 @@ impl InterpreterForCell {
             {
                 // Only freeze if there's something to freeze, otherwise we will needlessly freeze
                 // globals. TODO(nga): add API to only freeze extra.
-                let env = env.freeze()?;
+                let env = env.freeze().map_err(from_freeze_error)?;
                 FrozenPackageFileExtra::get(&env)?
             } else {
                 None

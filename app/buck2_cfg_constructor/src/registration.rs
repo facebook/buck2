@@ -29,6 +29,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
@@ -93,7 +94,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCfgConstructor {
 impl<'v> Freeze for StarlarkCfgConstructor<'v> {
     type Frozen = FrozenStarlarkCfgConstructor;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let StarlarkCfgConstructor {
             stage0,
             stage1,

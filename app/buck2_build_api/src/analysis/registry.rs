@@ -26,6 +26,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -38,6 +39,8 @@ use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenHeapRef;
@@ -296,7 +299,7 @@ impl<'v> AnalysisRegistry<'v> {
         let self_key = analysis_value_storage.self_key.dupe();
         analysis_value_storage.write_to_module(env)?;
         Ok(move |env: Module| {
-            let frozen_env = env.freeze()?;
+            let frozen_env = env.freeze().map_err(from_freeze_error)?;
             let analysis_value_fetcher = AnalysisValueFetcher {
                 self_key,
                 frozen_module: Some(frozen_env.dupe()),
@@ -385,7 +388,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
 impl<'v> Freeze for AnalysisValueStorage<'v> {
     type Frozen = FrozenAnalysisValueStorage;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let AnalysisValueStorage {
             self_key,
             action_data,
@@ -399,11 +402,17 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
             action_data: action_data
                 .into_iter()
                 .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-                .collect::<buck2_error::Result<_>>()?,
+                .collect::<FreezeResult<_>>()?,
             transitive_sets: transitive_sets
                 .into_iter()
-                .map(|(k, v)| Ok((k, FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)?)))
-                .collect::<buck2_error::Result<_>>()?,
+                .map(|(k, v)| {
+                    Ok((
+                        k,
+                        FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
+                            .map_err(|e| FreezeError::new(e.to_string()))?,
+                    ))
+                })
+                .collect::<FreezeResult<_>>()?,
             lambda_params: lambda_params.freeze(freezer)?,
             result_value: result_value.freeze(freezer)?,
         })

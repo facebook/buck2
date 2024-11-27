@@ -12,7 +12,6 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_error::BuckErrorContext;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_util::late_binding::LateBinding;
@@ -21,6 +20,8 @@ use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::FreezeErrorContext;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
@@ -98,7 +99,7 @@ impl<'v> StarlarkValue<'v> for FrozenPackageFileExtra {
 impl<'v> Freeze for PackageFileExtra<'v> {
     type Frozen = FrozenPackageFileExtra;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let PackageFileExtra {
             cfg_constructor,
             package_values,
@@ -110,10 +111,10 @@ impl<'v> Freeze for PackageFileExtra<'v> {
             .map(|(k, v)| {
                 let v = v
                     .freeze(freezer)
-                    .with_buck_error_context(|| format!("freezing `{k}`"))?;
+                    .freeze_error_context(&format!("freezing `{k}`"))?;
                 Ok((k, v))
             })
-            .collect::<buck2_error::Result<SmallMap<MetadataKey, FrozenStarlarkPackageValue>>>()?;
+            .collect::<FreezeResult<SmallMap<MetadataKey, FrozenStarlarkPackageValue>>>()?;
         Ok(FrozenPackageFileExtra {
             cfg_constructor,
             package_values,

@@ -37,6 +37,7 @@ use crate::starlark_complex_value;
 use crate::typing::Ty;
 use crate::util::arc_str::ArcStr;
 use crate::values::types::namespace::typing::TyNamespace;
+use crate::values::FreezeResult;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;

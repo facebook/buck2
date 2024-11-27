@@ -34,6 +34,8 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
@@ -203,7 +205,7 @@ impl<'v> AllocValue<'v> for DynamicActionsCallable<'v> {
 impl<'v> Freeze for DynamicActionsCallable<'v> {
     type Frozen = FrozenStarlarkDynamicActionsCallable;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let DynamicActionsCallable {
             self_ty,
             implementation,
@@ -213,7 +215,8 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
 
         let name = name
             .into_inner()
-            .buck_error_context(DynamicActionCallableError::NotExported)?;
+            .buck_error_context(DynamicActionCallableError::NotExported)
+            .map_err(|e| FreezeError::new(e.to_string()))?;
 
         let signature = ParametersSpec::new_named_only(
             &name,

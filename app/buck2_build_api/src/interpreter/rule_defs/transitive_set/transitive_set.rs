@@ -34,6 +34,7 @@ use starlark::values::starlark_value;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcher;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
@@ -168,7 +169,7 @@ impl<V: ValueLifetimeless> TransitiveSetGen<V> {
 }
 
 impl<'v> NodeGen<Value<'v>> {
-    fn freeze(self, freezer: &Freezer) -> buck2_error::Result<NodeGen<FrozenValue>> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<NodeGen<FrozenValue>> {
         let Self { value, projections } = self;
 
         let value = value.freeze(freezer)?;
@@ -352,7 +353,7 @@ where
 impl<'v> Freeze for TransitiveSet<'v> {
     type Frozen = FrozenTransitiveSet;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let Self {
             key,
             definition,

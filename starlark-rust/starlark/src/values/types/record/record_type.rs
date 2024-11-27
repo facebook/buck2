@@ -61,6 +61,7 @@ use crate::values::record::Record;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
@@ -185,7 +186,7 @@ impl<'v> RecordType<'v> {
 
 impl<'v> Freeze for RecordType<'v> {
     type Frozen = FrozenRecordType;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(FrozenRecordType {
             id: self.id,
             fields: self.fields.freeze(freezer)?,

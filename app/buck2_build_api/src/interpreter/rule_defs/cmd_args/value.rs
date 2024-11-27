@@ -18,6 +18,7 @@ use starlark::coerce::Coerce;
 use starlark::typing::Ty;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
@@ -58,7 +59,7 @@ pub struct CommandLineArg<'v>(#[serde(serialize_with = "serialize_as_display")] 
 impl<'v> Freeze for CommandLineArg<'v> {
     type Frozen = FrozenCommandLineArg;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenCommandLineArg> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenCommandLineArg> {
         Ok(FrozenCommandLineArg(self.0.freeze(freezer)?))
     }
 }

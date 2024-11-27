@@ -50,6 +50,8 @@ use crate::values::types::list::value::ListData;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::ComplexValue;
+use crate::values::FreezeError;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
@@ -117,7 +119,7 @@ pub(crate) trait AValue<'v>: Sized + 'v {
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue>;
+    ) -> FreezeResult<FrozenValue>;
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self::StarlarkValue>, tracer: &Tracer<'v>)
     -> Value<'v>;
@@ -221,7 +223,7 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueBasic<T> {
     unsafe fn heap_freeze(
         _me: *mut AValueRepr<Self::StarlarkValue>,
         _freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         unreachable!("Basic types don't appear in the heap")
     }
     unsafe fn heap_copy(
@@ -252,7 +254,7 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         debug_assert!(
             (*me).payload.len() > 1,
             "short strings are allocated statically"
@@ -303,7 +305,7 @@ impl<'v> AValue<'v> for AValueTuple {
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         debug_assert!(
             (*me).payload.len() != 0,
             "empty tuple is allocated statically"
@@ -373,7 +375,7 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
     unsafe fn heap_freeze(
         _me: *mut AValueRepr<Self::StarlarkValue>,
         _freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         panic!("already frozen");
     }
 
@@ -403,7 +405,7 @@ impl<'v> AValue<'v> for AValueList {
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         let content = (*me).payload.0.content();
 
         if content.is_empty() {
@@ -452,7 +454,7 @@ impl<'v> AValue<'v> for AValueFrozenList {
     unsafe fn heap_freeze(
         _me: *mut AValueRepr<Self::StarlarkValue>,
         _freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         panic!("already frozen");
     }
 
@@ -483,7 +485,7 @@ impl<'v> AValue<'v> for AValueArray {
     unsafe fn heap_freeze(
         _me: *mut AValueRepr<Self::StarlarkValue>,
         _freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         panic!("arrays should not be frozen")
     }
 
@@ -538,7 +540,7 @@ impl<'v, T: Debug + 'static> AValue<'v> for AValueAnyArray<T> {
     unsafe fn heap_freeze(
         _me: *mut AValueRepr<Self::StarlarkValue>,
         _freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         panic!("AnyArray for now can only be allocated in FrozenHeap");
     }
 
@@ -570,7 +572,7 @@ where
 unsafe fn heap_freeze_simple_impl<'v, A>(
     me: *mut AValueRepr<A::StarlarkValue>,
     freezer: &Freezer,
-) -> anyhow::Result<FrozenValue>
+) -> FreezeResult<FrozenValue>
 where
     A: AValue<'v, ExtraElem = ()>,
 {
@@ -599,7 +601,7 @@ impl<T: StarlarkValue<'static>> AValue<'static> for AValueSimple<T> {
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         if let Some(f) = try_freeze_static::<Self>(me) {
             return Ok(f);
         }
@@ -655,7 +657,7 @@ where
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
+    ) -> FreezeResult<FrozenValue> {
         if let Some(f) = try_freeze_static::<Self>(me) {
             return Ok(f);
         }
@@ -703,8 +705,10 @@ where
     unsafe fn heap_freeze(
         _me: *mut AValueRepr<Self::StarlarkValue>,
         _freezer: &Freezer,
-    ) -> anyhow::Result<FrozenValue> {
-        Err(AValueError::CannotBeFrozen(type_name::<T>()).into())
+    ) -> FreezeResult<FrozenValue> {
+        Err(FreezeError::new(
+            AValueError::CannotBeFrozen(type_name::<T>()).to_string(),
+        ))
     }
 
     unsafe fn heap_copy(

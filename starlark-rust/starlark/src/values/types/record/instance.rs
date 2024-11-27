@@ -40,6 +40,7 @@ use crate::values::record::record_type::FrozenRecordType;
 use crate::values::record::record_type::RecordType;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;

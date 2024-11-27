@@ -41,6 +41,7 @@ use crate::typing::Ty;
 use crate::values::enumeration::enum_type::EnumType;
 use crate::values::enumeration::enum_type::FrozenEnumType;
 use crate::values::types::type_instance_id::TypeInstanceId;
+use crate::values::FreezeResult;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueLifetimeless;

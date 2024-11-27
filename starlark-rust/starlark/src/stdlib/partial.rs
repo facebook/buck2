@@ -44,6 +44,7 @@ use crate::values::function::FUNCTION_TYPE;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -132,14 +133,14 @@ starlark_complex_values!(Partial);
 
 impl<'v> Freeze for Partial<'v> {
     type Frozen = FrozenPartial;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(FrozenPartial {
             func: self.func.freeze(freezer)?,
             pos: freezer.freeze(self.pos)?,
             named: self.named.try_map(|x| x.freeze(freezer))?,
             names: self
                 .names
-                .into_try_map(|(s, x)| anyhow::Ok((s, x.freeze(freezer)?)))?,
+                .into_try_map(|(s, x)| Ok((s, x.freeze(freezer)?)))?,
             names_index: self.names_index,
         })
     }

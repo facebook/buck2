@@ -7,7 +7,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 async-trait = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }

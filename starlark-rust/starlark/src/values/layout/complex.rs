@@ -31,6 +31,8 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
 use crate::values::Freeze;
+use crate::values::FreezeError;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
@@ -175,8 +177,9 @@ where
 {
     type Frozen = FrozenValueTyped<'static, T::Frozen>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         FrozenValueTyped::new_err(self.0.freeze(freezer)?)
+            .map_err(|e| FreezeError::new(format!("{e}")))
     }
 }
 

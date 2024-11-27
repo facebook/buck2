@@ -34,6 +34,7 @@ use crate::values::tuple::value::Tuple;
 use crate::values::types::int::int_or_big::StarlarkIntRef;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
+use crate::values::FreezeResult;
 use crate::values::UnpackValue;
 use crate::values::Value;
 

@@ -17,6 +17,8 @@
 
 use crate as starlark;
 use crate::values::Freeze;
+use crate::values::FreezeError;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 
@@ -27,7 +29,7 @@ struct FreezeSentinel {
 impl Freeze for FreezeSentinel {
     type Frozen = Self;
 
-    fn freeze(self, _: &Freezer) -> anyhow::Result<Self> {
+    fn freeze(self, _: &Freezer) -> FreezeResult<Self> {
         assert!(!self.frozen);
         Ok(Self { frozen: true })
     }

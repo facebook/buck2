@@ -27,6 +27,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
+use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;

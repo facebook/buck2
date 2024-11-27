@@ -45,6 +45,7 @@ use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -555,7 +556,7 @@ impl CommandLineArgLike for FrozenStarlarkCmdArgs {
 
 impl<'v> Freeze for StarlarkCmdArgs<'v> {
     type Frozen = FrozenStarlarkCmdArgs;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let StarlarkCommandLineData {
             items,
             hidden,

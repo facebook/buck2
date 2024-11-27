@@ -116,6 +116,7 @@ use crate::values::types::list::value::FrozenListData;
 use crate::values::types::num::value::NumRef;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
@@ -827,7 +828,7 @@ impl<'v> Value<'v> {
     }
 
     /// Convert a value to a [`FrozenValue`] using a supplied [`Freezer`].
-    pub fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValue> {
+    pub fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
         freezer.freeze(self)
     }
 

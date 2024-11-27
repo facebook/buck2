@@ -18,6 +18,8 @@ use starlark::environment::GlobalsBuilder;
 use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;

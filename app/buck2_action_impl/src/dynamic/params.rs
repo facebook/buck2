@@ -23,6 +23,8 @@ use starlark::values::structs::StructRef;
 use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueOfUnchecked;
@@ -103,19 +105,18 @@ impl FrozenDynamicLambdaParams {
 impl<'v> Freeze for DynamicLambdaParams<'v> {
     type Frozen = FrozenDynamicLambdaParams;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let attr_values = match self.attr_values {
             None => None,
             Some((attr_values, callable)) => Some((
                 attr_values.freeze(freezer)?,
                 // Change lifetime.
-                FrozenValueTyped::new_err(callable.to_frozen_value())?,
+                FrozenValueTyped::new_err(callable.to_frozen_value())
+                    .map_err(|e| FreezeError::new(e.to_string()))?,
             )),
         };
         Ok(FrozenDynamicLambdaParams {
-            attributes: self
-                .attributes
-                .try_map(|a| anyhow::Ok(a.freeze(freezer)?.cast()))?,
+            attributes: self.attributes.try_map(|a| Ok(a.freeze(freezer)?.cast()))?,
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
             attr_values,

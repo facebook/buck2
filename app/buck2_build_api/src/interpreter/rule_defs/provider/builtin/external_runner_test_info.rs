@@ -28,6 +28,8 @@ use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::tuple::TupleRef;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;

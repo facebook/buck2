@@ -44,6 +44,7 @@ use crate::values::type_repr::SetType;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Heap;
@@ -131,7 +132,7 @@ unsafe impl<'v> Coerce<SetData<'v>> for FrozenSetData {}
 // TODO Add optimizations not to allocate empty set.
 impl<'v> Freeze for MutableSet<'v> {
     type Frozen = SetGen<FrozenSetData>;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let content = self.0.into_inner().content.freeze(freezer)?;
         Ok(SetGen(FrozenSetData { content }))
     }

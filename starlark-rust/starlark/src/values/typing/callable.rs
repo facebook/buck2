@@ -48,6 +48,7 @@ use crate::values::typing::TypeCompiled;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -284,7 +285,7 @@ impl<P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocFrozenValue
 
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Freeze for StarlarkCallable<'v, P, R> {
     type Frozen = FrozenStarlarkCallable<P, R>;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(FrozenStarlarkCallable::unchecked_new(
             self.0.freeze(freezer)?,
         ))

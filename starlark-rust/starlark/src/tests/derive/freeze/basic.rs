@@ -17,6 +17,7 @@
 
 use crate as starlark;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 
 #[derive(Freeze)]
 #[allow(dead_code)]

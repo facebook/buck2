@@ -24,6 +24,8 @@ use starlark::values::float::UnpackFloat;
 use starlark::values::none::NoneOr;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;

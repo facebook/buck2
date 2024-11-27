@@ -27,6 +27,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
@@ -227,7 +228,7 @@ unsafe impl<'v> Trace<'v> for StarlarkSelector<'v> {
 
 impl<'v> Freeze for StarlarkSelector<'v> {
     type Frozen = FrozenStarlarkSelector;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(match self {
             StarlarkSelector::Primary(v) => FrozenStarlarkSelector::Primary(v.freeze(freezer)?),
             StarlarkSelector::Sum(l, r) => {

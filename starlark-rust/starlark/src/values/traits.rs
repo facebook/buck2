@@ -85,6 +85,7 @@ use crate::values::ValueError;
 /// use starlark::values::Coerce;
 /// use starlark::values::ComplexValue;
 /// use starlark::values::Freeze;
+/// use starlark::values::FreezeResult;
 /// use starlark::values::Freezer;
 /// use starlark::values::FrozenValue;
 /// use starlark::values::NoSerialize;
@@ -120,7 +121,7 @@ use crate::values::ValueError;
 ///
 /// impl<'v> Freeze for One<'v> {
 ///     type Frozen = FrozenOne;
-///     fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+///     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
 ///         Ok(OneGen(self.0.freeze(freezer)?))
 ///     }
 /// }
@@ -128,7 +129,6 @@ use crate::values::ValueError;
 ///
 /// The [`starlark_complex_value!`](crate::starlark_complex_value!) requires that
 /// the type have an instance for `Coerce`, then the macro defines two type aliases.
-///
 /// ```
 /// # use crate::starlark::values::*;
 /// # #[derive(Debug, Trace)]
@@ -145,7 +145,6 @@ use crate::values::ValueError;
 /// [`AllocFrozenValue`](crate::values::AllocFrozenValue) for the frozen one, and
 /// [`UnpackValue`](crate::values::UnpackValue) for the non-frozen one.
 /// It also defines the methods:
-///
 /// ```
 /// # use crate::starlark::values::*;
 /// # use std::cell::RefMut;

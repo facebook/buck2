@@ -52,6 +52,7 @@ use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -139,7 +140,7 @@ impl FrozenModule {
     ///
     /// This function does not return an error,
     /// but we prefer not to panic if there's some high level logic error.
-    pub fn from_globals(globals: &Globals) -> anyhow::Result<FrozenModule> {
+    pub fn from_globals(globals: &Globals) -> FreezeResult<FrozenModule> {
         let module = Module::new();
 
         module.frozen_heap.add_reference(globals.heap());
@@ -406,7 +407,7 @@ impl Module {
     }
 
     /// Freeze the environment, all its value will become immutable afterwards.
-    pub fn freeze(self) -> anyhow::Result<FrozenModule> {
+    pub fn freeze(self) -> FreezeResult<FrozenModule> {
         let Module {
             names,
             slots,

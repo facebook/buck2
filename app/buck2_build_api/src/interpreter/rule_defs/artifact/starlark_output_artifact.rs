@@ -24,6 +24,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Coerce;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;

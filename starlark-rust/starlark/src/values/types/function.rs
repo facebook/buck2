@@ -47,6 +47,7 @@ use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;

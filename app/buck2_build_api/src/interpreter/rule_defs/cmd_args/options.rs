@@ -34,6 +34,7 @@ use serde::Serializer;
 use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueOfUnchecked;
@@ -365,7 +366,7 @@ impl Serialize for FrozenCommandLineOptions {
 impl<'v> Freeze for CommandLineOptions<'v> {
     type Frozen = FrozenCommandLineOptions;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenCommandLineOptions> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenCommandLineOptions> {
         let CommandLineOptions {
             relative_to,
             absolute_prefix,

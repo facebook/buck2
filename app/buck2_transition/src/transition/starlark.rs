@@ -47,6 +47,8 @@ use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::typing::StarlarkCallableParamSpec;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
@@ -135,17 +137,16 @@ impl<'v> StarlarkValue<'v> for FrozenTransition {
 impl<'v> Freeze for Transition<'v> {
     type Frozen = FrozenTransition;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenTransition> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<FrozenTransition> {
         let implementation = freezer.freeze(self.implementation)?;
-        let id = self
-            .id
-            .into_inner()
-            .ok_or(TransitionError::TransitionNotAssigned)?;
+        let id = self.id.into_inner().ok_or(FreezeError::new(
+            TransitionError::TransitionNotAssigned.to_string(),
+        ))?;
         let refs = self
             .refs
             .into_iter()
             .map(|(k, v)| Ok((k.freeze(freezer)?, v.0)))
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<FreezeResult<_>>()?;
         let attrs = self
             .attrs
             .map(|a| a.into_try_map(|a| a.freeze(freezer)))

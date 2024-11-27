@@ -120,7 +120,10 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
     let validate_body = match validator {
         Some(validator) => quote_spanned! {
             span=>
-            #validator(&frozen)?;
+            match #validator(&frozen) {
+                Ok(v) => v,
+                Err(e) => return std::result::Result::Err(FreezeError::new(e.to_string()))
+            };
         },
         None => quote_spanned! { span=> },
     };
@@ -137,7 +140,7 @@ fn derive_freeze_impl(input: DeriveInput) -> syn::Result<syn::ItemImpl> {
         impl #impl_params starlark::values::Freeze for #name #input_params #bounds_body {
             type Frozen = #name #output_params;
             #[allow(unused_variables)]
-            fn freeze(self, freezer: &starlark::values::Freezer) -> anyhow::Result<Self::Frozen> {
+            fn freeze(self, freezer: &starlark::values::Freezer) -> FreezeResult<Self::Frozen> {
                 let frozen = #body;
                 #validate_body
                 std::result::Result::Ok(frozen)

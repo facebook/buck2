@@ -35,6 +35,8 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -296,16 +298,23 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
 
 impl Freeze for StarlarkDeclaredArtifact {
     type Frozen = StarlarkArtifact;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         // ensure_bound() moves out of self and so we can't construct the error
         // after calling that, so we need to check first.
         if !self.artifact.is_bound() {
-            return Err(ArtifactError::DeclaredArtifactWasNotBound {
-                repr: self.to_string(),
-            }
-            .into());
+            return Err(FreezeError::new(
+                ArtifactError::DeclaredArtifactWasNotBound {
+                    repr: self.to_string(),
+                }
+                .to_string(),
+            ));
         }
-        let artifact = self.artifact.ensure_bound()?.into_artifact();
+        // TODO(minglunli): Check to see if the error carries a context
+        let artifact = match self.artifact.ensure_bound() {
+            Ok(artifact) => artifact,
+            Err(e) => return Err(FreezeError::new(e.to_string())),
+        }
+        .into_artifact();
         Ok(StarlarkArtifact {
             artifact,
             associated_artifacts: self.associated_artifacts,

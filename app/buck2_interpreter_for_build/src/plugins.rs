@@ -26,6 +26,8 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -120,8 +122,10 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
 
 impl Freeze for StarlarkPluginKind {
     type Frozen = FrozenStarlarkPluginKind;
-    fn freeze(self, _: &Freezer) -> anyhow::Result<Self::Frozen> {
-        Ok(self.expect_bound().map(FrozenStarlarkPluginKind)?)
+    fn freeze(self, _: &Freezer) -> FreezeResult<Self::Frozen> {
+        self.expect_bound()
+            .map(FrozenStarlarkPluginKind)
+            .map_err(|e| FreezeError::new(e.to_string()))
     }
 }
 

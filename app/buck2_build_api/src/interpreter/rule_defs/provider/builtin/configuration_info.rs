@@ -29,6 +29,7 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;

@@ -17,6 +17,7 @@
 
 use crate::values::list::ListRef;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -30,7 +31,7 @@ struct Test<V> {
 impl<'v> Freeze for Test<Value<'v>> {
     type Frozen = Test<FrozenValue>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let test = Test {
             field: self.field.freeze(freezer)?,
         };

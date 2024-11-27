@@ -22,6 +22,7 @@ use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::string::StarlarkStr;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;

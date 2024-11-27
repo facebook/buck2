@@ -72,6 +72,8 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueOfUnchecked;
@@ -218,7 +220,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkRunActionValues {
 
 impl<'v> Freeze for StarlarkRunActionValues<'v> {
     type Frozen = FrozenStarlarkRunActionValues;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let StarlarkRunActionValues {
             exe,
             args,
@@ -229,8 +231,10 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             identifier,
         } = self;
         Ok(FrozenStarlarkRunActionValues {
-            exe: FrozenValueTyped::new_err(exe.to_value().freeze(freezer)?)?,
-            args: FrozenValueTyped::new_err(args.to_value().freeze(freezer)?)?,
+            exe: FrozenValueTyped::new_err(exe.to_value().freeze(freezer)?)
+                .map_err(|e| FreezeError::new(format!("{e}")))?,
+            args: FrozenValueTyped::new_err(args.to_value().freeze(freezer)?)
+                .map_err(|e| FreezeError::new(format!("{e}")))?,
             env: env.freeze(freezer)?,
             worker: worker.freeze(freezer)?,
             remote_worker: remote_worker.freeze(freezer)?,

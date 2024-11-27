@@ -86,6 +86,7 @@ use crate::values::string::str_type::StarlarkStr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
+use crate::values::FreezeResult;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValueOfUnchecked;
@@ -562,7 +563,7 @@ impl Freezer {
     }
 
     /// Freeze a nested value while freezing yourself.
-    pub fn freeze(&self, value: Value) -> anyhow::Result<FrozenValue> {
+    pub fn freeze(&self, value: Value) -> FreezeResult<FrozenValue> {
         // Case 1: We have our value encoded in our pointer
         if let Some(x) = value.unpack_frozen() {
             return Ok(x);

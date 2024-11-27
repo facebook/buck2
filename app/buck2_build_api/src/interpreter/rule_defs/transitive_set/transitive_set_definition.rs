@@ -39,6 +39,8 @@ use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
@@ -357,7 +359,7 @@ starlark_simple_value!(FrozenTransitiveSetDefinition);
 impl<'v> Freeze for TransitiveSetDefinition<'v> {
     type Frozen = FrozenTransitiveSetDefinition;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let Self {
             exported,
             module_id: _,
@@ -368,7 +370,9 @@ impl<'v> Freeze for TransitiveSetDefinition<'v> {
             Some(x) => x,
             None => {
                 // Unfortunately we have no name or location for the definition at this point.
-                return Err(TransitiveSetError::TransitiveSetNotAssigned.into());
+                return Err(FreezeError::new(
+                    TransitiveSetError::TransitiveSetNotAssigned.to_string(),
+                ));
             }
         };
 

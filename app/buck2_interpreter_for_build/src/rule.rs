@@ -58,6 +58,8 @@ use starlark::values::typing::StarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenStringValue;
@@ -384,7 +386,7 @@ impl FrozenRuleImpl {
 impl<'v> Freeze for RuleImpl<'v> {
     type Frozen = FrozenRuleImpl;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         match self {
             RuleImpl::BuildRule(impl_) => Ok(FrozenRuleImpl::BuildRule(impl_.freeze(freezer)?)),
             RuleImpl::BxlAnon(impl_) => Ok(FrozenRuleImpl::BxlAnon(impl_.freeze(freezer)?)),
@@ -394,12 +396,16 @@ impl<'v> Freeze for RuleImpl<'v> {
 
 impl<'v> Freeze for RuleCallable<'v> {
     type Frozen = FrozenRuleCallable;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let frozen_impl = self.implementation.freeze(freezer)?;
         let rule_docs = self.documentation_impl();
         let id = match self.id.into_inner() {
             Some(x) => x,
-            None => return Err(RuleError::RuleNotAssigned(self.rule_path).into()),
+            None => {
+                return Err(FreezeError::new(
+                    RuleError::RuleNotAssigned(self.rule_path).to_string(),
+                ));
+            }
         };
         let rule_type = Arc::new(id);
         let rule_name = rule_type.name.to_owned();

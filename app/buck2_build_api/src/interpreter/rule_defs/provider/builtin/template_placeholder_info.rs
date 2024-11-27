@@ -21,6 +21,7 @@ use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::dict::FrozenDictRef;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;

@@ -194,7 +194,7 @@ impl BazelContext {
                     let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
                     eval.eval_module(module, &globals).into_anyhow_result()?;
                 }
-                env.freeze()
+                Ok(env.freeze()?)
             })
             .collect::<anyhow::Result<_>>()?;
 

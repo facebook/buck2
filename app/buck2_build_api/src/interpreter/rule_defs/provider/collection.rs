@@ -46,6 +46,7 @@ use starlark::values::AllocFrozenValue;
 use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenHeapRef;
@@ -420,12 +421,12 @@ unsafe impl<'v> Trace<'v> for ProviderCollection<'v> {
 
 impl<'v> Freeze for ProviderCollection<'v> {
     type Frozen = FrozenProviderCollection;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let providers = self
             .providers
             .into_iter()
-            .map(|(k, v)| anyhow::Ok((k, freezer.freeze(v)?)))
-            .collect::<anyhow::Result<_>>()?;
+            .map(|(k, v)| Ok((k, freezer.freeze(v)?)))
+            .collect::<FreezeResult<_>>()?;
         Ok(FrozenProviderCollection { providers })
     }
 }

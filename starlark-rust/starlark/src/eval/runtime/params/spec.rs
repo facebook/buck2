@@ -52,6 +52,7 @@ use crate::typing::ParamIsRequired;
 use crate::typing::Ty;
 use crate::values::dict::Dict;
 use crate::values::dict::DictRef;
+use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;

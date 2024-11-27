@@ -54,6 +54,7 @@ use crate::values::typing::type_compiled::matchers::IsAny;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;

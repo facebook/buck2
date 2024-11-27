@@ -42,6 +42,7 @@ use crate::values::none::NoneType;
 use crate::values::types::exported_name::ExportedName;
 use crate::values::types::exported_name::MutableExportedName;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::NoSerialize;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -149,7 +150,7 @@ fn test_load_symbols() {
 }
 
 #[test]
-fn test_load_public_symbols_does_not_reexport() -> anyhow::Result<()> {
+fn test_load_public_symbols_does_not_reexport() -> starlark::Result<()> {
     let mut a = Assert::new();
 
     let module_b = a.module("b", "x = 5");

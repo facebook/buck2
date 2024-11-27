@@ -25,6 +25,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::FreezeErrorContext;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
@@ -69,7 +70,7 @@ pub(crate) fn new_transitive_set(
 
     buck2_interpreter_for_build::attrs::coerce::testing::to_value(&env, &globals, code);
 
-    let frozen = env.freeze().context("Freeze failed")?;
+    let frozen = env.freeze().freeze_error_context("Freeze failed")?;
 
     let make = frozen.get("make").context("`make` was not found")?;
 

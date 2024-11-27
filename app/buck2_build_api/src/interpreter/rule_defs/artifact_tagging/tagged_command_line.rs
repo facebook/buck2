@@ -15,6 +15,7 @@ use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;

@@ -15,6 +15,8 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueTyped;
@@ -72,12 +74,15 @@ impl<'v> CmdArgsRegex<'v> {
 impl<'v> Freeze for CmdArgsRegex<'v> {
     type Frozen = FrozenCmdArgsRegex;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(match self {
             Self::Str(s) => FrozenCmdArgsRegex::Str(s.freeze(freezer)?),
-            Self::Regex(r) => {
-                FrozenCmdArgsRegex::Regex(FrozenValueTyped::new_err(r.to_value().freeze(freezer)?)?)
-            }
+            Self::Regex(r) => FrozenCmdArgsRegex::Regex(
+                match FrozenValueTyped::new_err(r.to_value().freeze(freezer)?) {
+                    Ok(r) => r,
+                    Err(e) => return Err(FreezeError::new(e.to_string())),
+                },
+            ),
         })
     }
 }

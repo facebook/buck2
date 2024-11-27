@@ -18,6 +18,8 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValueTyped;
 use starlark::values::OwnedFrozenValueTyped;
@@ -42,7 +44,7 @@ pub struct FrozenAnalysisExtraValue {
 
 impl<'v> Freeze for AnalysisExtraValue<'v> {
     type Frozen = FrozenAnalysisExtraValue;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let AnalysisExtraValue {
             analysis_value_storage,
         } = self;
@@ -50,7 +52,10 @@ impl<'v> Freeze for AnalysisExtraValue<'v> {
             analysis_value_storage
                 .into_inner()
                 .try_map(|analysis_value_storage| {
-                    FrozenValueTyped::new_err(analysis_value_storage.to_value().freeze(freezer)?)
+                    Ok(FrozenValueTyped::new_err(
+                        analysis_value_storage.to_value().freeze(freezer)?,
+                    )
+                    .map_err(|e| FreezeError::new(format!("{e}"))))?
                 })?;
         Ok(FrozenAnalysisExtraValue {
             analysis_value_storage,

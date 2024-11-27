@@ -16,6 +16,7 @@ use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Trace;
@@ -39,7 +40,7 @@ pub(crate) struct FrozenInterpreterExtraValue {
 impl<'v> Freeze for InterpreterExtraValue<'v> {
     type Frozen = FrozenInterpreterExtraValue;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(FrozenInterpreterExtraValue {
             package_extra: self
                 .package_extra

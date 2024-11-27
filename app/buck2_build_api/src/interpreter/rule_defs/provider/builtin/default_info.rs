@@ -32,6 +32,8 @@ use starlark::values::list::ListType;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;

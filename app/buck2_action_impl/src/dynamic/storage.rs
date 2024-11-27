@@ -24,6 +24,7 @@ use dupe::Dupe;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::OwnedRefFrozenRef;
 use starlark::values::Trace;
@@ -124,7 +125,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
     fn freeze(
         self: Box<Self>,
         freezer: &Freezer,
-    ) -> buck2_error::Result<Box<dyn FrozenDynamicLambdaParamsStorage>> {
+    ) -> FreezeResult<Box<dyn FrozenDynamicLambdaParamsStorage>> {
         let DynamicLambdaParamsStorageImpl {
             self_key,
             lambda_params,
@@ -132,7 +133,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
         let lambda_params = lambda_params
             .into_iter_hashed()
             .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-            .collect::<buck2_error::Result<_>>()?;
+            .collect::<FreezeResult<_>>()?;
         Ok(Box::new(FrozenDynamicLambdaParamsStorageImpl {
             self_key,
             lambda_params,

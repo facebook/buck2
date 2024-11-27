@@ -32,6 +32,7 @@ use dupe::Copy_;
 use dupe::Dupe_;
 
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -167,7 +168,7 @@ where
 impl<'f, T: 'f + ?Sized> Freeze for FrozenRef<'f, T> {
     type Frozen = Self;
 
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(self)
     }
 }

@@ -58,6 +58,7 @@ use crate::values::types::dict::dict_type::DictType;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
@@ -309,7 +310,7 @@ impl FrozenDictData {
 
 impl<'v> Freeze for DictGen<RefCell<Dict<'v>>> {
     type Frozen = DictGen<FrozenDictData>;
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let content = self.0.into_inner().content.freeze(freezer)?;
         Ok(DictGen(FrozenDictData { content }))
     }

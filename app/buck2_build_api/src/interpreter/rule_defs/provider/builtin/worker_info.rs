@@ -21,6 +21,8 @@ use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
 use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;

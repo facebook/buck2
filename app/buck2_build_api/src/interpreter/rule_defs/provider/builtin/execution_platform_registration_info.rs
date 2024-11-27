@@ -19,6 +19,7 @@ use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 use starlark::values::none::NoneOr;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;

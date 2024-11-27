@@ -17,6 +17,8 @@
 
 use crate as starlark;
 use crate::values::Freeze;
+use crate::values::FreezeError;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 

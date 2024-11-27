@@ -90,6 +90,7 @@ use crate::values::frozen_ref::AtomicFrozenRefOption;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
@@ -600,7 +601,7 @@ impl<'v> Def<'v> {
 impl<'v> Freeze for Def<'v> {
     type Frozen = FrozenDef;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let parameters = self.parameters.freeze(freezer)?;
         let parameter_types = self.parameter_types.freeze(freezer)?;
         let return_type = self.return_type.freeze(freezer)?;

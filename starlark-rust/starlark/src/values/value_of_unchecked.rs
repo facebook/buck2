@@ -33,6 +33,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -141,7 +142,7 @@ where
 impl<V: ValueLifetimeless + Freeze, T: StarlarkTypeRepr> Freeze for ValueOfUncheckedGeneric<V, T> {
     type Frozen = ValueOfUncheckedGeneric<FrozenValue, T>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let frozen = self.0.freeze(freezer)?;
         Ok(ValueOfUncheckedGeneric::new(frozen))
     }

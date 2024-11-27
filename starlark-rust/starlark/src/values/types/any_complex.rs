@@ -30,6 +30,7 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::values::AllocValue;
 use crate::values::Freeze;
+use crate::values::FreezeResult;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
@@ -114,6 +115,7 @@ mod tests {
     use crate::values::list::AllocList;
     use crate::values::types::any_complex::StarlarkAnyComplex;
     use crate::values::Freeze;
+    use crate::values::FreezeResult;
     use crate::values::Freezer;
     use crate::values::FrozenStringValue;
     use crate::values::FrozenValue;
@@ -131,7 +133,7 @@ mod tests {
         impl<'v> Freeze for UnfrozenData<'v> {
             type Frozen = FrozenData;
 
-            fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+            fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
                 Ok(FrozenData {
                     string: self.string.freeze(freezer)?,
                     other: freezer.freeze(self.other)?,

@@ -54,6 +54,8 @@ use starlark::values::typing::TypeMatcherFactory;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
+use starlark::values::FreezeError;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenRef;
 use starlark::values::FrozenValue;
@@ -301,17 +303,19 @@ impl<'v> AllocValue<'v> for UserProviderCallable {
 
 impl Freeze for UserProviderCallable {
     type Frozen = FrozenUserProviderCallable;
-    fn freeze(self, _freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         let callable = self.callable.into_inner();
         let callable = match callable {
             Some(x) => x,
             None => {
                 // Unfortunately we have no name or location for the provider at this point,
                 // so reproduce the fields so that the provider can be identified.
-                return Err(ProviderCallableError::ProviderNotAssigned(
-                    self.fields.into_iter().map(|(name, _)| name).collect(),
-                )
-                .into());
+                return Err(FreezeError::new(
+                    ProviderCallableError::ProviderNotAssigned(
+                        self.fields.into_iter().map(|(name, _)| name).collect(),
+                    )
+                    .to_string(),
+                ));
             }
         };
 

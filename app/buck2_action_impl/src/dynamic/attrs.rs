@@ -26,6 +26,7 @@ use starlark::values::tuple::TupleRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::TypeCompiled;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Trace;
@@ -89,7 +90,7 @@ pub(crate) enum DynamicAttrValue<
 impl<V: ValueLifetimeless, O> Freeze for DynamicAttrValue<V, O> {
     type Frozen = DynamicAttrValue<V::Frozen, O>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         match self {
             DynamicAttrValue::Output(o) => Ok(DynamicAttrValue::Output(o)),
             DynamicAttrValue::ArtifactValue(a) => Ok(DynamicAttrValue::ArtifactValue(a)),
@@ -119,7 +120,7 @@ unsafe impl<'v, V: ValueLifetimeless + Trace<'v>, O> Trace<'v> for DynamicAttrVa
 impl<V: ValueLifetimeless, O> Freeze for DynamicAttrValues<V, O> {
     type Frozen = DynamicAttrValues<V::Frozen, O>;
 
-    fn freeze(self, freezer: &Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
         Ok(DynamicAttrValues {
             values: self.values.freeze(freezer)?,
         })

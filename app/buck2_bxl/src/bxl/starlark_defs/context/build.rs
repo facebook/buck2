@@ -34,6 +34,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
 use starlark::values::starlark_value;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;

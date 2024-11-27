@@ -50,6 +50,7 @@ use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::traits::StarlarkValueVTable;
 use crate::values::traits::StarlarkValueVTableGet;
+use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
@@ -124,7 +125,7 @@ pub(crate) struct AValueVTable {
     // `AValue`
     pub(crate) is_str: bool,
     memory_size: fn(StarlarkValueRawPtr) -> ValueAllocSize,
-    heap_freeze: fn(StarlarkValueRawPtr, &Freezer) -> anyhow::Result<FrozenValue>,
+    heap_freeze: fn(StarlarkValueRawPtr, &Freezer) -> FreezeResult<FrozenValue>,
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
 
     // `StarlarkValue` supertraits.
@@ -300,7 +301,7 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
-    pub(crate) unsafe fn heap_freeze(self, freezer: &Freezer) -> anyhow::Result<FrozenValue> {
+    pub(crate) unsafe fn heap_freeze(self, freezer: &Freezer) -> FreezeResult<FrozenValue> {
         (self.vtable.heap_freeze)(self.value, freezer)
     }
 

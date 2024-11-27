@@ -21,6 +21,7 @@ use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
+use starlark::values::FreezeResult;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
@@ -57,7 +58,7 @@ impl<Node: QueryTarget + AllocNode> StarlarkTargetSet<Node> {
 impl<Node: QueryTarget> Freeze for StarlarkTargetSet<Node> {
     type Frozen = StarlarkTargetSet<Node>;
 
-    fn freeze(self, _freezer: &starlark::values::Freezer) -> anyhow::Result<Self::Frozen> {
+    fn freeze(self, _freezer: &starlark::values::Freezer) -> FreezeResult<Self::Frozen> {
         Ok(self)
     }
 }
