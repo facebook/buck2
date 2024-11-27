@@ -108,7 +108,7 @@ load(
     "py_resources",
     "qualify_srcs",
 )
-load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
+load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style", "get_platform_attr")
 load(":typing.bzl", "create_per_target_type_check")
 
@@ -386,7 +386,6 @@ def python_executable(
         shared_libraries = shared_deps,
     )
 
-    source_db = create_source_db(ctx, src_manifest, python_deps)
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
 
     dbg_source_db = create_dbg_source_db(ctx, src_manifest, python_deps)
@@ -411,7 +410,6 @@ def python_executable(
         "dbg-source-db": [dbg_source_db],
         "library-info": [library_info],
         "main": [DefaultInfo(default_output = ctx.actions.write_json("main.json", main))],
-        "source-db": [source_db],
         "source-db-no-deps": [source_db_no_deps, create_python_source_db_info(library_info.manifests)],
     })
 
