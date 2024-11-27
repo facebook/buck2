@@ -198,6 +198,8 @@ pub enum ErrorKind {
     Scope(anyhow::Error),
     /// Syntax error.
     Parser(anyhow::Error),
+    /// Freeze errors. Should have no metadata attached
+    Freeze(anyhow::Error),
     /// Indicates a logic bug in starlark
     Internal(anyhow::Error),
     /// Error from user provided native function
@@ -220,6 +222,7 @@ impl ErrorKind {
             Self::Value(_) => None,
             Self::Function(_) => None,
             Self::Scope(_) => None,
+            Self::Freeze(_) => None,
             Self::Parser(_) => None,
             Self::Internal(_) => None,
             Self::Native(e) => e.source(),
@@ -235,6 +238,7 @@ impl ErrorKind {
             | ErrorKind::Value(e)
             | ErrorKind::Function(e)
             | ErrorKind::Scope(e)
+            | ErrorKind::Freeze(e)
             | ErrorKind::Parser(e)
             | ErrorKind::StackOverflow(e)
             | ErrorKind::Native(e)
@@ -251,6 +255,7 @@ impl fmt::Debug for ErrorKind {
             Self::StackOverflow(e) => fmt::Debug::fmt(e, f),
             Self::Function(e) => fmt::Debug::fmt(e, f),
             Self::Scope(e) => fmt::Debug::fmt(e, f),
+            Self::Freeze(e) => fmt::Debug::fmt(e, f),
             Self::Parser(e) => fmt::Debug::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Native(e) => fmt::Debug::fmt(e, f),
@@ -267,6 +272,7 @@ impl fmt::Display for ErrorKind {
             Self::Value(e) => fmt::Display::fmt(e, f),
             Self::Function(e) => fmt::Display::fmt(e, f),
             Self::Scope(e) => fmt::Display::fmt(e, f),
+            Self::Freeze(e) => fmt::Display::fmt(e, f),
             Self::Parser(e) => fmt::Display::fmt(e, f),
             Self::Internal(e) => write!(f, "Internal error: {}", e),
             Self::Native(e) => fmt::Display::fmt(e, f),
