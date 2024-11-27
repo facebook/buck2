@@ -16,8 +16,11 @@ def _check_targets_batched(ctx: bxl.Context, checked_targets: list[Label]) -> ty
         for label, artifacts in output.items()
     }
 
-def _should_type_check(_configured_target: bxl.ConfiguredTargetNode, analysis_result: bxl.AnalysisResult) -> bool:
-    return "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
+def _should_type_check(configured_target: bxl.ConfiguredTargetNode, analysis_result: bxl.AnalysisResult) -> bool:
+    return (
+        len(configured_target.sources()) > 0 and
+        "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
+    )
 
 def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> list[Label]:
     configured_targets = ctx.configured_targets(
