@@ -229,6 +229,27 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Find the shortest path (dependency chain) from one target set to another.
+    ///
+    /// The first parameter `from` is upstream (for example, final binary),
+    /// the second parameter `to` is some downstream (for example, a library).
+    ///
+    /// If there are multiple paths, which one is returned is unspecified.
+    ///
+    /// Results are returned in order from up to down.
+    ///
+    /// If there's no path, return an empty set.
+    ///
+    /// For example:
+    ///
+    /// ```text
+    /// $ buck2 uquery 'somepath(//buck2:buck2, //buck2/app/buck2_node:buck2_node)'
+    ///
+    /// //buck2:buck2
+    /// //buck2/app/buck2:buck2-bin
+    /// //buck2/app/buck2_analysis:buck2_analysis
+    /// //buck2/app/buck2_node:buck2_node
+    /// ```
     async fn somepath(
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
@@ -569,26 +590,6 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         .await?)
     }
 
-    /// Find the shortest path (dependency chain) from one target set to another.
-    ///
-    /// First parameter is upstream (for example, final binary), second is some downstream (for example, a library).
-    ///
-    /// If there are multiple paths, which one is returned is unspecified.
-    ///
-    /// Results are returned in order from up to down.
-    ///
-    /// If there's no path, return an empty set.
-    ///
-    /// # Example
-    ///
-    /// ```text
-    /// $ buck2 uquery 'somepath(fbcode//buck2:buck2, fbcode//buck2/app/buck2_node:buck2_node)'
-    ///
-    /// fbcode//buck2:buck2
-    /// fbcode//buck2/app/buck2:buck2-bin
-    /// fbcode//buck2/app/buck2_analysis:buck2_analysis
-    /// fbcode//buck2/app/buck2_node:buck2_node
-    /// ```
     pub async fn somepath(
         &self,
         env: &Env,
