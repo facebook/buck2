@@ -65,7 +65,7 @@ impl DocString {
         if docs.is_empty() {
             None
         } else {
-            let mut lines = docs.into_iter().peekable();
+            let mut lines = docs.into_iter();
             let short_help = lines.next().unwrap().trim().to_owned();
             let mut lines = lines.skip_while(|v| v.is_empty());
 
