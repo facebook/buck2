@@ -649,7 +649,12 @@ message Snapshot {
   optional uint64 malloc_bytes_allocated = 9;
   //  Total number of bytes of used disk space on machine
   optional uint64 used_disk_space_bytes = 10;
-  optional HostCpuLoadInfo host_cpu_load_info = 12;
+
+  // Host system CPU time since command start.
+  optional uint64 host_cpu_usage_system_ms = 12;
+
+  // Host user CPU time since command start.
+  optional uint64 host_cpu_usage_user_ms = 13;
 
   uint64 dice_key_count = 101;
   // the number of keys actively present in the per transaction cache
@@ -727,22 +732,6 @@ message UnixSystemStats {
   double load1 = 1;
   double load5 = 2;
   double load15 = 3;
-}
-
-// CPU usage sum for all cores from the system start.
-// NOTE:
-//  - Field values are in ticks (1/100 second). Values from kernels not running
-//  at 100Hz will have to be converted before setting the fields.
-//  - At 10 CPUs, numbers overflow after a couple of weeks of uptime.
-message HostCpuLoadInfo {
-  // Ticks spent in user space processes.
-  uint32 user = 1;
-  // Ticks spent in the kernel.
-  uint32 system = 2;
-  // Ticks where CPU is idle.
-  uint32 idle = 3;
-  // Ticks spent in lower priority processes. This is a subset of 'user'.
-  uint32 nice = 4;
 }
 
 enum TestStatus {
