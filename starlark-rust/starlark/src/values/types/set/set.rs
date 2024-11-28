@@ -21,6 +21,7 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::values::function::SpecialBuiltinFunction;
 use crate::values::set::refs::SetRef;
+use crate::values::set::value::FrozenSet;
 use crate::values::set::value::SetData;
 use crate::values::typing::StarlarkIter;
 use crate::values::Heap;
@@ -31,6 +32,7 @@ use crate::values::ValueOfUnchecked;
 #[starlark_module]
 pub(crate) fn register_set(globals: &mut GlobalsBuilder) {
     #[starlark(
+        as_type = FrozenSet,
         speculative_exec_safe,
         special_builtin_function = SpecialBuiltinFunction::Set,
     )]

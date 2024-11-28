@@ -36,6 +36,5 @@
 ## record
 ## repr
 ## reversed
-## set
 ## sorted
 ## zip
