@@ -17,6 +17,9 @@ use crate::query::syntax::simple::functions::helpers::QueryArgType;
 pub struct MarkdownOptions {
     /// Whether to include alt text (used for expression type links).
     pub include_alt_text: bool,
+    /// Termimad doesn't support links, see <https://github.com/Canop/termimad/issues/48>.
+    /// Flag to disable generation of those for terminal / rendered outputs.
+    pub links_enabled: bool,
 }
 
 // Instances created by #[query_module]
@@ -27,13 +30,14 @@ pub struct ArgDescription {
 }
 
 impl ArgDescription {
-    pub fn render_markdown(&self) -> String {
-        format!(
-            "{}: {}",
-            &self.name,
-            self.repr_format
-                .replace("{}", &format!("*{}*", self.arg_type.repr()))
-        )
+    pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
+        let repr = format!("*{}*", self.arg_type.repr());
+        let repr = if options.links_enabled {
+            format!("[{}](#{})", repr, self.arg_type.internal_link_id())
+        } else {
+            repr
+        };
+        format!("{}: {}", &self.name, self.repr_format.replace("{}", &repr))
     }
 }
 
@@ -47,11 +51,14 @@ pub struct FunctionDescription {
 }
 
 impl FunctionDescription {
-    pub fn render_short_markdown(&self) -> String {
+    pub fn render_short_markdown(&self, options: &MarkdownOptions) -> String {
         format!(
             " - {}({}){}",
             self.name,
-            self.args.iter().map(|v| v.render_markdown()).join(", "),
+            self.args
+                .iter()
+                .map(|v| v.render_markdown(options))
+                .join(", "),
             &match &self.short_help {
                 None => "".to_owned(),
                 Some(v) => format!(": {}", v),
@@ -59,11 +66,14 @@ impl FunctionDescription {
         )
     }
 
-    pub fn render_markdown(&self) -> String {
+    pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
         let mut rendered = format!(
             "### {}({})\n\n",
             self.name,
-            self.args.iter().map(|v| v.render_markdown()).join(", ")
+            self.args
+                .iter()
+                .map(|v| v.render_markdown(options))
+                .join(", ")
         );
         if let Some(v) = &self.short_help {
             writeln!(rendered, "{}\n", v).unwrap();
@@ -85,7 +95,7 @@ pub struct ModuleDescription {
 }
 
 impl ModuleDescription {
-    pub fn render_markdown(&self) -> String {
+    pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
         let mut rendered = format!(
             "## {}\n\n",
             match &self.short_help {
@@ -98,11 +108,11 @@ impl ModuleDescription {
         }
 
         for (_, func) in &self.functions {
-            writeln!(rendered, "{}", func.render_short_markdown()).unwrap();
+            writeln!(rendered, "{}", func.render_short_markdown(options)).unwrap();
         }
 
         for (_, func) in &self.functions {
-            writeln!(rendered, "{}\n", func.render_markdown()).unwrap();
+            writeln!(rendered, "{}\n", func.render_markdown(options)).unwrap();
         }
 
         rendered
@@ -129,13 +139,21 @@ impl QueryEnvironmentDescription {
             enum_iterator::all::<QueryArgType>()
                 .map(|v| render_arg_type_markdown(v, options))
                 .join("\n\n"),
-            self.mods.iter().map(|v| v.render_markdown()).join("\n\n")
+            self.mods
+                .iter()
+                .map(|v| v.render_markdown(options))
+                .join("\n\n")
         )
     }
 }
 
 fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> String {
-    let mut rendered = format!("- *{}*: ", v.repr());
+    let anchor = if options.links_enabled {
+        &format!("<a name=\"{}\"></a>", v.internal_link_id())
+    } else {
+        ""
+    };
+    let mut rendered = format!("- *{}*{}: ", v.repr(), anchor);
     match (options.include_alt_text, v.short_description()) {
         (true, Some(short_description)) => {
             rendered.push_str(short_description);

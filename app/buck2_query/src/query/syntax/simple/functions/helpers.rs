@@ -58,6 +58,11 @@ impl QueryArgType {
         }
     }
 
+    /// Hashtag link ID to be used in Markdown
+    pub fn internal_link_id(self) -> String {
+        self.repr().to_lowercase().replace(" ", "-")
+    }
+
     pub fn short_description(self) -> Option<&'static str> {
         match self {
             QueryArgType::TargetSet => Some("either a literal or the return value of a function"),
