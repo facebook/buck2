@@ -98,7 +98,7 @@ impl ModuleDescription {
         }
 
         for (_, func) in &self.functions {
-            writeln!(rendered, "{}\n", func.render_short_markdown()).unwrap();
+            writeln!(rendered, "{}", func.render_short_markdown()).unwrap();
         }
 
         for (_, func) in &self.functions {
