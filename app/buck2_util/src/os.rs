@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub mod host_cpu_usage;
 pub mod macos;
 pub mod win;
