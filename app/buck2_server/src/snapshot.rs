@@ -21,6 +21,7 @@ use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
 use dupe::Dupe;
 
+use crate::cpu_usage_collector::CpuUsageCollector;
 use crate::daemon::state::DaemonStateData;
 use crate::jemalloc_stats::get_allocator_stats;
 use crate::net_io::NetworkKind;
@@ -32,6 +33,7 @@ pub struct SnapshotCollector {
     daemon: Arc<DaemonStateData>,
     net_io_collector: SystemNetworkIoCollector,
     buck_out_path: Arc<AbsNormPathBuf>,
+    cpu_usage_collector: Option<CpuUsageCollector>,
 }
 
 impl SnapshotCollector {
@@ -40,6 +42,7 @@ impl SnapshotCollector {
             daemon,
             net_io_collector: SystemNetworkIoCollector::new(),
             buck_out_path: buck_out_path.into(),
+            cpu_usage_collector: CpuUsageCollector::new().ok(),
         }
     }
 
@@ -55,6 +58,7 @@ impl SnapshotCollector {
         self.add_materializer_metrics(&mut snapshot);
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
+        self.add_cpu_usage(&mut snapshot);
         snapshot
     }
 
@@ -274,6 +278,15 @@ impl SnapshotCollector {
                 load5,
                 load15,
             });
+        }
+    }
+
+    fn add_cpu_usage(&self, snapshot: &mut buck2_data::Snapshot) {
+        if let Some(collector) = &self.cpu_usage_collector {
+            if let Ok(cpu_usage) = collector.get_usage_since_command_start() {
+                snapshot.host_cpu_usage_system_ms = cpu_usage.system;
+                snapshot.host_cpu_usage_user_ms = cpu_usage.user;
+            }
         }
     }
 }
