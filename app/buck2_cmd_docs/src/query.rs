@@ -76,7 +76,6 @@ pub(crate) struct DocsAqueryCommand {
 
 fn output(options: OutputFormatOptions, description: QueryEnvironmentDescription) -> ExitResult {
     let markdown = description.render_markdown(&MarkdownOptions {
-        include_alt_text: true,
         links_enabled: match options.format {
             OutputFormatArg::Rendered => false,
             OutputFormatArg::Markdown => true,

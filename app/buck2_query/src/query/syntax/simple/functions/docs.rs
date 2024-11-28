@@ -15,8 +15,6 @@ use itertools::Itertools;
 use crate::query::syntax::simple::functions::helpers::QueryArgType;
 
 pub struct MarkdownOptions {
-    /// Whether to include alt text (used for expression type links).
-    pub include_alt_text: bool,
     /// Termimad doesn't support links, see <https://github.com/Canop/termimad/issues/48>.
     /// Flag to disable generation of those for terminal / rendered outputs.
     pub links_enabled: bool,
@@ -154,12 +152,9 @@ fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> Strin
         ""
     };
     let mut rendered = format!("- *{}*{}: ", v.repr(), anchor);
-    match (options.include_alt_text, v.short_description()) {
-        (true, Some(short_description)) => {
-            rendered.push_str(short_description);
-        }
-        _ => {}
-    };
+    if let Some(short_description) = v.short_description() {
+        rendered.push_str(short_description);
+    }
     rendered.push_str(&format!("\n\n  {}", v.description()));
     rendered
 }
