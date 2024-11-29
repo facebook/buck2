@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::borrow::Cow;
 use std::fmt::Write;
 
 use indexmap::IndexMap;
@@ -48,10 +49,18 @@ pub struct FunctionDescription {
 }
 
 impl FunctionDescription {
+    fn rendered_reference(&self, options: &MarkdownOptions) -> Cow<'static, str> {
+        if options.links_enabled {
+            Cow::Owned(format!("[{}](#{})", self.name, self.name))
+        } else {
+            Cow::Borrowed(self.name)
+        }
+    }
+
     pub fn render_short_markdown(&self, options: &MarkdownOptions) -> String {
         format!(
             " - {}({}){}",
-            self.name,
+            self.rendered_reference(options),
             self.args
                 .iter()
                 .map(|v| v.render_markdown(options))
@@ -64,13 +73,19 @@ impl FunctionDescription {
     }
 
     pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
+        let anchor = if options.links_enabled {
+            &format!("{{#{}}}", self.name)
+        } else {
+            ""
+        };
         let mut rendered = format!(
-            "### {}({})\n\n",
+            "### {}({}){}\n\n",
             self.name,
             self.args
                 .iter()
                 .map(|v| v.render_markdown(options))
-                .join(", ")
+                .join(", "),
+            anchor,
         );
         if let Some(v) = &self.short_help {
             writeln!(rendered, "{}\n", v).unwrap();
