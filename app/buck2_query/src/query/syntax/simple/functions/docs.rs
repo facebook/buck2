@@ -29,13 +29,12 @@ pub struct ArgDescription {
 
 impl ArgDescription {
     pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
-        let repr = format!("*{}*", self.arg_type.repr());
-        let repr = if options.links_enabled {
-            format!("[{}](#{})", repr, self.arg_type.internal_link_id())
-        } else {
-            repr
-        };
-        format!("{}: {}", &self.name, self.repr_format.replace("{}", &repr))
+        format!(
+            "{}: {}",
+            &self.name,
+            self.repr_format
+                .replace("{}", &self.arg_type.rendered_reference(options))
+        )
     }
 }
 
@@ -152,8 +151,8 @@ fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> Strin
         ""
     };
     let mut rendered = format!("- *{}*{}: ", v.repr(), anchor);
-    if let Some(short_description) = v.short_description() {
-        rendered.push_str(short_description);
+    if let Some(short_description) = v.short_description(options) {
+        rendered.push_str(short_description.as_ref());
     }
     if let Some(description) = v.description() {
         rendered.push_str(&format!("\n\n  {}", description));

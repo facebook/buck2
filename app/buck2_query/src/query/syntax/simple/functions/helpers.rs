@@ -11,6 +11,8 @@
 //!
 //! To allow a new type to be used as an argument, implement the [QueryFunctionArg] trait for that type.
 
+use std::borrow::Cow;
+
 use async_trait::async_trait;
 use buck2_query_parser::spanned::Spanned;
 use buck2_query_parser::Expr;
@@ -44,6 +46,7 @@ mod _scoped_allow {
 }
 
 pub use _scoped_allow::*;
+use buck2_query::query::syntax::simple::functions::docs::MarkdownOptions;
 
 impl QueryArgType {
     pub fn repr(self) -> &'static str {
@@ -58,51 +61,69 @@ impl QueryArgType {
         }
     }
 
+    pub fn rendered_reference(self, options: &MarkdownOptions) -> String {
+        let repr = format!("*{}*", self.repr());
+        if options.links_enabled {
+            format!("[{}](#{})", repr, self.internal_link_id())
+        } else {
+            repr
+        }
+    }
+
     /// Hashtag link ID to be used in Markdown
     pub fn internal_link_id(self) -> String {
         self.repr().to_lowercase().replace(" ", "-")
     }
 
-    pub fn short_description(self) -> Option<&'static str> {
+    pub fn short_description(self, options: &MarkdownOptions) -> Option<Cow<'static, str>> {
         match self {
-            QueryArgType::TargetSet => Some("either a literal or the return value of a function"),
-            QueryArgType::FileSet => Some("either a literal or the return value of a function"),
-            QueryArgType::Expression => {
-                Some("a valid query expression, evaluated in a function-specific context")
-            }
-            _ => None,
+            QueryArgType::String => Some(Cow::Borrowed(
+                "for example, `non_quoted_string` or `\"quoted string\"`",
+            )),
+            QueryArgType::Integer => Some(Cow::Borrowed("must be positive and fit in `u32`")),
+            QueryArgType::TargetSet => Some(Cow::Borrowed(
+                "either a literal or the return value of a function",
+            )),
+            QueryArgType::FileSet => Some(Cow::Borrowed(
+                "either a literal or the return value of a function",
+            )),
+            QueryArgType::Expression => Some(Cow::Borrowed(
+                "a valid query expression, evaluated in a function-specific context",
+            )),
+            QueryArgType::Value => Some(Cow::Borrowed("any query value")),
+            QueryArgType::Set => Some(Cow::Owned(format!(
+                "either a {} or {}",
+                QueryArgType::FileSet.rendered_reference(options),
+                QueryArgType::TargetSet.rendered_reference(options)
+            ))),
         }
     }
 
     pub fn description(self) -> Option<&'static str> {
-        Some(match self {
-            QueryArgType::String => {
-                "For example, `non_quoted_string` or `\"quoted string\"`."
-            }
-            QueryArgType::Integer => {
-                "Must be positive and fit in `u32`."
-            }
-            QueryArgType::TargetSet => {
+        match self {
+            QueryArgType::String => None,
+            QueryArgType::Integer => None,
+            QueryArgType::TargetSet => Some(
                 "This could be a literal build target (`\"cell//some:target\"`) or a pattern \
                 (`\"cell//package:\"` or `\"cell//recursive/...\"`) or the result of another function that returns a target expression. For \
                 queries in CLI commands (like `buck2 query`), literals can be relative to the current working dir (like `some:target` \
-                or `...`)."
-            }
-            QueryArgType::FileSet => {
+                or `...`).",
+            ),
+            QueryArgType::FileSet => Some(
                 "This could be a file literal like `path/to/a.file` or the return value of a function that \
-                returns files (for example, the `buildfile()` function)."
-            }
-            QueryArgType::Set => {
-                "Either a *file expression* or *target expression*. This could be a literal like `path/to/a.file` or `\"cell//some:target\"`,
-                or the return value of a function that returns files or targets."
-            }
-            QueryArgType::Expression => {
+                returns files (for example, the `buildfile()` function).",
+            ),
+            QueryArgType::Set => Some(
+                "This could be a literal like `path/to/a.file` or `\"cell//some:target\"`, \
+                or the return value of a function that returns files or targets.",
+            ),
+            QueryArgType::Expression => Some(
                 "This is used for functions that capture an expression and evaluate it in another context. \
                 For example, the `deps()` function can accept an expression that it uses to find the children of a node to \
-                customize the deps traversal."
-            }
-            QueryArgType::Value => "Any query value.",
-        })
+                customize the deps traversal.",
+            ),
+            _ => None,
+        }
     }
 }
 
