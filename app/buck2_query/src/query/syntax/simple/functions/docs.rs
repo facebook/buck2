@@ -123,23 +123,24 @@ pub struct QueryEnvironmentDescription {
 
 impl QueryEnvironmentDescription {
     pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
+        let functions = self
+            .mods
+            .iter()
+            .map(|v| v.render_markdown(options))
+            .join("\n\n");
+        let value_types = enum_iterator::all::<QueryArgType>()
+            .map(|v| render_arg_type_markdown(v, options))
+            .join("\n\n");
         format!(
             indoc::indoc! {r#"
             # {}
 
-            ## Query Value Types
             {}
 
+            ## Value Types
             {}
             "#},
-            &self.name,
-            enum_iterator::all::<QueryArgType>()
-                .map(|v| render_arg_type_markdown(v, options))
-                .join("\n\n"),
-            self.mods
-                .iter()
-                .map(|v| v.render_markdown(options))
-                .join("\n\n")
+            &self.name, functions, value_types
         )
     }
 }
