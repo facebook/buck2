@@ -869,6 +869,22 @@ impl ChromeTraceWriter {
                             "average_system_cpu_in_usecs_per_s",
                             _snapshot.buck2_system_cpu_us,
                         )?;
+                    if let Some(cpu_usage_system) = _snapshot.host_cpu_usage_system_ms {
+                        self.rate_of_change_counters
+                            .set_average_rate_of_change_per_s(
+                                event.timestamp(),
+                                "host_cpu_usage_system_in_msecs_per_s",
+                                cpu_usage_system,
+                            )?;
+                    }
+                    if let Some(cpu_usage_user) = _snapshot.host_cpu_usage_user_ms {
+                        self.rate_of_change_counters
+                            .set_average_rate_of_change_per_s(
+                                event.timestamp(),
+                                "host_cpu_usage_user_in_msecs_per_s",
+                                cpu_usage_user,
+                            )?;
+                    }
                     self.snapshot_counters.set(
                         event.timestamp(),
                         "blocking_executor_io_queue_size",
