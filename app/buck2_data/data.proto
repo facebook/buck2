@@ -1517,6 +1517,8 @@ message ReStage {
     ReWorkerUpload worker_upload = 9;
     ReUnknown unknown = 10;
     MaterializeFailedInputs materialize_failed_inputs = 11;
+    ReBeforeAction before_action_execution = 12;
+    ReAfterAction after_action_execution = 13;
   }
 }
 
@@ -1555,6 +1557,14 @@ message ReWorkerUpload {
 }
 
 message ReUnknown {
+  string action_digest = 1;
+}
+
+message ReBeforeAction {
+  string action_digest = 1;
+}
+
+message ReAfterAction {
   string action_digest = 1;
 }
 

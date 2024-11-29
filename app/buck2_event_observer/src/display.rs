@@ -495,6 +495,8 @@ pub fn display_executor_stage(
                 Stage::WorkerUpload(..) => "re_worker_upload",
                 Stage::Unknown(..) => "re_unknown",
                 Stage::MaterializeFailedInputs(..) => "re_materialize_failed_inputs",
+                Stage::BeforeActionExecution(_) => "initialize_re_worker",
+                Stage::AfterActionExecution(_) => "release_re_worker",
             }
         }
         Stage::Local(local) => {

@@ -862,6 +862,8 @@ impl RemoteExecutionClientImpl {
         knobs: &ExecutorGlobalKnobs,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         use buck2_data::re_stage;
+        use buck2_data::ReAfterAction;
+        use buck2_data::ReBeforeAction;
         use buck2_data::ReExecute;
         use buck2_data::ReQueue;
         use buck2_data::ReUnknown;
@@ -962,12 +964,18 @@ impl RemoteExecutionClientImpl {
                     action_digest,
                     use_case,
                 }),
+                Stage::BEFORE_ACTION => {
+                    re_stage::Stage::BeforeActionExecution(ReBeforeAction { action_digest })
+                }
                 Stage::EXECUTING => re_stage::Stage::Execute(ReExecute {
                     action_digest,
                     platform: Some(platform_to_proto(platform)),
                     action_key: action_key.clone(),
                     use_case,
                 }),
+                Stage::AFTER_ACTION => {
+                    re_stage::Stage::AfterActionExecution(ReAfterAction { action_digest })
+                }
                 Stage::UPLOADING_OUTPUT => re_stage::Stage::WorkerUpload(ReWorkerUpload {
                     action_digest,
                     use_case,
