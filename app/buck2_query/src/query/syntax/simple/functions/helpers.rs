@@ -74,8 +74,8 @@ impl QueryArgType {
         }
     }
 
-    pub fn description(self) -> &'static str {
-        match self {
+    pub fn description(self) -> Option<&'static str> {
+        Some(match self {
             QueryArgType::String => {
                 "For example, `non_quoted_string` or `\"quoted string\"`."
             }
@@ -102,7 +102,7 @@ impl QueryArgType {
                 customize the deps traversal."
             }
             QueryArgType::Value => "Any query value.",
-        }
+        })
     }
 }
 

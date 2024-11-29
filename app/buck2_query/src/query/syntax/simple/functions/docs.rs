@@ -155,6 +155,8 @@ fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> Strin
     if let Some(short_description) = v.short_description() {
         rendered.push_str(short_description);
     }
-    rendered.push_str(&format!("\n\n  {}", v.description()));
+    if let Some(description) = v.description() {
+        rendered.push_str(&format!("\n\n  {}", description));
+    }
     rendered
 }
