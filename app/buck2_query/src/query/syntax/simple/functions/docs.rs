@@ -57,7 +57,7 @@ impl FunctionDescription {
         }
     }
 
-    pub fn render_short_markdown(&self, options: &MarkdownOptions) -> String {
+    pub fn render_markdown_for_index(&self, options: &MarkdownOptions) -> String {
         format!(
             " - {}({}){}",
             self.rendered_reference(options),
@@ -72,7 +72,7 @@ impl FunctionDescription {
         )
     }
 
-    pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
+    pub fn render_markdown_for_details(&self, options: &MarkdownOptions) -> String {
         let anchor = if options.links_enabled {
             &format!("{{#{}}}", self.name)
         } else {
@@ -124,11 +124,11 @@ impl QueryEnvironmentDescription {
 
         let function_index = merged_sorted_functions
             .clone()
-            .map(|(_, f)| f.render_short_markdown(options))
+            .map(|(_, f)| f.render_markdown_for_index(options))
             .join("\n");
 
         let functions = merged_sorted_functions
-            .map(|(_, f)| f.render_markdown(options))
+            .map(|(_, f)| f.render_markdown_for_details(options))
             .join("\n");
 
         let value_types = enum_iterator::all::<QueryArgType>()
