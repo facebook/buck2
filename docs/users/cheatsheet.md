@@ -84,7 +84,8 @@ $(query_outputs "queryfunction(//:foo)")
 $(query_targets_and_outputs [SEPARATOR] "queryfunction(//:foo)")
 ```
 
-Note, however, that the query macros are supported only for
+Note, however, that the query macros are supported only for rule
+attributes of type `attrs.arg`, such as
 [`genrule`](../../prelude/globals/#genrule) and
 [`apk_genrule`](../../prelude/globals/#apk_genrule).
 
