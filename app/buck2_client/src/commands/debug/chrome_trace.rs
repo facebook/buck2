@@ -844,13 +844,13 @@ impl ChromeTraceWriter {
             buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
                 data: Some(ref instant_data),
             }) => {
-                if let buck2_data::instant_event::Data::Snapshot(_snapshot) = instant_data {
+                if let buck2_data::instant_event::Data::Snapshot(snapshot) = instant_data {
                     self.process_memory_counters.set(
                         event.timestamp(),
                         "max_rss_gigabyte",
-                        (_snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
+                        (snapshot.buck2_max_rss) as f64 / Self::BYTES_PER_GIGABYTE,
                     )?;
-                    if let Some(malloc_bytes_active) = _snapshot.malloc_bytes_active {
+                    if let Some(malloc_bytes_active) = snapshot.malloc_bytes_active {
                         self.process_memory_counters.set(
                             event.timestamp(),
                             "malloc_active_gigabyte",
@@ -861,15 +861,15 @@ impl ChromeTraceWriter {
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "average_user_cpu_in_usecs_per_s",
-                            _snapshot.buck2_user_cpu_us,
+                            snapshot.buck2_user_cpu_us,
                         )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "average_system_cpu_in_usecs_per_s",
-                            _snapshot.buck2_system_cpu_us,
+                            snapshot.buck2_system_cpu_us,
                         )?;
-                    if let Some(cpu_usage_system) = _snapshot.host_cpu_usage_system_ms {
+                    if let Some(cpu_usage_system) = snapshot.host_cpu_usage_system_ms {
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(
                                 event.timestamp(),
@@ -877,7 +877,7 @@ impl ChromeTraceWriter {
                                 cpu_usage_system,
                             )?;
                     }
-                    if let Some(cpu_usage_user) = _snapshot.host_cpu_usage_user_ms {
+                    if let Some(cpu_usage_user) = snapshot.host_cpu_usage_user_ms {
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(
                                 event.timestamp(),
@@ -888,9 +888,9 @@ impl ChromeTraceWriter {
                     self.snapshot_counters.set(
                         event.timestamp(),
                         "blocking_executor_io_queue_size",
-                        _snapshot.blocking_executor_io_queue_size,
+                        snapshot.blocking_executor_io_queue_size,
                     )?;
-                    for (nic, stats) in &_snapshot.network_interface_stats {
+                    for (nic, stats) in &snapshot.network_interface_stats {
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(
                                 event.timestamp(),
@@ -908,19 +908,19 @@ impl ChromeTraceWriter {
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "re_upload_bytes",
-                            _snapshot.re_upload_bytes,
+                            snapshot.re_upload_bytes,
                         )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "re_download_bytes",
-                            _snapshot.re_download_bytes,
+                            snapshot.re_download_bytes,
                         )?;
                     self.rate_of_change_counters
                         .set_average_rate_of_change_per_s(
                             event.timestamp(),
                             "http_download_bytes",
-                            _snapshot.http_download_bytes,
+                            snapshot.http_download_bytes,
                         )?;
                 }
             }
