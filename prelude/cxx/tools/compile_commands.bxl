@@ -1,0 +1,97 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:set.bzl", "set")
+
+# Create a unified compilation database for all targets.  This is useful when trying to integrate
+# buck2 with traditional LSPs like clangd, which expect not a compilation database per target, but
+# rather a single global compilation database.  The user can optionally specify a target pattern
+# with --targets=<pattern> to generate a commpilation database for a subset of targets.
+#
+# This works by using aquery to query the action graph on each target in the selected target set,
+# and then filtering out actions with a category other than cxx_compile.
+#
+# It is possible for multiple targets to contain the same file.  In this case, we choose to select
+# only the first file and throw away any subsequent compilation database entries referring to the
+# same file.  LSP servers do not handle this case in general anyway.
+#
+# Presently the bxl writes the stdout, and the user is expected to redirect this to a file.  A
+# possible future improvement could perhaps provide an option to write it as an artifact to the
+# output folder and only print the path to the output file to stdout, so that it could benefit from
+# caching.
+#
+# The bxl is quite fast.  It has no dependencies on actually running any actions (unlike building
+# the [compilation-database] subtarget for a given target), and on a moderately sized project with
+# around 4000 source files, generation times on the order of 5 seconds or less can be expected.
+#
+# Sample Usage:
+#     buck2 bxl root//prelude/tools/bxl/compile_commands.bxl:gen_compilation_database > compile_commands.json
+#
+
+def _create_compilation_database_entry(ctx, buildfile_folder, action):
+
+    # the "cmd" attribute looks like a list.  For example, it might be something like:
+    #   cmd = [cl.exe, -c, foo.cpp]
+    # but in reality this is quite literally the string "[cl.exe, -c, foo.cpp]".  We need
+    # it as an actual list, so we have to employ this unfortunate hack of stripping the brackets,
+    # splitting on comma operator, and then stripping spaces from each entry to make an actual
+    # list.  Hopefully this doesn't fail in any weird edge cases, but it seems to be the best we
+    # can do until buck2 upstream actually stores a Starlark list as the value of this attribute.
+    cmd = action.attrs.cmd.value()
+    cmd = cmd.strip("[]").split(',')
+    cmd = list(map(lambda x: x.strip(), cmd))
+
+    # Get the path of the source file relative to the project root by appending the identifier
+    # to the directory of the BUCK file.
+    project_rel_path = paths.join(buildfile_folder, action.attrs.identifier.value())
+
+    # Now build the compilation database entry
+    entry = {
+        "file": project_rel_path,
+        "directory": ctx.fs.abs_path_unsafe("root//"),
+        "arguments": cmd
+    }
+    return entry
+
+def _gen_compilation_database_impl(ctx):
+    # Generate compilation database for all targets unless user requests a more narrow set
+    target_filter = ctx.cli_args.targets or '...'
+    targets = ctx.configured_targets(target_filter)
+    aquery = ctx.aquery()
+
+    files = set()
+
+    entries = []
+    for target in targets:
+        target_actions = list(aquery.deps(target.label, 1))
+        compile_actions = [a for a in target_actions if a.rule_type == "run" and a.attrs.category.value() == "cxx_compile"]
+        if not compile_actions:
+            continue
+
+        # The individual compilation actions only identify the source files relative to where
+        # the BUCK file is.  So to build a path relative to the root of the project, we need
+        # to get the BUCK file path and append the source file path to it.
+        buildfile_path = ctx.fs.project_rel_path(target.buildfile_path)
+        buildfile_folder = paths.dirname(buildfile_path)
+
+        # Now walk each compilation action and generate a compilation database entry for it.
+        for action in compile_actions:
+            entry = _create_compilation_database_entry(ctx, buildfile_folder, action)
+            filename = entry["file"]
+            if not files.contains(filename):
+                entries.append(entry)
+            files.add(filename)
+
+    ctx.output.print_json(entries)
+
+gen_compilation_database = bxl_main(
+    impl = _gen_compilation_database_impl,
+    cli_args = {
+        "targets": cli_args.option(cli_args.target_expr())
+    }
+)
