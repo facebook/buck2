@@ -168,11 +168,11 @@ def generate_query_docs(buck: str) -> None:
         res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
         write_file(
             base_dir / (x + ".generated.md"),
-            "---\nid: "
-            + x
-            + "\ntitle: "
-            + x.title()
-            + " Environment\n---\n"
+            "---\n"
+            + f"id: {x}\n"
+            + f"title: {x.title()} Environment\n"
+            + "toc_max_heading_level: 4\n"
+            + "---\n"
             + res.stdout.decode(),
         )
 

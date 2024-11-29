@@ -79,7 +79,7 @@ impl FunctionDescription {
             ""
         };
         let mut rendered = format!(
-            "### {}({}){}\n\n",
+            "---\n#### {}({}){}\n\n",
             self.name,
             self.args
                 .iter()
@@ -106,31 +106,6 @@ pub struct ModuleDescription {
     pub details: Option<String>,
 }
 
-impl ModuleDescription {
-    pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
-        let mut rendered = format!(
-            "## {}\n\n",
-            match &self.short_help {
-                Some(v) => v,
-                None => "Query functions",
-            }
-        );
-        if let Some(v) = &self.details {
-            writeln!(rendered, "{}\n", v).unwrap();
-        }
-
-        for (_, func) in &self.functions {
-            writeln!(rendered, "{}", func.render_short_markdown(options)).unwrap();
-        }
-
-        for (_, func) in &self.functions {
-            writeln!(rendered, "{}\n", func.render_markdown(options)).unwrap();
-        }
-
-        rendered
-    }
-}
-
 pub struct QueryEnvironmentDescription {
     pub name: String,
     pub mods: Vec<ModuleDescription>,
@@ -138,24 +113,43 @@ pub struct QueryEnvironmentDescription {
 
 impl QueryEnvironmentDescription {
     pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
-        let functions = self
+        let merged_sorted_functions = self
             .mods
             .iter()
-            .map(|v| v.render_markdown(options))
-            .join("\n\n");
+            .fold(IndexMap::new(), |acc, module| {
+                acc.into_iter().chain(module.functions.iter()).collect()
+            })
+            .into_iter()
+            .sorted_by(|(lhs, _), (rhs, _)| Ord::cmp(lhs, rhs));
+
+        let function_index = merged_sorted_functions
+            .clone()
+            .map(|(_, f)| f.render_short_markdown(options))
+            .join("\n");
+
+        let functions = merged_sorted_functions
+            .map(|(_, f)| f.render_markdown(options))
+            .join("\n");
+
         let value_types = enum_iterator::all::<QueryArgType>()
             .map(|v| render_arg_type_markdown(v, options))
             .join("\n\n");
+
         format!(
             indoc::indoc! {r#"
             # {}
 
+            ## Functions
+
+            {}
+
             {}
 
             ## Value Types
+
             {}
             "#},
-            &self.name, functions, value_types
+            &self.name, function_index, functions, value_types
         )
     }
 }

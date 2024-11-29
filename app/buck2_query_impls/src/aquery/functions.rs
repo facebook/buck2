@@ -67,6 +67,7 @@ pub(crate) fn aquery_functions<'a>() -> impl QueryFunctions<Env = AqueryEnvironm
 #[derive(Debug)]
 pub(crate) struct AqueryFunctions<'a>(pub(crate) PhantomData<&'a ()>);
 
+/// Aquery-specific
 #[query_module(AqueryEnvironment<'a>)]
 impl<'a> AqueryFunctions<'a> {
     /// Obtain the actions for all the outputs provided by the `DefaultInfo` for the targets passed
