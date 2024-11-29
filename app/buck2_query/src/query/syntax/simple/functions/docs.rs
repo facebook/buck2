@@ -59,12 +59,8 @@ impl FunctionDescription {
 
     pub fn render_markdown_for_index(&self, options: &MarkdownOptions) -> String {
         format!(
-            " - {}({}){}",
+            " - {}{}",
             self.rendered_reference(options),
-            self.args
-                .iter()
-                .map(|v| v.render_markdown(options))
-                .join(", "),
             &match &self.short_help {
                 None => "".to_owned(),
                 Some(v) => format!(": {}", v),
