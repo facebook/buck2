@@ -730,8 +730,9 @@ apple_test = prelude_rule(
             "entitlements_file": attrs.option(attrs.source(), default = None),
             "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False), default = None),
             "executable_name": attrs.option(attrs.string(), default = None),
-            "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
+            # Need to keep both `exported_headers` and `headers` for Swift mixed modules
+            # to hide C++ code importing.
             "exported_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
             "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
