@@ -48,7 +48,7 @@ export const sidebars: SidebarsConfig = {
           ],
         },
         isInternal() ? 'about/knowledge_sharing' : null,
-        'about/bootstrapping',
+        isInternal() ? null : 'about/bootstrapping',
       ].flatMap(x => x !== null ? [x] : []),
     },
     {
