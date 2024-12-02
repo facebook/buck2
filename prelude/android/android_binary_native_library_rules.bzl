@@ -1495,7 +1495,7 @@ def _create_link_args(
 
     links = []
     shlib_deps = []
-    for target in rust_matching_topological_traversal([root_target], link_traversal):
+    for target in rust_matching_topological_traversal(None, [root_target], link_traversal):
         is_root = target == root_target
         node = graph[target]
         preferred_linkable_type = get_lib_output_style(link_strategy, node.preferred_linkage, PicBehavior("supported"))
@@ -1553,7 +1553,7 @@ def _create_merged_link_args(
 
     links = []
     shlib_deps = []
-    for label in rust_matching_topological_traversal([root_target.label], link_traversal):
+    for label in rust_matching_topological_traversal(None, [root_target.label], link_traversal):
         if label == root_target.label:
             links.extend(root_target.constituent_link_infos)
         else:

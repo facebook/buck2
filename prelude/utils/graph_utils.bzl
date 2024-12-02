@@ -249,11 +249,12 @@ def depth_first_traversal_by(
 # To support migration from a tset-based link strategy, we are trying to match buck's internal tset
 # traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
 def rust_matching_topological_traversal(
+        graph_nodes: [dict[typing.Any, typing.Any], None],
         roots: list[typing.Any],
         get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
     counts = {}
 
-    for label in depth_first_traversal_by(None, roots, get_nodes_to_traverse_func, GraphTraversal("preorder-right-to-left")):
+    for label in depth_first_traversal_by(graph_nodes, roots, get_nodes_to_traverse_func, GraphTraversal("preorder-right-to-left")):
         for dep in get_nodes_to_traverse_func(label):
             if dep in counts:
                 counts[dep] += 1
