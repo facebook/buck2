@@ -45,6 +45,8 @@ use indexmap::IndexMap;
 use tokio::task::JoinHandle;
 use tonic::transport::Channel;
 
+const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
+
 #[derive(buck2_error::Error, Debug)]
 pub enum WorkerInitError {
     #[error("Worker failed to spawn: {0}")]
@@ -299,7 +301,9 @@ async fn spawn_worker(
     });
 
     tracing::info!("Connected to socket for spawned worker: {}", socket_path);
-    let client = WorkerClient::new(channel);
+    let client = WorkerClient::new(channel)
+        .max_encoding_message_size(MAX_MESSAGE_SIZE_BYTES)
+        .max_decoding_message_size(MAX_MESSAGE_SIZE_BYTES);
     Ok(WorkerHandle::new(
         client,
         child_exited_observer,
