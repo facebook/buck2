@@ -1,7 +1,9 @@
 [repositories]
     test_read_root_config = .
-    prelude = .
-    other = other
+    cell = cell
+    root = .
+[repository_aliases]
+    prelude = root
 [buildfile]
     name = TARGETS.fixture
 [unlike]
@@ -11,6 +13,7 @@
 [other]
     config1 = bar
     config2 = baz
+    config3 = bazz
 [deprecated_config]
     some.config1 = Please use other.config2
     other.config1 = Please use other.config2

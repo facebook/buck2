@@ -15,5 +15,4 @@ def create_target():
         read_root_config(section, conf)
     else:
         read_config(section, conf)
-
     test_rule(name = "test_target_{}_{}".format(section, conf))

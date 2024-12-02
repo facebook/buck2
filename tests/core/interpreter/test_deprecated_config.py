@@ -45,3 +45,31 @@ async def test_not_deprecated_config(buck: Buck, root: str) -> None:
         "-c",
         f"test.root={root}",
     )
+
+
+@buck_test()
+async def test_deprecated_cell_config(buck: Buck) -> None:
+    section = "other"
+    _ = await expect_failure(
+        buck.build(
+            f"cell//:test_target_{section}_config1",
+            "-c",
+            f"test.section={section}",
+            "-c",
+            "test.conf=config1",
+        ),
+        stderr_regex=f"{section}.config1 is no longer used. Please use other.config2",
+    )
+
+
+@buck_test()
+async def test_deprecated_cell_config2(buck: Buck) -> None:
+    # this one should fail
+    section = "other"
+    _ = await buck.build(
+        f"cell//:test_target_{section}_config2",
+        "-c",
+        f"test.section={section}",
+        "-c",
+        "test.conf=config2",
+    )
