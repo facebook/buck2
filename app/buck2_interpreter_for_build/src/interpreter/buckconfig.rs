@@ -15,6 +15,7 @@ use std::sync::Arc;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_core::soft_error;
 use dice::DiceComputations;
 use hashbrown::raw::RawTable;
 use starlark::collections::Hashed;
@@ -195,24 +196,48 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
         &mut self,
         key: BuckconfigKeyRef,
     ) -> buck2_error::Result<Option<Arc<str>>> {
-        read_config_and_report_deprecated(self.ctx, &self.buckconfig, key)
+        read_config_and_report_deprecated(
+            self.ctx,
+            &self.root_buckconfig,
+            Some(&self.buckconfig),
+            key,
+        )
     }
 
     fn read_root_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
     ) -> buck2_error::Result<Option<Arc<str>>> {
-        read_config_and_report_deprecated(self.ctx, &self.root_buckconfig, key)
+        read_config_and_report_deprecated(self.ctx, &self.root_buckconfig, None, key)
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[error("{} is no longer used. {}", .0, .1)]
+struct DeprecatedConfigError(String, Arc<str>);
+
 fn read_config_and_report_deprecated(
     ctx: &mut DiceComputations,
-    cell: &OpaqueLegacyBuckConfigOnDice,
+    root: &OpaqueLegacyBuckConfigOnDice,
+    cell: Option<&OpaqueLegacyBuckConfigOnDice>,
     key: BuckconfigKeyRef,
 ) -> buck2_error::Result<Option<Arc<str>>> {
-    let result = cell.lookup(ctx, key)?;
-    //TODO(romanp) check and report if config is deprecated here
+    let result = cell.unwrap_or(root).lookup(ctx, key)?;
+    let property = format!("{}.{}", key.section, key.property);
+    let msg = root.lookup(
+        ctx,
+        BuckconfigKeyRef {
+            section: "deprecated_config",
+            property: &property,
+        },
+    )?;
+    if let Some(msg) = msg {
+        soft_error!(
+            "deprecated_config",
+            DeprecatedConfigError(property, msg).into(),
+            quiet: true
+        )?;
+    }
     Ok(result)
 }
 

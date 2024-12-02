@@ -10,6 +10,7 @@
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -17,9 +18,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 @pytest.mark.parametrize("section", ["some", "other"])
 @pytest.mark.parametrize("root", ["true", "false"])
 async def test_deprecated_config(buck: Buck, section: str, root: str) -> None:
-    # TODO(romanp): it must fail with {section}.config1 is no longer used. Please use other.config2
-    _ = (
-        await buck.build(
+    _ = await expect_failure(
+        buck.build(
             f":test_target_{section}_config1",
             "-c",
             f"test.section={section}",
@@ -28,6 +28,7 @@ async def test_deprecated_config(buck: Buck, section: str, root: str) -> None:
             "-c",
             f"test.root={root}",
         ),
+        stderr_regex=f"{section}.config1 is no longer used. Please use other.config2",
     )
 
 
