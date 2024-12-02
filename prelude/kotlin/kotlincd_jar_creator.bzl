@@ -197,8 +197,8 @@ def create_jar_artifact_kotlincd(
                 withDownwardApi = True,
                 hasAnnotationProcessing = True,
             ),
+            kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir),
             libraryJarCommand = struct(
-                kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir),
                 baseJarCommand = base_jar_command,
                 libraryJarBaseCommand = struct(
                     pathToClasses = output_paths.jar.as_output(),
@@ -237,7 +237,6 @@ def create_jar_artifact_kotlincd(
         )
         abi_params = encode_jar_params(remove_classes, output_paths, manifest_file)
         abi_command = struct(
-            kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins),
             baseJarCommand = base_jar_command,
             abiJarParameters = abi_params,
         )
@@ -246,6 +245,7 @@ def create_jar_artifact_kotlincd(
             baseCommandParams = struct(
                 withDownwardApi = True,
             ),
+            kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins),
             abiJarCommand = abi_command,
         )
 
