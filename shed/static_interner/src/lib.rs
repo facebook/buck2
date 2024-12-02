@@ -186,9 +186,17 @@ impl<T: 'static, H> Interner<T, H> {
     }
 }
 
+pub enum InternDisposition {
+    /// The value was already interned.
+    Interned,
+    /// The value was computed and interned.
+    Computed,
+}
+
 impl<T: 'static, H: Hasher + Default> Interner<T, H> {
-    /// Allocate a value, or return previously allocated one.
-    pub fn intern<Q>(&'static self, value: Q) -> Intern<T>
+    /// Allocate a value, or return previously allocated one as well as whether that value
+    /// was computed or already interned.
+    pub fn observed_intern<Q>(&'static self, value: Q) -> (Intern<T>, InternDisposition)
     where
         Q: Hash + Equivalent<T> + Into<T>,
         T: Eq + Hash,
@@ -198,14 +206,24 @@ impl<T: 'static, H: Hasher + Default> Interner<T, H> {
             .table
             .lookup(hashed.hash, |t| hashed.value.equivalent(&t.data))
         {
-            return Intern { pointer };
+            return (Intern { pointer }, InternDisposition::Interned);
         }
 
         self.intern_slow(hashed)
     }
 
+    /// Allocate a value, or return previously allocated one.
+    pub fn intern<Q>(&'static self, value: Q) -> Intern<T>
+    where
+        Q: Hash + Equivalent<T> + Into<T>,
+        T: Eq + Hash,
+    {
+        let (intern, _disposition) = self.observed_intern(value);
+        intern
+    }
+
     #[cold]
-    fn intern_slow<Q>(&'static self, hashed_value: Hashed<Q, H>) -> Intern<T>
+    fn intern_slow<Q>(&'static self, hashed_value: Hashed<Q, H>) -> (Intern<T>, InternDisposition)
     where
         Q: Hash + Equivalent<T> + Into<T>,
         T: Eq + Hash,
@@ -223,7 +241,7 @@ impl<T: 'static, H: Hasher + Default> Interner<T, H> {
                 |t| t.hash,
             )
             .0;
-        Intern { pointer }
+        (Intern { pointer }, InternDisposition::Computed)
     }
 
     /// Get a value if it has been interned.
@@ -269,6 +287,7 @@ mod tests {
     use equivalent::Equivalent;
 
     use crate::Intern;
+    use crate::InternDisposition;
     use crate::Interner;
 
     static STRING_INTERNER: Interner<String> = Interner::new();
@@ -290,6 +309,17 @@ mod tests {
             STRING_INTERNER.intern("hello".to_owned()),
             STRING_INTERNER.intern("world".to_owned())
         );
+    }
+
+    #[test]
+    fn test_disposition() {
+        let (val, disposition) = STRING_INTERNER.observed_intern("hello".to_owned());
+        assert_eq!(val.to_string(), "hello".to_owned());
+        assert!(std::matches!(disposition, InternDisposition::Computed));
+
+        let (val, disposition) = STRING_INTERNER.observed_intern("hello".to_owned());
+        assert_eq!(val.to_string(), "hello".to_owned());
+        assert!(std::matches!(disposition, InternDisposition::Interned));
     }
 
     // Make sure things work with reallocation.
