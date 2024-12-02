@@ -64,11 +64,9 @@ def get_abi_generation_mode(
 # a bunch of nested structs and then use write_json to get a json-encoded
 # protobuf message.
 #
-# The definition is in xplat/build_infra/buck_client/src/com/facebook/buck/cd/resources/proto/javacd.proto
-# and is, sadly, poorly documented.
-#
-# As we are generally trying to match buck1 for now, you can get buck1 to dump the protos for a build
-# by running `export JAVACD_DUMP_PROTOS=1; buck build foo -c javacd.pass_env_variables_to_javacd=true`
+# The definition is in xplat/toolchains/android/sdk/src/com/facebook/buck/cd/resources/proto/javacd.proto
+# and xplat/toolchains/android/sdk/src/com/facebook/buck/cd/resources/proto/kotlincd.proto and is, sadly,
+# poorly documented.
 
 # Our protobuf format mostly encodes paths in RelPath/AbsPath structs with a single "path" field.
 # Note that we don't actually use abspath and instead enable JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD
