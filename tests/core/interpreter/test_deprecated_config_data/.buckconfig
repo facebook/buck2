@@ -1,0 +1,16 @@
+[repositories]
+    test_read_root_config = .
+    prelude = .
+    other = other
+[buildfile]
+    name = TARGETS.fixture
+[unlike]
+    harsh = regular
+[some]
+    config1 = foo
+[other]
+    config1 = bar
+    config2 = baz
+[deprecated_config]
+    some.config1 = Please use other.config2
+    other.config1 = Please use other.config2
