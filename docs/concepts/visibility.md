@@ -9,20 +9,40 @@ you may want to prevent developers from 'reaching across' the project and
 pulling in additional code. Reducing the visibility of targets can help prevent
 that type of behavior.
 
-There are two types of visibility attributes available (each of which takes a
-list of [target patterns](./glossary.md#target-pattern)):
+There are two types of visibility attributes available, each of which takes a
+list of [target patterns](./glossary.md#target-pattern). (Note: `visibility` and
+`within_view` arguments may be defined using
+[package() rules](../../rule_authors/package_files/#package)):
 
 - `visibility` - determines which other targets can depend on a target.
+
+  This allows for controlling the products/features that may consume your code
+  or the clients which your team may choose to support.
+
 - `within_view` - determines which other targets a target can depend on.
 
-Both attributes act as allowlists, with some exceptions. In general, if a target
-is not listed, there may be no dependency relationship. If the `within_view`
-list is empty or unset, however, its check is bypassed. Similarly, targets
-defined in the same [BUCK file](./glossary.md#buck-file) always act as if they
-were members of their siblings' `visibility` lists.
+  On an individual target, this is very similar to `deps`. If any of the
+  target's `deps` are not `within_view`, the target cannot be built. For this
+  reason, on an individual target, `within_view` is less useful since for each
+  additional `dep`, you must consider updating the within_view entries.
 
-There is also a special value for `visibility` attribute: `'PUBLIC'`, which
-makes a build rule visible to all targets.
+  However, the utility of within_view is expanded when used in conjunction with
+  [package() rules](../../rule_authors/package_files/#package) which allow
+  defining both `visibility` and `within_view` attributes for multiple targets
+  in a scalable manner.
+
+In general, if a target is not listed, then there may be no dependency
+relationships as both attributes act as allowlists. However, there are some
+exceptions:
+
+- _Empty or Unset `within_view` List_: If the `within_view` list is empty or
+  unset, it does not impose any restrictions on which targets the current target
+  can depend on.
+- _Empty or Unset `visibility` List_: If the `visibility` list is empty or
+  unset, then only targets defined in the same
+  [BUCK file](./glossary.md#buck-file) can depend upon the current target.
+- _Special Value: `'PUBLIC'`_: `visibility` can be set to a special value
+  `'PUBLIC'` which makes a build rule visible to all targets. (Example below)
 
 In case of logically-conflicting lists, `within_view` takes precedence over
 `visibility`. If `//foo:bar` defines `//hello:world` in its `visibility` list,
