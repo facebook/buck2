@@ -195,15 +195,25 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
         &mut self,
         key: BuckconfigKeyRef,
     ) -> buck2_error::Result<Option<Arc<str>>> {
-        self.buckconfig.lookup(self.ctx, key)
+        read_config_and_report_deprecated(self.ctx, &self.buckconfig, key)
     }
 
     fn read_root_cell_config(
         &mut self,
         key: BuckconfigKeyRef,
     ) -> buck2_error::Result<Option<Arc<str>>> {
-        self.root_buckconfig.lookup(self.ctx, key)
+        read_config_and_report_deprecated(self.ctx, &self.root_buckconfig, key)
     }
+}
+
+fn read_config_and_report_deprecated(
+    ctx: &mut DiceComputations,
+    cell: &OpaqueLegacyBuckConfigOnDice,
+    key: BuckconfigKeyRef,
+) -> buck2_error::Result<Option<Arc<str>>> {
+    let result = cell.lookup(ctx, key)?;
+    //TODO(romanp) check and report if config is deprecated here
+    Ok(result)
 }
 
 pub struct LegacyConfigsViewForStarlark {
