@@ -144,7 +144,7 @@ service the build locally.
 
 Instances of Buck2 share a [daemon](#daemon) if and only if their isolation
 directory is identical. The isolation directory also influences the output paths
-provided by Buck2.
+provided by Buck2. See [Isolation dir](isolation_dir.md) for more info.
 
 # Modifiers
 

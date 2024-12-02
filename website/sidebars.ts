@@ -64,6 +64,7 @@ export const sidebars: SidebarsConfig = {
         'concepts/buck_out',
         'concepts/visibility',
         'concepts/daemon',
+        'concepts/isolation_dir',
         'concepts/buckconfig',
         'concepts/configurations',
         'concepts/glossary',
