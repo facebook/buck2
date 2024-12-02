@@ -124,6 +124,15 @@ int main(int argc, char* argv[]) {
     return exit_code;
   }
 
+  if (std::getenv("NP_DEBUG_BINARY")) {
+    fprintf(
+        stderr,
+        "Pausing for debugger, pid=%d. Press <return> to continue.\n",
+        (int)getpid());
+    fflush(stderr);
+    getchar();
+  }
+
   status = Py_InitializeFromConfig(&config);
   if (PyStatus_Exception(status)) {
     if (auto exit_code = MaybeGetExitCode(&status, &config)) {
