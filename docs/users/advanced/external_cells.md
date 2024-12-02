@@ -44,7 +44,8 @@ configuration.
 
 ## Origins
 
-Buck2 currently supports two external cell origins, `bundled` and `git`.
+Buck2 currently supports three external cell origins: `bundled`, `git`, and
+`disabled`.
 
 ### The `bundled` origin
 
@@ -73,6 +74,12 @@ and `commit`, like this:
 ```
 
 The `commit_hash` value must be a sha1, it cannot be eg a branch name.
+
+### The `disabled` origin
+
+The `disabled` origin indicates that the cell is a normal cell, not an external
+cell. It is equivalent to the cell not being present in the `external_cells`
+buckconfig section.
 
 ## Expanding external cells
 

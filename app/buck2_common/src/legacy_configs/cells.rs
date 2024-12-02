@@ -296,6 +296,10 @@ impl BuckConfigBasedCells {
 
         if let Some(external_cells) = root_config.get_section("external_cells") {
             for (alias, origin) in external_cells.iter() {
+                if origin.as_str() == "disabled" {
+                    // Ignore this entry, treat it as a normal cell
+                    continue;
+                }
                 let alias = NonEmptyCellAlias::new(alias.to_owned())?;
                 let name = aggregator.resolve_root_alias(alias)?;
                 let origin = Self::parse_external_cell_origin(name, origin.as_str(), &root_config)?;
