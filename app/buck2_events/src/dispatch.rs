@@ -23,6 +23,7 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
+use buck2_core::event::EventDispatch;
 use buck2_data::buck_event;
 use buck2_data::span_end_event;
 use buck2_data::span_start_event;
@@ -161,6 +162,14 @@ impl EventDispatcher {
     /// Returns the traceid for this event dispatcher.
     pub fn trace_id(&self) -> &TraceId {
         &self.trace_id
+    }
+}
+
+pub struct EventDispatcherLateBinding;
+
+impl EventDispatch for EventDispatcherLateBinding {
+    fn emit_instant_event_for_data(&self, data: buck2_data::instant_event::Data) {
+        get_dispatcher().instant_event(data);
     }
 }
 

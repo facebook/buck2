@@ -294,6 +294,10 @@ enum BuckEventError {
     MissingField(BuckEvent),
 }
 
+pub fn init_late_bindings() {
+    buck2_core::event::EVENT_DISPATCH.init(&dispatch::EventDispatcherLateBinding);
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;

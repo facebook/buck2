@@ -13,6 +13,7 @@ import re
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 def _replace_hash(s: str) -> str:
@@ -64,3 +65,18 @@ async def test_configuration_transition_rule_build(buck: Buck) -> None:
     # Rule implementations do the assertions.
     result = await buck.build("root//:the-test")
     result.check_returncode()
+
+
+@buck_test()
+async def test_configuration_transition_yields_multiple_configurations_created_events(
+    buck: Buck,
+) -> None:
+    await buck.build("root//:the-test")
+    configuration_created_events = await filter_events(
+        buck, "Event", "data", "Instant", "data", "ConfigurationCreated", "cfg"
+    )
+
+    assert len(configuration_created_events) == 2
+    configuration_names = [cfg["full_name"] for cfg in configuration_created_events]
+    assert configuration_names[0].startswith("root//:iphoneos-p")
+    assert configuration_names[1].startswith("<transitioned-to-watch>")

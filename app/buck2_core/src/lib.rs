@@ -35,6 +35,7 @@ pub mod configuration;
 pub mod deferred;
 pub mod directory_digest;
 pub mod env;
+pub mod event;
 pub mod execution_types;
 pub mod fs;
 pub mod global_cfg_options;

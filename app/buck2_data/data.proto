@@ -313,7 +313,14 @@ message InstantEvent {
     /// Notification that execution of all tests for a given command is
     /// finished.
     EndOfTestResults end_of_test_results = 45;
+
+    // Event sent when creating a new configuration.
+    ConfigurationCreated configuration_created = 46;
   }
+}
+
+message ConfigurationCreated {
+  ConfigurationWithConstraints cfg = 1;
 }
 
 message EndOfTestResults {
@@ -1741,6 +1748,17 @@ message BxlFunctionLabel {
 // A configuration, identified by its full name.
 message Configuration {
   string full_name = 2;
+}
+
+message Constraint {
+  string setting = 1;
+  string value = 2;
+}
+
+// A configuration with all the constraints associated with it.
+message ConfigurationWithConstraints {
+  string full_name = 1;
+  repeated Constraint constraint = 2;
 }
 
 // A target label, consisting of a package and a name.

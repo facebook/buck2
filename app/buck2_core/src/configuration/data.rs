@@ -21,6 +21,7 @@ use once_cell::sync::Lazy;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
+use static_interner::InternDisposition;
 use static_interner::Interner;
 
 use crate::configuration::bound_id::BoundConfigurationId;
@@ -29,6 +30,7 @@ use crate::configuration::builtin::BuiltinPlatform;
 use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 use crate::configuration::hash::ConfigurationHash;
+use crate::event::EVENT_DISPATCH;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -59,6 +61,35 @@ enum ConfigurationLookupError {
         "Found configuration `{0}` by hash, but label mismatched from what is requested: `{1}`"
     )]
     ConfigFoundByHashLabelMismatch(ConfigurationData, BoundConfigurationId),
+}
+
+fn emit_configuration_instant_event(cfg: &ConfigurationData) -> buck2_error::Result<()> {
+    let constraints: Vec<buck2_data::Constraint> = cfg
+        .data()?
+        .constraints
+        .iter()
+        .map(|(k, v)| buck2_data::Constraint {
+            setting: k.to_string(),
+            value: v.to_string(),
+        })
+        .collect();
+
+    // Sometimes this isn't going to be init'd in tests (oss or buck2), let's
+    // ignore that and rely on e2e test to assert we're still logging data from
+    // production code paths.
+    if let Ok(event_dispatch) = EVENT_DISPATCH.get() {
+        event_dispatch.emit_instant_event_for_data(
+            buck2_data::ConfigurationCreated {
+                cfg: Some(buck2_data::ConfigurationWithConstraints {
+                    full_name: cfg.full_name().to_owned(),
+                    constraint: constraints,
+                }),
+            }
+            .into(),
+        );
+    }
+
+    Ok(())
 }
 
 /// The inner PlatformConfigurationData is interned as the same configuration could be formed through
@@ -92,9 +123,14 @@ impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.
     pub fn from_platform(label: String, data: ConfigurationDataData) -> buck2_error::Result<Self> {
         let label = BoundConfigurationLabel::new(label)?;
-        Ok(Self::from_data(HashedConfigurationPlatform::new(
+        let (cfg, disposition) = Self::from_data(HashedConfigurationPlatform::new(
             ConfigurationPlatform::Bound(label, data),
-        )))
+        ));
+        if let InternDisposition::Computed = disposition {
+            emit_configuration_instant_event(&cfg)?;
+        }
+
+        Ok(cfg)
     }
 
     pub fn unspecified() -> Self {
@@ -102,6 +138,7 @@ impl ConfigurationData {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::Unspecified),
             ))
+            .0
         });
         CONFIG.dupe()
     }
@@ -111,6 +148,7 @@ impl ConfigurationData {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::UnspecifiedExec),
             ))
+            .0
         });
         CONFIG.dupe()
     }
@@ -122,6 +160,7 @@ impl ConfigurationData {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::Unbound),
             ))
+            .0
         });
         CONFIG.dupe()
     }
@@ -133,6 +172,7 @@ impl ConfigurationData {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::UnboundExec),
             ))
+            .0
         });
         CONFIG.dupe()
     }
@@ -156,10 +196,12 @@ impl ConfigurationData {
                 },
             ),
         ))
+        .0
     }
 
-    fn from_data(data: HashedConfigurationPlatform) -> Self {
-        Self(INTERNER.intern(data))
+    fn from_data(data: HashedConfigurationPlatform) -> (Self, InternDisposition) {
+        let (val, disposition) = INTERNER.observed_intern(data);
+        (Self(val), disposition)
     }
 
     /// Iterates over the existing interned configurations. As these configurations

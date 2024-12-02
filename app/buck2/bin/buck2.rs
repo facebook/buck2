@@ -115,6 +115,7 @@ fn main() -> ! {
         buck2_cmd_starlark_server::init_late_bindings();
         buck2_test::init_late_bindings();
         buck2_validation::init_late_bindings();
+        buck2_events::init_late_bindings();
     }
     BUCK2_BUILD_INFO.init(Buck2BuildInfo {
         revision: std::option_env!("BUCK2_SET_EXPLICIT_VERSION"),
