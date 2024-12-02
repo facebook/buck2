@@ -420,7 +420,21 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .await?
             .into())
     }
-
+    /// Find the reverse dependencies of the targets in the given target universe.
+    ///
+    /// The first parameter `universe` defines where to look for reverse dependencies.
+    /// The second parameter `targets` is a specific target or target pattern. It specifies the targets to find reverse dependencies for.
+    /// The third argument `depth` is an optional integer literal specifying an upper bound on the depth of the search. A value of one (1) specifies that buck query should return only direct dependencies. If the depth parameter is omitted, the search is unbounded.
+    /// The fourth argument `captured_expr` is an optional expression that can be used to filter the results.
+    ///
+    /// The returned values include the nodes from the `targets` argument itself.
+    ///
+    /// For example following uquery:
+    ///
+    /// ```text
+    /// $ buck2 uquery "rdeps(//buck2/..., //buck2/dice/dice:dice, 1)"
+    /// ```
+    /// returns all targets under `//buck2/...` that depend on `//buck2/dice/dice:dice`.
     async fn rdeps(
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
