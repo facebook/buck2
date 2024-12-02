@@ -282,8 +282,8 @@ def main(argv):
             imports = read_imports(imports_path)
             imports_list = []
             archives_list = []
-            for path in imports:
-                entry = mapping[path]
+            for import_path in imports:
+                entry = mapping[import_path]
                 if entry["archive_index"] is not None:
                     archives_list.append(int(entry["archive_index"]))
                 else:
