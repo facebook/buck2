@@ -67,6 +67,7 @@ async def test_remote_artifact_directory_is_not_materialized_when_cas_support_en
 ) -> None:
     await buck.test(
         "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts_in_cas",
+        "--no-remote-cache",
         "--remote-only",
     )
 
