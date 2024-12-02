@@ -64,7 +64,7 @@ load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:graph_utils.bzl", "GraphTraversal", "depth_first_traversal_by", "post_order_traversal", "pre_order_traversal")
+load("@prelude//utils:graph_utils.bzl", "post_order_traversal", "pre_order_traversal", "rust_matching_topological_traversal")
 load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
@@ -1458,42 +1458,6 @@ def _create_relinkable_links(
 
     return {lib.soname.ensure_str(): lib for lib in shared_libs.values()}, debug_link_deps
 
-# To support migration from a tset-based link strategy, we are trying to match buck's internal tset
-# traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
-def _rust_matching_topological_traversal(
-        roots: list[typing.Any],
-        get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
-    counts = {}
-
-    for label in depth_first_traversal_by(None, roots, get_nodes_to_traverse_func, GraphTraversal("preorder-right-to-left")):
-        for dep in get_nodes_to_traverse_func(label):
-            if dep in counts:
-                counts[dep] += 1
-            else:
-                counts[dep] = 1
-
-    # some of the targets in roots might be transitive deps of others, we only put those that are true roots
-    # in the stack at this point
-    stack = [root_target for root_target in roots if not root_target in counts]
-    true_roots = len(stack)
-
-    result = []
-    for _ in range(2000000000):
-        if not stack:
-            break
-        next = stack.pop()
-        result.append(next)
-        deps = get_nodes_to_traverse_func(next)
-        for child in deps[::-1]:  # reverse order ensures we put things on the stack in the same order as rust's tset traversal
-            counts[child] -= 1
-            if counts[child] == 0:
-                stack.append(child)
-
-    if len(result) != true_roots + len(counts):
-        fail()  # fail_cycle
-
-    return result
-
 def _create_link_args(
         *,
         cxx_toolchain: CxxToolchainInfo,
@@ -1531,7 +1495,7 @@ def _create_link_args(
 
     links = []
     shlib_deps = []
-    for target in _rust_matching_topological_traversal([root_target], link_traversal):
+    for target in rust_matching_topological_traversal([root_target], link_traversal):
         is_root = target == root_target
         node = graph[target]
         preferred_linkable_type = get_lib_output_style(link_strategy, node.preferred_linkage, PicBehavior("supported"))
@@ -1589,7 +1553,7 @@ def _create_merged_link_args(
 
     links = []
     shlib_deps = []
-    for label in _rust_matching_topological_traversal([root_target.label], link_traversal):
+    for label in rust_matching_topological_traversal([root_target.label], link_traversal):
         if label == root_target.label:
             links.extend(root_target.constituent_link_infos)
         else:

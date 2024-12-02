@@ -245,3 +245,39 @@ def depth_first_traversal_by(
     expect(not stack, "Expected to be done with graph traversal stack.")
 
     return visited.keys()
+
+# To support migration from a tset-based link strategy, we are trying to match buck's internal tset
+# traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
+def rust_matching_topological_traversal(
+        roots: list[typing.Any],
+        get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
+    counts = {}
+
+    for label in depth_first_traversal_by(None, roots, get_nodes_to_traverse_func, GraphTraversal("preorder-right-to-left")):
+        for dep in get_nodes_to_traverse_func(label):
+            if dep in counts:
+                counts[dep] += 1
+            else:
+                counts[dep] = 1
+
+    # some of the targets in roots might be transitive deps of others, we only put those that are true roots
+    # in the stack at this point
+    stack = [root_target for root_target in roots if not root_target in counts]
+    true_roots = len(stack)
+
+    result = []
+    for _ in range(2000000000):
+        if not stack:
+            break
+        next = stack.pop()
+        result.append(next)
+        deps = get_nodes_to_traverse_func(next)
+        for child in deps[::-1]:  # reverse order ensures we put things on the stack in the same order as rust's tset traversal
+            counts[child] -= 1
+            if counts[child] == 0:
+                stack.append(child)
+
+    if len(result) != true_roots + len(counts):
+        fail()  # fail_cycle
+
+    return result
