@@ -7,6 +7,7 @@
 
 load("@prelude//:artifact_tset.bzl", "make_artifact_tset")
 load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME", "VALIDATION_DEPS_ATTR_TYPE", "get_validation_deps_outputs")
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo")
 load("@prelude//apple:apple_library_types.bzl", "AppleLibraryInfo")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_toolchain_attr")
@@ -116,6 +117,5 @@ registration_spec = RuleRegistrationSpec(
         "labels": attrs.list(attrs.string(), default = []),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         "_apple_toolchain": get_apple_toolchain_attr(),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    },
+    } | apple_common.apple_tools_arg(),
 )

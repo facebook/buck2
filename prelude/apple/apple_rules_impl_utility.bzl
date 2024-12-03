@@ -9,7 +9,7 @@ load("@prelude//:attrs_validators.bzl", "ATTRS_VALIDATORS_NAME", "ATTRS_VALIDATO
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load("@prelude//apple:apple_common.bzl", "apple_common")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
@@ -94,7 +94,6 @@ def _apple_bundle_like_common_attrs():
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
         "versioned_macos_bundle": attrs.bool(default = False),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_bundling_cache_buster": attrs.option(attrs.string(), default = None),
@@ -120,6 +119,7 @@ def _apple_bundle_like_common_attrs():
     }
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
     attribs.update(apple_dsymutil_attrs())
+    attribs.update(apple_common.apple_tools_arg())
     return attribs
 
 def apple_test_extra_attrs():

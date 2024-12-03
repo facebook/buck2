@@ -13,7 +13,6 @@
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "apple_dsymutil_attrs", "apple_test_extra_attrs", "get_apple_toolchain_attr")
 load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_transition")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
@@ -1065,8 +1064,8 @@ def _apple_universal_executable_attrs():
                 for more information on resolution.
             """),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     }
+    attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     return attribs
 

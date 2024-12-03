@@ -10,6 +10,7 @@ load(
     "ArtifactInfo",
     "ArtifactInfoTag",
 )
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(
     "@prelude//linking:execution_preference.bzl",
@@ -301,8 +302,7 @@ registration_spec = RuleRegistrationSpec(
         "include_regular_expressions": attrs.list(attrs.string(), default = []),
         "json_type": attrs.enum(_SelectiveDebuggingJsonTypes),
         "targets_json_file": attrs.option(attrs.source(), default = None),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    },
+    } | apple_common.apple_tools_arg(),
 )
 
 def _is_label_included(label: Label, selection_criteria: _SelectionCriteria) -> bool:

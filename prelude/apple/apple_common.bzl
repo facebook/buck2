@@ -11,6 +11,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 
 def _headers_arg():
     return {
@@ -227,6 +228,11 @@ def _apple_sanitizer_compatibility_arg():
         "_sanitizer_compatibility": attrs.default_only(attrs.dep(default = "fbsource//tools/build_defs/apple/sanitizers:sanitizer_compatibility")),
     }
 
+def _apple_tools_arg():
+    return {
+        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -245,4 +251,5 @@ apple_common = struct(
     skip_universal_resource_dedupe_arg = _skip_universal_resource_dedupe_arg,
     apple_sanitizer_compatibility_arg = _apple_sanitizer_compatibility_arg,
     enable_private_swift_module_arg = _enable_private_swift_module_arg,
+    apple_tools_arg = _apple_tools_arg,
 )

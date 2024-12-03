@@ -7,8 +7,9 @@
 
 load("@prelude//apple:apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo")
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_info_plist_build_system_identification_attrs")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
@@ -47,13 +48,13 @@ def _apple_resource_bundle_attrs():
         "universal": attrs.option(attrs.bool(), default = None),
         # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
         "_apple_toolchain": _get_apple_resources_toolchain_attr(),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         # Because `apple_resource_bundle` is a proxy for `apple_bundle`, we need to get `name`
         # field of the `apple_bundle`, as it's used as a fallback value in Info.plist.
         "_bundle_target_name": attrs.string(),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
     }
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
+    attribs.update(apple_common.apple_tools_arg())
     return attribs
 
 registration_spec = RuleRegistrationSpec(

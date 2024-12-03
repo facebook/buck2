@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
@@ -174,6 +175,5 @@ registration_spec = RuleRegistrationSpec(
         "framework_name": attrs.string(),
         "include_dsym": attrs.option(attrs.bool(), default = None),
         "platforms": attrs.list(attrs.string(), default = []),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    },
+    } | apple_common.apple_tools_arg(),
 )

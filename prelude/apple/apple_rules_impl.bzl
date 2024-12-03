@@ -43,7 +43,6 @@ load(
 )
 load(":apple_test.bzl", "apple_test_impl")
 load(":apple_toolchain.bzl", "apple_toolchain_impl")
-load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":apple_xcuitest.bzl", "apple_xcuitest_impl")
 load(":prebuilt_apple_framework.bzl", "prebuilt_apple_framework_impl")
 load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
@@ -85,7 +84,6 @@ def _apple_binary_extra_attrs():
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
@@ -94,6 +92,7 @@ def _apple_binary_extra_attrs():
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
     }
+    attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     attribs.update(constraint_overrides.attributes)
     return attribs
@@ -120,7 +119,6 @@ def _apple_library_extra_attrs():
         "swift_package_name": attrs.option(attrs.string(), default = None),
         "use_archive": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_enable_library_evolution": get_enable_library_evolution(),
@@ -133,6 +131,7 @@ def _apple_library_extra_attrs():
         ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
     }
+    attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     return attribs
 
@@ -156,10 +155,9 @@ extra_attributes = {
             ),
             default = [],
         ),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
         "_ipa_package": attrs.dep(),
-    },
+    } | apple_common.apple_tools_arg(),
     "apple_resource": {
         "codesign_entitlements": attrs.option(attrs.source(), default = None),
         "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
@@ -227,9 +225,8 @@ extra_attributes = {
         "sdk_modules": attrs.list(attrs.string(), default = []),
         "stripped": attrs.option(attrs.bool(), default = None),
         "_apple_toolchain": _APPLE_TOOLCHAIN_ATTR,
-        "_apple_tools": attrs.default_only(attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo])),
         "_stripped_default": attrs.bool(default = False),
-    },
+    } | apple_common.apple_tools_arg(),
     "scene_kit_assets": {
         "path": attrs.source(allow_directory = True),
     },

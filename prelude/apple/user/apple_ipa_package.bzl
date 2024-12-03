@@ -8,11 +8,12 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleInfo", "ApplePackageExtension")
+load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_package_config.bzl", "IpaCompressionLevel")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_bundle_toolchain_attr")
 load("@prelude//apple:apple_sdk.bzl", "get_apple_sdk_name")
 load("@prelude//apple:apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
@@ -27,9 +28,9 @@ def _apple_ipa_package_attribs():
         "labels": attrs.list(attrs.string(), default = []),
         "package_name": attrs.option(attrs.string(), default = None),
         "_apple_toolchain": get_apple_bundle_toolchain_attr(),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
         "_ipa_compression_level": attrs.enum(IpaCompressionLevel.values()),
     }
+    attribs.update(apple_common.apple_tools_arg())
     return attribs
 
 registration_spec = RuleRegistrationSpec(
