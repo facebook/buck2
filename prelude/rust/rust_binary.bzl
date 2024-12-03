@@ -365,7 +365,7 @@ def _rust_binary_common(
                     shlib.lib.dwp
                     for shlib in shared_libs
                     if shlib.lib.dwp
-                ],
+                ] + ([executable_args.dwp_symlink_tree] if executable_args.dwp_symlink_tree else []),
             ),
         ]
 
