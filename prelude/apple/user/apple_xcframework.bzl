@@ -177,9 +177,3 @@ registration_spec = RuleRegistrationSpec(
         "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     },
 )
-
-def apple_xcframework_extra_attrs():
-    attribs = {
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    }
-    return attribs

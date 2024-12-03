@@ -15,7 +15,6 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
-load("@prelude//apple/user:apple_xcframework.bzl", "apple_xcframework_extra_attrs")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
@@ -214,7 +213,6 @@ extra_attributes = {
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
     },
-    "apple_xcframework": apple_xcframework_extra_attrs(),
     "apple_xcuitest": apple_xcuitest_extra_attrs(),
     "core_data_model": {
         "module": attrs.option(attrs.string(), default = None),
