@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::env;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -191,9 +192,15 @@ impl Forkserver for UnixForkserverService {
                 }
             }
 
-            // we set env var to enable reading peak memory from cgroup in miniperf
             if systemd_context.is_some() {
+                // we set env var to enable reading peak memory from cgroup in miniperf
                 cmd.env("MINIPERF_READ_CGROUP", "1");
+                // Some actions clear env and don't pass XDG_RUNTIME_DIR
+                // This env var is required for systemd-run,
+                // without passing it systemd returns "Failed to connect to bus: No medium found"
+                if let Ok(value) = env::var("XDG_RUNTIME_DIR") {
+                    cmd.env("XDG_RUNTIME_DIR", value);
+                }
             }
 
             let stream_stdio = std_redirects.is_none();
