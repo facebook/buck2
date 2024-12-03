@@ -67,6 +67,19 @@ export function GraphView2(props: {view: QueryKey}) {
     }
   }
 
+  // Nodes with file changes
+  const containsChangedFile = []
+  for (const [k, _node] of nodeMap) {
+    const target = build.targets(k)!
+    if (target.changedFilesLength() > 0) {
+      containsChangedFile.push(k)
+    }
+  }
+
+  if (containsChangedFile.length === 0) {
+    return <p>No file changes registered</p>
+  }
+
   return (
     <div className="mx-4">
       <GraphImpl2 nodes={nodeMap} build={build} allTargets={allTargets} />
