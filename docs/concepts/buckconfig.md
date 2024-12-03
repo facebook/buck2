@@ -14,6 +14,9 @@ Buck2 uses in its caching system, changes to Buck's configuration can invalidate
 previously-built artifacts in Buck's caches. If this occurs, Buck2 rebuilds
 those artifacts, which can impact your build time.
 
+These configuration changes can happen when modifying configuration files and
+command line args. [See more](#precedence-of-buck2-configuration-specifications)
+
 ## The .buckconfig file uses the INI file format
 
 The `.buckconfig` file uses the
