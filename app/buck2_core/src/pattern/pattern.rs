@@ -870,7 +870,7 @@ where
         parsed_pattern
     };
 
-    res.input()
+    res.tag(buck2_error::ErrorTag::Input)
 }
 
 fn parse_target_pattern_no_validate<T>(

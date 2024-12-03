@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use buck2_data::error::ErrorTag;
 use smallvec::smallvec;
 
 use crate::context_value::ContextValue;
@@ -31,11 +30,6 @@ pub trait BuckErrorContext<T>: Sealed {
     where
         C: Into<ContextValue>,
         F: FnOnce() -> C;
-
-    #[track_caller]
-    fn input(self) -> crate::Result<T> {
-        self.tag(ErrorTag::Input)
-    }
 
     #[track_caller]
     fn tag(self, tag: crate::ErrorTag) -> crate::Result<T> {

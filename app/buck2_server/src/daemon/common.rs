@@ -198,10 +198,10 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
             if self.strategy.ban_local() {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    [buck2_error::ErrorTag::Input],
                     "The desired execution strategy (`{:?}`) is incompatible with the local executor",
                     self.strategy,
-                )).input();
+                ));
             }
 
             return Ok(CommandExecutorResponse {
@@ -423,7 +423,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
         };
 
         let response = response
-            .with_buck_error_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).input()?;
+            .with_buck_error_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).tag(buck2_error::ErrorTag::Input)?;
 
         Ok(response)
     }
