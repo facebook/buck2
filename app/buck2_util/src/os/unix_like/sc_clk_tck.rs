@@ -18,18 +18,15 @@ use buck2_error::BuckErrorContext;
 pub fn sc_clk_tck() -> buck2_error::Result<u32> {
     static TICKS: OnceLock<u32> = OnceLock::new();
     TICKS
-        .get_or_try_init(|| {
-            unsafe {
-                let rate = libc::sysconf(libc::_SC_CLK_TCK);
-                let rate: u32 = rate
-                    .try_into()
-                    .buck_error_context("Integer overflow converting ticks per second")?;
-                // Practically it is always 100. But we have to check it.
-                if rate <= 0 || rate > 10_000 {
-                    return Err(buck2_error!([], "Invalid ticks per second: {}", rate));
-                }
-                Ok(rate)
+        .get_or_try_init(|| unsafe {
+            let rate = libc::sysconf(libc::_SC_CLK_TCK);
+            let rate: u32 = rate
+                .try_into()
+                .buck_error_context("Integer overflow converting ticks per second")?;
+            if rate <= 0 || rate > 10_000 {
+                return Err(buck2_error!([], "Invalid ticks per second: {}", rate));
             }
+            Ok(rate)
         })
         .copied()
 }
