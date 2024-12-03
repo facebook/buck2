@@ -9,6 +9,15 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
+# Metadata about XCFramework
+XCFrameworkInfo = provider(
+    fields = {
+        # Name of supplied framework. For frameworks that define
+        # modules this should be the name of the module
+        "name": provider_field(str),
+    },
+)
+
 def _apple_xcframework_impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
 
@@ -41,6 +50,7 @@ def _apple_xcframework_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(xcframework_command, category = "apple_xcframework")
     return [
         DefaultInfo(default_output = xcframework_dir),
+        XCFrameworkInfo(name = ctx.attrs.framework_name),
     ]
 
 def _strip_os_sdk_and_runtime_constraints(platform: PlatformInfo, refs: struct) -> dict[TargetLabel, ConstraintValueInfo]:
