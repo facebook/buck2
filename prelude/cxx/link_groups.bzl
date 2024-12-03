@@ -60,6 +60,7 @@ load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
+    "rust_matching_topological_traversal",
 )
 load(
     "@prelude//utils:set.bzl",
@@ -379,8 +380,10 @@ def get_filtered_labels_to_links_map(
         else:
             return linkable_node.exported_deps
 
+    link_ordering_func = rust_matching_topological_traversal if link_strategy == LinkStrategy("shared") else depth_first_traversal_by
+
     # Get all potential linkable targets
-    linkables = depth_first_traversal_by(
+    linkables = link_ordering_func(
         linkable_graph_node_map,
         roots,
         get_potential_linkables,
