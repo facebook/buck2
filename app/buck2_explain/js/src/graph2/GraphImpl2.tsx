@@ -47,6 +47,8 @@ function showNode(node: DisplayNode) {
 // On big graphs recomputing less matters
 export function GraphImpl2(props: {
   nodes: Map<number, Node>
+  totalActions: number
+  totalFileChanges: number
   build: Build
   allTargets: {[key: string]: number}
 }) {
@@ -63,6 +65,7 @@ export function GraphImpl2(props: {
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
+  let totalActionsAffectedByFileChanges = 0
   // Intersection of 'includes', minus 'excludes'
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
@@ -108,6 +111,7 @@ export function GraphImpl2(props: {
         // TODO iguridi: do this filtering in rust side
         if (action!.affectedByFileChanges()) {
           node.displayType = DisplayType.actionsRan
+          totalActionsAffectedByFileChanges += 1
         }
       }
     }
@@ -262,7 +266,10 @@ export function GraphImpl2(props: {
         <article className="message cell">
           <div className="message-body">
             Number of nodes: {data.length} <br />
-            Number of edges: {edges.length}
+            Number of edges: {edges.length} <br />
+            Total actions that ran: {props.totalActions} <br />
+            Total actions affected by file changes: {totalActionsAffectedByFileChanges} <br />
+            Number of files with changes: {props.totalFileChanges}
           </div>
         </article>
       </div>

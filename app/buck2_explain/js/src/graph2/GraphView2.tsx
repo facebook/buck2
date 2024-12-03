@@ -67,6 +67,16 @@ export function GraphView2(props: {view: QueryKey}) {
     }
   }
 
+  // Stats
+  let totalFileChanges = 0
+  let totalActions = 0
+  for (const [k, _node] of nodeMap) {
+    const target = build.targets(k)!
+    totalFileChanges += target.changedFilesLength()
+    // TODO iguridi: make it match whatran
+    totalActions += target.actionsLength()
+  }
+
   // Nodes with file changes
   const containsChangedFile = []
   for (const [k, _node] of nodeMap) {
@@ -82,7 +92,13 @@ export function GraphView2(props: {view: QueryKey}) {
 
   return (
     <div className="mx-4">
-      <GraphImpl2 nodes={nodeMap} build={build} allTargets={allTargets} />
+      <GraphImpl2
+        nodes={nodeMap}
+        build={build}
+        allTargets={allTargets}
+        totalActions={totalActions}
+        totalFileChanges={totalFileChanges}
+      />
     </div>
   )
 }
