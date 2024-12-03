@@ -24,8 +24,6 @@ def main(argv: List[str]) -> int:
     parser.add_argument("--out", help="The output native object file.")
     parser.add_argument("--input", help="The input bitcode object file.")
     parser.add_argument("--index", help="The thinlto index file.")
-    # Split dwarf isn't applicable to Darwin, ignore the flag
-    parser.add_argument("--split-dwarf", required=False, help="Split dwarf option.")
     parser.add_argument(
         "--args", help="The argsfile containing unfiltered and unprocessed flags."
     )
