@@ -673,7 +673,8 @@ def _advanced_unstable_link_providers(
     shlib_name = attr_soname(ctx)
 
     shared_lib_params = lang_style_param[(LinkageLang("native-unbundled"), LibOutputStyle("shared_lib"))]
-    shared_lib_output = native_param_artifact[shared_lib_params].output
+    build_params = native_param_artifact[shared_lib_params]
+    shared_lib_output = build_params.output
 
     # Only add a shared library if we generated one.
     # TODO(cjhopman): This is strange. Normally (like in c++) the link_infos passed to create_merged_link_info above would only have
@@ -684,6 +685,7 @@ def _advanced_unstable_link_providers(
             output = shared_lib_output,
             unstripped_output = shared_lib_output,
             external_debug_info = link_infos[LibOutputStyle("shared_lib")].default.external_debug_info,
+            dwp = build_params.dwp_output,
         )
 
     # Native shared library provider.

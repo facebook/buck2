@@ -674,8 +674,7 @@ def rust_compile(
         dwo_output_directory = None
         extra_external_debug_info = []
 
-    if params.crate_type == CrateType("bin") and \
-       emit == Emit("link") and \
+    if emit == Emit("link") and \
        dwp_available(compile_ctx.cxx_toolchain_info):
         dwp_output = dwp(
             ctx,
