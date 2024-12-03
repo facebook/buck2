@@ -30,9 +30,11 @@ SwiftToolchainInfo = provider(
         "runtime_run_paths": provider_field(typing.Any, default = None),  # [str]
         "sdk_path": provider_field(typing.Any, default = None),
         "supports_relative_resource_dir": provider_field(typing.Any, default = None),  # bool
+        "swift_experimental_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
         "swift_ide_test_tool": provider_field(typing.Any, default = None),
         "swift_stdlib_tool": provider_field(typing.Any, default = None),
         "swift_stdlib_tool_flags": provider_field(typing.Any, default = None),
+        "swift_upcoming_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
         "uncompiled_clang_sdk_modules_deps": provider_field(typing.Any, default = None),  # {str: dependency} Expose deps of uncompiled Clang SDK modules.
         "uncompiled_swift_sdk_modules_deps": provider_field(typing.Any, default = None),  # {str: dependency} Expose deps of uncompiled Swift SDK modules.
     },

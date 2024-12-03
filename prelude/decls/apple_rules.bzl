@@ -17,6 +17,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
+load("@prelude//apple/swift:swift_types.bzl", "SwiftVersion")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
@@ -37,6 +38,11 @@ LaunchStyle = ["auto", "wait"]
 SchemeActionType = ["build", "launch", "test", "profile", "analyze", "archive"]
 
 WatchInterface = ["main", "complication", "dynamic_notification", "static_notification"]
+
+_swift_version_feature_map = {
+    "5": [],
+    "6": [],
+}
 
 apple_asset_catalog = prelude_rule(
     name = "apple_asset_catalog",
@@ -193,7 +199,6 @@ apple_binary = prelude_rule(
             "force_static": attrs.option(attrs.bool(), default = None),
             "header_namespace": attrs.option(attrs.string(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "import_obj_c_forward_declarations": attrs.bool(default = True),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "info_plist": attrs.option(attrs.source(), default = None),
             "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
@@ -229,7 +234,7 @@ apple_binary = prelude_rule(
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_module_skip_function_bodies": attrs.bool(default = True),
-            "swift_version": attrs.option(attrs.string(), default = None),
+            "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "thin_lto": attrs.bool(default = False),
             "use_submodules": attrs.bool(default = True),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
@@ -491,7 +496,6 @@ apple_library = prelude_rule(
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "force_static": attrs.option(attrs.bool(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "import_obj_c_forward_declarations": attrs.bool(default = True),
             "info_plist": attrs.option(attrs.source(), default = None),
             "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "labels": attrs.list(attrs.string(), default = []),
@@ -522,7 +526,7 @@ apple_library = prelude_rule(
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_module_skip_function_bodies": attrs.bool(default = True),
-            "swift_version": attrs.option(attrs.string(), default = None),
+            "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "thin_lto": attrs.bool(default = False),
             "use_submodules": attrs.bool(default = True),
             "uses_cxx_explicit_modules": attrs.bool(default = False),
@@ -749,7 +753,6 @@ apple_test = prelude_rule(
             "force_static": attrs.option(attrs.bool(), default = None),
             "header_namespace": attrs.option(attrs.string(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "import_obj_c_forward_declarations": attrs.bool(default = True),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
             "is_ui_test": attrs.bool(default = False),
@@ -793,7 +796,7 @@ apple_test = prelude_rule(
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_module_skip_function_bodies": attrs.bool(default = True),
-            "swift_version": attrs.option(attrs.string(), default = None),
+            "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
             "thin_lto": attrs.bool(default = False),
             "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
@@ -986,7 +989,6 @@ swift_library = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = []),
             "enable_cxx_interop": attrs.bool(default = False),
             "frameworks": attrs.list(attrs.string(), default = []),
-            "import_obj_c_forward_declarations": attrs.bool(default = True),
             "labels": attrs.list(attrs.string(), default = []),
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -1029,6 +1031,8 @@ swift_toolchain = prelude_rule(
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
             "swiftc": attrs.source(),
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
+            "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
+            "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
         }
     ),
 )

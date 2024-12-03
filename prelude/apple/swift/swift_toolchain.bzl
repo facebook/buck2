@@ -68,6 +68,8 @@ def swift_toolchain_impl(ctx):
             swift_ide_test_tool = ctx.attrs.swift_ide_test_tool[RunInfo] if ctx.attrs.swift_ide_test_tool else None,
             swift_stdlib_tool = ctx.attrs.swift_stdlib_tool[RunInfo],
             swift_stdlib_tool_flags = ctx.attrs.swift_stdlib_tool_flags,
+            swift_experimental_features = ctx.attrs.swift_experimental_features,
+            swift_upcoming_features = ctx.attrs.swift_upcoming_features,
             uncompiled_clang_sdk_modules_deps = uncompiled_clang_sdk_modules_deps,
             uncompiled_swift_sdk_modules_deps = uncompiled_swift_sdk_modules_deps,
         ),

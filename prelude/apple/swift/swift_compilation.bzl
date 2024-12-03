@@ -16,7 +16,7 @@ load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
-load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "get_implicit_framework_search_path_providers")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
@@ -744,6 +744,13 @@ def _get_shared_flags(
 
     if ctx.attrs.swift_version:
         cmd.add(["-swift-version", ctx.attrs.swift_version])
+        swift_version = ctx.attrs.swift_version
+    else:
+        # Swift compiler defaults to 5 and therefore so do we
+        # use the version 5 for upcoming features passed to tools
+        # like the ide-tool for swift-interface generation below
+        # https://www.internalfb.com/code/osmeta-external-swift/[toolchain%2Fpika%2F16%3A5e394d813955f6d922cc853d011eeb3b6bead4c6]/include/swift/Basic/LangOptions.h?lines=175-176
+        swift_version = SwiftVersion[0]  # "5"
 
     if ctx.attrs.enable_cxx_interop:
         cmd.add(["-cxx-interoperability-mode=default"])
@@ -762,12 +769,23 @@ def _get_shared_flags(
             "-no-serialize-debugging-options",
         ])
 
-    if ctx.attrs.import_obj_c_forward_declarations and ctx.attrs.swift_version != "6":
+    upcoming_features = toolchain.swift_upcoming_features[swift_version]
+    experimental_features = toolchain.swift_experimental_features[swift_version]
+
+    for feature in upcoming_features:
         cmd.add([
             "-Xfrontend",
             "-enable-upcoming-feature",
             "-Xfrontend",
-            "ImportObjcForwardDeclarations",
+            feature,
+        ])
+
+    for feature in experimental_features:
+        cmd.add([
+            "-Xfrontend",
+            "-enable-experimental-feature",
+            "-Xfrontend",
+            feature,
         ])
 
     if ctx.attrs._swift_enable_testing:
