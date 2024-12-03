@@ -224,21 +224,35 @@ fn read_config_and_report_deprecated(
 ) -> buck2_error::Result<Option<Arc<str>>> {
     let result = cell.unwrap_or(root).lookup(ctx, key)?;
     let property = format!("{}.{}", key.section, key.property);
-    let msg = root.lookup(
-        ctx,
-        BuckconfigKeyRef {
-            section: "deprecated_config",
-            property: &property,
-        },
-    )?;
+
+    let mut msg = None;
+    let key = BuckconfigKeyRef {
+        section: "deprecated_config",
+        property: &property,
+    };
+    if let Some(cell) = cell {
+        msg = cell.lookup(ctx, key)?;
+    }
+    if msg.is_none() {
+        msg = root.lookup(ctx, key)?;
+    }
     if let Some(msg) = msg {
+        let section = leave_acii_lowercase(key.section);
+        let prop = leave_acii_lowercase(key.property);
+
         soft_error!(
-            "deprecated_config",
+            format!("deprecated_config_{}_{}", section, prop).as_str(),
             DeprecatedConfigError(property, msg).into(),
             quiet: true
         )?;
     }
     Ok(result)
+}
+
+fn leave_acii_lowercase(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_lowercase())
+        .collect::<String>()
 }
 
 pub struct LegacyConfigsViewForStarlark {
