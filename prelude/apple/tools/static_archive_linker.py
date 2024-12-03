@@ -37,8 +37,6 @@ def _main() -> None:
     parser.add_argument("--output", required=True, help="path to output")
     parser.add_argument("args", nargs=argparse.REMAINDER)
 
-    print(sys.argv[1:])
-
     args = parser.parse_args()
     file_args = _filter_files(args.args)
     result = subprocess.run(
