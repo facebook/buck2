@@ -28,9 +28,9 @@ const displayTypeColors: {[key in DisplayType]: string} = {
   // https://coolors.co/1c77c3-39a9db-9ec1a3-cfe0c3-e9724c
   [DisplayType.rootNode]: '#1a181b',
   [DisplayType.passesFilters]: '#1c77c3',
-  [DisplayType.changedFiles]: '#9ec1a3',
+  [DisplayType.changedFiles]: '#00C49A',
   [DisplayType.highlighted]: '#e9724c',
-  [DisplayType.actionsRan]: '#39a9db',
+  [DisplayType.actionsRan]: '#9C528B',
   [DisplayType.hidden]: 'gray', // doesn't matter
 }
 
