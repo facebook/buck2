@@ -21,16 +21,11 @@ impl HostCpuUsage {
     pub fn get() -> buck2_error::Result<Self> {
         #[cfg(target_os = "macos")]
         {
-            fn ticks_to_ms(ticks: u64, sc_clk_tck: u32) -> Option<u64> {
-                // There are sc_clk_tck ticks in a second.
-                ticks.checked_mul(1000)?.checked_div(sc_clk_tck as u64)
-            }
-
             let sc_clk_tck = crate::os::unix_like::sc_clk_tck::sc_clk_tck()?;
             let load_info = crate::os::macos::host_cpu_load_info::host_cpu_load_info()?;
             if let (Some(user_millis), Some(system_millis)) = (
-                ticks_to_ms(load_info.user.into(), sc_clk_tck),
-                ticks_to_ms(load_info.system.into(), sc_clk_tck),
+                Self::ticks_to_ms(load_info.user.into(), sc_clk_tck),
+                Self::ticks_to_ms(load_info.system.into(), sc_clk_tck),
             ) {
                 Ok(HostCpuUsage {
                     user_millis,
@@ -43,12 +38,37 @@ impl HostCpuUsage {
                 ))
             }
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "linux")]
+        {
+            let sc_clk_tck = crate::os::unix_like::sc_clk_tck::sc_clk_tck()?;
+            let load_info = crate::os::linux::host_cpu_usage::host_cpu_usage()?;
+            if let (Some(user_millis), Some(system_millis)) = (
+                Self::ticks_to_ms(load_info.user_millis, sc_clk_tck),
+                Self::ticks_to_ms(load_info.system_millis, sc_clk_tck),
+            ) {
+                Ok(HostCpuUsage {
+                    user_millis,
+                    system_millis,
+                })
+            } else {
+                Err(buck2_error::buck2_error!(
+                    [],
+                    "Error getting host CPU usage"
+                ))
+            }
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             Err(buck2_error::buck2_error!(
                 [],
                 "HostCpuUsage is not implemented for this platform"
             ))
         }
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn ticks_to_ms(ticks: u64, sc_clk_tck: u32) -> Option<u64> {
+        // There are sc_clk_tck ticks in a second.
+        ticks.checked_mul(1000)?.checked_div(sc_clk_tck as u64)
     }
 }
