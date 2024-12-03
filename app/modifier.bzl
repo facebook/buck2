@@ -102,21 +102,6 @@ def buck2_modifiers():
             "DEFAULT": None,
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
                 "DEFAULT": None,
-                "ovr_config//os:macos": "ovr_config//toolchain/fb/constraints:macos-minimal",
-            }),
-        }),
-        # TODO(scottcao): This modifier can be deleted if D61497000 lands successfully
-        modifiers.conditional({
-            "DEFAULT": None,
-            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
-                "DEFAULT": None,
-                "ovr_config//os:macos": "ovr_config//toolchain/xcode/force_minimal_xcode:yes",
-            }),
-        }),
-        modifiers.conditional({
-            "DEFAULT": None,
-            "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
-                "DEFAULT": None,
                 "ovr_config//runtime:fbcode": modifiers.conditional({
                     "ovr_config//cpu:arm64": "ovr_config//runtime/constraints:platform010-aarch64",
                     "ovr_config//cpu:x86_64": "ovr_config//runtime/constraints:platform010",
