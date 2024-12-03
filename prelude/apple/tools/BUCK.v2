@@ -19,6 +19,7 @@ apple_tools(
     make_vfsoverlay = ":make_vfsoverlay",
     selective_debugging_scrubber = apple_oso_scrubber_target(),
     split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
+    spm_packager = ":spm_packager",
     static_archive_linker = ":static_archive_linker",
     visibility = ["PUBLIC"],
     xcframework_maker = ":xcframework_maker",
@@ -96,5 +97,11 @@ python_bootstrap_binary(
 python_binary(
     name = "static_archive_linker",
     main = "static_archive_linker.py",
+    visibility = ["PUBLIC"],
+)
+
+python_binary(
+    name = "spm_packager",
+    main = "spm_packager.py",
     visibility = ["PUBLIC"],
 )
