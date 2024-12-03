@@ -29,8 +29,12 @@ const HTML_PLACEHOLDER: &str = "XXDATAXX";
 pub struct ActionEntryData {
     // TODO iguridi: add more interesting action fields e.g. duration
     pub category: Option<String>,
+    pub identifier: Option<String>,
     pub failed: bool,
     pub repros: Vec<String>,
+    pub execution_kind: Option<String>,
+    pub input_files_bytes: Option<u64>,
+    pub affected_by_file_changes: bool,
 }
 
 pub struct ChangedFilesEntryData {

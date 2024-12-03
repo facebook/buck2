@@ -214,6 +214,14 @@ fn action_to_fbs<'a>(
         .category
         .as_ref()
         .map(|c| builder.create_shared_string(&c));
+    let identifier = action
+        .identifier
+        .as_ref()
+        .map(|c| builder.create_shared_string(&c));
+    let execution_kind = action
+        .execution_kind
+        .as_ref()
+        .map(|c| builder.create_shared_string(&c));
     let repros = {
         let list = action
             .repros
@@ -228,6 +236,10 @@ fn action_to_fbs<'a>(
             category,
             failed: action.failed,
             repros,
+            identifier,
+            input_files_bytes: action.input_files_bytes.map(|v| v as i32),
+            execution_kind,
+            affected_by_file_changes: action.affected_by_file_changes,
         },
     )
 }

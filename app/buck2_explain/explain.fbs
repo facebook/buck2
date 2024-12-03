@@ -18,8 +18,12 @@ enum TargetValueType : byte { Bool, Int, String, List, Dict }
 
 table Action {
   category: string;
+  identifier: string;
   failed: bool;
   repros: [string];
+  execution_kind: string;
+  input_files_bytes: int = null;
+  affected_by_file_changes: bool;
 }
 
 table TargetValue {

@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_data::action_key;
+use buck2_data::CommandInvalidationInfo;
 use buck2_data::FileWatcherEvent;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -51,7 +52,7 @@ struct ActionEntry {
 impl ActionEntry {
     fn format_action(
         &self,
-        data: &buck2_data::span_end_event::Data,
+        event: &buck2_data::SpanEndEvent,
         options: &WhatRanOptions,
     ) -> buck2_error::Result<Option<(String, ActionEntryData)>> {
         let action = WhatRanRelevantAction::from_buck_data(
@@ -61,14 +62,27 @@ impl ActionEntry {
                 .buck_error_context("Checked above")?,
         );
 
-        let failed = match data {
-            buck2_data::span_end_event::Data::ActionExecution(action_exec) => Some(action_exec),
-            _ => None,
-        }.expect("Should always be an ActionExecution end event because span ID must match ActionExecution start event.").failed;
+        let action_execution = match &event.data {
+                Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => Some(action_exec),
+                _ => None,
+        }.expect("Should always be an ActionExecution end event because span ID must match ActionExecution start event.");
+        let failed = action_execution.failed;
+        let execution_kind =
+            buck2_data::ActionExecutionKind::from_i32(action_execution.execution_kind)
+                .map(|v| v.as_str_name().to_owned());
+        let input_files_bytes = action_execution.input_files_bytes;
+        let affected_by_file_changes = match &action_execution.invalidation_info {
+            Some(CommandInvalidationInfo {
+                changed_file: Some(_),
+                ..
+            }) => true,
+            _ => false,
+        };
 
         let (target, mut entry) = match action {
             Some(WhatRanRelevantAction::ActionExecution(act)) => {
                 let category = act.name.as_ref().map(|n| n.category.clone());
+                let identifier = act.name.as_ref().map(|n| n.identifier.clone());
                 let owner = match act.key.as_ref() {
                     Some(key) => key.owner.as_ref(),
                     None => return Ok(None),
@@ -96,6 +110,10 @@ impl ActionEntry {
                         category,
                         failed,
                         repros: vec![],
+                        execution_kind,
+                        identifier,
+                        input_files_bytes,
+                        affected_by_file_changes,
                     },
                 )
             }
@@ -162,10 +180,8 @@ pub(crate) async fn explain(
                             if let Some(entry) =
                                 known_actions.remove(&SpanId::from_u64(event.span_id)?)
                             {
-                                if let Some(data) = &span.data {
-                                    if let Some(entry) = entry.format_action(data, &options)? {
-                                        executed_actions.push(entry);
-                                    }
+                                if let Some(entry) = entry.format_action(&span, &options)? {
+                                    executed_actions.push(entry);
                                 }
                             }
                             match &span.data {
