@@ -905,7 +905,8 @@ mod tests {
         async fn lookup_function(location: &ImportPath) -> buck2_error::Result<LspUrl> {
             if location == &ImportPath::testing_new(P) {
                 Ok(LspUrl::try_from(Url::parse(
-                    "file:///usr/local/dir/prelude.bzl",
+                    // Make sure we use a Url which is an absolute path on Linux and Windows
+                    "file:////c:/usr/local/dir/prelude.bzl",
                 )?)?)
             } else {
                 Err(buck2_error::buck2_error!([], "Unknown path {}", location))
@@ -924,7 +925,7 @@ mod tests {
             cache.url_for_symbol("native_function2").unwrap()
         );
         assert_eq!(
-            &LspUrl::try_from(Url::parse("file:/usr/local/dir/prelude.bzl")?)?,
+            &LspUrl::try_from(Url::parse("file:/c:/usr/local/dir/prelude.bzl")?)?,
             cache.url_for_symbol("prelude_function").unwrap()
         );
 

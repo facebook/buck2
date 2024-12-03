@@ -736,7 +736,6 @@ pub(crate) mod helpers {
             )?))
         }
 
-        #[cfg(not(windows))]
         pub(crate) fn program(&self) -> String {
             self.program.clone()
         }

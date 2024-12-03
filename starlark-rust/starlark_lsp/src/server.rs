@@ -142,6 +142,8 @@ pub enum LspUrlError {
     /// For some reason the PathBuf/Url in the LspUrl could not be converted back to a URL.
     #[error("`{}` could not be converted back to a URL", .0)]
     Unparsable(LspUrl),
+    #[error("invalid URL for file:// schema (possibly not absolute?): `{}`", .0)]
+    InvalidFileUrl(Url),
 }
 
 /// A URL that represents the two types (plus an "Other") of URIs that are supported.
@@ -198,9 +200,12 @@ impl TryFrom<Url> for LspUrl {
     fn try_from(url: Url) -> Result<Self, Self::Error> {
         match url.scheme() {
             "file" => {
-                let path = PathBuf::from(url.path());
-                if path.to_string_lossy().starts_with('/') {
-                    Ok(Self::File(path))
+                let file_path = PathBuf::from(
+                    url.to_file_path()
+                        .map_err(|_| LspUrlError::InvalidFileUrl(url.clone()))?,
+                );
+                if file_path.is_absolute() {
+                    Ok(Self::File(file_path))
                 } else {
                     Err(LspUrlError::NotAbsolute(url))
                 }
@@ -432,14 +437,14 @@ impl<T: LspContext> Backend<T> {
     }
 
     fn validate(&self, uri: Url, version: Option<i64>, text: String) -> anyhow::Result<()> {
-        let uri = uri.try_into()?;
-        let eval_result = self.context.parse_file_with_contents(&uri, text);
+        let lsp_url = uri.clone().try_into()?;
+        let eval_result = self.context.parse_file_with_contents(&lsp_url, text);
         if let Some(ast) = eval_result.ast {
             let module = Arc::new(LspModule::new(ast));
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
-            last_valid_parse.insert(uri.clone(), module);
+            last_valid_parse.insert(lsp_url, module);
         }
-        self.publish_diagnostics(uri.try_into()?, eval_result.diagnostics, version);
+        self.publish_diagnostics(uri, eval_result.diagnostics, version);
         Ok(())
     }
 
@@ -1361,9 +1366,7 @@ where
     }
 }
 
-// TODO(nmj): Some of the windows tests get a bit flaky, especially around
-//            some paths. Revisit later.
-#[cfg(all(test, not(windows)))]
+#[cfg(test)]
 mod tests {
     use std::path::Path;
     use std::path::PathBuf;
@@ -1467,6 +1470,16 @@ mod tests {
     #[cfg(not(windows))]
     fn temp_file_uri(rel_path: &str) -> Url {
         Url::from_file_path(PathBuf::from("/tmp").join(rel_path)).unwrap()
+    }
+
+    // Converts PathBuf to string that can be used in starlark load statements within "" quotes.
+    // Replaces \ with / (for Windows paths).
+    fn path_to_load_string(p: &Path) -> String {
+        p.to_str().unwrap().replace('\\', "/")
+    }
+
+    fn uri_to_load_string(uri: &Url) -> String {
+        path_to_load_string(&uri.to_file_path().unwrap())
     }
 
     #[test]
@@ -1574,7 +1587,7 @@ mod tests {
             <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
         let bar_contents = "def <baz>baz</baz>():\n    pass";
@@ -1590,7 +1603,7 @@ mod tests {
         let mut server = TestServer::new()?;
         // Initialize with "junk" on disk so that we make sure we're using the contents from the
         // client (potentially indicating an unsaved, modified file)
-        server.set_file_contents(PathBuf::from(bar_uri.path()), "some_symbol = 1".to_owned())?;
+        server.set_file_contents(&bar_uri, "some_symbol = 1".to_owned())?;
         server.open_file(foo_uri.clone(), foo.program())?;
         server.open_file(bar_uri, bar.program())?;
 
@@ -1623,9 +1636,10 @@ mod tests {
             <baz_click><baz>b</baz>az</baz_click>()
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
+        eprintln!("foo_contents: {}", foo_contents);
         let bar_contents = "def <baz>baz</baz>():\n    pass";
         let foo = FixtureWithRanges::from_fixture(foo_uri.path(), &foo_contents)?;
         let bar = FixtureWithRanges::from_fixture(bar_uri.path(), bar_contents)?;
@@ -1638,7 +1652,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1683,7 +1697,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1769,7 +1783,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1800,7 +1814,7 @@ mod tests {
             baz()
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
         let bar_contents = "def <baz>baz</baz>():\n    pass";
@@ -1815,7 +1829,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1860,7 +1874,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
 
         let goto_definition = goto_definition_request(
             &mut server,
@@ -1884,12 +1898,13 @@ mod tests {
 
         let foo_uri = temp_file_uri("foo.star");
         let bar_uri = temp_file_uri("bar.star");
-        let bar_load_string = Path::new(bar_uri.path())
+        let load_path = bar_uri
+            .to_file_path()
+            .unwrap()
             .parent()
             .unwrap()
-            .join("<bar>b</bar>ar<dot>.</dot>star")
-            .display()
-            .to_string();
+            .join("<bar>b</bar>ar<dot>.</dot>star");
+        let bar_load_string = path_to_load_string(&load_path);
 
         let foo_contents = dedent(
             r#"
@@ -2141,7 +2156,7 @@ mod tests {
 
         let mut server = TestServer::new()?;
         server.open_file(foo_uri.clone(), foo.program())?;
-        server.set_file_contents(PathBuf::from(bar_uri.path()), bar.program())?;
+        server.set_file_contents(&bar_uri, bar.program())?;
         server.mkdir(dir1_uri.clone());
         server.mkdir(dir2_uri.clone());
 
@@ -2425,7 +2440,7 @@ mod tests {
             loaded.<y><y_click>y</y_click></y>
             "#,
         )
-        .replace("{load}", bar_uri.path())
+        .replace("{load}", &uri_to_load_string(&bar_uri))
         .trim()
         .to_owned();
 

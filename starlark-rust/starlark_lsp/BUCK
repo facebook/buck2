@@ -9,22 +9,9 @@ rust_library(
         "--cfg=rust_nightly",
     ],
     test_deps = [
+        "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:textwrap",
-    ],
-    test_os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:maplit",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:maplit",
-            ],
-        ),
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",

@@ -75,14 +75,6 @@ use crate::server::LspServerSettings;
 use crate::server::LspUrl;
 use crate::server::StringLiteralResult;
 
-/// Get the path from a URL, trimming off things like the leading slash that gets
-/// appended in some windows test environments.
-#[cfg(windows)]
-fn get_path_from_uri(uri: &str) -> PathBuf {
-    PathBuf::from(uri.trim_start_match('/'))
-}
-
-#[cfg(not(windows))]
 fn get_path_from_uri(uri: &str) -> PathBuf {
     PathBuf::from(uri)
 }
@@ -662,9 +654,11 @@ impl TestServer {
         Ok(())
     }
 
-    /// Set the file contents that `get_load_contents()` will return. The path must be absolute.
-    pub fn set_file_contents(&self, path: PathBuf, contents: String) -> anyhow::Result<()> {
-        let path = get_path_from_uri(&format!("{}", path.display()));
+    /// Set the file contents that `get_load_contents()` will return.
+    pub fn set_file_contents(&self, file_uri: &Url, contents: String) -> anyhow::Result<()> {
+        let path = file_uri
+            .to_file_path()
+            .map_err(|_| anyhow::anyhow!("Invalid file URI: {}", file_uri))?;
         if !path.is_absolute() {
             Err(TestServerError::SetFileNotAbsolute(path).into())
         } else {
