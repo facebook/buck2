@@ -1,0 +1,137 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("flags_parser_utils.bxl", "flatten_flag_lists", "get_compiler_settings_from_flags")
+load("get_attrs.bxl", "get_attrs")
+load("utils.bxl", "basename", "dedupe_by_value", "dirname", "escape_xml", "get_argsfiles_output_path", "get_project_file_path", "h", "normcase", "normpath")
+
+def _get_additional_include_directories(target: bxl.ConfiguredTargetNode, attrs: dict) -> list:
+    dirs = attrs["include_directories"]
+    dirs = [target.label.package + "/" + d for d in dirs]
+
+    # Headers shall not be directly added to additional include directories.
+
+    dirs = ["$(RepoRoot)\\" + d for d in dirs]
+    return dedupe_by_value(dirs)
+
+def _get_exported_additional_include_directories(target: bxl.ConfiguredTargetNode, attrs: dict, bxl_ctx) -> list:
+    dirs = attrs["public_include_directories"] + attrs["public_system_include_directories"]
+    dirs = [target.label.package + "/" + d for d in dirs]
+
+    # TODO: handle header files with header_path_prefix
+    for name, path in attrs["exported_headers"].items():
+        header_namespace = attrs["header_namespace"]
+        if header_namespace != None:
+            if name == path:
+                # Assuming exported_header is a list and no customized export name specified.
+                # e.g.,
+                # header: arvr/projects/xrtech/resources/FaceTracker/models:FaceWaveBinaryResources  https://fburl.com/code/ee9ewpv7
+                # usage: arvr/projects/facetracking/FaceWave:OVRLipSyncCommon  https://fburl.com/code/76zx2fmw
+                name = header_namespace + "/" + basename(name)
+            else:
+                # e.g.,
+                # header: xplat/ocean/impl/ocean/base:base  https://fburl.com/code/uiyr5ay9
+                # usage: xplat/ocean/impl/ocean/math:math  https://fburl.com/code/ebtcvn44
+                name = header_namespace + "/" + name
+        name = normcase(name)
+
+        # If file path is in generated buck-out, the file will be either not available or more correct form buck-headers exists.
+        if "buck-out" not in path and path.endswith(name):
+            # e.g.,
+            # header: xplat/ocean/impl/ocean/base:base  https://fburl.com/code/uiyr5ay9
+            # usage: xplat/ocean/impl/ocean/math:math  https://fburl.com/code/ebtcvn44
+            include_dir = path.removesuffix(name)
+            if include_dir:
+                dirs.append(include_dir)
+        else:
+            # Header tree created by buck. This is the most correct form but depends on previous local build to materialize.
+            # e.g.,
+            # header: xplat/third-party/yajl:yajl  https://fburl.com/code/xqzlvuot
+            # usage: xplat/mobileconfig/FBMobileConfigCore:FBMobileConfigCore  https://fburl.com/code/p4qw1cx3
+            argsfiles_output_path = get_argsfiles_output_path(target, bxl_ctx)
+            if argsfiles_output_path:
+                dirs.append(dirname(argsfiles_output_path) + "/buck-headers")
+
+    dirs = [normpath(d) for d in dirs]
+    dirs = dedupe_by_value(dirs)
+    dirs = ["$(RepoRoot)\\" + d for d in dirs]
+
+    return dirs
+
+def _format_compiler_settings(compiler_settings: dict) -> dict:
+    # Starlark passed in reference of dict. We don't want to accidentally override values, thus creating hard copy.
+    concat_compiler_settings = dict(compiler_settings)
+
+    concat_compiler_settings["AdditionalIncludeDirectories"] = ";".join(compiler_settings["AdditionalIncludeDirectories"] + ["%(AdditionalIncludeDirectories)"])
+    concat_compiler_settings["AdditionalOptions"] = " ".join(compiler_settings["AdditionalOptions"] + ["%(AdditionalOptions)"])
+    concat_compiler_settings["PreprocessorDefinitions"] = ";".join([escape_xml(s) for s in compiler_settings["PreprocessorDefinitions"]] + ["%(PreprocessorDefinitions)"])
+    concat_compiler_settings["UndefinePreprocessorDefinitions"] = ";".join(compiler_settings["UndefinePreprocessorDefinitions"] + ["%(UndefinePreprocessorDefinitions)"])
+    concat_compiler_settings["DisableSpecificWarnings"] = ";".join(compiler_settings["DisableSpecificWarnings"] + ["%(DisableSpecificWarnings)"])
+    concat_compiler_settings["ForcedIncludeFiles"] = ";".join(compiler_settings["ForcedIncludeFiles"] + ["%(ForcedIncludeFiles)"])
+    return concat_compiler_settings
+
+def get_compiler_settings(target: bxl.ConfiguredTargetNode, attrs: dict) -> dict:
+    """return private compiler settings to be written to .vcxproj for given buck target"""
+    compiler_flags = flatten_flag_lists(attrs["preprocessor_flags"] + attrs["compiler_flags"])
+    compiler_settings = get_compiler_settings_from_flags(compiler_flags)
+    compiler_settings["AdditionalIncludeDirectories"].extend(_get_additional_include_directories(target, attrs))
+
+    return compiler_settings
+
+def get_exported_compiler_settings(target: bxl.ConfiguredTargetNode, attrs: dict, bxl_ctx) -> dict:
+    """return exported compiler settings that propogate to transitive dependants"""
+    exported_compiler_flags = flatten_flag_lists(attrs["exported_preprocessor_flags"])
+    exported_compiler_settings = get_compiler_settings_from_flags(exported_compiler_flags)
+    exported_compiler_settings["AdditionalIncludeDirectories"].extend(_get_exported_additional_include_directories(target, attrs, bxl_ctx))
+
+    return exported_compiler_settings
+
+def gen_compiler_settings(compiler_settings: dict):
+    concat_compiler_settings = _format_compiler_settings(compiler_settings)
+    return h(
+        "ClCompile",
+        [
+            h(key, value, indent_level = 3)
+            for key, value in concat_compiler_settings.items()
+        ],
+        {
+            "Label": "CompilerSettings",
+        },
+        indent_level = 2,
+    )
+
+def _main(bxl_ctx):
+    target = bxl_ctx.cli_args.target
+    target_node = bxl_ctx.configured_targets(target)
+    actions = bxl_ctx.bxl_actions().actions
+    attrs = get_attrs(target_node, bxl_ctx)
+    attrs_outfile = actions.write_json(get_project_file_path(target_node.label, ".attrs.json"), attrs, pretty = True)
+    out = actions.declare_output(get_project_file_path(target_node.label, ".compiler_settings.json"))
+
+    def f(ctx, artifacts, outputs, attrs_outfile = attrs_outfile, out = out, target = target_node):
+        attrs_input = artifacts[attrs_outfile].read_json()
+        settings = {}
+        settings["compiler_settings"] = get_compiler_settings(target, attrs_input)
+        settings["exported_compiler_settings"] = get_exported_compiler_settings(target, attrs_input, ctx)
+
+        ctx.bxl_actions().actions.write_json(outputs[out].as_output(), settings, pretty = True)
+
+    actions.dynamic_output(
+        dynamic = [attrs_outfile],
+        inputs = [],
+        outputs = [out.as_output()],
+        f = f,
+    )
+    bxl_ctx.output.print(bxl_ctx.output.ensure(out))
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "log_level": cli_args.int(default = 30),
+        "target": cli_args.target_label(),
+    },
+)

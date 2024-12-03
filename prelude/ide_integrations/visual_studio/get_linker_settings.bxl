@@ -1,0 +1,79 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("flags_parser_utils.bxl", "flatten_flag_lists", "get_linker_settings_from_flags")
+load("get_attrs.bxl", "get_attrs")
+load("utils.bxl", "get_project_file_path", "h")
+
+def get_linker_settings(attrs: dict, buck_root: str) -> dict:
+    linker_flags = flatten_flag_lists(attrs["linker_flags"])
+    linker_settings = get_linker_settings_from_flags(linker_flags, buck_root)
+    if "SubSystem" not in linker_settings:
+        linker_settings["SubSystem"] = "CONSOLE"
+    return linker_settings
+
+def get_exported_linker_settings(attrs: dict, buck_root: str) -> dict:
+    exported_linker_flags = flatten_flag_lists(attrs["exported_linker_flags"])
+    exported_linker_settings = get_linker_settings_from_flags(exported_linker_flags, buck_root)
+    return exported_linker_settings
+
+def _format_linker_settings(linker_settings: dict) -> dict:
+    # Starlark passed in reference of dict. We don't want to accidentally override values, thus creating hard copy.
+    concat_linker_settings = dict(linker_settings)
+    concat_linker_settings["AdditionalLibraryDirectories"] = ";".join(linker_settings["AdditionalLibraryDirectories"] + ["%(AdditionalLibraryDirectories)"])
+    concat_linker_settings["AdditionalOptions"] = " ".join(linker_settings["AdditionalOptions"] + ["%(AdditionalOptions)"])
+    concat_linker_settings["AdditionalDependencies"] = ";".join(linker_settings["AdditionalDependencies"] + ["%(AdditionalDependencies)"])
+    concat_linker_settings["IgnoreDefaultLibraryNames"] = ";".join(linker_settings["IgnoreDefaultLibraryNames"] + ["%(IgnoreDefaultLibraryNames)"])
+    if "ForceSymbolReferences" in linker_settings:
+        concat_linker_settings["ForceSymbolReferences"] = ";".join(linker_settings["ForceSymbolReferences"] + ["%(ForceSymbolReferences)"])
+    return concat_linker_settings
+
+def gen_linker_settings(linker_settings: dict):
+    concat_linker_settings = _format_linker_settings(linker_settings)
+    return h(
+        "Link",
+        [
+            h(key, value, indent_level = 3)
+            for key, value in concat_linker_settings.items()
+        ],
+        {
+            "Label": "LinkerSettings",
+        },
+        indent_level = 2,
+    )
+
+def _main(bxl_ctx):
+    target = bxl_ctx.cli_args.target
+    target_node = bxl_ctx.configured_targets(target)
+    actions = bxl_ctx.bxl_actions().actions
+    attrs = get_attrs(target_node, bxl_ctx)
+    attrs_outfile = actions.write_json(get_project_file_path(target_node.label, ".json"), attrs)
+    out = actions.declare_output(get_project_file_path(target_node.label, ".out"))
+
+    def f(ctx, artifacts, outputs, attrs_outfile = attrs_outfile, out = out, buck_root = bxl_ctx.root()):
+        attrs_input = artifacts[attrs_outfile].read_json()
+        settings = {}
+        settings["linker_settings"] = get_linker_settings(attrs_input, buck_root)
+        settings["exported_linker_settings"] = get_exported_linker_settings(attrs_input, buck_root)
+
+        ctx.bxl_actions().actions.write_json(outputs[out].as_output(), settings)
+
+    actions.dynamic_output(
+        dynamic = [attrs_outfile],
+        inputs = [],
+        outputs = [out.as_output()],
+        f = f,
+    )
+    bxl_ctx.output.print(bxl_ctx.output.ensure(out).abs_path())
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "log_level": cli_args.int(default = 30),
+        "target": cli_args.target_label(),
+    },
+)

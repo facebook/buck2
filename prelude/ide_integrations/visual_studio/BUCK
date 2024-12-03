@@ -1,0 +1,11 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("windows_devx")
+
+source_listing()
+
+filegroup(
+    name = "vsgo_bxl",
+    srcs = glob(["**/*.bxl"]),
+    visibility = ["PUBLIC"],
+)

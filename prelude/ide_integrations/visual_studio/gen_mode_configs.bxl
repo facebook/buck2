@@ -1,0 +1,58 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+load("flags_parser_utils.bxl", "get_compiler_settings_from_flags", "get_linker_settings_from_flags")
+load("get_compiler_settings.bxl", "gen_compiler_settings")
+load("get_linker_settings.bxl", "gen_linker_settings")
+load("utils.bxl", "dedupe_by_value", "get_mode_config_path")
+
+def _remove_flags_with_macros(flags: list) -> list:
+    # Hacky way to find macros since regex sub is not available in bxl
+    flags = [item for item in flags if "$(" not in item and ")" not in item]
+    return dedupe_by_value(flags)
+
+def _get_compiler_settings() -> dict:
+    cxxppflags = read_root_config("cxx_#default", "cxxppflags") or ""
+    cxxflags = read_root_config("cxx_#default", "cxxflags") or ""
+    compiler_flags = cxxppflags.split(" ") + cxxflags.split(" ")
+    compiler_flags = _remove_flags_with_macros(compiler_flags)
+    return get_compiler_settings_from_flags(compiler_flags)
+
+def _get_linker_settings(buck_root: str) -> dict:
+    ldflags = read_root_config("cxx_#default", "ldflags") or ""
+    linker_flags = ldflags.split(" ")
+    linker_flags = _remove_flags_with_macros(linker_flags)
+    return get_linker_settings_from_flags(linker_flags, buck_root)
+
+def _main(bxl_ctx):
+    compiler_settings = _get_compiler_settings()
+    linker_settings = _get_linker_settings(bxl_ctx.root())
+    compiler_settings_content = gen_compiler_settings(compiler_settings)
+    linker_settings_content = gen_linker_settings(linker_settings)
+    content = cmd_args(
+        """<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+""",
+        """    <ItemDefinitionGroup>""",
+        compiler_settings_content,
+        linker_settings_content,
+        """    </ItemDefinitionGroup>""",
+        """</Project>""",
+        delimiter = "\n",
+    )
+
+    actions = bxl_ctx.bxl_actions().actions
+    artifact = actions.declare_output(get_mode_config_path(bxl_ctx.cli_args.mode_name))
+    actions.write(artifact.as_output(), content, allow_args = True)
+    bxl_ctx.output.print(bxl_ctx.output.ensure(artifact).abs_path())
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "mode_name": cli_args.string(),
+    },
+)
