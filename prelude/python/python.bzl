@@ -18,7 +18,6 @@ PythonLibraryManifests = record(
     default_resources = field([(ManifestInfo, list[ArgLike]), None]),
     standalone_resources = field([(ManifestInfo, list[ArgLike]), None]),
     bytecode = field([dict[PycInvalidationMode, ManifestInfo], None]),
-    dep_manifest = field([ManifestInfo, None]),
     extensions = field([dict[str, typing.Any], None]),
 )
 
@@ -31,16 +30,6 @@ def _bytecode_manifests(invalidation_mode: PycInvalidationMode):
     return lambda value: [] if value.bytecode == None else (
         value.bytecode[invalidation_mode].manifest
     )
-
-def _dep_manifests(value: PythonLibraryManifests):
-    if value.dep_manifest == None:
-        return []
-    return cmd_args(value.dep_manifest.manifest, format = "--manifest={}")
-
-def _dep_artifacts(value: PythonLibraryManifests):
-    if value.dep_manifest == None:
-        return []
-    return value.dep_manifest.artifacts
 
 def _hidden_resources(value: PythonLibraryManifests):
     if value.default_resources == None:
@@ -115,8 +104,6 @@ _BYTECODE_PROJ_PREFIX = {
 }
 
 args_projections = {
-    "dep_artifacts": _dep_artifacts,
-    "dep_manifests": _dep_manifests,
     "hidden_resources": _hidden_resources,
     "resource_artifacts": _resource_artifacts,
     "resource_manifests": _resource_manifests,

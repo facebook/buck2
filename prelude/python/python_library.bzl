@@ -49,7 +49,6 @@ load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
-    "create_dep_manifest_for_source_map",
     "create_manifest_for_source_map",
 )
 load(
@@ -118,7 +117,6 @@ def create_python_library_info(
         srcs: [ManifestInfo, None] = None,
         src_types: [ManifestInfo, None] = None,
         bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
-        dep_manifest: [ManifestInfo, None] = None,
         default_resources: [(ManifestInfo, list[ArgLike]), None] = None,
         standalone_resources: [(ManifestInfo, list[ArgLike]), None] = None,
         extensions: [dict[str, LinkedObject], None] = None,
@@ -148,7 +146,6 @@ def create_python_library_info(
         src_types = src_types,
         default_resources = default_resources,
         standalone_resources = standalone_resources,
-        dep_manifest = dep_manifest,
         bytecode = bytecode,
         extensions = extensions,
     )
@@ -307,7 +304,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     src_manifest = create_manifest_for_source_map(ctx, "srcs", qualified_srcs) if qualified_srcs else None
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-    dep_manifest = None
     src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types) if src_types else None
 
     # Compile bytecode.
@@ -316,9 +312,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         bytecode = compile_manifests(ctx, [src_manifest])
         sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("unchecked_hash")].artifacts[0][0])]
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
-        if python_toolchain.emit_dependency_metadata:
-            dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, qualified_srcs)
-            sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
 
     raw_deps = ctx.attrs.deps
     raw_deps.extend(flatten(
@@ -335,7 +328,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_resources = default_resource_manifest,
         standalone_resources = standalone_resource_manifest,
         bytecode = bytecode,
-        dep_manifest = dep_manifest,
         deps = deps,
         shared_libraries = shared_libraries,
     )

@@ -59,8 +59,6 @@ PythonToolchainInfo = provider(
         "extension_linker_flags": provider_field(typing.Any, default = None),
         "wheel_linker_flags": provider_field(list[typing.Any], default = []),
         "generate_static_extension_info": provider_field(typing.Any, default = None),
-        "parse_imports": provider_field(typing.Any, default = None),
-        "traverse_dep_manifest": provider_field(typing.Any, default = None),
         "package_style": provider_field(typing.Any, default = None),
         "strip_libpar": provider_field(typing.Any, default = None),
         "make_source_db": provider_field(typing.Any, default = None),
@@ -76,7 +74,6 @@ PythonToolchainInfo = provider(
         "typeshed_stubs": provider_field(typing.Any, default = []),
         "emit_omnibus_metadata": provider_field(typing.Any, default = None),
         "fail_with_message": provider_field(typing.Any, default = None),
-        "emit_dependency_metadata": provider_field(typing.Any, default = None),
         # A filegroup that gets added to all python executables
         "runtime_library": provider_field(Dependency | None, default = None),
         # The fully qualified name of a function that handles invoking the

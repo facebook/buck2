@@ -94,12 +94,11 @@ load(
 load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package", "make_run_info")
 load(
     ":manifest.bzl",
-    "create_dep_manifest_for_source_map",
     "create_manifest_for_extensions",
     "create_manifest_for_source_map",
 )
 load(":native_python_util.bzl", "merge_cxx_extension_info", "reduce_cxx_extension_info")
-load(":python.bzl", "PythonLibraryInfo", "info_to_interface")
+load(":python.bzl", "info_to_interface")
 load(
     ":python_library.bzl",
     "create_python_library_info",
@@ -355,10 +354,6 @@ def python_executable(
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
         bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
-    dep_manifest = None
-    if python_toolchain.emit_dependency_metadata and srcs:
-        dep_manifest = create_dep_manifest_for_source_map(ctx, python_toolchain, srcs)
-
     all_default_resources = {}
     all_standalone_resources = {}
     cxx_extra_resources = {}
@@ -378,7 +373,6 @@ def python_executable(
         ctx.label,
         srcs = src_manifest,
         src_types = src_manifest,
-        dep_manifest = dep_manifest,
         default_resources = py_resources(ctx, all_default_resources) if all_default_resources else None,
         standalone_resources = py_resources(ctx, all_standalone_resources, "_standalone") if all_standalone_resources else None,
         bytecode = bytecode_manifest,
@@ -403,10 +397,6 @@ def python_executable(
         allow_cache_upload,
         dbg_source_db,
     )
-    if python_toolchain.emit_dependency_metadata:
-        exe.sub_targets["dep-report"] = [create_dep_report(ctx, python_toolchain, main[1], library_info)]
-    if dep_manifest:
-        exe.sub_targets["dep-manifest"] = [DefaultInfo(default_output = dep_manifest.manifest, other_outputs = dep_manifest.artifacts)]
     exe.sub_targets.update({
         "dbg-source-db": [dbg_source_db],
         "library-info": [library_info],
@@ -434,22 +424,6 @@ def python_executable(
         })
 
     return exe
-
-def create_dep_report(
-        ctx: AnalysisContext,
-        python_toolchain: PythonToolchainInfo,
-        main: str,
-        library_info: PythonLibraryInfo) -> DefaultInfo:
-    out = ctx.actions.declare_output("dep-report.json")
-    cmd = cmd_args(
-        python_toolchain.traverse_dep_manifest,
-        cmd_args(main, format = "--main={}"),
-        cmd_args(out.as_output(), format = "--outfile={}"),
-        cmd_args(library_info.manifests.project_as_args("dep_manifests")),
-        hidden = library_info.manifests.project_as_args("dep_artifacts"),
-    )
-    ctx.actions.run(cmd, category = "write_dep_report")
-    return DefaultInfo(default_output = out)
 
 def _convert_python_library_to_executable(
         ctx: AnalysisContext,
