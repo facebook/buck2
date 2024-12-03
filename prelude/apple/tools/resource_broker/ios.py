@@ -13,8 +13,6 @@ from typing import List, Optional
 
 from packaging.version import Version
 
-from .idb_companion import IdbCompanion
-
 from .idb_target import (
     IdbTarget,
     managed_simulator_from_stdout,
@@ -27,11 +25,7 @@ from .simctl_runtime import list_ios_runtimes, XCSimRuntime
 
 from .timeouts import SIMULATOR_BOOT_TIMEOUT
 
-from .utils import (
-    execute_generic_text_producing_command,
-    spawn_companion,
-    wait_for_idb_companions,
-)
+from .utils import execute_generic_text_producing_command
 
 
 @dataclass(frozen=True)
@@ -108,24 +102,8 @@ def _select_simulator_spec(
         if device_type:
             return SimulatorSpec(runtime.name, device_type)
     raise RuntimeError(
-        "No XCode simctl compatible iOS runtime and device available. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
+        "No Xcode simctl compatible iOS runtime and device available. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
     )
-
-
-def _spawn_companion_for_simulator_command(
-    udid: str, grpc_domain_sock: str
-) -> List[str]:
-    return [
-        "idb_companion",
-        "--device-set-path",
-        _device_set_path(),
-        "--udid",
-        udid,
-        "--only",
-        "simulator",
-        "--grpc-domain-sock",
-        grpc_domain_sock,
-    ]
 
 
 async def _generic_managed_simulators_list_command(
@@ -271,25 +249,3 @@ async def prepare_simulator(
         udid=simulator.udid,
         device_set_path=_device_set_path(),
     )
-
-
-async def _ios_simulator(simulator_manager: str, booted: bool) -> List[IdbCompanion]:
-    simulator = await prepare_simulator(
-        simulator_manager=simulator_manager, booted=booted
-    )
-    grpc_domain_sock = f"/tmp/buck2_idb_companion_{simulator.udid}"
-    process = await spawn_companion(
-        command=_spawn_companion_for_simulator_command(
-            simulator.udid, grpc_domain_sock
-        ),
-        log_file_suffix=f"companion_launch_logs_for_{simulator.udid}.log",
-    )
-    return await wait_for_idb_companions([process])
-
-
-async def ios_unbooted_simulator(simulator_manager: str) -> List[IdbCompanion]:
-    return await _ios_simulator(simulator_manager=simulator_manager, booted=False)
-
-
-async def ios_booted_simulator(simulator_manager: str) -> List[IdbCompanion]:
-    return await _ios_simulator(simulator_manager=simulator_manager, booted=True)

@@ -40,6 +40,7 @@ class SimulatorInfo:
 def managed_simulator_from_stdout(stdout: Optional[str]) -> IdbTarget:
     if not stdout:
         return None
+    # pyre-ignore[16]: `from_dict` is dynamically provided by `dataclass_json`
     return IdbTarget.from_dict(json.loads(stdout))
 
 
