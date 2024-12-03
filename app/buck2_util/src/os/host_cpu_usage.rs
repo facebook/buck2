@@ -26,7 +26,7 @@ impl HostCpuUsage {
                 ticks.checked_mul(1000)?.checked_div(sc_clk_tck as u64)
             }
 
-            let sc_clk_tck = crate::os::macos::sc_clk_tck::sc_clk_tck()?;
+            let sc_clk_tck = crate::os::unix_like::sc_clk_tck::sc_clk_tck()?;
             let load_info = crate::os::macos::host_cpu_load_info::host_cpu_load_info()?;
             if let (Some(user_millis), Some(system_millis)) = (
                 ticks_to_ms(load_info.user.into(), sc_clk_tck),

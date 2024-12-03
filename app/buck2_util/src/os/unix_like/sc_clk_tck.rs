@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "linux"))]
 
 use std::sync::OnceLock;
 
@@ -36,7 +36,7 @@ pub fn sc_clk_tck() -> buck2_error::Result<u32> {
 
 #[cfg(test)]
 mod tests {
-    use crate::os::macos::sc_clk_tck::sc_clk_tck;
+    use crate::os::unix_like::sc_clk_tck::sc_clk_tck;
 
     #[test]
     fn test_ticks_per_second() {
