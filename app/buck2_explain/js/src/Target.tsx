@@ -117,7 +117,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           </li>
           <li className={tab === TARGET_DEPS ? 'is-active' : ''}>
             <Link className="no-underline" to={{target: configuredLabel, target_tab: TARGET_DEPS}}>
-              Dependencies
+              Dependencies ({target.depsLength()})
               <span className="icon">
                 <i className="fa fa-arrow-down"></i>
               </span>
@@ -125,7 +125,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
           </li>
           <li className={tab === TARGET_RDEPS ? 'is-active' : ''}>
             <Link className="no-underline" to={{target: configuredLabel, target_tab: TARGET_RDEPS}}>
-              Reverse dependencies
+              Reverse dependencies ({rdeps.length})
               <span className="icon">
                 <i className="fa fa-arrow-up"></i>
               </span>
@@ -135,7 +135,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
             <Link
               className="no-underline"
               to={{target: configuredLabel, target_tab: TARGET_ACTIONS}}>
-              Actions
+              Actions ({target.actionsLength()})
               <span className="icon">
                 <i className="fa fa-tasks"></i>
               </span>
@@ -145,7 +145,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
             <Link
               className="no-underline"
               to={{target: configuredLabel, target_tab: TARGET_CHANGED_FILES}}>
-              Changed files
+              Changed files ({target.changedFilesLength()})
               <span className="icon">
                 <i className="fa fa-file"></i>
               </span>
