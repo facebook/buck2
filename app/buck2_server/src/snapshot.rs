@@ -284,8 +284,8 @@ impl SnapshotCollector {
     fn add_cpu_usage(&self, snapshot: &mut buck2_data::Snapshot) {
         if let Some(collector) = &self.cpu_usage_collector {
             if let Ok(cpu_usage) = collector.get_usage_since_command_start() {
-                snapshot.host_cpu_usage_system_ms = cpu_usage.system;
-                snapshot.host_cpu_usage_user_ms = cpu_usage.user;
+                snapshot.host_cpu_usage_system_ms = Some(cpu_usage.system_millis);
+                snapshot.host_cpu_usage_user_ms = Some(cpu_usage.user_millis);
             }
         }
     }

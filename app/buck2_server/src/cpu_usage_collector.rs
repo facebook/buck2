@@ -12,8 +12,8 @@ use dupe::Dupe;
 
 /// Host CPU usage since a buck2 command was started.
 pub(crate) struct HostCpuUsageSinceCmdStart {
-    pub(crate) user: Option<u64>,
-    pub(crate) system: Option<u64>,
+    pub(crate) user_millis: u64,
+    pub(crate) system_millis: u64,
 }
 
 /// Collects and emits the delta of CPU usage since the command start (i.e. collector creation).
@@ -36,16 +36,19 @@ impl CpuUsageCollector {
         if let Ok(current_usage) = HostCpuUsage::get() {
             // TODO(rajneeshl): The MacOS low-level API returns u32 for the tick count which overflows
             // in a couple of weeks. This could lead to situations where the start > current.
-            return Ok(HostCpuUsageSinceCmdStart {
-                user: current_usage.user.and_then(|current| {
-                    self.start.user.and_then(|start| current.checked_sub(start))
-                }),
-                system: current_usage.system.and_then(|current| {
-                    self.start
-                        .system
-                        .and_then(|start| current.checked_sub(start))
-                }),
-            });
+            if let (Some(user_millis), Some(system_millis)) = (
+                current_usage
+                    .user_millis
+                    .checked_sub(self.start.user_millis),
+                current_usage
+                    .system_millis
+                    .checked_sub(self.start.system_millis),
+            ) {
+                return Ok(HostCpuUsageSinceCmdStart {
+                    user_millis,
+                    system_millis,
+                });
+            }
         }
         Err(anyhow::anyhow!("Failed to get CPU usage"))
     }
