@@ -19,7 +19,6 @@ export function GraphViz2(props: {
 }) {
   const {nodes, links, openTarget, showLabels} = props
   const graphRef = useRef<any>(null)
-  const dagMode = links.length / nodes.length > 3 ? 'td' : undefined
 
   // Show labels optionally
   let paintLabels: ForceGraphProps['nodeCanvasObject'] = undefined
@@ -64,7 +63,7 @@ export function GraphViz2(props: {
       linkCurvature={0.2}
       linkWidth={10 / Math.pow(links.length, 0.5)}
       linkHoverPrecision={6}
-      dagMode={dagMode}
+      dagMode="td"
     />
   )
 }
