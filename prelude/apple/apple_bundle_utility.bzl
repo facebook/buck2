@@ -7,6 +7,7 @@
 
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
+load(":apple_library.bzl", "AppleLibraryForDistributionInfo")
 load(":apple_resource_types.bzl", "AppleResourceProcessingOptions")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
@@ -25,7 +26,13 @@ def _get_bundle_target_name(ctx: AnalysisContext):
     return ctx.attrs.name
 
 def get_product_name(ctx: AnalysisContext) -> str:
-    return ctx.attrs.product_name if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None else _get_bundle_target_name(ctx)
+    if hasattr(ctx.attrs, "product_name") and ctx.attrs.product_name != None:
+        return ctx.attrs.product_name
+    if getattr(ctx.attrs, "product_name_from_module_name", False):
+        apple_library_info = get_default_binary_dep(ctx.attrs.binary).get(AppleLibraryForDistributionInfo)
+        if apple_library_info != None:
+            return apple_library_info.module_name
+    return _get_bundle_target_name(ctx)
 
 def get_extension_attr(ctx: AnalysisContext) -> typing.Any:
     return ctx.attrs.extension

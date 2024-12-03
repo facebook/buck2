@@ -233,6 +233,11 @@ def _apple_tools_arg():
         "_apple_tools": attrs.dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     }
 
+def _product_name_from_module_name_arg():
+    return {
+        "product_name_from_module_name": attrs.bool(default = False),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -252,4 +257,5 @@ apple_common = struct(
     apple_sanitizer_compatibility_arg = _apple_sanitizer_compatibility_arg,
     enable_private_swift_module_arg = _enable_private_swift_module_arg,
     apple_tools_arg = _apple_tools_arg,
+    product_name_from_module_name_arg = _product_name_from_module_name_arg,
 )

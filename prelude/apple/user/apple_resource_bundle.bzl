@@ -43,6 +43,7 @@ def _apple_resource_bundle_attrs():
         "module_map": attrs.option(attrs.source(), default = None),
         "privacy_manifest": attrs.option(attrs.source(), default = None),
         "product_name": attrs.option(attrs.string(), default = None),
+        "product_name_from_module_name": attrs.bool(default = False),
         "resource_group": attrs.option(attrs.string(), default = None),
         "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         "universal": attrs.option(attrs.bool(), default = None),
