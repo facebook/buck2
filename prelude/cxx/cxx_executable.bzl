@@ -700,7 +700,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                     shlib.lib.dwp
                     for shlib in shared_libs
                     if shlib.lib.dwp
-                ],
+                ] + ([link_result.dwp_symlink_tree] if link_result.dwp_symlink_tree else []),
             ),
         ]
 
@@ -805,6 +805,7 @@ _CxxLinkExecutableResult = record(
     # this executable is the output of a build, but not when it is used by other
     # rules.
     external_debug_info = list[TransitiveSetArgsProjection],
+    dwp_symlink_tree = field(list[Artifact] | Artifact | None),
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = [list[Artifact], Artifact, None],
     linker_map_data = [CxxLinkerMapData, None],
@@ -847,6 +848,7 @@ def _link_into_executable(
         runtime_files = executable_args.runtime_files + link_result.sanitizer_runtime_files,
         external_debug_info = executable_args.external_debug_info,
         shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
+        dwp_symlink_tree = executable_args.dwp_symlink_tree,
         linker_map_data = link_result.linker_map_data,
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
         extra_outputs = link_result.extra_outputs if link_result.extra_outputs else {},
