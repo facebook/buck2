@@ -62,6 +62,14 @@ def _fast_adhoc_signing_enabled_default_attr():
         "config//features/apple:fast_adhoc_signing_enabled": True,
     }))
 
+def _skip_adhoc_resigning_scrubbed_frameworks_default_attr():
+    default_value = (read_root_config("apple", "skip_adhoc_resigning_scrubbed_frameworks", "").lower() == "true")
+    return attrs.bool(default = select({
+        "DEFAULT": default_value,
+        "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_disabled": False,
+        "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_enabled": True,
+    }))
+
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -92,6 +100,7 @@ def _apple_bundle_like_common_attrs():
         "codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "fast_adhoc_signing_enabled": attrs.option(attrs.bool(), default = None),
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
+        "skip_adhoc_resigning_scrubbed_frameworks": attrs.option(attrs.bool(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
         "versioned_macos_bundle": attrs.bool(default = False),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
@@ -110,6 +119,7 @@ def _apple_bundle_like_common_attrs():
         # FIXME: prelude// should be standalone (not refer to fbsource//)
         "_provisioning_profiles": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profiles"),
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),
+        "_skip_adhoc_resigning_scrubbed_frameworks_default": _skip_adhoc_resigning_scrubbed_frameworks_default_attr(),
         "_strict_provisioning_profile_search_default": _strict_provisioning_profile_search_default_attr(),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
         APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME: attrs.bool(default = False),

@@ -11,7 +11,7 @@ load(
     "ArtifactInfoTag",
 )
 load("@prelude//apple:apple_common.bzl", "apple_common")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load(
     "@prelude//linking:execution_preference.bzl",
     "LinkExecutionPreference",
@@ -66,6 +66,20 @@ _OBJECT_FILE_EXTENSIONS = [
     ".o",
     ".a",
 ]
+
+def _apple_skip_adhoc_resigning_scrubbed_frameworks_attr_value(bundle_ctx: AnalysisContext) -> bool:
+    skip = bundle_ctx.attrs.skip_adhoc_resigning_scrubbed_frameworks
+    return skip if skip != None else bundle_ctx.attrs._skip_adhoc_resigning_scrubbed_frameworks_default
+
+def _should_skip_adhoc_sign_after_scrubbing(bundle_ctx: AnalysisContext) -> bool:
+    sdk_name = bundle_ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_name
+    if bundle_ctx.attrs.extension == "framework" and "iphonesimulator" in sdk_name:
+        # While scrubbing invalidates the code signature, the signature of frameworks
+        # are generally not checked by the system (unless running against the hardened
+        # runtime for macOS apps). Re-signing scrubbed frameworks can take non-trivial
+        # time, so skip it if it's not needed.
+        return _apple_skip_adhoc_resigning_scrubbed_frameworks_attr_value(bundle_ctx)
+    return False
 
 def _generate_metadata_json_object(is_any_selected_target_linked: bool) -> dict[str, typing.Any]:
     return {
@@ -161,7 +175,7 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
 
         # If we're provided a codesign tool, provider it to the scrubber binary so that it may sign
         # the binary after scrubbing.
-        if adhoc_codesign_tool:
+        if adhoc_codesign_tool and (not _should_skip_adhoc_sign_after_scrubbing(inner_ctx)):
             inner_cmd.add(["--adhoc-codesign-tool", adhoc_codesign_tool])
         inner_cmd.add(["--input", executable])
         inner_cmd.add(["--output", output.as_output()])
