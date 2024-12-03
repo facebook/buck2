@@ -169,15 +169,59 @@ function TargetDeps(props: {target: ConfiguredTargetNode}) {
 
 function TargetActions(props: {target: ConfiguredTargetNode}) {
   const {target} = props
-  let repros = []
+  let rows = []
+
   for (let i = 0; i < target.actionsLength(); i++) {
     const action = target.actions(i)!
+    const repros: string[] = []
     for (let j = 0; j < action.reprosLength(); j++) {
       repros.push(action.repros(j)!)
     }
+    rows.push({
+      category: action.category(),
+      identifier: action.identifier(),
+      failed: action.failed(),
+      executionKind: action.executionKind(),
+      inputFilesBytes: action.inputFilesBytes(),
+      affectedByFileChanges: action.affectedByFileChanges(),
+      repros,
+    })
   }
-  let res = repros.map(r => <ul>{r}</ul>)
-  return <div className="content">{res}</div>
+
+  return (
+    <table className="table ml-4">
+      <tbody>
+        <tr>
+          <th>Category</th>
+          <th>Identifier</th>
+          <th>Failed</th>
+          <th>Execution kind</th>
+          <th>Input files bytes</th>
+          <th>Affected by file changes</th>
+          <th>Repros</th>
+        </tr>
+        {rows.map(a => (
+          <tr>
+            <td>{a.category}</td>
+            <td>{a.identifier}</td>
+            <td>{a.failed.toString()}</td>
+            <td>{a.executionKind}</td>
+            <td>{a.inputFilesBytes?.toString()}</td>
+            <td>{a.affectedByFileChanges.toString()}</td>
+            <td>
+              <ul>
+                {a.repros.map(r => (
+                  <li>
+                    <code>{r}</code>
+                  </li>
+                ))}
+              </ul>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
 }
 
 function TargetChangedFiles(props: {target: ConfiguredTargetNode}) {
