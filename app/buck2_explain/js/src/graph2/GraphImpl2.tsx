@@ -103,7 +103,13 @@ export function GraphImpl2(props: {
 
     // Targets with actions ran
     if (target.actionsLength() > 0) {
-      node.displayType = DisplayType.actionsRan
+      for (let i = 0; i < target.actionsLength(); i++) {
+        const action = target.actions(i)
+        // TODO iguridi: do this filtering in rust side
+        if (action!.affectedByFileChanges()) {
+          node.displayType = DisplayType.actionsRan
+        }
+      }
     }
 
     if (target.changedFilesLength() > 0) {
