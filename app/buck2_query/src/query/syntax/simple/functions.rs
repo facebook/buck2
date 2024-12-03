@@ -475,7 +475,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for the immediate dependencies of the given targets. Output is equivalent to `deps(<targets>, 1)`.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, first_order_deps())"`` is equivalent to `buck2 cquery "deps('//foo:bar', 1)"`
+    /// `buck2 cquery "deps('//foo:bar', 1, first_order_deps())"` is equivalent to `buck2 cquery "deps('//foo:bar', 1)"`
     async fn first_order_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("first_order_deps"))
     }
@@ -485,7 +485,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// like compiler used as a part of the build.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, target_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, target_deps())"`
     async fn target_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("target_deps"))
     }
@@ -494,7 +494,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for execution dependencies (build time dependencies), ex. compiler used as a part of the build.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, exec_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, exec_deps())"`
     async fn exec_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("exec_deps"))
     }
@@ -503,7 +503,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for configuration dependencies (that appear as conditions in selects).
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, configuration_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, configuration_deps())"`
     async fn configuration_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("configuration_deps"))
     }
@@ -512,7 +512,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Returns the output of deps function for toolchain dependencies.
     ///
     /// Example:
-    /// `buck2 cquery "deps('//foo:bar', 1, toolchain_deps())"``
+    /// `buck2 cquery "deps('//foo:bar', 1, toolchain_deps())"`
     async fn toolchain_deps(&self) -> QueryFuncResult<Env> {
         Err(QueryError::NotAvailableInContext("configuration_deps"))
     }

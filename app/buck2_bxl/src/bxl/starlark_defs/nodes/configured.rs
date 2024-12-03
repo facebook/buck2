@@ -141,7 +141,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the attribute from the configured target node.
     /// If the attribute is unset, returns the default value.
     /// If the attribute is not defined by the rule, returns `None`.
-    /// It will not return special attribute (attribute that start with 'buck.' in `buck2 cquery -A`` command).
+    /// It will not return special attribute (attribute that start with 'buck.' in `buck2 cquery -A` command).
     ///
     /// Sample usage:
     /// ```text

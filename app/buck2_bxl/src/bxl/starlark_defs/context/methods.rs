@@ -277,7 +277,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///     - a single subtarget label, configured or unconfigured
     ///     - a list of the two options above.
     ///
-    /// Also takes in an optional `target_platform` param to configure the nodes with, and a `keep_going``
+    /// Also takes in an optional `target_platform` param to configure the nodes with, and a `keep_going`
     /// flag to skip any loading or configuration errors. Note that `keep_going` currently can only be used
     /// if the input labels is a single target pattern as a string literal.
     fn target_universe<'v>(
