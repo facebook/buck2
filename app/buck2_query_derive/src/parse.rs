@@ -19,6 +19,7 @@ use syn::FnArg;
 use syn::Generics;
 use syn::Ident;
 use syn::ImplItem;
+use syn::ImplItemFn;
 use syn::Item;
 use syn::ItemImpl;
 use syn::Lit;
@@ -170,89 +171,8 @@ impl syn::parse::Parse for Module {
         for item in items {
             match item {
                 ImplItem::Fn(method) => {
-                    let sig = &method.sig;
-                    let span = sig.span();
-
-                    if let Some(v) = sig.unsafety {
-                        return Err(Error::new_spanned(
-                            v,
-                            "`#[query_module]` methods can't be unsafe.",
-                        ));
-                    }
-
-                    if sig.asyncness.is_none() {
-                        return Err(Error::new_spanned(
-                            sig,
-                            "`#[query_module]` methods must be async.",
-                        ));
-                    }
-
-                    let ident = &sig.ident;
-
-                    let mut args = sig.inputs.iter();
-                    match args.next() {
-                        Some(FnArg::Receiver(_)) => {}
-                        _ => {
-                            return Err(Error::new(
-                                span,
-                                "`#[query_module]` methods must have a `&self` parameter",
-                            ));
-                        }
-                    }
-
-                    let mut parsed_args = Vec::new();
-                    for arg in args {
-                        let span = arg.span();
-                        match arg {
-                            FnArg::Receiver(_) => {
-                                unreachable!("a method can't have multiple receiver args")
-                            }
-                            FnArg::Typed(PatType { pat, ty, .. }) => {
-                                let name = match &**pat {
-                                    Pat::Ident(PatIdent { ident, .. }) => ident,
-                                    _ => {
-                                        return Err(Error::new(
-                                            span,
-                                            "`#[query_module]` method arguments can only have simple identity captures. You can destructure them within the method impl.",
-                                        ));
-                                    }
-                                };
-                                parsed_args.push(Argument {
-                                    span,
-                                    ty: (**ty).clone(),
-                                    name: name.clone(),
-                                })
-                            }
-                        }
-                    }
-
-                    // We look for a #[binary_op(BinaryOp::Foo)] attribute to identify functions that implement binary ops. We need to also remove that attribute from the original code.
-                    let mut binary_op = None;
-                    let original_attrs = std::mem::take(&mut method.attrs);
-
-                    let docs = DocString::parse(&original_attrs);
-
-                    for attr in original_attrs {
-                        if *attr.path() == binary_op_path {
-                            if let Ok(path) = attr.parse_args::<Path>() {
-                                binary_op = Some(path);
-                            } else {
-                                return Err(Error::new_spanned(
-                                    &attr.meta,
-                                    "#[query_module] attribute `binary_op` should receive a single argument identifying the binary op like `#[binary_op(BinaryOp::Intersect)]`",
-                                ));
-                            }
-                        } else {
-                            method.attrs.push(attr)
-                        }
-                    }
-
-                    methods.push(Method {
-                        name: ident.clone(),
-                        args: parsed_args,
-                        binary_op,
-                        docs,
-                    });
+                    let function = parse_function(method, &binary_op_path)?;
+                    methods.push(function);
                 }
                 _ => {
                     return Err(Error::new_spanned(
@@ -271,6 +191,91 @@ impl syn::parse::Parse for Module {
             original_impl: item,
         })
     }
+}
+
+fn parse_function(method: &mut ImplItemFn, binary_op_path: &Path) -> Result<Method> {
+    let sig = &method.sig;
+    let span = sig.span();
+
+    if let Some(v) = sig.unsafety {
+        return Err(Error::new_spanned(
+            v,
+            "`#[query_module]` methods can't be unsafe.",
+        ));
+    }
+
+    if sig.asyncness.is_none() {
+        return Err(Error::new_spanned(
+            sig,
+            "`#[query_module]` methods must be async.",
+        ));
+    }
+
+    let ident = &sig.ident;
+
+    let mut args = sig.inputs.iter();
+    match args.next() {
+        Some(FnArg::Receiver(_)) => {}
+        _ => {
+            return Err(Error::new(
+                span,
+                "`#[query_module]` methods must have a `&self` parameter",
+            ));
+        }
+    }
+
+    let mut parsed_args = Vec::new();
+    for arg in args {
+        let span = arg.span();
+        match arg {
+            FnArg::Receiver(_) => {
+                unreachable!("a method can't have multiple receiver args")
+            }
+            FnArg::Typed(PatType { pat, ty, .. }) => {
+                let name = match &**pat {
+                    Pat::Ident(PatIdent { ident, .. }) => ident,
+                    _ => {
+                        return Err(Error::new(
+                            span,
+                            "`#[query_module]` method arguments can only have simple identity captures. You can destructure them within the method impl.",
+                        ));
+                    }
+                };
+                parsed_args.push(Argument {
+                    span,
+                    ty: (**ty).clone(),
+                    name: name.clone(),
+                })
+            }
+        }
+    }
+
+    // We look for a #[binary_op(BinaryOp::Foo)] attribute to identify functions that implement binary ops. We need to also remove that attribute from the original code.
+    let mut binary_op = None;
+    let original_attrs = std::mem::take(&mut method.attrs);
+
+    let docs = DocString::parse(&original_attrs);
+
+    for attr in original_attrs {
+        if attr.path() == binary_op_path {
+            if let Ok(path) = attr.parse_args::<Path>() {
+                binary_op = Some(path);
+            } else {
+                return Err(Error::new_spanned(
+                    &attr.meta,
+                    "#[query_module] attribute `binary_op` should receive a single argument identifying the binary op like `#[binary_op(BinaryOp::Intersect)]`",
+                ));
+            }
+        } else {
+            method.attrs.push(attr)
+        }
+    }
+    Ok(Method {
+        name: ident.clone(),
+        args: parsed_args,
+        binary_op,
+        docs,
+    })
 }
 
 impl syn::parse::Parse for QueryModuleArgs {
