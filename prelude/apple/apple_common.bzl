@@ -230,7 +230,7 @@ def _apple_sanitizer_compatibility_arg():
 
 def _apple_tools_arg():
     return {
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+        "_apple_tools": attrs.dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
     }
 
 apple_common = struct(
