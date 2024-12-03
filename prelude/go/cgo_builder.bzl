@@ -25,6 +25,7 @@ load(
     "cxx_inherited_preprocessor_infos",
     "cxx_merge_cpreprocessors",
 )
+load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -159,14 +160,14 @@ def build_cgo(ctx: AnalysisContext, cgo_files: list[Artifact], h_files: list[Art
         link_style = "static"
     linkage = _LINKAGE_FOR_LINK_STYLE[LinkStyle(link_style)]
 
-    # Copmile C++ sources into object files.
+    # Compile C++ sources into object files.
     c_compile_cmds = cxx_compile_srcs(
         ctx,
         CxxRuleConstructorParams(
             rule_type = "cgo_sources",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
             srcs = [CxxSrcWithFlags(file = src) for src in c_files + c_gen_srcs],
-            compiler_flags = c_flags + ctx.attrs.cxx_compiler_flags,
+            compiler_flags = c_flags + ctx.attrs.cxx_compiler_flags + get_target_sdk_version_flags(ctx),
             preprocessor_flags = cpp_flags + ctx.attrs.cxx_preprocessor_flags,
         ),
         # Create private header tree and propagate via args.
