@@ -38,11 +38,6 @@ pub trait BuckErrorContext<T>: Sealed {
     }
 
     #[track_caller]
-    fn tier0(self) -> crate::Result<T> {
-        self.tag(ErrorTag::Tier0)
-    }
-
-    #[track_caller]
     fn tag(self, tag: crate::ErrorTag) -> crate::Result<T> {
         self.buck_error_context(ContextValue::Tags(smallvec![tag]))
     }
