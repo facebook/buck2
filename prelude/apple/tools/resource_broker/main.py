@@ -54,6 +54,18 @@ def _args_parser() -> argparse.ArgumentParser:
         If passed, will only create simulator. No idb_companion will be spawned.
         """,
     )
+    parser.add_argument(
+        "--os_version",
+        required=False,
+        type=str,
+        help="OS version to use for simulator",
+    )
+    parser.add_argument(
+        "--device",
+        required=False,
+        type=str,
+        help="Device to use for simulator",
+    )
     return parser
 
 
@@ -78,7 +90,12 @@ def main() -> None:
     if args.no_companion:
         booted = args.type == _ResourceType.iosBootedSimulator
         sim = asyncio.run(
-            prepare_simulator(simulator_manager=args.simulator_manager, booted=booted)
+            prepare_simulator(
+                simulator_manager=args.simulator_manager,
+                booted=booted,
+                os_version=args.os_version,
+                device=args.device,
+            )
         )
         result = {
             "resources": [

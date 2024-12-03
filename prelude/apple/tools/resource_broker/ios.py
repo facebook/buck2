@@ -8,6 +8,7 @@
 # pyre-strict
 
 import os
+from dataclasses import dataclass
 from typing import List, Optional
 
 from packaging.version import Version
@@ -31,6 +32,12 @@ from .utils import (
     spawn_companion,
     wait_for_idb_companions,
 )
+
+
+@dataclass(frozen=True)
+class SimulatorSpec:
+    os_version: str
+    device: str
 
 
 def _device_set_path() -> str:
@@ -69,10 +76,14 @@ def _boot_simulator_command(simulator_manager: str, udid: str) -> List[str]:
     ]
 
 
-def _compatible_device_type_from_runtime(runtime: XCSimRuntime) -> Optional[str]:
+def _compatible_device_type_from_runtime(
+    runtime: XCSimRuntime, device: Optional[str]
+) -> Optional[str]:
     iphones = filter(
         lambda t: t.product_family == "iPhone", runtime.supported_device_types
     )
+    if device:
+        iphones = filter(lambda t: t.name == device, iphones)
     if not iphones:
         return None
     default = next(iphones)
@@ -86,12 +97,16 @@ def _compatible_device_type_from_runtime(runtime: XCSimRuntime) -> Optional[str]
     )
 
 
-def _select_latest_simulator_spec(runtimes: List[XCSimRuntime]) -> str:
+def _select_simulator_spec(
+    runtimes: List[XCSimRuntime], os_version: Optional[str], device: Optional[str]
+) -> SimulatorSpec:
     runtimes.sort(key=lambda x: Version(x.version), reverse=True)
+    if os_version:
+        runtimes = [x for x in runtimes if x.name == os_version]
     for runtime in runtimes:
-        device_type = _compatible_device_type_from_runtime(runtime)
+        device_type = _compatible_device_type_from_runtime(runtime, device)
         if device_type:
-            return f"{device_type},{runtime.name}"
+            return SimulatorSpec(runtime.name, device_type)
     raise RuntimeError(
         "No XCode simctl compatible iOS runtime and device available. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
     )
@@ -132,11 +147,49 @@ async def _list_managed_simulators(simulator_manager: str) -> List[IdbTarget]:
     )
 
 
-async def _create_simulator(simulator_manager: str) -> IdbTarget:
+def normalize_ios_version(ios_version: str) -> str:
+    # iOS version should be in the format "iOS 17.2.0" or "iOS 17.2"
+    if not ios_version.startswith("iOS "):
+        raise Exception(f"Expected iOS version to start with 'iOS ', got {ios_version}")
+    version = ios_version.split(" ")[1]
+    major_version = version.split(".")[0]
+    minor_version = version.split(".")[1]
+    patch_version = 0
+    if len(version.split(".")) == 3:
+        patch_version = version.split(".")[2]
+    return f"{major_version}.{minor_version}.{patch_version}"
+
+
+def choose_simulators(
+    simulators: List[IdbTarget], os_version: Optional[str], device: Optional[str]
+) -> List[IdbTarget]:
+    if not os_version and not device:
+        return simulators
+
+    filtered_simulators = filter(
+        lambda s: (
+            (
+                normalize_ios_version(s.os_version) == normalize_ios_version(os_version)
+                if os_version
+                else True
+            )
+            and (s.name == device if device else True)
+        ),
+        simulators,
+    )
+    return list(filtered_simulators)
+
+
+async def _create_simulator(
+    simulator_manager: str,
+    os_version: Optional[str] = None,
+    device: Optional[str] = None,
+) -> IdbTarget:
     runtimes = await list_ios_runtimes()
-    spec = _select_latest_simulator_spec(runtimes)
+    spec = _select_simulator_spec(runtimes, os_version, device)
+    spec_str = f"{spec.device},{spec.os_version}"
     create_cmd = _create_simulator_command(
-        simulator_manager=simulator_manager, sim_spec=spec
+        simulator_manager=simulator_manager, sim_spec=spec_str
     )
     return await _generic_managed_simulator_command(
         name="create simulators", cmd=create_cmd
@@ -145,14 +198,19 @@ async def _create_simulator(simulator_manager: str) -> IdbTarget:
 
 async def _get_managed_simulators_create_if_needed(
     simulator_manager: str,
+    os_version: Optional[str] = None,
+    device: Optional[str] = None,
 ) -> List[IdbTarget]:
     managed_simulators = await _list_managed_simulators(
         simulator_manager=simulator_manager
     )
+    managed_simulators = choose_simulators(managed_simulators, os_version, device)
     if managed_simulators:
         return managed_simulators
 
-    managed_simulator = await _create_simulator(simulator_manager=simulator_manager)
+    managed_simulator = await _create_simulator(
+        simulator_manager=simulator_manager, os_version=os_version, device=device
+    )
     if managed_simulator:
         return [managed_simulator]
 
@@ -186,9 +244,16 @@ def _select_simulator_with_preference(
     return simulator
 
 
-async def prepare_simulator(simulator_manager: str, booted: bool) -> SimulatorInfo:
+async def prepare_simulator(
+    simulator_manager: str,
+    booted: bool,
+    os_version: Optional[str] = None,
+    device: Optional[str] = None,
+) -> SimulatorInfo:
     managed_simulators = await _get_managed_simulators_create_if_needed(
-        simulator_manager=simulator_manager
+        simulator_manager=simulator_manager,
+        os_version=os_version,
+        device=device,
     )
     simulator = _select_simulator_with_preference(
         prefer_booted=booted, all_simulators=managed_simulators
