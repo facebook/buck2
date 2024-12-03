@@ -27,6 +27,7 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
+    "create_shlib_dwp_tree",
     "create_shlib_symlink_tree",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
@@ -166,6 +167,9 @@ def make_link_args(
 def shared_libs_symlink_tree_name(output: Artifact) -> str:
     return "__{}__shared_libs_symlink_tree".format(output.short_path)
 
+def _dwp_symlink_tree_name(output: Artifact) -> str:
+    return "__{}__dwp_symlink_tree".format(output.short_path)
+
 ExecutableSharedLibArguments = record(
     extra_link_args = field(list[ArgLike], []),
     # Files that must be present for the executable to run successfully. These
@@ -178,6 +182,7 @@ ExecutableSharedLibArguments = record(
     external_debug_info = field(list[TransitiveSetArgsProjection], []),
     # Optional shared libs symlink tree symlinked_dir action.
     shared_libs_symlink_tree = field(list[Artifact] | Artifact | None, None),
+    dwp_symlink_tree = field(list[Artifact] | Artifact | None, None),
 )
 
 CxxSanitizerRuntimeArguments = record(
@@ -250,6 +255,7 @@ def executable_shared_lib_arguments(
 
     linker_type = cxx_toolchain.linker_info.type
 
+    dwp_symlink_tree = None
     if len(shared_libs) > 0:
         if linker_type == LinkerType("windows"):
             shared_libs_symlink_tree = [ctx.actions.symlink_file(
@@ -265,6 +271,7 @@ def executable_shared_lib_arguments(
                 out = shared_libs_symlink_tree_name(output),
                 shared_libs = shared_libs,
             )
+            dwp_symlink_tree = create_shlib_dwp_tree(ctx.actions, _dwp_symlink_tree_name(output), shared_libs)
             runtime_files.append(shared_libs_symlink_tree)
             rpath_reference = get_rpath_origin(linker_type)
 
@@ -282,6 +289,7 @@ def executable_shared_lib_arguments(
         runtime_files = runtime_files,
         external_debug_info = external_debug_info,
         shared_libs_symlink_tree = shared_libs_symlink_tree,
+        dwp_symlink_tree = dwp_symlink_tree,
     )
 
 LinkCmdParts = record(

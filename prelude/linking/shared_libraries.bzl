@@ -282,6 +282,18 @@ def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: l
         dir = True,
     )
 
+def create_shlib_dwp_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]) -> Artifact:
+    return gen_shared_libs_action(
+        actions = actions,
+        out = out,
+        shared_libs = shared_libs,
+        gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
+            output,
+            {name + ".dwp": shlib.lib.dwp for name, shlib in shared_libs.items() if shlib.lib.dwp != None},
+        ),
+        dir = True,
+    )
+
 def extract_soname_from_shlib(
         actions: AnalysisActions,
         name: str,
