@@ -109,46 +109,46 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
             <Link
               className="no-underline icon-text"
               to={{target: configuredLabel, target_tab: TARGET_ATTRS}}>
-              Attributes
               <span className="icon">
                 <i className="fa fa-list"></i>
               </span>
+              Attributes
             </Link>
           </li>
           <li className={tab === TARGET_DEPS ? 'is-active' : ''}>
             <Link className="no-underline" to={{target: configuredLabel, target_tab: TARGET_DEPS}}>
-              Dependencies ({target.depsLength()})
               <span className="icon">
                 <i className="fa fa-arrow-down"></i>
               </span>
+              Dependencies ({target.depsLength()})
             </Link>
           </li>
           <li className={tab === TARGET_RDEPS ? 'is-active' : ''}>
             <Link className="no-underline" to={{target: configuredLabel, target_tab: TARGET_RDEPS}}>
-              Reverse dependencies ({rdeps.length})
               <span className="icon">
                 <i className="fa fa-arrow-up"></i>
               </span>
+              Reverse dependencies ({rdeps.length})
             </Link>
           </li>
           <li className={tab === TARGET_ACTIONS ? 'is-active' : ''}>
             <Link
               className="no-underline"
               to={{target: configuredLabel, target_tab: TARGET_ACTIONS}}>
-              Actions ({target.actionsLength()})
               <span className="icon">
                 <i className="fa fa-tasks"></i>
               </span>
+              Actions ({target.actionsLength()})
             </Link>
           </li>
           <li className={tab === TARGET_CHANGED_FILES ? 'is-active' : ''}>
             <Link
               className="no-underline"
               to={{target: configuredLabel, target_tab: TARGET_CHANGED_FILES}}>
-              Changed files ({target.changedFilesLength()})
               <span className="icon">
                 <i className="fa fa-file"></i>
               </span>
+              Changed files ({target.changedFilesLength()})
             </Link>
           </li>
         </ul>
