@@ -158,6 +158,12 @@ LinkerFlags = record(
     exported_post_flags = field(list[typing.Any], []),
 )
 
+DepMetadata = record(
+    # The version of a particular library linked into a binary. This is reported by
+    # attributes on the library target itself.
+    version = field(str),
+)
+
 # Contains the information required to add an item (often corresponding to a single library) to a link command line.
 LinkInfo = record(
     # An informative name for this LinkInfo. This may be used in user messages
@@ -173,6 +179,9 @@ LinkInfo = record(
     # link info.  For example, this may include `.dwo` files, or the original
     # `.o` files if they contain debug info that doesn't follow the link.
     external_debug_info = field(ArtifactTSet, ArtifactTSet()),
+    # Metadata attached to this LinkInfo. This metadata is propagated up the graph to
+    # root nodes (like binaries).
+    metadata = field(list[DepMetadata], []),
 )
 
 # The ordering to use when traversing linker libs transitive sets.
@@ -196,6 +205,7 @@ def set_link_info_link_whole(info: LinkInfo) -> LinkInfo:
         post_flags = info.post_flags,
         linkables = linkables,
         external_debug_info = info.external_debug_info,
+        metadata = info.metadata,
     )
 
 def set_linkable_link_whole(
@@ -228,6 +238,7 @@ def wrap_link_info(
         post_flags = post_flags,
         linkables = inner.linkables,
         external_debug_info = inner.external_debug_info,
+        metadata = inner.metadata,
     )
 
 # Returns true if the command line argument representation of this linkable,
@@ -351,6 +362,13 @@ def _link_info_stripped_excluding_filelist_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
 
+def link_info_to_metadata_args(info: LinkInfo) -> ArgLike:
+    return cmd_args(["version:" + meta.version for meta in info.metadata])
+
+def _link_info_metadata_args(infos: LinkInfos):
+    info = infos.stripped or infos.default
+    return link_info_to_metadata_args(info)
+
 def _link_info_has_default_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
     if infos:
         info = infos.default
@@ -371,6 +389,7 @@ LinkInfosTSet = transitive_set(
         "default": _link_info_default_args,
         "default_excluding_filelist": _link_info_default_excluding_filelist_args,
         "default_filelist": _link_info_default_filelist,
+        "metadata": _link_info_metadata_args,
         "stripped": _link_info_stripped_link_args,
         "stripped_excluding_filelist": _link_info_stripped_excluding_filelist_args,
         "stripped_filelist": _link_info_stripped_filelist,

@@ -55,6 +55,7 @@ load("@prelude//utils:utils.bzl", "flatten_dict")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
+    "cxx_attr_dep_metadata",
     "cxx_inherited_link_info",
     "cxx_use_shlib_intfs",
 )
@@ -169,11 +170,13 @@ def _get_static_link_infos(
             pre_flags = pre_flags,
             post_flags = post_flags,
             linkables = linkables,
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
         stripped = LinkInfo(
             pre_flags = pre_flags,
             post_flags = post_flags,
             linkables = linkables_stripped,
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
 
@@ -227,6 +230,7 @@ def _get_shared_link_infos(
             pre_flags = pre_flags,
             post_flags = post_flags,
             linkables = linkables,
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
 

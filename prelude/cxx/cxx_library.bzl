@@ -144,6 +144,7 @@ load(
 load(
     ":cxx_library_utility.bzl",
     "OBJECTS_SUBTARGET",
+    "cxx_attr_dep_metadata",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
     "cxx_attr_link_strategy",
@@ -829,6 +830,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                         ),
                         children = impl_params.additional.static_external_debug_info,
                     ),
+                    metadata = cxx_attr_dep_metadata(ctx),
                 ),
                 stripped = LinkInfo(
                     pre_flags = linker_flags.flags + linker_flags.exported_flags,
@@ -838,6 +840,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                         linker_type = linker_type,
                         link_whole = True,
                     )],
+                    metadata = cxx_attr_dep_metadata(ctx),
                 ),
             ),
             deps = non_exported_deps + exported_deps,
@@ -1265,6 +1268,7 @@ def _form_library_outputs(
                 info = LinkInfo(
                     name = ctx.label.name,
                     linkables = extra_static_linkables,
+                    metadata = cxx_attr_dep_metadata(ctx),
                 )
         else:  # shared
             # If requested (by build_empty_so), we still generate a shared library even if there's no source objects.
@@ -1616,6 +1620,7 @@ def _static_library(
             # when they are deducing linker args.
             linkables = [linkable] + extra_linkables,
             external_debug_info = all_external_debug_info,
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
 
@@ -1692,6 +1697,7 @@ def _shared_library(
             # TODO(cjhopman): Why doesn't this add exported_linker_flags.post_flags?
         ),
         external_debug_info = external_debug_info,
+        metadata = cxx_attr_dep_metadata(ctx),
     )
 
     # If we have extra hidden deps here, add them as hidden inputs
@@ -1758,6 +1764,7 @@ def _shared_library(
                     (linker_info.independent_shlib_interface_linker_flags or [])
                 ),
                 external_debug_info = link_info.external_debug_info,
+                metadata = cxx_attr_dep_metadata(ctx),
             )
             intf_link_result = cxx_link_shared_library(
                 ctx = ctx,
@@ -1795,6 +1802,7 @@ def _shared_library(
             linkables = [SharedLibLinkable(
                 lib = exported_shlib,
             )],
+            metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
 

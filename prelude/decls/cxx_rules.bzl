@@ -558,6 +558,7 @@ cxx_library = prelude_rule(
         apple_common.extra_xcode_files() |
         apple_common.uses_explicit_modules_arg() |
         apple_common.meta_apple_library_validation_enabled_arg() |
+        cxx_common.version_arg() |
         {
             "archive_allow_cache_upload": attrs.bool(default = False),
             "bridging_header": attrs.option(attrs.source(), default = None),
@@ -1192,6 +1193,7 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.exported_platform_deps_arg() |
         cxx_common.supports_merged_linking() |
         cxx_common.local_linker_flags_arg() |
+        cxx_common.version_arg() |
         {
             "can_be_asset": attrs.bool(default = False),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -1328,6 +1330,7 @@ prebuilt_cxx_library_group = prelude_rule(
         } |
         cxx_common.exported_deps_arg() |
         cxx_common.exported_platform_deps_arg() |
+        cxx_common.version_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),

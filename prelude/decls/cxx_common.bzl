@@ -434,6 +434,14 @@ def _public_system_include_directories_arg():
 """),
     }
 
+def _version_arg():
+    return {
+        "version": attrs.option(attrs.string(), default = None, doc = """
+    A string denoting a meaningful version of this rule that is optionally passed to the linker as extra
+     metadata.
+"""),
+    }
+
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
@@ -476,4 +484,5 @@ cxx_common = struct(
     include_directories_arg = _include_directories_arg,
     public_include_directories_arg = _public_include_directories_arg,
     public_system_include_directories_arg = _public_system_include_directories_arg,
+    version_arg = _version_arg,
 )

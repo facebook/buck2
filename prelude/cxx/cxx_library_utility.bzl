@@ -13,6 +13,7 @@ load(
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//linking:link_info.bzl",
+    "DepMetadata",
     "LinkStrategy",
     "LinkStyle",
     "LinkerFlags",
@@ -180,3 +181,11 @@ def cxx_platform_supported(ctx: AnalysisContext) -> bool:
         ctx.attrs.supported_platforms_regex,
         get_cxx_platform_info(ctx).name,
     )
+
+def cxx_attr_dep_metadata(ctx: AnalysisContext) -> list[DepMetadata]:
+    """
+    Return a `DepMetadata` structure with a meaningful version identifier.
+    """
+    if not getattr(ctx.attrs, "version", None):
+        return []
+    return [DepMetadata(version = ctx.attrs.version)]

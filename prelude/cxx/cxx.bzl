@@ -93,6 +93,7 @@ load(
 )
 load(
     ":cxx_library_utility.bzl",
+    "cxx_attr_dep_metadata",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
     "cxx_attr_linker_flags_all",
@@ -580,18 +581,21 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[output_style] = out
+        dep_metadata = cxx_attr_dep_metadata(ctx)
         libraries[output_style] = LinkInfos(
             default = LinkInfo(
                 name = ctx.attrs.name,
                 pre_flags = linker_flags.exported_flags,
                 post_flags = linker_flags.exported_post_flags,
                 linkables = [linkable] if linkable else [],
+                metadata = dep_metadata,
             ),
             stripped = None if linkable_stripped == None else LinkInfo(
                 name = ctx.attrs.name,
                 pre_flags = linker_flags.exported_flags,
                 post_flags = linker_flags.exported_post_flags,
                 linkables = [linkable_stripped],
+                metadata = dep_metadata,
             ),
         )
 
@@ -682,6 +686,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     link_whole = True,
                 )],
                 post_flags = linker_flags.exported_post_flags,
+                metadata = cxx_attr_dep_metadata(ctx),
             )),
             deps = exported_first_order_deps,
         )

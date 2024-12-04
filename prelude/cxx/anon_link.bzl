@@ -21,6 +21,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "Archive",
     "ArchiveLinkable",
+    "DepMetadata",
     "LinkArgs",
     "LinkInfo",  # @unused Used as a type
     "ObjectsLinkable",
@@ -70,6 +71,7 @@ def _serialize_link_info(info: LinkInfo):
         [_serialize_linkable(linkable) for linkable in info.linkables],
         # TODO(agallagher): It appears anon-targets don't allow passing in `label`.
         [(str(info.label.raw_target()), info.artifacts) for info in external_debug_info],
+        [m.version for m in info.metadata],
     )
 
 def _serialize_link_args(link: LinkArgs):
@@ -133,7 +135,7 @@ def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
     fail("Invalid linkable type: {}".format(typ))
 
 def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> LinkInfo:
-    name, pre_flags, post_flags, linkables, external_debug_info = info
+    name, pre_flags, post_flags, linkables, external_debug_info, metadata = info
     return LinkInfo(
         name = name,
         pre_flags = pre_flags,
@@ -146,6 +148,7 @@ def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> Link
                 for _label, artifacts in external_debug_info
             ],
         ),
+        metadata = [DepMetadata(version = v) for v in metadata],
     )
 
 def _deserialize_link_args(
@@ -241,6 +244,8 @@ ANON_ATTRS = {
                                 attrs.list(attrs.source()),  # artifacts
                             ),
                         ),
+                        # metadata
+                        attrs.list(attrs.string()),
                     ),
                 ),
             ),
