@@ -13,6 +13,7 @@
 -module(epmd_manager).
 
 -include_lib("common/include/buck_ct_records.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% UI methods
 -export([start_link/1, get_epmd_out_path/1]).
@@ -60,8 +61,13 @@ handle_info({PortEpmd, closed}, #{epmd_port := PortEpmd} = State) ->
     {stop, epmd_port_closed, State};
 handle_info({'EXIT', PortEpmd, Reason}, #{epmd_port := PortEpmd} = State) ->
     {stop, {epmd_exit, Reason}, State};
-handle_info({PortEpmd, {data, Data}}, #{epmd_port := PortEpmd, log_handle := LogHandle} = State) ->
-    log_input_data(Data, LogHandle),
+handle_info({PortEpmd, {data, TaggedData}}, #{epmd_port := PortEpmd, log_handle := LogHandle} = State) ->
+    UntaggedData =
+        case TaggedData of
+            {noeol, Data} -> Data;
+            {eol, Data} -> Data
+        end,
+    log_input_data(UntaggedData, LogHandle),
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -131,9 +137,9 @@ start_epmd_instance(Port, EpmdOutPath) ->
                 " "
             )
         },
-        [stderr_to_stdout, exit_status, use_stdio]
+        [stderr_to_stdout, exit_status, use_stdio, {line, 4096}]
     ),
-    case listen_loop(ProcessPort, LogHandle) of
+    case listen_loop(ProcessPort, LogHandle, []) of
         ok ->
             {ok, ProcessPort, LogHandle};
         Error ->
@@ -141,15 +147,20 @@ start_epmd_instance(Port, EpmdOutPath) ->
             Error
     end.
 
--spec listen_loop(port(), pid()) -> {failed, term()} | ok.
-listen_loop(ProcessPort, LogHandle) ->
+-spec listen_loop(port(), pid(), Acc :: [string()]) -> {failed, term()} | ok.
+listen_loop(ProcessPort, LogHandle, Acc) ->
     receive
         {ProcessPort, {exit_status, Exit}} ->
             {failed, {epmd_exit, Exit}};
-        {ProcessPort, {data, Data}} ->
+        {ProcessPort, {data, {noeol, Data}}} ->
             log_input_data(Data, LogHandle),
-            case string:find(Data, "entering the main select() loop") of
-                nomatch -> listen_loop(ProcessPort, LogHandle);
+            listen_loop(ProcessPort, LogHandle, [Data | Acc]);
+        {ProcessPort, {data, {eol, Data}}} ->
+            log_input_data(Data, LogHandle),
+
+            FullLine = string:join([Data | lists:reverse(Acc)], ""),
+            case string:find(FullLine, "entering the main select() loop") of
+                nomatch -> listen_loop(ProcessPort, LogHandle, []);
                 _ -> ok
             end
     after 1000 ->
@@ -166,7 +177,7 @@ get_log_handle(EpmdOutPath) ->
     {ok, LogHandle} = file:open(EpmdOutPath, [write]),
     LogHandle.
 
--spec log_input_data(binary(), pid()) -> ok.
+-spec log_input_data(string(), pid()) -> ok.
 log_input_data(Data, LogHandle) ->
     io:format(LogHandle, "~ts", [Data]).
 
