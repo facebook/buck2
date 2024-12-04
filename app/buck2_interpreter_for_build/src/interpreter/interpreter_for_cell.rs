@@ -190,7 +190,7 @@ impl LoadResolver for InterpreterLoadResolver {
         location: Option<&FileSpan>,
     ) -> buck2_error::Result<OwnedStarlarkModulePath> {
         // This is to be removed when we finish migration to Buck2.
-        let path = path.trim_end_match("?v2_only");
+        let path = path.strip_suffix("?v2_only").unwrap_or(path);
 
         let path = parse_import(
             &self.config.cell_info.cell_alias_resolver(),
