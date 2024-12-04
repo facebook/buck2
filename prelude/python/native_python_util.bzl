@@ -177,6 +177,7 @@ def rewrite_static_symbols(
         post_flags = static_info.post_flags,
         linkables = [static_objects],
         external_debug_info = static_info.external_debug_info,
+        metadata = static_info.metadata,
     )
     updated_stripped_static_info = None
     static_info = libraries[LibOutputStyle("archive")].stripped
@@ -186,6 +187,7 @@ def rewrite_static_symbols(
             pre_flags = static_info.pre_flags,
             post_flags = static_info.post_flags,
             linkables = [stripped_static_objects],
+            metadata = static_info.metadata,
         )
 
     static_pic_info = libraries[LibOutputStyle("pic_archive")].default
@@ -195,6 +197,7 @@ def rewrite_static_symbols(
         post_flags = static_pic_info.post_flags,
         linkables = [static_pic_objects],
         external_debug_info = static_pic_info.external_debug_info,
+        metadata = static_pic_info.metadata,
     )
     updated_stripped_static_pic_info = None
     static_pic_info = libraries[LibOutputStyle("pic_archive")].stripped
@@ -204,6 +207,7 @@ def rewrite_static_symbols(
             pre_flags = static_pic_info.pre_flags,
             post_flags = static_pic_info.post_flags,
             linkables = [stripped_static_pic_objects],
+            metadata = static_pic_info.metadata,
         )
     updated_libraries = {
         LibOutputStyle("archive"): LinkInfos(default = updated_static_info, stripped = updated_stripped_static_info),
