@@ -127,6 +127,7 @@ def cxx_toolchain_impl(ctx):
         binary_linker_flags = ctx.attrs.binary_linker_flags,
         dist_thin_lto_codegen_flags = cmd_args(ctx.attrs.dist_thin_lto_codegen_flags) if ctx.attrs.dist_thin_lto_codegen_flags else None,
         post_linker_flags = cmd_args(ctx.attrs.post_linker_flags),
+        link_metadata_flag = ctx.attrs.link_metadata_flag,
         lto_mode = lto_mode,
         mk_shlib_intf = ctx.attrs.shared_library_interface_producer,
         object_file_extension = ctx.attrs.object_file_extension or "o",

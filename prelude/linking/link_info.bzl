@@ -670,20 +670,41 @@ def get_link_info(
 
     return infos.default
 
-def unpack_link_args(args: LinkArgs, link_ordering: [LinkOrdering, None] = None) -> ArgLike:
+def unpack_link_args_metadata(args: LinkArgs) -> ArgLike:
+    if args.tset != None:
+        return args.tset.infos.project_as_args("metadata")
+    if args.infos != None:
+        return cmd_args([link_info_to_metadata_args(info) for info in args.infos])
+    return cmd_args()
+
+def link_args_metadata_with_flag(args: LinkArgs, link_metadata_flag: str | None = None) -> cmd_args:
+    cmd = cmd_args()
+    if link_metadata_flag:
+        cmd.add(cmd_args(unpack_link_args_metadata(args), prepend = link_metadata_flag))
+    return cmd
+
+def unpack_link_args(
+        args: LinkArgs,
+        link_ordering: [LinkOrdering, None] = None,
+        link_metadata_flag: str | None = None) -> ArgLike:
+    cmd = link_args_metadata_with_flag(args, link_metadata_flag)
     if args.tset != None:
         ordering = link_ordering.value if link_ordering else "preorder"
 
         tset = args.tset.infos
         if args.tset.prefer_stripped:
-            return tset.project_as_args("stripped", ordering = ordering)
-        return tset.project_as_args("default", ordering = ordering)
+            cmd.add(tset.project_as_args("stripped", ordering = ordering))
+        else:
+            cmd.add(tset.project_as_args("default", ordering = ordering))
+        return cmd
 
     if args.infos != None:
-        return cmd_args([link_info_to_args(info) for info in args.infos])
+        cmd.add([link_info_to_args(info) for info in args.infos])
+        return cmd
 
     if args.flags != None:
-        return args.flags
+        cmd.add(args.flags)
+        return cmd
 
     fail("Unpacked invalid empty link args")
 
@@ -710,20 +731,28 @@ def unpack_link_args_filelist(args: LinkArgs) -> [ArgLike, None]:
 
     fail("Unpacked invalid empty link args")
 
-def unpack_link_args_excluding_filelist(args: LinkArgs, link_ordering: [LinkOrdering, None] = None) -> ArgLike:
+def unpack_link_args_excluding_filelist(
+        args: LinkArgs,
+        link_ordering: [LinkOrdering, None] = None,
+        link_metadata_flag: str | None = None) -> ArgLike:
+    cmd = link_args_metadata_with_flag(args, link_metadata_flag)
     if args.tset != None:
         ordering = link_ordering.value if link_ordering else "preorder"
 
         tset = args.tset.infos
         if args.tset.prefer_stripped:
-            return tset.project_as_args("stripped_excluding_filelist", ordering = ordering)
-        return tset.project_as_args("default_excluding_filelist", ordering = ordering)
+            cmd.add(tset.project_as_args("stripped_excluding_filelist", ordering = ordering))
+        else:
+            cmd.add(tset.project_as_args("default_excluding_filelist", ordering = ordering))
+        return cmd
 
     if args.infos != None:
-        return cmd_args([link_info_to_args(info, LinkInfoArgumentFilter("excluding_filelist")) for info in args.infos])
+        cmd.add([link_info_to_args(info, LinkInfoArgumentFilter("excluding_filelist")) for info in args.infos])
+        return cmd
 
     if args.flags != None:
-        return args.flags
+        cmd.add(args.flags)
+        return cmd
 
     fail("Unpacked invalid empty link args")
 

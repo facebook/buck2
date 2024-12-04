@@ -145,9 +145,21 @@ def make_link_args(
         if filelists:
             # If we are using a filelist, only add argument that aren't already in the
             # filelist. This is to avoid duplicate inputs in the link command.
-            args.add(unpack_link_args_excluding_filelist(link, link_ordering = link_ordering))
+            args.add(
+                unpack_link_args_excluding_filelist(
+                    link,
+                    link_ordering = link_ordering,
+                    link_metadata_flag = linker_info.link_metadata_flag,
+                ),
+            )
         else:
-            args.add(unpack_link_args(link, link_ordering = link_ordering))
+            args.add(
+                unpack_link_args(
+                    link,
+                    link_ordering = link_ordering,
+                    link_metadata_flag = linker_info.link_metadata_flag,
+                ),
+            )
 
     # On Darwin, filelist args _must_ come last as the order can affect symbol
     # resolution and result in binary size increases.
