@@ -311,10 +311,13 @@ impl FrozenHeap {
         }
     }
 
-    /// Allocate a string on this heap. Be careful about the warnings
-    /// around [`FrozenValue`].
+    /// Allocate a string on this heap. Be careful about the warnings around
+    /// [`FrozenValue`].
+    ///
+    /// Since the heap is frozen, we always prefer to intern the string in order
+    /// to deduplicate it and save some memory.
     pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
-        self.alloc_str_impl(x, StarlarkStr::UNINIT_HASH)
+        self.alloc_str_intern(x)
     }
 
     /// Intern string.
