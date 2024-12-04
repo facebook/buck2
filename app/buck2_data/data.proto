@@ -2127,6 +2127,9 @@ message InvocationRecord {
   optional int64 local_cache_hits_bytes = 237;
   optional int64 local_cache_misses_files = 238;
   optional int64 local_cache_misses_bytes = 239;
+
+  // Total number of files materialized.
+  optional uint64 materialization_files = 240;
 }
 
 // Record event sent directly to scribe.

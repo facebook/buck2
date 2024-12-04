@@ -209,6 +209,7 @@ pub(crate) struct InvocationRecorder<'a> {
     initial_local_cache_hits_bytes: Option<i64>,
     initial_local_cache_misses_files: Option<i64>,
     initial_local_cache_misses_bytes: Option<i64>,
+    materialization_files: u64,
 }
 
 struct ErrorsReport {
@@ -361,6 +362,7 @@ impl<'a> InvocationRecorder<'a> {
             initial_local_cache_hits_bytes: None,
             initial_local_cache_misses_files: None,
             initial_local_cache_misses_bytes: None,
+            materialization_files: 0,
         }
     }
 
@@ -811,6 +813,7 @@ impl<'a> InvocationRecorder<'a> {
             local_cache_hits_bytes,
             local_cache_misses_files,
             local_cache_misses_bytes,
+            materialization_files: Some(self.materialization_files),
         };
 
         let event = BuckEvent::new(
@@ -1106,6 +1109,7 @@ impl<'a> InvocationRecorder<'a> {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.materialization_output_size += materialization.total_bytes;
+        self.materialization_files += materialization.file_count;
         Ok(())
     }
 
