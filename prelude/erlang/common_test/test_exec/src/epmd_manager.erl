@@ -41,6 +41,7 @@ handle_continue({start_epmd, #test_env{output_dir = OutputDir} = TestEnv}, _Stat
             EpmdOutPath = get_epmd_out_path(OutputDir),
             case start_epmd(EpmdOutPath) of
                 {ok, Port, PortEpmd, LogHandle} ->
+                    ?LOG_INFO("epmd started on port ~p at ~p", [Port, os:system_time(millisecond) / 1000]),
                     {ok, _Pid} = test_exec_sup:start_ct_runner(TestEnv, Port),
                     {noreply, #{epmd_port => PortEpmd, log_handle => LogHandle, global_epmd => false}};
                 Error ->
@@ -151,17 +152,24 @@ start_epmd_instance(Port, EpmdOutPath) ->
 listen_loop(ProcessPort, LogHandle, Acc) ->
     receive
         {ProcessPort, {exit_status, Exit}} ->
+            ?LOG_DEBUG("epmd exited with status ~p", [Exit]),
             {failed, {epmd_exit, Exit}};
         {ProcessPort, {data, {noeol, Data}}} ->
             log_input_data(Data, LogHandle),
             listen_loop(ProcessPort, LogHandle, [Data | Acc]);
         {ProcessPort, {data, {eol, Data}}} ->
+            ?LOG_DEBUG("received epmd data ~p", [Data]),
             log_input_data(Data, LogHandle),
+            ?LOG_DEBUG("logged input data"),
 
             FullLine = string:join([Data | lists:reverse(Acc)], ""),
             case string:find(FullLine, "entering the main select() loop") of
-                nomatch -> listen_loop(ProcessPort, LogHandle, []);
-                _ -> ok
+                nomatch ->
+                    ?LOG_DEBUG("main select() loop not reached yet"),
+                    listen_loop(ProcessPort, LogHandle, []);
+                _ ->
+                    ?LOG_DEBUG("epmd is up"),
+                    ok
             end
     after 1000 ->
         test_exec:kill_process(ProcessPort),
