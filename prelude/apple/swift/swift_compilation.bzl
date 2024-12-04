@@ -443,7 +443,6 @@ def _compile_swiftmodule(
     argfile_cmd = cmd_args(shared_flags)
     argfile_cmd.add([
         "-disable-cmo",
-        "-emit-module",
         "-experimental-emit-module-separately",
         "-wmo",
     ])
@@ -454,27 +453,32 @@ def _compile_swiftmodule(
             "-experimental-skip-non-inlinable-function-bodies-without-types",
         ])
 
-    if _should_compile_with_evolution(ctx):
-        argfile_cmd.add(["-enable-library-evolution"])
-        argfile_cmd.add(["-emit-module-interface"])
-
     cmd = cmd_args([
         "-emit-objc-header",
         "-emit-objc-header-path",
         output_header.as_output(),
+        "-emit-module",
         "-emit-module-path",
         output_swiftmodule.as_output(),
     ])
 
-    if swift_framework_output:
-        # this is generated implicitly once we pass -emit-module
-        cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
+    if _should_compile_with_evolution(ctx):
+        if not swift_framework_output:
+            fail("Building with library evolution but missing outputs")
+
+        argfile_cmd.add([
+            "-enable-library-evolution",
+        ])
         cmd.add([
-            "-emit-parseable-module-interface-path",
+            "-emit-module-interface",
+            "-emit-module-interface-path",
             swift_framework_output.swiftinterface.as_output(),
             "-emit-private-module-interface-path",
             swift_framework_output.private_swiftinterface.as_output(),
         ])
+
+        # There is no driver flag to specify the swiftdoc output path
+        cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
 
     output_tbd = None
     if output_symbols != None:
