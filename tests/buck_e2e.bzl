@@ -19,9 +19,9 @@ def buck_e2e_test(
         base_module = None,
         data = None,
         data_dir = None,
-        srcs = (),
-        tags = (),
-        deps = (),
+        srcs = None,
+        tags = None,
+        deps = None,
         env = None,
         resources = None,
         skip_for_os = (),
@@ -31,13 +31,18 @@ def buck_e2e_test(
         pytest_confcutdir = None,
         serialize_test_cases = None,
         require_nano_prelude = None,
-        cfg_modifiers = (),
+        cfg_modifiers = None,
         ci_srcs = [],
         ci_deps = [],
         compatible_with = None):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
+    srcs = srcs or []
+    tags = tags or []
+    deps = deps or []
+    cfg_modifiers = cfg_modifiers or []
+
     for s in skip_for_os:
         if s not in ["darwin", "windows"]:
             fail("Skipped os must be one of darwin or windows, not {}".format(s))
@@ -97,14 +102,11 @@ def buck_e2e_test(
     if require_nano_prelude:
         env["NANO_PRELUDE"] = "$(location fbcode//buck2/tests/e2e_util/nano_prelude:nano_prelude)"
 
-    if type(deps) == "tuple":
-        deps = list(deps)
-
-    deps = [
+    deps += [
         "fbsource//third-party/pypi/pytest:pytest",
         "fbsource//third-party/pypi/pytest-asyncio:pytest-asyncio",
         "fbcode//buck2/tests/e2e_util:utilities",
-    ] + deps
+    ]
     if use_buck_api:
         deps.append("fbcode//buck2/tests/e2e_util/api:api")
     resources = resources or {}
