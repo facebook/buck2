@@ -29,6 +29,7 @@ use syn::Pat;
 use syn::PatIdent;
 use syn::PatType;
 use syn::Path;
+use syn::Signature;
 use syn::Type;
 
 /// Validates and parses the macro input into structured data.
@@ -216,6 +217,37 @@ fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Re
         ));
     }
 
+    let parsed_args = parse_function_args(sig)?;
+
+    // We look for a #[binary_op(BinaryOp::Foo)] attribute to identify functions that implement binary ops. We need to also remove that attribute from the original code.
+    let mut binary_op = None;
+    let original_attrs = std::mem::take(&mut method.attrs);
+
+    let docs = DocString::parse(&original_attrs);
+
+    for attr in original_attrs {
+        if attr.path().is_ident(&context.binary_op_ident) {
+            if let Ok(path) = attr.parse_args::<Path>() {
+                binary_op = Some(path);
+            } else {
+                return Err(Error::new_spanned(
+                    &attr.meta,
+                    "#[query_module] attribute `binary_op` should receive a single argument identifying the binary op like `#[binary_op(BinaryOp::Intersect)]`",
+                ));
+            }
+        } else {
+            method.attrs.push(attr)
+        }
+    }
+    Ok(Method {
+        name: sig.ident.clone(),
+        args: parsed_args,
+        binary_op,
+        docs,
+    })
+}
+
+fn parse_function_args(sig: &Signature) -> Result<Vec<Argument>> {
     let mut args = sig.inputs.iter();
     match args.next() {
         Some(FnArg::Receiver(_)) => {}
@@ -252,33 +284,7 @@ fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Re
             }
         }
     }
-
-    // We look for a #[binary_op(BinaryOp::Foo)] attribute to identify functions that implement binary ops. We need to also remove that attribute from the original code.
-    let mut binary_op = None;
-    let original_attrs = std::mem::take(&mut method.attrs);
-
-    let docs = DocString::parse(&original_attrs);
-
-    for attr in original_attrs {
-        if attr.path().is_ident(&context.binary_op_ident) {
-            if let Ok(path) = attr.parse_args::<Path>() {
-                binary_op = Some(path);
-            } else {
-                return Err(Error::new_spanned(
-                    &attr.meta,
-                    "#[query_module] attribute `binary_op` should receive a single argument identifying the binary op like `#[binary_op(BinaryOp::Intersect)]`",
-                ));
-            }
-        } else {
-            method.attrs.push(attr)
-        }
-    }
-    Ok(Method {
-        name: sig.ident.clone(),
-        args: parsed_args,
-        binary_op,
-        docs,
-    })
+    Ok(parsed_args)
 }
 
 impl syn::parse::Parse for QueryModuleArgs {
