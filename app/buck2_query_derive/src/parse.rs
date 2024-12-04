@@ -201,7 +201,6 @@ struct ParseFunctionContext {
 
 fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Result<Method> {
     let sig = &method.sig;
-    let span = sig.span();
 
     if let Some(v) = sig.unsafety {
         return Err(Error::new_spanned(
@@ -217,14 +216,12 @@ fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Re
         ));
     }
 
-    let ident = &sig.ident;
-
     let mut args = sig.inputs.iter();
     match args.next() {
         Some(FnArg::Receiver(_)) => {}
         _ => {
             return Err(Error::new(
-                span,
+                sig.span(),
                 "`#[query_module]` methods must have a `&self` parameter",
             ));
         }
@@ -277,7 +274,7 @@ fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Re
         }
     }
     Ok(Method {
-        name: ident.clone(),
+        name: sig.ident.clone(),
         args: parsed_args,
         binary_op,
         docs,
