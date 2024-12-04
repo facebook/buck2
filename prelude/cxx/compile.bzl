@@ -458,7 +458,7 @@ def _compile_single_cxx(
         src_compile_cmd = src_compile_cmd,
         pic = pic,
         use_header_units = use_header_units,
-        output_args = cmd_args(get_output_flags(compiler_type, object)),
+        output_args = get_output_flags(compiler_type, object),
     )
     cmd.add(optimization_flags)
 
@@ -565,7 +565,7 @@ def _compile_single_cxx(
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
             pic = pic,
-            output_args = cmd_args("-S", get_output_flags(compiler_type, assembly)),
+            output_args = ["-S"] + get_output_flags(compiler_type, assembly),
         )
         ctx.actions.run(
             assembly_cmd,
@@ -587,7 +587,7 @@ def _compile_single_cxx(
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
             pic = pic,
-            output_args = cmd_args("-fsyntax-only"),
+            output_args = ["-fsyntax-only"],
         )
         ctx.actions.run(
             [
@@ -636,7 +636,7 @@ def _get_base_compile_cmd(
         bitcode_args: cmd_args,
         src_compile_cmd: CxxSrcCompileCommand,
         pic: bool,
-        output_args: cmd_args | list | None = None,
+        output_args: list | None = None,
         use_header_units: bool = False) -> cmd_args:
     """
     Construct a shared compile command for a single CXX source based on
