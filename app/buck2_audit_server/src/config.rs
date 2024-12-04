@@ -114,7 +114,7 @@ impl<'a> Match<'a> {
             Some((cell, config)) => (Some(resolver.resolve(cell)?), config),
             None => (None, spec),
         };
-        let (section, key) = config.split1(".");
+        let (section, key) = config.split_once(".").unwrap_or((config, ""));
         Ok(Self {
             spec: if key == "" { None } else { Some(spec) },
             cell,
