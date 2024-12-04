@@ -7,7 +7,7 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",
+    "make_artifact_tset",
 )
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
@@ -33,6 +33,7 @@ load(
     "SwiftmoduleLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
+    "unpack_external_debug_info",
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
@@ -652,12 +653,35 @@ def cxx_darwin_dist_link(
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix)
 
+    # dsym-util will create a dSYM from an executable by loading native object files pointed to
+    # by paths embedded in the executable. We need to collect the artifacts representing these native
+    # object files such that they can be provided as hidden dependencies to the dysm creation action.
+    native_object_files_required_for_dsym_creation = []
+    for artifact in sorted_index_link_data:
+        # Without reading dynamic output, we cannot know if a given artifact represents bitcode to be included in LTO, or a native object file already (some inputs to a dthin-lto link are still native object files). We just include both the initial object (that may or may not be bitcode) and the produced bitcode file. dsym-util will only ever need one or the other, we just need to matieralize both.
+        if artifact.data_type == _DataType("bitcode"):
+            native_object_files_required_for_dsym_creation.append(artifact.link_data.initial_object)
+            native_object_files_required_for_dsym_creation.append(artifact.link_data.opt_object)
+        elif artifact.data_type == _DataType("archive"):
+            native_object_files_required_for_dsym_creation.append(artifact.link_data.objects_dir)
+            native_object_files_required_for_dsym_creation.append(artifact.link_data.opt_objects_dir)
+
+    external_debug_info = make_artifact_tset(
+        actions = ctx.actions,
+        artifacts = native_object_files_required_for_dsym_creation,
+        label = ctx.label,
+        children = [
+            unpack_external_debug_info(ctx.actions, link_args)
+            for link_args in links
+        ],
+    )
+
     return LinkedObject(
         output = final_output,
         unstripped_output = unstripped_output,
         prebolt_output = output,
         dwp = None,
-        external_debug_info = ArtifactTSet(),
+        external_debug_info = external_debug_info,
         linker_argsfile = linker_argsfile_out,
         linker_filelist = None,  # DistLTO doesn't use filelists
         linker_command = None,  # There is no notion of a single linker command for DistLTO
