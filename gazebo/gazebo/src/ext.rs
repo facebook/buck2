@@ -9,5 +9,4 @@
 
 pub(crate) mod iter;
 pub(crate) mod option;
-pub(crate) mod str;
 pub(crate) mod vec;
