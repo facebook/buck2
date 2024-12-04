@@ -11,7 +11,6 @@ use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use gazebo::prelude::*;
 use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
@@ -31,8 +30,8 @@ enum SourceLabelCoercionError {
 
 /// Try cleaning up irrelevant details users often type
 fn cleanup_path(value: &str) -> &str {
-    let value = value.trim_start_match("./");
-    let value = value.trim_end_match("/");
+    let value = value.strip_prefix("./").unwrap_or(value);
+    let value = value.strip_suffix("/").unwrap_or(value);
     if value == "." { "" } else { value }
 }
 
