@@ -648,18 +648,15 @@ def _get_base_compile_cmd(
 
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
 
-    args = cmd_args()
-
     if pic:
-        args.add(get_pic_flags(compiler_type))
+        cmd.add(get_pic_flags(compiler_type))
 
     if use_header_units and src_compile_cmd.cxx_compile_cmd.private_header_units_argsfile:
-        args.add(src_compile_cmd.cxx_compile_cmd.private_header_units_argsfile.cmd_form)
+        cmd.add(src_compile_cmd.cxx_compile_cmd.private_header_units_argsfile.cmd_form)
 
-    args.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
-    args.add(src_compile_cmd.args)
+    cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
+    cmd.add(src_compile_cmd.args)
 
-    cmd.add(args)
     cmd.add(bitcode_args)
 
     return cmd
