@@ -12,7 +12,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use buck2_error::BuckErrorContext;
-use gazebo::prelude::StrExt;
 
 pub const BUCK_AUTH_TOKEN_HEADER: &str = "x-buck-auth-token";
 
@@ -41,7 +40,9 @@ impl Display for ConnectionType {
 
 impl ConnectionType {
     pub fn parse(endpoint: &str) -> buck2_error::Result<ConnectionType> {
-        let (protocol, endpoint) = endpoint.split1(":");
+        let (protocol, endpoint) = endpoint.split_once(":").with_buck_error_context(|| {
+            format!("endpoint `{endpoint}` is not in the format `protocol:endpoint`")
+        })?;
         match protocol {
             "uds" => Ok(ConnectionType::Uds {
                 unix_socket: Path::new(endpoint).to_path_buf(),
