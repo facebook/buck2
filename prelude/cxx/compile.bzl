@@ -460,7 +460,7 @@ def _compile_single_cxx(
         use_header_units = use_header_units,
         output_args = cmd_args(get_output_flags(compiler_type, object)),
     )
-    cmd.add(cmd_args(optimization_flags))
+    cmd.add(optimization_flags)
 
     action_dep_files = {}
 
@@ -694,13 +694,14 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
+    optimization_flags = toolchain.optimization_compiler_flags_EXPERIMENTAL if flavor == CxxCompileFlavor("pic_optimized") else []
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
             ctx = ctx,
             toolchain = toolchain,
             default_object_format = default_object_format,
             bitcode_args = bitcode_args,
-            optimization_flags = toolchain.optimization_compiler_flags_EXPERIMENTAL if flavor == CxxCompileFlavor("pic_optimized") else [],
+            optimization_flags = optimization_flags,
             src_compile_cmd = src_compile_cmd,
             pic = flavor != CxxCompileFlavor("default"),
             provide_syntax_only = provide_syntax_only,
