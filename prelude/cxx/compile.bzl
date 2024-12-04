@@ -418,6 +418,8 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
         return src_compile_cmd.index_store_factory(ctx, src_compile_cmd, toolchain, compile_cmd, pic)
     return None
 
+COMMON_PREPROCESSOR_OUTPUT_ARGS = cmd_args("-E", "-dD")
+
 def _compile_single_cxx(
         ctx: AnalysisContext,
         toolchain: CxxToolchainInfo,
@@ -607,7 +609,7 @@ def _compile_single_cxx(
         "__preprocessed__",
         "{}.{}".format(filename_base, "i"),
     )
-    preproc_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, cmd_args("-E", "-dD", get_output_flags(compiler_type, preproc)))
+    preproc_cmd = _get_base_compile_cmd(bitcode_args, src_compile_cmd, pic, [COMMON_PREPROCESSOR_OUTPUT_ARGS, get_output_flags(compiler_type, preproc)])
     ctx.actions.run(
         preproc_cmd,
         category = src_compile_cmd.cxx_compile_cmd.category,
@@ -634,7 +636,7 @@ def _get_base_compile_cmd(
         bitcode_args: cmd_args,
         src_compile_cmd: CxxSrcCompileCommand,
         pic: bool,
-        output_args: cmd_args | None = None,
+        output_args: cmd_args | list | None = None,
         use_header_units: bool = False) -> cmd_args:
     """
     Construct a shared compile command for a single CXX source based on
