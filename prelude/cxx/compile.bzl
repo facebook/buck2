@@ -424,7 +424,7 @@ def _compile_single_cxx(
         ctx: AnalysisContext,
         toolchain: CxxToolchainInfo,
         default_object_format: CxxObjectFormat,
-        bitcode_args: cmd_args,
+        bitcode_args: list,
         optimization_flags: list,
         src_compile_cmd: CxxSrcCompileCommand,
         pic: bool,
@@ -633,7 +633,7 @@ def _compile_single_cxx(
     )
 
 def _get_base_compile_cmd(
-        bitcode_args: cmd_args,
+        bitcode_args: cmd_args | list,
         src_compile_cmd: CxxSrcCompileCommand,
         pic: bool,
         output_args: list | None = None,
@@ -678,13 +678,13 @@ def compile_cxx(
     # enabled) or the third hybrid state where the bitcode is embedded into a section of the
     # native code, allowing the file to be used as either (but at twice the size)
     default_object_format = toolchain.object_format or CxxObjectFormat("native")
-    bitcode_args = cmd_args()
+    bitcode_args = []
     if linker_info.lto_mode == LtoMode("none"):
         if toolchain.object_format == CxxObjectFormat("bitcode"):
-            bitcode_args.add("-emit-llvm")
+            bitcode_args.append("-emit-llvm")
             default_object_format = CxxObjectFormat("bitcode")
         elif toolchain.object_format == CxxObjectFormat("embedded-bitcode"):
-            bitcode_args.add("-fembed-bitcode")
+            bitcode_args.append("-fembed-bitcode")
             default_object_format = CxxObjectFormat("embedded-bitcode")
     else:
         # LTO always produces bitcode object in any mode (thin, full, etc)
