@@ -24,6 +24,7 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
+use buck2_common::systemd::replace_slice_delimiter;
 use buck2_common::systemd::SystemdRunner;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
@@ -379,8 +380,8 @@ impl<'a> BuckdLifecycle<'a> {
         let daemon_exe = get_daemon_exe()?;
         let slice_name = format!(
             "buck2-daemon.{}.{}",
-            project_dir.name().unwrap_or("unknown_project"),
-            self.paths.isolation.as_str()
+            replace_slice_delimiter(project_dir.name().unwrap_or("unknown_project")),
+            replace_slice_delimiter(self.paths.isolation.as_str())
         );
         let mut cmd = if let Some(systemd_runner) = SystemdRunner::create_if_enabled(
             &daemon_startup_config.resource_control,

@@ -142,6 +142,12 @@ impl SystemdRunner {
     }
 }
 
+// Helper function to replace a delimiter in slice name,
+// so systemd won't split the name on nested slices
+pub fn replace_slice_delimiter(slice: &str) -> String {
+    slice.replace("-", ".")
+}
+
 fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {
     let stdout = String::from_utf8_lossy(raw_stdout);
     let version = stdout
