@@ -12,6 +12,7 @@ use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use syn::parse::Result;
 use syn::spanned::Spanned;
+use syn::Attribute;
 use syn::Error;
 use syn::Expr;
 use syn::ExprLit;
@@ -219,13 +220,34 @@ fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Re
 
     let parsed_args = parse_function_args(sig)?;
 
+    let docs = DocString::parse(&method.attrs);
+
+    let original_attrs = std::mem::take(&mut method.attrs);
+    let (filtered_attrs, ExtraFunctionAttributes { binary_op }) =
+        process_function_attributes(original_attrs, context)?;
+    method.attrs = filtered_attrs;
+
+    Ok(Method {
+        name: sig.ident.clone(),
+        args: parsed_args,
+        binary_op,
+        docs,
+    })
+}
+
+struct ExtraFunctionAttributes {
+    binary_op: Option<Path>,
+}
+
+fn process_function_attributes(
+    attrs: Vec<Attribute>,
+    context: &ParseFunctionContext,
+) -> Result<(Vec<Attribute>, ExtraFunctionAttributes)> {
     // We look for a #[binary_op(BinaryOp::Foo)] attribute to identify functions that implement binary ops. We need to also remove that attribute from the original code.
     let mut binary_op = None;
-    let original_attrs = std::mem::take(&mut method.attrs);
 
-    let docs = DocString::parse(&original_attrs);
-
-    for attr in original_attrs {
+    let mut filtered_attrs = Vec::with_capacity(attrs.len());
+    for attr in attrs {
         if attr.path().is_ident(&context.binary_op_ident) {
             if let Ok(path) = attr.parse_args::<Path>() {
                 binary_op = Some(path);
@@ -236,15 +258,10 @@ fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Re
                 ));
             }
         } else {
-            method.attrs.push(attr)
+            filtered_attrs.push(attr)
         }
     }
-    Ok(Method {
-        name: sig.ident.clone(),
-        args: parsed_args,
-        binary_op,
-        docs,
-    })
+    Ok((filtered_attrs, ExtraFunctionAttributes { binary_op }))
 }
 
 fn parse_function_args(sig: &Signature) -> Result<Vec<Argument>> {
