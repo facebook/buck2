@@ -32,6 +32,7 @@ use buck2_core::package::source_path::SourcePath;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::target::name::TargetName;
+use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -369,9 +370,10 @@ impl<'a> BuckLspContext<'a> {
             .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
 
-        let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
-            path.to_string_lossy().trim_start_match('/'),
-        )?)?;
+        let path_str = path.to_str().buck_error_context("Path is not UTF-8")?;
+
+        let cell_path = cell_resolver
+            .get_cell_path(&ProjectRelativePath::new(path_str.trim_start_match('/'))?)?;
 
         match path.extension() {
             Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
