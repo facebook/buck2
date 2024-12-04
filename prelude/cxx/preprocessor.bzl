@@ -92,7 +92,7 @@ def _cpreprocessor_header_units_args(pres: list[CPreprocessor]):
     args = cmd_args()
     for pre in pres:
         for h in pre.header_units:
-            args.add(cmd_args(h.module, format = "-fmodule-file={}={{}}".format(h.name)))
+            args.add(cmd_args("-fmodule-file=", h.name, "=", h.module, delimiter = ""))
             args.add(cmd_args(h.include_dir, format = "-I{}"))
             args.add(cmd_args(h.include_dir, format = "-fmodule-map-file={}/module.modulemap"))
             if h.import_include:
