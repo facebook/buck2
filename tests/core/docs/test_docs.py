@@ -47,9 +47,9 @@ async def test_prelude_docs(buck: Buck) -> None:
 async def test_docs_fail_with_invalid_patterns(buck: Buck) -> None:
     await expect_failure(
         buck.docs("starlark", "not_an_import_path"),
-        stderr_regex="Expected a cell path to a `.bzl` file, but got `root//not_an_import_path`",
+        stderr_regex="Import path must have suffix `.bzl`: `root//not_an_import_path`",
     )
     await expect_failure(
         buck.docs("starlark", "//cell"),
-        stderr_regex="Expected a cell path to a `.bzl` file, but got `root//cell`",
+        stderr_regex="Import path must have suffix `.bzl`: `root//cell`",
     )
