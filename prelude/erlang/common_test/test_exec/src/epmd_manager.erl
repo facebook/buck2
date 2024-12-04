@@ -36,7 +36,15 @@ init([TestEnv]) ->
     {ok, #{}, {continue, {start_epmd, TestEnv}}}.
 
 handle_continue({start_epmd, #test_env{output_dir = OutputDir} = TestEnv}, _State) ->
-    case application:get_env(text_exec, global_epmd_port) of
+    GlobalEpmdPort =
+        application:get_env(
+            test_exec,
+            global_epmd_port,
+            % DEFAULT OPTION TO BE REMOVED AFTER MIGRATING USAGE
+            application:get_env(text_exec, global_epmd_port)
+        ),
+
+    case GlobalEpmdPort of
         undefined ->
             EpmdOutPath = get_epmd_out_path(OutputDir),
             case start_epmd(EpmdOutPath) of
