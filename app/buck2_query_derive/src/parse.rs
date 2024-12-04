@@ -167,11 +167,13 @@ impl syn::parse::Parse for Module {
         let docs = DocString::parse(attrs);
 
         let mut methods = Vec::new();
-        let binary_op_ident = Ident::new("binary_op", Span::call_site());
+        let context = ParseFunctionContext {
+            binary_op_ident: Ident::new("binary_op", Span::call_site()),
+        };
         for item in items {
             match item {
                 ImplItem::Fn(method) => {
-                    let function = parse_function(method, &binary_op_ident)?;
+                    let function = parse_function(method, &context)?;
                     methods.push(function);
                 }
                 _ => {
@@ -193,7 +195,11 @@ impl syn::parse::Parse for Module {
     }
 }
 
-fn parse_function(method: &mut ImplItemFn, binary_op_ident: &Ident) -> Result<Method> {
+struct ParseFunctionContext {
+    binary_op_ident: Ident,
+}
+
+fn parse_function(method: &mut ImplItemFn, context: &ParseFunctionContext) -> Result<Method> {
     let sig = &method.sig;
     let span = sig.span();
 
@@ -257,7 +263,7 @@ fn parse_function(method: &mut ImplItemFn, binary_op_ident: &Ident) -> Result<Me
     let docs = DocString::parse(&original_attrs);
 
     for attr in original_attrs {
-        if attr.path().is_ident(binary_op_ident) {
+        if attr.path().is_ident(&context.binary_op_ident) {
             if let Ok(path) = attr.parse_args::<Path>() {
                 binary_op = Some(path);
             } else {
