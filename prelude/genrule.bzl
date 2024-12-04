@@ -223,9 +223,9 @@ def process_genrule(
     for symlink in symlinks:
         srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
     env_vars = {
-        "ASAN_OPTIONS": cmd_args("detect_leaks=0,detect_odr_violation=0"),
-        "GEN_DIR": cmd_args("GEN_DIR_DEPRECATED"),  # ctx.relpath(ctx.output_root_dir(), srcs_path)
-        "OUT": cmd_args(out_artifact.as_output()),
+        "ASAN_OPTIONS": "detect_leaks=0,detect_odr_violation=0",
+        "GEN_DIR": "GEN_DIR_DEPRECATED",
+        "OUT": out_artifact.as_output(),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
         "SRCS": srcs,
     } | {k: cmd_args(v) for k, v in getattr(ctx.attrs, "env", {}).items()}
@@ -236,17 +236,17 @@ def process_genrule(
     # again (thus making the label useless). So, when a local-only label is
     # set, we make the action *different*.
     if local_only:
-        env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = cmd_args("")
+        env_vars["__BUCK2_LOCAL_ONLY_CACHE_BUSTER"] = ""
 
     # see comment above
     if prefer_local:
-        env_vars["__BUCK2_PREFER_LOCAL_CACHE_BUSTER"] = cmd_args("")
+        env_vars["__BUCK2_PREFER_LOCAL_CACHE_BUSTER"] = ""
 
     # For now, when uploads are enabled, be safe and avoid sharing cache hits.
     cache_bust = _get_cache_mode(ctx).cache_bust_genrules
 
     if cacheable and cache_bust:
-        env_vars["__BUCK2_ALLOW_CACHE_UPLOADS_CACHE_BUSTER"] = cmd_args("")
+        env_vars["__BUCK2_ALLOW_CACHE_UPLOADS_CACHE_BUSTER"] = ""
 
     if _requires_no_srcs_environment(ctx):
         env_vars.pop("SRCS")
@@ -330,6 +330,7 @@ def process_genrule(
 
     if is_windows:
         # Should be in the beginning.
+        # Odd, why is this a single string. How does it not end up getting quoted and being weird?
         script = [cmd_args("@echo off")] + script
 
     sh_script, _ = ctx.actions.write(
