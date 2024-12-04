@@ -237,8 +237,9 @@ fn read_config_and_report_deprecated(
         msg = root.lookup(ctx, key)?;
     }
     if let Some(msg) = msg {
-        let section = leave_acii_lowercase(key.section);
-        let prop = leave_acii_lowercase(key.property);
+        // soft error category can only contain ascii lowercese characters
+        let section = filter_out_non_acii_lowercase(key.section);
+        let prop = filter_out_non_acii_lowercase(key.property);
 
         soft_error!(
             format!("deprecated_config_{}_{}", section, prop).as_str(),
@@ -249,7 +250,7 @@ fn read_config_and_report_deprecated(
     Ok(result)
 }
 
-fn leave_acii_lowercase(s: &str) -> String {
+fn filter_out_non_acii_lowercase(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_ascii_lowercase())
         .collect::<String>()
