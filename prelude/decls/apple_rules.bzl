@@ -1032,6 +1032,10 @@ swift_toolchain = prelude_rule(
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
             "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
             "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
+            "_library_interface_uses_swiftinterface": attrs.bool(default = select({
+                "DEFAULT": False,
+                "config//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
+            })),
         }
     ),
 )
