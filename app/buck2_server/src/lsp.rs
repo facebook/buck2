@@ -54,7 +54,6 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::FutureExt;
 use futures::SinkExt;
 use futures::StreamExt;
-use gazebo::prelude::StrExt;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_types::Url;
@@ -372,8 +371,9 @@ impl<'a> BuckLspContext<'a> {
 
         let path_str = path.to_str().buck_error_context("Path is not UTF-8")?;
 
-        let cell_path = cell_resolver
-            .get_cell_path(&ProjectRelativePath::new(path_str.trim_start_match('/'))?)?;
+        let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
+            path_str.strip_prefix('/').unwrap_or(path_str),
+        )?)?;
 
         match path.extension() {
             Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
