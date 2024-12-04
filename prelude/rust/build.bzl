@@ -608,7 +608,7 @@ def rust_compile(
 
             # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
             # out in `extract_link_action.py` and provide our own output path here.
-            deferred_link_cmd.add(cmd_args(emit_op.output.as_output(), format = "-o {}"))
+            deferred_link_cmd.add("-o", emit_op.output.as_output())
         else:
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
             rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))
