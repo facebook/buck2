@@ -138,7 +138,7 @@ def create_jar_artifact_javacd(
         )
 
         return struct(
-            _baseCommandParams = _base_command_params,
+            baseCommandParams = _base_command_params,
             libraryJarCommand = struct(
                 baseJarCommand = base_jar_command,
                 libraryJarBaseCommand = struct(
@@ -184,7 +184,7 @@ def create_jar_artifact_javacd(
         )
 
         return struct(
-            _baseCommandParams = _base_command_params,
+            baseCommandParams = _base_command_params,
             abiJarCommand = abi_command,
         )
 
