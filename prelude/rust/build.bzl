@@ -382,6 +382,7 @@ def generate_rustdoc_test(
     plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
     unstable_options = ["-Zunstable-options"]
 
+    path_sep = "\\" if exec_is_windows else "/"
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
@@ -401,6 +402,7 @@ def generate_rustdoc_test(
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, path_sep, "=", ctx.label.path, path_sep, delimiter = ""),
         hidden = [
             compile_ctx.symlinked_srcs,
             link_args_output.hidden,
