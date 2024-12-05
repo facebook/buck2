@@ -291,6 +291,8 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Negative rule attribute filtering. It is the opposite of `attrfilter`.
+    ///
     /// The `nattrfilter(attribute, value, targets)` operator evaluates the given target expression and filters the resulting build targets to those where the specified attribute doesn't contain the specified value.
     /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
     ///
