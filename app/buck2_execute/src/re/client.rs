@@ -670,7 +670,10 @@ impl RemoteExecutionClientImpl {
 
                 re_client_config.disable_fallocate = static_metadata.disable_fallocate;
 
-                re_client_config.execute_over_thrift = static_metadata.execute_over_thrift;
+                if static_metadata.execute_over_thrift {
+                    re_client_config.execute_over_thrift = Some(true);
+                }
+
                 re_client_config
                     .thrift_execution_client_config
                     .concurrency_limit = static_metadata.execution_concurrency_limit;
