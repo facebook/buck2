@@ -133,3 +133,16 @@ Buck2 to force Buck2 to parse your dep files as they are produced.
 
 If your dep file reports that a symlink was used, Buck2 will track the symlink's
 target as covered by this dep file.
+
+## Remote dep files
+
+Since dep files only work if a previous invocation of the command is known to
+your Buck2 daemon, Buck2 also supports "remote dep files". For actions with
+`allow_dep_file_cache_upload = True`, Buck2 will upload dep files to the remote
+cache. The dep file is keyed on the current version control revision, in
+addition to information about the action itself.
+
+For those same actions, Buck2 will look for a "remote dep file", and if it finds
+one it will download dep file and use it exactly as it would if it found one
+locally (i.e. it compares the inputs to see if only unused inputs have changed
+and it can therefore skip the action execution)
