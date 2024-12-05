@@ -22,6 +22,8 @@
 start_link(#test_env{} = TestEnv) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, [TestEnv]).
 
+-spec init(Args :: term()) ->
+    {ok, {SupFlags :: supervisor:sup_flags(), [ChildSpec :: supervisor:child_spec()]}} | ignore.
 init([#test_env{} = TestEnv]) ->
     {ok,
         {
@@ -41,13 +43,13 @@ init([#test_env{} = TestEnv]) ->
                     restart => temporary,
                     significant => true,
                     shutdown => 1000,
-                    worker => worker
+                    type => worker
                 }
             ]
         }}.
 
 %% @doc Starts the ct_runner as a child of this supervisor.
--spec start_ct_runner(#test_env{}, integer()) -> {ok, pid()} | {error, term()}.
+-spec start_ct_runner(#test_env{}, integer()) -> supervisor:startchild_ret().
 start_ct_runner(#test_env{} = TestEnv, PortEpmd) ->
     % super_method:super_fun(),
     supervisor:start_child(
@@ -58,6 +60,6 @@ start_ct_runner(#test_env{} = TestEnv, PortEpmd) ->
             restart => temporary,
             significant => true,
             shutdown => 1000,
-            worker => worker
+            type => worker
         }
     ).
