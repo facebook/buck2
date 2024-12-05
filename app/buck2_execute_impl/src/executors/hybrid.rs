@@ -59,6 +59,8 @@ pub struct HybridExecutor<R> {
     pub re_max_input_files_bytes: u64,
     pub fallback_tracker: Arc<FallbackTracker>,
     pub memory_tracker: Option<Arc<MemoryTracker>>,
+    #[allow(unused)]
+    pub memory_limit_gibibytes: Option<u64>,
 }
 
 impl<R> HybridExecutor<R>

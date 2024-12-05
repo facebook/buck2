@@ -43,6 +43,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
 use buck2_common::http::SetHttpClient;
+use buck2_common::init::ResourceControlConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
@@ -711,6 +712,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
                 .get_client()
                 .with_re_use_case_override(override_use_case),
         );
+        let resource_control_config = ResourceControlConfig::from_config(root_config)?;
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,
@@ -729,6 +731,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             self.materialize_failed_inputs,
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
+            resource_control_config.hybrid_execution_memory_limit_gibibytes,
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
