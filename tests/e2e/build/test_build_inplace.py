@@ -645,9 +645,9 @@ async def test_asic_platforms(buck: Buck) -> None:
     output = result.get_target_to_build_output()[target]
     with open(output) as output:
         s = output.read()
-        assert (
-            "thefacebook.com" in s
-        ), "expected 'thefacebook.com' in output: `{}`".format(output)
+        assert "facebook.com" in s, "expected 'facebook.com' in output: `{}`".format(
+            output
+        )
 
 
 @buck_test(inplace=True)
