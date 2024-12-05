@@ -174,14 +174,14 @@ mod tests {
 
     #[test]
     fn test_roundtrip_no_context() {
-        let e = crate::Error::new(TestError).context("context 1");
+        let e = crate::Error::from(TestError).context("context 1");
         let e2 = crate::Error::from(anyhow::Error::from(e.clone()));
         crate::Error::check_equal(&e, &e2);
     }
 
     #[test]
     fn test_roundtrip_with_context() {
-        let e = crate::Error::new(TestError).context("context 1");
+        let e = crate::Error::from(TestError).context("context 1");
         let e2 = crate::Error::from(anyhow::Error::from(e.clone()).context("context 2"));
         let e3 = e.context("context 2");
         crate::Error::check_equal(&e2, &e3);
@@ -206,7 +206,7 @@ mod tests {
             }
         }
 
-        let e = crate::Error::new(TestError).context(T(1));
+        let e = crate::Error::from(TestError).context(T(1));
         let e2 = crate::Error::from(anyhow::Error::from(e.clone()).context("context 2"));
         let e3 = e.context("context 2");
         crate::Error::check_equal(&e2, &e3);
@@ -234,7 +234,7 @@ mod tests {
     fn test_metadata() {
         for e in [
             FullMetadataError.into(),
-            crate::Error::new(FullMetadataError),
+            crate::Error::from(FullMetadataError),
         ] {
             assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
             assert_eq!(

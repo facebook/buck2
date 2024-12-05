@@ -189,7 +189,7 @@ pub async fn find_execution_platform_by_configuration(
                     return Ok(c.dupe());
                 }
             }
-            Err(buck2_error::Error::new(
+            Err(buck2_error::Error::from(
                 ToolchainDepError::ToolchainDepMissingPlatform(exec_cfg.dupe()),
             ))
         }
@@ -321,7 +321,7 @@ async fn execution_platforms_for_toolchain(
             if node.transition_deps().next().is_some() {
                 // We could actually check this when defining the rule, but a bit of a corner
                 // case, and much simpler to do so here.
-                return Err(buck2_error::Error::new(
+                return Err(buck2_error::Error::from(
                     ToolchainDepError::ToolchainTransitionDep(self.0.unconfigured().dupe()),
                 ));
             }
@@ -389,7 +389,7 @@ pub async fn get_execution_platform_toolchain_dep(
         )
         .await?;
     if target_node.transition_deps().next().is_some() {
-        Err(buck2_error::Error::new(
+        Err(buck2_error::Error::from(
             ToolchainDepError::ToolchainTransitionDep(target_label.unconfigured().dupe()),
         ))
     } else {

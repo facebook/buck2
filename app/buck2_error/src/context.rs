@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn test_compute_context() {
         crate::Error::check_equal(
-            &crate::Error::new(TestError).context("string"),
+            &crate::Error::from(TestError).context("string"),
             &crate::Error::from(crate::Error::from(TestError).compute_context(
                 |_t: Arc<SomeContext>| -> SomeContext { panic!() },
                 || "string",
@@ -257,7 +257,7 @@ mod tests {
         );
 
         crate::Error::check_equal(
-            &crate::Error::new(TestError).context(SomeContext(vec![0, 1, 2])),
+            &crate::Error::from(TestError).context(SomeContext(vec![0, 1, 2])),
             &crate::Error::from(
                 crate::Error::from(TestError)
                     .context(SomeContext(vec![]))

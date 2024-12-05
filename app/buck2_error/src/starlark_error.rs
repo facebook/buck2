@@ -255,7 +255,7 @@ mod tests {
     #[test]
     fn test_roundtrip_starlark() {
         // Tests buck2_error->starlark->buck2_error
-        let e = crate::Error::new(FullMetadataError).context("context 1");
+        let e = crate::Error::from(FullMetadataError).context("context 1");
         let e2 = from_starlark(starlark_syntax::Error::from(e.clone()));
         crate::Error::check_equal(&e, &e2);
     }
@@ -263,7 +263,7 @@ mod tests {
     #[test]
     fn test_metadata_roundtrip_with_anyhow() {
         // Tests buck2_error->anyhow->starlark->buck2_error
-        let e = crate::Error::new(FullMetadataError);
+        let e = crate::Error::from(FullMetadataError);
         let e = e.context("test context 123");
         let e: anyhow::Error = e.into();
         let e: starlark_syntax::Error = e.into();
@@ -296,7 +296,7 @@ mod tests {
             span: None,
         };
 
-        let e = crate::Error::new(FullMetadataError);
+        let e = crate::Error::from(FullMetadataError);
         let e = e.context(context_error);
         let e = e.tag([error_tag]);
         let e = e.context_for_key(context_key);

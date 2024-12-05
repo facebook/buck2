@@ -48,7 +48,7 @@ impl FetchTransition for DiceComputations<'_> {
             .env()
             // This is a hashmap lookup, so we are not caching the result in DICE.
             .get_any_visibility(&id.name)
-            .map_err(|_| buck2_error::Error::new(FetchTransitionError::NotFound(id.clone())))?
+            .map_err(|_| buck2_error::Error::from(FetchTransitionError::NotFound(id.clone())))?
             .0;
 
         transition.downcast_starlark().map_err(from_starlark)

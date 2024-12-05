@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn test_via_error_new() {
-        let err: crate::Error = crate::Error::new(MyError);
+        let err: crate::Error = crate::Error::from(MyError);
         assert_eq!(
             err.source_location(),
             Some("buck2_error/src/source_location.rs"),

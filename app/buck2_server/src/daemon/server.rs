@@ -702,7 +702,7 @@ where
     });
     if let Err(e) = merge_task {
         return error_to_response_stream(
-            buck2_error::Error::new(e).context("failed to spawn pump-events"),
+            buck2_error::Error::from(e).context("failed to spawn pump-events"),
         );
     };
 

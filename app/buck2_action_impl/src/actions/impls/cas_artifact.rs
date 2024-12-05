@@ -219,7 +219,7 @@ impl IncrementalActionExecutable for CasArtifactAction {
             .1;
 
         if expiration < self.inner.expires_after {
-            return Err(buck2_error::Error::new(
+            return Err(buck2_error::Error::from(
                 CasArtifactActionExecutionError::InvalidExpiration {
                     digest: self.inner.digest.dupe(),
                     declared_expiration: self.inner.expires_after,

@@ -179,7 +179,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
                     .visit_write_to_file_macros(&mut macro_writer)?;
 
                 if self.outputs.len() != output_contents.len() {
-                    return Err(buck2_error::Error::new(
+                    return Err(buck2_error::Error::from(
                         WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts,
                     )
                     .into());

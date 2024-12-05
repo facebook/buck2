@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::error::Error as StdError;
 use std::fmt;
 use std::sync::Arc;
 
@@ -59,14 +58,6 @@ pub(crate) enum ErrorKind {
 }
 
 impl Error {
-    #[track_caller]
-    #[cold]
-    pub fn new<E: StdError + Send + Sync + 'static>(e: E) -> Self {
-        let source_location =
-            crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        crate::any::recover_crate_error(&e, source_location)
-    }
-
     #[track_caller]
     #[cold]
     pub fn from_anyhow_ref(e: &anyhow::Error) -> Self {
@@ -348,10 +339,10 @@ mod tests {
 
     #[test]
     fn test_get_tier() {
-        let e: crate::Error = crate::Error::new(TestError)
+        let e: crate::Error = crate::Error::from(TestError)
             .tag([crate::ErrorTag::Tier0, crate::ErrorTag::Environment]);
         assert_eq!(e.get_tier(), Some(Tier::Environment));
-        let e: crate::Error = crate::Error::new(TestError)
+        let e: crate::Error = crate::Error::from(TestError)
             .tag([crate::ErrorTag::Environment, crate::ErrorTag::Input]);
         assert_eq!(e.get_tier(), Some(Tier::Environment));
     }

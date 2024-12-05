@@ -51,7 +51,7 @@ impl Key for SingleValidationKey {
         let gen_path = {
             let build_result = ActionCalculation::build_action(ctx, &self.0).await?;
             if build_result.iter().count() != 1 {
-                return Err(buck2_error::Error::new(
+                return Err(buck2_error::Error::from(
                     ParseValidationResultError::WrongNumberOfArtifacts,
                 ));
             }

@@ -72,7 +72,7 @@ impl ForkserverClient {
                     Err(e) => ForkserverError::WaitError(e),
                 };
 
-                let err = buck2_error::Error::new(err).context("Forkserver is unavailable");
+                let err = buck2_error::Error::from(err).context("Forkserver is unavailable");
                 error.swap(Some(Arc::new(err)));
             }
         });

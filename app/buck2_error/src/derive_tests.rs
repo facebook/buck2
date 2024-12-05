@@ -219,7 +219,7 @@ fn test_recovery_through_transparent() {
         Other(anyhow::Error),
     }
 
-    let base: crate::Error = crate::Error::new(BaseError).tag([crate::ErrorTag::StarlarkFail]);
+    let base: crate::Error = crate::Error::from(BaseError).tag([crate::ErrorTag::StarlarkFail]);
     let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone().into()).into();
     let wrapped_recovery: crate::Error =
         anyhow::Error::from(PartiallyStructured::Other(base.into())).into();
@@ -245,7 +245,7 @@ fn test_recovery_through_transparent_buck2_error() {
         Other(buck2_error::Error),
     }
 
-    let base: crate::Error = crate::Error::new(BaseError).tag([crate::ErrorTag::StarlarkFail]);
+    let base: crate::Error = crate::Error::from(BaseError).tag([crate::ErrorTag::StarlarkFail]);
     let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone()).into();
     let wrapped_recovery: crate::Error =
         anyhow::Error::from(PartiallyStructured::Other(base)).into();
