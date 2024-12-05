@@ -17,6 +17,7 @@
 #![feature(map_try_insert)]
 #![feature(never_type)]
 #![feature(used_with_arg)]
+#![feature(let_chains)]
 
 pub mod argv;
 pub mod buckd_connection;
