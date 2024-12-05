@@ -10,6 +10,7 @@
 use std::fmt;
 use std::sync::Arc;
 
+use buck2_data::ActionError;
 use itertools::Itertools;
 use smallvec::SmallVec;
 
@@ -58,6 +59,18 @@ pub(crate) enum ErrorKind {
 }
 
 impl Error {
+    #[track_caller]
+    #[cold]
+    pub fn new(
+        error_msg: String,
+        source_location: Option<String>,
+        action_error: Option<ActionError>,
+    ) -> Self {
+        let error_root = ErrorRoot::new(error_msg, source_location, action_error);
+
+        crate::Error(Arc::new(ErrorKind::Root(Box::new(error_root))))
+    }
+
     #[track_caller]
     #[cold]
     pub fn from_anyhow_ref(e: &anyhow::Error) -> Self {

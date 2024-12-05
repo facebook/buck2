@@ -12,12 +12,10 @@
 use std::error::request_value;
 use std::error::Error as StdError;
 use std::fmt;
-use std::sync::Arc;
 
 use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
-use crate::root::ErrorRoot;
 
 // This implementation is fairly magic and is what allows us to bypass the issue with conflicting
 // implementations between `anyhow::Error` and `T: StdError`. The `T: Into<anyhow::Error>` bound is
@@ -90,11 +88,7 @@ pub(crate) fn recover_crate_error(
         // a string. That prevents us from having to deal with the type returned by `source` being
         // potentially non-`Send` or non-`Sync`.
         let description = format!("{}", cur);
-        let e = crate::Error(Arc::new(ErrorKind::Root(Box::new(ErrorRoot::new(
-            description,
-            source_location,
-            action_error,
-        )))));
+        let e = crate::Error::new(description, source_location, action_error);
         break 'base maybe_add_context_from_metadata(e, cur);
     };
     // We've converted the base error to a `buck2_error::Error`. Next, we need to add back any

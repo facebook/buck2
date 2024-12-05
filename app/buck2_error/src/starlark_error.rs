@@ -10,7 +10,6 @@
 //! Starlark::Error <-> buck2_error::Error conversion implementation.
 
 use std::fmt;
-use std::sync::Arc;
 
 use ref_cast::RefCast;
 
@@ -18,7 +17,6 @@ use crate::__for_macro::ContextValue;
 use crate::any::recover_crate_error;
 use crate::context_value::StarlarkContext;
 use crate::error::ErrorKind;
-use crate::root::ErrorRoot;
 
 impl From<crate::Error> for starlark_syntax::Error {
     fn from(e: crate::Error) -> starlark_syntax::Error {
@@ -70,12 +68,11 @@ fn error_with_starlark_context(
                 let action_error = root.action_error().cloned();
 
                 // We want to keep the metadata but want to change the error message
-                let new_root = ErrorRoot::new(
+                let mut err = crate::Error::new(
                     format!("{}", starlark_context),
                     source_location,
                     action_error,
                 );
-                let mut err = crate::Error(Arc::new(ErrorKind::Root(Box::new(new_root))));
 
                 for context in context_stack.into_iter().rev() {
                     err = err.context(context);
@@ -179,11 +176,7 @@ fn from_starlark_impl(
 
             recover_crate_error(std_err, source_location)
         }
-        _ => crate::Error(Arc::new(ErrorKind::Root(Box::new(ErrorRoot::new(
-            description,
-            source_location,
-            None,
-        ))))),
+        _ => crate::Error::new(description, source_location, None),
     }
     .tag(vec![tag])
 }
