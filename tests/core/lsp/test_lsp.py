@@ -8,6 +8,7 @@
 # pyre-strict
 
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -29,6 +30,16 @@ def _assert_range(range: Dict[str, Any], expected: Optional[Span]) -> None:
     assert range["end"]["character"] == expected.end_col
 
 
+def _assert_uris(actual: str, expected: str) -> None:
+    if os.name == "nt":
+        # Windows file paths are case-insensitive, and the LSP returns the drive identifier in upper-case.
+        # Windows also allows paths to use forward and backward slashes interchangeably.
+        # Normalize the paths only on Windows to avoid flakiness.
+        assert actual.lower().replace("\\", "/") == expected.lower()
+    else:
+        assert actual == expected
+
+
 def _assert_goto_result(
     res: List[Dict[str, Any]],
     expected_src: Span,
@@ -39,7 +50,7 @@ def _assert_goto_result(
     _assert_range(res[0]["originSelectionRange"], expected_src)
     _assert_range(res[0]["targetRange"], expected_dest)
     _assert_range(res[0]["targetSelectionRange"], expected_dest)
-    assert res[0]["targetUri"] == expected_dest_path.as_uri()
+    _assert_uris(res[0]["targetUri"], expected_dest_path.as_uri())
 
 
 def fixture(buck: Buck, path: Path) -> Fixture:
@@ -56,8 +67,7 @@ async def test_lsp_starts(buck: Buck) -> None:
         await lsp.init_connection()
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(skip_for_os=["windows"])
+@buck_test()
 async def test_lints_on_open(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         await lsp.init_connection()
@@ -70,8 +80,7 @@ async def test_lints_on_open(buck: Buck) -> None:
         assert len(diags["diagnostics"]) == 1
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(skip_for_os=["windows"])
+@buck_test()
 async def test_goto_definition(buck: Buck) -> None:
     src_targets_path = Path("dir/TARGETS.fixture")
     dest_targets_path = Path("cell/sub/TARGETS.fixture")
@@ -163,8 +172,7 @@ async def test_returns_file_contents_for_starlark_types(buck: Buck) -> None:
             await lsp.file_contents(f"file:{lsp.cwd / '.buckconfig'}")
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(skip_for_os=["windows"])
+@buck_test()
 async def test_goto_definition_for_globals(buck: Buck) -> None:
     globals_bzl_path = Path("globals.bzl")
 
@@ -184,7 +192,9 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
         _assert_range(res[0]["originSelectionRange"], globals_bzl.spans["func2"])
         assert res[0]["targetRange"]["start"]["line"] != 0
         assert res[0]["targetSelectionRange"]["start"]["line"] != 0
-        assert res[0]["targetUri"] == (buck.cwd / "prelude" / "prelude.bzl").as_uri()
+        _assert_uris(
+            res[0]["targetUri"], (buck.cwd / "prelude" / "prelude.bzl").as_uri()
+        )
 
         res = await lsp.goto_definition(
             globals_bzl_path,
@@ -194,7 +204,7 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
 
         assert len(res) == 1
         _assert_range(res[0]["originSelectionRange"], globals_bzl.spans["info"])
-        assert res[0]["targetUri"] == "starlark:/native/DefaultInfo.bzl"
+        _assert_uris(res[0]["targetUri"], "starlark:/native/DefaultInfo.bzl")
 
         res = await lsp.goto_definition(
             globals_bzl_path,
@@ -204,8 +214,7 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
         assert len(res) == 0
 
 
-# TODO(marwhal): Fix and enable on Windows
-@buck_test(skip_for_os=["windows"])
+@buck_test()
 async def test_supports_bxl_files(buck: Buck) -> None:
     src_bxl_path = Path("query.bxl")
 
