@@ -270,6 +270,8 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Rule attribute filtering.
+    ///
     /// The `attrfilter(attribute, value, targets)` operator evaluates the given target expression and filters the resulting build targets to those where the specified attribute contains the specified value.
     /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
     ///
