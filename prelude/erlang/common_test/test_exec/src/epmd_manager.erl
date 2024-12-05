@@ -160,23 +160,18 @@ start_epmd_instance(Port, EpmdOutPath) ->
 listen_loop(ProcessPort, LogHandle, Acc) ->
     receive
         {ProcessPort, {exit_status, Exit}} ->
-            ?LOG_DEBUG("epmd exited with status ~p", [Exit]),
             {failed, {epmd_exit, Exit}};
         {ProcessPort, {data, {noeol, Data}}} ->
             log_input_data(Data, LogHandle),
             listen_loop(ProcessPort, LogHandle, [Data | Acc]);
         {ProcessPort, {data, {eol, Data}}} ->
-            ?LOG_DEBUG("received epmd data ~p", [Data]),
             log_input_data(Data, LogHandle),
-            ?LOG_DEBUG("logged input data"),
 
             FullLine = string:join([Data | lists:reverse(Acc)], ""),
             case string:find(FullLine, "entering the main select() loop") of
                 nomatch ->
-                    ?LOG_DEBUG("main select() loop not reached yet"),
                     listen_loop(ProcessPort, LogHandle, []);
                 _ ->
-                    ?LOG_DEBUG("epmd is up"),
                     ok
             end
     after 1000 ->
