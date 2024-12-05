@@ -16,10 +16,10 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% UI methods
--export([start_link/1, get_epmd_out_path/1]).
+-export([start_link/1, get_epmd_out_path/1, get_port/0]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, handle_continue/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
 -behaviour(gen_server).
 
@@ -27,15 +27,16 @@
 %% and set up the env variable ERL_EPMD_PORT to the port this daemon is working.
 -spec start_link(file:filename_all()) -> {ok, reference()} | {error, term()}.
 start_link(#test_env{} = TestEnv) ->
-    gen_server:start_link(?MODULE, [TestEnv], [debugs, [trace, log]]).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [TestEnv], [debugs, [trace, log]]).
+
+-spec get_port() -> inet:port_number().
+get_port() ->
+    gen_server:call(?MODULE, get_port).
 
 %% ---------------- gen_server callbacks---------------
 
-init([TestEnv]) ->
+init([#test_env{output_dir = OutputDir}]) ->
     process_flag(trap_exit, true),
-    {ok, #{}, {continue, {start_epmd, TestEnv}}}.
-
-handle_continue({start_epmd, #test_env{output_dir = OutputDir} = TestEnv}, _State) ->
     GlobalEpmdPort =
         application:get_env(
             test_exec,
@@ -48,21 +49,19 @@ handle_continue({start_epmd, #test_env{output_dir = OutputDir} = TestEnv}, _Stat
         undefined ->
             EpmdOutPath = get_epmd_out_path(OutputDir),
             case start_epmd(EpmdOutPath) of
-                {ok, Port, PortEpmd, LogHandle} ->
+                {ok, Port, _PortEpmd, LogHandle} ->
                     ?LOG_INFO("epmd started on port ~p at ~p", [Port, os:system_time(millisecond) / 1000]),
-                    {ok, _Pid} = test_exec_sup:start_ct_runner(TestEnv, Port),
-                    {noreply, #{epmd_port => PortEpmd, log_handle => LogHandle, global_epmd => false}};
+                    {ok, #{epmd_port => Port, log_handle => LogHandle, global_epmd => false}};
                 Error ->
                     {stop, {epmd_start_failed, Error}, #{}}
             end;
         {ok, Port} ->
-            {ok, _Pid} = test_exec_sup:start_ct_runner(TestEnv, Port),
-            {noreply, #{epmd_port => Port, log_handle => undefined, global_epmd => true}}
+            {ok, #{epmd_port => Port, log_handle => undefined, global_epmd => true}}
     end.
 
 handle_cast(_Request, State) -> {ok, State}.
 
-handle_call(_Request, _From, State) -> {reply, ok, State}.
+handle_call(get_port, _From, State = #{epmd_port := Port}) -> {reply, Port, State}.
 
 handle_info({PortEpmd, {exit_status, ExitStatus}}, #{epmd_port := PortEpmd} = State) ->
     {stop, {epmd_crashed, ExitStatus}, State};

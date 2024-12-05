@@ -14,7 +14,7 @@
 
 -behavior(gen_server).
 
--export([start_link/2]).
+-export([start_link/1]).
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
@@ -64,12 +64,13 @@
 
 %% Starts and monitor (through an erlang port) a ct_run.
 %% Reports the result of the execution to the test runner.
--spec start_link(#test_env{}, integer()) -> {ok, pid()} | {error, term()}.
-start_link(#test_env{} = TestEnv, PortEpmd) ->
-    gen_server:start_link(?MODULE, [TestEnv, PortEpmd], []).
+-spec start_link(#test_env{}) -> {ok, pid()} | {error, term()}.
+start_link(#test_env{} = TestEnv) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [TestEnv], []).
 
-init([#test_env{} = TestEnv, PortEpmd]) ->
+init([#test_env{} = TestEnv]) ->
     process_flag(trap_exit, true),
+    PortEpmd = epmd_manager:get_port(),
     {ok, #{test_env => TestEnv, std_out => []}, {continue, {run, PortEpmd}}}.
 
 handle_continue(
