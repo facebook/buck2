@@ -291,6 +291,15 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// The `nattrfilter(attribute, value, targets)` operator evaluates the given target expression and filters the resulting build targets to those where the specified attribute doesn't contain the specified value.
+    /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
+    ///
+    /// - If the attribute is a single value, say `name`, it is compared to the specified value, and the target is returned if they don't match.
+    /// - If the attribute is a list, the target is returned if that list doesn't contain the specified value.
+    /// - If the attribute is a dictionary, the target is returned if the value doesn't exist in both the keys and the values of the dictionary.
+    ///
+    /// For example:
+    /// `buck2 query "nattrfilter(deps, '//foo:bar', '//...')"` returns the build targets in the repository that don't depend on `//foo:bar`, or more precisely: those build targets that don't include `//foo:bar` in their deps argument list.
     async fn nattrfilter(
         &self,
         attr: String,
