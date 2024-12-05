@@ -21,6 +21,13 @@ def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.overlays:
         overlays = [SdkSwiftOverlayInfo(overlays = ctx.attrs.overlays)]
 
+    # The target triple varies in swiftinterface files to use either
+    # macos or macosx. To avoid unnecessary module compilation we align
+    # on macosx.
+    target = ctx.attrs.target
+    if "macos" in target and "macosx" not in target:
+        target = target.replace("macos", "macosx")
+
     module_info = SdkUncompiledModuleInfo(
         cxx_deps = ctx.attrs.cxx_deps,
         deps = ctx.attrs.deps,
@@ -29,7 +36,7 @@ def apple_sdk_swift_module_impl(ctx: AnalysisContext) -> list[Provider]:
         is_swiftmodule = True,
         module_name = ctx.attrs.module_name,
         partial_cmd = cmd,
-        target = ctx.attrs.target,
+        target = target,
     )
 
     return [
