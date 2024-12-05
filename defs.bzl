@@ -23,7 +23,7 @@ def _buck2_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     buck2_binary = "buck2" + binary_extension
     buck2_tpx_binary = "buck2-tpx" + binary_extension
     buck2_daemon_binary = "buck2-daemon" + binary_extension
-    out = ctx.actions.copied_dir("out", {buck2_binary: buck2_client, buck2_tpx_binary: tpx, buck2_daemon_binary: buck2})
+    out = ctx.actions.copied_dir("out", {buck2_binary: buck2_client, buck2_tpx_binary: ctx.actions.symlink_file(buck2_tpx_binary, tpx), buck2_daemon_binary: buck2})
 
     return [DefaultInfo(out), RunInfo(cmd_args(out.project("buck2" + binary_extension)))]
 
