@@ -27,8 +27,6 @@ use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
-#[cfg(windows)]
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;

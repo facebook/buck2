@@ -17,8 +17,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use allocative::Allocative;
-#[cfg(windows)]
-use buck2_error::buck2_error;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;

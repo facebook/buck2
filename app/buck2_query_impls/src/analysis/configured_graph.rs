@@ -15,7 +15,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::buck2_error;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;

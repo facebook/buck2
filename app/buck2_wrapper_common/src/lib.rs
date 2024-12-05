@@ -21,7 +21,6 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-use buck2_error::buck2_error;
 use is_buck2::WhoIsAsking;
 use sysinfo::System;
 

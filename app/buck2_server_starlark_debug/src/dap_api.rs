@@ -11,7 +11,6 @@
 //! protocol implemented by the buck debug server and some utilities for working with
 //! the debug adapter response/request/etc types.
 
-use buck2_error::buck2_error;
 use debugserver_types as dap;
 use serde::Deserialize;
 use serde::Serialize;

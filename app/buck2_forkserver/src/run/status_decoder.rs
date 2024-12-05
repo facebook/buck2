@@ -11,8 +11,6 @@ use std::process::ExitStatus;
 
 use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-#[cfg(not(unix))]
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfOutput;
 

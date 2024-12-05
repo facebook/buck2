@@ -20,8 +20,6 @@
 mod imp {
     use std::env;
 
-    use buck2_error::buck2_error;
-
     /// Output the current state of the heap to the filename specified.
     /// Intended to be used for debugging purposes.
     /// Requires MALLOC_CONF=prof:true to be set in environment variables
@@ -78,8 +76,6 @@ mod imp {
 
 #[cfg(not(fbcode_build))]
 mod imp {
-    use buck2_error::buck2_error;
-
     pub fn write_heap_to_file(_filename: &str) -> buck2_error::Result<()> {
         // TODO(swgillespie) the `jemalloc_ctl` crate is probably capable of doing this
         // and we already link against it

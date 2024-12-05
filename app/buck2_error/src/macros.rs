@@ -31,7 +31,7 @@ pub fn internal_error_impl(args: Arguments) -> crate::Error {
 #[macro_export]
 macro_rules! buck2_error {
     ($tags:expr, $format:expr) => {
-        buck2_error!($tags, $format,)
+        $crate::buck2_error!($tags, $format,)
     };
     ($tags:expr, $format:expr, $($arg:tt)*) => {
         $crate::macros::buck2_error_impl(&$tags, format_args!($format, $($arg)*))
@@ -42,7 +42,7 @@ macro_rules! buck2_error {
 #[macro_export]
 macro_rules! internal_error {
     ($format:expr) => {
-        internal_error!($format,)
+        $crate::internal_error!($format,)
     };
     ($format:expr , $($arg:tt)*) => {
         $crate::macros::internal_error_impl(format_args!($format, $($arg)*))

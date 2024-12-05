@@ -20,8 +20,6 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
-#[cfg(windows)]
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use relative_path::RelativePath;

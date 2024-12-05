@@ -12,7 +12,6 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_error::buck2_error;
 use buck2_wrapper_common::is_buck2::WhoIsAsking;
 
 #[derive(Debug, clap::Parser)]

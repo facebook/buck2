@@ -13,7 +13,6 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;

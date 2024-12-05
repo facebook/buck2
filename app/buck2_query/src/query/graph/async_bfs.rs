@@ -175,7 +175,6 @@ mod tests {
     use std::collections::HashSet;
 
     use async_trait::async_trait;
-    use buck2_error::buck2_error;
     use buck2_query::query::traversal::ChildVisitor;
     use dupe::Dupe;
     use gazebo::prelude::VecExt;

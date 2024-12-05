@@ -16,7 +16,6 @@ use std::process::ExitStatus;
 use std::process::Stdio;
 use std::time::Duration;
 
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use tokio::io;
 use tokio::process::ChildStderr;

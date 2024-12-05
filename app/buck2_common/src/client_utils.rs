@@ -161,8 +161,6 @@ pub async fn retrying<L, E, Fut: Future<Output = Result<L, E>>, F: FnMut() -> Fu
 mod tests {
     use std::time::Duration;
 
-    use buck2_error::buck2_error;
-
     use crate::client_utils::retrying;
     use crate::client_utils::RetryError;
 

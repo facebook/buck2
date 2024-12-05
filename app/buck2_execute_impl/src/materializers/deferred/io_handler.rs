@@ -27,7 +27,6 @@ use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;

@@ -23,7 +23,6 @@ use buck2_cli_proto::*;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;

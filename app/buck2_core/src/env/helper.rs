@@ -11,7 +11,6 @@ use std::env;
 use std::env::VarError;
 use std::sync::OnceLock;
 
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 
 pub struct EnvHelper<T> {

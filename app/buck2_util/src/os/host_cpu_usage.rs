@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_error::buck2_error;
 use dupe::Dupe;
 
 /// CPU usage sum for all cores from the system start. Field values are in milliseconds.

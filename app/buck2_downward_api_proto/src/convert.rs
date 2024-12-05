@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use tracing::Level;
 

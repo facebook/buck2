@@ -17,7 +17,6 @@ use buck2_common::argv::SanitizedArgv;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;

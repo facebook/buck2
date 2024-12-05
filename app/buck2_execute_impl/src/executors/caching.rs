@@ -19,7 +19,6 @@ use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest::CasDigestToReExt;

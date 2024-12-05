@@ -10,7 +10,6 @@
 //! Implementation of common cquery/uquery pieces.
 
 use buck2_common::scope::scope_and_collect_with_dispatcher;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_query::query::environment::QueryEnvironment;

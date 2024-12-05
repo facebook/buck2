@@ -21,7 +21,6 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::error::ErrorTag;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
 use fs4::FileExt;

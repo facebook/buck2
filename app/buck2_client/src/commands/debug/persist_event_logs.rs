@@ -20,7 +20,6 @@ use buck2_core::soft_error;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::PersistEventLogSubprocess;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;

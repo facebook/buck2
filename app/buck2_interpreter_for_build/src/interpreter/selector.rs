@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;

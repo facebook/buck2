@@ -9,9 +9,6 @@
 
 use std::time::Duration;
 
-#[cfg(not(unix))]
-use buck2_error::buck2_error;
-
 #[allow(unused_variables)]
 pub async fn try_terminate_process_gracefully(
     pid: i32,
