@@ -45,10 +45,10 @@ jobs:
           - os: 'ubuntu-22.04'
             triple: 'x86_64-unknown-linux-musl'
             cross: true
-          - os: 'macos-12'
+          - os: 'macos-13'
             triple: 'aarch64-apple-darwin'
             cross: true
-          - os: 'macos-12'
+          - os: 'macos-13'
             triple: 'x86_64-apple-darwin'
           - os: 'windows-2022'
             triple: 'x86_64-pc-windows-msvc'
