@@ -27,7 +27,6 @@ use buck2_common::init::Timeout;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::memory_tracker::MemoryTracker;
 use buck2_common::systemd::SystemdCreationDecision;
@@ -612,7 +611,9 @@ impl DaemonState {
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
 
-            let memory_tracker = Self::create_memory_tracker(root_config).await?;
+            let memory_tracker =
+                Self::create_memory_tracker(&init_ctx.daemon_startup_config.resource_control)
+                    .await?;
 
             // disable the eager spawn for watchman until we fix dice commit to avoid a panic TODO(bobyf)
             // tokio::task::spawn(watchman_query.sync());
@@ -644,9 +645,8 @@ impl DaemonState {
     }
 
     async fn create_memory_tracker(
-        root_config: &LegacyBuckConfig,
+        resource_control_config: &ResourceControlConfig,
     ) -> buck2_error::Result<Option<Arc<MemoryTracker>>> {
-        let resource_control_config = ResourceControlConfig::from_config(root_config)?;
         if resource_control_config
             .hybrid_execution_memory_limit_gibibytes
             .is_none()
