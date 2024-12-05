@@ -28,11 +28,9 @@ pub(crate) struct CpuUsageCollector {
 impl CpuUsageCollector {
     pub(crate) fn new() -> anyhow::Result<Self> {
         let start = Arc::new(Mutex::new(None));
-        tokio::spawn({
-            let handle = start.dupe();
-            async move {
-                *handle.lock().unwrap() = HostCpuUsage::get().ok();
-            }
+        let handle = start.dupe();
+        tokio::task::spawn_blocking(move || {
+            *handle.lock().unwrap() = HostCpuUsage::get().ok();
         });
         Ok(Self { start })
     }
