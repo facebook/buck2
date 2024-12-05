@@ -115,6 +115,12 @@ def _parse_args():
         type=pathlib.Path,
         help="path to a jar used as base of the new jar, which new files will be added",
     )
+    parser.add_argument(
+        "--concat_jars",
+        required=False,
+        action="store_true",
+        help="If the jar aggrgation should use concat instead of merge.",
+    )
 
     return parser.parse_args()
 
@@ -123,6 +129,7 @@ def _fat_jar(
     jar_builder_tool: str,
     output_path: str,
     append_jar: Optional[str] = None,
+    concat_jars: Optional[bool] = False,
     main_class: Optional[str] = None,
     entries_to_jar_file: Optional[str] = None,
     override_entries_to_jar_file: Optional[str] = None,
@@ -137,6 +144,8 @@ def _fat_jar(
         cmd.extend(["--main-class", main_class])
     if entries_to_jar_file:
         cmd.extend(["--entries-to-jar", entries_to_jar_file])
+        if concat_jars:
+            cmd.append("--concat-jars")
     if override_entries_to_jar_file:
         cmd.extend(["--override-entries-to-jar", override_entries_to_jar_file])
     if manifest_file:
@@ -179,6 +188,7 @@ def main():
     meta_inf_directory = args.meta_inf_directory
     append_jar = args.append_jar
 
+    concat_jars = args.concat_jars
     generate_wrapper = args.generate_wrapper
     classpath_args_output = args.classpath_args_output
     java_tool = args.java_tool
@@ -220,6 +230,8 @@ def main():
         utils.log_message("script_marker_file_name: {}".format(script_marker_file_name))
     if append_jar:
         utils.log_message("append_jar = {}".format(append_jar))
+    if concat_jars:
+        utils.log_message("concat_jars = {}".format(concat_jars))
 
     need_to_process_native_libs = native_libs_file is not None
     if need_to_process_native_libs and not do_not_create_inner_jar:
@@ -348,6 +360,7 @@ def main():
                 manifest_file=manifest,
                 blocklist_file=blocklist_file,
                 append_jar=append_jar,
+                concat_jars=concat_jars,
             )
 
         if need_to_process_native_libs and not do_not_create_inner_jar:

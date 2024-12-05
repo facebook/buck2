@@ -32,6 +32,7 @@ def _create_fat_jar(
         jars: cmd_args,
         native_libs: list[SharedLibrary] = [],
         name_prefix: str = "",
+        concat_jars: bool = False,
         do_not_create_inner_jar: bool = True,
         generate_wrapper: bool = False,
         main_class: [str, None] = None,
@@ -52,6 +53,8 @@ def _create_fat_jar(
         ctx.actions.write("{}jars_file".format(name_prefix), jars),
     ]
 
+    if concat_jars:
+        args += ["--concat_jars"]
     if append_jar:
         args += ["--append_jar", append_jar]
 
@@ -173,6 +176,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     base_dep = ctx.attrs.base_dep
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
+    concat_deps = ctx.attrs.concat_deps
     need_to_generate_wrapper = ctx.attrs.generate_wrapper == True
     do_not_create_inner_jar = ctx.attrs.do_not_create_inner_jar == True
     packaging_jar_args = packaging_info.packaging_deps.project_as_args("full_jar_args")
@@ -212,6 +216,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         deps_outputs = _create_fat_jar(
             ctx,
             cmd_args(dependency_jars),
+            concat_jars = concat_deps,
             name_prefix = "deps_",
             append_jar = base_jar,
         )
@@ -231,6 +236,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         outputs = _create_fat_jar(
             ctx,
             cmd_args(packaging_jar_args),
+            concat_jars = concat_deps,
             native_libs = native_deps,
             do_not_create_inner_jar = do_not_create_inner_jar,
             generate_wrapper = need_to_generate_wrapper,
