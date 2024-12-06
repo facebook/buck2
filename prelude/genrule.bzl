@@ -145,7 +145,7 @@ def process_genrule(
     # NOTE: Eventually we shouldn't require local_only here, since we should be
     # fine with caching local fallbacks if necessary (or maybe that should be
     # disallowed as a matter of policy), but for now let's be safe.
-    cacheable = value_or(ctx.attrs.cacheable, True) and local_only
+    cacheable = value_or(ctx.attrs.cacheable, True) and (local_only or prefer_local)
 
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
