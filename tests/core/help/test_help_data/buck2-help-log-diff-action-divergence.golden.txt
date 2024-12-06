@@ -7,22 +7,22 @@ Usage: buck2 log diff action-divergence [OPTIONS] <--path1 <PATH1>|--trace-id1 <
 
 Options:
       --path1 <PATH1>
-          A path to an event-log file of the first build
+          A path to an event-log file of the first command
 
       --trace-id1 <TRACE_ID1>
-          Trace id of the first build
+          Trace id of the first command
 
       --recent1 <NUMBER>
-          Open the event-log file from a recent command for the first build
+          Open the event-log file from a recent command for the first command
 
       --path2 <PATH2>
-          A path to an event-log file of the second build
+          A path to an event-log file of the second command
 
       --trace-id2 <TRACE_ID2>
-          Trace id of the second build
+          Trace id of the second command
 
       --recent2 <NUMBER>
-          Open the event-log file from a recent command for the second build
+          Open the event-log file from a recent command for the second command
 
   -h, --help
           Print help (see a summary with '-h')

@@ -9,44 +9,24 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_client_ctx::path_arg::PathArg;
 use buck2_data::ActionKey;
 use buck2_data::ActionName;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::action_util::get_action_digest;
 use buck2_event_observer::display::display_action_identity;
 use buck2_event_observer::display::TargetDisplayOptions;
-use buck2_wrapper_common::invocation_id::TraceId;
 use futures::Stream;
 use futures::TryStreamExt;
 use linked_hash_map::LinkedHashMap;
 
-use crate::commands::log::options::EventLogOptions;
+use crate::commands::log::diff::diff_options::DiffEventLogOptions;
 
 /// Identifies the first divergent action between two builds.
 /// Divergence is identified by the same action having differing outputs. Useful for identifying non-determinism.
 #[derive(Debug, clap::Parser)]
-#[clap(group = clap::ArgGroup::new("first").required(true))]
-#[clap(group = clap::ArgGroup::new("second").required(true))]
 pub struct ActionDivergenceCommand {
-    /// A path to an event-log file of the first build.
-    #[clap(long = "path1", group = "first")]
-    path1: Option<PathArg>,
-    /// Trace id of the first build.
-    #[clap(long = "trace-id1", group = "first")]
-    trace_id1: Option<TraceId>,
-    /// Open the event-log file from a recent command for the first build.
-    #[clap(long, group = "first", value_name = "NUMBER")]
-    recent1: Option<usize>,
-    /// A path to an event-log file of the second build.
-    #[clap(long = "path2", group = "second")]
-    path2: Option<PathArg>,
-    /// Trace id of the second build.
-    #[clap(long = "trace-id2", group = "second")]
-    trace_id2: Option<TraceId>,
-    /// Open the event-log file from a recent command for the second build.
-    #[clap(long, group = "second", value_name = "NUMBER")]
-    recent2: Option<usize>,
+    #[clap(flatten)]
+    diff_event_log: DiffEventLogOptions,
 }
 
 #[derive(Clone, Debug)]
@@ -148,23 +128,7 @@ fn print_divergence_msg(
 impl ActionDivergenceCommand {
     pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command_no_log("log-diff-action-divergence", |ctx| async move {
-            let options1 = EventLogOptions {
-                recent: self.recent1,
-                path: self.path1,
-                trace_id: self.trace_id1,
-                no_remote: false,
-                allow_remote: true,
-            };
-            let options2 = EventLogOptions {
-                recent: self.recent2,
-                path: self.path2,
-                trace_id: self.trace_id2,
-                no_remote: false,
-                allow_remote: true,
-            };
-
-            let log_path1 = EventLogOptions::get(&options1, &ctx).await?;
-            let log_path2 = EventLogOptions::get(&options2, &ctx).await?;
+            let (log_path1, log_path2) = self.diff_event_log.get(&ctx).await?;
 
             let (invocation1, events1) = log_path1.unpack_stream().await?;
             let (invocation2, events2) = log_path2.unpack_stream().await?;

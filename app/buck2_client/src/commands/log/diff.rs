@@ -11,6 +11,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::exit_result::ExitResult;
 
 mod action_divergence;
+mod diff_options;
 
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Subcommands for diff'ing two buck2 commands")]
