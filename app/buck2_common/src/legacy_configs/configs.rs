@@ -310,7 +310,7 @@ impl LegacyBuckConfig {
                         .await?
                 }
                 ResolvedLegacyConfigArg::File(ResolvedConfigFile::Global(other)) => {
-                    parser.join(other);
+                    parser.join(&other.parser)
                 }
             };
         }

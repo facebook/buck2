@@ -11,6 +11,7 @@ use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 
@@ -36,7 +37,14 @@ pub(crate) enum ResolvedConfigFile {
     /// If the config file is project relative, the path of the file
     Project(ProjectRelativePathBuf),
     /// If the config file is external, we pre-parse it to be able to insert the results into dice
-    Global(LegacyConfigParser),
+    Global(ExternalConfigFile),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
+pub(crate) struct ExternalConfigFile {
+    pub(crate) parser: LegacyConfigParser,
+    // The origin path of the config file
+    origin_path: AbsPathBuf,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
@@ -83,9 +91,9 @@ async fn resolve_config_file_arg(
     }
 
     let path = AbsPath::new(arg).internal_error("Client always produces absolute paths")?;
-
-    Ok(ResolvedConfigFile::Global(
-        LegacyBuckConfig::start_parse_for_external_files(
+    Ok(ResolvedConfigFile::Global(ExternalConfigFile {
+        origin_path: AbsPathBuf::new(arg)?,
+        parser: LegacyBuckConfig::start_parse_for_external_files(
             &[ConfigPath::Global(path.to_owned())],
             file_ops,
             // Note that when reading immediate configs that don't follow includes, we don't apply
@@ -93,7 +101,7 @@ async fn resolve_config_file_arg(
             true, // follow includes
         )
         .await?,
-    ))
+    }))
 }
 
 pub(crate) async fn resolve_config_args(
