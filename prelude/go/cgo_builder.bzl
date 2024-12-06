@@ -107,6 +107,7 @@ def _cxx_wrapper(ctx: AnalysisContext, own_pre: list[CPreprocessor], inherited_p
     cxx_cmd = cmd_args(
         c_compiler.compiler,
         c_compiler.preprocessor_flags,
+        get_target_sdk_version_flags(ctx),
         c_compiler.compiler_flags,
         pre_args,
         pre_include_dirs,
