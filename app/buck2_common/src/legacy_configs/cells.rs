@@ -55,7 +55,11 @@ use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
 #[derive(PartialEq, Eq, Allocative)]
 pub struct ExternalBuckconfigData {
+    // The result of parsing the buckconfigs coming from either global (e.g. /etc/buckconfig.d) or
+    // user (e.g. ~/.buckconfig.d or $home_dir/.buckconfig.local) files/dirs outside of the repo
+    // https://fburl.com/code/8ue78p1j
     parse_state: LegacyConfigParser,
+    // The result of parsing the buckconfigs coming from command line args (e.g. --config or --config-file)
     args: Vec<ResolvedLegacyConfigArg>,
 }
 
