@@ -173,6 +173,7 @@ def generate_query_docs(buck: str) -> None:
             + f"title: {x.title()} Environment\n"
             + "toc_max_heading_level: 4\n"
             + "---\n"
+            + "\nimport { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';\n\n"
             + res.stdout.decode(),
         )
 
