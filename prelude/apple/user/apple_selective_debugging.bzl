@@ -68,6 +68,11 @@ _OBJECT_FILE_EXTENSIONS = [
 ]
 
 def _apple_skip_adhoc_resigning_scrubbed_frameworks_attr_value(bundle_ctx: AnalysisContext) -> bool:
+    override_value = bundle_ctx.attrs._skip_adhoc_resigning_scrubbed_frameworks_override
+    if override_value != None:
+        # Override takes precedence over any other value
+        return override_value
+
     skip = bundle_ctx.attrs.skip_adhoc_resigning_scrubbed_frameworks
     return skip if skip != None else bundle_ctx.attrs._skip_adhoc_resigning_scrubbed_frameworks_default
 
