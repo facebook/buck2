@@ -58,16 +58,23 @@ use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
 pub struct ExternalBuckconfigData {
     // The result of parsing the buckconfigs coming from either global (e.g. /etc/buckconfig.d) or
     // user (e.g. ~/.buckconfig.d or $home_dir/.buckconfig.local) files/dirs outside of the repo
+    // The order matters here and reflects the same order these are processed in buck, see
     // https://fburl.com/code/8ue78p1j
-    parse_state: LegacyConfigParser,
+    external_path_configs: Vec<ExternalPathBuckconfigData>,
     // The result of parsing the buckconfigs coming from command line args (e.g. --config or --config-file)
     args: Vec<ResolvedLegacyConfigArg>,
+}
+
+#[derive(PartialEq, Eq, Allocative, Clone)]
+pub struct ExternalPathBuckconfigData {
+    pub(crate) parse_state: LegacyConfigParser,
+    pub(crate) origin_path: ConfigPath,
 }
 
 impl ExternalBuckconfigData {
     pub fn testing_default() -> Self {
         Self {
-            parse_state: LegacyConfigParser::new(),
+            external_path_configs: Vec::new(),
             args: Vec::new(),
         }
     }
@@ -77,11 +84,19 @@ impl ExternalBuckconfigData {
         F: Fn(&BuckconfigKeyRef) -> bool,
     {
         Self {
-            parse_state: {
-                let mut parse_state = self.parse_state.clone();
-                parse_state.filter_values(&filter);
-                parse_state
-            },
+            external_path_configs: self
+                .external_path_configs
+                .clone()
+                .into_iter()
+                .map(|o| {
+                    let mut parse_state = o.parse_state.clone();
+                    parse_state.filter_values(&filter);
+                    ExternalPathBuckconfigData {
+                        parse_state,
+                        origin_path: o.origin_path.clone(),
+                    }
+                })
+                .collect(),
             args: self
                 .args
                 .iter()
@@ -103,12 +118,18 @@ impl ExternalBuckconfigData {
     pub fn get_buckconfig_components(&self) -> Vec<buck2_data::BuckconfigComponent> {
         use buck2_data::buckconfig_component::Data::ConfigValue;
         let mut res: Vec<buck2_data::BuckconfigComponent> = self
-            .parse_state
-            .to_proto_external_config_values(false)
+            .external_path_configs
+            .clone()
             .into_iter()
-            .map(|config_value| buck2_data::BuckconfigComponent {
-                data: Some(ConfigValue(config_value)),
+            .map(|o| {
+                o.parse_state
+                    .to_proto_external_config_values(false)
+                    .into_iter()
+                    .map(|config_value| buck2_data::BuckconfigComponent {
+                        data: Some(ConfigValue(config_value)),
+                    })
             })
+            .flatten()
             .collect();
         res.extend(to_proto_config_args(&self.args));
         res
@@ -164,7 +185,7 @@ impl BuckConfigBasedCells {
 
         let config_paths = get_project_buckconfig_paths(cell_path, file_ops).await?;
         let config = LegacyBuckConfig::finish_parse(
-            self.external_data.parse_state.clone(),
+            self.external_data.external_path_configs.clone(),
             &config_paths,
             cell_path,
             file_ops,
@@ -342,7 +363,7 @@ impl BuckConfigBasedCells {
             root_config,
             config_paths: file_ops.trace,
             external_data: Arc::new(ExternalBuckconfigData {
-                parse_state: started_parse,
+                external_path_configs: started_parse,
                 args: processed_config_args,
             }),
         })
@@ -413,7 +434,7 @@ impl BuckConfigBasedCells {
     ) -> buck2_error::Result<LegacyBuckConfig> {
         let config_paths = get_project_buckconfig_paths(cell_path, file_ops).await?;
         LegacyBuckConfig::finish_parse(
-            external_data.parse_state.clone(),
+            external_data.external_path_configs.clone(),
             &config_paths,
             cell_path,
             file_ops,

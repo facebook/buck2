@@ -20,6 +20,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
 use starlark_map::sorted_map::SortedMap;
 
+use super::cells::ExternalPathBuckconfigData;
 use crate::legacy_configs::args::ResolvedConfigFile;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::file_ops::ConfigParserFileOps;
@@ -270,24 +271,30 @@ impl LegacyBuckConfig {
         config_paths: &[ConfigPath],
         file_ops: &mut dyn ConfigParserFileOps,
         follow_includes: bool,
-    ) -> buck2_error::Result<LegacyConfigParser> {
-        let mut parser = LegacyConfigParser::new();
+    ) -> buck2_error::Result<Vec<ExternalPathBuckconfigData>> {
+        let mut external_path_configs = Vec::new();
         for main_config_file in config_paths {
+            let mut parser = LegacyConfigParser::new();
             parser
                 .parse_file(&main_config_file, None, follow_includes, file_ops)
                 .await?;
+            external_path_configs.push(ExternalPathBuckconfigData {
+                origin_path: main_config_file.clone(),
+                parse_state: parser,
+            });
         }
-        Ok(parser)
+        Ok(external_path_configs)
     }
 
     pub(crate) async fn finish_parse(
-        mut parser: LegacyConfigParser,
+        external_path_configs: Vec<ExternalPathBuckconfigData>,
         main_config_files: &[ConfigPath],
         current_cell: &CellRootPath,
         file_ops: &mut dyn ConfigParserFileOps,
         config_args: &[ResolvedLegacyConfigArg],
         follow_includes: bool,
     ) -> buck2_error::Result<Self> {
+        let mut parser = LegacyConfigParser::combine(external_path_configs);
         for main_config_file in main_config_files {
             parser
                 .parse_file(&main_config_file, None, follow_includes, file_ops)
@@ -343,7 +350,7 @@ pub mod testing {
             // As long as people don't pass config files, making up values here is ok
             let processed_config_args = resolve_config_args(config_args, &mut file_ops).await?;
             LegacyBuckConfig::finish_parse(
-                LegacyConfigParser::new(),
+                Vec::new(),
                 &[ConfigPath::Project(path.to_owned())],
                 CellRootPath::new(ProjectRelativePath::empty()),
                 &mut file_ops,

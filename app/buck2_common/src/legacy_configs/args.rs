@@ -93,14 +93,16 @@ async fn resolve_config_file_arg(
     let path = AbsPath::new(arg).internal_error("Client always produces absolute paths")?;
     Ok(ResolvedConfigFile::Global(ExternalConfigFile {
         origin_path: AbsPathBuf::new(arg)?,
-        parser: LegacyBuckConfig::start_parse_for_external_files(
-            &[ConfigPath::Global(path.to_owned())],
-            file_ops,
-            // Note that when reading immediate configs that don't follow includes, we don't apply
-            // config args either
-            true, // follow includes
-        )
-        .await?,
+        parser: LegacyConfigParser::combine(
+            LegacyBuckConfig::start_parse_for_external_files(
+                &[ConfigPath::Global(path.to_owned())],
+                file_ops,
+                // Note that when reading immediate configs that don't follow includes, we don't apply
+                // config args either
+                true, // follow includes
+            )
+            .await?,
+        ),
     }))
 }
 
