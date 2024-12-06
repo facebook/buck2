@@ -170,6 +170,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
                     )
 
             # Our mac tests keep failing due to watchman errors, do disable watchman on macs here
+            # FYI: if you remove this, make sure to remove it from external_buckconfig tests too
             if sys.platform == "darwin":
                 extra_config_lines.append("[buck2]\nfile_watcher = fs_hash_crawler\n")
 
