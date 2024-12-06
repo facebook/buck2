@@ -116,20 +116,20 @@ impl ExternalBuckconfigData {
     }
 
     pub fn get_buckconfig_components(&self) -> Vec<buck2_data::BuckconfigComponent> {
-        use buck2_data::buckconfig_component::Data::ConfigValue;
+        use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
         let mut res: Vec<buck2_data::BuckconfigComponent> = self
             .external_path_configs
             .clone()
             .into_iter()
             .map(|o| {
-                o.parse_state
-                    .to_proto_external_config_values(false)
-                    .into_iter()
-                    .map(|config_value| buck2_data::BuckconfigComponent {
-                        data: Some(ConfigValue(config_value)),
-                    })
+                let external_file = buck2_data::GlobalExternalConfig {
+                    values: o.parse_state.to_proto_external_config_values(false),
+                    origin_path: o.origin_path.to_string(),
+                };
+                buck2_data::BuckconfigComponent {
+                    data: Some(GlobalExternalConfigFile(external_file)),
+                }
             })
-            .flatten()
             .collect();
         res.extend(to_proto_config_args(&self.args));
         res

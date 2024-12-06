@@ -342,6 +342,7 @@ message BuckconfigComponent {
   oneof data {
     ConfigValue config_value = 1;
     ConfigFile config_file = 2;
+    GlobalExternalConfig global_external_config_file = 3;
   }
 }
 
