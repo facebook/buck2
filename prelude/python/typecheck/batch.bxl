@@ -22,7 +22,7 @@ def _should_type_check(configured_target: bxl.ConfiguredTargetNode, analysis_res
         "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
     )
 
-def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> list[Label]:
+def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> list[Label]:
     configured_targets = ctx.configured_targets(
         do_filter(ctx.uquery(), targets, exclude_targets_with_special_labels = False),
     )
@@ -33,7 +33,7 @@ def filter_and_get_typecheck_subtargets(ctx: bxl.Context, targets: list[TargetLa
         if _should_type_check(configured_target, analysis_results[configured_target.label.with_sub_target()])
     ]
 
-def check_targets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.UnconfiguredTargetSet) -> None:
+def check_targets(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> None:
     checked_targets = filter_and_get_typecheck_subtargets(ctx, targets)
     artifacts = _check_targets_batched(ctx, checked_targets)
 
@@ -46,7 +46,7 @@ def check_targets(ctx: bxl.Context, targets: list[TargetLabel] | bxl.Unconfigure
 
 def _run_entry_point(ctx: bxl.Context) -> None:
     targets = flatten(ctx.cli_args.target)
-    check_targets(ctx, targets)
+    check_targets(ctx, ctx.unconfigured_targets(targets))
 
 run = bxl_main(
     doc = "Run [typecheck] on a set of targets or target patterns.",
