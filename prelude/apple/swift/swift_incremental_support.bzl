@@ -6,7 +6,6 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:apple_utility.bzl", "get_module_name")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftCompilationModes")
 load(
@@ -16,8 +15,9 @@ load(
 
 _WriteOutputFileMapOutput = record(
     artifacts = field(list[Artifact]),
-    swiftdeps = field(list[Artifact]),
+    outputs = field(list[Artifact]),
     output_map_artifact = field(Artifact),
+    swiftdeps = field(list[Artifact]),
 )
 
 IncrementalCompilationOutput = record(
@@ -55,8 +55,8 @@ def should_build_swift_incrementally(ctx: AnalysisContext, srcs_count: int) -> b
     return srcs_count >= _INCREMENTAL_SRC_THRESHOLD
 
 def get_incremental_object_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
-    output_file_map = _write_output_file_map(ctx, get_module_name(ctx), srcs, "object", ".o")
-    return _get_incremental_compilation_flags_and_objects(output_file_map, len(srcs), cmd_args(["-emit-object"]))
+    output_file_map = _write_output_file_map(ctx, srcs)
+    return _get_incremental_compilation_flags_and_objects(output_file_map, len(srcs))
 
 def _get_incremental_num_threads(num_srcs: int) -> int:
     if num_srcs == 0:
@@ -67,23 +67,21 @@ def _get_incremental_num_threads(num_srcs: int) -> int:
 
 def _get_incremental_compilation_flags_and_objects(
         output_file_map: _WriteOutputFileMapOutput,
-        num_srcs: int,
-        additional_flags: cmd_args) -> IncrementalCompilationOutput:
+        num_srcs: int) -> IncrementalCompilationOutput:
     num_threads = _get_incremental_num_threads(num_srcs)
     cmd = cmd_args(
         [
-            "-incremental",
-            "-enable-incremental-imports",
-            "-disable-cmo",  # To minimize changes in generated swiftmodule file.
+            "-disable-cmo",
+            "-emit-object",
             "-enable-batch-mode",
-            "-output-file-map",
-            output_file_map.output_map_artifact,
+            "-enable-incremental-imports",
+            "-incremental",
             "-j",
             str(num_threads),
-            additional_flags,
+            "-output-file-map",
+            output_file_map.output_map_artifact,
         ],
-        hidden = [swiftdep.as_output() for swiftdep in output_file_map.swiftdeps] +
-                 [artifact.as_output() for artifact in output_file_map.artifacts],
+        hidden = [output.as_output() for output in output_file_map.outputs],
     )
 
     return IncrementalCompilationOutput(
@@ -96,12 +94,9 @@ def _get_incremental_compilation_flags_and_objects(
 
 def _write_output_file_map(
         ctx: AnalysisContext,
-        module_name: str,
-        srcs: list[CxxSrcWithFlags],
-        compilation_mode: str,  # Either "object" or "swiftmodule"
-        extension: str) -> _WriteOutputFileMapOutput:  # Either ".o" or ".swiftmodule"
+        srcs: list[CxxSrcWithFlags]) -> _WriteOutputFileMapOutput:
     # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
-    module_swiftdeps = ctx.actions.declare_output("module-build-record." + compilation_mode + ".priors")
+    module_swiftdeps = ctx.actions.declare_output("__swift_incremental__/swiftdeps/module-build-record.priors")
     output_file_map = {
         "": {
             "swift-dependencies": module_swiftdeps,
@@ -109,24 +104,27 @@ def _write_output_file_map(
     }
 
     artifacts = []
+    all_outputs = [module_swiftdeps]
     swiftdeps = [module_swiftdeps]
+
     for src in srcs:
         file_name = src.file.basename
-        output_artifact = ctx.actions.declare_output(file_name + extension)
-        swiftdeps_artifact = ctx.actions.declare_output(file_name + "." + compilation_mode + ".swiftdeps")
-
-        part_map = {
-            compilation_mode: output_artifact,
+        output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o")
+        swiftdeps_artifact = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + file_name + ".swiftdeps")
+        output_file_map[src.file] = {
+            "object": output_artifact,
             "swift-dependencies": swiftdeps_artifact,
         }
-        output_file_map[src.file] = part_map
         artifacts.append(output_artifact)
         swiftdeps.append(swiftdeps_artifact)
+        all_outputs.append(output_artifact)
+        all_outputs.append(swiftdeps_artifact)
 
-    output_map_artifact = ctx.actions.write_json(module_name + "-OutputFileMap." + compilation_mode + ".json", output_file_map)
+    output_map_artifact = ctx.actions.write_json("__swift_incremental__/output_file_map.json", output_file_map, pretty = True)
 
     return _WriteOutputFileMapOutput(
         artifacts = artifacts,
-        swiftdeps = swiftdeps,
+        outputs = all_outputs,
         output_map_artifact = output_map_artifact,
+        swiftdeps = swiftdeps,
     )
