@@ -124,6 +124,12 @@ async def test_dep_files(buck: Buck) -> None:
     touch(buck, "app/other.h")
     await buck.build(*args)
     await expect_exec_count(buck, 0)
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
+        # A symlinked_dir command was re-run because app/other.h was changed
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
 
 
 async def get_cache_queries(buck: Buck) -> List[Dict[str, Any]]:
