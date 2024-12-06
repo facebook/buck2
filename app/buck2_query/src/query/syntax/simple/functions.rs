@@ -229,16 +229,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
-    /// Find the shortest path (dependency chain) from one target set to another.
+    /// Shortest dependency path between two sets of targets.
     ///
-    /// The first parameter `from` is upstream (for example, final binary),
-    /// the second parameter `to` is some downstream (for example, a library).
+    /// * The first parameter `from` represents the upstream targets (e.g., final binary).
+    /// * The second parameter `to` represents the downstream targets (e.g., a library).
     ///
-    /// If there are multiple paths, which one is returned is unspecified.
+    /// Results are returned in order from top to bottom (upstream to downstream).
     ///
-    /// Results are returned in order from up to down.
-    ///
-    /// If there's no path, return an empty set.
+    /// If multiple paths exist, the returned path is unspecified. If no path exists, an empty set is returned.
     ///
     /// For example:
     ///
