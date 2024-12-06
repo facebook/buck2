@@ -35,6 +35,7 @@ use crate::dice::data::HasIoProvider;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::legacy_configs::aggregator::CellsAggregator;
 use crate::legacy_configs::args::resolve_config_args;
+use crate::legacy_configs::args::to_proto_config_args;
 use crate::legacy_configs::args::ResolvedLegacyConfigArg;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::dice::HasInjectedLegacyConfigs;
@@ -97,6 +98,20 @@ impl ExternalBuckconfigData {
                 .cloned()
                 .collect(),
         }
+    }
+
+    pub fn get_buckconfig_components(&self) -> Vec<buck2_data::BuckconfigComponent> {
+        use buck2_data::buckconfig_component::Data::ConfigValue;
+        let mut res: Vec<buck2_data::BuckconfigComponent> = self
+            .parse_state
+            .to_proto_external_config_values(false)
+            .into_iter()
+            .map(|config_value| buck2_data::BuckconfigComponent {
+                data: Some(ConfigValue(config_value)),
+            })
+            .collect();
+        res.extend(to_proto_config_args(&self.args));
+        res
     }
 }
 

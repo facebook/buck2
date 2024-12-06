@@ -136,6 +136,51 @@ pub(crate) async fn resolve_config_args(
     Ok(resolved_args)
 }
 
+pub(crate) fn to_proto_config_args(
+    args: &[ResolvedLegacyConfigArg],
+) -> Vec<buck2_data::BuckconfigComponent> {
+    use buck2_data::buckconfig_component::Data::ConfigFile;
+    use buck2_data::buckconfig_component::Data::ConfigValue;
+    use buck2_data::config_file::Data::GlobalExternalConfig;
+    use buck2_data::config_file::Data::ProjectRelativePath;
+
+    args.iter()
+        .map(|arg| {
+            let data = match arg {
+                ResolvedLegacyConfigArg::Flag(resolved_config_flag) => {
+                    ConfigValue(buck2_data::ConfigValue {
+                        section: resolved_config_flag.section.to_owned(),
+                        key: resolved_config_flag.key.to_owned(),
+                        value: resolved_config_flag
+                            .value
+                            .clone()
+                            .unwrap_or("not_set".to_owned()),
+                        cell: resolved_config_flag
+                            .cell
+                            .clone()
+                            .map(|flag| flag.to_string()),
+                        is_cli: true,
+                    })
+                }
+                ResolvedLegacyConfigArg::File(ResolvedConfigFile::Project(p)) => {
+                    ConfigFile(buck2_data::ConfigFile {
+                        data: Some(ProjectRelativePath(p.to_string())),
+                    })
+                }
+                ResolvedLegacyConfigArg::File(ResolvedConfigFile::Global(p)) => {
+                    ConfigFile(buck2_data::ConfigFile {
+                        data: Some(GlobalExternalConfig(buck2_data::GlobalExternalConfig {
+                            values: p.parser.to_proto_external_config_values(true),
+                            origin_path: p.origin_path.to_str().unwrap_or("").to_owned(),
+                        })),
+                    })
+                }
+            };
+            buck2_data::BuckconfigComponent { data: Some(data) }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::resolve_config_flag_arg;

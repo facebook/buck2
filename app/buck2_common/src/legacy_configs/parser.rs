@@ -192,6 +192,25 @@ impl LegacyConfigParser {
             });
         }
     }
+
+    pub(crate) fn to_proto_external_config_values(
+        &self,
+        is_cli: bool,
+    ) -> Vec<buck2_data::ConfigValue> {
+        self.values
+            .iter()
+            .map(|(k, v)| {
+                v.values.iter().map(|(key, value)| buck2_data::ConfigValue {
+                    section: k.to_string(),
+                    key: key.to_string(),
+                    value: value.raw_value().to_owned(),
+                    cell: None,
+                    is_cli,
+                })
+            })
+            .flatten()
+            .collect()
+    }
 }
 
 impl<'p> LegacyConfigFileParser<'p> {
