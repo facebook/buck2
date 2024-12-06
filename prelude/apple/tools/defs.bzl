@@ -30,6 +30,12 @@ def apple_oso_scrubber_target():
     if not is_full_meta_repo():
         return _PYTHON_SCRUBBER
 
+    native_oso_scrubber_enabled_override = read_root_config("apple", "native_oso_scrubber_enabled_override", None)
+    if native_oso_scrubber_enabled_override != None:
+        # Override buckconfig takes precedence over everything else
+        native_oso_scrubber_enabled = (native_oso_scrubber_enabled_override.lower() == "true")
+        return _NATIVE_SCRUBBER if native_oso_scrubber_enabled else _PYTHON_SCRUBBER
+
     native_oso_scrubber_enabled = (read_root_config("apple", "native_oso_scrubber_enabled", "").lower() == "true")
     default_scrubber = _NATIVE_SCRUBBER if native_oso_scrubber_enabled else _PYTHON_SCRUBBER
 
