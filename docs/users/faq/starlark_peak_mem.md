@@ -38,7 +38,7 @@ uquery `target` showing that it uses 1.5GB:
 
 If you want to see more detailed breakdown where the memory is used, you should
 profile Starlark's evaluation of build files. See
-[this page](../../rule_authors/optimization.md/#starlark-profiling) for details
+[this page](../../../rule_authors/optimization/#starlark-profiling) for details
 of profiling in the loading stage. This is a great starting point for
 troubleshooting.
 

@@ -12,5 +12,5 @@ places you can write Starlark in Buck2:
 - In rule definitions, where you can use the same Starlark standard functions,
   but will heavily be using the [build functions](build) (e.g. `rule` and
   `attrs`).
-- In [BXL](../developers/bxl), where the [context type](bxl/bxl/Context) is one
-  of the more important ones.
+- In [BXL](../developers/bxl), where the [context type](bxl/Context) is one of
+  the more important ones.

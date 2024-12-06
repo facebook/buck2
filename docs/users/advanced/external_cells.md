@@ -13,7 +13,7 @@ External cells act much like [normal cells], except that instead of having their
 source files checked into the repo, the source files have some alternative
 origin.
 
-[normal cells]: ../../concepts/buckconfig.md/#cells
+[normal cells]: ../../../concepts/buckconfig#cells
 
 ## Setting up an external cell
 

@@ -99,7 +99,7 @@ the former is for ensuring a single artifact, and the latter is for ensuring
 multiple artifact-like inputs. Artifact-like inputs include
 [`cmd_args`](../../api/build#cmd_args) (can be found when inspecting providers),
 [`bxl.BuildResult`](../../api/bxl/BuildResult) (produced when building something
-in BXL), or [`artifact`](../../api/build/artifact) (can be found when inspecting
+in BXL), or [`artifact`](../../api/build/Artifact) (can be found when inspecting
 providers, or creating your own actions).
 
 A common workflow is to ensure an artifact that you created via some custom
