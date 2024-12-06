@@ -28,11 +28,6 @@ from buck2.tests.e2e_util.helper.assert_occurrences import (
 )
 from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
 
-# Taken from data.proto
-ACTION_EXECUTION_KIND_LOCAL = 1
-ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7
-ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9
-
 
 # Eden materializer only available on Linux
 def eden_linux_only() -> bool:
