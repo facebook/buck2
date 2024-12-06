@@ -346,19 +346,31 @@ def compile_swift(
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
 
     swift_framework_output = None
+    swiftinterface_output = None
     if _should_compile_with_evolution(ctx):
         swift_framework_output = SwiftLibraryForDistributionOutput(
             swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface"),
             private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface"),
             swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc"),  #this is generated automatically once we pass -emit-module-info, so must have this name
         )
+    elif toolchain.library_interface_uses_swiftinterface and not ctx.attrs._swift_enable_testing:
+        swiftinterface_output = ctx.actions.declare_output(get_module_name(ctx) + ".swiftinterface")
 
     output_symbols = None
-
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
 
-    _compile_swiftmodule(ctx, toolchain, shared_flags, srcs, output_swiftmodule, output_header, output_symbols, swift_framework_output)
+    _compile_swiftmodule(
+        ctx,
+        toolchain,
+        shared_flags,
+        srcs,
+        swiftinterface_output,
+        output_swiftmodule,
+        output_header,
+        output_symbols,
+        swift_framework_output,
+    )
 
     object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
 
@@ -403,7 +415,7 @@ def compile_swift(
         object_format = toolchain.object_format,
         swiftmodule = output_swiftmodule,
         compiled_underlying_pcm_artifact = exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
-        dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, deps_providers),
+        dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, swiftinterface_output, deps_providers),
         pre = pre,
         exported_pre = exported_pp_info,
         exported_swift_header = exported_swift_header.artifact,
@@ -436,49 +448,88 @@ def _compile_swiftmodule(
         toolchain: SwiftToolchainInfo,
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags],
+        output_swiftinterface: Artifact | None,
         output_swiftmodule: Artifact,
         output_header: Artifact,
         output_symbols: Artifact | None,
         swift_framework_output: SwiftLibraryForDistributionOutput | None) -> CompileArgsfiles:
-    argfile_cmd = cmd_args(shared_flags)
-    argfile_cmd.add([
-        "-disable-cmo",
-        "-experimental-emit-module-separately",
-        "-wmo",
-    ])
-
-    if ctx.attrs.swift_module_skip_function_bodies:
-        argfile_cmd.add([
-            "-Xfrontend",
-            "-experimental-skip-non-inlinable-function-bodies-without-types",
+    if output_swiftinterface:
+        # We compile the interface in two passes:
+        #  1. generate the ObjC header and swiftinterface file
+        #  2. generate the swiftmodule file from the intermediate swiftinterface file
+        #
+        # This is more work overall, but as the swiftinterface file only contains
+        # the public API we should have improved cache hit reducing the amount of
+        # subsequent swiftmodule compile actions.
+        swiftinterface_argsfile = cmd_args(shared_flags)
+        swiftinterface_argsfile.add([
+            # Required as emitting a swiftinterface without library evolution
+            # produces a warning.
+            "-no-warnings-as-errors",
+            # Workaround to avoid producing swiftdoc and other auxiliary outputs.
+            "-typecheck",
+            "-wmo",
         ])
-
-    cmd = cmd_args([
-        "-emit-objc-header",
-        "-emit-objc-header-path",
-        output_header.as_output(),
-        "-emit-module",
-        "-emit-module-path",
-        output_swiftmodule.as_output(),
-    ])
-
-    if _should_compile_with_evolution(ctx):
-        if not swift_framework_output:
-            fail("Building with library evolution but missing outputs")
-
-        argfile_cmd.add([
-            "-enable-library-evolution",
-        ])
-        cmd.add([
+        swiftinterface_cmd = cmd_args([
+            "-emit-objc-header",
+            "-emit-objc-header-path",
+            output_header.as_output(),
             "-emit-module-interface",
             "-emit-module-interface-path",
-            swift_framework_output.swiftinterface.as_output(),
-            "-emit-private-module-interface-path",
-            swift_framework_output.private_swiftinterface.as_output(),
+            output_swiftinterface.as_output(),
+        ])
+        _compile_with_argsfile(ctx, "emit_swiftinterface", ".swiftinterface", swiftinterface_argsfile, srcs, swiftinterface_cmd, toolchain, num_threads = 1)
+
+        argfile_cmd = cmd_args(shared_flags)
+        argfile_cmd.add([
+            "-c",
+            "-Xfrontend",
+            "-compile-module-from-interface",
+            output_swiftinterface,
+            "-disable-cmo",
+            "-wmo",
+        ])
+        cmd = cmd_args([
+            "-o",
+            output_swiftmodule.as_output(),
+        ])
+    else:
+        argfile_cmd = cmd_args(shared_flags)
+        argfile_cmd.add([
+            "-disable-cmo",
+            "-experimental-emit-module-separately",
+            "-wmo",
         ])
 
-        # There is no driver flag to specify the swiftdoc output path
-        cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
+        if ctx.attrs.swift_module_skip_function_bodies:
+            argfile_cmd.add([
+                "-Xfrontend",
+                "-experimental-skip-non-inlinable-function-bodies-without-types",
+            ])
+
+        cmd = cmd_args([
+            "-emit-objc-header",
+            "-emit-objc-header-path",
+            output_header.as_output(),
+            "-emit-module",
+            "-emit-module-path",
+            output_swiftmodule.as_output(),
+        ])
+
+        if swift_framework_output:
+            argfile_cmd.add([
+                "-enable-library-evolution",
+            ])
+            cmd.add([
+                "-emit-module-interface",
+                "-emit-module-interface-path",
+                swift_framework_output.swiftinterface.as_output(),
+                "-emit-private-module-interface-path",
+                swift_framework_output.private_swiftinterface.as_output(),
+            ])
+
+            # There is no driver flag to specify the swiftdoc output path
+            cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
 
     output_tbd = None
     if output_symbols != None:
@@ -978,6 +1029,7 @@ def create_swift_dependency_info(
 def get_swift_dependency_info(
         ctx: AnalysisContext,
         output_module: Artifact | None,
+        output_interface: Artifact | None,
         deps_providers: list) -> SwiftDependencyInfo:
     exported_deps = _exported_deps(ctx)
 
@@ -988,13 +1040,14 @@ def get_swift_dependency_info(
             is_swiftmodule = True,
             module_name = get_module_name(ctx),
             output_artifact = output_module,
+            interface_artifact = output_interface,
         )
     else:
         compiled_info = None
 
     debug_info_tset = make_artifact_tset(
         actions = ctx.actions,
-        artifacts = [output_module] if output_module != None else [],
+        artifacts = filter(None, [output_module, output_interface]),
         children = get_external_debug_info_tsets(ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])),
         label = ctx.label,
         tags = [ArtifactInfoTag("swiftmodule")],

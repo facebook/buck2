@@ -69,6 +69,7 @@ SwiftCompiledModuleInfo = provider(fields = {
     "clang_importer_args": provider_field(typing.Any, default = None),  # cmd_args of additional flags for the clang importer.
     "clang_module_file_args": provider_field(typing.Any, default = None),  # cmd_args of include flags for the clang importer.
     "clang_modulemap": provider_field(typing.Any, default = None),  # Clang modulemap file which is required for generation of swift_module_map.
+    "interface_artifact": provider_field(Artifact | None, default = None),  # If present an artifact for the modules swiftinterface.
     "is_framework": provider_field(typing.Any, default = None),
     "is_sdk_module": provider_field(bool, default = False),
     "is_swiftmodule": provider_field(typing.Any, default = None),  # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
@@ -98,10 +99,19 @@ def _add_clang_importer_flags(module_info: SwiftCompiledModuleInfo):
 
 def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:
+        # Swiftmodule files compiled from swiftinterface files embed the paths
+        # which are verified during compilation of rdeps, so we need to add
+        # the swiftinterface files as hidden inputs.
+        module_path = cmd_args(
+            module_info.output_artifact,
+            hidden = filter(None, [module_info.interface_artifact]),
+            delimiter = "",
+        )
+
         return struct(
             isFramework = module_info.is_framework,
             moduleName = module_info.module_name,
-            modulePath = module_info.output_artifact,
+            modulePath = module_path,
         )
     else:
         return struct(
