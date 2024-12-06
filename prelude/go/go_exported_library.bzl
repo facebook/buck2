@@ -63,7 +63,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         package_root = ctx.attrs.package_root,
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
-        tags = ctx.attrs._tags,
+        build_tags = ctx.attrs._build_tags,
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,

@@ -129,13 +129,13 @@ def _coverage_mode_transition(platform, refs, attrs):
 def _tags_transition(platform, refs, attrs):
     constraints = platform.configuration.constraints
 
-    if not attrs.tags:
+    if not attrs.build_tags:
         return platform
 
-    for tag in attrs.tags:
-        ref_name = "tag_{}__value".format(tag)
+    for build_tag in attrs.build_tags:
+        ref_name = "tag_{}__value".format(build_tag)
         if not hasattr(refs, ref_name):
-            fail("Add tag '{}' to .buckconfig attribute `go.allowed_tags` to allow using it".format(tag))
+            fail("Add build_tag '{}' to .buckconfig attribute `go.allowed_build_tags` to allow using it".format(build_tag))
 
         tag_value = getattr(refs, ref_name)[ConstraintValueInfo]
         constraints[tag_value.setting.label] = tag_value
@@ -203,7 +203,7 @@ _top_level_refs = {
     for tag, constrant_value in tag_to_constrant_value().items()
 } | _all_level_refs
 
-_attrs = ["asan", "cgo_enabled", "race", "tags"]
+_attrs = ["asan", "cgo_enabled", "race", "build_tags"]
 
 go_binary_transition = transition(
     impl = _chain_transitions(_top_level_tansitions),
@@ -264,4 +264,4 @@ coverage_mode_attr = attrs.default_only(attrs.option(attrs.enum(GoCoverageMode.v
     "prelude//go/constraints:coverage_mode_set": "set",
 })))
 
-tags_attr = attrs.default_only(attrs.list(attrs.string(), default = selects_for_tags()))
+build_tags_attr = attrs.default_only(attrs.list(attrs.string(), default = selects_for_tags()))

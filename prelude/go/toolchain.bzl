@@ -30,7 +30,7 @@ GoToolchainInfo = provider(
         "linker": provider_field(RunInfo),
         "linker_flags": provider_field(typing.Any, default = None),
         "packer": provider_field(RunInfo),
-        "tags": provider_field(list[str], default = []),
+        "build_tags": provider_field(list[str], default = []),
     },
 )
 

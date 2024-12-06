@@ -154,9 +154,9 @@ def _asan_arg():
 """),
     }
 
-def _tags_arg():
+def _build_tags_arg():
     return {
-        "tags": attrs.list(attrs.string(), default = [], doc = """
+        "build_tags": attrs.list(attrs.string(), default = [], doc = """
     Build tags to apply to this target and its dependencies.
 """),
     }
@@ -199,7 +199,7 @@ go_common = struct(
     override_cgo_enabled_arg = _override_cgo_enabled_arg,
     race_arg = _race_arg,
     asan_arg = _asan_arg,
-    tags_arg = _tags_arg,
+    build_tags_arg = _build_tags_arg,
     cxx_compiler_flags_arg = _cxx_compiler_flags_arg,
     cxx_preprocessor_flags_arg = _cxx_preprocessor_flags_arg,
     generate_exported_header = _generate_exported_header,

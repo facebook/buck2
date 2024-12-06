@@ -13,7 +13,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled)
-    tags = [] + go_toolchain.tags
+    build_tags = [] + go_toolchain.build_tags
     linker_flags = [] + go_toolchain.linker_flags
     assembler_flags = [] + go_toolchain.assembler_flags
     compiler_flags = [] + go_toolchain.compiler_flags
@@ -21,7 +21,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if ctx.attrs._asan:
         compiler_flags += ["-asan"]
-        tags += ["asan"]
+        build_tags += ["asan"]
 
     env = get_toolchain_env_vars(go_toolchain)
     env["GODEBUG"] = "installgoroot=all"
@@ -56,7 +56,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd_args(["-asmflags=", cmd_args(local_assembler_flags, delimiter = " ")], delimiter = "") if local_assembler_flags else [],
             cmd_args(["-gcflags=", cmd_args(local_compiler_flags, delimiter = " ")], delimiter = "") if local_compiler_flags else [],
             cmd_args(["-ldflags=", cmd_args(linker_flags, delimiter = " ")], delimiter = "") if linker_flags else [],
-            ["-tags", ",".join(tags)] if tags else [],
+            ["-tags", ",".join(build_tags)] if build_tags else [],
             ["-race"] if ctx.attrs._race else [],
             "std",
         ])

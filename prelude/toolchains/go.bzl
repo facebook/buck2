@@ -83,7 +83,7 @@ def _system_go_toolchain_impl(ctx):
             go_wrapper = ctx.attrs.go_wrapper[RunInfo],
             linker = RunInfo(cmd_script(ctx, "link", cmd_args(go, "tool", "link"), script_os)),
             packer = RunInfo(cmd_script(ctx, "pack", cmd_args(go, "tool", "pack"), script_os)),
-            tags = [],
+            build_tags = [],
             linker_flags = [],
             assembler_flags = [],
             compiler_flags = [],
