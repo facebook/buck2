@@ -37,13 +37,7 @@ get_port() ->
 
 init([#test_env{output_dir = OutputDir}]) ->
     process_flag(trap_exit, true),
-    GlobalEpmdPort =
-        application:get_env(
-            test_exec,
-            global_epmd_port,
-            % DEFAULT OPTION TO BE REMOVED AFTER MIGRATING USAGE
-            application:get_env(text_exec, global_epmd_port)
-        ),
+    GlobalEpmdPort = application:get_env(test_exec, global_epmd_port),
 
     case GlobalEpmdPort of
         undefined ->
