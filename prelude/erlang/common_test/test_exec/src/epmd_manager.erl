@@ -13,7 +13,6 @@
 -module(epmd_manager).
 
 -include_lib("common/include/buck_ct_records.hrl").
--include_lib("kernel/include/logger.hrl").
 
 %% UI methods
 -export([start_link/1, get_epmd_out_path/1, get_port/0]).
@@ -44,7 +43,6 @@ init([#test_env{output_dir = OutputDir}]) ->
             EpmdOutPath = get_epmd_out_path(OutputDir),
             case start_epmd(EpmdOutPath) of
                 {ok, Port, _PortEpmd, LogHandle} ->
-                    ?LOG_INFO("epmd started on port ~p at ~p", [Port, os:system_time(millisecond) / 1000]),
                     {ok, #{epmd_port => Port, log_handle => LogHandle, global_epmd => false}};
                 Error ->
                     {stop, {epmd_start_failed, Error}, #{}}
