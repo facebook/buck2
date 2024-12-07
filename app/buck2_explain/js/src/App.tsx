@@ -16,7 +16,6 @@ import {createRoot} from 'react-dom/client'
 import {ByteBuffer} from 'flatbuffers'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
 import {QueryKey, Router} from './Router'
-import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
 import {GraphView2} from './graph2/GraphView2'
@@ -156,22 +155,16 @@ function App() {
     fetchData()
   }, [])
 
-  const rootTarget = data.rootTarget
-
-  if (rootTarget == null) return <p>Loading...</p>
-  else {
-    return (
-      <DataContext.Provider value={data}>
-        <Router>
-          <Navbar />
-          <RootView view={QueryKey.RootView} />
-          <TargetView view={QueryKey.TargetView} />
-          <SearchView view={QueryKey.SearchView} />
-          <GraphView2 view={QueryKey.GraphView2} />
-        </Router>
-      </DataContext.Provider>
-    )
-  }
+  return (
+    <DataContext.Provider value={data}>
+      <Router>
+        <Navbar />
+        <TargetView view={QueryKey.TargetView} />
+        <SearchView view={QueryKey.SearchView} />
+        <GraphView2 view={QueryKey.RootView} />
+      </Router>
+    </DataContext.Provider>
+  )
 }
 
 const container = document.getElementById('root') as HTMLElement
