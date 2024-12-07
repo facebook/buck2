@@ -15,7 +15,6 @@ use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_data::action_key;
 use buck2_data::CommandInvalidationInfo;
 use buck2_data::FileWatcherEvent;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
@@ -213,8 +212,8 @@ pub(crate) async fn explain(
     let global_cfg_options =
         global_cfg_options_from_client_context(&req.target_cfg, server_ctx, &mut ctx).await?;
 
-    let (targets, universes) = {
-        let (query_result, universes) = QUERY_FRONTEND
+    let targets = {
+        let (query_result, _universes) = QUERY_FRONTEND
             .get()?
             .eval_cquery(
                 &mut ctx,
@@ -223,26 +222,14 @@ pub(crate) async fn explain(
                 &[],
                 global_cfg_options.dupe(),
                 target_universe,
-                true, // collect universes
+                false, // collect universes
             )
             .await?;
 
-        let universes = universes.buck_error_context_anyhow("No universes")?;
-        if universes.is_empty() {
-            // Sanity check.
-            return Err(internal_error!("Empty universes list"));
-        }
-        let universes: Vec<String> = universes
-            .iter()
-            .flat_map(|u| u.iter().map(|t| t.label().unconfigured().to_string()))
-            .collect();
-
-        let res = query_result
+        query_result
             .targets()
             .map(|v| v.map(|v| v.dupe()))
-            .collect::<Result<Vec<ConfiguredTargetNode>, _>>()?;
-
-        (res, universes)
+            .collect::<Result<Vec<ConfiguredTargetNode>, _>>()?
     };
 
     let file_update_entries = {
@@ -257,7 +244,7 @@ pub(crate) async fn explain(
                     &format!("owner({})", file_change),
                     &[],
                     global_cfg_options.dupe(),
-                    Some(&universes), // TODO iguridi: pass just 1 universe?
+                    Some(&[req.target.clone()]), // target universe
                     false,
                 )
                 .await?;
