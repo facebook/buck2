@@ -34,6 +34,9 @@ const displayTypeColors: {[key in DisplayType]: string} = {
   [DisplayType.hidden]: 'gray', // doesn't matter
 }
 
+// More than this and graph starts to feel sluggish
+const MAX_NODES = 500
+
 interface DisplayNode extends Node {
   allowedDeps: Map<number, number>
   displayType: DisplayType
@@ -65,7 +68,9 @@ export function GraphImpl2(props: {
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
+  let nodeCounter = 0
   let totalActionsAffectedByFileChanges = 0
+  let totalTargetsWithActionsThatRan = 0
   // Apply filters
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
@@ -73,6 +78,7 @@ export function GraphImpl2(props: {
 
     // Targets with actions ran
     if (target.actionsLength() > 0) {
+      totalTargetsWithActionsThatRan += 1
       for (let i = 0; i < target.actionsLength(); i++) {
         const action = target.actions(i)
         // TODO iguridi: do this filtering in rust side
@@ -113,6 +119,14 @@ export function GraphImpl2(props: {
       if (label.includes(v)) {
         node.displayType = DisplayType.hidden
       }
+    }
+
+    // Prevent graph from having too many nodes
+    if (node.displayType != DisplayType.hidden) {
+      nodeCounter += 1
+    }
+    if (nodeCounter > MAX_NODES) {
+      node.displayType = DisplayType.hidden
     }
   }
 
@@ -208,8 +222,9 @@ export function GraphImpl2(props: {
             <p>Build stats</p>
           </div>
           <div className="message-body">
-            Number of nodes: {data.length} <br />
-            Number of edges: {edges.length} <br />
+            Nodes shown: {data.length} <br />
+            Edges shown: {edges.length} <br />
+            Targets with actions that ran: {totalTargetsWithActionsThatRan} <br />
             Total actions that ran: {props.totalActions} <br />
             Total actions affected by file changes: {totalActionsAffectedByFileChanges} <br />
             Number of files with changes: {props.totalFileChanges}
