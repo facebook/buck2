@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-import React, {useRef} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import ForceGraph2D, {LinkObject, NodeObject, ForceGraphProps} from 'react-force-graph-2d'
 
 export function GraphViz2(props: {
@@ -19,6 +19,8 @@ export function GraphViz2(props: {
 }) {
   const {nodes, links, openTarget, showLabels} = props
   const graphRef = useRef<any>(null)
+
+  const [firstLoad, setFirstLoad] = useState(true)
 
   // Show labels optionally
   let paintLabels: ForceGraphProps['nodeCanvasObject'] = undefined
@@ -46,6 +48,7 @@ export function GraphViz2(props: {
   return (
     <ForceGraph2D
       ref={graphRef}
+      width={Math.max(document.documentElement.clientWidth, 1000)}
       graphData={{nodes, links}}
       onNodeClick={(node, _event) => {
         openTarget(node.name)
@@ -64,6 +67,13 @@ export function GraphViz2(props: {
       linkWidth={10 / Math.pow(links.length, 0.5)}
       linkHoverPrecision={6}
       dagMode="td"
+      onEngineStop={() => {
+        // zoom to fit window, but only the first time the graph loads
+        if (firstLoad) {
+          graphRef.current.zoomToFit(0, 200)
+          setFirstLoad(false)
+        }
+      }}
     />
   )
 }
