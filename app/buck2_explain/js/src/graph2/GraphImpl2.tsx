@@ -66,43 +66,10 @@ export function GraphImpl2(props: {
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   let totalActionsAffectedByFileChanges = 0
-  // Intersection of 'includes', minus 'excludes'
+  // Apply filters
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
-    const label = formatTargetLabel(target.label()!)
-
-    // When null, means it wasn't affected by any of the filters and to use default
-    let passesFilters = null
-
-    // Filter by label
-    if (includeContaining.length > 0) {
-      let contains = false
-      for (const v of includeContaining) {
-        if (label.includes(v)) {
-          contains = true
-          break
-        }
-      }
-      passesFilters = passesFilters !== false && contains
-    }
-
-    // Exclude by label
-    for (const v of excludeContaining) {
-      if (label.includes(v)) {
-        passesFilters = false
-      }
-    }
-
-    if (passesFilters === true) {
-      node.displayType = DisplayType.passesFilters
-    }
-
-    // Add highlighted
-    if (highlighted) {
-      if (label.includes(highlighted)) {
-        node.displayType = DisplayType.highlighted
-      }
-    }
+    const label = target.label()!.targetLabel()!
 
     // Targets with actions ran
     if (target.actionsLength() > 0) {
@@ -118,6 +85,34 @@ export function GraphImpl2(props: {
 
     if (target.changedFilesLength() > 0) {
       node.displayType = DisplayType.changedFiles
+    }
+
+    // Add highlighted
+    if (highlighted) {
+      if (label.includes(highlighted)) {
+        node.displayType = DisplayType.highlighted
+      }
+    }
+
+    // Including means we can hide everything that doesn't match the filter
+    if (includeContaining.length > 0) {
+      let contains = false
+      for (const v of includeContaining) {
+        if (label.includes(v)) {
+          contains = true
+          break
+        }
+      }
+      if (!contains) {
+        node.displayType = DisplayType.hidden
+      }
+    }
+
+    // Excluding can hide everything except root node
+    for (const v of excludeContaining) {
+      if (label.includes(v)) {
+        node.displayType = DisplayType.hidden
+      }
     }
   }
 
