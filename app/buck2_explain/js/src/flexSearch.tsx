@@ -9,14 +9,18 @@
 
 import {Index} from 'flexsearch-ts'
 import {Build} from './fbs/explain'
+import {Node} from './App'
 import {formatTargetLabel} from './formatTargetLabel'
 
 export let indexCache: Index | null = null
 
-export async function indexEverything(build: Build): Promise<void> {
+export async function indexEverything(build: Build, graph: Map<number, Node>): Promise<void> {
   // TODO iguridi: make this in a js worker
   const searchIndex = new Index({tokenize: 'forward', stemmer: false})
   for (let i = 0; i < build.targetsLength(); i++) {
+    if (!graph.has(i)) {
+      continue
+    }
     let target = build.targets(i)!
     const label = target.label()!
     let identifier = formatTargetLabel(label)

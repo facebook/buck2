@@ -29,7 +29,7 @@ function Checkbox(props: {
 }
 
 export function SearchView(props: {view: QueryKey}) {
-  const {build, allTargets} = useContext(DataContext)
+  const {build, allTargets, graph} = useContext(DataContext)
   const {params} = useContext(RouterContext)
 
   const [universalSearch, setUniversalSearch] = useState(false)
@@ -39,7 +39,7 @@ export function SearchView(props: {view: QueryKey}) {
       if (indexCache) {
         return
       } else {
-        indexEverything(build)
+        indexEverything(build, graph)
       }
     }
   }
@@ -56,9 +56,11 @@ export function SearchView(props: {view: QueryKey}) {
     res = indexCache?.search(search)
   } else {
     res = []
-    for (let [k, _v] of allTargets) {
-      if (k.includes(search)) {
-        res.push(k)
+    for (let [k, v] of allTargets) {
+      if (graph.has(v)) {
+        if (k.includes(search)) {
+          res.push(k)
+        }
       }
     }
   }
