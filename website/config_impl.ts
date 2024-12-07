@@ -7,14 +7,16 @@
  * of this source tree.
  */
 
-import lightCodeTheme from 'prism-react-renderer/themes/github';
-import darkCodeTheme from 'prism-react-renderer/themes/dracula';
+import { themes } from 'prism-react-renderer';
 import { fbContent, isInternal } from 'docusaurus-plugin-internaldocs-fb/internal';
 import type { ThemeConfig as ClassicPresetConfig, Options as ClassicPresetOptions } from '@docusaurus/preset-classic';
 import type { DocusaurusConfig } from '@docusaurus/types';
 
 import { postProcessItems } from './sidebars.js';
 import { redirects } from './redirects';
+
+const lightCodeTheme = themes.github;
+const darkCodeTheme = themes.dracula;
 
 const presetOptions: ClassicPresetOptions = ({
   docs: {
