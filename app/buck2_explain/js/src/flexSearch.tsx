@@ -21,7 +21,7 @@ function addIfExists(index: Index, key: string, element: string | null | undefin
 
 export async function indexEverything(build: Build): Promise<void> {
   // TODO iguridi: make this in a js worker
-  const searchIndex = new Index({tokenize: 'forward', stemmer: 'false'})
+  const searchIndex = new Index({tokenize: 'forward', stemmer: false})
   for (let i = 0; i < build.targetsLength(); i++) {
     let target = build.targets(i)!
     const label = target.label()!
