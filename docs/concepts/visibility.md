@@ -53,7 +53,7 @@ but `//hello:world` does not define `//foo:bar` in its `within_view` list, then
 
 A common library like Guava should be able to be included by any build rule:
 
-```java
+```python
 prebuilt_jar(
   name = 'guava',
   binary_jar = 'guava-14.0.1.jar',
@@ -64,7 +64,7 @@ prebuilt_jar(
 It is common to restrict the visibility of Android resources to the Java code
 that uses it:
 
-```java
+```python
 android_resource(
   name = 'ui_res',
   res = 'res',
@@ -76,7 +76,7 @@ android_resource(
 Or it may be simpler to make it visible to the entire directory in case
 additional build rules are added to `java/com/example/ui/BUCK`:
 
-```java
+```python
 android_resource(
   name = 'ui_res',
   res = 'res',
@@ -90,7 +90,7 @@ define all of your Java unit tests in a folder named `javatests/` in the root of
 your project, then you could define the following rule to ensure that only build
 rules under `javatests/` can depend on JUnit:
 
-```java
+```python
 prebuilt_jar(
   name = 'junit',
   binary_jar = 'junit-4.11.jar',
@@ -101,7 +101,7 @@ prebuilt_jar(
 Finally, restricting the view of a target can be useful for preventing
 dependency creep:
 
-```java
+```python
 java_library(
   name = 'example',
   visibility = ['PUBLIC',],
