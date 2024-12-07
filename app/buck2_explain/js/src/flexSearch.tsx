@@ -8,7 +8,7 @@
  */
 
 import {Index} from 'flexsearch-ts'
-import {Build} from './fbs/explain'
+import {Build, ConfiguredTargetNode} from './fbs/explain'
 import {Node} from './App'
 import {formatTargetLabel} from './formatTargetLabel'
 
@@ -30,20 +30,25 @@ export async function indexEverything(build: Build, graph: Map<number, Node>): P
       continue
     }
     let target = build.targets(i)!
-    const label = target.label()!
-    let data = [
-      target.name(),
-      target.oncall(),
-      target.executionPlatform(),
-      target.package_(),
-      target.targetConfiguration(),
-      target.type(),
-      label.targetLabel()!,
-      label.cfg()!,
-      label.execCfg()!,
-    ].filter(x => x != null)
+    let data = searchableText(target)
 
     searchIndex.append(i, data.join(' '))
   }
   indexCache = searchIndex
+}
+
+export function searchableText(target: ConfiguredTargetNode): string[] {
+  const label = target.label()!
+  let data = [
+    target.name(),
+    target.oncall(),
+    target.executionPlatform(),
+    target.package_(),
+    target.targetConfiguration(),
+    target.type(),
+    label.targetLabel()!,
+    label.cfg()!,
+    label.execCfg()!,
+  ].filter(x => x != null)
+  return data
 }

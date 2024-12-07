@@ -10,9 +10,38 @@
 import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
 import {Link, QueryKey, RouterContext} from './Router'
-import {indexCache, indexEverything} from './flexSearch'
+import {indexCache, indexEverything, searchableText} from './flexSearch'
 import {HighlightedText, searchRegex} from './HighlightedText'
 import {formatTargetLabel} from './formatTargetLabel'
+
+function SearchResult(props: {id: number; regex: RegExp}) {
+  const {id, regex} = props
+  const {build} = useContext(DataContext)
+  const target = build?.targets(id)!
+
+  const label = target.label()!
+  const searchables = searchableText(target)
+
+  const matches = searchables
+    .filter(s => regex.test(s))
+    .map((s, i) => (
+      <span key={i} className="has-text-grey">
+        . . .
+        <HighlightedText text={s} regex={regex} />. . .{'  '}
+      </span>
+    ))
+
+  return (
+    <li key={id} className="mt-3">
+      <Link to={{target: formatTargetLabel(label)}} className="is-size-5">
+        {/* TODO iguridi: show configuration for targets built in multiple configurations */}
+        <HighlightedText text={label.targetLabel()!} regex={regex} />
+      </Link>
+      <br />
+      {matches}
+    </li>
+  )
+}
 
 export function SearchView(props: {view: QueryKey}) {
   const {params} = useContext(RouterContext)
@@ -45,18 +74,9 @@ export function SearchView(props: {view: QueryKey}) {
       <>
         <h5 className="title is-5 mt-4">Showing targets containing "{search}"</h5>
         <ul>
-          {res.map(i => {
-            // TODO iguridi: show configuration for targets built in multiple configurations
-            const label = build.targets(i)!.label()!
-            const cfgTargetLabel = formatTargetLabel(label)
-            return (
-              <li key={cfgTargetLabel} className="mt-3">
-                <Link to={{target: cfgTargetLabel}}>
-                  <HighlightedText text={label.targetLabel()!} regex={regex} />
-                </Link>
-              </li>
-            )
-          })}
+          {res.map(i => (
+            <SearchResult key={i} id={i} regex={regex} />
+          ))}
         </ul>
       </>
     )
