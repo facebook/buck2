@@ -56,6 +56,7 @@ AsmExtensions = enum(
 CxxExtension = enum(
     ".cpp",
     ".cc",
+    ".cl",
     ".cxx",
     ".c++",
     ".c",
@@ -996,7 +997,7 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
 
 def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing.Any:
     compiler_info = None
-    if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
+    if ext.value in (".cpp", ".cc", ".cl", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
         compiler_info = toolchain.cxx_compiler_info
     elif ext.value in (".c", ".m"):
         compiler_info = toolchain.c_compiler_info
@@ -1018,7 +1019,7 @@ def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing
     return compiler_info
 
 def _get_category(ext: CxxExtension) -> str:
-    if ext.value in (".cpp", ".cc", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
+    if ext.value in (".cpp", ".cc", ".cl", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
         return "cxx_compile"
     if ext.value == ".c":
         return "c_compile"
@@ -1063,7 +1064,7 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
         return None
 
     # Return the file type as well
-    if ext.value in (".cpp", ".cc", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
+    if ext.value in (".cpp", ".cc", ".cl", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
         return DepFileType("cpp")
     elif ext.value in (".c", ".m"):
         return DepFileType("c")
