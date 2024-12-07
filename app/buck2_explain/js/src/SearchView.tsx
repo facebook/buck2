@@ -72,7 +72,9 @@ export function SearchView(props: {view: QueryKey}) {
       </>
     ) : (
       <>
-        <h5 className="title is-5 mt-4">Showing targets containing "{search}"</h5>
+        <h5 className="title is-5 mt-4">
+          Showing {res.length} targets containing "{search}"
+        </h5>
         <ul>
           {res.map(i => (
             <SearchResult key={i} id={i} regex={regex} />
