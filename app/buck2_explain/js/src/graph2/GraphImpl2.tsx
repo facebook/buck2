@@ -236,11 +236,11 @@ export function GraphImpl2(props: {
               />
             </div>
           </div>
-        </div>
-        <div className="cell">
-          <button type="submit" onClick={applyFilters} className="button is-dark">
-            <span>Apply filters</span>
-          </button>
+          <div className="cell">
+            <button type="submit" onClick={applyFilters} className="button is-dark">
+              <span>Apply filters</span>
+            </button>
+          </div>
         </div>
         <div className="cell">
           <label className="checkbox ml-2 mt-4">
@@ -265,6 +265,13 @@ export function GraphImpl2(props: {
             Total actions that ran: {props.totalActions} <br />
             Total actions affected by file changes: {totalActionsAffectedByFileChanges} <br />
             Number of files with changes: {props.totalFileChanges}
+          </div>
+        </article>
+        <article className="message cell">
+          <div className="message-body">
+            green: node with changed files <br />
+            purple: node with actions that ran <br />
+            orange: highlighted node via filter <br />
           </div>
         </article>
       </div>
