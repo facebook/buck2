@@ -31,9 +31,7 @@ export function SearchView(props: {view: QueryKey}) {
   if (!indexCache) {
     indexEverything(build, graph)
   }
-  let res = (indexCache!.search(search) as number[]).map(i =>
-    formatTargetLabel(build.targets(i)!.label()!),
-  )
+  let res = indexCache!.search(search) as number[]
 
   const view =
     res == null || res.length == 0 ? (
@@ -44,13 +42,18 @@ export function SearchView(props: {view: QueryKey}) {
       <>
         <h5 className="title is-5 mt-4">Showing targets containing "{search}"</h5>
         <ul>
-          {res.map(label => (
-            <li key={label} className="mt-3">
-              <Link to={{target: label}}>
-                <HighlightedText text={label} searchQuery={search} />
-              </Link>
-            </li>
-          ))}
+          {res.map(i => {
+            // TODO iguridi: show configuration for targets built in multiple configurations
+            const label = build.targets(i)!.label()!
+            const cfgTargetLabel = formatTargetLabel(label)
+            return (
+              <li key={cfgTargetLabel} className="mt-3">
+                <Link to={{target: cfgTargetLabel}}>
+                  <HighlightedText text={label.targetLabel()!} searchQuery={search} />
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       </>
     )
