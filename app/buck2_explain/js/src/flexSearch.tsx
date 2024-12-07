@@ -49,6 +49,19 @@ export function searchableText(target: ConfiguredTargetNode): string[] {
     label.targetLabel()!,
     label.cfg()!,
     label.execCfg()!,
-  ].filter(x => x != null)
-  return data
+  ]
+
+  for (let j = 0; j < target.actionsLength(); j++) {
+    let action = target.actions(j)!
+    if (action.affectedByFileChanges()) {
+      data.push(action.category())
+      data.push(action.executionKind())
+      data.push(action.identifier())
+      for (let k = 0; k < action.reprosLength(); k++) {
+        data.push(action.repros(k)!)
+      }
+    }
+  }
+
+  return data.filter(x => x != null)
 }

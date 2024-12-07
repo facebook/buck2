@@ -35,7 +35,7 @@ export function SearchBox() {
         className="input mr-2 has-text-info-bold"
         value={searchTerm}
         onChange={event => setSearchTerm(event.target.value)}
-        placeholder="Search targets"
+        placeholder="Search"
         onKeyDown={event => {
           event.key == 'Enter' ? goSearch() : null
         }}
