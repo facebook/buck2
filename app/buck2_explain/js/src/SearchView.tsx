@@ -13,11 +13,11 @@ import {Link, QueryKey, RouterContext} from './Router'
 import {indexCache, indexEverything} from './flexSearch'
 
 export function SearchView(props: {view: QueryKey}) {
+  const {params} = useContext(RouterContext)
   const {build, graph} = useContext(DataContext)
   if (build == null) {
     return null
   }
-  const {params} = useContext(RouterContext)
 
   const urlParams = new URLSearchParams(params)
   const search = urlParams.get(props.view)
