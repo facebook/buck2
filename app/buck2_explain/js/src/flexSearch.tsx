@@ -31,7 +31,6 @@ export async function indexEverything(build: Build, graph: Map<number, Node>): P
     }
     let target = build.targets(i)!
     const label = target.label()!
-    let identifier = formatTargetLabel(label)
     let data = [
       target.name(),
       target.oncall(),
@@ -44,7 +43,7 @@ export async function indexEverything(build: Build, graph: Map<number, Node>): P
       label.execCfg()!,
     ].filter(x => x != null)
 
-    searchIndex.append(identifier, data.join(' '))
+    searchIndex.append(i, data.join(' '))
   }
   indexCache = searchIndex
 }

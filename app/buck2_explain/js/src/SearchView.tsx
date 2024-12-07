@@ -12,6 +12,7 @@ import {DataContext} from './App'
 import {Link, QueryKey, RouterContext} from './Router'
 import {indexCache, indexEverything} from './flexSearch'
 import {HighlightedText} from './HighlightedText'
+import {formatTargetLabel} from './formatTargetLabel'
 
 export function SearchView(props: {view: QueryKey}) {
   const {params} = useContext(RouterContext)
@@ -30,7 +31,9 @@ export function SearchView(props: {view: QueryKey}) {
   if (!indexCache) {
     indexEverything(build, graph)
   }
-  const res = indexCache!.search(search) as string[]
+  let res = (indexCache!.search(search) as number[]).map(i =>
+    formatTargetLabel(build.targets(i)!.label()!),
+  )
 
   const view =
     res == null || res.length == 0 ? (
