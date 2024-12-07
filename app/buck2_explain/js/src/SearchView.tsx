@@ -23,7 +23,7 @@ export function SearchView(props: {view: QueryKey}) {
   const search = urlParams.get(props.view)
 
   if (search == null || search.length < 3) {
-    return <p>Invalid search "{search}", try again</p>
+    return <p>Invalid search "{search}", try again with a text of 3 or more characters</p>
   }
 
   if (!indexCache) {
