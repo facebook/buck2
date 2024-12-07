@@ -60,7 +60,7 @@ export function GraphImpl2(props: {
   }
 
   const [colorByCfg, setColorByCfg] = useState(false)
-  const [showLabels, setShowLabels] = useState(false)
+  const [showLabels, setShowLabels] = useState(true)
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [highlighted, setHighlighted] = useState<string | null>(null)
