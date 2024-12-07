@@ -40,6 +40,9 @@ pub struct ExplainCommand {
     /// Whether to upload the output to Manifold
     #[clap(long, group = "out")]
     upload: bool,
+    /// Add target code pointer. This invalidates cache, slowing things down
+    #[clap(long)]
+    stack: bool,
     /// Dev only: dump the flatbuffer info to file path
     #[clap(long, hide = true)]
     fbs_dump: Option<PathArg>,
@@ -126,7 +129,7 @@ impl StreamingCommand for ExplainCommand {
         };
 
         let mut context = ctx.empty_client_context("explain")?;
-        context.target_call_stacks = true;
+        context.target_call_stacks = self.stack;
         context.reuse_current_config = true;
 
         buckd
