@@ -438,14 +438,21 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         self.implementation.labels(&attr, &targets)
     }
 
-    /// The `owner(inputfile)` operator returns the targets that own the specified inputfile.
-    /// In this context, own means that the target has the specified file as an input. You could consider the `owner()` and `inputs()` operators to be inverses of each other.
+    /// Targets owning the given file.
     ///
-    /// Example: `buck2 query "owner('examples/1.txt')"` returns the targets that owns the file `examples/1.txt`, which could be a value such as `//examples:one`.
+    /// Returns all targets that have a specified file as an input.
     ///
-    /// It is possible for the specified file to have multiple owners, in which case, owner() returns a set of targets.
+    /// `owner()` and `inputs()` functions are inverses of each other.
     ///
-    /// If no owner for the file is found, owner() outputs the message: `No owner was found for <file>`
+    /// If the specified file has multiple owning targets, a set of targets is returned. If no owner exists, an empty set is returned.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "owner('app/buck2/src/lib.rs')"
+    ///
+    /// //buck2/app/buck2:buck2-unittest
+    /// //buck2/app/buck2:buck2
+    /// ```
     async fn owner(&self, env: &Env, files: FileSet) -> QueryFuncResult<Env> {
         Ok(self.implementation.owner(env, &files).await?.into())
     }
