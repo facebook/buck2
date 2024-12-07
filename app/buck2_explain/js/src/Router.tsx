@@ -9,9 +9,8 @@
 
 import React, {ReactNode, useContext, useEffect, useState} from 'react'
 
-export const ROOT_VIEW = ''
-
 export enum QueryKey {
+  RootView = '',
   SearchView = 'search',
   GraphView = 'graph',
   GraphView2 = 'graph2',

@@ -10,11 +10,12 @@
 import React, {useContext} from 'react'
 import {Target} from './Target'
 import {DataContext} from './App'
+import {QueryKey} from './Router'
 
 /**
  * Shows the root target
  */
-export function RootView(props: {view: string}) {
+export function RootView(props: {view: QueryKey}) {
   const {rootTarget} = useContext(DataContext)
 
   const view =

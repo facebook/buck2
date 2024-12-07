@@ -15,7 +15,7 @@ import {createRoot} from 'react-dom/client'
 
 import {ByteBuffer} from 'flatbuffers'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
-import {QueryKey, ROOT_VIEW, Router} from './Router'
+import {QueryKey, Router} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
@@ -90,7 +90,7 @@ function App() {
       <DataContext.Provider value={data}>
         <Router>
           <Navbar />
-          <RootView view={ROOT_VIEW} />
+          <RootView view={QueryKey.RootView} />
           <TargetView view={QueryKey.TargetView} />
           <SearchView view={QueryKey.SearchView} />
           {/* TODO iguridi: consolidate graph views */}
