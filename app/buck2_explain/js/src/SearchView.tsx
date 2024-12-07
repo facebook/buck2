@@ -30,11 +30,7 @@ export function SearchView(props: {view: QueryKey}) {
   if (!indexCache) {
     indexEverything(build, graph)
   }
-  const res = indexCache!.search(search)
-
-  // Not sure where the dups are coming from, but we want to dedup to prevent
-  // undefined behavior in React
-  const deduped = dedupeArray((res ?? []).map(v => v.toString()))
+  const res = indexCache!.search(search) as string[]
 
   const view =
     res == null || res.length == 0 ? (
@@ -45,7 +41,7 @@ export function SearchView(props: {view: QueryKey}) {
       <>
         <h5 className="title is-5 mt-4">Showing targets containing "{search}"</h5>
         <ul>
-          {deduped.map(label => (
+          {res.map(label => (
             <li key={label} className="mt-3">
               <Link to={{target: label}}>
                 <HighlightedText text={label} searchQuery={search} />
@@ -57,12 +53,4 @@ export function SearchView(props: {view: QueryKey}) {
     )
 
   return <div className="mx-4">{view}</div>
-}
-
-function dedupeArray(res: string[]): string[] {
-  const array = res.map((value, index) => [value, index])
-  const deduped = Array.from(
-    new Map(array as Iterable<readonly [unknown, unknown]>).keys(),
-  ) as string[]
-  return deduped
 }

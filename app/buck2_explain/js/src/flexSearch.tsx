@@ -44,9 +44,7 @@ export async function indexEverything(build: Build, graph: Map<number, Node>): P
       label.execCfg()!,
     ].filter(x => x != null)
 
-    for (const field of data) {
-      searchIndex.append(identifier, field)
-    }
+    searchIndex.append(identifier, data.join(' '))
   }
   indexCache = searchIndex
 }
