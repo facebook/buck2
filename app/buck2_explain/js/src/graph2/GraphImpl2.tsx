@@ -224,9 +224,12 @@ export function GraphImpl2(props: {
           <div className="message-body">
             Nodes shown: {data.length} <br />
             Edges shown: {edges.length} <br />
-            Targets with actions that ran: {totalTargetsWithActionsThatRan} <br />
-            Total actions that ran: {props.totalActions} <br />
-            Total actions affected by file changes: {totalActionsAffectedByFileChanges} <br />
+            Targets with executed actions: {totalTargetsWithActionsThatRan} <br />
+            Total executed actions: {props.totalActions} <br />
+            Total executed actions affected by file changes: {
+              totalActionsAffectedByFileChanges
+            }{' '}
+            <br />
             Number of files with changes: {props.totalFileChanges}
           </div>
         </article>
@@ -296,7 +299,7 @@ export function GraphImpl2(props: {
           </label>
         </div>
       </div>
-
+      <h3 className="title is-3">Showing targets with executed actions</h3>
       <GraphViz2
         nodes={data}
         colorByCfg={colorByCfg}
