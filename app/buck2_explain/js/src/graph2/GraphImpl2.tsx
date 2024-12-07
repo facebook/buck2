@@ -203,13 +203,35 @@ export function GraphImpl2(props: {
   return (
     <>
       <div className="grid mt-4">
+        <article className="message cell is-primary">
+          <div className="message-header">
+            <p>Build stats</p>
+          </div>
+          <div className="message-body">
+            Number of nodes: {data.length} <br />
+            Number of edges: {edges.length} <br />
+            Total actions that ran: {props.totalActions} <br />
+            Total actions affected by file changes: {totalActionsAffectedByFileChanges} <br />
+            Number of files with changes: {props.totalFileChanges}
+          </div>
+        </article>
+        <article className="message cell is-info">
+          <div className="message-header">
+            <p>Node colors</p>
+          </div>
+          <div className="message-body">
+            Green: node with changed files <br />
+            Purple: node with actions that ran <br />
+            Orange: highlighted node via filter <br />
+          </div>
+        </article>
         <div className="cell">
           <div className="field">
-            <label className="label">Filter by labels:</label>
+            <label className="label is-size-7">Filter by labels:</label>
             <div className="control">
               <input
                 id="includeContaining"
-                className="input"
+                className="input is-small"
                 type="text"
                 placeholder="Include containing"
               />
@@ -217,7 +239,7 @@ export function GraphImpl2(props: {
             <div className="control">
               <input
                 id="excludeContaining"
-                className="input"
+                className="input is-small"
                 type="text"
                 placeholder="Exclude containing"
               />
@@ -226,18 +248,18 @@ export function GraphImpl2(props: {
         </div>
         <div className="cell">
           <div className="field">
-            <label className="label">Highlight target by label:</label>
+            <label className="label is-size-7">Highlight target by label:</label>
             <div className="control">
               <input
                 id="highlightNode"
-                className="input"
+                className="input is-small"
                 type="text"
                 placeholder="Label to highlight"
               />
             </div>
           </div>
           <div className="cell">
-            <button type="submit" onClick={applyFilters} className="button is-dark">
+            <button type="submit" onClick={applyFilters} className="button is-dark is-small">
               <span>Apply filters</span>
             </button>
           </div>
@@ -258,22 +280,6 @@ export function GraphImpl2(props: {
             Show labels
           </label>
         </div>
-        <article className="message cell">
-          <div className="message-body">
-            Number of nodes: {data.length} <br />
-            Number of edges: {edges.length} <br />
-            Total actions that ran: {props.totalActions} <br />
-            Total actions affected by file changes: {totalActionsAffectedByFileChanges} <br />
-            Number of files with changes: {props.totalFileChanges}
-          </div>
-        </article>
-        <article className="message cell">
-          <div className="message-body">
-            green: node with changed files <br />
-            purple: node with actions that ran <br />
-            orange: highlighted node via filter <br />
-          </div>
-        </article>
       </div>
 
       <GraphViz2
