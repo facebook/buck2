@@ -122,8 +122,36 @@ function App() {
         }
       }
 
+      // TODO iguridi: filter this out in rust side of things
+      // Only show nodes that rdeps of node with file changes or actions
+      const containsActionOrChangedFile: Set<number> = new Set()
+      for (let i = 0; i < build.targetsLength(); i++) {
+        const target = build.targets(i)!
+        if (target.changedFilesLength() > 0 || target.actionsLength() > 0) {
+          containsActionOrChangedFile.add(i)
+        }
+      }
+
+      let visited = new Set()
+      let weWantThis = new Set()
+      let stack = [...containsActionOrChangedFile]
+      while (stack.length > 0) {
+        const k = stack.shift()!
+        visited.add(k)
+        weWantThis.add(k)
+        const node = graph.get(k)!
+        for (const r of node.rdeps) {
+          if (!visited.has(r)) {
+            stack.push(r)
+          }
+        }
+      }
+      const filteredNodes: Map<number, Node> = new Map(
+        graph.entries().filter(([k, _node]) => weWantThis.has(k)),
+      )
+
       // This should run just once total
-      setData({build, allTargets, rootTarget, graph})
+      setData({build, allTargets, rootTarget, graph: filteredNodes})
     }
     fetchData()
   }, [])
