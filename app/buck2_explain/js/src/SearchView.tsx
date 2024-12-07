@@ -11,6 +11,7 @@ import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
 import {Link, QueryKey, RouterContext} from './Router'
 import {indexCache, indexEverything} from './flexSearch'
+import {HighlightedText} from './HighlightedText'
 
 export function SearchView(props: {view: QueryKey}) {
   const {params} = useContext(RouterContext)
@@ -46,7 +47,9 @@ export function SearchView(props: {view: QueryKey}) {
         <ul>
           {deduped.map(label => (
             <li key={label} className="mt-3">
-              <Link to={{target: label}}>{label}</Link>
+              <Link to={{target: label}}>
+                <HighlightedText text={label} searchQuery={search} />
+              </Link>
             </li>
           ))}
         </ul>
