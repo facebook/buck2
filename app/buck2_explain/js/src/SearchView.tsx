@@ -11,7 +11,7 @@ import React, {useContext, useState} from 'react'
 import {DataContext} from './App'
 import {Link, QueryKey, RouterContext} from './Router'
 import {indexCache, indexEverything} from './flexSearch'
-import {HighlightedText} from './HighlightedText'
+import {HighlightedText, searchRegex} from './HighlightedText'
 import {formatTargetLabel} from './formatTargetLabel'
 
 export function SearchView(props: {view: QueryKey}) {
@@ -33,6 +33,9 @@ export function SearchView(props: {view: QueryKey}) {
   }
   let res = indexCache!.search(search) as number[]
 
+  // This regex is used to highlight results
+  const regex = searchRegex(search)
+
   const view =
     res == null || res.length == 0 ? (
       <>
@@ -49,7 +52,7 @@ export function SearchView(props: {view: QueryKey}) {
             return (
               <li key={cfgTargetLabel} className="mt-3">
                 <Link to={{target: cfgTargetLabel}}>
-                  <HighlightedText text={label.targetLabel()!} searchQuery={search} />
+                  <HighlightedText text={label.targetLabel()!} regex={regex} />
                 </Link>
               </li>
             )

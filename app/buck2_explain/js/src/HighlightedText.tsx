@@ -9,14 +9,9 @@
 
 import {tokenizer} from './flexSearch'
 
-export function HighlightedText(props: {text: string; searchQuery: string}) {
-  const words = tokenizer(props.searchQuery)
-  const escapedWords = words.map(word => {
-    return word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  })
-  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi')
-
-  const parts = props.text.split(regex)
+export function HighlightedText(props: {text: string; regex: RegExp}) {
+  const {text, regex} = props
+  const parts = text.split(regex)
 
   return (
     <>
@@ -33,4 +28,12 @@ export function HighlightedText(props: {text: string; searchQuery: string}) {
       })}
     </>
   )
+}
+
+export function searchRegex(query: string): RegExp {
+  const words = tokenizer(query)
+  const escapedWords = words.map(word => {
+    return word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  })
+  return new RegExp(`(${escapedWords.join('|')})`, 'gi')
 }
