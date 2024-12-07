@@ -12,37 +12,12 @@ import {DataContext} from './App'
 import {Link, QueryKey, RouterContext} from './Router'
 import {indexCache, indexEverything} from './flexSearch'
 
-function Checkbox(props: {
-  checked: boolean
-  onChange: (event: {target: {checked: boolean | ((prevState: boolean) => boolean)}}) => void
-}) {
-  const {checked, onChange} = props
-  return (
-    <div className="checkbox">
-      <input type="checkbox" checked={checked} onChange={onChange} className="mr-2" />
-      <label>
-        Search everywhere (this may make the page unresponsive for a while, but eventually it
-        finishes)
-      </label>
-    </div>
-  )
-}
-
 export function SearchView(props: {view: QueryKey}) {
-  const {build, allTargets, graph} = useContext(DataContext)
-  const {params} = useContext(RouterContext)
-
-  const [universalSearch, setUniversalSearch] = useState(false)
-  function handleChange(event: {target: {checked: boolean | ((prevState: boolean) => boolean)}}) {
-    setUniversalSearch(event.target.checked)
-    if (build != null) {
-      if (indexCache) {
-        return
-      } else {
-        indexEverything(build, graph)
-      }
-    }
+  const {build, graph} = useContext(DataContext)
+  if (build == null) {
+    return null
   }
+  const {params} = useContext(RouterContext)
 
   const urlParams = new URLSearchParams(params)
   const search = urlParams.get(props.view)
@@ -51,19 +26,10 @@ export function SearchView(props: {view: QueryKey}) {
     return <p>Invalid search "{search}", try again</p>
   }
 
-  let res = null
-  if (universalSearch) {
-    res = indexCache?.search(search)
-  } else {
-    res = []
-    for (let [k, v] of allTargets) {
-      if (graph.has(v)) {
-        if (k.includes(search)) {
-          res.push(k)
-        }
-      }
-    }
+  if (!indexCache) {
+    indexEverything(build, graph)
   }
+  const res = indexCache!.search(search)
 
   // Not sure where the dups are coming from, but we want to dedup to prevent
   // undefined behavior in React
@@ -72,13 +38,11 @@ export function SearchView(props: {view: QueryKey}) {
   const view =
     res == null || res.length == 0 ? (
       <>
-        <Checkbox checked={universalSearch} onChange={handleChange} />
         <p>No results for search</p>
       </>
     ) : (
       <>
-        <Checkbox checked={universalSearch} onChange={handleChange} />
-        <h5 className="title is-5 mt-4">Showing targets labels containing "{search}"</h5>
+        <h5 className="title is-5 mt-4">Showing targets containing "{search}"</h5>
         <ul>
           {deduped.map(label => (
             <li key={label} className="mt-3">
