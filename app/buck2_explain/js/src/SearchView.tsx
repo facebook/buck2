@@ -56,7 +56,7 @@ export function SearchView(props: {view: QueryKey}) {
     res = indexCache?.search(search)
   } else {
     res = []
-    for (let k of Object.keys(allTargets)) {
+    for (let [k, _v] of allTargets) {
       if (k.includes(search)) {
         res.push(k)
       }

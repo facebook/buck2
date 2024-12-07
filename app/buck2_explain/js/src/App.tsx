@@ -27,7 +27,7 @@ const INITIAL_STATE = {
   build: null,
   rootTarget: null,
   graph: new Map<number, Node>(),
-  allTargets: {},
+  allTargets: new Map<string, number>(),
 }
 
 export interface Node {
@@ -40,7 +40,7 @@ type STATE_TYPE = {
   build: Build | null
   rootTarget: ConfiguredTargetNode | null
   graph: Map<number, Node>
-  allTargets: {[key: string]: number}
+  allTargets: Map<string, number>
 }
 
 function defaultNode(): Node {
@@ -83,12 +83,12 @@ function App() {
       // TODO iguridi: just show 1 target for now
       const rootTarget = build.targets(0)
 
-      const allTargets: {[key: string]: number} = {}
+      const allTargets: Map<string, number> = new Map()
       for (let i = 0; i < build.targetsLength(); i++) {
         let target = build.targets(i)!
         // Unique identifier for target
         let label = formatTargetLabel(target.label()!)
-        allTargets[label] = i
+        allTargets.set(label, i)
       }
 
       // Build better data structure
@@ -109,7 +109,7 @@ function App() {
         const target = build.targets(k)!
 
         for (let i = 0; i < target.depsLength(); i++) {
-          const d = allTargets[formatTargetLabel(target.deps(i)!)]
+          const d = allTargets.get(formatTargetLabel(target.deps(i)!))!
 
           // Deps
           node.deps.push(d)

@@ -18,7 +18,7 @@ export function TargetView(props: {view: QueryKey}) {
 
   const urlParams = new URLSearchParams(params)
   const targetLabel = urlParams.get(props.view) ?? null
-  const target = targetLabel == null ? null : build?.targets(allTargets[targetLabel])
+  const target = targetLabel == null ? null : build?.targets(allTargets.get(targetLabel)!)
 
   const tab = urlParams.get(QueryKey.TargetTab)
 

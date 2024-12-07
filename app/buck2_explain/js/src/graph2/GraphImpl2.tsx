@@ -50,7 +50,7 @@ export function GraphImpl2(props: {
   totalActions: number
   totalFileChanges: number
   build: Build
-  allTargets: {[key: string]: number}
+  allTargets: Map<string, number>
 }) {
   const {nodes, build} = props
 

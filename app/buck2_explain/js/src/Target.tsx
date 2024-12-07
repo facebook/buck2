@@ -75,7 +75,7 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
     }
 
     return graph
-      .get(allTargets[label])!
+      .get(allTargets.get(label)!)!
       .rdeps.map(i => formatTargetLabel(build!.targets(i)!.label()!))
   }
   const rdeps: Array<string> = getRdeps(configuredLabel)
