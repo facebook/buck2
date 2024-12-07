@@ -19,7 +19,6 @@ import {QueryKey, Router} from './Router'
 import {RootView} from './RootView'
 import {TargetView} from './TargetView'
 import {SearchView} from './SearchView'
-import {GraphView} from './graph/GraphView'
 import {GraphView2} from './graph2/GraphView2'
 import {Navbar} from './Navbar'
 import {formatTargetLabel} from './formatTargetLabel'
@@ -93,8 +92,6 @@ function App() {
           <RootView view={QueryKey.RootView} />
           <TargetView view={QueryKey.TargetView} />
           <SearchView view={QueryKey.SearchView} />
-          {/* TODO iguridi: consolidate graph views */}
-          <GraphView view={QueryKey.GraphView} />
           <GraphView2 view={QueryKey.GraphView2} />
         </Router>
       </DataContext.Provider>

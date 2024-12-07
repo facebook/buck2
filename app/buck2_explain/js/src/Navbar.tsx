@@ -34,12 +34,6 @@ export function Navbar() {
       </div>
       <div className="navbar-menu">
         <div className="navbar-end">
-          <Link className="bold no-underline navbar-item has-text-info-bold" to={{graph: ''}}>
-            <span className="icon mr-1">
-              <i className="fa fa-project-diagram" />
-            </span>
-            Graph
-          </Link>
           <div className="navbar-item has-text-info-bold">
             <SearchBox />
           </div>
