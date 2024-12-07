@@ -26,13 +26,29 @@ import {formatTargetLabel} from './formatTargetLabel'
 const INITIAL_STATE = {
   build: null,
   rootTarget: null,
+  graph: new Map<number, Node>(),
   allTargets: {},
+}
+
+export interface Node {
+  value: number
+  deps: number[]
+  rdeps: number[]
 }
 
 type STATE_TYPE = {
   build: Build | null
   rootTarget: ConfiguredTargetNode | null
+  graph: Map<number, Node>
   allTargets: {[key: string]: number}
+}
+
+function defaultNode(): Node {
+  return {
+    value: 0,
+    deps: [],
+    rdeps: [],
+  }
 }
 
 export const DataContext = React.createContext<STATE_TYPE>(INITIAL_STATE)
@@ -75,8 +91,39 @@ function App() {
         allTargets[label] = i
       }
 
+      // Build better data structure
+      let graph = new Map<number, Node>()
+
+      // Create nodes
+      for (let i = 0; i < build.targetsLength(); i++) {
+        if (graph.get(i) == null) {
+          graph.set(i, {
+            ...defaultNode(),
+            value: i,
+          })
+        }
+      }
+
+      // Record deps and rdeps
+      for (const [k, node] of graph) {
+        const target = build.targets(k)!
+
+        for (let i = 0; i < target.depsLength(); i++) {
+          const d = allTargets[formatTargetLabel(target.deps(i)!)]
+
+          // Deps
+          node.deps.push(d)
+
+          // Rdeps
+          if (d === k) {
+            throw Error('Found dependency on self')
+          }
+          graph.get(d)!.rdeps.push(k)
+        }
+      }
+
       // This should run just once total
-      setData({build, allTargets, rootTarget})
+      setData({build, allTargets, rootTarget, graph})
     }
     fetchData()
   }, [])

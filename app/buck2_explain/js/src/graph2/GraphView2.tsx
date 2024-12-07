@@ -21,56 +21,17 @@ export interface Node {
 
 type CategoryOption = {category: string; count: number; checked: false}
 
-function defaultNode(): Node {
-  return {
-    value: 0,
-    deps: [],
-    rdeps: [],
-  }
-}
-
 export function GraphView2(props: {view: QueryKey}) {
-  const {build, allTargets} = useContext(DataContext)
+  const {build, allTargets, graph} = useContext(DataContext)
   if (build == null) {
     // TODO: this should show a loading sign
     return null
   }
 
-  // Build better data structure
-  let nodeMap = new Map<number, Node>()
-
-  // Create nodes
-  for (let i = 0; i < build.targetsLength(); i++) {
-    if (nodeMap.get(i) == null) {
-      nodeMap.set(i, {
-        ...defaultNode(),
-        value: i,
-      })
-    }
-  }
-
-  // Record deps and rdeps
-  for (const [k, node] of nodeMap) {
-    const target = build.targets(k)!
-
-    for (let i = 0; i < target.depsLength(); i++) {
-      const d = allTargets[formatTargetLabel(target.deps(i)!)]
-
-      // Deps
-      node.deps.push(d)
-
-      // Rdeps
-      if (d === k) {
-        throw Error('wth')
-      }
-      nodeMap.get(d)!.rdeps.push(k)
-    }
-  }
-
   // Stats
   let totalFileChanges = 0
   let totalActions = 0
-  for (const [k, _node] of nodeMap) {
+  for (const [k, _node] of graph) {
     const target = build.targets(k)!
     totalFileChanges += target.changedFilesLength()
     // TODO iguridi: make it match whatran
@@ -79,7 +40,7 @@ export function GraphView2(props: {view: QueryKey}) {
 
   // Nodes with file changes
   const containsChangedFile = []
-  for (const [k, _node] of nodeMap) {
+  for (const [k, _node] of graph) {
     const target = build.targets(k)!
     if (target.changedFilesLength() > 0) {
       containsChangedFile.push(k)
@@ -93,7 +54,7 @@ export function GraphView2(props: {view: QueryKey}) {
   return (
     <div className="mx-4">
       <GraphImpl2
-        nodes={nodeMap}
+        nodes={graph}
         build={build}
         allTargets={allTargets}
         totalActions={totalActions}

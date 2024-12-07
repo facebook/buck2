@@ -69,25 +69,14 @@ export function Target(props: {target: ConfiguredTargetNode; tab: string | null}
   const configuredLabel = formatTargetLabel(target.label()!)
 
   const getRdeps = (label: string) => {
-    const {allTargets, build} = useContext(DataContext)
-
+    const {allTargets, build, graph} = useContext(DataContext)
     if (allTargets == null || build == null) {
       return []
     }
 
-    let rdeps: Array<string> = []
-    Object.values(allTargets).forEach(i => {
-      let target2 = build?.targets(i)
-      let depsLength = target2?.depsLength() ?? 0
-      for (let i = 0; i < depsLength; i++) {
-        const dep = formatTargetLabel(target2?.deps(i)!)
-        const rdepLabel = formatTargetLabel(target2!.label()!)
-        if (dep === label) {
-          rdeps.push(rdepLabel)
-        }
-      }
-    })
-    return rdeps
+    return graph
+      .get(allTargets[label])!
+      .rdeps.map(i => formatTargetLabel(build!.targets(i)!.label()!))
   }
   const rdeps: Array<string> = getRdeps(configuredLabel)
 
