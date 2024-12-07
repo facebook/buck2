@@ -14,9 +14,17 @@ import {formatTargetLabel} from './formatTargetLabel'
 
 export let indexCache: Index | null = null
 
+export function tokenizer(text: string): string[] {
+  return text.split(/[\s-_()\\\/#:]/g).filter(x => x.length > 0)
+}
+
 export async function indexEverything(build: Build, graph: Map<number, Node>): Promise<void> {
   // TODO iguridi: make this in a js worker
-  const searchIndex = new Index({tokenize: 'forward', stemmer: false})
+  const searchIndex = new Index({
+    context: false,
+    tokenize: tokenizer,
+    stemmer: false,
+  })
   for (let i = 0; i < build.targetsLength(); i++) {
     if (!graph.has(i)) {
       continue
