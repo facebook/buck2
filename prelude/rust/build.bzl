@@ -1037,8 +1037,7 @@ def _compute_common_args(
         # referenced by executable was not found" when dealing with chains of
         # dependencies from Rust -> C++ -> Rust (T147665047).
         SplitDebugMode("single"): ["-Csplit-debuginfo=unpacked"],
-
-        # TODO: SplitDebugMode("split"): ["-Csplit-debuginfo=unpacked"],
+        SplitDebugMode("split"): ["-Csplit-debuginfo=unpacked"],
     }[compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")]
 
     args = cmd_args(
