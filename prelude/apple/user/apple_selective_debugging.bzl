@@ -172,9 +172,11 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             executable: Artifact,
             executable_link_execution_preference: LinkExecutionPreference,
             adhoc_codesign_tool: [RunInfo, None],
-            focused_targets_labels: list[Label]) -> Artifact:
+            focused_targets_labels: list[Label],
+            identifier: None | str = None) -> Artifact:
         inner_cmd = cmd_args(cmd)
-        output = inner_ctx.actions.declare_output("debug_scrubbed/{}".format(executable.short_path))
+        subdir = "{}/".format(identifier) if identifier else ""
+        output = inner_ctx.actions.declare_output("debug_scrubbed/{}{}".format(subdir, executable.short_path))
 
         action_execution_properties = get_action_execution_attributes(executable_link_execution_preference)
 
@@ -193,7 +195,7 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
         inner_ctx.actions.run(
             inner_cmd,
             category = "scrub_binary",
-            identifier = executable.short_path,
+            identifier = output.short_path,
             prefer_local = action_execution_properties.prefer_local,
             prefer_remote = action_execution_properties.prefer_remote,
             local_only = action_execution_properties.local_only,

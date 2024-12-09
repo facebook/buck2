@@ -128,7 +128,7 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
 def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
-def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo, focused_targets_labels: list[Label] = []) -> Artifact:
+def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo, focused_targets_labels: list[Label] = [], identifier: None | str = None) -> Artifact:
     # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
     code_signing_configuration = get_code_signing_configuration_attr_value(ctx)
     if code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
@@ -139,7 +139,7 @@ def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None 
 
     selective_debugging_info = ctx.attrs.selective_debugging[AppleSelectiveDebuggingInfo]
     preference = binary_execution_preference_info.preference if binary_execution_preference_info else LinkExecutionPreference("any")
-    return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool, focused_targets_labels)
+    return selective_debugging_info.scrub_binary(ctx, binary, preference, adhoc_codesign_tool, focused_targets_labels, identifier = identifier)
 
 def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     binary = binary_dep[DefaultInfo].default_outputs[0]
@@ -216,17 +216,12 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
 
     return result, primary_binary_part
 
-def _get_dsym_input_binary_arg(ctx: AnalysisContext, primary_binary_path_arg: cmd_args) -> cmd_args:
-    binary_dep = get_default_binary_dep(ctx.attrs.binary)
-    default_binary = binary_dep[DefaultInfo].default_outputs[0]
-
-    unstripped_binary = binary_dep.get(UnstrippedLinkOutputInfo).artifact if binary_dep.get(UnstrippedLinkOutputInfo) != None else None
-
-    # We've already scrubbed the default binary, we only want to scrub the unstripped one if it's different than the
-    # default.
-    if unstripped_binary != None and default_binary != unstripped_binary:
+def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, primary_binary_path_arg: cmd_args) -> cmd_args:
+    # We've already scrubbed the default binary, we only want to scrub the unstripped one if present.
+    unstripped_binary = binary_output.unstripped_binary
+    if unstripped_binary:
         if ctx.attrs.selective_debugging != None:
-            unstripped_binary = _scrub_binary(ctx, unstripped_binary, binary_dep.get(LinkExecutionPreferenceInfo))
+            unstripped_binary = _scrub_binary(ctx, unstripped_binary, get_default_binary_dep(ctx.attrs.binary).get(LinkExecutionPreferenceInfo), identifier = "unstripped")
         renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary)
         return cmd_args(renamed_unstripped_binary)
     else:
@@ -369,7 +364,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets["linker.command"] = [DefaultInfo(default_outputs = filter(None, [link_cmd_debug_file]))]
 
     # dsyms
-    dsym_input_binary_arg = _get_dsym_input_binary_arg(ctx, primary_binary_path_arg)
+    dsym_input_binary_arg = _get_dsym_input_binary_arg(ctx, binary_outputs, primary_binary_path_arg)
     binary_dsym_artifacts = _get_bundle_binary_dsym_artifacts(ctx, binary_outputs, dsym_input_binary_arg)
     dep_dsym_artifacts = flatten([info.dsyms for info in deps_debuggable_infos])
 
