@@ -143,9 +143,10 @@ def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None 
 
 def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
     binary = binary_dep[DefaultInfo].default_outputs[0]
+    unstripped_binary = binary_dep.get(UnstrippedLinkOutputInfo).artifact if binary_dep.get(UnstrippedLinkOutputInfo) != None else None
     debuggable_info = binary_dep.get(AppleDebuggableInfo)
     if ctx.attrs.selective_debugging == None:
-        return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
+        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary, debuggable_info = debuggable_info)
 
     if debuggable_info:
         if debuggable_info.selective_metadata:
@@ -184,10 +185,10 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
                 ),
             ],
         )
-        return AppleBundleBinaryOutput(binary = binary, debuggable_info = debuggable_info)
+        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary, debuggable_info = debuggable_info)
     else:
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo))
-        return AppleBundleBinaryOutput(binary = binary)
+        return AppleBundleBinaryOutput(binary = binary, unstripped_binary = unstripped_binary)
 
 def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet) -> Artifact:
     debug_info = project_artifacts(

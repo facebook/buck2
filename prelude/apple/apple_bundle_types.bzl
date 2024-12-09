@@ -89,6 +89,9 @@ AppleBundleExtraOutputsInfo = provider(fields = {
 
 AppleBundleBinaryOutput = record(
     binary = field(Artifact),
+    # If `unstripped_binary` is `None`, then `binary` is unstripped.
+    # Otherwise, `unstripped_binary` is distinct from `binary` and is unstripped.
+    unstripped_binary = field([Artifact, None]),
     debuggable_info = field([AppleDebuggableInfo, None], None),
 )
 
