@@ -24,21 +24,26 @@ def get_universal_binary_name(ctx: AnalysisContext) -> str:
     # The universal executable should have the same name as the base/thin ones
     return first_binary_artifact.short_path
 
-def lipo_binaries(
+def lipo_binary_artifacts(
         ctx: AnalysisContext,
-        binary_deps: dict[str, Dependency],
+        binaries: list[Artifact],
         binary_name: [str, None],
         lipo: RunInfo) -> Artifact:
     binary_output = ctx.actions.declare_output("UniversalBinary" if binary_name == None else binary_name, dir = False)
-    lipo_cmd = [lipo]
-
-    for (_, binary) in binary_deps.items():
-        lipo_cmd.append(cmd_args(binary[DefaultInfo].default_outputs[0]))
+    lipo_cmd = [lipo] + binaries
 
     lipo_cmd.extend(["-create", "-output", binary_output.as_output()])
     ctx.actions.run(cmd_args(lipo_cmd), category = "lipo")
 
     return binary_output
+
+def lipo_binaries(
+        ctx: AnalysisContext,
+        binary_deps: dict[str, Dependency],
+        binary_name: [str, None],
+        lipo: RunInfo) -> Artifact:
+    binaries = [binary[DefaultInfo].default_outputs[0] for binary in binary_deps.values()]
+    return lipo_binary_artifacts(ctx, binaries, binary_name, lipo)
 
 def create_universal_binary(
         ctx: AnalysisContext,
