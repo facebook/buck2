@@ -23,18 +23,27 @@ def run_dwp_action(
         category_suffix: [str, None],
         referenced_objects: [ArgLike, list[Artifact]],
         dwp_output: Artifact,
-        local_only: bool):
+        local_only: bool,
+        from_exe = True):
     dwp = toolchain.binary_utilities_info.dwp
 
-    args = cmd_args(
-        # llvm trunk now supports 64-bit debug cu indedx, add --continue-on-cu-index-overflow by default
-        # to suppress dwp file overflow warning
-        ["/bin/sh", "-c", '"$1" --continue-on-cu-index-overflow -o "$2" -e "$3" && touch "$2"', ""] +
-        [dwp, dwp_output.as_output(), obj],
-        # All object/dwo files referenced in the library/executable are implicitly
-        # processed by dwp.
-        hidden = referenced_objects,
-    )
+    if from_exe:
+        args = cmd_args(
+            # llvm trunk now supports 64-bit debug cu index, add --continue-on-cu-index-overflow by default
+            # to suppress dwp file overflow warning
+            ["/bin/sh", "-c", '"$1" --continue-on-cu-index-overflow -o "$2" -e "$3" && touch "$2"', ""] +
+            [dwp, dwp_output.as_output(), obj],
+            # All object/dwo files referenced in the library/executable are implicitly
+            # processed by dwp.
+            hidden = referenced_objects,
+        )
+    else:
+        args = cmd_args(
+            # llvm trunk now supports 64-bit debug cu index, add --continue-on-cu-index-overflow by default
+            # to suppress dwp file overflow warning
+            [dwp, "--continue-on-cu-index-overflow", "-o", dwp_output.as_output()],
+        )
+        args.add(referenced_objects)
 
     category = "dwp"
     if category_suffix != None:
@@ -62,9 +71,11 @@ def dwp(
         # but currently we don't track them properly.  So, we just pass in the full
         # link line and extract all inputs from that, which is a bit of an
         # overspecification.
-        referenced_objects: [ArgLike, list[Artifact]]) -> Artifact:
+        referenced_objects: [ArgLike, list[Artifact]],
+        name_suffix: str = "",
+        from_exe = True) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
-    output = ctx.actions.declare_output(obj.short_path + ".dwp")
+    output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp")
     run_dwp_action(
         ctx,
         toolchain,
@@ -77,5 +88,6 @@ def dwp(
         # The files are a concatenation of input DWARF debug info.
         # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
         local_only = link_cxx_binary_locally(ctx),
+        from_exe = from_exe,
     )
     return output
