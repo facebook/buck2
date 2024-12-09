@@ -16,7 +16,7 @@ options with the [`buck2 build`](../../users/commands/build) or
 `--show-output`. For the full list of ways to show the output location, you can
 run `buck2 build --help` or `buck2 targets --help`.
 
-```
+```sh
 buck2 targets --show-output <target>
 buck2 build --show-output <target>
 ```

@@ -72,7 +72,7 @@ logs will always be written in JSONL format, uncompressed.
 
 Example:
 
-```
+```sh
 buck2 bxl path//to/my_script/script.bxl:my_script --user-event-log my_file.json-lines.gz
 ```
 

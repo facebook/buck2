@@ -73,7 +73,7 @@ syntax is to separate the items in the list using the space (`0x20`) character.
 For example, a key value for the list of command-line flags to be passed to a
 compiler could be represented as a list of the flags separated by spaces:
 
-```
+```ini
 flags = -foo -bar -baz -qux
 ```
 
@@ -82,7 +82,7 @@ character is interpreted as a separator only when it occurs _outside of double
 quotes_. For example, if `flags` is a key value interpreted as a list of items
 separated by spaces, then
 
-```
+```ini
 flags = -foo "-bar \u0429"
 ```
 
@@ -100,7 +100,7 @@ $(config <section>.<field>)
 
 For example, to use the `[go].vendor_path` in a custom setting:
 
-```
+```ini
 [custom_section]custom_value = $(config go.vendor_path)
 ```
 
@@ -211,7 +211,7 @@ the following example, the `.buckconfig` file includes the file
 `future-platform` from the directory `future-platform.include` if that file
 exists.
 
-```
+```ini
 #
 # .buckconfig
 #
@@ -236,7 +236,7 @@ Below is an incomplete list of supported buckconfigs.
 
 This section contains definitions of [build target](build_target.md) aliases.
 
-```
+```ini
 [alias]
   app = //apps/myapp:app
   apptest = //apps/myapp:test
@@ -244,7 +244,7 @@ This section contains definitions of [build target](build_target.md) aliases.
 
 These aliases can then be used from the command line:
 
-```
+```sh
 $ buck2 build app
 $ buck2 test apptest
 ```
@@ -255,7 +255,7 @@ Lists the cells that constitute the Buck2 project. Buck2 builds that are part of
 this project—that is, which use this `.buckconfig`—can access the cells
 specified in this section.
 
-```
+```ini
 [cells]
     buck = .
     bazel_skylib = ./third-party/skylark/bazel-skylib
@@ -267,7 +267,7 @@ from the directory that contains this `.buckconfig` file. It is not necessary to
 include the current cell in this section, but we consider it a best practice to
 do so:
 
-```
+```ini
 buck = .
 ```
 

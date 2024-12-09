@@ -16,7 +16,7 @@ decouple keeping track of what's on disk and deferred materialization.
 
 Once done, to enable, add this to your Buckconfig:
 
-```
+```ini
 [buck2]
 hash_all_commands = true
 ```

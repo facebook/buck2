@@ -20,7 +20,7 @@ and `:target[sub]`.
 
 ## Schema
 
-```
+```python
 BuildReport {
     # A unique ID identifying this buck invocation. Currently a UUID, however
     # that may change in the future.

@@ -69,7 +69,7 @@ build target starts with a colon (`:`) and is followed by only the third
 component (or _short name_) of the fully-qualified build target. The following
 snippet from a build file shows an example of using a relative path.
 
-```
+```python
 ## Assume this target is in //java/com/facebook/share/BUCK#
 java_binary(
   name = 'ui_jar',
@@ -89,7 +89,7 @@ targets as command-line arguments to the `buck2 build` or `buck2 run` commands.
 Consider the following example of a fully-qualified build target used with the
 `buck2 build` command:
 
-```
+```sh
 buck2 build cell//java/com/facebook/share:share
 ```
 
@@ -97,28 +97,28 @@ Although Buck2 is always strict when parsing build targets in build files, Buck2
 is flexible when parsing build targets on the command-line. Specifically, the
 leading `//` is optional on the command line, so the above could be:
 
-```
+```sh
 buck2 build java/com/facebook/share:share
 ```
 
 Also, if there is a forward slash before the colon, it is ignored, so this could
 also be written as:
 
-```
+```sh
 buck2 build java/com/facebook/share/:share
 ```
 
 which enables you to produce the red text shown below using tab-completion,
 which dramatically reduces how much you need to type:
 
-```
+```sh
 buck2 build java/com/facebook/share/:share
 ```
 
 Finally, if the final path element matches the value specified after the colon,
 it can be omitted:
 
-```
+```sh
 # This is treated as //java/com/facebook/share:share.
 buck2 build java/com/facebook/share/
 ```

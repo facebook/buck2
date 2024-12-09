@@ -40,7 +40,7 @@ At Meta, artifacts get periodically refreshed, but open source RE backends do no
 To enable deferred materialization, add this to your
 [Buckconfig](../../concepts/buckconfig.md):
 
-```
+```ini
 [buck2]
 materializations = deferred
 ```
@@ -55,7 +55,7 @@ backend if they are already on disk.
 
 To enable, add this to your Buckconfig:
 
-```
+```ini
 [buck2]
 sqlite_materializer_state = true
 ```
@@ -67,7 +67,7 @@ writes on the critical path for a build.
 
 To enable, add this to your Buckconfig:
 
-```
+```ini
 [buck2]
 defer_write_actions = true
 ```
@@ -88,14 +88,14 @@ Enabling this requires enabling [on-disk state](#on-disk-state) and
 [deferred write actions](#deferring-write-actions), and adding this to your
 Buckconfig:
 
-```
+```ini
 [buck2]
 clean_stale_enabled = true
 ```
 
 It can be further configured by changing these default values:
 
-```
+```ini
 [buck2]
 # one week
 clean_stale_artifact_ttl_hours = 24 * 7

@@ -16,7 +16,7 @@ will not apply a configuration.
 Here is a heavily trimmed version of the outputs of invoking `uquery` and
 `cquery` on `//buck2/app/buck2_core:buck2_core`.
 
-```
+```sh
 > buck2 uquery -A '"//buck2/app/buck2_core:buck2_core"'
 {
   "fbcode//buck2/app/buck2_core:buck2_core": {
@@ -55,7 +55,7 @@ Here is a heavily trimmed version of the outputs of invoking `uquery` and
 }
 ```
 
-```
+```sh
 > buck2 cquery -A '"//buck2/app/buck2_core:buck2_core"'
 {
   "fbcode//buck2/app/buck2_core:buck2_core (ovr_config//platform/linux:<OMITTED>)": {

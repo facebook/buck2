@@ -31,7 +31,7 @@ Also isolation dirs are used to allow for
 The default isolation dir is `v2`. Thus any `buck2` command without an explicit
 isolation dir is equivalent to
 
-```
+```sh
 $ buck2 --isolation-dir v2 $ARGS
 ```
 

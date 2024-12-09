@@ -34,7 +34,7 @@ suppose code in `java/com/facebook/common/concurrent/` wants to depend on code
 in `java/com/facebook/common/collect/`. Presumably
 `java/com/facebook/common/collect/BUCK` has a build rule like:
 
-```
+```python
 java_library(
   name = 'collect',
   srcs = glob(['*.java']),
@@ -43,7 +43,7 @@ java_library(
 
 Then `java/com/facebook/common/BUCK` could have a rule like:
 
-```
+```python
 java_library(
   name = 'concurrent',
   srcs = glob(['concurrent/*.java']),
@@ -55,7 +55,7 @@ whereas the following **would be invalid** because
 `//java/com/facebook/common/collect:concurrent` cannot list
 `java/com/facebook/common/collect/*.java` in its `srcs`.
 
-```
+```python
 java_library(
   name = 'concurrent',
   srcs = glob(['collect/*.java', 'concurrent/*.java']),

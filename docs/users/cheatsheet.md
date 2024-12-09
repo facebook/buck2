@@ -32,7 +32,7 @@ them.
 
 Specify a _build target pattern_ that represents the targets in the package.
 
-```
+```sh
 buck2 cquery //path/to/dir/...
 ```
 
@@ -47,7 +47,7 @@ Use the `buck2 cquery set()` operator. The following command line returns the
 target `main` in the build file in the root of the Buck2 project and all the
 targets from the build file in the `myclass` subdirectory of the root.
 
-```
+```sh
 buck2 cquery "set( '//:main' '//myclass:' )"
 ```
 
@@ -57,7 +57,7 @@ Add the `--output-attribute <ATTRIBUTE>` or `--output-all-attributes` option to
 the command line, followed by regular expressions that represent the attributes
 of interest.
 
-```
+```sh
 buck2 cquery "deps(//foo:bar)" --output-attribute 'name' 'exported_headers'
 ```
 
@@ -69,8 +69,11 @@ expressions. For example, `'.*'` matches all attributes. See the
 [`buck2 cquery` docs](../query/cquery) for more details. The output for the
 example query above might look something like the following.
 
-```
-{"//foo/bar/lib:lib" : {"exported_headers" : [ "App/util.h" ],"name" : "lib"},"//foo/bar:app" : {"exported_headers" : [ "App/lib.h" ],"name" : "app"}}
+```json
+{
+  "//foo/bar/lib:lib": {"exported_headers": ["App/util.h"], "name": "lib"},
+  "//foo/bar:app": {"exported_headers": ["App/lib.h"], "name": "app"}
+}
 ```
 
 ### How do I perform a query** \***inside**\* **of a rule?
@@ -78,7 +81,7 @@ example query above might look something like the following.
 Buck2 supports certain string parameter macros to be used when defining a
 target. You can use the query macros as such:
 
-```
+```sh
 $(query_targets "queryfunction(//:foo)")
 $(query_outputs "queryfunction(//:foo)")
 $(query_targets_and_outputs [SEPARATOR] "queryfunction(//:foo)")
@@ -92,7 +95,7 @@ Note, however, that the query macros are supported only for
 
 Use the `deps()` operator.
 
-```
+```sh
 buck2 cquery "deps('//foo:bar')"
 buck2 cquery "deps('//foo:bar', 1, first_order_deps())"
 buck2 cquery "deps(set('//foo:bar' '//foo:lib' '//foo/baz:util'))"
@@ -112,7 +115,7 @@ following example, returns the targets in the
 [transitive closure](https://en.wikipedia.org/wiki/Transitive_closure) of
 `//foo:bar` that depend directly on `//example:baz`.
 
-```
+```sh
 buck2 cquery "rdeps('//foo:bar', '//example:baz', 1)"
 ```
 
@@ -121,7 +124,7 @@ buck2 cquery "rdeps('//foo:bar', '//example:baz', 1)"
 In order to find the build file associated with a source file, combine the
 `owner` operator with `buildfile`. For example,
 
-```
+```sh
 buck2 cquery "buildfile(owner('foo/bar/main.cpp'))"
 ```
 

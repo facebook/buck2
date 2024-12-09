@@ -20,7 +20,7 @@ origin.
 Configuring an external cell looks much like configuring a regular cell. First,
 add the cell to the `cells` section of your `.buckconfig` like normal:
 
-```
+```ini
 [cells]
   prelude = some/path
 ```
@@ -34,7 +34,7 @@ Next, add an entry to the `external_cells` buckconfig section that specifies the
 "origin" of the external cell given an alias. This tells buck2 where you want to
 get the cell from, if not files in the source repo.
 
-```
+```ini
 [external_cells]
   prelude = bundled
 ```
@@ -60,7 +60,7 @@ The `git` origin indicates that an external cell's content should be loaded from
 some git repo. It accepts two additional configuration parameters, `git_origin`
 and `commit`, like this:
 
-```
+```ini
 [cells]
   root = .
   libfoo = libfoo
