@@ -13,8 +13,8 @@ use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use buck2_http::retries::http_retry;
-use buck2_http::retries::AsHttpError;
 use buck2_http::retries::HttpError;
+use buck2_http::retries::HttpErrorForRetry;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use bytes::Bytes;
@@ -68,18 +68,18 @@ enum HttpAppendError {
     Client(HttpError),
 }
 
-impl AsHttpError for HttpWriteError {
-    fn as_http_error(&self) -> Option<&HttpError> {
+impl HttpErrorForRetry for HttpWriteError {
+    fn is_retryable(&self) -> bool {
         match self {
-            Self::Client(e) => Some(e),
+            Self::Client(e) => e.is_retryable(),
         }
     }
 }
 
-impl AsHttpError for HttpAppendError {
-    fn as_http_error(&self) -> Option<&HttpError> {
+impl HttpErrorForRetry for HttpAppendError {
+    fn is_retryable(&self) -> bool {
         match self {
-            Self::Client(e) => Some(e),
+            Self::Client(e) => e.is_retryable(),
         }
     }
 }

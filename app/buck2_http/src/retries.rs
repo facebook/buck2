@@ -32,7 +32,7 @@ impl From<crate::HttpError> for HttpError {
     }
 }
 
-impl HttpError {
+impl HttpErrorForRetry for HttpError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::Client(client_error) => match client_error {
@@ -47,14 +47,15 @@ impl HttpError {
         }
     }
 }
-pub trait AsHttpError {
-    fn as_http_error(&self) -> Option<&HttpError>;
+
+pub trait HttpErrorForRetry {
+    fn is_retryable(&self) -> bool;
 }
 
 pub async fn http_retry<Exec, F, T, E>(exec: Exec, mut intervals: Vec<Duration>) -> Result<T, E>
 where
     Exec: Fn() -> F,
-    E: std::error::Error + AsHttpError + std::fmt::Display + Send + Sync + 'static,
+    E: std::error::Error + HttpErrorForRetry + std::fmt::Display + Send + Sync + 'static,
     F: Future<Output = Result<T, E>>,
 {
     intervals.insert(0, Duration::from_secs(0));
@@ -68,17 +69,18 @@ where
             Err(err) => err,
         };
 
-        if let Some(http_error) = err.as_http_error() {
-            if http_error.is_retryable() {
-                if let Some(b) = backoff.peek() {
-                    tracing::warn!(
-                        "Retrying a HTTP error after {} seconds: {:#}",
-                        b.as_secs(),
-                        // Print as a buck2_error to make sure we get the source
-                        buck2_error::Error::from(err)
-                    );
-                    continue;
-                }
+        if err.is_retryable() {
+            if let Some(b) = backoff.peek() {
+                // This message is a bit inaccurate, but at this point it's hardcoded in error
+                // matching, no point in trying to change it. The error is not necessarily a "HTTP
+                // Error".
+                tracing::warn!(
+                    "Retrying a HTTP error after {} seconds: {:#}",
+                    b.as_secs(),
+                    // Print as a buck2_error to make sure we get the source
+                    buck2_error::Error::from(err)
+                );
+                continue;
             }
         }
 
@@ -123,10 +125,10 @@ mod tests {
         }
     }
 
-    impl AsHttpError for HttpTestError {
-        fn as_http_error(&self) -> Option<&HttpError> {
+    impl HttpErrorForRetry for HttpTestError {
+        fn is_retryable(&self) -> bool {
             match self {
-                Self::Client(e) => Some(e),
+                Self::Client(e) => e.is_retryable(),
             }
         }
     }

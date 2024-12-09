@@ -23,8 +23,8 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_http::retries::http_retry;
-use buck2_http::retries::AsHttpError;
 use buck2_http::retries::HttpError;
+use buck2_http::retries::HttpErrorForRetry;
 use buck2_http::HttpClient;
 use bytes::Bytes;
 use digest::DynDigest;
@@ -173,21 +173,21 @@ impl From<HttpError> for HttpDownloadError {
     }
 }
 
-impl AsHttpError for HttpHeadError {
-    fn as_http_error(&self) -> Option<&HttpError> {
+impl HttpErrorForRetry for HttpHeadError {
+    fn is_retryable(&self) -> bool {
         match self {
-            Self::Client(e) => Some(e),
+            Self::Client(e) => e.is_retryable(),
         }
     }
 }
 
-impl AsHttpError for HttpDownloadError {
-    fn as_http_error(&self) -> Option<&HttpError> {
+impl HttpErrorForRetry for HttpDownloadError {
+    fn is_retryable(&self) -> bool {
         match self {
-            Self::Client(e) => Some(e),
+            Self::Client(e) => e.is_retryable(),
             Self::InvalidChecksum(..)
             | Self::IoError(..)
-            | Self::MaybeNotAllowedOnVpnless { .. } => None,
+            | Self::MaybeNotAllowedOnVpnless { .. } => false,
         }
     }
 }
