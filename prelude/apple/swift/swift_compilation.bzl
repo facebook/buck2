@@ -353,7 +353,7 @@ def compile_swift(
             private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface"),
             swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc"),  #this is generated automatically once we pass -emit-module-info, so must have this name
         )
-    elif toolchain.library_interface_uses_swiftinterface and not ctx.attrs._swift_enable_testing:
+    elif toolchain.library_interface_uses_swiftinterface and uses_explicit_modules(ctx) and not ctx.attrs._swift_enable_testing:
         swiftinterface_output = ctx.actions.declare_output(get_module_name(ctx) + ".swiftinterface")
 
     output_symbols = None
