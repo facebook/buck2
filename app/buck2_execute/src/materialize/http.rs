@@ -148,9 +148,17 @@ enum HttpDownloadError {
     #[error("Error performing http_download request")]
     Client(#[source] HttpError),
 
-    #[error("Invalid {0} digest. Expected {1}, got {2}. URL: {3}")]
+    #[error(
+        "Invalid {digest_kind} digest. Expected {expected}, got {obtained}. URL: {url}.\nResponse started with:\n {start}"
+    )]
     #[buck2(input)]
-    InvalidChecksum(&'static str, String, String, String),
+    InvalidChecksum {
+        digest_kind: &'static str,
+        expected: String,
+        obtained: String,
+        url: String,
+        start: String,
+    },
 
     #[error(
         "Received invalid {kind} digest from {url}; perhaps this is not allowed on vpnless?. Expected {want}, got {got}. Downloaded file at {path}."
@@ -185,7 +193,7 @@ impl HttpErrorForRetry for HttpDownloadError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::Client(e) => e.is_retryable(),
-            Self::InvalidChecksum(..) => {
+            Self::InvalidChecksum { .. } => {
                 // Normally, invalid checksums don't make sense to retry, but the HTTP servers we
                 // talk to internally tend to happily return 200s and give you the error in the
                 // message body... so it's a good idea to retry those.
@@ -304,12 +312,17 @@ async fn copy_and_hash(
         validators.push((validator, sha256, "sha256"));
     }
 
+    let mut buff = DebugBuffer::new(512);
+
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|source| HttpError::Transfer {
             received: digester.bytes_read(),
             url: url.to_owned(),
             source,
         })?;
+
+        buff.peek(&chunk);
+
         writer
             .write(&chunk)
             .with_buck_error_context(|| format!("write({})", abs_path))
@@ -346,16 +359,54 @@ async fn copy_and_hash(
                     path: abs_path.to_string(),
                 });
             }
-            return Err(HttpDownloadError::InvalidChecksum(
-                kind,
-                expected.to_owned(),
+            return Err(HttpDownloadError::InvalidChecksum {
+                digest_kind: kind,
+                expected: expected.to_owned(),
                 obtained,
-                url.to_owned(),
-            ));
+                url: url.to_owned(),
+                start: buff.to_utf8().unwrap_or("<output is not UTF-8>").to_owned(),
+            });
         }
     }
 
     Ok(digest)
+}
+
+struct DebugBuffer {
+    max_size: usize,
+    buff: Vec<u8>,
+}
+
+impl DebugBuffer {
+    fn new(max_size: usize) -> Self {
+        Self {
+            max_size,
+            buff: Vec::new(),
+        }
+    }
+
+    fn peek(&mut self, chunk: &[u8]) {
+        if self.buff.len() < self.max_size {
+            let want_bytes = std::cmp::min(chunk.len(), self.max_size - self.buff.len());
+            self.buff.extend(&chunk[..want_bytes]);
+        }
+    }
+
+    fn to_utf8(&self) -> Option<&str> {
+        match std::str::from_utf8(&self.buff) {
+            Ok(utf8) => Some(utf8),
+            Err(e) => {
+                let valid_up_to = e.valid_up_to();
+
+                // If at least 50% of the buffer is valid UTF8, let's show it.
+                if valid_up_to >= (self.max_size / 2) {
+                    std::str::from_utf8(&self.buff[..valid_up_to]).ok()
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -413,12 +464,12 @@ mod tests {
     async fn test_copy_and_hash_invalid_primary_hash() -> buck2_error::Result<()> {
         assert_matches!(
             do_test(testing::sha1(), &Checksum::Sha1(Arc::from("oops"))).await,
-            Err(HttpDownloadError::InvalidChecksum(..))
+            Err(HttpDownloadError::InvalidChecksum { .. })
         );
 
         assert_matches!(
             do_test(testing::sha256(), &Checksum::Sha256(Arc::from("oops"))).await,
-            Err(HttpDownloadError::InvalidChecksum(..))
+            Err(HttpDownloadError::InvalidChecksum { .. })
         );
 
         Ok(())
@@ -428,14 +479,53 @@ mod tests {
     async fn test_copy_and_hash_invalid_secondary_hash() -> buck2_error::Result<()> {
         assert_matches!(
             do_test(testing::blake3(), &Checksum::Sha1(Arc::from("oops"))).await,
-            Err(HttpDownloadError::InvalidChecksum(..))
+            Err(HttpDownloadError::InvalidChecksum { .. })
         );
 
         assert_matches!(
             do_test(testing::blake3(), &Checksum::Sha256(Arc::from("oops"))).await,
-            Err(HttpDownloadError::InvalidChecksum(..))
+            Err(HttpDownloadError::InvalidChecksum { .. })
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_debug_buffer() {
+        let mut buff = DebugBuffer::new(10);
+        buff.peek(b"foo");
+        assert_eq!(buff.to_utf8(), Some("foo"));
+
+        let mut buff = DebugBuffer::new(2);
+        buff.peek(b"foo");
+        assert_eq!(buff.to_utf8(), Some("fo"));
+
+        let mut buff = DebugBuffer::new(4);
+        buff.peek(b"foo");
+        buff.peek(b"foo");
+        assert_eq!(buff.to_utf8(), Some("foof"));
+
+        // 75% fine.
+        let mut buff = DebugBuffer::new(4);
+        buff.peek(b"foo");
+        buff.peek(&[0xff]);
+        assert_eq!(buff.to_utf8(), Some("foo"));
+
+        // 50% fine.
+        let mut buff = DebugBuffer::new(4);
+        buff.peek(b"fo");
+        buff.peek(&[0xff]);
+        assert_eq!(buff.to_utf8(), Some("fo"));
+
+        // 25% fine.
+        let mut buff = DebugBuffer::new(4);
+        buff.peek(b"f");
+        buff.peek(&[0xff]);
+        assert_eq!(buff.to_utf8(), None);
+
+        // 0% fine.
+        let mut buff = DebugBuffer::new(4);
+        buff.peek(&[0xff]);
+        assert_eq!(buff.to_utf8(), None);
     }
 }
