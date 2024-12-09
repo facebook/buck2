@@ -66,6 +66,7 @@ load(
     "linker_map_args",
     "make_link_args",
 )
+load(":debug.bzl", "SplitDebugMode")
 load(":dwp.bzl", "dwp", "dwp_available")
 load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
 load(
@@ -334,12 +335,11 @@ def cxx_link_into(
 
     dwp_artifact = None
     if should_generate_dwp:
-        # TODO(T110378144): Once we track split dwarf from compiles, we should
-        # just pass in `binary.external_debug_info` here instead of all link
-        # args.
         dwp_inputs = cmd_args()
-        for link in opts.links:
-            dwp_inputs.add(unpack_link_args(link))
+        dwp_from_dwo = getattr(ctx.attrs, "separate_debug_info", False) and cxx_toolchain_info.split_debug_mode == SplitDebugMode("split")
+        if not dwp_from_dwo:
+            for link in opts.links:
+                dwp_inputs.add(unpack_link_args(link))
         dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
 
         dwp_artifact = dwp(
@@ -353,6 +353,7 @@ def cxx_link_into(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = [dwp_inputs],
+            from_exe = not dwp_from_dwo,
         )
 
     linked_object = LinkedObject(
