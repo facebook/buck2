@@ -8,7 +8,7 @@
 load("flags_parser_utils.bxl", "get_compiler_settings_from_flags", "get_linker_settings_from_flags")
 load("get_compiler_settings.bxl", "gen_compiler_settings")
 load("get_linker_settings.bxl", "gen_linker_settings")
-load("utils.bxl", "dedupe_by_value", "get_mode_config_path")
+load("utils.bxl", "dedupe_by_value", "get_mode_config_path", "h")
 
 def _remove_flags_with_macros(flags: list) -> list:
     # Hacky way to find macros since regex sub is not available in bxl
@@ -17,7 +17,8 @@ def _remove_flags_with_macros(flags: list) -> list:
 
 def _get_compiler_settings(default_platform: str) -> dict:
     # Super weird switches since there's a bug when passing in var to read_root_config
-    # TODO: Remove this block when bug if fixed
+    # Reported to bxl team https://fb.workplace.com/groups/617497306123691/permalink/1098968927976524/
+    # TODO: Remove this block when bug is fixed
     if default_platform == "cxx_#default":
         cxxppflags = read_root_config("cxx_#default", "cxxppflags") or ""
         cxxflags = read_root_config("cxx_#default", "cxxflags") or ""
@@ -41,14 +42,25 @@ def _get_linker_settings(default_platform: str, buck_root: str) -> dict:
     linker_flags = _remove_flags_with_macros(linker_flags)
     return get_linker_settings_from_flags(linker_flags, buck_root)
 
-def _main(bxl_ctx):
+def _get_platform_toolset(bxl_ctx):
     if "android" in bxl_ctx.cli_args.mode_name:
-        default_platform = "fbcode-platform-cxx#platform010-clang"
+        return "Clang_5_0"
+    elif "clang" in read_root_config("cxx_#default", "cxx_type"):
+        # We can hardcode "cxx_#default" here since android is handled
+        return "ClangCL"
+    elif bxl_ctx.cli_args.vs_version_year == "2019":
+        return "v142"
     else:
-        default_platform = "cxx_#default"
+        return "v143"
+
+def _main(bxl_ctx):
+    default_platform = "cxx_#default"
+    if "android" in bxl_ctx.cli_args.mode_name and bxl_ctx.cli_args.fbsource:
+        default_platform = "fbcode-platform-cxx#platform010-clang"
 
     compiler_settings = _get_compiler_settings(default_platform)
     linker_settings = _get_linker_settings(default_platform, bxl_ctx.root())
+    platform_toolset = _get_platform_toolset(bxl_ctx)
 
     # Set default language standard
     if "LanguageStandard" not in compiler_settings:
@@ -60,6 +72,12 @@ def _main(bxl_ctx):
 
     compiler_settings_content = gen_compiler_settings(compiler_settings)
     linker_settings_content = gen_linker_settings(linker_settings)
+
+    property_sheet = ""
+    if bxl_ctx.cli_args.fbsource:
+        if platform_toolset != "Clang_5_0":
+            property_sheet = "    <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
+
     content = cmd_args(
         """<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -68,6 +86,14 @@ def _main(bxl_ctx):
         compiler_settings_content,
         linker_settings_content,
         """    </ItemDefinitionGroup>""",
+        h(
+            "PropertyGroup",
+            [
+                h("PlatformToolset", platform_toolset, indent_level = 2),
+            ],
+            indent_level = 1,
+        ),
+        property_sheet,
         """</Project>""",
         delimiter = "\n",
     )
@@ -80,6 +106,16 @@ def _main(bxl_ctx):
 main = bxl_main(
     impl = _main,
     cli_args = {
-        "mode_name": cli_args.string(),
+        "fbsource": cli_args.bool(
+            default = False,
+            doc = "Whether to turn on fbsource specific behaviors.",
+        ),
+        "mode_name": cli_args.string(
+            doc = "Single mode file to generate projects for.",
+        ),
+        "vs_version_year": cli_args.string(
+            default = "2022",
+            doc = "Generate mode configs for Visual Studio <vs_version_year> projects",
+        ),
     },
 )
