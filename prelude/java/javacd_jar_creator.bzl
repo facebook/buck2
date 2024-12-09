@@ -48,7 +48,6 @@ load(
 load("@prelude//utils:expect.bzl", "expect")
 
 _base_command_params = struct(
-    withDownwardApi = True,
     spoolMode = "DIRECT_TO_JAR",
 )
 
