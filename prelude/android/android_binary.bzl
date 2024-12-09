@@ -51,8 +51,6 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     sub_targets = {}
     materialized_artifacts = []
 
-    _verify_params(ctx)
-
     deps_by_platform = get_deps_by_platform(ctx)
     primary_platform = CPU_FILTER_FOR_PRIMARY_PLATFORM if CPU_FILTER_FOR_PRIMARY_PLATFORM in deps_by_platform else CPU_FILTER_FOR_DEFAULT_PLATFORM
     deps = deps_by_platform[primary_platform]
@@ -245,6 +243,3 @@ def get_build_config_java_libraries(
         )[1])
 
     return java_libraries
-
-def _verify_params(ctx: AnalysisContext):
-    expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")

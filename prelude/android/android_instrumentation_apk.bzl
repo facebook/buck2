@@ -21,8 +21,6 @@ load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:expect.bzl", "expect")
 
 def android_instrumentation_apk_impl(ctx: AnalysisContext):
-    _verify_params(ctx)
-
     # jar preprocessing cannot be used when the jars were dexed already, so we have to disable predex when we want to preprocess the jars.
     disable_pre_dex = ctx.attrs.disable_pre_dex or ctx.attrs.preprocess_java_classes_bash
 
@@ -144,6 +142,3 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         DefaultInfo(default_output = output_apk, other_outputs = materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         class_to_srcs,
     ]
-
-def _verify_params(ctx: AnalysisContext):
-    expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
