@@ -16,8 +16,8 @@ SplitDebugMode = enum(
     # an additional step, separate from the link, to combine and package debug
     # info (e.g. `dSYM`, `dwp`).
     "single",
-    # FIXME(agallagher): Add support for "split", which probably just requires
-    # modifying `compile_cxx` to add a `.dwo` file as a hidden output in this
-    # case.
-    #"split",
+    # Debug info, is present, is separated to .dwo file. This style requires
+    # additional step, separate from the link, to combine and package debug
+    # info (e.g. `dSYM`, `dwp`).
+    "split",
 )
