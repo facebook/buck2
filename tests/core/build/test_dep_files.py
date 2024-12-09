@@ -33,6 +33,7 @@ ACTION_EXECUTION_KIND_ACTION_CACHE = 3
 ACTION_EXECUTION_KIND_SIMPLE = 4
 ACTION_EXECUTION_KIND_LOCAL_DEP_FILE = 7
 ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9
+ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE = 10
 
 CACHE_UPLOAD_REASON_LOCAL_EXECUTION = 0
 CACHE_UPLOAD_REASON_DEP_FILE = 1
@@ -189,7 +190,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     # Not sure why but this feels like a DICE bug triggered by the buckconfig change.
     await check_execution_kind(
         buck,
-        [ACTION_EXECUTION_KIND_LOCAL_DEP_FILE],
+        [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
         ignored=[ACTION_EXECUTION_KIND_SIMPLE],
     )
     # The MatchDepFilesStart span should indicate we only checked the depfile cache once

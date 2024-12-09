@@ -473,7 +473,7 @@ impl DepFileBundle {
             (
                 o,
                 ActionExecutionMetadata {
-                    execution_kind: ActionExecutionKind::LocalDepFile,
+                    execution_kind: ActionExecutionKind::LocalActionCache,
                     timing: Default::default(),
                     input_files_bytes: None,
                 },

@@ -140,6 +140,10 @@ pub enum ActionExecutionKind {
     /// This action was served by the local dep file cache and not executed.
     #[display("local_dep_files")]
     LocalDepFile,
+
+    /// This action was served by the local action cache and not executed.
+    #[display("local_action_cache")]
+    LocalActionCache,
 }
 
 pub struct CommandExecutionRef<'a> {
@@ -161,6 +165,9 @@ impl ActionExecutionKind {
             ActionExecutionKind::Simple => buck2_data::ActionExecutionKind::Simple,
             ActionExecutionKind::Deferred => buck2_data::ActionExecutionKind::Deferred,
             ActionExecutionKind::LocalDepFile => buck2_data::ActionExecutionKind::LocalDepFile,
+            ActionExecutionKind::LocalActionCache => {
+                buck2_data::ActionExecutionKind::LocalActionCache
+            }
         }
     }
 
@@ -187,7 +194,7 @@ impl ActionExecutionKind {
                 dep_file_key,
                 eligible_for_full_hybrid: *eligible_for_full_hybrid,
             }),
-            Self::Simple | Self::Deferred | Self::LocalDepFile => None,
+            Self::Simple | Self::Deferred | Self::LocalDepFile | Self::LocalActionCache => None,
         }
     }
 }

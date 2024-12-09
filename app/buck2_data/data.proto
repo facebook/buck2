@@ -1159,6 +1159,8 @@ enum ActionExecutionKind {
   // This action was served by a remote execution service's action cache based
   // on a dep file based key.
   ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9;
+  // This action was served via a local action cache
+  ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE = 10;
 }
 
 // A name for a particular action, suitable for offline analytics and user
