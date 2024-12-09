@@ -463,6 +463,8 @@ def cxx_gnu_dist_link(
                 opt_cmd.add("--split-dwarf=none")
             elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                 opt_cmd.add("--split-dwarf=single")
+            elif cxx_toolchain.split_debug_mode == SplitDebugMode("split"):
+                opt_cmd.add("--split-dwarf=split")
 
             opt_cmd.add(cmd_args(hidden = opt_common_flags))
             opt_cmd.add("--args", opt_argsfile)
@@ -517,6 +519,8 @@ def cxx_gnu_dist_link(
                     opt_cmd.add("--split-dwarf=none")
                 elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
                     opt_cmd.add("--split-dwarf=single")
+                elif cxx_toolchain.split_debug_mode == SplitDebugMode("split"):
+                    opt_cmd.add("--split-dwarf=split")
 
                 opt_cmd.add(cmd_args(hidden = opt_common_flags))
                 opt_cmd.add("--args", opt_argsfile)

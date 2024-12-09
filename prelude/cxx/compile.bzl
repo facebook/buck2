@@ -448,8 +448,9 @@ def _compile_single_cxx(
         identifier += " (optimized) "
 
     filename_base = filename_base + (".optimized" if optimization_flags else "")
+    folder_name = "__objects__"
     object = ctx.actions.declare_output(
-        "__objects__",
+        folder_name,
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
     )
 
@@ -515,6 +516,14 @@ def _compile_single_cxx(
     error_handler_args = {}
     if src_compile_cmd.error_handler:
         error_handler_args["error_handler"] = src_compile_cmd.error_handler
+
+    external_debug_info = None
+    if getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang":
+        external_debug_info = ctx.actions.declare_output(
+            folder_name,
+            "{}.{}".format(filename_base, "dwo"),
+        )
+        cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
     ctx.actions.run(
         cmd,
@@ -624,6 +633,7 @@ def _compile_single_cxx(
         object = object,
         object_format = object_format,
         object_has_external_debug_info = object_has_external_debug_info,
+        external_debug_info = external_debug_info,
         clang_remarks = clang_remarks,
         clang_trace = clang_trace,
         gcno_file = gcno_file,
