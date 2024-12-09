@@ -15,22 +15,41 @@ def _remove_flags_with_macros(flags: list) -> list:
     flags = [item for item in flags if "$(" not in item and ")" not in item]
     return dedupe_by_value(flags)
 
-def _get_compiler_settings() -> dict:
-    cxxppflags = read_root_config("cxx_#default", "cxxppflags") or ""
-    cxxflags = read_root_config("cxx_#default", "cxxflags") or ""
+def _get_compiler_settings(default_platform: str) -> dict:
+    # Super weird switches since there's a bug when passing in var to read_root_config
+    # TODO: Remove this block when bug if fixed
+    if default_platform == "cxx_#default":
+        cxxppflags = read_root_config("cxx_#default", "cxxppflags") or ""
+        cxxflags = read_root_config("cxx_#default", "cxxflags") or ""
+    elif default_platform == "fbcode-platform-cxx#platform010-clang":
+        cxxppflags = read_root_config("fbcode-platform-cxx#platform010-clang", "cxxppflags") or ""
+        cxxflags = read_root_config("fbcode-platform-cxx#platform010-clang", "cxxflags") or ""
+    else:
+        return {}
     compiler_flags = cxxppflags.split(" ") + cxxflags.split(" ")
     compiler_flags = _remove_flags_with_macros(compiler_flags)
     return get_compiler_settings_from_flags(compiler_flags)
 
-def _get_linker_settings(buck_root: str) -> dict:
-    ldflags = read_root_config("cxx_#default", "ldflags") or ""
+def _get_linker_settings(default_platform: str, buck_root: str) -> dict:
+    if default_platform == "cxx_#default":
+        ldflags = read_root_config("cxx_#default", "ldflags") or ""
+    elif default_platform == "fbcode-platform-cxx#platform010-clang":
+        ldflags = read_root_config("fbcode-platform-cxx#platform010-clang", "ldflags") or ""
+    else:
+        return {}
     linker_flags = ldflags.split(" ")
     linker_flags = _remove_flags_with_macros(linker_flags)
     return get_linker_settings_from_flags(linker_flags, buck_root)
 
 def _main(bxl_ctx):
-    compiler_settings = _get_compiler_settings()
-    linker_settings = _get_linker_settings(bxl_ctx.root())
+    if "android" in bxl_ctx.cli_args.mode_name:
+        default_platform = "fbcode-platform-cxx#platform010-clang"
+    else:
+        default_platform = "cxx_#default"
+
+    compiler_settings = _get_compiler_settings(default_platform)
+
+    linker_settings = _get_linker_settings(default_platform, bxl_ctx.root())
     compiler_settings_content = gen_compiler_settings(compiler_settings)
     linker_settings_content = gen_linker_settings(linker_settings)
     content = cmd_args(

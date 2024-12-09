@@ -18,6 +18,13 @@ def flatten_flag_lists(flag_lists):
             flatten_list.append(flag)
     return flatten_list
 
+def unquote_flag(flag):
+    if flag.startswith('"') and flag.endswith('"'):
+        return flag[1:-1]
+    elif flag.startswith('\\"') and flag.endswith('\\"'):
+        return flag[2:-2]
+    return flag
+
 def parse_include_dirs_from_flags(flags):
     include_dirs = []
     filtered_flags = []
@@ -27,9 +34,9 @@ def parse_include_dirs_from_flags(flags):
             skip_next = False
             continue
         include_path = None
-        flag = flags[i]
+        flag = unquote_flag(flags[i])
         if flag in ["/I", "-I", "/isystem", "-isystem"]:
-            include_path = flags[i + 1]
+            include_path = unquote_flag(flags[i + 1])
             skip_next = True
         elif flag.startswith("/I") or flag.startswith("-I"):
             include_path = flag[2:]
@@ -54,17 +61,23 @@ def parse_defines_from_flags(flags):
             continue
         define = None
         undefine = None
-        flag = flags[i]
+        flag = unquote_flag(flags[i])
         if flag == "/D" or flag == "-D":
-            define = flags[i + 1]
+            define = unquote_flag(flags[i + 1])
             skip_next = True
         elif flag.startswith("/D") or flag.startswith("-D"):
             define = flag[2:]
+            splits = define.split("=")
+            if len(splits) == 2:
+                define = splits[0] + "=" + unquote_flag(splits[1])
         elif flag == "/U" or flag == "-U":
-            undefine = flags[i + 1]
+            undefine = unquote_flag(flags[i + 1])
             skip_next = True
         elif flag.startswith("/U") or flag.startswith("-U"):
             undefine = flag[2:]
+            splits = undefine.split("=")
+            if len(splits) == 2:
+                undefine = splits[0] + "=" + unquote_flag(splits[1])
 
         if define:
             defines.append(define)
