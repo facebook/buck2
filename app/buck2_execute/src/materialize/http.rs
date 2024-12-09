@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::fmt;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -149,7 +150,7 @@ enum HttpDownloadError {
     Client(#[source] HttpError),
 
     #[error(
-        "Invalid {digest_kind} digest. Expected {expected}, got {obtained}. URL: {url}.\nResponse started with:\n {start}"
+        "Invalid {digest_kind} digest. Expected {expected}, got {obtained}. URL: {url}.{debug}"
     )]
     #[buck2(input)]
     InvalidChecksum {
@@ -157,22 +158,36 @@ enum HttpDownloadError {
         expected: String,
         obtained: String,
         url: String,
-        start: String,
+        debug: MaybeDebugBufferAsUtf8,
     },
 
     #[error(
-        "Received invalid {kind} digest from {url}; perhaps this is not allowed on vpnless?. Expected {want}, got {got}.\nResponse started with\n {start}"
+        "Received invalid {kind} digest from {url}; perhaps this is not allowed on vpnless?. Expected {want}, got {got}.{debug}"
     )]
     MaybeNotAllowedOnVpnless {
         kind: &'static str,
         want: String,
         got: String,
         url: String,
-        start: String,
+        debug: MaybeDebugBufferAsUtf8,
     },
 
     #[error(transparent)]
     IoError(buck2_error::Error),
+}
+
+impl HttpDownloadError {
+    fn into_final(mut self) -> Self {
+        match &mut self {
+            Self::Client(..) | Self::IoError(..) => {}
+            Self::InvalidChecksum { ref mut debug, .. }
+            | Self::MaybeNotAllowedOnVpnless { ref mut debug, .. } => {
+                debug.is_final = true;
+            }
+        }
+
+        self
+    }
 }
 
 impl From<HttpError> for HttpDownloadError {
@@ -267,7 +282,8 @@ pub async fn http_download(
         },
         vec![2, 4, 8].into_iter().map(Duration::from_secs).collect(),
     )
-    .await?)
+    .await
+    .map_err(|e| e.into_final())?)
 }
 
 /// Copy a stream into a writer while producing its digest and checksumming it.
@@ -350,7 +366,10 @@ async fn copy_and_hash(
         };
 
         if expected != obtained {
-            let start = buff.to_utf8().unwrap_or("<output is not UTF-8>").to_owned();
+            let debug = MaybeDebugBufferAsUtf8 {
+                buff: buff.to_utf8().map(ToOwned::to_owned),
+                is_final: false,
+            };
 
             if is_vpnless {
                 return Err(HttpDownloadError::MaybeNotAllowedOnVpnless {
@@ -358,7 +377,7 @@ async fn copy_and_hash(
                     want: expected.to_owned(),
                     got: obtained,
                     url: url.to_owned(),
-                    start,
+                    debug,
                 });
             }
             return Err(HttpDownloadError::InvalidChecksum {
@@ -366,7 +385,7 @@ async fn copy_and_hash(
                 expected: expected.to_owned(),
                 obtained,
                 url: url.to_owned(),
-                start,
+                debug,
             });
         }
     }
@@ -406,6 +425,28 @@ impl DebugBuffer {
                 } else {
                     None
                 }
+            }
+        }
+    }
+}
+
+/// A little helper to avoid showing the debug data in http_retry because that's reall verbose.
+#[derive(Debug)]
+struct MaybeDebugBufferAsUtf8 {
+    buff: Option<String>,
+    is_final: bool,
+}
+
+impl fmt::Display for MaybeDebugBufferAsUtf8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.is_final {
+            return Ok(());
+        }
+
+        match &self.buff {
+            Some(text) => write!(f, "\n\nResponse started with:\n\n{}", text),
+            None => {
+                write!(f, "Response is not UTF-8")
             }
         }
     }
