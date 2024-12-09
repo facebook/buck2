@@ -48,8 +48,16 @@ def _main(bxl_ctx):
         default_platform = "cxx_#default"
 
     compiler_settings = _get_compiler_settings(default_platform)
-
     linker_settings = _get_linker_settings(default_platform, bxl_ctx.root())
+
+    # Set default language standard
+    if "LanguageStandard" not in compiler_settings:
+        compiler_settings["LanguageStandard"] = "stdcpp20"
+
+    # Overwrite configs for android projects
+    if "android" in bxl_ctx.cli_args.mode_name:
+        compiler_settings.pop("LanguageStandard")
+
     compiler_settings_content = gen_compiler_settings(compiler_settings)
     linker_settings_content = gen_linker_settings(linker_settings)
     content = cmd_args(

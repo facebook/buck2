@@ -70,10 +70,6 @@ def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, b
     project_configurations = _gen_project_configurations(vs_settings["ProjectConfigurations"])
     configuration_type_and_platform_toolset = _gen_configuration_type_and_platform_toolset(vs_settings["ProjectConfigurations"])
     user_macros = gen_user_macros(target, vs_settings, cli_args, buck_root)
-    if vs_settings["ProjectConfigurations"][0]["LanguageStandard"]:
-        language_standard = h("LanguageStandard", vs_settings["ProjectConfigurations"][0]["LanguageStandard"], indent_level = 3)
-    else:
-        language_standard = ""
     headers = _gen_headers(vs_settings["Headers"])
     sources = _gen_sources(vs_settings["Sources"])
     compiler_settings = gen_compiler_settings(vs_settings["CompilerSettings"])
@@ -120,13 +116,6 @@ def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, b
         <Import Condition="exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props"/>
         <Import Project="$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props"/>
     </ImportGroup>""",
-        "",
-        # TODO: Move language_standard to <mode_file>.props
-        """    <ItemDefinitionGroup>""",
-        """        <ClCompile>""",
-        language_standard,
-        """        </ClCompile>""",
-        """    </ItemDefinitionGroup>""",
         "",
         headers,
         "",

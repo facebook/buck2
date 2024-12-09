@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("ppflags.bxl", "COMPILER_FLAGS_MAP", "COMPILER_IGNORE_OPTIONS", "LINKER_FLAGS_MAP")
+load("ppflags.bxl", "COMPILER_FLAGS_MAP", "COMPILER_IGNORE_OPTIONS", "LANGUAGE_STANDARD_MAP", "LINKER_FLAGS_MAP")
 load("utils.bxl", "dedupe_by_value")
 
 def flatten_flag_lists(flag_lists):
@@ -98,6 +98,8 @@ def get_linker_settings_from_flags(flags, buck_root):
 
     for flag in flags:
         original_flag = flag
+
+        # Unify leading character to "/" for easier matching
         if flag.startswith("-"):
             flag = "/" + flag[1:]
 
@@ -145,11 +147,15 @@ def get_compiler_settings_from_flags(flags):
 
     for flag in flags:
         original_flag = flag
+
+        # Unify leading character to "/" for easier matching
         if flag.startswith("-"):
             flag = "/" + flag[1:]
 
         if flag in COMPILER_FLAGS_MAP:
             compiler_settings.update(COMPILER_FLAGS_MAP[flag])
+        elif flag in LANGUAGE_STANDARD_MAP:
+            compiler_settings["LanguageStandard"] = LANGUAGE_STANDARD_MAP[flag]
         elif flag in COMPILER_IGNORE_OPTIONS:
             pass
         elif flag.startswith("/FI"):
@@ -158,8 +164,6 @@ def get_compiler_settings_from_flags(flags):
             disable_specific_warnings.append(flag[3:])
         elif flag.startswith("/W"):
             pass  # Incompatible gcc style warnings
-        elif flag.startswith("/std=") or flag.startswith("/std:"):
-            pass  # Language standard are handled separately in get_vs_settings
         else:
             additional_options.append(original_flag)
 

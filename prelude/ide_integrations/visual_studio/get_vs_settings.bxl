@@ -24,31 +24,6 @@ def _get_platform_toolset(cxxppflags):
     else:
         return "v143"
 
-def _get_language_standard(cxxflags):
-    # @unsorted-dict-items
-    STDCPP_MAP = {
-        # stdcpp17
-        "/std:c++17": "stdcpp17",
-        "-std=gnu++17": "stdcpp17",
-        "-std=c++17": "stdcpp17",
-
-        # stdcpp20
-        "/std:c++20": "stdcpp20",
-        "-std=gnu++20": "stdcpp20",
-        "-std=c++20": "stdcpp20",
-
-        # stdcpplatest
-        "/std:c++latest": "stdcpplatest",
-        "-std=gnu++latest": "stdcpplatest",
-        "-std=c++latest": "stdcpplatest",
-    }
-
-    for key, value in STDCPP_MAP.items():
-        if key in cxxflags:
-            return value
-
-    return "stdcpp20"
-
 # List of options: https://learn.microsoft.com/en-us/dotnet/api/microsoft.visualstudio.vcproject.configurationtypes?view=visualstudiosdk-2022
 def _get_vs_configuration_type(buck_type):
     if buck_type.endswith("_library"):
@@ -174,8 +149,6 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, attrs: dict, vs_settings_d
     log_debug("# Getting VS settings for {}", target.label.raw_target(), log_level = cli_args.log_level)
     mode_files = cli_args.mode_files
 
-    cxxflags = read_config("cxx_#default", "cxxflags") or ""
-    language_standard = _get_language_standard(cxxflags)
     cxxppflags = read_config("cxx_#default", "cxxppflags") or ""
     platform_toolset = _get_platform_toolset(cxxppflags)
 
@@ -183,7 +156,6 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, attrs: dict, vs_settings_d
     if vs_settings["Globals"].get("ApplicationType") == "Android":
         # Find latest PlatformToolset at $(VCTargetsPath)/Application Type/Android/3.0/Platforms/ARM64/PlatformToolsets/.
         platform_toolset = "Clang_5_0"
-        language_standard = None
 
     vs_settings["Headers"], vs_settings["Sources"] = _get_headers_and_sources(attrs)
 
@@ -191,7 +163,6 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, attrs: dict, vs_settings_d
     for i in range(len(mode_files)):
         vs_settings["ProjectConfigurations"][i].update({
             "ConfigurationType": configuration_type,
-            "LanguageStandard": language_standard,
             "PlatformToolset": platform_toolset,
         })
 
