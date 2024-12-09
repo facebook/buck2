@@ -291,7 +291,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     /// mapping function. The returned selector will have the same structure as this one.
     ///
     /// Ex:
-    /// ```starlark
+    /// ```python
     /// def increment_items(a):
     ///     return [v + 1 for v in a]
     ///
@@ -310,7 +310,7 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     /// Returns True, if any value in the select passes, else False.
     ///
     /// Ex:
-    /// ```starlark
+    /// ```python
     /// select_test([1] + select({"c": [1]}), lambda a: len(a) > 1) == False
     /// select_test([1, 2] + select({"c": [1]}), lambda a: len(a) > 1) == True
     /// select_test([1] + select({"c": [1, 2]}), lambda a: len(a) > 1) == True

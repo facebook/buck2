@@ -67,7 +67,7 @@ use crate::interpreter::rule_defs::provider::ProviderCollection;
 ///
 /// Example of a rule's implementation function and how these fields are used by the framework:
 ///
-/// ```starlark
+/// ```python
 /// # //foo_binary.bzl
 /// def impl(ctx):
 ///     ctx.action.run([ctx.attrs._cc[RunInfo], "-o", ctx.attrs.out.as_output()] + ctx.attrs.srcs)

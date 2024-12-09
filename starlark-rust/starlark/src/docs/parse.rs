@@ -43,7 +43,7 @@ pub enum DocStringKind {
     /// For functions, they are the piece in `"""` that come right after the `def foo():` line,
     /// and they have sections for additional details. An example from a starlark file might be:
     ///
-    /// ```starlark
+    /// ```python
     /// """ Module level docs here """
     ///
     /// def some_function(val: "string") -> "string":
