@@ -29,19 +29,14 @@ def run_dwp_action(
 
     if from_exe:
         args = cmd_args(
-            # llvm trunk now supports 64-bit debug cu index, add --continue-on-cu-index-overflow by default
-            # to suppress dwp file overflow warning
-            ["/bin/sh", "-c", '"$1" --continue-on-cu-index-overflow -o "$2" -e "$3" && touch "$2"', ""] +
-            [dwp, dwp_output.as_output(), obj],
+            [dwp, "-o", dwp_output.as_output(), "-e", obj],
             # All object/dwo files referenced in the library/executable are implicitly
             # processed by dwp.
             hidden = referenced_objects,
         )
     else:
         args = cmd_args(
-            # llvm trunk now supports 64-bit debug cu index, add --continue-on-cu-index-overflow by default
-            # to suppress dwp file overflow warning
-            [dwp, "--continue-on-cu-index-overflow", "-o", dwp_output.as_output()],
+            [dwp, "-o", dwp_output.as_output()],
         )
         args.add(referenced_objects)
 
