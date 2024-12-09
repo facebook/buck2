@@ -107,7 +107,8 @@ AppleBundlePartListOutput = record(
 )
 
 def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
-    if len(get_flattened_binary_deps(ctx.attrs.binary)) > 1:
+    binary_deps = get_flattened_binary_deps(ctx.attrs.binary)
+    if len(binary_deps) > 1:
         if ctx.attrs.selective_debugging != None:
             fail("Selective debugging is not supported for universal binaries.")
         return create_universal_binary(
@@ -118,7 +119,7 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
             split_arch_dsym = ctx.attrs.split_arch_dsym,
         )
     else:
-        binary_dep = get_default_binary_dep(ctx.attrs.binary)
+        binary_dep = binary_deps[0]
         if len(binary_dep[DefaultInfo].default_outputs) != 1:
             fail("Expected single output artifact. Make sure the implementation of rule from `binary` attribute is correct.")
 
