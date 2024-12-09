@@ -150,7 +150,7 @@ enum HttpDownloadError {
     Client(#[source] HttpError),
 
     #[error(
-        "Invalid {digest_kind} digest. Expected {expected}, got {obtained}. URL: {url}.{debug}"
+        "Invalid {digest_kind} digest. Expected {expected}, got {obtained}. URL: {url}. {debug}"
     )]
     #[buck2(input)]
     InvalidChecksum {
@@ -162,7 +162,7 @@ enum HttpDownloadError {
     },
 
     #[error(
-        "Received invalid {kind} digest from {url}; perhaps this is not allowed on vpnless?. Expected {want}, got {got}.{debug}"
+        "Received invalid {kind} digest from {url}; perhaps this is not allowed on vpnless?. Expected {want}, got {got}. {debug}"
     )]
     MaybeNotAllowedOnVpnless {
         kind: &'static str,
@@ -367,6 +367,7 @@ async fn copy_and_hash(
 
         if expected != obtained {
             let debug = MaybeDebugBufferAsUtf8 {
+                bytes_seen: buff.bytes_seen,
                 buff: buff.to_utf8().map(ToOwned::to_owned),
                 is_final: false,
             };
@@ -394,6 +395,7 @@ async fn copy_and_hash(
 }
 
 struct DebugBuffer {
+    bytes_seen: u64,
     max_size: usize,
     buff: Vec<u8>,
 }
@@ -401,12 +403,17 @@ struct DebugBuffer {
 impl DebugBuffer {
     fn new(max_size: usize) -> Self {
         Self {
+            bytes_seen: 0,
             max_size,
             buff: Vec::new(),
         }
     }
 
     fn peek(&mut self, chunk: &[u8]) {
+        // unwrap safety: we can't possibly have a chunk whose length can't be represented with 64
+        // bits.
+        self.bytes_seen += u64::try_from(chunk.len()).unwrap();
+
         if self.buff.len() < self.max_size {
             let want_bytes = std::cmp::min(chunk.len(), self.max_size - self.buff.len());
             self.buff.extend(&chunk[..want_bytes]);
@@ -433,12 +440,15 @@ impl DebugBuffer {
 /// A little helper to avoid showing the debug data in http_retry because that's reall verbose.
 #[derive(Debug)]
 struct MaybeDebugBufferAsUtf8 {
+    bytes_seen: u64,
     buff: Option<String>,
     is_final: bool,
 }
 
 impl fmt::Display for MaybeDebugBufferAsUtf8 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Received {} bytes.", self.bytes_seen)?;
+
         if !self.is_final {
             return Ok(());
         }
