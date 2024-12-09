@@ -418,9 +418,15 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self.implementation.inputs(&targets)?.into())
     }
 
-    /// The `kind(regex, targets)` operator evaluates the specified target expression, `targets`, and returns the targets where the rule type matches the specified `regex`.
-    /// The specified pattern can be a regular expression. For example,
-    /// `buck2 query "kind('java.*', deps('//foo:bar'))"` returns the targets that match the rule type `java.*` (`java_library`, `java_binary`, etc.) in the transitive dependencies of `//foo:bar`.
+    /// Filter targets by rule type.
+    ///
+    /// Returns a subset of `targets` where the rule type matches the specified `regex`. The specified pattern can be a regular expression.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 query "kind('java.*', deps('//foo:bar'))"
+    /// ```
+    /// This command returns targets matching rule type `java.*` (e.g., `java_library`, `java_binary`) in the transitive dependencies of `//foo:bar`.
     async fn kind(&self, regex: String, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(targets.kind(&regex)?.into())
     }
