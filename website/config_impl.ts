@@ -133,6 +133,7 @@ const themeConfig: ClassicPresetConfig = ({
     copyright: `Copyright © ${new Date().getFullYear()} Meta Platforms, Inc. Built with Docusaurus.`,
   },
   prism: {
+    additionalLanguages: ['bash', 'powershell', 'cpp', 'ini', 'mermaid'],
     theme: lightCodeTheme,
     darkTheme: darkCodeTheme,
   },
