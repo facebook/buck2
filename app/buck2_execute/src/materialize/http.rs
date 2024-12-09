@@ -161,14 +161,14 @@ enum HttpDownloadError {
     },
 
     #[error(
-        "Received invalid {kind} digest from {url}; perhaps this is not allowed on vpnless?. Expected {want}, got {got}. Downloaded file at {path}."
+        "Received invalid {kind} digest from {url}; perhaps this is not allowed on vpnless?. Expected {want}, got {got}.\nResponse started with\n {start}"
     )]
     MaybeNotAllowedOnVpnless {
         kind: &'static str,
         want: String,
         got: String,
         url: String,
-        path: String,
+        start: String,
     },
 
     #[error(transparent)]
@@ -350,13 +350,15 @@ async fn copy_and_hash(
         };
 
         if expected != obtained {
+            let start = buff.to_utf8().unwrap_or("<output is not UTF-8>").to_owned();
+
             if is_vpnless {
                 return Err(HttpDownloadError::MaybeNotAllowedOnVpnless {
                     kind,
                     want: expected.to_owned(),
                     got: obtained,
                     url: url.to_owned(),
-                    path: abs_path.to_string(),
+                    start,
                 });
             }
             return Err(HttpDownloadError::InvalidChecksum {
@@ -364,7 +366,7 @@ async fn copy_and_hash(
                 expected: expected.to_owned(),
                 obtained,
                 url: url.to_owned(),
-                start: buff.to_utf8().unwrap_or("<output is not UTF-8>").to_owned(),
+                start,
             });
         }
     }
