@@ -185,9 +185,13 @@ impl HttpErrorForRetry for HttpDownloadError {
     fn is_retryable(&self) -> bool {
         match self {
             Self::Client(e) => e.is_retryable(),
-            Self::InvalidChecksum(..)
-            | Self::IoError(..)
-            | Self::MaybeNotAllowedOnVpnless { .. } => false,
+            Self::InvalidChecksum(..) => {
+                // Normally, invalid checksums don't make sense to retry, but the HTTP servers we
+                // talk to internally tend to happily return 200s and give you the error in the
+                // message body... so it's a good idea to retry those.
+                cfg!(fbcode_build)
+            }
+            Self::IoError(..) | Self::MaybeNotAllowedOnVpnless { .. } => false,
         }
     }
 }
