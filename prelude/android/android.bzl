@@ -11,7 +11,7 @@ load(
 )
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
-load("@prelude//decls/android_rules.bzl", "AaptMode", "DuplicateResourceBehaviour")
+load("@prelude//decls/android_rules.bzl", "DuplicateResourceBehaviour")
 load("@prelude//decls/common.bzl", "buck")
 load("@prelude//decls/core_rules.bzl", "TargetCpuType")
 load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
@@ -104,7 +104,6 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "android_binary": {
-        "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
         "application_module_blacklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
@@ -137,7 +136,6 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_bundle": {
-        "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
         "application_module_blacklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
@@ -164,7 +162,6 @@ extra_attributes = {
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
     },
     "android_instrumentation_apk": {
-        "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),  # Match default in V1
         "apk": attrs.dep(),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),

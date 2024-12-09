@@ -247,5 +247,4 @@ def get_build_config_java_libraries(
     return java_libraries
 
 def _verify_params(ctx: AnalysisContext):
-    expect(ctx.attrs.aapt_mode == "aapt2", "aapt1 is deprecated!")
     expect(ctx.attrs.dex_tool == "d8", "dx is deprecated!")
