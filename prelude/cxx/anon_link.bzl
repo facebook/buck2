@@ -254,5 +254,6 @@ ANON_ATTRS = {
     ),
     "output": attrs.string(),
     "result_type": attrs.enum(CxxLinkResultType.values()),
+    "separate_debug_info": attrs.bool(default = False),
     "_cxx_toolchain": attrs.dep(providers = [CxxToolchainInfo]),
 }
