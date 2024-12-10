@@ -145,10 +145,12 @@ read_root_config_with_logging = partial(_log_read_config, read_root_config)
 _read_config = read_config_with_logging if LOG_BUCKCONFIGS else read_config
 _read_root_config = read_root_config_with_logging if LOG_BUCKCONFIGS else read_root_config
 
-def read(section, field, default = None, root_cell = False):
+def read(section, field, default = None, root_cell = False, logging = True):
     """Read a `string` from `.buckconfig`."""
-
-    read_config_func = _read_root_config if root_cell else _read_config
+    if logging:
+        read_config_func = _read_root_config if root_cell else _read_config
+    else:
+        read_config_func = read_root_config if root_cell else read_config
     return read_config_func(section, field, default)
 
 # Alias for `read` that's explicit about the type being returned.
