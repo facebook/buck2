@@ -215,8 +215,8 @@ pub struct ExecutedActionStorageStats {
 
 #[derive(Clone, Default)]
 pub struct ExecutedActionMemoryStats {
-    // Compatibility with the Thrift structs
-    pub _dot_dot_default: (),
+    pub max_used_mem: i64,
+    pub reserved_mem: i64,
 }
 
 #[derive(Clone, Default)]
