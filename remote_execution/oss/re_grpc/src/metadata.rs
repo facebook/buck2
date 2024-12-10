@@ -18,13 +18,6 @@ pub struct ActionHistoryInfo {
 }
 
 #[derive(Clone, Default)]
-pub struct HostResourceRequirements {
-    pub affinity_keys: Vec<String>,
-    pub input_files_bytes: i64,
-    pub _dot_dot: (),
-}
-
-#[derive(Clone, Default)]
 pub struct BuckInfo {
     pub build_id: String,
     pub version: String,
