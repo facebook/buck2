@@ -103,7 +103,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     /// Returns the type name of the attribute
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_type(ctx):
     ///     node = ctx.uquery().owner("bin/TARGETS")[0]
     ///     ctx.output.print(node.attrs.name.type)
@@ -117,7 +117,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     /// at this time.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_value(ctx):
     ///     node = ctx.uquery().owner("bin/TARGETS")[0]
     ///     ctx.output.print(node.attrs.name.value())

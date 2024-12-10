@@ -72,7 +72,7 @@ fn action_methods(builder: &mut MethodsBuilder) {
     /// Gets the owning configured target label for an action.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_action(ctx):
     ///     action = ctx.audit().output("buck-out/path/to/__target__/artifact", "your_target_platform")
     ///     ctx.output.print(action.owner())

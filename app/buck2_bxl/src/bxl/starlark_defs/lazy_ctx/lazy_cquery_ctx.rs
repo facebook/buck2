@@ -70,7 +70,7 @@ fn lazy_cquery_methods(builder: &mut MethodsBuilder) {
     /// was passed in, otherwise returns a single `target_set`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_eval(ctx):
     ///     result1 = ctx.lazy.cquery().eval("inputs(root//bin:the_binary)").resolve()
     ///     ctx.output.print(result1)

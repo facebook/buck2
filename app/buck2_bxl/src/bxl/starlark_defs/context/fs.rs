@@ -153,7 +153,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// Takes in a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_exists(ctx):
     ///     ctx.output.print(ctx.fs.exists("bin"))
     /// ```
@@ -177,7 +177,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_list(ctx):
     ///     list_results = ctx.fs.list("bin")
     ///     for result in list_results:
@@ -213,7 +213,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_is_dir(ctx):
     ///     ctx.output.print(ctx.fs.is_dir("bin"))
     /// ```
@@ -225,7 +225,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// The input is a either a literal, a source artifact (via `artifact`), or a `file_node`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_is_file(ctx):
     ///     ctx.output.print(ctx.fs.is_dir("bin"))
     /// ```
@@ -236,7 +236,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// Returns the relative path to the project root, given the file expression.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def project_rel_path(ctx):
     ///     ctx.output.print(ctx.fs.project_rel_path("bin"))
     /// ```
@@ -253,7 +253,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
     /// are run remotely will most likely result in failures since the absolute path most likely differs locally vs remotely.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_abs_path_unsafe(ctx):
     ///     ctx.output.print(ctx.fs.abs_path_unsafe("bin"))
     /// ```

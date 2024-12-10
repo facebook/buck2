@@ -329,7 +329,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     /// ensured artifact.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_abs_path(ctx):
     ///     actions = ctx.bxl_actions().actions
     ///     output = actions.write("my_output", "my_content")
@@ -368,7 +368,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     /// Starlark's `print()` will print out the display info for an ensured artifact.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rel_path(ctx):
     ///     actions = ctx.bxl_actions().actions
     ///     output = actions.write("my_output", "my_content")
@@ -415,7 +415,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     /// ensured artifact group.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_abs_path(ctx):
     ///     # some target with RunInfo outputs
     ///     result = ctx.analysis("root//bin/kind:target_with_outputs")
@@ -446,7 +446,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     /// Starlark's `print()` will print out the display info for an ensured artifact group.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rel_path(ctx):
     ///     # some target with RunInfo outputs
     ///     result = ctx.analysis("root//bin/kind:target_with_outputs")

@@ -73,7 +73,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// We will deprecate this method in the future.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attributes(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.attrs.my_attr)
@@ -102,7 +102,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// It will not return special attribute (attribute that start with 'buck.' in `buck2 uquery -A` command).
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attributes(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.get_attr('my_attr'))
@@ -119,7 +119,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// For attributes that are not explicitly set, the default value is returned.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attributes(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.get_attrs())
@@ -139,7 +139,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attributes(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.has_attr('my_attr'))
@@ -154,7 +154,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the label from the unconfigured target node.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_label(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.label)
@@ -167,7 +167,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the buildfile path from the unconfigured target node.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_label(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.buildfile_path)
@@ -181,7 +181,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// string. This includes the import path as well.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rule_type(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.rule_type)
@@ -200,7 +200,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///  - toolchain (only usable as a toolchain dep)
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rule_kind(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.rule_kind)
@@ -216,7 +216,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the target's special attr `oncall`
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_get_oncall(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.oncall)
@@ -236,7 +236,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// The result is a list of `UnconfiguredTargetLabel`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_get_deps(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.deps())

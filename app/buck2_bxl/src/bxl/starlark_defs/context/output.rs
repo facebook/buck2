@@ -158,7 +158,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// outputs, the recommendation would be to write them to a file.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_print(ctx):
     ///     ctx.output.print("test")
     /// ```
@@ -231,7 +231,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// and `pprint`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_print_json(ctx):
     ///     outputs = {}
     ///     outputs.update({"foo": bar})
@@ -356,7 +356,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// to print its actual path on disk.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_ensure(ctx):
     ///     actions = ctx.bxl_actions().actions
     ///     output = actions.write("my_output", "my_content")
@@ -382,7 +382,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// So, it is suggested to use this method when you are only ensuring a few individual artifacts that are not stored in an iterable.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_ensure_multiple(ctx):
     ///     outputs = {}
     ///     for target, value in ctx.build(ctx.cli_args.target).items():

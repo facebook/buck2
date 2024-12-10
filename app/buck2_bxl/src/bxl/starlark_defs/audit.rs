@@ -103,7 +103,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
     /// Takes in an optional target platform, otherwise will use the default target platform.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_audit_output(ctx):
     ///     target_platform = "foo"
     ///     result = ctx.audit().output("buck-out/v2/gen/fbcode/some_cfg_hash/path/to/__target__/artifact", target_platform)
@@ -162,7 +162,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
     /// Returns a dict of cell name to absolute path mappings.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_audit_cell(ctx):
     ///     result = ctx.audit().cell(aliases = True)
     ///     ctx.output.print(result)

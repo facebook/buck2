@@ -303,7 +303,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
     /// was passed in, otherwise returns a single `target_set`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_eval(ctx):
     ///     result = ctx.aquery().eval(":foo")
     ///     ctx.output.print(result)

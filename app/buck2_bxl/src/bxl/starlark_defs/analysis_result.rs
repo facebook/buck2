@@ -76,7 +76,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     /// providers of dependencies within a rule implementation.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_providers(ctx):
     ///     node = ctx.configured_targets("root//bin:the_binary")
     ///     providers = ctx.analysis(node).providers()
@@ -104,7 +104,7 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
     /// This is useful for passing in the results of `ctx.analysis()` into anon targets.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_dependency(ctx):
     ///     node = ctx.configured_targets("root//bin:the_binary")
     ///     dependency = ctx.analysis(node).as_dependency()

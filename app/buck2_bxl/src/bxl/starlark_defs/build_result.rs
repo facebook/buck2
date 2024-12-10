@@ -44,7 +44,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     /// Returns an optional iterable of artifacts that was successfully built.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     outputs = {}
     ///     for target, value in ctx.build(ctx.cli_args.target).items():
@@ -64,7 +64,7 @@ fn starlark_build_result_methods(builder: &mut MethodsBuilder) {
     /// Returns an optional of iterable of artifacts that failed to be built.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     outputs = {}
     ///     for target, value in ctx.build(ctx.cli_args.target).items():

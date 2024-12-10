@@ -262,7 +262,7 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
     /// Resolve the operation to the actual result without catching the error.
     ///
     /// Example:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     target = ctx.configured_targets("cell//path/to:target")
     ///     analysis_result = ctx.lazy.analysis(target).resolve()
@@ -284,7 +284,7 @@ fn lazy_operation_methods(builder: &mut MethodsBuilder) {
     /// Make `Lazy` can be resolved later by catching the error.
     ///
     /// Example:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     target = ctx.configured_targets("cell//path/to:target")
     ///     analysis_result = ctx.lazy.analysis(target).catch().resolve()

@@ -40,7 +40,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     /// Elapsed time in secs as a float
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_elapsed_secs(ctx):
     ///     now = now()
     ///     time_a = now.elapsed_secs()
@@ -64,7 +64,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     /// Elapsed time in millis as a float
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_elapsed_millis(ctx):
     ///     now = now()
     ///     time_a = now.elapsed_millis()

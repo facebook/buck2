@@ -92,7 +92,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// Join two lazy operations into a single operation that can be evaluated.
     ///
     /// Example:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     ...
     ///     joined = ctx.lazy.join(ctx.lazy.analysis(t1), ctx.lazy.analysis(t2))
@@ -113,7 +113,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// Using `.try_resolve()` can catch errors for the individual operations.
     ///
     /// Example:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     ...
     ///     joined = ctx.lazy.join_all([ctx.lazy.analysis(t) for t in targets])
@@ -133,7 +133,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// The target should be a ConfiguredTargetLabel, a ConfiguredProvidersLabel, or a ConfiguredTargetNode.
     ///
     /// Example:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     target = ctx.configured_targets("cell//path/to:target")
     ///     analysis_result = ctx.lazy.analysis(target).resolve()
@@ -169,7 +169,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// Else (returns a single `ConfiguredTargetNode`), it will raise an error if incompatible when resolve. Use `Lazy.catch()` to catch the error.
     ///
     /// Example:
-    /// ```text
+    /// ```python
     /// def _impl(ctx):
     ///     # returns a single `ConfiguredTargetNode`
     ///     node = ctx.lazy.configured_target_node("cell//path/to:target").resolve()

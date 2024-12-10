@@ -45,7 +45,7 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     /// Creates a target set from a list of configured nodes.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_ctarget_set(ctx):
     ///     targets = bxl.ctarget_set([cnode_a, cnode_b])
     ///     ctx.output.print(type(targets))
@@ -66,7 +66,7 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     /// Creates a target set from a list of unconfigured nodes.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_utarget_set(ctx):
     ///     targets = bxl.utarget_set([unode_a, unode_b])
     ///     ctx.output.print(type(targets))
@@ -91,7 +91,7 @@ pub(crate) fn register_file_set_function(builder: &mut GlobalsBuilder) {
     /// Creates an empty file set for configured nodes.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_file_set(ctx):
     ///     files = file_set()
     ///     ctx.output.print(type(files))
@@ -119,7 +119,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
     /// further actions, then it’s safe.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_get_path_without_materialization(ctx):
     ///     owner = ctx.cquery().owner("cell//path/to/file")[0]
     ///     artifact = owner.get_source("cell//path/to/file", ctx)
@@ -165,7 +165,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
     /// further actions, then it’s safe.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_get_paths_without_materialization(ctx):
     ///     node = ctx.configured_targets("root//bin:the_binary")
     ///     providers = ctx.analysis(node).providers()
@@ -218,7 +218,7 @@ pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
     /// Creates an Instant at the current time.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_elapsed_millis(ctx):
     ///     instant = now()
     ///     time_a = instant.elapsed_millis()

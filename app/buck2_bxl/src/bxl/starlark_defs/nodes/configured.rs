@@ -113,7 +113,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// configured target node is not uniquely identified a non-configured label, only by the configured target label.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_label(ctx):
     ///     node = ctx.configured_targets("my_cell//bin:the_binary")
     ///     ctx.output.print(node.label)
@@ -128,7 +128,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the buildfile path from the configured target node.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_label(ctx):
     ///     target_node = ctx.cquery().eval("owner('path/to/file')")[0]
     ///     ctx.output.print(target_node.buildfile_path)
@@ -144,7 +144,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// It will not return special attribute (attribute that start with 'buck.' in `buck2 cquery -A` command).
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attributes(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.get_attr('my_attr'))
@@ -161,7 +161,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// For attributes that are not explicitly set, the default value is returned.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attributes(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.get_attrs())
@@ -180,7 +180,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// For special attributes, it will return `False`
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_has_attr(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.has_attr('my_attr'))
@@ -207,7 +207,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// We will deprecate this method in the future.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attrs_eager(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.attrs_eager() # cache once
@@ -253,7 +253,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// We will deprecate this method in the future.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.attrs_lazy() # cache once
@@ -281,7 +281,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// We will deprecate this method in the future.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_resolved_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.resolved_attrs_lazy(ctx) # cache once
@@ -311,7 +311,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// We will deprecate this method in the future.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_resolved_attrs_eager(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.resolved_attrs_eager(ctx) # cache once
@@ -362,7 +362,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// This is is particularly useful when you don't care about 'forward' node.
     ///
     /// Example usage:
-    /// ```text
+    /// ```python
     /// def _impl_unwrap_forward(ctx):
     ///     node = ctx.configured_targets("my_cell//bin:the_binary")
     ///     actual_node = node.unwrap_forward()
@@ -381,7 +381,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// the import path.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rule_type(ctx):
     ///     node = ctx.configured_targets("my_cell//bin:the_binary")
     ///     ctx.output.print(node.rule_type)
@@ -400,7 +400,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///  - toolchain (only usable as a toolchain dep)
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rule_kind(ctx):
     ///     node = ctx.configured_targets("my_cell//bin:the_binary")
     ///     ctx.output.print(node.rule_kind)
@@ -416,7 +416,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Returns a List of all the sources used by this node.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_sources(ctx):
     ///     node = ctx.configured_targets("my_cell//bin:the_binary")
     ///     ctx.output.print(node.sources())
@@ -449,7 +449,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// project relative path to the file, or an absolute path.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_get_source(ctx):
     ///     owner = ctx.cquery().owner("project/relative/path/to/file")[0]
     ///     artifact = owner.sources()[0]
@@ -518,7 +518,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// Gets the target's special attr `oncall`
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_get_oncall(ctx):
     ///     target_node = ctx.cquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.oncall)
@@ -538,7 +538,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// The result is a list of `ConfiguredTargetNode`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_get_deps(ctx):
     ///     target_node = ctx.uquery().eval("//foo:bar")[0]
     ///     ctx.output.print(target_node.deps())
@@ -604,7 +604,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     /// Returns the type name of the attribute
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_type(ctx):
     ///     node = ctx.cquery().owner("bin/TARGETS")[0]
     ///     attrs = node.attrs_eager()
@@ -618,7 +618,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     /// Returns the value of this attribute. The value here is not fully resolved like in rules.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_value(ctx):
     ///     node = ctx.cquery().owner("bin/TARGETS")[0]
     ///     attrs = node.attrs_eager()
@@ -678,7 +678,7 @@ impl<'v> StarlarkLazyAttrs<'v> {
 fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
     /// Gets a single attribute. Returns an optional `[configured_attr]`.
     ///
-    /// ```text
+    /// ```python
     /// def _impl_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.attrs_lazy() # cache once
@@ -784,7 +784,7 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     ///
     /// Gets a single attribute.
     ///
-    /// ```text
+    /// ```python
     /// def _impl_resolved_attrs_lazy(ctx):
     ///     node = ctx.cquery().owner("cell//path/to/TARGETS")[0]
     ///     attrs = node.resolved_attrs_lazy(ctx) # cache once

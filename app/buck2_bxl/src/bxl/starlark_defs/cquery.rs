@@ -240,7 +240,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The kind query for filtering targets by rule type.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_kind(ctx):
     ///     kind = ctx.cquery().kind(".*1", "bin/kind/...")
     ///     ctx.output.print(kind)
@@ -266,7 +266,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The attrregexfilter query for rule attribute filtering with regex.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_attrregexfilter(ctx):
     ///     filtered = ctx.cquery().attrregexfilter("foo", "he.lo", "bin/kind/...")
     ///     ctx.output.print(filtered)
@@ -296,7 +296,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// the fully qualified cell path.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _owner_impl(ctx):
     ///     owner = ctx.cquery().owner("bin/TARGETS.fixture", "foo//target/universe/...")
     ///     ctx.output.print(owner)
@@ -330,7 +330,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The deps query for finding the transitive closure of dependencies.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_deps(ctx):
     ///     result = ctx.cquery().deps("root//bin:the_binary", 1)
     ///     ctx.output.print(result)
@@ -371,7 +371,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The filter query for filtering targets by name.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_filter(ctx):
     ///     result = ctx.cquery().filter(".*the_binary", "root//...")
     ///     ctx.output.print(result)
@@ -399,7 +399,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The inputs query for finding input files.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_inputs(ctx):
     ///     result = ctx.cquery().inputs("root//bin:the_binary")
     ///     ctx.output.print(result)
@@ -469,7 +469,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// The rdeps query for finding the transitive closure of reverse dependencies.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_rdeps(ctx):
     ///     result = ctx.cquery().rdeps("root//bin:the_binary", "//lib:file1", 100)
     ///     ctx.output.print(result)
@@ -513,7 +513,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// was passed in, otherwise returns a single `target_set`.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _impl_eval(ctx):
     ///     result1 = ctx.cquery().eval("inputs(root//bin:the_binary)")
     ///     ctx.output.print(result1)
@@ -561,7 +561,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     /// Find the build file(s) that defines a target or a target set.
     ///
     /// Sample usage:
-    /// ```text
+    /// ```python
     /// def _buildfile_impl(ctx):
     ///     owner = ctx.cquery().owner(["bin/TARGET", "bin/kind"])
     ///     result = ctx.cquery().buildfile(owner)
