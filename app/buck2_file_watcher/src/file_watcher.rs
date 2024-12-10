@@ -23,6 +23,8 @@ use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use dice::DiceTransactionUpdater;
 
+#[cfg(fbcode_build)]
+use crate::edenfs::interface::EdenFsFileWatcher;
 use crate::fs_hash_crawler::FsHashCrawler;
 use crate::mergebase::Mergebase;
 use crate::notify::NotifyFileWatcher;
@@ -40,6 +42,7 @@ impl dyn FileWatcher {
     /// Create a new FileWatcher. Note that this is not async, since it's called during daemon
     /// startup and shouldn't be doing any work that could warrant suspending.
     pub fn new(
+        fb: fbinit::FacebookInit,
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
@@ -50,6 +53,8 @@ impl dyn FileWatcher {
         } else {
             "watchman"
         };
+
+        let _allow_unused = fb;
 
         match root_config
             .get(BuckconfigKeyRef {
@@ -69,6 +74,11 @@ impl dyn FileWatcher {
             "fs_hash_crawler" => Ok(Arc::new(
                 FsHashCrawler::new(project_root, cells, ignore_specs)
                     .buck_error_context("Creating fs_crawler file watcher")?,
+            )),
+            #[cfg(fbcode_build)]
+            "edenfs" => Ok(Arc::new(
+                EdenFsFileWatcher::new(fb, project_root, cells, ignore_specs)
+                    .buck_error_context("Creating edenfs file watcher")?,
             )),
             other => Err(buck2_error!([], "Invalid buck2.file_watcher: {}", other)),
         }

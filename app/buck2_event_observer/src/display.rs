@@ -400,6 +400,7 @@ fn display_file_watcher(provider: i32) -> &'static str {
         Some(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
         Some(buck2_data::FileWatcherProvider::RustNotify) => "notify",
         Some(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
+        Some(buck2_data::FileWatcherProvider::EdenFs) => "EdenFS",
         None => "unknown mechanism",
     }
 }

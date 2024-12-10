@@ -532,6 +532,7 @@ impl DaemonState {
             // this list should be safe until we can revert it to Expr::True.
 
             let file_watcher = <dyn FileWatcher>::new(
+                fb,
                 paths.project_root(),
                 root_config,
                 cells.dupe(),

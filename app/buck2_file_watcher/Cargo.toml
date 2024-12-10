@@ -19,6 +19,7 @@ blake3 = { workspace = true }
 compact_str = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
+fbinit = { workspace = true }
 starlark_map = { workspace = true }
 # @oss-disable: watchman_client.path = "../../../watchman/rust/watchman_client"
 watchman_client.version = "0.9.0"

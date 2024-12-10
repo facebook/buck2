@@ -1702,8 +1702,8 @@ enum FileWatcherProvider {
   WATCHMAN = 0;
   // The Rust `notify` crate
   RUST_NOTIFY = 1;
-
   FS_HASH_CRAWLER = 2;
+  EDEN_FS = 3;
 }
 
 enum FileWatcherEventType {
