@@ -16,6 +16,9 @@ def _package(
         overwrite = False):  # @unused
     pass
 
+def _labels(*args):
+    return []
+
 ci = struct(
     package = _package,
     linux = _lbl,
@@ -25,4 +28,5 @@ ci = struct(
     aarch64 = _lbl,
     mode = _lbl,
     opt = _lbl,
+    labels = _labels,
 )
