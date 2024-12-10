@@ -36,7 +36,7 @@ fn http_error_label(status: StatusCode) -> &'static str {
 fn tag_from_status(status: StatusCode) -> Option<buck2_error::ErrorTag> {
     if status.is_server_error() {
         Some(buck2_error::ErrorTag::HttpServer)
-    } else if status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND {
+    } else if status.is_client_error() {
         Some(buck2_error::ErrorTag::HttpClient)
     } else {
         None

@@ -57,7 +57,6 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::IoClientBrokenPipe => rank!(environment),
         ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
         ErrorTag::WatchmanCheckoutInProgress => rank!(environment),
-        ErrorTag::DownloadFileHeadRequest => rank!(environment),
         ErrorTag::ServerTransportError => rank!(environment),
         ErrorTag::ServerMemoryPressure => rank!(environment),
         // Daemon was likely SIGKILLed, otherwise it should have written something to stderr
@@ -168,6 +167,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::MaterializationError => rank!(unspecified),
         ErrorTag::CleanInterrupt => rank!(unspecified),
         ErrorTag::Http => rank!(unspecified),
+        ErrorTag::DownloadFileHeadRequest => rank!(unspecified),
         ErrorTag::Install => rank!(unspecified),
         ErrorTag::AnyActionExecution => rank!(unspecified),
         ErrorTag::StarlarkError => rank!(unspecified),
