@@ -128,6 +128,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 pre_dexed_libs,
                 get_split_dex_merge_config(ctx, android_toolchain),
                 target_to_module_mapping_file,
+                enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )
         else:
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
