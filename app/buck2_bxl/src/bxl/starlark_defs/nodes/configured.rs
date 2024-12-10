@@ -649,7 +649,7 @@ pub(crate) struct StarlarkLazyAttrs<'v> {
     configured_target_node: &'v StarlarkConfiguredTargetNode,
 }
 
-#[starlark_value(type = "lazy_attrs", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.LazyAttrs", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkLazyAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

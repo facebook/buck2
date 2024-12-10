@@ -30,6 +30,7 @@ use crate::bxl::starlark_defs::lazy_ctx::lazy_cquery_ctx::StarlarkLazyCqueryCtx;
 use crate::bxl::starlark_defs::lazy_ctx::operation::StarlarkLazy;
 use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
+use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyAttrs;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyResolvedAttrs;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkError;
@@ -58,6 +59,7 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
         StarlarkValueAsType::new();
     const ConfiguredTargetNode: StarlarkValueAsType<StarlarkConfiguredTargetNode> =
         StarlarkValueAsType::new();
+    const LazyAttrs: StarlarkValueAsType<StarlarkLazyAttrs> = StarlarkValueAsType::new();
     const LazyResolvedAttrs: StarlarkValueAsType<StarlarkLazyResolvedAttrs> =
         StarlarkValueAsType::new();
     const UnconfiguredTargetSet: StarlarkValueAsType<StarlarkTargetSet<TargetNode>> =
