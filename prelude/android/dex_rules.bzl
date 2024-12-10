@@ -633,6 +633,85 @@ def _sort_pre_dexed_files(
     sorted_pre_dexed_inputs_map = {}
     current_secondary_dex_size_map = {}
     current_secondary_dex_inputs_map = {}
+
+    def assign_pre_dexed_classes_to_secondary_dex(
+            dest: list[list[DexInputWithSpecifiedClasses]],
+            module: str,
+            lib: DexLibraryInfo,
+            weight_estimate: int,
+            dex_class_names: list[str],
+            current_dex_size_map: dict[str, int],  # module to size
+            current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],  # module to dex file that is being built up
+            dex_weight_limit_bytes: int):
+        if len(dex_class_names) == 0:
+            return
+        current_dex_size = current_dex_size_map.get(module, 0)
+        if current_dex_size + weight_estimate > dex_weight_limit_bytes:
+            current_dex_size = 0
+            current_dex_inputs_map[module] = []
+
+        current_dex_inputs = current_dex_inputs_map.setdefault(module, [])
+        if len(current_dex_inputs) == 0:
+            canary_class_dex_input = _create_canary_class(
+                ctx,
+                len(dest) + 1,
+                module,
+                module_to_canary_class_name_function,
+                ctx.attrs._dex_toolchain[DexToolchainInfo],
+            )
+            current_dex_inputs.append(canary_class_dex_input)
+            dest.append(current_dex_inputs)
+
+        current_dex_size_map[module] = current_dex_size + weight_estimate
+        current_dex_inputs.append(
+            DexInputWithSpecifiedClasses(lib = lib, dex_class_names = dex_class_names),
+        )
+
+    def organize_pre_dexed_lib(
+            dest: list[list[DexInputWithSpecifiedClasses]],
+            module: str,
+            lib: DexLibraryInfo,
+            weight_estimate: int,
+            dex_class_names: list[str],
+            current_dex_size_map: dict[str, int],
+            current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],
+            dex_weight_limit_bytes: int):
+        if weight_estimate > dex_weight_limit_bytes:
+            # Given library is beyond the configured weight; subdivide it into
+            # many dex files to lessen the likelihood of overflowing a dex.
+            num_classes = len(dex_class_names)
+            chunks = weight_estimate / dex_weight_limit_bytes
+            chunk_size = max(1, int(num_classes // chunks))
+            for start_index in range(0, num_classes, chunk_size):
+                end_index = min(start_index + chunk_size, num_classes)
+                chunked_dex_class_names = dex_class_names[start_index:end_index]
+
+                # Note: the original weight_estimate will be reused for the
+                # chunk since individual class sizes are not exposed
+                # (be pessimistic).
+                assign_pre_dexed_classes_to_secondary_dex(
+                    dest,
+                    module,
+                    lib,
+                    weight_estimate,
+                    chunked_dex_class_names,
+                    current_dex_size_map,
+                    current_dex_inputs_map,
+                    dex_weight_limit_bytes,
+                )
+        else:
+            # No need to further divide
+            assign_pre_dexed_classes_to_secondary_dex(
+                dest,
+                module,
+                lib,
+                weight_estimate,
+                dex_class_names,
+                current_dex_size_map,
+                current_dex_inputs_map,
+                dex_weight_limit_bytes,
+            )
+
     for pre_dexed_libs_with_class_names_and_weight_estimates in pre_dexed_libs_with_class_names_and_weight_estimates_files:
         class_names_and_weight_estimates_json = artifacts[pre_dexed_libs_with_class_names_and_weight_estimates.weight_estimate_and_filtered_class_names_file].read_json()
         for pre_dexed_lib in pre_dexed_libs_with_class_names_and_weight_estimates.libs:
@@ -670,26 +749,17 @@ def _sort_pre_dexed_files(
 
             if len(secondary_dex_class_names) > 0:
                 weight_estimate = int(weight_estimate_string)
-                current_secondary_dex_size = current_secondary_dex_size_map.get(module, 0)
-                if current_secondary_dex_size + weight_estimate > split_dex_merge_config.secondary_dex_weight_limit_bytes:
-                    current_secondary_dex_size = 0
-                    current_secondary_dex_inputs_map[module] = []
 
-                current_secondary_dex_inputs = current_secondary_dex_inputs_map.setdefault(module, [])
-                if len(current_secondary_dex_inputs) == 0:
-                    canary_class_dex_input = _create_canary_class(
-                        ctx,
-                        len(secondary_dex_inputs) + 1,
-                        module,
-                        module_to_canary_class_name_function,
-                        ctx.attrs._dex_toolchain[DexToolchainInfo],
-                    )
-                    current_secondary_dex_inputs.append(canary_class_dex_input)
-                    secondary_dex_inputs.append(current_secondary_dex_inputs)
-
-                current_secondary_dex_size_map[module] = current_secondary_dex_size + weight_estimate
-                current_secondary_dex_inputs.append(
-                    DexInputWithSpecifiedClasses(lib = pre_dexed_lib, dex_class_names = secondary_dex_class_names),
+                # Organize secondary dex classes into logical dex file(s)
+                organize_pre_dexed_lib(
+                    secondary_dex_inputs,
+                    module,
+                    pre_dexed_lib,
+                    weight_estimate,
+                    secondary_dex_class_names,
+                    current_secondary_dex_size_map,
+                    current_secondary_dex_inputs_map,
+                    split_dex_merge_config.secondary_dex_weight_limit_bytes,
                 )
 
     return sorted_pre_dexed_inputs_map.values()
