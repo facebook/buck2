@@ -77,7 +77,7 @@ def _create_fat_jar(
                 java_toolchain.fat_jar_main_class_lib,
                 # fat jar's main class
                 "--fat_jar_main_class",
-                "com.facebook.buck.jvm.java.FatJarMain",
+                "com.facebook.buck.jvm.java.fatjar.FatJarMain",
                 # native libraries directory name. Main class expects to find libraries packed inside this directory.
                 "--fat_jar_native_libs_directory_name",
                 "nativelibs",
