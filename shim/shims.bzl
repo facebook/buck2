@@ -207,9 +207,12 @@ def cpp_unittest(
         compiler_specific_flags = None,
         default_strip_mode = None,
         resources = {},
+        test_main = None,
         **kwargs):
     _unused = (supports_static_listing, allocator, owner, tags, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode)  # @unused
-    if read_config("oss", "folly_cxx_tests", True):
+    if test_main != None:
+        deps = deps + [test_main]
+    elif read_config("oss", "folly_cxx_tests", True):
         deps = deps + CPP_FOLLY_UNITTEST_DEPS
     else:
         deps = deps + CPP_UNITTEST_DEPS
