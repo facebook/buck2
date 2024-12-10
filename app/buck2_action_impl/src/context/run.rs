@@ -19,6 +19,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisito
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
+use buck2_build_api::interpreter::rule_defs::command_executor_config::parse_custom_re_image;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
@@ -40,6 +41,7 @@ use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
 use starlark::values::StringValue;
 use starlark::values::UnpackAndDiscard;
+use starlark::values::Value;
 use starlark::values::ValueOf;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
@@ -119,6 +121,14 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///   Each dependency is dictionary with the following keys:
     ///     * `smc_tier`: name of the SMC tier to call by RE Scheduler.
     ///     * `id`: name of the dependency.
+    /// * `remote_execution_dynamic_image`: a custom Tupperware image which is passed to Remote Execution.
+    ///   It takes a dictionary with the following keys:
+    ///     * `identifier`: name of the SMC tier to call by RE Scheduler.
+    ///         * `name`: name of the image.
+    ///         * `uuid`: uuid of the image.
+    ///     * `drop_host_mount_globs`: list of strings containing file
+    ///     globs. Any mounts globs specified will not be bind mounted
+    ///     from the host.
     ///
     /// When actions execute, they'll do so from the root of the repository. As they execute,
     /// actions have exclusive access to their output directory.
@@ -180,6 +190,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
         #[starlark(require = named, default=UnpackList::default())]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
+        #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
     ) -> starlark::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -358,6 +369,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             .map(RemoteExecutorDependency::parse)
             .collect::<buck2_error::Result<Vec<RemoteExecutorDependency>>>()?;
 
+        let re_custom_image = parse_custom_re_image(
+            "remote_execution_dynamic_image",
+            remote_execution_dynamic_image,
+        )?;
+
         let action = UnregisteredRunAction {
             executor_preference,
             always_print_stderr,
@@ -371,6 +387,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             force_full_hybrid_if_capable,
             unique_input_inodes,
             remote_execution_dependencies: re_dependencies,
+            remote_execution_custom_image: re_custom_image,
         };
         this.state()?.register_action(
             artifacts.inputs,

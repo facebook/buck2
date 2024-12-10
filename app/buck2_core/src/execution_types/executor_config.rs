@@ -37,6 +37,7 @@ impl Default for LocalExecutorOptions {
         }
     }
 }
+
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
 pub struct RemoteEnabledExecutorOptions {
     pub executor: RemoteEnabledExecutor,
@@ -47,6 +48,7 @@ pub struct RemoteEnabledExecutorOptions {
     pub remote_cache_enabled: bool,
     pub remote_dep_file_cache_enabled: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
+    pub custom_image: Option<RemoteExecutorCustomImage>,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -55,6 +57,18 @@ enum RemoteExecutorDependencyErrors {
     MissingField(&'static str),
     #[error("too many fields set for RE dependency: `{0}`")]
     UnsupportedFields(String),
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+pub struct ImagePackageIdentifier {
+    pub name: String,
+    pub uuid: String,
+}
+
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+pub struct RemoteExecutorCustomImage {
+    pub identifier: ImagePackageIdentifier,
+    pub drop_host_mount_globs: Vec<String>,
 }
 
 /// A Remote Action can specify a list of dependencies that are required before starting the execution `https://fburl.com/wiki/offzl3ox`
@@ -156,6 +170,7 @@ pub struct RePlatformFields {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[allow(clippy::large_enum_variant)]
 pub enum Executor {
     /// This executor only runs local commands.
     Local(LocalExecutorOptions),

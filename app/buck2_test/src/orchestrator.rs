@@ -55,6 +55,7 @@ use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
+use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -370,7 +371,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         } = key;
         let fs = dice.get_artifact_fs().await.map_err(anyhow::Error::from)?;
         let test_info = Self::get_test_info(dice, &test_target).await?;
-        let (test_executor, re_cache_enabled) = Self::get_test_executor(
+        let test_executor = Self::get_test_executor(
             dice,
             &test_target,
             &test_info,
@@ -386,7 +387,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             Cow::Borrowed(&cmd),
             Cow::Borrowed(&env),
             Cow::Borrowed(&pre_create_dirs),
-            &test_executor.executor_fs(),
+            &test_executor.executor().executor_fs(),
             prefix,
             options,
         )
@@ -402,7 +403,10 @@ impl<'a> BuckTestOrchestrator<'a> {
             worker,
         } = test_executable_expanded;
         let executor_preference = Self::executor_preference(options, supports_re)?;
-        let required_resources = if test_executor.is_local_execution_possible(executor_preference) {
+        let required_resources = if test_executor
+            .executor()
+            .is_local_execution_possible(executor_preference)
+        {
             let setup_local_resources_executor = Self::get_local_executor(dice, &fs).await?;
             let simple_stage = stage.as_ref().into();
 
@@ -443,6 +447,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             Some(executor_preference),
             required_resources,
             worker,
+            test_executor.re_dynamic_image(),
         )
         .boxed()
         .await?;
@@ -451,10 +456,10 @@ impl<'a> BuckTestOrchestrator<'a> {
             cancellation,
             &test_target,
             &stage,
-            &test_executor,
+            test_executor.executor(),
             execution_request,
             liveliness_observer.dupe(),
-            re_cache_enabled,
+            test_executor.re_cache_enabled(),
         )
         .boxed()
         .await?;
@@ -767,7 +772,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             .await?;
 
         // Tests are not run, so there is no executor override.
-        let (executor, _) = Self::get_test_executor(
+        let test_executor = Self::get_test_executor(
             self.dice.dupe().deref_mut(),
             &test_target,
             &test_info,
@@ -783,7 +788,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             Cow::Owned(cmd),
             Cow::Owned(env),
             Cow::Owned(pre_create_dirs),
-            &executor.executor_fs(),
+            &test_executor.executor().executor_fs(),
             TestExecutionPrefix::new(&stage, &self.session),
             self.session.options(),
         )
@@ -812,6 +817,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             None,
             vec![],
             worker,
+            test_executor.re_dynamic_image(),
         )
         .await?;
 
@@ -1217,7 +1223,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         executor_override: Option<Arc<ExecutorConfigOverride>>,
         fs: &ArtifactFs,
         stage: &TestStage,
-    ) -> anyhow::Result<(CommandExecutor, bool)> {
+    ) -> anyhow::Result<TestExecutor> {
         // NOTE: get_providers() implicitly calls this already but it's not the end of the world
         // since this will get cached in DICE.
         let node = dice
@@ -1250,7 +1256,11 @@ impl<'b> BuckTestOrchestrator<'b> {
         let executor = Self::get_command_executor(dice, fs, &executor_config, stage)
             .await
             .context("Error constructing CommandExecutor")?;
-        Ok((executor, executor_config.re_cache_enabled()))
+
+        Ok(TestExecutor {
+            test_executor: executor,
+            executor_config: executor_config.into_owned(),
+        })
     }
 
     async fn expand_test_executable<'a>(
@@ -1334,6 +1344,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         executor_preference: Option<ExecutorPreference>,
         required_local_resources: Vec<LocalResourceState>,
         worker: Option<WorkerSpec>,
+        re_dynamic_image: Option<RemoteExecutorCustomImage>,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -1363,6 +1374,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist())
             .with_disable_miniperf(true)
             .with_worker(worker)
+            .with_remote_execution_custom_image(re_dynamic_image)
             .with_required_local_resources(required_local_resources)?;
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
@@ -2001,6 +2013,29 @@ impl CommandExecutionTarget for LocalResourceTarget<'_> {
         buck2_data::ActionName {
             category: "setup_local_resource".to_owned(),
             identifier: "".to_owned(),
+        }
+    }
+}
+
+struct TestExecutor {
+    test_executor: CommandExecutor,
+    executor_config: CommandExecutorConfig,
+}
+
+impl TestExecutor {
+    pub fn re_cache_enabled(&self) -> bool {
+        self.executor_config.re_cache_enabled()
+    }
+
+    pub fn executor(&self) -> &CommandExecutor {
+        &self.test_executor
+    }
+
+    pub fn re_dynamic_image(&self) -> Option<RemoteExecutorCustomImage> {
+        if let Executor::RemoteEnabled(options) = &self.executor_config.executor {
+            options.custom_image.clone()
+        } else {
+            None
         }
     }
 }

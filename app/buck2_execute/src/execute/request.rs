@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
+use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutScratchPath;
@@ -323,6 +324,8 @@ pub struct CommandExecutionRequest {
     pub remote_dep_file_key: Option<DepFileDigest>,
     /// RE dependencies to pass in action metadata.
     remote_execution_dependencies: Vec<RemoteExecutorDependency>,
+    /// RE custom tupperware image.
+    remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
 }
 
 impl CommandExecutionRequest {
@@ -352,6 +355,7 @@ impl CommandExecutionRequest {
             unique_input_inodes: false,
             remote_dep_file_key: None,
             remote_execution_dependencies: Vec::new(),
+            remote_execution_custom_image: None,
         }
     }
 
@@ -543,6 +547,18 @@ impl CommandExecutionRequest {
 
     pub fn remote_execution_dependencies(&self) -> &Vec<RemoteExecutorDependency> {
         &self.remote_execution_dependencies
+    }
+
+    pub fn with_remote_execution_custom_image(
+        mut self,
+        remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
+    ) -> Self {
+        self.remote_execution_custom_image = remote_execution_custom_image;
+        self
+    }
+
+    pub fn remote_execution_custom_image(&self) -> &Option<RemoteExecutorCustomImage> {
+        &self.remote_execution_custom_image
     }
 }
 

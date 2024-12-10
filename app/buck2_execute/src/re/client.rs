@@ -1077,6 +1077,7 @@ impl RemoteExecutionClientImpl {
             respect_file_symlinks: Some(self.respect_file_symlinks),
             ..use_case.metadata(Some(identity))
         };
+
         let request = ExecuteRequest {
             skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
             execution_policy: Some(TExecutionPolicy {

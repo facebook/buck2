@@ -15,11 +15,13 @@ use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
+use buck2_core::execution_types::executor_config::ImagePackageIdentifier;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
+use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -29,6 +31,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::dict::DictRef;
+use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
@@ -88,6 +91,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `remote_output_paths`: How to express output paths to RE
     /// * `remote_execution_resource_units`: The resources (eg. GPUs) to use for remote execution
     /// * `remote_execution_dependencies`: Dependencies for remote execution for this platform
+    /// * `remote_execution_custom_image`: Custom Tupperware image for remote execution for this platform
     #[starlark(as_type = StarlarkCommandExecutorConfig)]
     fn CommandExecutorConfig<'v>(
         #[starlark(require = named)] local_enabled: bool,
@@ -116,6 +120,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         remote_execution_resource_units: NoneOr<i64>,
         #[starlark(default=UnpackList::default(), require = named)]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
+        #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
     ) -> starlark::Result<StarlarkCommandExecutorConfig> {
         let command_executor_config = {
             let remote_execution_max_input_files_mebibytes =
@@ -153,6 +158,11 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 .into_iter()
                 .map(RemoteExecutorDependency::parse)
                 .collect::<buck2_error::Result<Vec<RemoteExecutorDependency>>>()?;
+
+            let re_dynamic_image = parse_custom_re_image(
+                "remote_execution_custom_image",
+                remote_execution_dynamic_image,
+            )?;
 
             let re_use_case = if remote_execution_use_case.is_none() {
                 None
@@ -266,6 +276,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_cache_enabled,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
+                        custom_image: re_dynamic_image,
                     })
                 }
                 (Some(local), None, true) => {
@@ -281,6 +292,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_cache_enabled: true,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
+                        custom_image: re_dynamic_image,
                     })
                 }
                 // If remote cache is disabled, also disable the remote dep file cache as well
@@ -318,4 +330,84 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             command_executor_config,
         )))
     }
+}
+
+pub fn parse_custom_re_image(
+    field_name: &'static str,
+    value: Value,
+) -> buck2_error::Result<Option<RemoteExecutorCustomImage>> {
+    if value.is_none() {
+        return Ok(None);
+    }
+
+    fn dict_ref<'v>(
+        field_name: &'static str,
+        value: Value<'v>,
+    ) -> buck2_error::Result<DictRef<'v>> {
+        match DictRef::from_value(value) {
+            Some(dict_ref) => Ok(dict_ref),
+            None => Err(CommandExecutorConfigErrors::InvalidField(field_name).into()),
+        }
+    }
+
+    fn list_ref<'v>(
+        field_name: &'static str,
+        value: Value<'v>,
+    ) -> buck2_error::Result<&'v ListRef<'v>> {
+        match ListRef::from_value(value) {
+            Some(list_ref) => Ok(list_ref),
+            None => Err(CommandExecutorConfigErrors::InvalidField(field_name).into()),
+        }
+    }
+
+    fn get_value<'v>(dict_ref: &DictRef<'v>, name: &'static str) -> buck2_error::Result<Value<'v>> {
+        if let Some(value) = dict_ref.get_str(name) {
+            if value.is_none() {
+                Err(CommandExecutorConfigErrors::InvalidField(name).into())
+            } else {
+                Ok(value)
+            }
+        } else {
+            Err(CommandExecutorConfigErrors::MissingField(name).into())
+        }
+    }
+
+    fn get_string<'v>(dict_ref: &DictRef<'v>, name: &'static str) -> buck2_error::Result<String> {
+        let value = get_value(dict_ref, name)?;
+        Ok(value.to_str())
+    }
+
+    let dict = dict_ref(field_name, value)?;
+    let identifier_value = get_value(&dict, "identifier")?;
+    let identifier = if let Some(identifier_dict) = DictRef::from_value(identifier_value) {
+        ImagePackageIdentifier {
+            name: get_string(&identifier_dict, "name")?,
+            uuid: get_string(&identifier_dict, "uuid")?,
+        }
+    } else {
+        let identifier = identifier_value.to_str();
+        if let Some(index) = identifier.rfind(':') {
+            ImagePackageIdentifier {
+                name: identifier[..index].to_owned(),
+                uuid: identifier[(index + 1)..].to_owned(),
+            }
+        } else {
+            ImagePackageIdentifier {
+                name: identifier,
+                uuid: "".to_owned(),
+            }
+        }
+    };
+
+    let mount_globs_value = get_value(&dict, "drop_host_mount_globs")?;
+    let mount_globs = list_ref("drop_host_mount_globs", mount_globs_value)?;
+    let mut drop_host_mount_globs = vec![];
+    for item in mount_globs.iter() {
+        drop_host_mount_globs.push(item.to_str());
+    }
+
+    Ok(Some(RemoteExecutorCustomImage {
+        identifier,
+        drop_host_mount_globs,
+    }))
 }

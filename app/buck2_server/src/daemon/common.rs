@@ -493,6 +493,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             remote_cache_enabled: true,
             remote_dep_file_cache_enabled: false,
             dependencies: vec![],
+            custom_image: None,
         })
     };
 
