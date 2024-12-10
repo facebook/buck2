@@ -39,6 +39,7 @@ pub mod win;
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
 pub const EXPERIMENTS_FILENAME: &str = "experiments_from_buck_start";
+pub const DOT_BUCKCONFIG_D: &str = ".buckconfig.d";
 
 /// Because `sysinfo::Process` is not `Clone`.
 struct ProcessInfo {
