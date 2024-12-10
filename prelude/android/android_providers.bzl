@@ -222,6 +222,7 @@ ExportedAndroidResourceInfo = provider(
 DexFilesInfo = record(
     primary_dex = Artifact,
     primary_dex_class_names = Artifact | None,
+    root_module_bootstrap_dex_dirs = list[Artifact],
     root_module_secondary_dex_dirs = list[Artifact],
     non_root_module_secondary_dex_dirs = list[Artifact],
     secondary_dex_exopackage_info = [ExopackageDexInfo, None],

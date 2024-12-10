@@ -88,7 +88,7 @@ def build_bundle(
     if android_toolchain.package_meta_inf_version_files:
         bundle_builder_args.add("--package-meta-inf-version-files")
 
-    root_module_asset_directories = native_library_info.root_module_native_lib_assets + dex_files_info.root_module_secondary_dex_dirs
+    root_module_asset_directories = native_library_info.root_module_native_lib_assets + dex_files_info.root_module_bootstrap_dex_dirs + dex_files_info.root_module_secondary_dex_dirs
     root_module_asset_directories_file = argfile(actions = actions, name = "root_module_asset_directories.txt", args = root_module_asset_directories)
 
     non_root_module_asset_directories = resources_info.module_manifests + dex_files_info.non_root_module_secondary_dex_dirs

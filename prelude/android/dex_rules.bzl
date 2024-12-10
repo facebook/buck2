@@ -114,6 +114,7 @@ def get_single_primary_dex(
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
+        root_module_bootstrap_dex_dirs = [],
         root_module_secondary_dex_dirs = [],
         non_root_module_secondary_dex_dirs = [],
         secondary_dex_exopackage_info = None,
@@ -129,7 +130,8 @@ def get_multi_dex(
         proguard_configuration_output_file: Artifact | None = None,
         proguard_mapping_output_file: Artifact | None = None,
         is_optimized: bool = False,
-        apk_module_graph_file: Artifact | None = None) -> DexFilesInfo:
+        apk_module_graph_file: Artifact | None = None,
+        enable_bootstrap_dexes = False) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "secondary dex exopackage can only be enabled on pre-dexed builds!",
@@ -143,6 +145,10 @@ def get_multi_dex(
     # so just create an empty input.
     inputs = [apk_module_graph_file] if apk_module_graph_file else [ctx.actions.write("empty_artifact_for_multi_dex_dynamic_action", [])]
     outputs = [primary_dex_file, primary_dex_class_names, root_module_secondary_dex_output_dir, secondary_dex_dir]
+    root_module_bootstrap_dex_output_dir = None
+    if enable_bootstrap_dexes:
+        root_module_bootstrap_dex_output_dir = ctx.actions.declare_output("root_module_bootstrap_dex_output_dir", dir = True)
+        outputs.append(root_module_bootstrap_dex_output_dir)
 
     def do_multi_dex(ctx: AnalysisContext, artifacts, outputs):
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
@@ -164,7 +170,8 @@ def get_multi_dex(
             secondary_dex_compression_cmd.add("--raw-secondary-dexes-dir", uncompressed_secondary_dex_output_dir)
             if is_root_module(module):
                 primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns", primary_dex_patterns)
-                if getattr(ctx.attrs, "minimize_primary_dex_size", False):
+
+                if getattr(ctx.attrs, "minimize_primary_dex_size", False) or enable_bootstrap_dexes:
                     primary_dex_jars, jars_to_dex = _get_primary_dex_and_secondary_dex_jars(
                         ctx,
                         jars,
@@ -178,6 +185,12 @@ def get_multi_dex(
                     primary_dex_jar_to_dex_file = argfile(actions = ctx.actions, name = "primary_dex_jars_to_dex_file_for_root_module.txt", args = primary_dex_jars)
                     multi_dex_cmd.add("--primary-dex-files-to-dex-list", primary_dex_jar_to_dex_file)
                     multi_dex_cmd.add("--minimize-primary-dex")
+
+                    # Tells the multidex command to allow primary dex pattern matches to be spread across several dex files if needed
+                    if enable_bootstrap_dexes:
+                        multi_dex_cmd.add("--enable-bootstrap-dexes")
+                        multi_dex_cmd.add("--bootstrap-dex-output-dir", outputs[root_module_bootstrap_dex_output_dir].as_output())
+                        secondary_dex_compression_cmd.add("--bootstrap-dexes-dir", outputs[root_module_bootstrap_dex_output_dir])
                 else:
                     jars_to_dex = jars
                     multi_dex_cmd.add("--primary-dex-patterns-path", primary_dex_patterns_file)
@@ -223,6 +236,7 @@ def get_multi_dex(
 
     return DexFilesInfo(
         primary_dex = primary_dex_file,
+        root_module_bootstrap_dex_dirs = [root_module_bootstrap_dex_output_dir] if root_module_bootstrap_dex_output_dir else [],
         root_module_secondary_dex_dirs = [root_module_secondary_dex_output_dir],
         non_root_module_secondary_dex_dirs = [secondary_dex_dir],
         secondary_dex_exopackage_info = None,
@@ -282,6 +296,7 @@ def merge_to_single_dex(
 
     return DexFilesInfo(
         primary_dex = output_dex_file,
+        root_module_bootstrap_dex_dirs = [],
         root_module_secondary_dex_dirs = [],
         non_root_module_secondary_dex_dirs = [],
         secondary_dex_exopackage_info = None,
@@ -579,6 +594,7 @@ def merge_to_split_dex(
 
     return DexFilesInfo(
         primary_dex = primary_dex_output,
+        root_module_bootstrap_dex_dirs = [],
         root_module_secondary_dex_dirs = root_module_secondary_dex_dirs,
         non_root_module_secondary_dex_dirs = [non_root_module_secondary_dexes_dir],
         secondary_dex_exopackage_info = secondary_dex_exopackage_info,

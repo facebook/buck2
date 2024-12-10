@@ -139,6 +139,7 @@ def build_apk(
     asset_directories = (
         native_library_info.root_module_native_lib_assets +
         native_library_info.non_root_module_native_lib_assets +
+        dex_files_info.root_module_bootstrap_dex_dirs +
         dex_files_info.root_module_secondary_dex_dirs +
         dex_files_info.non_root_module_secondary_dex_dirs +
         resources_info.module_manifests

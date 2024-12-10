@@ -171,6 +171,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 proguard_output.proguard_mapping_output_file if proguard_output else None,
                 is_optimized = has_proguard_config,
                 apk_module_graph_file = target_to_module_mapping_file,
+                enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )
         else:
             dex_files_info = get_single_primary_dex(
