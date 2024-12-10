@@ -223,7 +223,6 @@ def process_genrule(
     for symlink in symlinks:
         srcs.add(cmd_args(srcs_artifact, format = path_sep.join([".", "{}", symlink.replace("/", path_sep)])))
     env_vars = {
-        "ASAN_OPTIONS": "detect_leaks=0,detect_odr_violation=0",
         "GEN_DIR": "GEN_DIR_DEPRECATED",
         "OUT": out_artifact.as_output(),
         "SRCDIR": cmd_args(srcs_artifact, format = path_sep.join([".", "{}"])),
