@@ -59,6 +59,7 @@ buck2_events = { workspace = true }
 buck2_futures = { workspace = true }
 buck2_http = { workspace = true }
 buck2_util = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

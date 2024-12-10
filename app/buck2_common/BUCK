@@ -78,6 +78,7 @@ rust_library(
         "//buck2/app/buck2_futures:buck2_futures",
         "//buck2/app/buck2_http:buck2_http",
         "//buck2/app/buck2_util:buck2_util",
+        "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/dice/dice:dice",
         # @oss-disable: "//buck2/facebook/allocator-stats:allocator-stats", 
         "//buck2/gazebo/cmp_any:cmp_any",
