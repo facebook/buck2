@@ -105,6 +105,9 @@ use buck2_test::local_resource_registry::InitLocalResourceRegistry;
 use buck2_util::arc_str::ArcS;
 use buck2_util::truncate::truncate_container;
 use buck2_validation::enabled_optional_validations_key::SetEnabledOptionalValidations;
+use buck2_wrapper_common::DOT_BUCKCONFIG_D;
+use buck2_wrapper_common::EXPERIMENTS_FILENAME;
+use const_format::concatcp;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
@@ -131,6 +134,10 @@ enum DaemonCommunicationError {
     #[error("Got invalid working directory `{0}`")]
     InvalidWorkingDirectory(String),
 }
+
+const EXPERIMENT_PATH_SUFFIX: &str = concatcp!("/", DOT_BUCKCONFIG_D, "/", EXPERIMENTS_FILENAME);
+
+const EXPERIMENTS: &str = "experiments";
 
 /// BaseCommandContext provides access to the global daemon state and information specific to a command (like the
 /// EventDispatcher). Most commands use a ServerCommandContext which has more command/client-specific information.
@@ -428,6 +435,30 @@ impl<'a> ServerCommandContext<'a> {
 }
 
 impl ServerCommandContext<'_> {
+    fn get_experiment_tags(&self, components: &[buck2_data::BuckconfigComponent]) -> Vec<String> {
+        let mut init = Vec::new();
+        for component in components {
+            use buck2_data::buckconfig_component::Data;
+            match &component.data {
+                Some(Data::GlobalExternalConfigFile(external_config_file)) => {
+                    if external_config_file
+                        .origin_path
+                        .ends_with(EXPERIMENT_PATH_SUFFIX)
+                    {
+                        external_config_file.values.iter().for_each(|config_value| {
+                            if config_value.section == EXPERIMENTS {
+                                // all enabled GK experiments have their value set to true by definition
+                                init.push(format!("{}.{}", EXPERIMENTS, config_value.key.clone()));
+                            }
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+        init
+    }
+
     async fn load_new_configs(
         &self,
         dice_ctx: &mut DiceComputations<'_>,
@@ -441,10 +472,11 @@ impl ServerCommandContext<'_> {
         self.report_traced_config_paths(&new_configs.config_paths)?;
         // Normally, this code should execute only once (hence we should fire only one BuckconfigInputValues event) but there might be an additional call once concurrent command is detected.
         // Even if there is no concurrent command, we sometimes end up having two events due to a bug where concurrency manager treats many more commands as being concurrent than it's supposed to.
+        let components = new_configs.external_data.get_buckconfig_components();
+        let tags = self.get_experiment_tags(&components);
+        self.events().instant_event(buck2_data::TagEvent { tags });
         self.events()
-            .instant_event(buck2_data::BuckconfigInputValues {
-                components: new_configs.external_data.get_buckconfig_components(),
-            });
+            .instant_event(buck2_data::BuckconfigInputValues { components });
 
         if self.reuse_current_config {
             if dice_ctx

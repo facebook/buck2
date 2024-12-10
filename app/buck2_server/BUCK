@@ -36,6 +36,7 @@ rust_library(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:bincode",
         "fbsource//third-party/rust:chrono",
+        "fbsource//third-party/rust:const_format",
         "fbsource//third-party/rust:constant_time_eq",
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:flate2",
