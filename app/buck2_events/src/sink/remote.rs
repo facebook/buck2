@@ -275,13 +275,14 @@ mod fbcode {
                 match &s.data {
                     Some(Data::Command(..)) => true,
                     Some(Data::ActionExecution(a)) => {
-                        match ActionExecutionKind::from_i32(a.execution_kind) {
-                            // Those kinds are not used in downstreams
-                            Some(ActionExecutionKind::Simple) => false,
-                            Some(ActionExecutionKind::Deferred) => false,
-                            Some(ActionExecutionKind::NotSet) => false,
-                            _ => true,
-                        }
+                        a.failed
+                            || match ActionExecutionKind::from_i32(a.execution_kind) {
+                                // Those kinds are not used in downstreams
+                                Some(ActionExecutionKind::Simple) => false,
+                                Some(ActionExecutionKind::Deferred) => false,
+                                Some(ActionExecutionKind::NotSet) => false,
+                                _ => true,
+                            }
                     }
                     Some(Data::Analysis(..)) => !schedule_type.is_diff(),
                     Some(Data::Load(..)) => true,
