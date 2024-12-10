@@ -1,0 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _main(ctx: bxl.Context):
+    universe = ctx.target_universe(ctx.cli_args.target)
+    all_targets = universe.universe_target_set()
+    nodes = ctx.cquery().kind("^(binary|library)$", all_targets)
+    ctx.output.print(pstr(nodes))
+
+main = bxl_main(
+    impl = _main,
+    cli_args = {
+        "target": cli_args.target_label(),
+    },
+)
