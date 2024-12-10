@@ -152,7 +152,10 @@ impl QueryEnvironmentDescription {
 
 fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> String {
     let anchor = if options.links_enabled {
-        &format!("<a name=\"{}\"></a>", v.internal_link_id())
+        &format!(
+            "<a class=\"anchorWithStickyNavbar\" name=\"{}\"></a>",
+            v.internal_link_id()
+        )
     } else {
         ""
     };

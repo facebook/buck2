@@ -61,3 +61,7 @@ table.starlark_members_table td:nth-child(3) {
 .navbar__link--active {
   text-decoration-line: underline;
 }
+
+.anchorWithStickyNavbar {
+  scroll-margin-top: calc(var(--ifm-navbar-height) + 0.5rem);
+}
