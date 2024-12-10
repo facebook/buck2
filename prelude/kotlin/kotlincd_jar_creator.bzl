@@ -107,7 +107,7 @@ def create_jar_artifact_kotlincd(
         should_use_jvm_abi_gen = False
 
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
-    incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", dir = True) if should_kotlinc_run_incrementally else None
+    incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", dir = True)
 
     def encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir = None):
         kosabiPluginOptionsMap = {}
