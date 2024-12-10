@@ -11,7 +11,7 @@ load("get_attrs.bxl", "get_attrs")
 load("get_compiler_settings.bxl", "gen_compiler_settings")
 load("get_linker_settings.bxl", "gen_linker_settings")
 load("get_vs_settings.bxl", "get_vs_settings")
-load("utils.bxl", "get_mode_config_path", "get_project_file_path", "get_vs_configuration", "h", "log_debug")
+load("utils.bxl", "get_mode_config_path", "get_project_file_path", "get_root_path_relative_to", "get_vs_configuration", "h", "log_debug")
 
 def _gen_project_configurations(project_configurations):
     return h("ItemGroup", [
@@ -56,10 +56,14 @@ def _gen_sources(sources):
         for source in sources
     ], indent_level = 1)
 
-def _gen_import_mode_configs(vs_settings: dict):
+def _gen_import_mode_configs(vs_settings: dict, target):
     imports = []
     for (mode_file, _) in vs_settings[BY_MODES].items():
-        import_config = '    <Import Condition="\'$(Configuration)\'==\'{}\'" Project="$(RepoRoot)\\generated_projects\\mode_configs\\{}" />\n'.format(get_vs_configuration(mode_file), get_mode_config_path(mode_file))
+        import_config = '    <Import Condition="\'$(Configuration)\'==\'{}\'" Project="{}mode_configs\\{}" />\n'.format(
+            get_vs_configuration(mode_file),
+            get_root_path_relative_to(target.label),
+            get_mode_config_path(mode_file),
+        )
         imports.append(import_config)
     return "".join(imports)
 
@@ -73,7 +77,7 @@ def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, b
     sources = _gen_sources(vs_settings["Sources"])
     compiler_settings = gen_compiler_settings(vs_settings["CompilerSettings"])
     linker_settings = gen_linker_settings(vs_settings["LinkerSettings"])
-    import_mode_configs = _gen_import_mode_configs(vs_settings)
+    import_mode_configs = _gen_import_mode_configs(vs_settings, target)
 
     # Why are we using cmd_args instead of strings? Because bxl resolved_attrs does not support string manipulation (as of July 2024)
     # See https://fb.workplace.com/groups/buck2users/permalink/3703593843230303/ for more context
