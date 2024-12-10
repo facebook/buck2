@@ -5,6 +5,9 @@ oncall("build_infra")
 rust_library(
     name = "buck2_file_watcher",
     srcs = glob(["src/**/*.rs"]),
+    named_deps = {
+        # @oss-disable: "edenfs": "//eden/fs/service:thrift-rust", 
+    },
     test_deps = [
         "fbsource//third-party/rust:tempfile",
     ],

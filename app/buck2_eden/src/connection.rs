@@ -439,6 +439,8 @@ impl_has_error_handling_strategy!(RemoveRecursivelyError);
 impl_has_error_handling_strategy!(EnsureMaterializedError);
 impl_has_error_handling_strategy!(ReaddirError);
 impl_has_error_handling_strategy!(GetSHA1Error);
+impl_has_error_handling_strategy!(GetCurrentJournalPositionError);
+impl_has_error_handling_strategy!(ChangesSinceV2Error);
 
 fn eden_error_kind_tag(e: &EdenError) -> Option<ErrorTag> {
     let tag = match e {
