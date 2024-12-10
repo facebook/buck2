@@ -21,7 +21,9 @@ def _match_recursive_target_types(target: bxl.ConfiguredTargetNode, recursive_ta
     return False
 
 def _normalize_include_exclude_pattern(pattern):
-    if "//" not in pattern:
+    if pattern.startswith("//"):
+        pattern = "fbsource" + pattern
+    elif "//" not in pattern:
         pattern = "fbsource//" + pattern
     return pattern.removesuffix("...")
 
