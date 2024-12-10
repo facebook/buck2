@@ -12,6 +12,13 @@ def __invoke_main() -> None:
     import os
     import sys
 
+    # Remove PYTHONHOME set by the bootstrap script which we use in order to make
+    # sure the bundled runtime uses the correct standard library. We are safe
+    # to remove it once we have initialized the runtime.
+    # leaving it may cause errors if the user code calls a subprocess that
+    # expects to be using the system python distribution eg: buck
+    os.environ.pop("PYTHONHOME", None)
+
     module = os.getenv("FB_PAR_MAIN_MODULE")
     main_function = os.getenv("FB_PAR_MAIN_FUNCTION")
 
