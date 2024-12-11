@@ -21,7 +21,7 @@ async def test_java_test(buck: Buck) -> None:
         "prelude//debugging/fdb.bxl:inspect_target",
         "--",
         "--target",
-        "//buck2/tests/targets/rules/java/java_test:simple_junit_test",
+        "//buck2/tests/targets/rules/java/java_test:simple_junit_test_java11",
     )
 
     exec_info = ExecInfo.from_buck_result(result)
