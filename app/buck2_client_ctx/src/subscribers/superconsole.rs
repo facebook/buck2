@@ -622,7 +622,6 @@ impl StatefulSuperConsoleImpl {
             let display_platform = self.state.config.display_platform;
             let action_id = StyledContent::new(
                 ContentStyle {
-                    foreground_color: Some(Color::White),
                     attributes: Attribute::Bold.into(),
                     ..Default::default()
                 },
@@ -664,7 +663,6 @@ impl StatefulSuperConsoleImpl {
         lines.push(Line::from_iter([Span::new_styled_lossy(
             StyledContent::new(
                 ContentStyle {
-                    foreground_color: Some(Color::White),
                     attributes: Attribute::Bold.into(),
                     ..Default::default()
                 },
