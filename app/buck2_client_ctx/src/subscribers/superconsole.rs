@@ -162,7 +162,7 @@ impl Default for SuperConsoleConfig {
             enable_detailed_re: false,
             enable_io: false,
             enable_commands: false,
-            expanded_progress: false,
+            expanded_progress: true,
             display_platform: false,
             two_lines: false,
             max_lines: 10,
