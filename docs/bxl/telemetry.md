@@ -1,5 +1,5 @@
 ---
-id: bxl_telemetry
+id: telemetry
 title: BXL Telemetry
 ---
 

@@ -1,5 +1,5 @@
 ---
-id: bxl_basics
+id: basics
 title: BXL Basics
 ---
 
@@ -67,7 +67,7 @@ instead.
 
 Querying the configured graph means that configurations have been applied to the
 target graph. For cquery, we require that users use a
-[target universe](../developers/bxl_target_universe.md) for their query inputs.
+[target universe](../target_universe) for their query inputs.
 
 #### Aquery
 
@@ -80,14 +80,14 @@ produces the list of providers and actions needed to build the target.
 You can create actions directly within the BXL API. The available action APIs
 are equivalent to the ones found on the
 [`AnalysisActions`](../../api/build/AnalysisActions) type for normal rules, with
-the caveat that [dynamic actions](./bxl_dynamic_output.md) use the
+the caveat that [dynamic actions](../dynamic_output) use the
 [`bxl.Context`](../../api/bxl/Context) (which provides richer functionalities).
 
 A common workflow would be to run analysis on a target, and use some interesting
 bits found in the analysis result to construct an augmented
 [`cmd_args`](../../api/build#cmd_args) to run, and then ensure the action's
 output (see below for ensuring). Also see
-[Running actions](./bxl_common_how_tos.md#running-actions).
+[Running actions](../common_how_tos#running-actions).
 
 ### Ensure
 
@@ -105,4 +105,4 @@ providers, or creating your own actions).
 A common workflow is to ensure an artifact that you created via some custom
 actions defined in your script, or ensuring some artifacts found in the
 providers after running analysis. Also see
-[What do I need to know about ensured artifacts](./bxl_faq.md#what-do-i-need-to-know-about-ensured-artifacts).
+[What do I need to know about ensured artifacts](../faq#what-do-i-need-to-know-about-ensured-artifacts).

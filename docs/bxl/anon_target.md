@@ -1,5 +1,5 @@
 ---
-id: anon_targets
+id: anon_target
 title: BXL and Anonymous Targets
 ---
 

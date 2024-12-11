@@ -1,10 +1,9 @@
 ---
-id: bxl_getting_started
+id: getting_started
 title: Getting Started
 ---
 
-If you are mostly unfamiliar with Buck2, take a look at
-[BXL Basics](./bxl_basics.md).
+If you are mostly unfamiliar with Buck2, take a look at [BXL Basics](../basics).
 
 ## Navigating the docs
 

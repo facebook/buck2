@@ -1,5 +1,5 @@
 ---
-id: bxl_faqs
+id: faq
 title: FAQs
 ---
 

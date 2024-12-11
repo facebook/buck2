@@ -1,5 +1,5 @@
 ---
-id: bxl_tutorial
+id: tutorial
 title: Tutorial
 ---
 

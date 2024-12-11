@@ -1,5 +1,5 @@
 ---
-id: bxl_how_tos
+id: common_how_tos
 title: Common How-Tos
 ---
 
@@ -252,7 +252,7 @@ artifacts, you can use use
 [`get_path_without_materialization()`](../../api/bxl#get_path_without_materialization),
 which accepts source, declared, or build aritfacts. It does _not_ accept ensured
 artifacts (also see
-[What do I need to know about ensured artifacts](./bxl_faq.md#what-do-i-need-to-know-about-ensured-artifacts)).
+[What do I need to know about ensured artifacts](../faq#what-do-i-need-to-know-about-ensured-artifacts)).
 
 For getting paths of `cmd_args()` inputs, you can use
 [`get_paths_without_materialization()`](../../api/bxl#get_paths_without_materialization),

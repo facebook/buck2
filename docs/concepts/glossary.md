@@ -56,9 +56,9 @@ and any sub-directories not containing a `BUCK` file as a [package](#package).
 
 # BXL
 
-BXL ([Buck eXtension Language](https://buck2.build/docs/developers/bxl)) scripts
-are written in [Starlark](#starlark) (a restricted subset of Python) and give
-integrators the ability to inspect and interact directly with the buck2 graph.
+BXL ([Buck eXtension Language](../../bxl)) scripts are written in
+[Starlark](#starlark) (a restricted subset of Python) and give integrators the
+ability to inspect and interact directly with the buck2 graph.
 
 BXL scripts can query the [action graph](#action-graph),
 [configured graph](#configured-graph), and
