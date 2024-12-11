@@ -12,18 +12,19 @@ use buck2_client_ctx::exit_result::ExitResult;
 
 mod action_divergence;
 mod diff_options;
+mod external_config_diff;
 
 #[derive(Debug, clap::Subcommand)]
 #[clap(about = "Subcommands for diff'ing two buck2 commands")]
 pub enum DiffCommand {
     ActionDivergence(action_divergence::ActionDivergenceCommand),
-    Configs,
+    ExternalConfigs(external_config_diff::ExternalConfigDiffCommand),
 }
 
 impl DiffCommand {
     pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
         match self {
-            Self::Configs => ExitResult::bail("Command not implemented yet!"),
+            Self::ExternalConfigs(cmd) => cmd.exec(matches, ctx),
             Self::ActionDivergence(cmd) => cmd.exec(matches, ctx),
         }
     }
