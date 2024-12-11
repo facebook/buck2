@@ -405,13 +405,14 @@ impl IoHandler for DefaultIoHandler {
         event_dispatcher: EventDispatcher,
         cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError> {
+        let action_digest = match method.as_ref() {
+            ArtifactMaterializationMethod::CasDownload { info } => {
+                info.action_digest().map(|digest| digest.to_string())
+            }
+            _ => None,
+        };
         let materialization_start = buck2_data::MaterializationStart {
-            action_digest: match method.as_ref() {
-                ArtifactMaterializationMethod::CasDownload { info } => {
-                    info.action_digest().map(|digest| digest.to_string())
-                }
-                _ => None,
-            },
+            action_digest: action_digest.clone(),
         };
         event_dispatcher
             .span_async(materialization_start, async move {
@@ -428,12 +429,7 @@ impl IoHandler for DefaultIoHandler {
                 (
                     res,
                     buck2_data::MaterializationEnd {
-                        action_digest: match method.as_ref() {
-                            ArtifactMaterializationMethod::CasDownload { info } => {
-                                info.action_digest().map(|digest| digest.to_string())
-                            }
-                            _ => None,
-                        },
+                        action_digest,
                         file_count: stat.file_count,
                         total_bytes: stat.total_bytes,
                         path: path_string,
