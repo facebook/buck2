@@ -120,3 +120,35 @@ async def test_config_diff_command_command_line(buck: Buck) -> None:
         diff[2]["SecondOnly"]["key"] == "test.second"
         and diff[2]["SecondOnly"]["value"] == "x"
     )
+
+
+@buck_test()
+async def test_config_diff_command_project_relative(buck: Buck) -> None:
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        "@root//mode/my_mode_a",
+        "@root//mode/my_mode_c",
+    )
+    out1 = await buck.log("last")
+    path1 = out1.stdout.strip()
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        "@root//mode/my_mode_b",
+        "@root//mode/my_mode_c",
+        "@root//mode/my_mode_b",
+    )
+    out2 = await buck.log("last")
+    path2 = out2.stdout.strip()
+    diff = (
+        await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2)
+    ).stdout.splitlines()
+    # first three lines is the header
+    diff = diff[3:]
+    diff = json.loads("".join(diff))
+    assert len(diff) == 2
+
+    # We only store the path of the modefile
+    assert diff[0]["FirstOnly"]["key"] == "my_mode_a.bcfg"
+    assert diff[1]["SecondOnly"]["key"] == "my_mode_b.bcfg"

@@ -3,3 +3,4 @@ name=TARGETS.fixture
 
 [repositories]
 prelude = .
+root = .
