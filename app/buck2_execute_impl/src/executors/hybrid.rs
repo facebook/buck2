@@ -59,7 +59,6 @@ pub struct HybridExecutor<R> {
     pub re_max_input_files_bytes: u64,
     pub fallback_tracker: Arc<FallbackTracker>,
     pub memory_tracker: Option<Arc<MemoryTracker>>,
-    #[allow(unused)]
     pub memory_limit_gibibytes: Option<u64>,
 }
 
@@ -110,6 +109,28 @@ where
     /// Indicate whether an action is too big to run on RE.
     fn is_action_too_large_for_remote(&self, paths: &CommandExecutionPaths) -> bool {
         paths.input_files_bytes() > self.re_max_input_files_bytes
+    }
+
+    async fn ensure_low_memory_pressure(&self) {
+        #[cfg(unix)]
+        {
+            use buck2_common::memory_tracker::TrackedMemoryState;
+
+            if let (Some(memory_tracker), Some(memory_limit_gibibytes)) =
+                (&self.memory_tracker, self.memory_limit_gibibytes)
+            {
+                let mut rx = memory_tracker.subscribe().await;
+                // If there is any problem with a tracker play it safe and don't block the execution.
+                let _res = rx
+                    .wait_for(|x| match x {
+                        TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => true,
+                        TrackedMemoryState::Reading { memory_current } => {
+                            *memory_current < memory_limit_gibibytes * 1024 * 1024 * 1024
+                        }
+                    })
+                    .await;
+            }
+        }
     }
 }
 
@@ -279,7 +300,13 @@ where
                             // Block local until either condition is met:
                             // - we only have a few actions (that's low_pass_filter)
                             // - the remote executor aborts (that's remote_execution_liveliness_guard)
-                            let access = self.low_pass_filter.access(weight);
+                            let access = async move {
+                                let guard = self.low_pass_filter.access(weight).await;
+                                // we can keep the low pass filter guard since other actions
+                                // are blocked by same memory issue
+                                self.ensure_low_memory_pressure().await;
+                                guard
+                            };
                             let alive = remote_execution_liveliness_observer.while_alive();
                             futures::pin_mut!(access);
                             futures::pin_mut!(alive);
@@ -289,7 +316,13 @@ where
                         .boxed()
                     })
                 } else {
-                    jobs.map_local(|local| local.boxed())
+                    jobs.map_local(|local| {
+                        async move {
+                            self.ensure_low_memory_pressure().await;
+                            local.await
+                        }
+                        .boxed()
+                    })
                 };
                 jobs.execute_concurrent().await
             };
