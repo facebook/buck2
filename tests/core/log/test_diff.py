@@ -7,25 +7,34 @@
 
 # pyre-strict
 
+import json
+import tempfile
 import typing
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-def with_buck2_args(output: str) -> typing.List[str]:
+def with_buck2_output(output: str) -> typing.List[str]:
     return [
         "-c",
         f"test.buck2_output={output}",
     ]
 
 
+def with_buck2_key_value(key: str, value: str) -> typing.List[str]:
+    return [
+        "-c",
+        f"test.{key}={value}",
+    ]
+
+
 @buck_test()
 async def test_no_action_divergence_command(buck: Buck) -> None:
-    await buck.build("//:simple", *with_buck2_args("foo"))
+    await buck.build("//:simple", *with_buck2_output("foo"))
     out1 = await buck.log("last")
     path1 = out1.stdout.strip()
-    await buck.build("//:simple", *with_buck2_args("foo"))
+    await buck.build("//:simple", *with_buck2_output("foo"))
     out2 = await buck.log("last")
     path2 = out2.stdout.strip()
     out = await buck.log(
@@ -37,8 +46,8 @@ async def test_no_action_divergence_command(buck: Buck) -> None:
 
 @buck_test()
 async def test_action_divergence_command(buck: Buck) -> None:
-    await buck.build("//:non_det", *with_buck2_args("foo"))
-    await buck.build("//:non_det", *with_buck2_args("bar"))
+    await buck.build("//:non_det", *with_buck2_output("foo"))
+    await buck.build("//:non_det", *with_buck2_output("bar"))
     out = await buck.log(
         "diff", "action-divergence", "--recent1", "0", "--recent2", "1"
     )
@@ -46,4 +55,68 @@ async def test_action_divergence_command(buck: Buck) -> None:
     assert (
         "Present in both builds with differing output digests\nprelude//:non_det (<unspecified>) (write foo.txt)"
         in out.stdout
+    )
+
+
+@buck_test()
+async def test_no_config_diff_command(buck: Buck) -> None:
+    await buck.build("//:simple", *with_buck2_output("foo"))
+    out1 = await buck.log("last")
+    path1 = out1.stdout.strip()
+    await buck.build("//:simple", *with_buck2_output("foo"))
+    out2 = await buck.log("last")
+    path2 = out2.stdout.strip()
+    diff = (
+        (await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2))
+        .stdout.strip()
+        .splitlines()
+    )
+    # first three lines is the header
+    diff = json.loads(diff[3])
+    assert len(diff) == 0
+
+
+@buck_test()
+async def test_config_diff_command_command_line(buck: Buck) -> None:
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("changed_old"),
+        *with_buck2_key_value("first", "x"),
+        *with_buck2_key_value("first", "overwrite_x"),
+    )
+    out1 = await buck.log("last")
+    path1 = out1.stdout.strip()
+    with tempfile.NamedTemporaryFile("w", delete=False) as f:
+        f.write("[test]\n")
+        f.write("second = x\n")
+        f.close()
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("changed_new"),
+        "--config-file",
+        f.name,
+    )
+    out2 = await buck.log("last")
+    path2 = out2.stdout.strip()
+    diff = (
+        await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2)
+    ).stdout.splitlines()
+    # first three lines is the header
+    diff = diff[3:]
+    diff = json.loads("".join(diff))
+    assert len(diff) == 3
+
+    assert (
+        diff[0]["Changed"]["key"] == "test.buck2_output"
+        and diff[0]["Changed"]["old_value"] == "changed_old"
+        and diff[0]["Changed"]["new_value"] == "changed_new"
+    )
+
+    assert (
+        diff[1]["FirstOnly"]["key"] == "test.first"
+        and diff[1]["FirstOnly"]["value"] == "overwrite_x"
+    )
+    assert (
+        diff[2]["SecondOnly"]["key"] == "test.second"
+        and diff[2]["SecondOnly"]["value"] == "x"
     )
