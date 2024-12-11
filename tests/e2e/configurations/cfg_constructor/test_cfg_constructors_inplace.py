@@ -57,19 +57,14 @@ async def test_cfg_constructor_with_target_modifiers(buck: Buck) -> None:
     },
 )
 async def test_invoke_cfg_constructors_with_cli_modifier_validation(buck: Buck) -> None:
-    env = {
-        "BUCK2_HARD_ERROR": f"only={os.environ['CLI_MODIFIER_VALIDATION_SOFT_ERROR_CATEGORY']}",
-    }
     await buck.cquery(
         "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:has_target_modifier",
         "--modifier=ovr_config//os:linux",
-        env=env,
     )
     await expect_failure(
         buck.cquery(
             "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:has_target_modifier",
             "--modifier=fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:some_constraint_value",
-            env=env,
         ),
         stderr_regex="Only a select number of modifiers are allowed to be set from CLI on CI",
     )

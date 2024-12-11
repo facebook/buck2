@@ -1,7 +1,6 @@
 # @noautodeps
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 load("@fbcode_macros//build_defs:python_library.bzl", "python_library")
-load("@fbsource//tools/build_defs/buck2/cfg:validation.bzl", "CLI_MODIFIER_VALIDATION_SOFT_ERROR_CATEGORY")
 load("@prelude//cfg/modifier:name.bzl", "NAMED_CONSTRAINT_SETTINGS")
 load(":constraint_setting_group.bzl", "constraint_setting_group")
 
@@ -40,7 +39,6 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_cfg_constructors_inplace.py",
     srcs = ["test_cfg_constructors_inplace.py"],
-    env = {"CLI_MODIFIER_VALIDATION_SOFT_ERROR_CATEGORY": CLI_MODIFIER_VALIDATION_SOFT_ERROR_CATEGORY},
     test_with_deployed_buck2 = True,
     test_with_reverted_buck2 = True,
 )
