@@ -187,7 +187,9 @@ const config: DocusaurusConfig = ({
   markdown: ({
     // Use mdx for `.mdx` files and commonmark for `.md` files
     format: 'mdx',
+    mermaid: true,
   }),
+  themes: ['@docusaurus/theme-mermaid'],
 });
 
 module.exports = {
