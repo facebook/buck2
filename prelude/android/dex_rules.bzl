@@ -417,9 +417,10 @@ def merge_to_split_dex(
         enable_bootstrap_dexes: bool = False) -> DexFilesInfo:
     is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
     if is_exopackage_enabled_for_secondary_dex:
+        supported_dex_compression = ["jar", "raw"]
         expect(
-            split_dex_merge_config.dex_compression == "jar",
-            "Exopackage can only be enabled for secondary dexes when the dex compression is 'jar', but the dex compression is '{}'".format(split_dex_merge_config.dex_compression),
+            split_dex_merge_config.dex_compression in supported_dex_compression,
+            "Exopackage can only be enabled for secondary dexes when the dex compression is {}, but the dex compression is '{}'".format(supported_dex_compression, split_dex_merge_config.dex_compression),
         )
     primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns_file", split_dex_merge_config.primary_dex_patterns)
 
@@ -534,11 +535,11 @@ def merge_to_split_dex(
             for i in range(len(secondary_dex_inputs)):
                 if split_dex_merge_config.dex_compression == "jar" or split_dex_merge_config.dex_compression == "raw":
                     if split_dex_merge_config.dex_compression == "jar":
-                        secondary_dex_path = _get_jar_secondary_dex_path(i, module)
+                        secondary_dex_path = _get_secondary_dex_subdir_path(i, module)
                         secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, module_to_canary_class_name_function, i)
                         secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_metadata_config.secondary_dex_metadata_file
                     else:
-                        secondary_dex_path = _get_raw_secondary_dex_path(i, module, base_apk_dex_files_count)
+                        secondary_dex_path = _get_raw_secondary_dex_path(i, module, base_apk_dex_files_count, is_exopackage_enabled_for_secondary_dex)
                         secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, module_to_canary_class_name_function, i)
 
                     secondary_dex_output = ctx.actions.declare_output(secondary_dex_path)
@@ -599,7 +600,7 @@ def merge_to_split_dex(
 
                     metadata_lines = [".id {}".format(voltron_module)]
                     metadata_lines.extend([".requires {}".format(module_dep) for module_dep in apk_module_graph_info.module_to_module_deps_function(voltron_module)])
-                    if split_dex_merge_config.dex_compression == "raw" and is_root_module(voltron_module):
+                    if split_dex_merge_config.dex_compression == "raw" and is_root_module(voltron_module) and not is_exopackage_enabled_for_secondary_dex:
                         metadata_lines.append(".root_relative")
                     for metadata_line_artifact in metadata_line_artifacts:
                         metadata_lines.append(artifacts[metadata_line_artifact].read_string().strip())
@@ -853,17 +854,20 @@ def _get_raw_secondary_dex_name(index: int, module: str, base_apk_dex_count: int
     else:
         return "classes{}.dex".format(index + 1)
 
-def _get_raw_secondary_dex_path(index: int, module: str, base_apk_dex_count: int):
+def _get_raw_secondary_dex_path(index: int, module: str, base_apk_dex_count: int, is_exopackage_enabled_for_secondary_dex: bool):
     if is_root_module(module):
+        if is_exopackage_enabled_for_secondary_dex:
+            return _get_secondary_dex_subdir_path(index, module, "dex")
         return _get_raw_secondary_dex_name(index, module, base_apk_dex_count)
     else:
         return "assets/{}/{}".format(module, _get_raw_secondary_dex_name(index, module, base_apk_dex_count))
 
-def _get_jar_secondary_dex_path(index: int, module: str):
-    return "{}/{}-{}.dex.jar".format(
+def _get_secondary_dex_subdir_path(index: int, module: str, suffix: str = "dex.jar"):
+    return "{}/{}-{}.{}".format(
         _get_secondary_dex_subdir(module),
         "secondary" if is_root_module(module) else module,
         index + 1,
+        suffix,
     )
 
 def _get_secondary_dex_subdir(module: str):
