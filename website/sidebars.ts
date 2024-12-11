@@ -166,6 +166,7 @@ export const sidebars: SidebarsConfig = {
             isInternal() ? 'developers/bxl_testimonials' : null,
           ].flatMap(x => x !== null ? [x] : []),
         },
+        'developers/bxl_tutorial',
         {
           type: 'category',
           label: 'User Guide',
