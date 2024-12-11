@@ -50,6 +50,7 @@ use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::FallbackTracker;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::LocalExecutor;
+use buck2_execute_impl::executors::local_actions_throttle::LocalActionsThrottle;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::stacked::StackedExecutor;
 use buck2_execute_impl::executors::to_re_platform::RePlatformFieldsToRePlatform;
@@ -311,79 +312,79 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     }
                 };
 
-                let executor: Option<Arc<dyn PreparedCommandExecutor>> = match &remote_options
-                    .executor
-                {
-                    RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
-                        Some(Arc::new(local_executor_new(local)))
-                    }
-                    RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
-                        Some(Arc::new(remote_executor_new(
-                            remote,
-                            &remote_options.re_use_case,
-                            &remote_options.re_action_key,
-                            remote_options.remote_cache_enabled,
-                            &remote_options.dependencies,
-                        )))
-                    }
-                    RemoteEnabledExecutor::Hybrid {
-                        local,
-                        remote,
-                        level,
-                    } if !self.strategy.ban_hybrid() => {
-                        let re_max_input_files_bytes = remote
-                            .re_max_input_files_bytes
-                            .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES);
-                        let local = local_executor_new(local);
-                        let remote = remote_executor_new(
-                            remote,
-                            &remote_options.re_use_case,
-                            &remote_options.re_action_key,
-                            remote_options.remote_cache_enabled,
-                            &remote_options.dependencies,
-                        );
-                        let executor_preference = self.strategy.hybrid_preference();
-                        let low_pass_filter = self.low_pass_filter.dupe();
-                        let fallback_tracker = self.fallback_tracker.dupe();
-                        let memory_tracker = self.memory_tracker.dupe();
-                        let memory_limit_gibibytes = self.hybrid_execution_memory_limit_gibibytes;
-                        if self.paranoid.is_some() {
-                            let executor_preference = executor_preference
-                                .and(ExecutorPreference::DefaultErasePreferences)?;
-
-                            Some(Arc::new(HybridExecutor {
-                                local,
-                                remote: StackedExecutor {
-                                    optional: cache_checker_new(),
-                                    fallback: remote,
-                                },
-                                level: HybridExecutionLevel::Full {
-                                    fallback_on_failure: true,
-                                    low_pass_filter: false,
-                                },
-                                executor_preference,
-                                re_max_input_files_bytes,
-                                low_pass_filter,
-                                fallback_tracker,
-                                memory_tracker,
-                                memory_limit_gibibytes,
-                            }))
-                        } else {
-                            Some(Arc::new(HybridExecutor {
-                                local,
-                                remote,
-                                level: *level,
-                                executor_preference,
-                                re_max_input_files_bytes,
-                                low_pass_filter,
-                                fallback_tracker,
-                                memory_tracker,
-                                memory_limit_gibibytes,
-                            }))
+                let executor: Option<Arc<dyn PreparedCommandExecutor>> =
+                    match &remote_options.executor {
+                        RemoteEnabledExecutor::Local(local) if !self.strategy.ban_local() => {
+                            Some(Arc::new(local_executor_new(local)))
                         }
-                    }
-                    _ => None,
-                };
+                        RemoteEnabledExecutor::Remote(remote) if !self.strategy.ban_remote() => {
+                            Some(Arc::new(remote_executor_new(
+                                remote,
+                                &remote_options.re_use_case,
+                                &remote_options.re_action_key,
+                                remote_options.remote_cache_enabled,
+                                &remote_options.dependencies,
+                            )))
+                        }
+                        RemoteEnabledExecutor::Hybrid {
+                            local,
+                            remote,
+                            level,
+                        } if !self.strategy.ban_hybrid() => {
+                            let re_max_input_files_bytes = remote
+                                .re_max_input_files_bytes
+                                .unwrap_or(DEFAULT_RE_MAX_INPUT_FILE_BYTES);
+                            let local = local_executor_new(local);
+                            let remote = remote_executor_new(
+                                remote,
+                                &remote_options.re_use_case,
+                                &remote_options.re_action_key,
+                                remote_options.remote_cache_enabled,
+                                &remote_options.dependencies,
+                            );
+                            let executor_preference = self.strategy.hybrid_preference();
+                            let low_pass_filter = self.low_pass_filter.dupe();
+                            let fallback_tracker = self.fallback_tracker.dupe();
+                            let local_actions_throttle = LocalActionsThrottle::new(
+                                self.memory_tracker.dupe(),
+                                self.hybrid_execution_memory_limit_gibibytes,
+                            );
+
+                            if self.paranoid.is_some() {
+                                let executor_preference = executor_preference
+                                    .and(ExecutorPreference::DefaultErasePreferences)?;
+
+                                Some(Arc::new(HybridExecutor {
+                                    local,
+                                    remote: StackedExecutor {
+                                        optional: cache_checker_new(),
+                                        fallback: remote,
+                                    },
+                                    level: HybridExecutionLevel::Full {
+                                        fallback_on_failure: true,
+                                        low_pass_filter: false,
+                                    },
+                                    executor_preference,
+                                    re_max_input_files_bytes,
+                                    low_pass_filter,
+                                    fallback_tracker,
+                                    local_actions_throttle,
+                                }))
+                            } else {
+                                Some(Arc::new(HybridExecutor {
+                                    local,
+                                    remote,
+                                    level: *level,
+                                    executor_preference,
+                                    re_max_input_files_bytes,
+                                    low_pass_filter,
+                                    fallback_tracker,
+                                    local_actions_throttle,
+                                }))
+                            }
+                        }
+                        _ => None,
+                    };
 
                 let cache_checker = if self.paranoid.is_some() {
                     Arc::new(NoOpCommandOptionalExecutor {}) as _

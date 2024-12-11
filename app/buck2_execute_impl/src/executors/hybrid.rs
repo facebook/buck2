@@ -16,7 +16,6 @@ use buck2_common::liveliness_observer::CancelledLivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
-use buck2_common::memory_tracker::MemoryTracker;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
@@ -42,6 +41,7 @@ use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
 
 use crate::executors::local::LocalExecutor;
+use crate::executors::local_actions_throttle::LocalActionsThrottle;
 use crate::low_pass_filter::LowPassFilter;
 
 /// The [HybridExecutor] will accept requests and dispatch them to both a local and remote delegate
@@ -58,8 +58,7 @@ pub struct HybridExecutor<R> {
     pub low_pass_filter: Arc<LowPassFilter>,
     pub re_max_input_files_bytes: u64,
     pub fallback_tracker: Arc<FallbackTracker>,
-    pub memory_tracker: Option<Arc<MemoryTracker>>,
-    pub memory_limit_gibibytes: Option<u64>,
+    pub local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
 }
 
 impl<R> HybridExecutor<R>
@@ -112,24 +111,8 @@ where
     }
 
     async fn ensure_low_memory_pressure(&self) {
-        #[cfg(unix)]
-        {
-            use buck2_common::memory_tracker::TrackedMemoryState;
-
-            if let (Some(memory_tracker), Some(memory_limit_gibibytes)) =
-                (&self.memory_tracker, self.memory_limit_gibibytes)
-            {
-                let mut rx = memory_tracker.subscribe().await;
-                // If there is any problem with a tracker play it safe and don't block the execution.
-                let _res = rx
-                    .wait_for(|x| match x {
-                        TrackedMemoryState::Uninitialized | TrackedMemoryState::Failure => true,
-                        TrackedMemoryState::Reading { memory_current } => {
-                            *memory_current < memory_limit_gibibytes * 1024 * 1024 * 1024
-                        }
-                    })
-                    .await;
-            }
+        if let Some(ref t) = self.local_actions_throttle {
+            t.ensure_low_memory_pressure().await
         }
     }
 }
