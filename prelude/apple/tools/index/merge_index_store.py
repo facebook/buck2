@@ -15,7 +15,7 @@ from argparse import Namespace
 from concurrent.futures import as_completed, ThreadPoolExecutor
 from pathlib import Path
 
-MAX_WORKDERS = 8
+MAX_WORKERS = 8
 
 
 def parse_arguments() -> Namespace:
@@ -56,7 +56,7 @@ def main() -> None:
         # For dummy output, create a file to avoid empty output for buck2
         Path(args.dummy_output).touch()
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKDERS) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [
             executor.submit(merge_directories, index_dir, destination)
             for index_dir in directories
