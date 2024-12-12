@@ -10,11 +10,14 @@
 use std::sync::Arc;
 
 use buck2_common::memory_tracker::MemoryTracker;
+use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 
 #[cfg_attr(windows, allow(dead_code))]
 pub struct LocalActionsThrottle {
     memory_tracker: Arc<MemoryTracker>,
     memory_limit_gibibytes: u64,
+    lock: Mutex<()>,
 }
 
 impl LocalActionsThrottle {
@@ -28,9 +31,22 @@ impl LocalActionsThrottle {
             Some(Arc::new(Self {
                 memory_tracker,
                 memory_limit_gibibytes,
+                lock: Mutex::new(()),
             }))
         } else {
             None
+        }
+    }
+
+    /// When memory pressure only allow a single action to be scheduled.
+    pub(crate) async fn throttle(&self) -> Option<MutexGuard<()>> {
+        tokio::select! {
+            _ = self.ensure_low_memory_pressure() => {
+                None
+            }
+            guard = self.lock.lock() => {
+                Some(guard)
+            }
         }
     }
 

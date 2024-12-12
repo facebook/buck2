@@ -39,6 +39,7 @@ use futures::future::Either;
 use futures::future::Future;
 use futures::FutureExt;
 use host_sharing::HostSharingRequirements;
+use tokio::sync::MutexGuard;
 
 use crate::executors::local::LocalExecutor;
 use crate::executors::local_actions_throttle::LocalActionsThrottle;
@@ -113,6 +114,14 @@ where
     async fn ensure_low_memory_pressure(&self) {
         if let Some(ref t) = self.local_actions_throttle {
             t.ensure_low_memory_pressure().await
+        }
+    }
+
+    async fn throttle_when_memory_pressure(&self) -> Option<MutexGuard<()>> {
+        if let Some(ref t) = self.local_actions_throttle {
+            t.throttle().await
+        } else {
+            None
         }
     }
 }
@@ -201,7 +210,11 @@ where
         if executor_preference.requires_local()
             || self.is_action_too_large_for_remote(command.request.paths())
         {
-            return local_result.await;
+            return async move {
+                let _guard = self.throttle_when_memory_pressure().await;
+                local_result.await
+            }
+            .await;
         };
 
         if executor_preference.requires_remote() {
@@ -215,6 +228,13 @@ where
         };
 
         if is_limited {
+            let jobs = jobs.map_local(|local| {
+                async move {
+                    let _guard = self.throttle_when_memory_pressure().await;
+                    local.await
+                }
+                .boxed()
+            });
             return jobs.into_primary().await.0;
         }
 
@@ -262,6 +282,13 @@ where
             if executor_preference.prefers_local() || executor_preference.prefers_remote() {
                 // Don't race in this scenario, since this is typically used for
                 // actions that are too expensive to run on RE.
+                let jobs = jobs.map_local(|local| {
+                    async move {
+                        let _guard = self.throttle_when_memory_pressure().await;
+                        local.await
+                    }
+                    .boxed()
+                });
                 jobs.execute_sequential().await
             } else {
                 // In the full-hybrid case, we do race both executors. If the low-pass filter is in
@@ -273,6 +300,7 @@ where
                             // The claim actually comes back to us via the execution report so there's no race condition
                             // where local unblocks just when RE finishes
                             remote_execution_liveliness_observer.while_alive().await;
+                            let _guard = self.throttle_when_memory_pressure().await;
                             local.await
                         }
                         .boxed()
