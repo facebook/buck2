@@ -358,7 +358,7 @@ def get_filtered_labels_to_links_map(
         pic_behavior: PicBehavior,
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped: bool = False,
-        is_executable_link: bool = False,
+        executable_link_label: Label | None = None,
         force_static_follows_dependents: bool = True,
         prefer_optimized = False) -> FinalLabelsToLinks:
     """
@@ -367,6 +367,8 @@ def get_filtered_labels_to_links_map(
     identifies which link infos and targets belong the in the provided link group.
     If no link group is provided, all unmatched link infos are returned.
     """
+
+    is_executable_link = executable_link_label != None
 
     def get_potential_linkables(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]
@@ -782,7 +784,6 @@ def _create_link_group(
         link_group_libs = link_group_libs,
         link_strategy = link_strategy,
         roots = roots,
-        is_executable_link = False,
         prefer_stripped = prefer_stripped_objects,
         prefer_optimized = spec.group.attrs.prefer_optimized_experimental,
     )

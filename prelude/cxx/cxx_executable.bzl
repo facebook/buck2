@@ -421,7 +421,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                     roots = link_group_extra_link_roots,
                 )
             ),
-            is_executable_link = True,
+            executable_link_label = ctx.label,
             prefer_stripped = impl_params.prefer_stripped_objects,
             force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
         )
@@ -452,7 +452,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 link_strategy,
                 pic_behavior = pic_behavior,
                 roots = [d.linkable_graph.nodes.value.label for d in link_deps],
-                is_executable_link = True,
+                executable_link_label = ctx.label,
                 prefer_stripped = impl_params.prefer_stripped_objects,
             )
             labels_to_links.map |= labels_to_links_to_merge.map

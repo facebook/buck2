@@ -481,7 +481,7 @@ def inherited_rust_cxx_link_group_info(
         },
         link_strategy = link_strategy,
         roots = executable_deps,
-        is_executable_link = True,
+        executable_link_label = ctx.label,
         prefer_stripped = False,
         force_static_follows_dependents = True,
     )

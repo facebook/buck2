@@ -1032,7 +1032,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
                 ] +
                 link_group_relevant_roots
             ),
-            is_executable_link = True,
+            executable_link_label = ctx.label,
             force_static_follows_dependents = True,
             pic_behavior = PicBehavior("supported"),
         )
