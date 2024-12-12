@@ -1,0 +1,7 @@
+load("//proto:defs.bzl", "proto_python_library")
+
+proto_python_library(
+    name = "worker_pb2",
+    src = "worker.proto",
+    visibility = ["PUBLIC"],
+)

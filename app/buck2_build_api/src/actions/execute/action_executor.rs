@@ -773,6 +773,7 @@ mod tests {
                 CommandGenerationOptions {
                     path_separator: PathSeparatorKind::Unix,
                     output_paths_behavior: Default::default(),
+                    use_remote_persistent_workers: false,
                 },
                 Default::default(),
             ),

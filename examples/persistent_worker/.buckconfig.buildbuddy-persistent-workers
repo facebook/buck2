@@ -1,0 +1,13 @@
+[buck2]
+digest_algorithms = SHA256
+
+[buck2_re_client]
+engine_address       = grpc://remote.buildbuddy.io
+action_cache_address = grpc://remote.buildbuddy.io
+cas_address          = grpc://remote.buildbuddy.io
+tls                  = true
+http_headers         = \
+  x-buildbuddy-api-key:$BUILDBUDDY_API_KEY
+
+[build]
+execution_platforms = root//platforms:buildbuddy-persistent-workers

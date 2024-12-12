@@ -1,0 +1,26 @@
+load("defs.bzl", "demo", "worker")
+
+python_binary(
+    name = "one_shot",
+    main = "one_shot.py",
+)
+
+python_binary(
+    name = "worker_py",
+    main = "persistent_worker.py",
+    deps = [
+        "//proto/bazel:worker_protocol_pb2",
+        "//proto/buck2:worker_pb2",
+    ],
+)
+
+worker(
+    name = "worker",
+    visibility = ["PUBLIC"],
+    worker = ":worker_py",
+)
+
+[
+    demo(name = "demo-" + str(i))
+    for i in range(4)
+]
