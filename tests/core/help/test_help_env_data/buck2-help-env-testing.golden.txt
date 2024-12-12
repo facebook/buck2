@@ -48,6 +48,7 @@ BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE usize                 5000
 BUCK_CONSOLE                            String
 BUCK_DAEMON_LOG_TO_FILE                 u8
 BUCK_DEFAULT_DIGEST_ALGORITHM           DigestAlgorithmFamily
+BUCK_DISABLE_EXPANDED_PROGRESS          bool                  false
 BUCK_LOG                                String
 BUCK_NO_INTERACTIVE_CONSOLE             String
 BUCK_OFFLINE_BUILD                      String

@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_core::buck2_env;
 use buck2_core::buck2_env_name;
 use clap::builder::FalseyValueParser;
 use dupe::Dupe;
@@ -149,7 +150,11 @@ impl CommonConsoleOptions {
     }
 
     pub fn superconsole_config(&self) -> SuperConsoleConfig {
-        let mut config = SuperConsoleConfig::default();
+        let mut config = SuperConsoleConfig {
+            expanded_progress: !buck2_env!("BUCK_DISABLE_EXPANDED_PROGRESS", bool).unwrap_or(false),
+            ..SuperConsoleConfig::default()
+        };
+
         for option in &self.ui {
             match option {
                 UiOptions::Dice => config.enable_dice = true,
