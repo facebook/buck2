@@ -7,6 +7,10 @@
  * of this source tree.
  */
 
+// This comment is to silence the naive linter (https://fburl.com/code/6hotojag) which simply checks for
+// the existence of "docusaurus-plugin-internaldocs-fb/internal" string which is defined in ./config_impl.ts
+
+
 // Our internal doc builder requires a `.js` file to exist, so have this and keep the actual
 // implementation in `.ts`
 
