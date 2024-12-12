@@ -9,7 +9,7 @@
 Apply a constraint that sets -enable-testing in Swift compilation.
 """
 
-def _enable_testing_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
+def enable_testing_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
     enable_testing_config = refs.enable_testing_setting[ConstraintSettingInfo].label
     enable_testing_constraint = refs.enable_testing_value[ConstraintValueInfo]
     if enable_testing_config in platform.configuration.constraints:
@@ -27,10 +27,12 @@ def _enable_testing_transition_impl(platform: PlatformInfo, refs: struct) -> Pla
         configuration = new_cfg,
     )
 
+enable_testing_transition_refs = {
+    "enable_testing_setting": "config//features/apple/constraints:swift_enable_testing",
+    "enable_testing_value": "config//features/apple/constraints:swift_enable_testing_enabled",
+}
+
 enable_testing_transition = transition(
-    impl = _enable_testing_transition_impl,
-    refs = {
-        "enable_testing_setting": "config//features/apple/constraints:swift_enable_testing",
-        "enable_testing_value": "config//features/apple/constraints:swift_enable_testing_enabled",
-    },
+    impl = enable_testing_transition_impl,
+    refs = enable_testing_transition_refs,
 )

@@ -11,6 +11,7 @@ This overrides any existing target_sdk_version select.
 """
 
 load("@prelude//apple:versions.bzl", "TARGET_SDK_VERSIONS")
+load("@prelude//apple/user:enable_testing_transition.bzl", "enable_testing_transition_impl", "enable_testing_transition_refs")
 
 def _target_sdk_version_transition_impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
     target_sdk_version = attrs.propagated_target_sdk_version
@@ -38,13 +39,29 @@ def _target_sdk_version_transition_impl(platform: PlatformInfo, refs: struct, at
         configuration = new_cfg,
     )
 
+def _target_sdk_version_and_enable_testing_impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
+    platform_info = _target_sdk_version_transition_impl(platform, refs, attrs)
+    platform_info = enable_testing_transition_impl(platform_info, refs)
+    return platform_info
+
+_target_sdk_version_transition_refs = {
+    version: "@config//version:constraint-value-target-sdk-version-" + version
+    for version in TARGET_SDK_VERSIONS
+} | {"version": "@config//version:constraint-setting-target-sdk-version"}
+
+_target_sdk_version_attrs = ["propagated_target_sdk_version"]
+
 target_sdk_version_transition = transition(
     impl = _target_sdk_version_transition_impl,
-    refs = dict(
-        [("version", "@config//version:constraint-setting-target-sdk-version")] + {
-            version: "@config//version:constraint-value-target-sdk-version-" + version
-            for version in TARGET_SDK_VERSIONS
-        }.items(),
-    ),
-    attrs = ["propagated_target_sdk_version"],
+    refs = _target_sdk_version_transition_refs,
+    attrs = _target_sdk_version_attrs,
+)
+
+# apple_test requires both enable_testing and target_sdk_version
+# applied as an incoming transition, so we chain the transitions
+# in this implementation.
+apple_test_target_sdk_version_transition = transition(
+    impl = _target_sdk_version_and_enable_testing_impl,
+    refs = enable_testing_transition_refs | _target_sdk_version_transition_refs,
+    attrs = _target_sdk_version_attrs,
 )

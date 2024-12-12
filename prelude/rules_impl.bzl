@@ -57,7 +57,7 @@ load("@prelude//python:python_test.bzl", "python_test_impl")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
 load("@prelude//apple/user/apple_resource_transition.bzl", "apple_resource_transition")
-load("@prelude//apple/user/target_sdk_version_transition.bzl", "target_sdk_version_transition")
+load("@prelude//apple/user/target_sdk_version_transition.bzl", "apple_test_target_sdk_version_transition", "target_sdk_version_transition")
 load("@prelude//decls/android_rules.bzl", "android_rules")
 load("@prelude//decls/apple_rules.bzl", "ios_rules")
 load("@prelude//decls/common.bzl", "IncludeType", "LinkableDepType", "buck")
@@ -678,7 +678,7 @@ transitions = {
     "apple_bundle": target_sdk_version_transition,
     "apple_library": target_sdk_version_transition,
     "apple_resource": apple_resource_transition,
-    "apple_test": target_sdk_version_transition,
+    "apple_test": apple_test_target_sdk_version_transition,
     "cxx_binary": constraint_overrides.transition,
     "cxx_test": constraint_overrides.transition,
     "go_binary": go_binary_transition,
