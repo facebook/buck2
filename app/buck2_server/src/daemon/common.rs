@@ -99,8 +99,7 @@ pub struct CommandExecutorFactory {
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
-    memory_tracker: Option<Arc<MemoryTracker>>,
-    hybrid_execution_memory_limit_gibibytes: Option<u64>,
+    local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
 }
 
 impl CommandExecutorFactory {
@@ -129,6 +128,8 @@ impl CommandExecutorFactory {
                 .get_client()
                 .with_re_use_case_override(re_use_case_override),
         ));
+        let local_actions_throttle =
+            LocalActionsThrottle::new(memory_tracker, hybrid_execution_memory_limit_gibibytes);
         Self {
             re_connection,
             host_sharing_broker: Arc::new(host_sharing_broker),
@@ -148,8 +149,7 @@ impl CommandExecutorFactory {
             cache_upload_permission_checker,
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
-            memory_tracker,
-            hybrid_execution_memory_limit_gibibytes,
+            local_actions_throttle,
         }
     }
 
@@ -345,10 +345,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             let executor_preference = self.strategy.hybrid_preference();
                             let low_pass_filter = self.low_pass_filter.dupe();
                             let fallback_tracker = self.fallback_tracker.dupe();
-                            let local_actions_throttle = LocalActionsThrottle::new(
-                                self.memory_tracker.dupe(),
-                                self.hybrid_execution_memory_limit_gibibytes,
-                            );
+                            let local_actions_throttle = self.local_actions_throttle.dupe();
 
                             if self.paranoid.is_some() {
                                 let executor_preference = executor_preference
