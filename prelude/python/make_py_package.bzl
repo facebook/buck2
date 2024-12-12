@@ -319,15 +319,22 @@ def _make_py_package_impl(
     else:
         symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
 
-    resource_artifacts = [a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)]
-    dep_artifacts = dep_artifacts + resource_artifacts
+    pyc_mode = PycInvalidationMode("unchecked_hash") if symlink_tree_path == None else PycInvalidationMode("checked_hash")
+
+    # Accumulate all of the artifacts required by the build
+    runtime_artifacts = []
+    runtime_artifacts.extend(dep_artifacts)
+    runtime_artifacts.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)])
+    if pex_modules.compile:
+        runtime_artifacts.extend([a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)])
 
     modules_args = _pex_modules_args(
         ctx,
         common_modules_args,
-        dep_artifacts,
+        runtime_artifacts,
         debug_artifacts,
         standalone,
+        pyc_mode,
         symlink_tree_path,
         manifest_module,
         pex_modules,
@@ -351,9 +358,7 @@ def _make_py_package_impl(
         bootstrap_args.add(ctx.attrs.standalone_build_args)
     else:
         bootstrap_args.add(ctx.attrs.inplace_build_args)
-
-        # For inplace builds add local artifacts to outputs so they get properly materialized
-        runtime_files.extend(dep_artifacts)
+        runtime_files.extend(runtime_artifacts)
         runtime_files.append(symlink_tree_path)
 
     # For standalone builds, or builds setting make_py_package we generate args for calling make_par.py
@@ -630,14 +635,14 @@ def _pex_modules_args(
         dep_artifacts: list[ArgLike],
         debug_artifacts: list[(str | (str, SharedLibrary, str), ArgLike)],
         is_standalone: bool,
+        pyc_mode: PycInvalidationMode,
         symlink_tree_path: Artifact | None,
         manifest_module: ArgLike | None,
         pex_modules: PexModules,
         output_suffix: str) -> cmd_args:
     """
     Produces args to deal with a PEX's modules. Returns args to pass to the
-    modules builder, and artifacts the resulting modules would require at
-    runtime (this might be empty for e.g. a standalone pex).
+    modules builder.
     """
 
     cmd = []
@@ -649,9 +654,7 @@ def _pex_modules_args(
         cmd.append(cmd_args(manifest_module, format = "--module-manifest={}"))
 
     if pex_modules.compile:
-        pyc_mode = PycInvalidationMode("unchecked_hash") if symlink_tree_path == None else PycInvalidationMode("checked_hash")
         bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
-        bytecode_artifacts = [a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)]
 
         bytecode_manifests_path = ctx.actions.write(
             "__bytecode_manifests{}.txt".format(output_suffix),
@@ -661,7 +664,7 @@ def _pex_modules_args(
             ),
         )
         cmd.append(cmd_args(bytecode_manifests_path, format = "@{}"))
-        hidden.extend([bytecode_manifests] + bytecode_artifacts)
+        hidden.append(bytecode_manifests)
 
     if symlink_tree_path != None:
         cmd.extend(["--modules-dir", symlink_tree_path.as_output()])
