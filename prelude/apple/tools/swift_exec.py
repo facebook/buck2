@@ -6,49 +6,12 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-import json
 import os
 import subprocess
 import sys
 
 _RE_TMPDIR_ENV_VAR = "TMPDIR"
 _FILE_WRITE_FAILURE_MARKER = "could not write"
-
-
-def expand_argsfile(command):
-    for arg in command:
-        if arg.startswith("@"):
-            with open(arg[1:]) as f:
-                return f.read().splitlines()
-
-    return []
-
-
-def validate_swift_module_map(path):
-    seen_clang_modules = set()
-    seen_swift_modules = set()
-    with open(path, "r") as f:
-        j = json.load(f)
-
-    for entry in j:
-        is_clang_module = "clangModulePath" in entry
-        module_name = entry["moduleName"]
-        if is_clang_module:
-            if module_name in seen_clang_modules:
-                print(
-                    f"Duplicate clang module {module_name} found in {path}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            seen_clang_modules.add(module_name)
-        else:
-            if module_name in seen_swift_modules:
-                print(
-                    f"Duplicate Swift module {module_name} found in {path}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            seen_swift_modules.add(module_name)
 
 
 def main():
@@ -71,19 +34,6 @@ def main():
         env["CLANG_MODULE_CACHE_PATH"] = "/tmp/buck-module-cache"
 
     command = sys.argv[1:]
-
-    # T209485965: swift module maps allow for duplicate entries
-    # and the first one will be picked. Until we have a compiler
-    # warning for this case we need to validate here.
-    expanded_args = expand_argsfile(command)
-    for i in range(len(expanded_args)):
-        if expanded_args[i] == "-explicit-swift-module-map-file":
-            if expanded_args[i + 1] == "-Xfrontend":
-                validate_swift_module_map(expanded_args[i + 2])
-            else:
-                validate_swift_module_map(expanded_args[i + 1])
-            break
-
     # Apply a debug prefix map for the current directory
     # to make debug info relocatable. To correctly make paths
     # relocatable, we must use that path at which the action
