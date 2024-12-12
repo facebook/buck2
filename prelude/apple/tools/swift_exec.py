@@ -34,18 +34,22 @@ def main():
         env["CLANG_MODULE_CACHE_PATH"] = "/tmp/buck-module-cache"
 
     command = sys.argv[1:]
-    # Apply a debug prefix map for the current directory
-    # to make debug info relocatable. To correctly make paths
-    # relocatable, we must use that path at which the action
-    # is run (be it locally or on RE) and this is not known
-    # at the time of action definition.
+
+    # Use relative paths for debug information and index information,
+    # so we generate relocatable files.
+    #
+    # We need to use the path where the action is run (both locally and on RE),
+    # which is not known when we define the action.
     command += [
-        "-debug-prefix-map",
+        "-file-prefix-map",
         f"{os.getcwd()}/=",
     ]
+
     # Apply a coverage prefix map for the current directory
     # to make file path metadata relocatable stripping
     # the current directory from it.
+    #
+    # This overrides -file-prefix-map.
     command += [
         "-coverage-prefix-map",
         f"{os.getcwd()}=.",
