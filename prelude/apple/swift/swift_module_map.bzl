@@ -15,5 +15,6 @@ def write_swift_module_map_with_deps(
     return ctx.actions.write_json(
         module_name + ".swift_module_map.json",
         all_deps.project_as_json("swift_module_map"),
+        pretty = True,
         with_inputs = True,
     )
