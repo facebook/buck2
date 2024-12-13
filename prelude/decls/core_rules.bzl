@@ -660,6 +660,10 @@ genrule = prelude_rule(
                 ```
                 is not.
             """),
+            "executable_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None, doc = """
+                Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
+                executable. 
+            """),
         } |
         genrule_common.env_arg() |
         genrule_common.environment_expansion_separator() |

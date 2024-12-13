@@ -14,6 +14,7 @@ load("@prelude//:genrule_toolchain.bzl", "GenruleToolchainInfo")
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 GENRULE_OUT_DIR = "out"
@@ -147,11 +148,14 @@ def process_genrule(
     # disallowed as a matter of policy), but for now let's be safe.
     cacheable = value_or(ctx.attrs.cacheable, True) and (local_only or prefer_local)
 
+    executable_outs = getattr(ctx.attrs, "executable_outs", None)
+
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:
         out_artifact = _declare_output(ctx, out_attr)
         named_outputs = {}
         default_outputs = [out_artifact]
+        expect(executable_outs == None, "`executable_outs` should not be set when `out` is set")
     elif outs_attr != None:
         out_artifact = ctx.actions.declare_output(GENRULE_OUT_DIR, dir = True)
 
@@ -159,6 +163,11 @@ def process_genrule(
             name: [_project_output(out_artifact, path) for path in outputs]
             for (name, outputs) in outs_attr.items()
         }
+
+        outs_names = outs_attr.keys()
+        if executable_outs != None:
+            for executable_out in executable_outs:
+                expect(executable_out in outs_names, "Value in `executable_outs` {} is not in `outs`".format(executable_out))
 
         default_outputs = [
             _project_output(out_artifact, path)
@@ -370,7 +379,13 @@ def process_genrule(
         **metadata_args
     )
 
-    sub_targets = {k: [DefaultInfo(default_outputs = v)] for (k, v) in named_outputs.items()}
+    sub_targets = {}
+    for (k, v) in named_outputs.items():
+        sub_target_providers = [DefaultInfo(default_outputs = v)]
+        if executable_outs != None and k in executable_outs:
+            sub_target_providers.append(RunInfo(args = cmd_args(v)))
+        sub_targets[k] = sub_target_providers
+
     providers = [DefaultInfo(
         default_outputs = default_outputs,
         sub_targets = sub_targets,
