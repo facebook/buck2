@@ -38,17 +38,8 @@ export function GraphView2(props: {view: QueryKey}) {
     totalActions += target.actionsLength()
   }
 
-  // Nodes with file changes
-  const containsChangedFile = []
-  for (const [k, _node] of graph) {
-    const target = build.targets(k)!
-    if (target.changedFilesLength() > 0) {
-      containsChangedFile.push(k)
-    }
-  }
-
-  if (containsChangedFile.length === 0) {
-    return <p>No file changes registered</p>
+  if (totalActions === 0 && totalFileChanges === 0) {
+    return <p>No actions or file changes registered</p>
   }
 
   return (
