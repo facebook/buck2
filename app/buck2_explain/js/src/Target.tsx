@@ -24,11 +24,12 @@ const TARGET_CHANGED_FILES = 'target_changed_files'
  * Otherwise, just render the string.
  */
 function PossibleLink(props: {value: string}) {
-  const {allTargets} = useContext(DataContext)
+  const {allTargets, graph} = useContext(DataContext)
   const {value} = props
 
   let res = null
-  if (allTargets.hasOwnProperty(value)) {
+  let exists = allTargets.get(value)
+  if (exists != null && graph.has(exists)) {
     res = <Link to={{target: value}}>{value}</Link>
   } else {
     res = <>{value}</>
