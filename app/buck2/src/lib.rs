@@ -204,32 +204,56 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         expanded_args[0] = arg0.to_owned();
     }
 
-    let clap = Opt::command();
-    let matches = clap.get_matches_from(&expanded_args);
-    let opt: Opt = Opt::from_arg_matches(&matches)?;
-
-    if opt.common_opts.help_wrapper {
-        return ExitResult::err(buck2_error!(
-            [],
-            "`--help-wrapper` should have been handled by the wrapper"
-        ));
-    }
-
-    match &opt.cmd {
-        #[cfg(not(client_only))]
-        CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
-        CommandKind::Clean(..) => {}
-        _ => {
-            check_user_allowed()?;
-        }
-    }
-
     let argv = Argv {
         argv: process.args.to_vec(),
         expanded_argv: expanded_args,
     };
 
-    opt.exec(process, &immediate_config, &matches, argv)
+    let opt = ParsedArgv::parse(argv)?;
+
+    opt.exec(process, &immediate_config)
+}
+
+struct ParsedArgv {
+    opt: Opt,
+    argv: Argv,
+    matches: clap::ArgMatches,
+}
+
+impl ParsedArgv {
+    fn parse(argv: Argv) -> buck2_error::Result<Self> {
+        let clap = Opt::command();
+        let matches = clap.get_matches_from(&argv.expanded_argv);
+
+        let opt: Opt = Opt::from_arg_matches(&matches)?;
+
+        if opt.common_opts.help_wrapper {
+            return Err(buck2_error!(
+                [],
+                "`--help-wrapper` should have been handled by the wrapper"
+            ));
+        }
+
+        match &opt.cmd {
+            #[cfg(not(client_only))]
+            CommandKind::Daemon(..) | CommandKind::Forkserver(..) => {}
+            CommandKind::Clean(..) => {}
+            _ => {
+                check_user_allowed()?;
+            }
+        }
+
+        Ok(ParsedArgv { opt, argv, matches })
+    }
+
+    fn exec(
+        self,
+        process: ProcessContext<'_>,
+        immediate_config: &ImmediateConfigContext,
+    ) -> ExitResult {
+        self.opt
+            .exec(process, &immediate_config, &self.matches, self.argv)
+    }
 }
 
 #[derive(Debug, clap::Subcommand)]
