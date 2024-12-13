@@ -172,6 +172,7 @@ export const sidebars: SidebarsConfig = {
           label: 'How-to guides',
           items: [
             'bxl/how_tos/how_to_cache_and_share_operations',
+            'bxl/how_tos/how_to_handle_errors',
           ]
         },
         {
