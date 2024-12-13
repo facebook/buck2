@@ -169,6 +169,13 @@ export const sidebars: SidebarsConfig = {
         'bxl/tutorial',
         {
           type: 'category',
+          label: 'How-to guides',
+          items: [
+            'bxl/how_tos/how_to_cache_and_share_operations',
+          ]
+        },
+        {
+          type: 'category',
           label: 'User Guide',
           items: [
             'bxl/getting_started',
