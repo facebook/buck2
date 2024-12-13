@@ -98,35 +98,25 @@ def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, b
             indent_level = 1,
         ),
         "",
-        """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.default.props" />""",
-        "",
         configuration_type,
         "",
-        """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />""",
         """    <ImportGroup Label="ExtensionSettings" />""",
         "",
         user_macros,
         "",
-        import_mode_configs,  # mode configs must be imported early so that it can be overwrite
+        import_mode_configs,  # mode configs must be imported early but after user_macros so that it can be overwrite
         "",
         """    <ItemDefinitionGroup>""",
         compiler_settings,
         linker_settings,
         """    </ItemDefinitionGroup>""",
         "",
-        """
-    <ImportGroup Label="PropertySheets">
-        <Import Condition="exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props"/>
-    </ImportGroup>""",
-        "",
         headers,
         "",
         sources,
         "",
         """
-    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Targets" />
     <ImportGroup Label="ExtensionTargets" />
-    <Import Project="$(RepoRoot)\\arvr\\tools\\buck\\vs_buck_build.props"/>
 </Project>""",
         delimiter = "\n",
     )

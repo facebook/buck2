@@ -73,19 +73,16 @@ def _main(bxl_ctx):
     compiler_settings_content = gen_compiler_settings(compiler_settings)
     linker_settings_content = gen_linker_settings(linker_settings)
 
-    property_sheet = ""
+    toolchains_props = ""
     if bxl_ctx.cli_args.fbsource:
         if platform_toolset != "Clang_5_0":
-            property_sheet = "    <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
+            toolchains_props = "    <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
 
     content = cmd_args(
         """<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 """,
-        """    <ItemDefinitionGroup>""",
-        compiler_settings_content,
-        linker_settings_content,
-        """    </ItemDefinitionGroup>""",
+        """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.default.props" />""",
         h(
             "PropertyGroup",
             [
@@ -93,7 +90,15 @@ def _main(bxl_ctx):
             ],
             indent_level = 1,
         ),
-        property_sheet,
+        """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.props" />""",
+        """    <ItemDefinitionGroup>""",
+        compiler_settings_content,
+        linker_settings_content,
+        """    </ItemDefinitionGroup>""",
+        """    <Import Condition="exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props"/>""",
+        toolchains_props,
+        """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Targets" />""",
+        """    <Import Project="$(RepoRoot)\\arvr\\tools\\buck\\vs_buck_build.props"/>""",
         """</Project>""",
         delimiter = "\n",
     )
