@@ -15,3 +15,14 @@ EXTRA_BUCK_OPTIONS = "ExtraBuckOptions"
 IMMEDIATE_BUCK_OPTIONS = "ImmediateBuckOptions"
 
 BY_MODES = "ByModes"
+
+CXXFLAGS = "cxxflags"
+CXXPPFLAGS = "cxxppflags"
+LDFLAGS = "ldflags"
+TOOLSET = "toolset"
+LANGUAGE_STANDARD = "language_standard"
+
+ANDROID = "android"
+CLANG = "clang"
+VS2019 = "vs2019"
+VS2022 = "vs2022"

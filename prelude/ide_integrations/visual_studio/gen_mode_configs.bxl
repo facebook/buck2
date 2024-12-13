@@ -5,78 +5,100 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("constants.bxl", "ANDROID", "CLANG", "CXXFLAGS", "CXXPPFLAGS", "LANGUAGE_STANDARD", "LDFLAGS", "TOOLSET", "VS2019", "VS2022")
 load("flags_parser_utils.bxl", "get_compiler_settings_from_flags", "get_linker_settings_from_flags")
 load("get_compiler_settings.bxl", "gen_compiler_settings")
 load("get_linker_settings.bxl", "gen_linker_settings")
 load("utils.bxl", "dedupe_by_value", "get_mode_config_path", "h")
+
+# Query all the flags in advcance because the flags must be queried with string literal(e.g. "cxx_#default") but not variables
+STD_CXXPPFLAGS = read_root_config("cxx_#default", "cxxppflags") or ""
+STD_CXXFLAGS = read_root_config("cxx_#default", "cxxflags") or ""
+STD_LDFLAGS = read_root_config("cxx_#default", "ldflags") or ""
+
+ANDROID_CXXPPFLAGS = read_root_config("fbcode-platform-cxx#platform010-clang", "cxxppflags") or ""
+ANDROID_CXXFLAGS = read_root_config("fbcode-platform-cxx#platform010-clang", "cxxflags") or ""
+ANDROID_LDFLAGS = read_root_config("fbcode-platform-cxx#platform010-clang", "ldflags") or ""
+
+# @unsorted-dict-items
+LANGUAGE_STANDARD_AND_TOOLSET_MAP = {
+    ANDROID: {
+        CXXFLAGS: ANDROID_CXXFLAGS,
+        CXXPPFLAGS: ANDROID_CXXPPFLAGS,
+        LDFLAGS: ANDROID_LDFLAGS,
+        LANGUAGE_STANDARD: None,
+        TOOLSET: "Clang_5_0",
+    },
+    CLANG: {
+        CXXFLAGS: STD_CXXFLAGS,
+        CXXPPFLAGS: STD_CXXPPFLAGS,
+        LDFLAGS: STD_LDFLAGS,
+        LANGUAGE_STANDARD: "stdcpp20",
+        TOOLSET: "ClangCL",
+    },
+    VS2019: {
+        CXXFLAGS: STD_CXXFLAGS,
+        CXXPPFLAGS: STD_CXXPPFLAGS,
+        LDFLAGS: STD_LDFLAGS,
+        LANGUAGE_STANDARD: "stdcpp17",
+        TOOLSET: "v142",
+    },
+    VS2022: {
+        CXXFLAGS: STD_CXXFLAGS,
+        CXXPPFLAGS: STD_CXXPPFLAGS,
+        LDFLAGS: STD_LDFLAGS,
+        LANGUAGE_STANDARD: "stdcpp20",
+        TOOLSET: "v143",
+    },
+}
+
+def _get_platform(vs_version: str) -> str:
+    if "android" in read_root_config("build", "default_target_platform"):
+        return "android"
+    elif "clang" in read_root_config("cxx_#default", "cxx_type"):
+        return "clang"
+    else:
+        return "vs" + vs_version
 
 def _remove_flags_with_macros(flags: list) -> list:
     # Hacky way to find macros since regex sub is not available in bxl
     flags = [item for item in flags if "$(" not in item and ")" not in item]
     return dedupe_by_value(flags)
 
-def _get_compiler_settings(default_platform: str) -> dict:
-    # Super weird switches since there's a bug when passing in var to read_root_config
-    # Reported to bxl team https://fb.workplace.com/groups/617497306123691/permalink/1098968927976524/
-    # TODO: Remove this block when bug is fixed
-    if default_platform == "cxx_#default":
-        cxxppflags = read_root_config("cxx_#default", "cxxppflags") or ""
-        cxxflags = read_root_config("cxx_#default", "cxxflags") or ""
-    elif default_platform == "fbcode-platform-cxx#platform010-clang":
-        cxxppflags = read_root_config("fbcode-platform-cxx#platform010-clang", "cxxppflags") or ""
-        cxxflags = read_root_config("fbcode-platform-cxx#platform010-clang", "cxxflags") or ""
-    else:
-        return {}
+def _get_compiler_settings(platform: str) -> dict:
+    cxxppflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXPPFLAGS]
+    cxxflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXFLAGS]
     compiler_flags = cxxppflags.split(" ") + cxxflags.split(" ")
     compiler_flags = _remove_flags_with_macros(compiler_flags)
     return get_compiler_settings_from_flags(compiler_flags)
 
-def _get_linker_settings(default_platform: str, buck_root: str) -> dict:
-    if default_platform == "cxx_#default":
-        ldflags = read_root_config("cxx_#default", "ldflags") or ""
-    elif default_platform == "fbcode-platform-cxx#platform010-clang":
-        ldflags = read_root_config("fbcode-platform-cxx#platform010-clang", "ldflags") or ""
-    else:
-        return {}
+def _get_linker_settings(platform: str, buck_root: str) -> dict:
+    ldflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][LDFLAGS]
     linker_flags = ldflags.split(" ")
     linker_flags = _remove_flags_with_macros(linker_flags)
     return get_linker_settings_from_flags(linker_flags, buck_root)
 
-def _get_platform_toolset(bxl_ctx):
-    if "android" in bxl_ctx.cli_args.mode_name:
-        return "Clang_5_0"
-    elif "clang" in read_root_config("cxx_#default", "cxx_type"):
-        # We can hardcode "cxx_#default" here since android is handled
-        return "ClangCL"
-    elif bxl_ctx.cli_args.vs_version_year == "2019":
-        return "v142"
-    else:
-        return "v143"
-
 def _main(bxl_ctx):
-    default_platform = "cxx_#default"
-    if "android" in bxl_ctx.cli_args.mode_name and bxl_ctx.cli_args.fbsource:
-        default_platform = "fbcode-platform-cxx#platform010-clang"
+    platform = _get_platform(bxl_ctx.cli_args.vs_version_year)
 
-    compiler_settings = _get_compiler_settings(default_platform)
-    linker_settings = _get_linker_settings(default_platform, bxl_ctx.root())
-    platform_toolset = _get_platform_toolset(bxl_ctx)
+    compiler_settings = _get_compiler_settings(platform)
+    linker_settings = _get_linker_settings(platform, bxl_ctx.root())
+    platform_toolset = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][TOOLSET]
 
-    # Set default language standard
+    # Set default language standard if not specified
     if "LanguageStandard" not in compiler_settings:
-        compiler_settings["LanguageStandard"] = "stdcpp20"
+        compiler_settings["LanguageStandard"] = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][LANGUAGE_STANDARD]
 
     # Overwrite configs for android projects
-    if "android" in bxl_ctx.cli_args.mode_name:
+    if platform == ANDROID:
         compiler_settings.pop("LanguageStandard")
 
     compiler_settings_content = gen_compiler_settings(compiler_settings)
     linker_settings_content = gen_linker_settings(linker_settings)
 
     toolchains_props = ""
-    if bxl_ctx.cli_args.fbsource:
-        if platform_toolset != "Clang_5_0":
-            toolchains_props = "    <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
+    if bxl_ctx.cli_args.fbsource and platform != ANDROID:
+        toolchains_props = "    <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
 
     content = cmd_args(
         """<?xml version="1.0" encoding="utf-8"?>
@@ -98,6 +120,7 @@ def _main(bxl_ctx):
         """    <Import Condition="exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props"/>""",
         toolchains_props,
         """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Targets" />""",
+        # TODO: Open source vs_buck_build.props
         """    <Import Project="$(RepoRoot)\\arvr\\tools\\buck\\vs_buck_build.props"/>""",
         """</Project>""",
         delimiter = "\n",
