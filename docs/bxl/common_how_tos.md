@@ -147,33 +147,58 @@ Example:
 ctx.output.ensure_multiple(ctx.analysis(label).providers()[DefaultInfo])
 ```
 
-## Getting attributes or resolved attributes efficiently on a configured target node
+## Accessing Unconfigured/Configured Target Node Attributes
 
-If you need to use all of the attrs/resolved_attrs, then initializing the eager
-variant once would be best. If you only need a few of the attrs, then
-initializing the lazy variant is better. There’s not really a hard line, it
-depends on the target node, and which attrs you are looking for. If performance
-is key to your BXL script, the best way to determine this is to use the BXL
-profiler.
+BXL provides a unified API for accessing attributes on both unconfigured and
+configured target nodes.
 
-Regardless, if you use eager or lazy versions of getting attributes, you should
-cache the attrs object:
+- [`node.get_attr(key)`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
+  Get one attribute
+- [`node.get_attrs`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
+  Get all attributes
+- [`node.has_attrs(key)`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
+  Check if one attribute exists
+
+For special attributes like `rule_kind`, we get them directly from node:
+
+```python
+node.rule_kind
+```
+
+### Deprecated apis
+
+The following attribute access api are not recommended and will be deprecated
+
+For `ConfiguredTargetNode`:
+
+- [`.attrs_eager`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeattrs_eager)
+- [`.attrs_lazy`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeattrs_lazy)
+- [`.resolved_attrs_eager`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnoderesolved_attrs_eager),
+- [`.resolved_attrs_lazy`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnoderesolved_attrs_lazy)
+
+For `UnconfiguredTargetNode`:
+
+- [`.attrs`](../../api/bxl/UnconfiguredTargetNode/#unconfiguredtargetnodeattrs)
+
+### Example
 
 ```python
 def _impl_example(ctx):
     my_configured_node = ctx.configured_targets(":foo")
 
-    # call once and resue, ideally when you need most/all attrs
-    eager = my_configured_node.attrs_eager()
+    # get an attribute named "foo", if not exist return None
+    foo_attr = my_configured_node.get_attr("foo")
 
-    # call once and reuse, ideally when you only need a few attrs
-    lazy = my_configured_node.attrs_lazy()
+    # get all attributes, it returns a dict mapping from attribute name to attribute
+    all_attrs = my_configured_node.get_attrs()
 
-    # call once and reuse, ideally when you need most/all resolved attrs
-    resolved_eager = my_configured_node.resolved_attrs_eager(ctx)
+    # check if "foo" attribute exists on node
+    foo_exist = my_configured_node.has_attr("foo")
 
-    # call once and reuse, ideally when you only need a few resolved attrs
-    resolved_lazy = my_configured_node.resolved_attrs_lazy(ctx)
+    # access special attribute `rule_type`
+    rule_type = my_configured_node.rule_type
+
+    # same for UnconfiguredTargetNode
 ```
 
 ## Inspecting a struct
