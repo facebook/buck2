@@ -12,6 +12,6 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/facebook/buck2"
 
 [workspace.dependencies]
-allocative = { version = "0.3.3" }
+allocative = { version = "0.3.4" }
 gazebo = { version = "0.8.1", path = "gazebo/gazebo" }
 gazebo_derive = { version = "0.8.1", path = "gazebo/gazebo_derive" }
