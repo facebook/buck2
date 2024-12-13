@@ -27,10 +27,12 @@ use dupe::Dupe;
 use tokio::runtime::Runtime;
 
 use crate::client_metadata::ClientMetadata;
+use crate::common::ui::CommonConsoleOptions;
 use crate::common::CommonEventLogOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::common::PreemptibleWhen;
+use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::BuckdClientConnector;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
@@ -180,6 +182,18 @@ impl<'a> ClientCommandContext<'a> {
 
     pub fn stdin(&mut self) -> &mut Stdin {
         self.stdin
+    }
+
+    pub fn console_interaction_stream(
+        &mut self,
+        opts: &CommonConsoleOptions,
+    ) -> Option<ConsoleInteractionStream<'_>> {
+        if opts.no_interactive_console {
+            tracing::debug!("Disabling console interaction: no_interactive_console is set");
+            return None;
+        }
+
+        ConsoleInteractionStream::new(self.stdin)
     }
 
     pub async fn connect_buckd(

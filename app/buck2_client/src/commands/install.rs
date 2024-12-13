@@ -189,8 +189,7 @@ impl StreamingCommand for InstallCommand {
                     installer_run_args: extra_run_args,
                     installer_debug: self.installer_debug,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await?;

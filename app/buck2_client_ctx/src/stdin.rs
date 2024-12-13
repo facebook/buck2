@@ -26,9 +26,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::StreamReader;
 
-use crate::common::ui::CommonConsoleOptions;
-use crate::console_interaction_stream::ConsoleInteractionStream;
-
 #[pin_project]
 pub struct Stdin {
     #[pin]
@@ -67,18 +64,6 @@ impl Stdin {
             stream: StreamReader::new(ReceiverStream::new(rx).fuse()),
             state: State::Pending { buffer_size, tx },
         })
-    }
-
-    pub fn console_interaction_stream(
-        &mut self,
-        opts: &CommonConsoleOptions,
-    ) -> Option<ConsoleInteractionStream<'_>> {
-        if opts.no_interactive_console {
-            tracing::debug!("Disabling console interaction: no_interactive_console is set");
-            return None;
-        }
-
-        ConsoleInteractionStream::new(self)
     }
 }
 

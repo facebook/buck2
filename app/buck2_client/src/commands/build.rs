@@ -251,8 +251,7 @@ impl StreamingCommand for BuildCommand {
                         })
                         .transpose()?,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await;

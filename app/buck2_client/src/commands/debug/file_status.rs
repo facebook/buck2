@@ -60,8 +60,7 @@ impl StreamingCommand for FileStatusCommand {
                         .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
                     show_matches: self.show_matches,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut StdoutPartialResultHandler,
             )
             .await??;

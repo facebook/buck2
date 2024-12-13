@@ -50,8 +50,7 @@ impl StreamingCommand for MaterializeCommand {
             .new_generic(
                 context,
                 NewGenericRequest::Materialize(MaterializeRequest { paths: self.paths }),
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
             )
             .await??;
 

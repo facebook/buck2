@@ -65,8 +65,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     skip_missing_targets: self.skip_missing_targets,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;

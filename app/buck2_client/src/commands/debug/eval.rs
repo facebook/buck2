@@ -62,8 +62,7 @@ impl StreamingCommand for EvalCommand {
                         buck2_error::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned())
                     })?,
                 }),
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
             )
             .await??;
 

@@ -81,7 +81,7 @@ impl ReplayCommand {
                         &mut NoPartialResultHandler,
                         Box::pin(replayer),
                         None,
-                        ctx.stdin().console_interaction_stream(&console_opts),
+                        ctx.console_interaction_stream(&console_opts),
                     )
                     .await;
 

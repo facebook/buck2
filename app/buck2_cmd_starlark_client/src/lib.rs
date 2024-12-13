@@ -100,7 +100,7 @@ impl StreamingCommand for StarlarkSubcommand {
                     context: Some(context),
                     serialized_opts: serialized,
                 },
-                ctx.stdin().console_interaction_stream(self.console_opts()),
+                ctx.console_interaction_stream(self.console_opts()),
                 &mut StdoutPartialResultHandler,
             )
             .await??;

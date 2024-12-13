@@ -227,8 +227,7 @@ impl StreamingCommand for TestCommand {
                         .buck_error_context("Invalid `timeout`")?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;

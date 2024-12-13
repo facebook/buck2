@@ -190,7 +190,7 @@ impl StreamingCommand for ProfileSubcommand {
 
         let destination_path = destination_path.into_string()?;
 
-        let console_opts = ctx.stdin().console_interaction_stream(self.console_opts());
+        let console_opts = ctx.console_interaction_stream(self.console_opts());
 
         let profiler = profile_mode_to_profile(profile_mode);
 

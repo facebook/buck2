@@ -97,8 +97,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                         format,
                     },
                 )),
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
             )
             .await??;
 

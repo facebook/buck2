@@ -113,8 +113,7 @@ impl StreamingCommand for UqueryCommand {
                     output_attributes,
                     unstable_output_format,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut StdoutPartialResultHandler,
             )
             .await??;

@@ -54,8 +54,7 @@ impl StreamingCommand for StarlarkBuiltinsCommand {
                 buck2_cli_proto::new_generic::NewGenericRequest::Docs(
                     DocsRequest::StarlarkBuiltins(DocsStarlarkBuiltinsRequest { path: p }),
                 ),
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
             )
             .await??;
 

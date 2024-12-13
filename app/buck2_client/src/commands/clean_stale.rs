@@ -133,8 +133,7 @@ impl StreamingCommand for CleanStaleCommand {
                     dry_run: self.dry_run,
                     tracked_only: self.tracked_only,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await??;

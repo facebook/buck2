@@ -69,7 +69,7 @@ impl TraceIoCommand {
             .with_flushing()
             .trace_io(
                 req,
-                ctx.stdin().console_interaction_stream(self.console_opts()),
+                ctx.console_interaction_stream(self.console_opts()),
                 &mut NoPartialResultHandler,
             )
             .await

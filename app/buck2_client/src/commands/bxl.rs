@@ -103,8 +103,7 @@ impl StreamingCommand for BxlCommand {
                         as i32,
                     print_stacktrace: ctx.verbosity.print_success_stderr(),
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_ops.console_opts),
+                ctx.console_interaction_stream(&self.common_ops.console_opts),
                 &mut StdoutPartialResultHandler,
             )
             .await;

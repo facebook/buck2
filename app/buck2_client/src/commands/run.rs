@@ -117,8 +117,7 @@ impl StreamingCommand for RunCommand {
                     target_universe: Vec::new(),
                     output_hashes_file: None,
                 },
-                ctx.stdin()
-                    .console_interaction_stream(&self.common_opts.console_opts),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
             .await;

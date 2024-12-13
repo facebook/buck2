@@ -20,6 +20,7 @@ use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::common::PrintOutputsFormat;
+use buck2_client_ctx::console_interaction_stream::ConsoleInteractionStream;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
@@ -27,7 +28,6 @@ use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::query_args::CommonAttributeArgs;
-use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use dupe::Dupe;
@@ -360,20 +360,18 @@ impl StreamingCommand for TargetsCommand {
         if let Some(format) = self.show_output.format() {
             let project_root = ctx.paths()?.roots.project_root.clone();
             targets_show_outputs(
-                ctx.stdin(),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 buckd,
                 target_request,
                 self.show_output.is_full().then(|| project_root.root()),
                 format,
-                &self.common_opts.console_opts,
             )
             .await
         } else {
             targets(
-                ctx.stdin(),
+                ctx.console_interaction_stream(&self.common_opts.console_opts),
                 buckd,
                 target_request,
-                &self.common_opts.console_opts,
             )
             .await
         }
@@ -397,18 +395,17 @@ impl StreamingCommand for TargetsCommand {
 }
 
 async fn targets_show_outputs(
-    stdin: &mut Stdin,
+    console_interaction: Option<ConsoleInteractionStream<'_>>,
     buckd: &mut BuckdClientConnector<'_>,
     target_request: TargetsRequest,
     root_path: Option<&AbsNormPath>,
     format: PrintOutputsFormat,
-    console_opts: &CommonConsoleOptions,
 ) -> ExitResult {
     let response = buckd
         .with_flushing()
         .targets_show_outputs(
             target_request,
-            stdin.console_interaction_stream(console_opts),
+            console_interaction,
             &mut NoPartialResultHandler,
         )
         .await??;
@@ -428,16 +425,15 @@ async fn targets_show_outputs(
 }
 
 async fn targets(
-    stdin: &mut Stdin,
+    console_interaction: Option<ConsoleInteractionStream<'_>>,
     buckd: &mut BuckdClientConnector<'_>,
     target_request: TargetsRequest,
-    console_opts: &CommonConsoleOptions,
 ) -> ExitResult {
     let response = buckd
         .with_flushing()
         .targets(
             target_request,
-            stdin.console_interaction_stream(console_opts),
+            console_interaction,
             &mut StdoutPartialResultHandler,
         )
         .await??;

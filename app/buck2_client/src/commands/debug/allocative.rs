@@ -56,7 +56,7 @@ impl StreamingCommand for AllocativeCommand {
                     context: Some(context),
                     output_path: self.output.resolve(&ctx.working_dir).into_string()?,
                 },
-                ctx.stdin().console_interaction_stream(self.console_opts()),
+                ctx.console_interaction_stream(self.console_opts()),
                 &mut NoPartialResultHandler,
             )
             .await??;
