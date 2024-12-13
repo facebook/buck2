@@ -244,7 +244,7 @@ export function GraphImpl2(props: {
                 id="includeContaining"
                 className="input is-small"
                 type="text"
-                placeholder="Include containing"
+                placeholder="Only include containing"
               />
             </div>
             <div className="control">
