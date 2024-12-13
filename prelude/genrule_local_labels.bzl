@@ -224,6 +224,10 @@ _GENRULE_LOCAL_LABELS = {label: True for label in [
 
     # Uses checkpolicy which is not on RE
     "uses_checkpolicy",
+
+    # Need to build sgw containers on devserver and not on RE
+    # We pull base image from internet
+    "sgw_build_containers",
 ]}
 
 def genrule_labels_require_local(labels):
