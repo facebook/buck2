@@ -42,8 +42,8 @@ init([#test_env{output_dir = OutputDir}]) ->
         undefined ->
             EpmdOutPath = get_epmd_out_path(OutputDir),
             case start_epmd(EpmdOutPath) of
-                {ok, Port, _PortEpmd, LogHandle} ->
-                    {ok, #{epmd_port => Port, log_handle => LogHandle, global_epmd => false}};
+                {ok, Port, PortEpmd, LogHandle} ->
+                    {ok, #{epmd_port => Port, epmd_erlang_port => PortEpmd, log_handle => LogHandle, global_epmd => false}};
                 Error ->
                     {stop, {epmd_start_failed, Error}, #{}}
             end;
@@ -72,7 +72,7 @@ handle_info({PortEpmd, {data, TaggedData}}, #{epmd_port := PortEpmd, log_handle 
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, #{epmd_port := EpmdPort, global_epmd := false}) ->
+terminate(_Reason, #{epmd_erlang_port := EpmdPort, global_epmd := false}) ->
     test_exec:kill_process(EpmdPort);
 terminate(_Reason, _State) ->
     ok.

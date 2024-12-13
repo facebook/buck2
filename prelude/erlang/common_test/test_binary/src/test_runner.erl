@@ -100,15 +100,13 @@ run_test(
                         )
                     );
                 {run_succeed, Result} ->
+                    ensure_test_exec_stopped(),
                     test_run_succeed(TestEnv, Result);
                 {run_failed, Result} ->
+                    ensure_test_exec_stopped(),
                     test_run_fail(TestEnv, Result)
             after max_timeout(TestEnv) ->
-                {Pid, Monitor} = erlang:spawn_monitor(fun() -> application:stop(test_exec) end),
-                receive
-                    {'DOWN', Monitor, process, Pid, _} -> ok
-                after 5000 -> ok
-                end,
+                ensure_test_exec_stopped(),
                 ErrorMsg =
                     "\n***************************************************************\n"
                     "* the suite timed out, all tests will be reported as failure. *\n"
@@ -123,6 +121,14 @@ run_test(
             test_run_fail(
                 TestEnv, ErrorMsg
             )
+    end.
+
+-spec ensure_test_exec_stopped() -> ok.
+ensure_test_exec_stopped() ->
+    {Pid, Monitor} = erlang:spawn_monitor(fun() -> application:stop(test_exec) end),
+    receive
+        {'DOWN', Monitor, process, Pid, _} -> ok
+    after 5000 -> ok
     end.
 
 %% @doc Provides xml result as specified by the tpx protocol when test failed to ran.
