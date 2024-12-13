@@ -20,10 +20,10 @@ custom command line argument, output artifacts, and print results to stdout.
 
 BXL leverages Buck2 core's incremental
 [caching](./faq#when-is-my-bxl-script-cached). It also has support for
-[running actions](./common_how_tos#running-actions),
+[running actions](./how_tos/basic_how_tos#running-actions),
 [dynamic outputs](./dynamic_output), and [anonymous targets](./anon_target). In
 addition, BXL has
-[profiling](./common_how_tos#profiling-testing-and-debugging-a-bxl-script)
+[profiling](./how_tos/basic_how_tos#profiling-testing-and-debugging-a-bxl-script)
 capabilities, and allows users to add their own [telemetry](./telemetry)
 directly within the BXL scripts.
 

@@ -1,9 +1,79 @@
 ---
-id: common_how_tos
-title: Common How-Tos
+id: basic_how_tos
+title: Basic How-Tos
 ---
 
 import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
+
+## Writing a BXL
+
+To create a BXL, first, create a script somewhere in the repository ending in
+`.bxl`. (Note that you can define a single bxl per file, or multiple BXLs per
+file like in Starlark rules).
+
+In it, define a BXL function as follows:
+
+```python
+def _your_implementation(ctx):
+    # ...
+    pass
+
+your_function_name = bxl_main(
+    impl = _your_implementation,
+    cli_args = {
+        # cli args that you want to receive from the command line
+        "bool_arg": cli_args.bool(),
+        # cli_args will be converted to snakecase. e.g. for this case, passed as --list-type, accessed via ctx.cli_args.list_type
+        "list-type": cli_args.list(cli_args.int()),
+        "optional": cli_args.option(cli_args.string()),
+        "target": cli_args.target_label(),
+    },
+)
+```
+
+This exposes `your_function_name` as a function, with whatever arguments you
+defined it, so that on the command line you can invoke:
+
+```sh
+buck2 bxl //myscript.bxl:your_function_name -- --bool_arg true --list-type 1 --list-type 2 --target //foo:bar`
+```
+
+The implementation function takes a single context as parameter (see the
+documentation for [`bxl.Context`](../../../api/bxl/Context)). Using it, you'll
+be able to access functions that enable you to perform queries, analysis,
+builds, and even create your own actions within BXL to build artifacts as part
+of a BXL function.
+
+## Running a BXL
+
+To run a BXL function, invoke the buck2 command:
+
+```text
+buck2 bxl <bxl function> -- <function args>
+```
+
+Where `<bxl function>` is of the form `<cell path to function>:<function name>`,
+and `<function args>` are the arguments that the function accepts from the
+command line.
+
+The documentation for a BXL function can be seen by running:
+
+```text
+ buck2 bxl <bxl function> -- --help
+```
+
+Note that this is different from `buck2 bxl --help`, which generates the help
+for the buck2 command instead of the function.
+
+## Return information from BXL
+
+The primary method to return information from BXL is to either print them, or
+build some artifact (for details, see the
+[`bxl.OutputStream`](../../../api/bxl/OutputStream) documentation, available as
+part of `ctx.output`). At high level, `ctx.output.print(..)` prints results to
+stdout, and `ctx.output.ensure(artifact)` marks artifacts as to be materialized
+into buck-out by the end of the BXL function, returning an object that lets you
+print the output path via `ctx.output.print(ensured)`.
 
 ## Passing in and using CLI args
 
@@ -55,7 +125,7 @@ def _impl_example(ctx):
 ```
 
 You will need to have
-[execution platforms](../rule_authors/configurations.md#execution-platforms)
+[execution platforms](../../rule_authors/configurations.md#execution-platforms)
 enabled for your project, or else you will get an error. You can specify the
 execution platform resolution by setting named parameters when instantiating
 `bxl_actions`:
@@ -152,11 +222,11 @@ ctx.output.ensure_multiple(ctx.analysis(label).providers()[DefaultInfo])
 BXL provides a unified API for accessing attributes on both unconfigured and
 configured target nodes.
 
-- [`node.get_attr(key)`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
+- [`node.get_attr(key)`](../../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
   Get one attribute
-- [`node.get_attrs`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
+- [`node.get_attrs`](../../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
   Get all attributes
-- [`node.has_attrs(key)`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
+- [`node.has_attrs(key)`](../../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeget_attrs):
   Check if one attribute exists
 
 For special attributes like `rule_kind`, we get them directly from node:
@@ -171,14 +241,14 @@ The following attribute access api are not recommended and will be deprecated
 
 For `ConfiguredTargetNode`:
 
-- [`.attrs_eager`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeattrs_eager)
-- [`.attrs_lazy`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeattrs_lazy)
-- [`.resolved_attrs_eager`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnoderesolved_attrs_eager),
-- [`.resolved_attrs_lazy`](../../api/bxl/ConfiguredTargetNode/#configuredtargetnoderesolved_attrs_lazy)
+- [`.attrs_eager`](../../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeattrs_eager)
+- [`.attrs_lazy`](../../../api/bxl/ConfiguredTargetNode/#configuredtargetnodeattrs_lazy)
+- [`.resolved_attrs_eager`](../../../api/bxl/ConfiguredTargetNode/#configuredtargetnoderesolved_attrs_eager),
+- [`.resolved_attrs_lazy`](../../../api/bxl/ConfiguredTargetNode/#configuredtargetnoderesolved_attrs_lazy)
 
 For `UnconfiguredTargetNode`:
 
-- [`.attrs`](../../api/bxl/UnconfiguredTargetNode/#unconfiguredtargetnodeattrs)
+- [`.attrs`](../../../api/bxl/UnconfiguredTargetNode/#unconfiguredtargetnodeattrs)
 
 ### Example
 
@@ -274,12 +344,12 @@ computations, that would also result in errors.
 
 However, if you are not making any assumptions about the existence of these
 artifacts, you can use use
-[`get_path_without_materialization()`](../../api/bxl#get_path_without_materialization),
+[`get_path_without_materialization()`](../../../api/bxl#get_path_without_materialization),
 which accepts source, declared, or build aritfacts. It does _not_ accept ensured
 artifacts (also see
-[What do I need to know about ensured artifacts](../faq#what-do-i-need-to-know-about-ensured-artifacts)).
+[What do I need to know about ensured artifacts](../../faq#what-do-i-need-to-know-about-ensured-artifacts)).
 
 For getting paths of `cmd_args()` inputs, you can use
-[`get_paths_without_materialization()`](../../api/bxl#get_paths_without_materialization),
+[`get_paths_without_materialization()`](../../../api/bxl#get_paths_without_materialization),
 but note this is risky because the inputs could contain tsets, which, when
 expanded, could be very large. Use these methods at your own risk.

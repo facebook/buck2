@@ -171,6 +171,7 @@ export const sidebars: SidebarsConfig = {
           type: 'category',
           label: 'How-to guides',
           items: [
+            'bxl/how_tos/basic_how_tos',
             'bxl/how_tos/how_to_cache_and_share_operations',
             'bxl/how_tos/how_to_handle_errors',
             'bxl/how_tos/how_to_catch_building_artifacts_errors',
@@ -181,9 +182,7 @@ export const sidebars: SidebarsConfig = {
           type: 'category',
           label: 'User Guide',
           items: [
-            'bxl/getting_started',
             'bxl/basics',
-            'bxl/common_how_tos',
             'bxl/target_universe',
             'bxl/telemetry',
             'bxl/anon_target',

@@ -87,7 +87,7 @@ A common workflow would be to run analysis on a target, and use some interesting
 bits found in the analysis result to construct an augmented
 [`cmd_args`](../../api/build#cmd_args) to run, and then ensure the action's
 output (see below for ensuring). Also see
-[Running actions](../common_how_tos#running-actions).
+[Running actions](../how_tos/basic_how_tos#running-actions).
 
 ### Ensure
 
