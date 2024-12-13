@@ -43,14 +43,6 @@ async def test_explain(buck: Buck) -> None:
 
 
 @buck_test(skip_for_os=["windows"])
-async def test_explain_no_output_arg(buck: Buck) -> None:
-    await expect_failure(
-        buck.explain(),
-        stderr_regex="the following required arguments were not provided",
-    )
-
-
-@buck_test(skip_for_os=["windows"])
 async def test_explain_alias(buck: Buck) -> None:
     with tempfile.TemporaryDirectory() as tmpdirname:
         output = f"{tmpdirname}/index.html"
@@ -106,7 +98,7 @@ async def test_explain_only_builds(buck: Buck) -> None:
 async def test_explain_upload(buck: Buck) -> None:
     uuid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     await buck.build("//:simple")
-    await buck.explain("--upload", env={"BUCK_WRAPPER_UUID": uuid})
+    await buck.explain(env={"BUCK_WRAPPER_UUID": uuid})
 
     assert await manifold_exists(path=f"flat/{uuid}-explain.html") is True
 

@@ -30,15 +30,16 @@ use crate::commands::build::BuildCommand;
 /// This command is to allow users to dive in and understand
 /// builds, without requiring a solid grasp of Buck2 concepts
 #[derive(Debug, clap::Parser)]
-#[clap(name = "explain", group = clap::ArgGroup::new("out").multiple(true).required(true))]
+#[clap(name = "explain")]
 pub struct ExplainCommand {
     /// Output file path for profile data.
     ///
     /// File will be created if it does not exist, and overwritten if it does.
-    #[clap(long, short = 'o', group = "out")]
+    #[clap(long, short = 'o')]
     output: Option<PathArg>,
     /// Whether to upload the output to Manifold
-    #[clap(long, group = "out")]
+    /// Deprecated: now we always upload to Manifold, this flag is a no-op
+    #[clap(long)]
     upload: bool,
     /// Add target code pointer. This invalidates cache, slowing things down
     #[clap(long)]
@@ -122,11 +123,8 @@ impl StreamingCommand for ExplainCommand {
         let target_universe = build_args.target_universe().clone();
         let target_cfg = build_args.target_cfg();
 
-        let manifold_path = if self.upload {
-            Some(format!("flat/{}-explain.html", uuid))
-        } else {
-            None
-        };
+        // TODO iguridi: add option to turn manifold upload off for OSS
+        let manifold_path = Some(format!("flat/{}-explain.html", uuid));
 
         let mut context = ctx.empty_client_context("explain")?;
         context.target_call_stacks = self.stack;
