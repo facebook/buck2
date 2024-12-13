@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::collections::HashSet;
+
 #[derive(Clone)]
 pub struct Argv {
     pub argv: Vec<String>,
@@ -14,9 +16,11 @@ pub struct Argv {
 }
 
 #[derive(Clone)]
+#[allow(clippy::manual_non_exhaustive)] // #[non_exhaustive] would allow this crate to create these.
 pub struct SanitizedArgv {
     pub argv: Vec<String>,
     pub expanded_argv: Vec<String>,
+    _priv: (), // Ensure that all ways of creating this are in this file.
 }
 
 impl Argv {
@@ -28,6 +32,23 @@ impl Argv {
         SanitizedArgv {
             argv,
             expanded_argv,
+            _priv: (),
+        }
+    }
+
+    pub fn redacted(self, to_redact: HashSet<&String>) -> SanitizedArgv {
+        SanitizedArgv {
+            argv: self
+                .argv
+                .into_iter()
+                .filter(|arg| !to_redact.contains(arg))
+                .collect(),
+            expanded_argv: self
+                .expanded_argv
+                .into_iter()
+                .filter(|arg| !to_redact.contains(arg))
+                .collect(),
+            _priv: (),
         }
     }
 }

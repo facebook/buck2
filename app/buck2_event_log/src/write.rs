@@ -442,6 +442,7 @@ impl<'a> SerializeForLog for StreamValueForWrite<'a> {
 mod tests {
     use std::time::SystemTime;
 
+    use buck2_common::argv::Argv;
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
@@ -460,10 +461,11 @@ mod tests {
                         open_event_log_for_writing(log, None, EventLogType::System).await?,
                     ],
                 },
-                sanitized_argv: SanitizedArgv {
+                sanitized_argv: Argv {
                     argv: vec!["buck2".to_owned()],
                     expanded_argv: vec!["buck2".to_owned()],
-                },
+                }
+                .no_need_to_sanitize(),
                 command_name: "testtest".to_owned(),
                 working_dir: AbsWorkingDir::current_dir()?,
                 buf: Vec::new(),
