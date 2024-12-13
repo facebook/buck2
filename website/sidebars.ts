@@ -173,6 +173,7 @@ export const sidebars: SidebarsConfig = {
           items: [
             'bxl/how_tos/how_to_cache_and_share_operations',
             'bxl/how_tos/how_to_handle_errors',
+            'bxl/how_tos/how_to_run_actions_based_on_the_content_of_artifact'
           ]
         },
         {
