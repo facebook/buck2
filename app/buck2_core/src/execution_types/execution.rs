@@ -19,6 +19,7 @@ use crate::configuration::compatibility::IncompatiblePlatformReasonCause;
 use crate::configuration::data::ConfigurationData;
 use crate::configuration::pair::ConfigurationNoExec;
 use crate::execution_types::executor_config::CommandExecutorConfig;
+use crate::provider::label::ProvidersLabel;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::label::TargetLabel;
 
@@ -107,7 +108,7 @@ impl ExecutionPlatform {
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub enum ExecutionPlatformIncompatibleReason {
-    ConstraintNotSatisfied(TargetLabel),
+    ConstraintNotSatisfied(ProvidersLabel),
     ExecutionDependencyIncompatible(Arc<IncompatiblePlatformReason>),
 }
 

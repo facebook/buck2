@@ -461,7 +461,12 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                                     .get(ctx)
                                     .await?
                                     .iter()
-                                    .map(|n| ConfigurationSettingKey(n.label().dupe()))
+                                    .map(|n| {
+                                        // FIXME(nbadami,JakobDegen): This should support subtargets, but `TargetListExpr` cannot express that
+                                        ConfigurationSettingKey(ProvidersLabel::default_for(
+                                            n.label().dupe(),
+                                        ))
+                                    })
                                     .collect()
                                 }
                             };

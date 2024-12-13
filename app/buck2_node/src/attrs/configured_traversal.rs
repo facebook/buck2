@@ -11,6 +11,7 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 
 use crate::attrs::attr_type::query::ResolvedQueryLiterals;
@@ -37,7 +38,7 @@ pub trait ConfiguredAttrTraversal {
         self.dep(dep)
     }
 
-    fn configuration_dep(&mut self, _dep: &TargetLabel) -> buck2_error::Result<()> {
+    fn configuration_dep(&mut self, _dep: &ProvidersLabel) -> buck2_error::Result<()> {
         Ok(())
     }
 

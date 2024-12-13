@@ -59,7 +59,7 @@ pub enum ConfigurationError {
     #[error(
         "`{0}` target doesn't have a `ConfigurationInfo` provider so it can't be selected. Possible selectable rules are `config_setting` and `constraint_value`."
     )]
-    MissingConfigurationInfoProvider(TargetLabel),
+    MissingConfigurationInfoProvider(ProvidersLabel),
     #[error("Expected `{0}` to be a `platform()` target, but it had no `PlatformInfo` provider.")]
     MissingPlatformInfo(TargetLabel),
     #[error(
@@ -548,10 +548,7 @@ impl Key for ConfigurationNodeKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let providers = ctx
-            // TODO(T198210718)
-            .get_configuration_analysis_result(&ProvidersLabel::default_for(
-                self.cfg_target.0.dupe(),
-            ))
+            .get_configuration_analysis_result(&self.cfg_target.0)
             .await?;
 
         // capture the result so the temporaries get dropped before providers
@@ -562,7 +559,7 @@ impl Key for ConfigurationNodeKey {
             Some(configuration_info) => configuration_info,
             None => {
                 return Err::<_, buck2_error::Error>(
-                    ConfigurationError::MissingConfigurationInfoProvider(self.cfg_target.dupe().0)
+                    ConfigurationError::MissingConfigurationInfoProvider(self.cfg_target.0.dupe())
                         .into(),
                 );
             }

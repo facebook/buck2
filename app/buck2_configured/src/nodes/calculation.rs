@@ -600,7 +600,7 @@ fn check_compatible(
     Ok(MaybeCompatible::Incompatible(Arc::new(
         IncompatiblePlatformReason {
             target: target_label.dupe(),
-            cause: IncompatiblePlatformReasonCause::UnsatisfiedConfig(incompatible_target.0),
+            cause: IncompatiblePlatformReasonCause::UnsatisfiedConfig(incompatible_target.0.dupe()),
         },
     )))
 }

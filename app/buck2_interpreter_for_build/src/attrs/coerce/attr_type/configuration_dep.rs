@@ -31,7 +31,7 @@ impl AttrTypeCoerce for ConfigurationDepAttrType {
             .unpack_str()
             .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
 
-        ctx.coerce_target_label(label)
+        ctx.coerce_providers_label(label)
             .map(|t| CoercedAttr::ConfigurationDep(ConfigurationSettingKey(t)))
     }
 

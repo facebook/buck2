@@ -95,8 +95,8 @@ impl CoercedAttrExr for CoercedAttr {
                                 }
                                 default = Some(v);
                             } else {
-                                let target = ctx.coerce_target_label(k)?;
-                                entries.push((ConfigurationSettingKey(target), v));
+                                let label = ctx.coerce_providers_label(k)?;
+                                entries.push((ConfigurationSettingKey(label), v));
                             }
                         }
 

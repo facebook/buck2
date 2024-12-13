@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 use starlark_map::unordered_map::UnorderedMap;
@@ -31,11 +32,13 @@ use starlark_map::unordered_map::UnorderedMap;
     Ord,
     PartialOrd
 )]
-pub struct ConfigurationSettingKey(pub TargetLabel);
+pub struct ConfigurationSettingKey(pub ProvidersLabel);
 
 impl ConfigurationSettingKey {
     pub fn testing_parse(label: &str) -> ConfigurationSettingKey {
-        ConfigurationSettingKey(TargetLabel::testing_parse(label))
+        ConfigurationSettingKey(ProvidersLabel::default_for(TargetLabel::testing_parse(
+            label,
+        )))
     }
 }
 

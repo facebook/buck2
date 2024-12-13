@@ -17,8 +17,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::provider::label::ProvidersLabel;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
-use crate::target::label::label::TargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
 enum CompatibilityErrors {
@@ -73,7 +73,7 @@ impl<T> MaybeCompatible<T> {
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub enum IncompatiblePlatformReasonCause {
     /// Target is incompatible because of unsatisfied config setting.
-    UnsatisfiedConfig(TargetLabel),
+    UnsatisfiedConfig(ProvidersLabel),
     /// Target is incompatible because dependency is incompatible.
     Dependency(Arc<IncompatiblePlatformReason>),
 }
