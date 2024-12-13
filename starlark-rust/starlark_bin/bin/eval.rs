@@ -32,6 +32,7 @@ use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::errors::EvalMessage;
 use starlark::eval::Evaluator;
+use starlark::eval::FileLoader;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
 use starlark::StarlarkResultExt;
@@ -72,6 +73,12 @@ pub(crate) struct Context {
     pub(crate) suppression_rules: Vec<GlobLintSuppression>,
 }
 
+impl FileLoader for Context {
+    fn load(&self, path: &str) -> starlark::Result<FrozenModule> {
+        self.load_path(Path::new(path))
+    }
+}
+
 /// The outcome of evaluating (checking, parsing or running) given starlark code.
 pub(crate) struct EvalResult<T: Iterator<Item = EvalMessage>> {
     /// The diagnostic and error messages from evaluating a given piece of starlark code.
@@ -103,24 +110,6 @@ impl Context {
         globals: Globals,
         suppression_rules: Vec<GlobLintSuppression>,
     ) -> anyhow::Result<Self> {
-        let prelude: Vec<_> = prelude
-            .iter()
-            .map(|x| {
-                let env = Module::new();
-                {
-                    let mut eval = Evaluator::new(&env);
-                    let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
-                    eval.eval_module(module, &globals).into_anyhow_result()?;
-                }
-                Ok(env.freeze()?)
-            })
-            .collect::<anyhow::Result<_>>()?;
-
-        let module = if module {
-            Some(Self::new_module(&prelude))
-        } else {
-            None
-        };
         let mut builtin_docs: HashMap<LspUrl, String> = HashMap::new();
         let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
         for (name, item) in globals.documentation().members {
@@ -130,17 +119,41 @@ impl Context {
             builtin_symbols.insert(name, uri);
         }
 
-        Ok(Self {
+        let mut ctx = Self {
             mode,
             print_non_none,
-            prelude,
-            module,
+            prelude: Vec::new(),
+            module: None,
             dialect,
             globals,
             builtin_docs,
             builtin_symbols,
             suppression_rules,
-        })
+        };
+
+        ctx.prelude = prelude
+            .iter()
+            .map(|x| ctx.load_path(x))
+            .collect::<starlark::Result<_>>()
+            .into_anyhow_result()?;
+
+        ctx.module = if module {
+            Some(Self::new_module(&ctx.prelude))
+        } else {
+            None
+        };
+
+        Ok(ctx)
+    }
+
+    fn load_path(&self, path: &Path) -> starlark::Result<FrozenModule> {
+        let env = Module::new();
+        let mut eval = Evaluator::new(&env);
+        eval.set_loader(self);
+        let module = AstModule::parse_file(path, &self.dialect).into_anyhow_result()?;
+        eval.eval_module(module, &self.globals)?;
+        drop(eval);
+        Ok(env.freeze()?)
     }
 
     fn new_module(prelude: &[FrozenModule]) -> Module {
@@ -233,6 +246,7 @@ impl Context {
             }
         };
         let mut eval = Evaluator::new(module);
+        eval.set_loader(self);
         eval.enable_terminal_breakpoint_console();
         Self::err(
             file,
