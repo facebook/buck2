@@ -60,7 +60,6 @@ load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
-    "pre_order_traversal_by",
 )
 load(
     "@prelude//utils:set.bzl",
@@ -372,8 +371,6 @@ def get_filtered_labels_to_links_map(
     is_executable_link = executable_link_label != None
 
     def get_potential_linkables(node: Label) -> list[Label]:
-        if node == executable_link_label:
-            return roots
         linkable_node = linkable_graph_node_map[node]
 
         # If the preferred linkage is `static` or `any` we need to link against the deps too.
@@ -384,14 +381,12 @@ def get_filtered_labels_to_links_map(
         else:
             return linkable_node.exported_deps
 
-    linkables_gathering_traversal = pre_order_traversal_by if link_strategy == LinkStrategy("shared") else partial(depth_first_traversal_by, None)
-
     # Get all potential linkable targets
-    linkables = linkables_gathering_traversal(
-        [executable_link_label] if executable_link_label else roots,
+    linkables = depth_first_traversal_by(
+        linkable_graph_node_map,
+        roots,
         get_potential_linkables,
     )
-    linkables = filter(lambda l: l != executable_link_label, linkables)
 
     # An index of target to link group names, for all link group library nodes.
     # Provides fast lookup of a link group root lib via it's label.
