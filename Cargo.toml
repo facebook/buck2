@@ -329,10 +329,10 @@ lock_free_hashtable = { version = "0.1.0", path = "shed/lock_free_hashtable" }
 lock_free_vec = { path = "shed/lock_free_vec" }
 provider = { path = "shed/provider" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
-starlark = { version = "0.12.0", path = "starlark-rust/starlark" }
-starlark_lsp = { version = "0.12.0", path = "starlark-rust/starlark_lsp" }
-starlark_map = { version = "0.12.0", path = "starlark-rust/starlark_map" }
-starlark_syntax = { version = "0.12.0", path = "starlark-rust/starlark_syntax" }
+starlark = { version = "0.13.0", path = "starlark-rust/starlark" }
+starlark_lsp = { version = "0.13.0", path = "starlark-rust/starlark_lsp" }
+starlark_map = { version = "0.13.0", path = "starlark-rust/starlark_map" }
+starlark_syntax = { version = "0.13.0", path = "starlark-rust/starlark_syntax" }
 static_interner = { path = "shed/static_interner" }
 three_billion_instructions = { path = "shed/three_billion_instructions" }
 
