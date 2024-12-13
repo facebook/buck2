@@ -52,6 +52,9 @@ LANGUAGE_STANDARD_AND_TOOLSET_MAP = {
     },
 }
 
+ABSOLUTIZE_PATH_EXE = "prelude//ide_integrations/visual_studio:absolutize_path_exe"
+VS_BUCK_BUILD_PROPS = "prelude//ide_integrations/visual_studio:vs_buck_build_props"
+
 def _get_platform(vs_version: str) -> str:
     if "android" in read_root_config("build", "default_target_platform"):
         return "android"
@@ -78,6 +81,19 @@ def _get_linker_settings(platform: str, buck_root: str) -> dict:
     linker_flags = _remove_flags_with_macros(linker_flags)
     return get_linker_settings_from_flags(linker_flags, buck_root)
 
+def _get_provider_output_path(provider, bxl_ctx):
+    default_outputs = provider.default_outputs
+    if default_outputs:
+        return get_path_without_materialization(default_outputs[0], bxl_ctx, abs = True)
+    else:
+        return None
+
+def _get_path(target: str, bxl_ctx):
+    target_node = bxl_ctx.configured_targets(target)
+    providers = bxl_ctx.analysis(target_node).providers()
+    absolute_path = _get_provider_output_path(providers[DefaultInfo], bxl_ctx)
+    return absolute_path
+
 def _main(bxl_ctx):
     platform = _get_platform(bxl_ctx.cli_args.vs_version_year)
 
@@ -100,6 +116,10 @@ def _main(bxl_ctx):
     if bxl_ctx.cli_args.fbsource and platform != ANDROID:
         toolchains_props = "    <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
 
+    absolutize_path_exe = _get_path(ABSOLUTIZE_PATH_EXE, bxl_ctx)
+    vs_buck_build_props_path = _get_path(VS_BUCK_BUILD_PROPS, bxl_ctx)
+    vs_buck_build_props = """    <Import Project="{}"/>""".format(vs_buck_build_props_path)
+
     content = cmd_args(
         """<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -109,6 +129,7 @@ def _main(bxl_ctx):
             "PropertyGroup",
             [
                 h("PlatformToolset", platform_toolset, indent_level = 2),
+                h("AbsolutizePathExe", absolutize_path_exe, indent_level = 2),
             ],
             indent_level = 1,
         ),
@@ -120,8 +141,7 @@ def _main(bxl_ctx):
         """    <Import Condition="exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props"/>""",
         toolchains_props,
         """    <Import Project="$(VCTargetsPath)\\Microsoft.Cpp.Targets" />""",
-        # TODO: Open source vs_buck_build.props
-        """    <Import Project="$(RepoRoot)\\arvr\\tools\\buck\\vs_buck_build.props"/>""",
+        vs_buck_build_props,
         """</Project>""",
         delimiter = "\n",
     )
