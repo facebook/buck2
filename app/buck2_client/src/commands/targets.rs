@@ -15,6 +15,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::build::CommonOutputOptions;
 use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
@@ -285,7 +286,7 @@ impl StreamingCommand for TargetsCommand {
     async fn exec_impl(
         mut self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let target_hash_use_fast_hash = match self.target_hash_function {

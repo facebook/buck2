@@ -9,6 +9,7 @@
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -48,7 +49,7 @@ pub struct ReplayCommand {
 }
 
 impl ReplayCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self {
             event_log,
             speed,

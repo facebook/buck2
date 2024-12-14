@@ -12,6 +12,7 @@ use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_cli_proto::UnstableDiceDumpRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
@@ -42,7 +43,7 @@ impl StreamingCommand for DiceDumpCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let format = if self.serde {

@@ -27,6 +27,7 @@ mod what_uploaded;
 use std::fmt::Debug;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
@@ -97,7 +98,7 @@ pub enum LogCommand {
 }
 
 impl LogCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         match self {
             Self::WhatRan(cmd) => cmd.exec(matches, ctx),
             Self::WhatFailed(cmd) => cmd.exec(matches, ctx),

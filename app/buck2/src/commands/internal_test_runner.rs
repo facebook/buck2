@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use clap::Parser;
 use tokio::runtime::Runtime;
 
@@ -26,7 +27,7 @@ pub(crate) struct InternalTestRunnerCommand {
 impl InternalTestRunnerCommand {
     pub(crate) fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
     ) -> anyhow::Result<()> {
         // Internal test runner should only be used in the open source version of Buck2.

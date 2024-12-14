@@ -11,6 +11,7 @@ use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
@@ -19,7 +20,6 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_event_log::file_names::get_local_logs;
-use clap::ArgMatches;
 use clap::Parser as _;
 use tonic::async_trait;
 
@@ -57,7 +57,7 @@ impl StreamingCommand for ExplainCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         if cfg!(windows) {

@@ -10,6 +10,7 @@
 use std::time::Duration;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -32,7 +33,7 @@ pub struct KillCommand {
 }
 
 impl KillCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command("kill", &self.event_log_opts, |ctx| async move {
             let daemon_dir = ctx.paths()?.daemon_dir()?;
 

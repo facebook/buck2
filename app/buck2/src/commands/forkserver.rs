@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -37,7 +38,7 @@ pub(crate) struct ForkserverCommand {
 impl ForkserverCommand {
     pub(crate) fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {

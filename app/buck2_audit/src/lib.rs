@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::GenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
@@ -126,15 +127,12 @@ impl StreamingCommand for AuditCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 
-        let submatches = match matches.subcommand().map(|s| s.1) {
-            Some(submatches) => submatches,
-            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
-        };
+        let submatches = matches.unwrap_subcommand();
 
         let context = ctx.client_context(submatches, &self)?;
 

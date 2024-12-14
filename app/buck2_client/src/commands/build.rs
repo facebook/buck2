@@ -23,6 +23,7 @@ use buck2_client_ctx::common::build::CommonBuildOptions;
 use buck2_client_ctx::common::build::CommonOutputOptions;
 use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
@@ -211,7 +212,7 @@ impl StreamingCommand for BuildCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let show_default_other_outputs = false;

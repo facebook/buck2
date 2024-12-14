@@ -17,6 +17,7 @@ use dupe::Dupe;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::common::ui::CommonConsoleOptions;
+use crate::common::BuckArgMatches;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonEventLogOptions;
 use crate::common::CommonStarlarkOptions;
@@ -105,7 +106,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult;
 
@@ -156,12 +157,12 @@ pub trait StreamingCommand: Sized + Send + Sync {
 /// Just provides a common interface for buck subcommands for us to interact with here.
 #[allow(async_fn_in_trait)]
 pub trait BuckSubcommand {
-    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult;
+    fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult;
 
     /// A version of `exec` that allows the caller to control when the runtime is entered.
     async fn exec_async(
         self,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult;
 }
@@ -171,7 +172,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
     /// Handles all of the business of setting up a runtime, server, and subscribers.
     async fn exec_async(
         self,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         mut ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let buck_log_dir = &ctx.paths()?.log_dir();
@@ -232,7 +233,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         result
     }
 
-    fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.with_runtime(|ctx| self.exec_async(matches, ctx))
     }
 }

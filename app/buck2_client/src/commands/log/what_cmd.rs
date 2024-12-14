@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 
 use crate::commands::log::options::EventLogOptions;
@@ -27,7 +28,11 @@ pub struct WhatCmdCommand {
 }
 
 impl WhatCmdCommand {
-    pub(crate) fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext) -> ExitResult {
+    pub(crate) fn exec(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext,
+    ) -> ExitResult {
         let WhatCmdCommand { event_log, expand } = self;
 
         ctx.instant_command_no_log("log-what-cmd", |ctx| async move {

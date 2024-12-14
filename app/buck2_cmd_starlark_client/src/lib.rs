@@ -14,6 +14,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::GenericRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
@@ -86,7 +87,7 @@ impl StreamingCommand for StarlarkSubcommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
@@ -125,8 +126,8 @@ impl StreamingCommand for StarlarkSubcommand {
 }
 
 impl StarlarkCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let matches = matches.subcommand().expect("subcommand not found").1;
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+        let matches = matches.unwrap_subcommand();
         match self {
             StarlarkCommand::Opaque(cmd) => cmd.exec(matches, ctx),
             StarlarkCommand::DebugAttach(cmd) => cmd.exec(matches, ctx),

@@ -9,6 +9,7 @@
 
 use buck2_cli_proto::SetLogFilterRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::exit_result::ExitResult;
 
@@ -30,7 +31,7 @@ pub struct SetLogFilterCommand {
 }
 
 impl SetLogFilterCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.with_runtime(|ctx| async move {
             let mut buckd = ctx
                 .connect_buckd(BuckdConnectOptions::existing_only_no_console())

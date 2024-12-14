@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use clap::Command;
 use clap::ValueEnum;
@@ -52,7 +53,7 @@ impl CompletionCommand {
     pub fn exec(
         self,
         command: Command,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let mut command = command;

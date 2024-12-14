@@ -17,13 +17,13 @@ use std::time::Duration;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use clap::ArgMatches;
 use package::PackageCompleter;
 use target::CompleteTargetCommand;
 
@@ -75,7 +75,7 @@ pub struct CompleteCommand {
 ///    stage.
 
 impl CompleteCommand {
-    pub fn exec(self, matches: &ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let lockfile = buck2_env!("COMPLETION_VERIFY_LOCKFILE", applicability = testing)?
             .map(AbsPath::new)
             .transpose()?;
@@ -105,7 +105,7 @@ impl CompleteCommand {
 
     async fn exec_no_lockfile(
         self,
-        matches: &ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let exit_result = match self.partial_target.split(':').collect::<Vec<_>>()[..] {

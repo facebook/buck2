@@ -13,6 +13,7 @@ use std::time::SystemTime;
 use std::time::SystemTimeError;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::superconsole::session_info::SessionInfoComponent;
 use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
@@ -48,7 +49,7 @@ pub struct WhatUpCommand {
 }
 
 impl WhatUpCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { event_log, after } = self;
         let cutoff_time = after.map(Duration::from_millis);
 

@@ -9,6 +9,7 @@
 
 use allocator_stats::AllocatorStatsCommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_common::argv::Argv;
@@ -103,8 +104,8 @@ pub enum DebugCommand {
 }
 
 impl DebugCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let matches = matches.subcommand().expect("subcommand not found").1;
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+        let matches = matches.unwrap_subcommand();
         match self {
             DebugCommand::DiceDump(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Crash(cmd) => cmd.exec(matches, ctx),

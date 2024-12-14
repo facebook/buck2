@@ -12,6 +12,7 @@ use std::io::Write;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
@@ -50,7 +51,7 @@ pub struct InitCommand {
 }
 
 impl InitCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let console = self.console_opts.final_console();
 
         match exec_impl(self, ctx, &console) {

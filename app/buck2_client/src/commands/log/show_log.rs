@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdio;
 use tokio_stream::StreamExt;
@@ -22,7 +23,7 @@ pub struct ShowLogCommand {
 }
 
 impl ShowLogCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self { event_log } = self;
 
         ctx.instant_command_no_log("log-show", |ctx| async move {

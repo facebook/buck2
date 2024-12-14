@@ -42,6 +42,7 @@ use buck2_client::commands::test::TestCommand;
 use buck2_client_ctx::argfiles::expand_argfiles_with_context;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::streaming::BuckSubcommand;
@@ -172,13 +173,10 @@ impl Opt {
         self,
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         argv: Argv,
     ) -> ExitResult {
-        let subcommand_matches = match matches.subcommand().map(|s| s.1) {
-            Some(submatches) => submatches,
-            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
-        };
+        let subcommand_matches = matches.unwrap_subcommand();
 
         self.cmd.exec(
             process,
@@ -251,8 +249,12 @@ impl ParsedArgv {
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
     ) -> ExitResult {
-        self.opt
-            .exec(process, &immediate_config, &self.matches, self.argv)
+        self.opt.exec(
+            process,
+            &immediate_config,
+            BuckArgMatches::from_clap(&self.matches),
+            self.argv,
+        )
     }
 }
 
@@ -319,7 +321,7 @@ impl CommandKind {
         self,
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         argv: Argv,
         common_opts: BeforeSubcommandOptions,
     ) -> ExitResult {
@@ -365,7 +367,7 @@ impl CommandKind {
         common_opts: BeforeSubcommandOptions,
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         argv: Argv,
         paths: InvocationPathsResult,
     ) -> ExitResult {

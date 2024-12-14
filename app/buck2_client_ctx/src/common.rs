@@ -206,16 +206,16 @@ impl CommonBuildConfigurationOptions {
     /// hence they're merged into a single list.
     pub fn config_overrides(
         &self,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         immediate_ctx: &ImmediateConfigContext<'_>,
         cwd: &AbsWorkingDir,
     ) -> buck2_error::Result<Vec<ConfigOverride>> {
         fn with_indices<'a, T>(
             collection: &'a [T],
             name: &str,
-            matches: &'a clap::ArgMatches,
+            matches: BuckArgMatches<'a>,
         ) -> impl Iterator<Item = (usize, &'a T)> + 'a {
-            let indices = matches.indices_of(name);
+            let indices = matches.inner.indices_of(name);
             let indices = indices.unwrap_or_default();
             assert_eq!(
                 indices.len(),
@@ -398,4 +398,22 @@ pub enum PrintOutputsFormat {
     Plain,
     Simple,
     Json,
+}
+
+#[derive(Clone, Copy)]
+pub struct BuckArgMatches<'a> {
+    inner: &'a clap::ArgMatches,
+}
+
+impl<'a> BuckArgMatches<'a> {
+    pub fn from_clap(inner: &'a clap::ArgMatches) -> Self {
+        Self { inner }
+    }
+
+    pub fn unwrap_subcommand(&self) -> Self {
+        match self.inner.subcommand().map(|s| s.1) {
+            Some(submatches) => Self { inner: submatches },
+            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
+        }
+    }
 }

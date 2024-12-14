@@ -13,6 +13,7 @@ use std::fmt::Formatter;
 use std::io::Write;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::ReUploadMetrics;
@@ -153,7 +154,7 @@ struct ReUploadEvent<'a> {
 }
 
 impl WhatUploadedCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let Self {
             event_log,
             output,

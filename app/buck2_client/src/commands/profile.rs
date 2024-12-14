@@ -19,6 +19,7 @@ use buck2_cli_proto::TargetProfile;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
@@ -46,8 +47,8 @@ pub enum ProfileCommand {
 }
 
 impl ProfileCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
-        let submatches = matches.subcommand().expect("subcommand not found").1;
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+        let submatches = matches.unwrap_subcommand();
         ProfileSubcommand { subcommand: self }.exec(submatches, ctx)
     }
 
@@ -179,7 +180,7 @@ impl StreamingCommand for ProfileSubcommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;

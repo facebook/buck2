@@ -18,6 +18,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::convert::ProstDurationExt;
@@ -994,7 +995,7 @@ impl ChromeTraceCommand {
         }
     }
 
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let log = match self.path {
             Some(path) => path.resolve(&ctx.working_dir),
             None => retrieve_nth_recent_log(

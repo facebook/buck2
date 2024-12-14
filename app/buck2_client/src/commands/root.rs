@@ -10,6 +10,7 @@
 use std::str::FromStr;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::argv::Argv;
@@ -61,7 +62,7 @@ pub struct RootCommand {
 impl RootCommand {
     pub fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
     ) -> buck2_error::Result<()> {
         let root = if matches!(self.kind, RootKind::Daemon) {

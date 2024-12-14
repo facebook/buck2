@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_query::query::syntax::simple::functions::description::QueryType;
 use buck2_query::query::syntax::simple::functions::description::QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE;
@@ -88,7 +89,7 @@ fn output(options: OutputFormatOptions, description: QueryEnvironmentDescription
 impl DocsUqueryCommand {
     pub(crate) fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let description = (QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE.get()?)(QueryType::Uquery);
@@ -99,7 +100,7 @@ impl DocsUqueryCommand {
 impl DocsCqueryCommand {
     pub(crate) fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let description = (QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE.get()?)(QueryType::Cquery);
@@ -110,7 +111,7 @@ impl DocsCqueryCommand {
 impl DocsAqueryCommand {
     pub(crate) fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         _ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         let description = (QUERY_ENVIRONMENT_DESCRIPTION_BY_TYPE.get()?)(QueryType::Aquery);

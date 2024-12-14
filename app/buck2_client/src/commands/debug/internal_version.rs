@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::version::BuckVersion;
 
@@ -15,7 +16,7 @@ use buck2_client_ctx::version::BuckVersion;
 pub struct InternalVersionCommand {}
 
 impl InternalVersionCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, _ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_client_ctx::println!("buck2 internal-version {}", BuckVersion::get_unique_id())?;
         ExitResult::success()
     }

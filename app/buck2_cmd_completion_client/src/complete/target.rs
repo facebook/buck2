@@ -17,6 +17,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
@@ -27,7 +28,6 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::fs::working_dir::AbsWorkingDir;
-use clap::ArgMatches;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 
@@ -75,7 +75,7 @@ impl StreamingCommand for CompleteTargetCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let buckd_client = buckd.with_flushing();

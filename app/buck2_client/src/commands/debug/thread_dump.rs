@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitCode;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -20,7 +21,7 @@ use crate::commands::rage::thread_dump::thread_dump_command;
 pub struct ThreadDumpCommand {}
 
 impl ThreadDumpCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let paths = ctx.paths()?;
         let daemon_dir = paths.daemon_dir()?;
         let Ok(info) = BuckdProcessInfo::load(&daemon_dir) else {

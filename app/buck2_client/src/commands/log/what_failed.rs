@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 
 use crate::commands::log::what_ran::WhatRanCommand;
@@ -23,7 +24,7 @@ pub struct WhatFailedCommand {
 }
 
 impl WhatFailedCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         WhatRanCommand {
             common: self.common,
             failed: true,

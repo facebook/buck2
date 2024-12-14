@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_event_log::stream_value::StreamValue;
 use derive_more::Display;
@@ -144,7 +145,7 @@ impl<'a> Display for DiffType<'a> {
 }
 
 impl ExternalConfigDiffCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command_no_log("log-diff-buckconfig", |ctx| async move {
             let (log_path1, log_path2) = self.diff_event_log.get(&ctx).await?;
 

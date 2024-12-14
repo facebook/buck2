@@ -28,6 +28,7 @@ use tokio::runtime::Runtime;
 
 use crate::client_metadata::ClientMetadata;
 use crate::common::ui::CommonConsoleOptions;
+use crate::common::BuckArgMatches;
 use crate::common::CommonEventLogOptions;
 use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
@@ -207,7 +208,7 @@ impl<'a> ClientCommandContext<'a> {
 
     pub fn client_context<T: StreamingCommand>(
         &self,
-        arg_matches: &clap::ArgMatches,
+        arg_matches: BuckArgMatches<'_>,
         cmd: &T,
     ) -> buck2_error::Result<ClientContext> {
         // TODO(cjhopman): Support non unicode paths?

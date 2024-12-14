@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
@@ -22,7 +23,7 @@ pub struct KillallCommand {
 }
 
 impl KillallCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command("killall", &self.event_log_opts, |_ctx| async move {
             buck2_wrapper_common::killall(WhoIsAsking::Buck2, |s| {
                 let _ignored = buck2_client_ctx::eprintln!("{}", s);

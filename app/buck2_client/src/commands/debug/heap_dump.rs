@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::UnstableHeapDumpRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
@@ -49,7 +50,7 @@ impl StreamingCommand for HeapDumpCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let path = self.path.resolve(&ctx.working_dir);

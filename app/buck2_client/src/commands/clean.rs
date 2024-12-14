@@ -13,6 +13,7 @@ use std::time::Duration;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
@@ -77,7 +78,7 @@ the specified duration, without killing the daemon",
 }
 
 impl CleanCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         if let Some(keep_since_arg) = parse_clean_stale_args(self.stale, self.keep_since_time)? {
             let cmd = CleanStaleCommand {
                 common_opts: self.common_opts,

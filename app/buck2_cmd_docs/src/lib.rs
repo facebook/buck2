@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 
@@ -39,7 +40,7 @@ pub struct DocsCommand {
 }
 
 impl DocsCommand {
-    pub fn exec(self, matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         if let DocsKind::Uquery(_) | DocsKind::Cquery(_) | DocsKind::Aquery(_) = &self.docs_kind {
             // The docs for these are late-bound from the query impls, which is kind of hard to
             // separate from the rest of the query graph
@@ -48,10 +49,7 @@ impl DocsCommand {
             }
         }
 
-        let submatches = match matches.subcommand().map(|s| s.1) {
-            Some(submatches) => submatches,
-            None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
-        };
+        let submatches = matches.unwrap_subcommand();
         match self.docs_kind {
             DocsKind::Starlark(cmd) => cmd.exec(submatches, ctx),
             DocsKind::StarlarkBuiltins(cmd) => cmd.exec(submatches, ctx),

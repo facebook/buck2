@@ -11,6 +11,7 @@ use std::cmp;
 use std::iter;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::env::registry::Applicability;
 use buck2_core::env::registry::EnvInfoEntry;
@@ -28,7 +29,7 @@ pub struct HelpEnvCommand {
 }
 
 impl HelpEnvCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, _ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, _ctx: ClientCommandContext<'_>) -> ExitResult {
         // TODO(nga): print special buckconfigs too.
 
         // This command depends on `linkme` aggregating all the environment variables.

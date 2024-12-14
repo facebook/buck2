@@ -13,6 +13,7 @@ use buck2_cli_proto::CqueryResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
@@ -101,7 +102,7 @@ impl StreamingCommand for CqueryCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();

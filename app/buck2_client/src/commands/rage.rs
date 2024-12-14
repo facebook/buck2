@@ -23,6 +23,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stdin::Stdin;
@@ -105,7 +106,7 @@ pub struct RageCommand {
 }
 
 impl RageCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         buck2_core::facebook_only();
 
         ctx.with_runtime(|ctx| async move {

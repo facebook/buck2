@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use buck2_cli_proto::StatusResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
@@ -41,7 +42,7 @@ pub struct StatusCommand {
 impl StatusCommand {
     pub fn exec(
         self,
-        _matches: &clap::ArgMatches,
+        _matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
     ) -> buck2_error::Result<()> {
         ctx.with_runtime(|ctx| async move {

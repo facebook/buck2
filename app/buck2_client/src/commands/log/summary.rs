@@ -14,6 +14,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::process_memory;
 use buck2_data::ActionExecutionKind;
@@ -242,7 +243,7 @@ pub struct SummaryCommand {
 }
 
 impl SummaryCommand {
-    pub fn exec(self, _matches: &clap::ArgMatches, ctx: ClientCommandContext<'_>) -> ExitResult {
+    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.instant_command_no_log("log-summary", |ctx| async move {
             let log_path = self.event_log.get(&ctx).await?;
 

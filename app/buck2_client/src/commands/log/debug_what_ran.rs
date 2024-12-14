@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::soft_error;
 
@@ -28,7 +29,7 @@ pub struct DebugWhatRanCommand {
 impl DebugWhatRanCommand {
     pub(crate) fn exec(
         self,
-        matches: &clap::ArgMatches,
+        matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
     ) -> ExitResult {
         soft_error!(
