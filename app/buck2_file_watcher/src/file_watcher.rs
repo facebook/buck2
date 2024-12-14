@@ -51,6 +51,7 @@ impl dyn FileWatcher {
         let default = if is_open_source() {
             "notify"
         } else {
+            // TODO: On EdenFS mount use "edenfs", on non-EdenFS use "watchman"
             "watchman"
         };
 
