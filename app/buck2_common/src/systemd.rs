@@ -70,6 +70,14 @@ impl SystemdRunnerConfig {
             parent_slice,
         }
     }
+
+    pub fn action_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
+        Self {
+            status: config.status.clone(),
+            memory_max: config.memory_max_per_action.clone(),
+            parent_slice,
+        }
+    }
 }
 
 pub struct SystemdRunner {

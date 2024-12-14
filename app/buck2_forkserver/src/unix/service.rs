@@ -78,7 +78,7 @@ impl UnixForkserverService {
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
         let systemd_runner =
-            SystemdRunner::create_if_enabled(&SystemdRunnerConfig::daemon_runner_config(
+            SystemdRunner::create_if_enabled(&SystemdRunnerConfig::action_runner_config(
                 &resource_control,
                 // we want to create forkserver in the same hierarchy where buck-daemon scope
                 // for this we inherit slice
