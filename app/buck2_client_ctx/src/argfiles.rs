@@ -162,7 +162,9 @@ fn resolve_and_expand_argfile(
     let flagfile = resolve_flagfile(path, context, cwd)
         .with_buck_error_context(|| format!("Error resolving flagfile `{}`", path))?;
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
-    expand_argfiles_with_context(expanded, flagfile_lines, context, cwd)
+    expanded.argfile_scope(flagfile, |expanded| {
+        expand_argfiles_with_context(expanded, flagfile_lines, context, cwd)
+    })
 }
 
 fn expand_argfile_contents(flagfile: &ArgFileKind) -> buck2_error::Result<Vec<String>> {
@@ -305,7 +307,10 @@ fn resolve_flagfile(
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::argv::ExpandedArgSource;
+    use buck2_common::argv::FlagfileArgSource;
     use buck2_core::fs::paths::abs_path::AbsPath;
+    use buck2_core::fs::paths::abs_path::AbsPathBuf;
     use buck2_core::fs::working_dir::AbsWorkingDir;
 
     use super::*;
@@ -347,5 +352,67 @@ mod tests {
         .unwrap();
         let args = args.build();
         assert_eq!(args.args().collect::<Vec<_>>(), vec!["--magic"]);
+    }
+
+    #[test]
+    fn test_arg_source() {
+        // Currently all @-files both on the command line and in files are relative to the current directory.
+        // This matches gcc/clang, so write a test we don't inadvertantly change it.
+        let tempdir = tempfile::tempdir().unwrap();
+        let root = AbsPathBuf::new(tempdir.path().canonicalize().unwrap()).unwrap();
+        fs_util::create_dir(root.join("foo")).unwrap();
+        fs_util::create_dir(root.join("foo/bar")).unwrap();
+        let arg1_path = root.join("foo/bar/arg1.txt");
+        let arg2_path = root.join("foo/bar/arg2.txt");
+        fs_util::write(&arg1_path, "@bar/arg2.txt\n--other-arg").unwrap();
+        fs_util::write(&arg2_path, "--magic").unwrap();
+        fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .").unwrap();
+        let cwd = AbsWorkingDir::unchecked_new(
+            AbsNormPathBuf::new(root.canonicalize().unwrap().join("foo")).unwrap(),
+        );
+        let mut context = ImmediateConfigContext::new(&cwd);
+        let mut args = ExpandedArgvBuilder::new();
+
+        expand_argfiles_with_context(
+            &mut args,
+            vec![
+                "--inline1".to_owned(),
+                "@bar/arg1.txt".to_owned(),
+                "--inline2".to_owned(),
+            ],
+            &mut context,
+            &cwd,
+        )
+        .unwrap();
+        let args = args.build();
+
+        fn display(v: &ExpandedArgSource) -> String {
+            fn display_flagfile(v: &FlagfileArgSource) -> String {
+                format!(
+                    "{}{}",
+                    v.kind,
+                    if let Some(v) = &v.parent {
+                        format!("@{}", display_flagfile(&v))
+                    } else {
+                        "".to_owned()
+                    }
+                )
+            }
+            match v {
+                ExpandedArgSource::Inline => "inline".to_owned(),
+                ExpandedArgSource::Flagfile(v) => display_flagfile(v),
+            }
+        }
+        assert_eq!(
+            args.iter()
+                .map(|(arg, location)| format!("{} {}", arg, display(location)))
+                .collect::<Vec<_>>(),
+            vec![
+                "--inline1 inline".to_owned(),
+                format!("--magic {}@{}", &arg2_path, &arg1_path),
+                format!("--other-arg {}", &arg1_path),
+                "--inline2 inline".to_owned()
+            ]
+        )
     }
 }

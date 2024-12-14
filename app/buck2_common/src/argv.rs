@@ -8,6 +8,7 @@
  */
 
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::sync::Arc;
 
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -45,6 +46,19 @@ pub enum ArgFileKind {
     Stdin,
 }
 
+impl Display for ArgFileKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArgFileKind::PythonExecutable(abs_path_buf, Some(flag)) => {
+                write!(f, "{}#{}", abs_path_buf, flag)
+            }
+            ArgFileKind::PythonExecutable(abs_path_buf, None) => abs_path_buf.fmt(f),
+            ArgFileKind::Path(abs_path_buf) => abs_path_buf.fmt(f),
+            ArgFileKind::Stdin => f.write_str("-"),
+        }
+    }
+}
+
 impl ExpandedArgv {
     pub fn new() -> Self {
         Self::from_literals(Vec::new())
@@ -68,6 +82,10 @@ impl ExpandedArgv {
 
     pub fn args(&self) -> impl Iterator<Item = &str> {
         self.args.iter().map(|(v, _)| v as _)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &ExpandedArgSource)> {
+        self.args.iter().map(|(l, r)| (l as _, r))
     }
 }
 
