@@ -8,7 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -35,6 +34,7 @@ use watchman_client::prelude::FileType;
 use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
+use crate::utils::find_first_valid_parent;
 use crate::watchman::core::SyncableQuery;
 use crate::watchman::core::SyncableQueryProcessor;
 use crate::watchman::core::WatchmanEvent;
@@ -196,17 +196,6 @@ impl WatchmanQueryProcessor {
         }
 
         Ok(())
-    }
-}
-
-fn find_first_valid_parent(mut path: &Path) -> Option<&ProjectRelativePath> {
-    loop {
-        path = path.parent()?;
-
-        match ProjectRelativePath::new(path) {
-            Ok(path) => return Some(path),
-            Err(_) => {}
-        }
     }
 }
 

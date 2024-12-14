@@ -18,4 +18,5 @@ mod fs_hash_crawler;
 pub mod mergebase;
 mod notify;
 mod stats;
+mod utils;
 mod watchman;
