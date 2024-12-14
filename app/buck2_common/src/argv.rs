@@ -35,6 +35,10 @@ pub enum ExpandedArgSource {
 pub struct FlagfileArgSource {}
 
 impl ExpandedArgv {
+    pub fn new() -> Self {
+        Self::from_literals(Vec::new())
+    }
+
     pub fn from_literals(args: Vec<String>) -> Self {
         Self {
             args: args.into_map(|v| (v, ExpandedArgSource::Inline)),
@@ -53,6 +57,30 @@ impl ExpandedArgv {
 
     pub fn args(&self) -> impl Iterator<Item = &str> {
         self.args.iter().map(|(v, _)| v as _)
+    }
+}
+
+pub struct ExpandedArgvBuilder {
+    argv: ExpandedArgv,
+}
+
+impl ExpandedArgvBuilder {
+    pub fn new() -> Self {
+        Self {
+            argv: ExpandedArgv::new(),
+        }
+    }
+
+    pub fn replace(&mut self, idx: usize, val: String) {
+        self.argv.args[idx].0 = val;
+    }
+
+    pub fn push(&mut self, next_arg: String) {
+        self.argv.args.push((next_arg, ExpandedArgSource::Inline));
+    }
+
+    pub fn build(self) -> ExpandedArgv {
+        self.argv
     }
 }
 

@@ -15,6 +15,7 @@ use std::process::Command;
 use std::str;
 
 use buck2_common::argv::ExpandedArgv;
+use buck2_common::argv::ExpandedArgvBuilder;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -104,29 +105,32 @@ pub fn expand_argv(
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
 ) -> buck2_error::Result<ExpandedArgv> {
-    let mut expanded_args = expand_argfiles_with_context(args, context, cwd)?;
+    let mut expanded_args = ExpandedArgvBuilder::new();
+    expand_argfiles_with_context(&mut expanded_args, args, context, cwd)?;
 
     // Override arg0 in `buck2 help`.
     if let Some(arg0) = arg0_override {
-        expanded_args[0] = arg0.to_owned();
+        expanded_args.replace(0, arg0.to_owned());
     }
 
-    Ok(ExpandedArgv::from_literals(expanded_args))
+    Ok(expanded_args.build())
 }
 
 fn expand_argfiles_with_context(
+    expanded_args: &mut ExpandedArgvBuilder,
     args: Vec<String>,
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
-) -> buck2_error::Result<Vec<String>> {
-    let mut expanded_args = Vec::new();
+) -> buck2_error::Result<()> {
     let mut arg_iterator = args.into_iter();
 
     while let Some(next_arg) = arg_iterator.next() {
         match next_arg.as_str() {
             "--" => {
                 expanded_args.push(next_arg);
-                expanded_args.extend(arg_iterator);
+                for arg in arg_iterator {
+                    expanded_args.push(arg);
+                }
                 break;
             }
             "--flagfile" => {
@@ -137,8 +141,7 @@ fn expand_argfiles_with_context(
                     }
                 };
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args = resolve_and_expand_argfile(&flagfile, context, cwd)?;
-                expanded_args.extend(expanded_flagfile_args);
+                resolve_and_expand_argfile(expanded_args, &flagfile, context, cwd)?;
             }
             next_arg if next_arg.starts_with('@') => {
                 let flagfile = next_arg.strip_prefix('@').unwrap();
@@ -146,27 +149,27 @@ fn expand_argfiles_with_context(
                     return Err(ArgExpansionError::MissingFlagFilePathInArgfile.into());
                 }
                 // TODO: We want to detect cyclic inclusion
-                let expanded_flagfile_args = resolve_and_expand_argfile(flagfile, context, cwd)?;
-                expanded_args.extend(expanded_flagfile_args);
+                resolve_and_expand_argfile(expanded_args, flagfile, context, cwd)?;
             }
             _ => expanded_args.push(next_arg),
         }
     }
 
-    Ok(expanded_args)
+    Ok(())
 }
 
 // Resolves a path argument to an absolute path, reads the flag file and expands
 // it into a list of arguments.
 fn resolve_and_expand_argfile(
+    expanded: &mut ExpandedArgvBuilder,
     path: &str,
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
-) -> buck2_error::Result<Vec<String>> {
+) -> buck2_error::Result<()> {
     let flagfile = resolve_flagfile(path, context, cwd)
         .with_buck_error_context(|| format!("Error resolving flagfile `{}`", path))?;
     let flagfile_lines = expand_argfile_contents(&flagfile)?;
-    expand_argfiles_with_context(flagfile_lines, context, cwd)
+    expand_argfiles_with_context(expanded, flagfile_lines, context, cwd)
 }
 
 fn expand_argfile_contents(flagfile: &ArgFile) -> buck2_error::Result<Vec<String>> {
@@ -340,9 +343,16 @@ mod tests {
             AbsNormPathBuf::new(root.canonicalize().unwrap().join("foo")).unwrap(),
         );
         let mut context = ImmediateConfigContext::new(&cwd);
-        let res =
-            expand_argfiles_with_context(vec!["@bar/arg1.txt".to_owned()], &mut context, &cwd)
-                .unwrap();
-        assert_eq!(res, vec!["--magic".to_owned()]);
+        let mut args = ExpandedArgvBuilder::new();
+
+        expand_argfiles_with_context(
+            &mut args,
+            vec!["@bar/arg1.txt".to_owned()],
+            &mut context,
+            &cwd,
+        )
+        .unwrap();
+        let args = args.build();
+        assert_eq!(args.args().collect::<Vec<_>>(), vec!["--magic"]);
     }
 }
