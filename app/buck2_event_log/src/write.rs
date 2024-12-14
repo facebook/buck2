@@ -89,7 +89,12 @@ impl WriteEventLog {
     /// Get the command line arguments and cwd and serialize them for replaying later.
     async fn log_invocation(&mut self, trace_id: TraceId) -> buck2_error::Result<()> {
         let command_line_args = self.sanitized_argv.argv.clone();
-        let expanded_command_line_args = self.sanitized_argv.expanded_argv.clone();
+        let expanded_command_line_args = self
+            .sanitized_argv
+            .expanded_argv
+            .args()
+            .map(|v| v.to_owned())
+            .collect();
         let invocation = Invocation {
             command_line_args,
             expanded_command_line_args,
@@ -443,6 +448,7 @@ mod tests {
     use std::time::SystemTime;
 
     use buck2_common::argv::Argv;
+    use buck2_common::argv::ExpandedArgv;
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
@@ -463,7 +469,7 @@ mod tests {
                 },
                 sanitized_argv: Argv {
                     argv: vec!["buck2".to_owned()],
-                    expanded_argv: vec!["buck2".to_owned()],
+                    expanded_argv: ExpandedArgv::from_literals(vec!["buck2".to_owned()]),
                 }
                 .no_need_to_sanitize(),
                 command_name: "testtest".to_owned(),

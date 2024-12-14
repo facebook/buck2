@@ -50,6 +50,7 @@ use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
+use buck2_common::argv::ExpandedArgv;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env_anyhow;
@@ -204,7 +205,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
 
     let argv = Argv {
         argv: process.args.to_vec(),
-        expanded_argv: expanded_args,
+        expanded_argv: ExpandedArgv::from_literals(expanded_args),
     };
 
     let opt = ParsedArgv::parse(argv)?;
@@ -221,7 +222,7 @@ struct ParsedArgv {
 impl ParsedArgv {
     fn parse(argv: Argv) -> buck2_error::Result<Self> {
         let clap = Opt::command();
-        let matches = clap.get_matches_from(&argv.expanded_argv);
+        let matches = clap.get_matches_from(argv.expanded_argv.args());
 
         let opt: Opt = Opt::from_arg_matches(&matches)?;
 

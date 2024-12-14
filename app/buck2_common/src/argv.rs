@@ -12,14 +12,39 @@ use std::collections::HashSet;
 #[derive(Clone)]
 pub struct Argv {
     pub argv: Vec<String>,
-    pub expanded_argv: Vec<String>,
+    pub expanded_argv: ExpandedArgv,
+}
+
+#[derive(Clone)]
+pub struct ExpandedArgv {
+    args: Vec<String>,
+}
+
+impl ExpandedArgv {
+    pub fn from_literals(args: Vec<String>) -> Self {
+        Self { args }
+    }
+
+    fn redacted(self, to_redact: &HashSet<&String>) -> ExpandedArgv {
+        Self {
+            args: self
+                .args
+                .into_iter()
+                .filter(|arg| !to_redact.contains(arg))
+                .collect(),
+        }
+    }
+
+    pub fn args(&self) -> impl Iterator<Item = &str> {
+        self.args.iter().map(|v| v as _)
+    }
 }
 
 #[derive(Clone)]
 #[allow(clippy::manual_non_exhaustive)] // #[non_exhaustive] would allow this crate to create these.
 pub struct SanitizedArgv {
     pub argv: Vec<String>,
-    pub expanded_argv: Vec<String>,
+    pub expanded_argv: ExpandedArgv,
     _priv: (), // Ensure that all ways of creating this are in this file.
 }
 
@@ -43,11 +68,7 @@ impl Argv {
                 .into_iter()
                 .filter(|arg| !to_redact.contains(arg))
                 .collect(),
-            expanded_argv: self
-                .expanded_argv
-                .into_iter()
-                .filter(|arg| !to_redact.contains(arg))
-                .collect(),
+            expanded_argv: self.expanded_argv.redacted(&to_redact),
             _priv: (),
         }
     }
