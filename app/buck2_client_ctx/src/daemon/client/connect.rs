@@ -25,6 +25,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::systemd::replace_slice_delimiter;
+use buck2_common::systemd::ParentSlice;
 use buck2_common::systemd::SystemdRunner;
 use buck2_common::systemd::SystemdRunnerConfig;
 use buck2_core::buck2_env;
@@ -384,11 +385,11 @@ impl<'a> BuckdLifecycle<'a> {
             replace_slice_delimiter(project_dir.name().unwrap_or("unknown_project")),
             replace_slice_delimiter(self.paths.isolation.as_str())
         );
-        let mut cmd = if let Some(systemd_runner) = SystemdRunner::create_if_enabled(
-            &SystemdRunnerConfig::daemon_runner_config(&daemon_startup_config.resource_control),
-            &slice_name,
-            false,
-        )? {
+        let mut cmd = if let Some(systemd_runner) =
+            SystemdRunner::create_if_enabled(&SystemdRunnerConfig::daemon_runner_config(
+                &daemon_startup_config.resource_control,
+                ParentSlice::Root(slice_name.clone()),
+            ))? {
             systemd_runner
                 .background_command_linux(daemon_exe, &slice_name, &project_dir.root())
                 .into()

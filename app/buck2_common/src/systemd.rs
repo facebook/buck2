@@ -46,18 +46,28 @@ pub enum SystemdCreationDecision {
     Create,
 }
 
+pub enum ParentSlice {
+    /// Makes a new unit part of the specified slice inherited from current process slice
+    Inherit(String),
+    /// Makes a new unit part of the specified slice inherited from root slice
+    Root(String),
+}
+
 pub struct SystemdRunnerConfig {
     /// A config to determine if systemd is available.
     pub status: ResourceControlStatus,
     /// A memory threshold. Semantics (whether it is memory of a daemon or an action process) depend on the context.
     pub memory_max: Option<String>,
+    /// Parent slice behaviour
+    pub parent_slice: ParentSlice,
 }
 
 impl SystemdRunnerConfig {
-    pub fn daemon_runner_config(config: &ResourceControlConfig) -> Self {
+    pub fn daemon_runner_config(config: &ResourceControlConfig, parent_slice: ParentSlice) -> Self {
         Self {
             status: config.status.clone(),
             memory_max: config.memory_max.clone(),
+            parent_slice,
         }
     }
 }
@@ -67,7 +77,7 @@ pub struct SystemdRunner {
 }
 
 impl SystemdRunner {
-    fn create(config: &SystemdRunnerConfig, parent_slice: &str, slice_inherit: bool) -> Self {
+    fn create(config: &SystemdRunnerConfig) -> Self {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -91,9 +101,14 @@ impl SystemdRunner {
             args.push("--property=OOMPolicy=kill".to_owned());
         }
 
-        args.push(format!("--slice={}", parent_slice));
-        if slice_inherit {
-            args.push("--slice-inherit".to_owned());
+        match &config.parent_slice {
+            ParentSlice::Inherit(slice) => {
+                args.push(format!("--slice={}", slice));
+                args.push("--slice-inherit".to_owned());
+            }
+            ParentSlice::Root(slice) => {
+                args.push(format!("--slice={}", slice));
+            }
         }
         Self {
             fixed_systemd_args: args,
@@ -118,11 +133,7 @@ impl SystemdRunner {
         }
     }
 
-    pub fn create_if_enabled(
-        config: &SystemdRunnerConfig,
-        parent_slice: &str,
-        slice_inherit: bool,
-    ) -> buck2_error::Result<Option<Self>> {
+    pub fn create_if_enabled(config: &SystemdRunnerConfig) -> buck2_error::Result<Option<Self>> {
         let decision = Self::creation_decision(&config.status);
         match decision {
             SystemdCreationDecision::SkipNotNeeded => Ok(None),
@@ -136,9 +147,7 @@ impl SystemdRunner {
             SystemdCreationDecision::SkipRequiredButUnavailable { e } => {
                 Err(e.context("Systemd is unavailable but required by buckconfig"))
             }
-            SystemdCreationDecision::Create => {
-                Ok(Some(Self::create(config, parent_slice, slice_inherit)))
-            }
+            SystemdCreationDecision::Create => Ok(Some(Self::create(config))),
         }
     }
 
