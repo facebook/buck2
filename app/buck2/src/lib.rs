@@ -39,7 +39,7 @@ use buck2_client::commands::status::StatusCommand;
 use buck2_client::commands::subscribe::SubscribeCommand;
 use buck2_client::commands::targets::TargetsCommand;
 use buck2_client::commands::test::TestCommand;
-use buck2_client_ctx::argfiles::expand_argfiles_with_context;
+use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
 use buck2_client_ctx::common::BuckArgMatches;
@@ -50,7 +50,6 @@ use buck2_client_ctx::tokio_runtime_setup::client_tokio_runtime;
 use buck2_client_ctx::version::BuckVersion;
 use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
-use buck2_common::argv::ExpandedArgv;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env_anyhow;
@@ -191,21 +190,18 @@ impl Opt {
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     let mut immediate_config = ImmediateConfigContext::new(process.working_dir);
-    let mut expanded_args = expand_argfiles_with_context(
+    let arg0_override = buck2_env_anyhow!("BUCK2_ARG0")?;
+    let expanded_args = expand_argv(
+        arg0_override,
         process.args.to_vec(),
         &mut immediate_config,
         process.working_dir,
     )
     .buck_error_context("Error expanding argsfiles")?;
 
-    // Override arg0 in `buck2 help`.
-    if let Some(arg0) = buck2_env_anyhow!("BUCK2_ARG0")? {
-        expanded_args[0] = arg0.to_owned();
-    }
-
     let argv = Argv {
         argv: process.args.to_vec(),
-        expanded_argv: ExpandedArgv::from_literals(expanded_args),
+        expanded_argv: expanded_args,
     };
 
     let opt = ParsedArgv::parse(argv)?;

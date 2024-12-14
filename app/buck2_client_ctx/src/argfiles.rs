@@ -14,6 +14,7 @@ use std::path::Path;
 use std::process::Command;
 use std::str;
 
+use buck2_common::argv::ExpandedArgv;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
@@ -97,7 +98,23 @@ enum ArgFile {
 // TODO: This function should also return tracking information, so
 //       that we know where args come from. This would be useful
 //       in cases where the argfiles contain `--config` flags.
-pub fn expand_argfiles_with_context(
+pub fn expand_argv(
+    arg0_override: Option<&str>,
+    args: Vec<String>,
+    context: &mut ImmediateConfigContext,
+    cwd: &AbsWorkingDir,
+) -> buck2_error::Result<ExpandedArgv> {
+    let mut expanded_args = expand_argfiles_with_context(args, context, cwd)?;
+
+    // Override arg0 in `buck2 help`.
+    if let Some(arg0) = arg0_override {
+        expanded_args[0] = arg0.to_owned();
+    }
+
+    Ok(ExpandedArgv::from_literals(expanded_args))
+}
+
+fn expand_argfiles_with_context(
     args: Vec<String>,
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
