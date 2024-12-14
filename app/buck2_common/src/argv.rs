@@ -8,6 +8,9 @@
  */
 
 use std::collections::HashSet;
+use std::sync::Arc;
+
+use gazebo::prelude::VecExt;
 
 /// Argv contains the bare process argv and the "expanded" argv. The expanded argv is
 /// the argv after processing flagfiles (args like @mode/opt and --flagfile mode/opt)
@@ -20,12 +23,22 @@ pub struct Argv {
 
 #[derive(Clone)]
 pub struct ExpandedArgv {
-    args: Vec<String>,
+    args: Vec<(String, ExpandedArgSource)>,
 }
+
+#[derive(Clone)]
+pub enum ExpandedArgSource {
+    Inline,
+    Flagfile(Arc<FlagfileArgSource>),
+}
+
+pub struct FlagfileArgSource {}
 
 impl ExpandedArgv {
     pub fn from_literals(args: Vec<String>) -> Self {
-        Self { args }
+        Self {
+            args: args.into_map(|v| (v, ExpandedArgSource::Inline)),
+        }
     }
 
     fn redacted(self, to_redact: &HashSet<&String>) -> ExpandedArgv {
@@ -33,13 +46,13 @@ impl ExpandedArgv {
             args: self
                 .args
                 .into_iter()
-                .filter(|arg| !to_redact.contains(arg))
+                .filter(|(arg, _)| !to_redact.contains(arg))
                 .collect(),
         }
     }
 
     pub fn args(&self) -> impl Iterator<Item = &str> {
-        self.args.iter().map(|v| v as _)
+        self.args.iter().map(|(v, _)| v as _)
     }
 }
 
