@@ -19,6 +19,7 @@ use std::sync::Arc;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::systemd::SystemdRunner;
+use buck2_common::systemd::SystemdRunnerConfig;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -76,7 +77,7 @@ impl UnixForkserverService {
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
         let systemd_runner = SystemdRunner::create_if_enabled(
-            &resource_control,
+            &SystemdRunnerConfig::daemon_runner_config(&resource_control),
             "forkserver",
             // we want to create forkserver in the same hierarchy where buck-daemon scope
             // for this we inherit slice

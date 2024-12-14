@@ -654,7 +654,7 @@ impl DaemonState {
         {
             Ok(None)
         } else {
-            let creation = SystemdRunner::creation_decision(&resource_control_config);
+            let creation = SystemdRunner::creation_decision(&resource_control_config.status);
             match creation {
                 SystemdCreationDecision::Create => {
                     #[cfg(unix)]

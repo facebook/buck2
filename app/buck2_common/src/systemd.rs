@@ -46,12 +46,28 @@ pub enum SystemdCreationDecision {
     Create,
 }
 
+pub struct SystemdRunnerConfig {
+    /// A config to determine if systemd is available.
+    pub status: ResourceControlStatus,
+    /// A memory threshold. Semantics (whether it is memory of a daemon or an action process) depend on the context.
+    pub memory_max: Option<String>,
+}
+
+impl SystemdRunnerConfig {
+    pub fn daemon_runner_config(config: &ResourceControlConfig) -> Self {
+        Self {
+            status: config.status.clone(),
+            memory_max: config.memory_max.clone(),
+        }
+    }
+}
+
 pub struct SystemdRunner {
     fixed_systemd_args: Vec<String>,
 }
 
 impl SystemdRunner {
-    fn create(config: &ResourceControlConfig, parent_slice: &str, slice_inherit: bool) -> Self {
+    fn create(config: &SystemdRunnerConfig, parent_slice: &str, slice_inherit: bool) -> Self {
         // Common settings
         let mut args = vec![
             "--user".to_owned(),
@@ -61,8 +77,9 @@ impl SystemdRunner {
             #[cfg(fbcode_build)]
             "--setenv=CHGDISABLE=1".to_owned(),
         ];
+
         if let Some(memory_max) = &config.memory_max {
-            args.push(format!("--property=MemoryMax={}", memory_max.to_owned()));
+            args.push(format!("--property=MemoryMax={}", memory_max));
             // Without setting `MemorySwapMax`, the process starts using swap until it's
             // filled when the total memory usage reaches to `MemoryMax`. This may seem
             // counterintuitive for mostly expected use cases. Setting `MemorySwapMax`
@@ -83,11 +100,11 @@ impl SystemdRunner {
         }
     }
 
-    pub fn creation_decision(config: &ResourceControlConfig) -> SystemdCreationDecision {
-        if config.status == ResourceControlStatus::Off {
+    pub fn creation_decision(status: &ResourceControlStatus) -> SystemdCreationDecision {
+        if status == &ResourceControlStatus::Off {
             return SystemdCreationDecision::SkipNotNeeded;
         }
-        match (&config.status, is_available()) {
+        match (status, is_available()) {
             (ResourceControlStatus::Off, _) => unreachable!("Checked earlier"),
             (ResourceControlStatus::IfAvailable | ResourceControlStatus::Required, Ok(_)) => {
                 SystemdCreationDecision::Create
@@ -102,11 +119,11 @@ impl SystemdRunner {
     }
 
     pub fn create_if_enabled(
-        config: &ResourceControlConfig,
+        config: &SystemdRunnerConfig,
         parent_slice: &str,
         slice_inherit: bool,
     ) -> buck2_error::Result<Option<Self>> {
-        let decision = Self::creation_decision(config);
+        let decision = Self::creation_decision(&config.status);
         match decision {
             SystemdCreationDecision::SkipNotNeeded => Ok(None),
             SystemdCreationDecision::SkipPreferredButNotRequired { e } => {

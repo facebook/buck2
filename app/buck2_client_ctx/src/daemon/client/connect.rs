@@ -26,6 +26,7 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::systemd::replace_slice_delimiter;
 use buck2_common::systemd::SystemdRunner;
+use buck2_common::systemd::SystemdRunnerConfig;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::buck2_error;
@@ -384,7 +385,7 @@ impl<'a> BuckdLifecycle<'a> {
             replace_slice_delimiter(self.paths.isolation.as_str())
         );
         let mut cmd = if let Some(systemd_runner) = SystemdRunner::create_if_enabled(
-            &daemon_startup_config.resource_control,
+            &SystemdRunnerConfig::daemon_runner_config(&daemon_startup_config.resource_control),
             &slice_name,
             false,
         )? {
