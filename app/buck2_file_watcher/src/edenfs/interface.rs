@@ -82,7 +82,7 @@ impl EdenFsFileWatcher {
 
     async fn update(
         &self,
-        mut dice: DiceTransactionUpdater,
+        dice: DiceTransactionUpdater,
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let position = self.position.read().await.clone();
         let changes_since_v2_params = ChangesSinceV2Params {
@@ -102,14 +102,22 @@ impl EdenFsFileWatcher {
 
         let mut file_change_tracker = FileChangeTracker::new();
         let mut stats = FileWatcherStats::new(Default::default(), result.changes.len());
-        let _large_or_unknown_change =
+        let large_or_unknown_change =
             result
                 .changes
                 .iter()
                 .try_fold(false, |acc, change| -> buck2_error::Result<bool> {
                     self.process_change(change, &mut file_change_tracker, &mut stats)
-                        .map_or_else(|_e| Ok(true), |reset| Ok(acc || reset))
-                });
+                        .map_or_else(
+                            |_e| Ok(true),
+                            |large_or_unknown_change| Ok(acc || large_or_unknown_change),
+                        )
+                })?;
+
+        let mut dice = dice;
+        if large_or_unknown_change {
+            (stats, dice) = self.on_large_or_unknown_change(dice)?;
+        }
 
         file_change_tracker.write_to_dice(&mut dice)?;
         Ok((stats.finish(), dice))
@@ -235,7 +243,6 @@ impl EdenFsFileWatcher {
             },
             ChangeNotification::largeChange(large_change) => match large_change {
                 LargeChangeNotification::directoryRenamed(directory_renamed) => {
-                    // TODO: use Sapling to generate the list of file changes -or- treat as if everything changed
                     self.process_file_watcher_event(
                         tracker,
                         stats,
@@ -250,18 +257,32 @@ impl EdenFsFileWatcher {
                         Type::Delete,
                         &directory_renamed.from,
                     )?;
-                    true
+                    // NOTE: even though a directory rename is a large change,
+                    // we handle by reporting two small changes to DICE.
+                    // Return false here indicating no large change.
+                    false
                 }
                 LargeChangeNotification::commitTransition(_commit_transition) => {
-                    // TODO: use Sapling to generate the list of file changes -or- treat as if everything changed
+                    // TODO: use Sapling to generate the list of file changes and to manage
+                    // mergebase and mergebase-with updates.
+                    // For now, return true indicating a large change (i.e. invalidate DICE).
                     true
                 }
                 LargeChangeNotification::lostChanges(_lost_changes) => {
-                    // TODO: treat as if everything changed
+                    // Return true indicating a large change (i.e. invalidate DICE).
                     true
                 }
                 LargeChangeNotification::UnknownField(_) => {
-                    // TODO: print warning
+                    soft_error!(
+                        "edenfs_large_change_unknown",
+                        buck2_error::buck2_error!(
+                            [],
+                            "EdenFS reported an unknown LargeChangeNotification: '{:?}'. \
+                             EdenFS Thrift API has changed and the buck2 code needs to be updated.",
+                            large_change
+                        )
+                        .into()
+                    )?;
                     true
                 }
             },
@@ -349,6 +370,61 @@ impl EdenFsFileWatcher {
         }
 
         Ok(())
+    }
+
+    fn on_large_or_unknown_change(
+        &self,
+        dice: DiceTransactionUpdater,
+    ) -> buck2_error::Result<(FileWatcherStats, DiceTransactionUpdater)> {
+        // A large change is one that affects numerous files or is otherwise unbounded in nature.
+        // For example:
+        // - A commit transition (e.g. a rebase, checkout, etc.).
+        // - A directory rename - a directory was renamed. Depending on the directory,
+        //   could be a large number of files.
+        // - Lost changes - EdenFS was unable to provide the list of changes due to a
+        //   remount, restart, memory pressure, or too many files were changed.
+        //
+        // In the case of lost changes, we need to treat the DICE map and dep files as
+        // invalid because we have no way of knowing which files were changed.
+        //
+        // In the case of a directory rename, we handle this earlier by reporting two
+        // small changes to DICE - delete and add. It may be needed to enumerate all
+        // of the related files, in which case we will need to use Sapling to obtain.
+        //
+        // TODO: In the case of a commit transition, we need to compute the actual
+        // changes using the mergebase and mergebase-with. This will be handled in
+        // a future diff. For now we treat the same as lost changes.
+
+        // TODO: In future diffs, this logic will take into account commit transitions, mergebase changes, etc.
+        //       For now, we just invalidate everything - including the dep files - and recompute everything.
+        crate::dep_files::flush_non_local_dep_files();
+
+        // Dropping the entire DICE map can be somewhat computationally expensive as there
+        // are a lot of destructors to run. On the other hand, we don't have to wait for
+        // it. So, we just send it off to its own thread.
+        let dice = dice.unstable_take();
+
+        // TODO: refactor or reuse this struct - utilizing fields when data is available.
+        let mut base_stats = buck2_data::FileWatcherStats {
+            //TODO: should we refactor this field?
+            fresh_instance: true,
+            branched_from_revision: None,
+            branched_from_global_rev: None,
+            branched_from_revision_timestamp: None,
+            //TODO: should we refactor this field?
+            watchman_version: None,
+            //TODO: should we refactor this field?
+            fresh_instance_data: Some(buck2_data::FreshInstance {
+                new_mergebase: false,
+                cleared_dice: true,
+                cleared_dep_files: true,
+            }),
+            ..Default::default()
+        };
+
+        base_stats.incomplete_events_reason = Some("Large or Unknown change".to_owned());
+
+        Ok((FileWatcherStats::new(base_stats, 0), dice))
     }
 }
 
