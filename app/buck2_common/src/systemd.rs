@@ -74,6 +74,7 @@ impl SystemdRunnerConfig {
 
 pub struct SystemdRunner {
     fixed_systemd_args: Vec<String>,
+    memory_limit: Option<String>,
 }
 
 impl SystemdRunner {
@@ -112,6 +113,7 @@ impl SystemdRunner {
         }
         Self {
             fixed_systemd_args: args,
+            memory_limit: config.memory_max.clone(),
         }
     }
 
@@ -165,6 +167,30 @@ impl SystemdRunner {
             .arg(format!("--unit={}", unit_name));
         cmd.arg(program);
         cmd
+    }
+
+    pub async fn set_slice_memory_limit(&self, slice: &str) -> buck2_error::Result<()> {
+        let Some(memory_limit) = &self.memory_limit else {
+            return Ok(());
+        };
+        let mut cmd = process::async_background_command("systemctl");
+        cmd.arg("--user");
+        cmd.arg("set-property");
+        cmd.arg(slice);
+        cmd.arg(format!("MemoryMax={}", memory_limit));
+        cmd.arg("MemorySwapMax=0");
+        cmd.arg("ManagedOOMMemoryPressure=kill");
+        let result = cmd.output().await?;
+        if !result.status.success() {
+            let stderr = String::from_utf8(result.stderr)?;
+            return Err(buck2_error::buck2_error!(
+                [],
+                "Failed to set memory limits for {}: {}",
+                slice,
+                stderr
+            ));
+        }
+        Ok(())
     }
 }
 

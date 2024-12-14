@@ -385,11 +385,12 @@ impl<'a> BuckdLifecycle<'a> {
             replace_slice_delimiter(project_dir.name().unwrap_or("unknown_project")),
             replace_slice_delimiter(self.paths.isolation.as_str())
         );
-        let mut cmd = if let Some(systemd_runner) =
+        let systemd_runner =
             SystemdRunner::create_if_enabled(&SystemdRunnerConfig::daemon_runner_config(
                 &daemon_startup_config.resource_control,
                 ParentSlice::Root(slice_name.clone()),
-            ))? {
+            ))?;
+        let mut cmd = if let Some(systemd_runner) = &systemd_runner {
             systemd_runner
                 .background_command_linux(daemon_exe, &slice_name, &project_dir.root())
                 .into()
@@ -492,6 +493,13 @@ impl<'a> BuckdLifecycle<'a> {
                     }
                     .into())
                 } else {
+                    if let Some(systemd_runner) = systemd_runner {
+                        // set memory limits to buck2 daemon slice to control
+                        // the buck memory including daemon, fork-server and all actions
+                        systemd_runner
+                            .set_slice_memory_limit(&format!("{}.slice", slice_name))
+                            .await?;
+                    }
                     Ok(())
                 }
             }
