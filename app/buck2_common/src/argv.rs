@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use gazebo::prelude::VecExt;
 
 /// Argv contains the bare process argv and the "expanded" argv. The expanded argv is
@@ -32,7 +33,17 @@ pub enum ExpandedArgSource {
     Flagfile(Arc<FlagfileArgSource>),
 }
 
-pub struct FlagfileArgSource {}
+pub struct FlagfileArgSource {
+    pub kind: ArgFileKind,
+    pub parent: Option<Arc<FlagfileArgSource>>,
+}
+
+#[derive(Clone, Debug)]
+pub enum ArgFileKind {
+    PythonExecutable(AbsPathBuf, Option<String>),
+    Path(AbsPathBuf),
+    Stdin,
+}
 
 impl ExpandedArgv {
     pub fn new() -> Self {
@@ -61,6 +72,7 @@ impl ExpandedArgv {
 }
 
 pub struct ExpandedArgvBuilder {
+    current_argfile: Option<Arc<FlagfileArgSource>>,
     argv: ExpandedArgv,
 }
 
@@ -68,6 +80,7 @@ impl ExpandedArgvBuilder {
     pub fn new() -> Self {
         Self {
             argv: ExpandedArgv::new(),
+            current_argfile: None,
         }
     }
 
@@ -76,11 +89,24 @@ impl ExpandedArgvBuilder {
     }
 
     pub fn push(&mut self, next_arg: String) {
-        self.argv.args.push((next_arg, ExpandedArgSource::Inline));
+        let source = match &self.current_argfile {
+            Some(argfile) => ExpandedArgSource::Flagfile(argfile.clone()),
+            None => ExpandedArgSource::Inline,
+        };
+        self.argv.args.push((next_arg, source));
     }
 
     pub fn build(self) -> ExpandedArgv {
         self.argv
+    }
+
+    pub fn argfile_scope<R>(&mut self, kind: ArgFileKind, func: impl FnOnce(&mut Self) -> R) -> R {
+        let parent = self.current_argfile.take();
+        self.current_argfile = Some(Arc::new(FlagfileArgSource { kind, parent }));
+        let res = func(self);
+        let current = self.current_argfile.take().unwrap();
+        self.current_argfile = current.parent.clone();
+        res
     }
 }
 

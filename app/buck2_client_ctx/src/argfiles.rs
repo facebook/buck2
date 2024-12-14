@@ -14,12 +14,12 @@ use std::path::Path;
 use std::process::Command;
 use std::str;
 
+use buck2_common::argv::ArgFileKind;
 use buck2_common::argv::ExpandedArgv;
 use buck2_common::argv::ExpandedArgvBuilder;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::is_open_source;
 use buck2_error::BuckErrorContext;
@@ -78,13 +78,6 @@ pub fn log_relative_path_from_cell_root(requested_path: &str) -> buck2_error::Re
         reset
     )?;
     Ok(())
-}
-
-#[derive(Clone, Debug)]
-enum ArgFile {
-    PythonExecutable(AbsPathBuf, Option<String>),
-    Path(AbsPathBuf),
-    Stdin,
 }
 
 // Expands any argfiles passed as command line parameters. There are
@@ -172,9 +165,9 @@ fn resolve_and_expand_argfile(
     expand_argfiles_with_context(expanded, flagfile_lines, context, cwd)
 }
 
-fn expand_argfile_contents(flagfile: &ArgFile) -> buck2_error::Result<Vec<String>> {
+fn expand_argfile_contents(flagfile: &ArgFileKind) -> buck2_error::Result<Vec<String>> {
     match flagfile {
-        ArgFile::Path(path) => {
+        ArgFileKind::Path(path) => {
             let mut lines = Vec::new();
             let file = File::open(path).map_err(|source| {
                 ArgExpansionError::MissingFlagFileOnDiskWithSource {
@@ -195,7 +188,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> buck2_error::Result<Vec<String
             }
             Ok(lines)
         }
-        ArgFile::PythonExecutable(path, flag) => {
+        ArgFileKind::PythonExecutable(path, flag) => {
             let mut cmd = background_command(if is_open_source() {
                 "python3"
             } else {
@@ -226,7 +219,7 @@ fn expand_argfile_contents(flagfile: &ArgFile) -> buck2_error::Result<Vec<String
                 .into())
             }
         }
-        ArgFile::Stdin => io::stdin()
+        ArgFileKind::Stdin => io::stdin()
             .lock()
             .lines()
             .filter_map(|line| match line {
@@ -246,9 +239,9 @@ fn resolve_flagfile(
     path: &str,
     context: &mut ImmediateConfigContext,
     cwd: &AbsWorkingDir,
-) -> buck2_error::Result<ArgFile> {
+) -> buck2_error::Result<ArgFileKind> {
     if path == "-" {
-        return Ok(ArgFile::Stdin);
+        return Ok(ArgFileKind::Stdin);
     }
 
     let (path_part, flag) = match path.split_once('#') {
@@ -301,12 +294,12 @@ fn resolve_flagfile(
     // FIXME(JakobDegen): Don't canonicalize
     context.push_trace(&fs_util::canonicalize(&resolved_path)?);
     if path_part.ends_with(".py") {
-        Ok(ArgFile::PythonExecutable(
+        Ok(ArgFileKind::PythonExecutable(
             resolved_path,
             flag.map(ToOwned::to_owned),
         ))
     } else {
-        Ok(ArgFile::Path(resolved_path))
+        Ok(ArgFileKind::Path(resolved_path))
     }
 }
 
@@ -324,7 +317,7 @@ mod tests {
         let mode_file = root.join("mode-file");
         // Test skips empty lines.
         fs_util::write(&mode_file, "a\n\nb\n").unwrap();
-        let lines = expand_argfile_contents(&ArgFile::Path(mode_file)).unwrap();
+        let lines = expand_argfile_contents(&ArgFileKind::Path(mode_file)).unwrap();
         assert_eq!(vec!["a".to_owned(), "b".to_owned()], lines);
     }
 
