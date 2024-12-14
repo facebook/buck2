@@ -9,6 +9,9 @@
 
 use std::collections::HashSet;
 
+/// Argv contains the bare process argv and the "expanded" argv. The expanded argv is
+/// the argv after processing flagfiles (args like @mode/opt and --flagfile mode/opt)
+/// and after possibly replacing argv[0] with a more representative value.
 #[derive(Clone)]
 pub struct Argv {
     pub argv: Vec<String>,
@@ -40,6 +43,11 @@ impl ExpandedArgv {
     }
 }
 
+/// The "sanitized" argv is the argv and expanded argv after stripping some possibly sensitive
+/// arguments. What's considered sensitive is command-specific and usually determined by an implementation
+/// of `StreamingCommand::sanitize_argv`.
+///
+/// For example, for the run command this will strip out the arguments passed to the executed command (i.e. those after `--`).
 #[derive(Clone)]
 #[allow(clippy::manual_non_exhaustive)] // #[non_exhaustive] would allow this crate to create these.
 pub struct SanitizedArgv {
