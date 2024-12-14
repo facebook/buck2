@@ -9,6 +9,7 @@
 
 use std::io::Write;
 use std::path::PathBuf;
+use std::process::Stdio;
 
 use async_trait::async_trait;
 use buck2_cli_proto::build_request::build_providers;
@@ -317,6 +318,24 @@ impl StreamingCommand for BuildCommand {
         } else {
             ExitResult::from_errors(&response.errors)
         };
+
+        if let Some(true) = response.run_buck2_explain {
+            buck2_client_ctx::eprintln!("Running `buck2 explain`...")?;
+            buck2_client_ctx::eprintln!(
+                "This is experimental. To disable add buck2.automatic_buck2_explain=false to buckconfig or opt out via cpe_buck_automatic_buck2_explain GK)"
+            )?;
+            let current_exe = std::env::current_exe().buck_error_context("No current_exe")?;
+            let _res = buck2_util::process::async_background_command(current_exe)
+                .arg("explain")
+                .arg("--upload")
+                .stdout(Stdio::inherit())
+                .stdin(Stdio::null())
+                .stderr(Stdio::inherit())
+                .spawn()
+                .buck_error_context("failed to spawn buck2 explain")?
+                .wait()
+                .await;
+        }
 
         res.with_stdout(stdout)
     }

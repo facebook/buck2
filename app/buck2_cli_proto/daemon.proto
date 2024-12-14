@@ -556,6 +556,8 @@ message BuildResponse {
 
   optional string serialized_build_report = 100;
   repeated buck.data.ErrorReport errors = 102;
+
+  optional bool run_buck2_explain = 200;
 }
 
 message CounterWithExamples {
