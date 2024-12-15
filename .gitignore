@@ -3,6 +3,8 @@ Cargo.lock
 buck-out
 /.direnv
 
+.buckconfig.local
+
 # symlinks
 /examples/with_prelude/prelude
 /examples/with_prelude/third-party/ocaml/opam
