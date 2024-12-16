@@ -17,7 +17,7 @@ import {formatTargetLabel} from '../formatTargetLabel'
 
 enum DisplayType {
   rootNode,
-  passesFilters,
+  actionsRanNotAffectedByFileChanges,
   changedFiles,
   hidden,
   highlighted,
@@ -27,7 +27,7 @@ enum DisplayType {
 const displayTypeColors: {[key in DisplayType]: string} = {
   // https://coolors.co/fb5012-9c528b-00c49a-e6d3a3-2274a5
   [DisplayType.rootNode]: '#1a181b',
-  [DisplayType.passesFilters]: '#1c77c3',
+  [DisplayType.actionsRanNotAffectedByFileChanges]: '#FB5012',
   [DisplayType.changedFiles]: '#00C49A',
   [DisplayType.highlighted]: '#9C528B',
   [DisplayType.actionsRan]: '#2274A5',
@@ -79,7 +79,19 @@ export function GraphImpl2(props: {
     // Targets with actions ran
     if (target.actionsLength() > 0) {
       totalTargetsWithActionsThatRan += 1
-      node.displayType = DisplayType.actionsRan
+
+      let hasActionNotAffectedByFileChanges = false
+      for (let i = 0; i < target.actionsLength(); i++) {
+        const action = target.actions(i)
+        if (!action!.affectedByFileChanges()) {
+          hasActionNotAffectedByFileChanges = true
+        }
+      }
+      if (hasActionNotAffectedByFileChanges) {
+        node.displayType = DisplayType.actionsRanNotAffectedByFileChanges
+      } else {
+        node.displayType = DisplayType.actionsRan
+      }
     }
 
     if (target.changedFilesLength() > 0) {
@@ -233,6 +245,7 @@ export function GraphImpl2(props: {
           <div className="message-body">
             Green: node with changed files <br />
             Blue: node with actions that ran <br />
+            Orange: node with excess cache misses <br />
             Purple: highlighted node via filter <br />
           </div>
         </article>
