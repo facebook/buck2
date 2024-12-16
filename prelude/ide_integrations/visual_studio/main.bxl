@@ -68,6 +68,13 @@ def _main(bxl_ctx):
     targets = []  # list[TargetLabel]. Target list from command line after target pattern expansion.
     explicit_targets = {}  # dict[TargetLabel, True]. Explicit target list from command line, i.e., not from target pattern expansion.
     for ulabel in bxl_ctx.cli_args.target:
+        # Add explicit cell name when it's omitted as otherwise BXL will use cell name of BXL script, i.e., prelude.
+        if bxl_ctx.cli_args.fbsource and (":" in ulabel or "..." in ulabel):
+            if "//" not in ulabel:
+                ulabel = "fbsource//" + ulabel
+            elif ulabel.startswith("//"):
+                ulabel = "fbsource" + ulabel
+
         # Pass along modifiers as required by API to get same configuration as buck2 build.
         # bxl_ctx.modifiers includes modifiers from both command line and mode file.
         ctargets = bxl_ctx.configured_targets(ulabel, modifiers = bxl_ctx.modifiers)
