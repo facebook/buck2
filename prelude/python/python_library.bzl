@@ -57,7 +57,7 @@ load(
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
-load(":source_db.bzl", "create_python_source_db_info", "create_source_db", "create_source_db_no_deps")
+load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 load(":typing.bzl", "create_per_target_type_check")
 
@@ -379,7 +379,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(create_python_needed_coverage_info(ctx.label, ctx.attrs.base_module, srcs.keys()))
 
     # Source DBs.
-    sub_targets["source-db"] = [create_source_db(ctx, src_type_manifest, deps)]
     sub_targets["source-db-no-deps"] = [create_source_db_no_deps(ctx, src_types), create_python_source_db_info(library_info.manifests)]
 
     # Type check
