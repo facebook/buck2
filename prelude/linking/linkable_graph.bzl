@@ -354,6 +354,4 @@ def get_transitive_deps(
     def find_transitive_deps(node: Label):
         return link_infos[node].all_deps
 
-    all_deps = depth_first_traversal_by(link_infos, roots, find_transitive_deps)
-
-    return all_deps
+    return depth_first_traversal_by(link_infos, roots, find_transitive_deps)
