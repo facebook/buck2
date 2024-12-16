@@ -333,16 +333,12 @@ def get_deps_for_link(
     style.
     """
 
-    # Avoid making a copy of the list until we know have to modify it.
-    deps = node.exported_deps
-
     # If we're linking statically, include non-exported deps.
     output_style = get_lib_output_style(strategy, node.preferred_linkage, pic_behavior)
-    if output_style != LibOutputStyle("shared_lib") and node.deps:
-        # Important that we don't mutate deps, but create a new list
-        deps = deps + node.deps
-
-    return deps
+    if output_style != LibOutputStyle("shared_lib"):
+        return node.all_deps
+    else:
+        return node.exported_deps
 
 def get_transitive_deps(
         link_infos: dict[Label, LinkableNode],
