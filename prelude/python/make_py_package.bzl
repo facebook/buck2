@@ -62,6 +62,11 @@ PexProviders = record(
     run_cmd = cmd_args,
 )
 
+ManifestModule = record(
+    manifest = ArgLike,
+    artifacts = list[ArgLike],
+)
+
 def make_py_package_providers(
         pex: PexProviders) -> list[Provider]:
     providers = [
@@ -282,7 +287,7 @@ def _make_py_package_impl(
         dep_artifacts: list[ArgLike],
         debug_artifacts: list[(str | (str, SharedLibrary, str), ArgLike)],
         main: EntryPoint,
-        manifest_module: ArgLike | None,
+        manifest_module: ManifestModule | None,
         pex_modules: PexModules,
         output_suffix: str,
         allow_cache_upload: bool) -> PexProviders:
@@ -327,6 +332,8 @@ def _make_py_package_impl(
     runtime_artifacts.extend([a[0] for a in pex_modules.manifests.resource_artifacts_with_paths(standalone)])
     if pex_modules.compile:
         runtime_artifacts.extend([a[0] for a in pex_modules.manifests.bytecode_artifacts_with_paths(pyc_mode)])
+    if manifest_module:
+        runtime_artifacts.extend(manifest_module.artifacts)
 
     modules_args = _pex_modules_args(
         ctx,
@@ -637,7 +644,7 @@ def _pex_modules_args(
         is_standalone: bool,
         pyc_mode: PycInvalidationMode,
         symlink_tree_path: Artifact | None,
-        manifest_module: ArgLike | None,
+        manifest_module: ManifestModule | None,
         pex_modules: PexModules,
         output_suffix: str) -> cmd_args:
     """
@@ -651,7 +658,7 @@ def _pex_modules_args(
     cmd.append(common_args)
 
     if manifest_module != None:
-        cmd.append(cmd_args(manifest_module, format = "--module-manifest={}"))
+        cmd.append(cmd_args(manifest_module.manifest, format = "--module-manifest={}"))
 
     if pex_modules.compile:
         bytecode_manifests = pex_modules.manifests.bytecode_manifests(pyc_mode)
@@ -834,7 +841,7 @@ def generate_manifest_module(
         ctx: AnalysisContext,
         manifest_module_entries: dict[str, typing.Any] | None,
         python_toolchain: PythonToolchainInfo,
-        src_manifests: list[ArgLike]) -> ArgLike | None:
+        src_manifests: list[ArgLike]) -> ManifestModule | None:
     """
     Generates a __manifest__.py module, and an extra entry to add to source manifests.
 
@@ -871,4 +878,4 @@ def generate_manifest_module(
         with_inputs = True,
     )
 
-    return src_manifest
+    return ManifestModule(manifest = src_manifest, artifacts = [json_entries_output, module])
