@@ -25,12 +25,12 @@ enum DisplayType {
 }
 
 const displayTypeColors: {[key in DisplayType]: string} = {
-  // https://coolors.co/1c77c3-39a9db-9ec1a3-cfe0c3-e9724c
+  // https://coolors.co/fb5012-9c528b-00c49a-e6d3a3-2274a5
   [DisplayType.rootNode]: '#1a181b',
   [DisplayType.passesFilters]: '#1c77c3',
   [DisplayType.changedFiles]: '#00C49A',
-  [DisplayType.highlighted]: '#e9724c',
-  [DisplayType.actionsRan]: '#9C528B',
+  [DisplayType.highlighted]: '#9C528B',
+  [DisplayType.actionsRan]: '#2274A5',
   [DisplayType.hidden]: 'gray', // doesn't matter
 }
 
@@ -232,8 +232,8 @@ export function GraphImpl2(props: {
           </div>
           <div className="message-body">
             Green: node with changed files <br />
-            Purple: node with actions that ran <br />
-            Orange: highlighted node via filter <br />
+            Blue: node with actions that ran <br />
+            Purple: highlighted node via filter <br />
           </div>
         </article>
         <div className="cell">
