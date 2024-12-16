@@ -388,8 +388,9 @@ set -eu
 GHC_PKG=$1
 DB=$2
 PKGCONF=$3
+ALWAYS_USE_CACHE=$4
 "$GHC_PKG" init "$DB"
-"$GHC_PKG" register --package-conf "$DB" --no-expand-pkgroot "$PKGCONF"
+"$GHC_PKG" register --package-conf "$DB" --no-expand-pkgroot $ALWAYS_USE_CACHE "$PKGCONF"
 """
 
 # Create a package
@@ -470,6 +471,17 @@ def _make_package(
     )
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
+
+    # --always-use-cache is a custom option to ghc-pkg that tells it to ignore the
+    # modification time on the package cache and use it anyway. This is useful in
+    # RE where file modification times can't be relied upon; without this option
+    # ghc-pkg will fall back to reading all the package configs which is much
+    # slower.
+    if haskell_toolchain.support_always_use_cache:
+        use_cache_arg = "--always-use-cache"
+    else:
+        use_cache_arg = ""
+
     ctx.actions.run(
         cmd_args(
             [
@@ -480,6 +492,7 @@ def _make_package(
                 haskell_toolchain.packager,
                 db.as_output(),
                 pkg_conf,
+                use_cache_arg,
             ],
             # needs hi, because ghc-pkg checks that the .hi files exist
             hidden = hi.values() + lib.values(),
