@@ -1352,7 +1352,7 @@ def _rustc_invoke(
 
     toolchain_info = compile_ctx.toolchain_info
 
-    plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, exec_is_windows)
+    plain_env, path_env = process_env(compile_ctx, toolchain_info.rustc_env |ctx.attrs.env, exec_is_windows)
 
     more_plain_env, more_path_env = process_env(compile_ctx, env, exec_is_windows)
     plain_env.update(more_plain_env)
