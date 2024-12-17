@@ -36,7 +36,7 @@ def get_extra_build_params(args: argparse.Namespace) -> List[str]:
     if system_platform == "Windows":
         return ["@fbcode//mode/opt-win"]
 
-    params = []
+    params = ["-m", "opt"]
 
     arch_platform = platform.machine()
     if arch_platform == "x86_64":
