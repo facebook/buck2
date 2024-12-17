@@ -193,9 +193,6 @@ def create_jar_artifact_kotlincd(
         )
 
         return struct(
-            baseCommandParams = struct(
-                hasAnnotationProcessing = True,
-            ),
             kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir),
             libraryJarCommand = struct(
                 baseJarCommand = base_jar_command,
@@ -241,7 +238,6 @@ def create_jar_artifact_kotlincd(
         )
 
         return struct(
-            baseCommandParams = struct(),
             kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins),
             abiJarCommand = abi_command,
         )
