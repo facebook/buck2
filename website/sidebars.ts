@@ -182,7 +182,6 @@ export const sidebars: SidebarsConfig = {
           type: 'category',
           label: 'User Guide',
           items: [
-            'bxl/basics',
             'bxl/target_universe',
             'bxl/telemetry',
           ],
@@ -191,6 +190,7 @@ export const sidebars: SidebarsConfig = {
           type: 'category',
           label: 'Explanation',
           items: [
+            'bxl/explanation/basics',
             'bxl/explanation/labels_and_nodes',
           ]
         },
