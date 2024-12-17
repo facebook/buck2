@@ -37,18 +37,27 @@ def get_swift_pcm_anon_targets(
         uncompiled_deps: list[Dependency],
         swift_cxx_args: list[str],
         enable_cxx_interop: bool):
-    deps = [
-        {
+    deps = []
+    for uncompiled_dep in uncompiled_deps:
+        if SwiftPCMUncompiledInfo not in uncompiled_dep:
+            continue
+
+        # T209485965: workaround for depagg to avoid duplicate clang modules
+        # when traversing deps through the base target and [headers] subtarget.
+        # By always requesting the [headers] subtarget we should use the same
+        # anon actions for both paths.
+        if "headers" in uncompiled_dep[DefaultInfo].sub_targets:
+            uncompiled_dep = uncompiled_dep.sub_target("headers")
+
+        deps.append((_swift_pcm_compilation, {
             "dep": uncompiled_dep,
             "enable_cxx_interop": enable_cxx_interop,
             "name": uncompiled_dep.label,
             "swift_cxx_args": swift_cxx_args,
             "_apple_toolchain": ctx.attrs._apple_toolchain,
-        }
-        for uncompiled_dep in uncompiled_deps
-        if SwiftPCMUncompiledInfo in uncompiled_dep
-    ]
-    return [(_swift_pcm_compilation, d) for d in deps]
+        }))
+
+    return deps
 
 def _compile_with_argsfile(
         ctx: AnalysisContext,
