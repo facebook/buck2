@@ -157,6 +157,10 @@ impl StreamingCommand for ExplainCommand {
         ExitResult::success()
     }
 
+    fn existing_only() -> bool {
+        true
+    }
+
     fn console_opts(&self) -> &CommonConsoleOptions {
         CommonConsoleOptions::default_ref()
     }
