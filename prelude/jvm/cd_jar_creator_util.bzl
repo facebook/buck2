@@ -334,8 +334,6 @@ def encode_base_jar_command(
         trackClassUsage = track_class_usage,
         filesystemParams = filesystem_params,
         buildTargetValue = build_target_value,
-        # TODO(cjhopman): Populate this or remove it.
-        cellToPathMappings = {},
         resourcesMap = [
             {
                 "key": v,
