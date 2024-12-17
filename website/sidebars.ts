@@ -189,6 +189,13 @@ export const sidebars: SidebarsConfig = {
             'bxl/dynamic_output',
           ],
         },
+        {
+          type: 'category',
+          label: 'Explanation',
+          items: [
+            'bxl/explanation/labels_and_nodes',
+          ]
+        },
         'bxl/faq',
         {
           type: 'ref',
