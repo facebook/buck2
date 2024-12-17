@@ -269,6 +269,15 @@ def _get_compiled_underlying_pcm(
         framework_search_paths,
     )
 
+def _should_compile_with_swift_interface(ctx):
+    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.library_interface_uses_swiftinterface:
+        return False
+
+    if ctx.attrs._swift_enable_testing:
+        return False
+
+    return ctx.attrs.swift_interface_compilation_enabled and uses_explicit_modules(ctx)
+
 def compile_swift(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags],
@@ -353,7 +362,7 @@ def compile_swift(
             private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface"),
             swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc"),  #this is generated automatically once we pass -emit-module-info, so must have this name
         )
-    elif toolchain.library_interface_uses_swiftinterface and uses_explicit_modules(ctx) and not ctx.attrs._swift_enable_testing:
+    elif _should_compile_with_swift_interface(ctx):
         swiftinterface_output = ctx.actions.declare_output(get_module_name(ctx) + ".swiftinterface")
 
     output_symbols = None
