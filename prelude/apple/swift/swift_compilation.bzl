@@ -491,17 +491,21 @@ def _compile_swiftmodule(
 
         argfile_cmd = cmd_args(shared_flags)
         argfile_cmd.add([
-            "-c",
-            "-Xfrontend",
-            "-compile-module-from-interface",
-            output_swiftinterface,
             "-disable-cmo",
             "-wmo",
         ])
         cmd = cmd_args([
+            "-c",
+            "-Xfrontend",
+            "-compile-module-from-interface",
+            output_swiftinterface,
             "-o",
             output_swiftmodule.as_output(),
         ])
+
+        # We don't need the Swift srcs to compile a swiftmodule
+        # from a generated swiftinterface file.
+        srcs = []
     else:
         argfile_cmd = cmd_args(shared_flags)
         argfile_cmd.add([
