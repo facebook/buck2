@@ -130,9 +130,9 @@ fn stdout_to_file(stdout: &Stdout) -> buck2_error::Result<File> {
     }
 }
 
-pub fn print_with_writer<E, F>(f: F) -> anyhow::Result<()>
+pub fn print_with_writer<E, F>(f: F) -> buck2_error::Result<()>
 where
-    E: Into<anyhow::Error>,
+    E: Into<buck2_error::Error>,
     F: FnOnce(&mut (dyn Write + Send)) -> Result<(), E>,
 {
     let stdout = stdout()?;
@@ -161,14 +161,7 @@ where
     let mut w = LineWriter::new(file);
     match f(&mut w) {
         Ok(()) => {}
-        Err(e) => {
-            let e: anyhow::Error = e.into();
-            // TODO(minglunli): Take a close look at this downcast and try to get rid of it
-            return match e.downcast::<io::Error>() {
-                Ok(io_error) => Err(ClientIoError::from(io_error).into()),
-                Err(e) => Err(e),
-            };
-        }
+        Err(e) => return Err(e.into()),
     }
     w.flush()?;
     Ok(())

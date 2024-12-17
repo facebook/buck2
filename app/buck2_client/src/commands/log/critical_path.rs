@@ -147,10 +147,7 @@ fn log_critical_path(
 ) -> buck2_error::Result<()> {
     let target_display_options = TargetDisplayOptions::for_log();
 
-    Ok(buck2_client_ctx::stdio::print_with_writer::<
-        buck2_error::Error,
-        _,
-    >(|w| {
+    buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(|w| {
         let mut log_writer = transform_format(format, w);
 
         for entry in &critical_path.critical_path2 {
@@ -264,5 +261,5 @@ fn log_critical_path(
             res?;
         }
         Ok(())
-    })?)
+    })
 }
