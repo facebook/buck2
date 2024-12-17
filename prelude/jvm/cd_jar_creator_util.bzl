@@ -325,9 +325,6 @@ def encode_base_jar_command(
         compileTimeClasspathPaths = compiling_classpath,
         compileTimeClasspathSnapshotPaths = compiling_classpath_snapshot,
         javaSrcs = srcs,
-        # TODO(cjhopman): populate jar infos. I think these are only used for unused dependencies (and appear to be broken in buck1 w/javacd anyway).
-        fullJarInfos = [],
-        abiJarInfos = [],
         # We use "class" abi compatibility to match buck1 (other compatibility modes are used for abi verification.
         abiCompatibilityMode = encode_abi_generation_mode(AbiGenerationMode("class")),
         abiGenerationMode = encode_abi_generation_mode(command_abi_generation_mode(target_type, abi_generation_mode)),
