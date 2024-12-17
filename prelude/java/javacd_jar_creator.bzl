@@ -48,7 +48,6 @@ load(
 load("@prelude//utils:expect.bzl", "expect")
 
 _base_command_params = struct(
-    spoolMode = "DIRECT_TO_JAR",
 )
 
 def create_jar_artifact_javacd(
