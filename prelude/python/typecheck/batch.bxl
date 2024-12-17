@@ -26,10 +26,15 @@ def _should_type_check_unconfigured(unconfigured_target: bxl.UnconfiguredTargetN
     return _is_python_target(unconfigured_target.rule_type)
 
 def _should_type_check_configured(configured_target: bxl.ConfiguredTargetNode, analysis_result: bxl.AnalysisResult) -> bool:
+    # NOTE(grievejia): This is NOT the same as `configured_target.sources()`.
+    # See https://fb.workplace.com/groups/617497306123691/permalink/1104965664043517/
+    srcs = configured_target.get_attr("srcs")
     return (
-        # NOTE(grievejia): This is NOT the same as checking `srcs` on the unconfigured target, as we won't be
-        # able to, e.g., rule out generated/non-existent sources on unconfigured targets.
-        len(configured_target.sources()) > 0 and
+        # NOTE(grievejia): This is NOT the same as checking `srcs` on the unconfigured target, as
+        # empty `srcs` on unconfigured target does not necessarily imply empty `srcs` on configured
+        # target (due to, e.g. `select()`).
+        srcs != None and
+        len(srcs) > 0 and
         "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
     )
 
