@@ -16,7 +16,7 @@ use gazebo::prelude::VecExt;
 
 /// Argv contains the bare process argv and the "expanded" argv. The expanded argv is
 /// the argv after processing flagfiles (args like @mode/opt and --flagfile mode/opt)
-/// and after possibly replacing argv[0] with a more representative value.
+/// and after possibly replacing `argv[0]` with a more representative value.
 #[derive(Clone)]
 pub struct Argv {
     pub argv: Vec<String>,
