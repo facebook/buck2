@@ -186,7 +186,6 @@ export const sidebars: SidebarsConfig = {
             'bxl/target_universe',
             'bxl/telemetry',
             'bxl/anon_target',
-            'bxl/dynamic_output',
           ],
         },
         {

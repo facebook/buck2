@@ -80,8 +80,10 @@ produces the list of providers and actions needed to build the target.
 You can create actions directly within the BXL API. The available action APIs
 are equivalent to the ones found on the
 [`AnalysisActions`](../../api/build/AnalysisActions) type for normal rules, with
-the caveat that [dynamic actions](../dynamic_output) use the
-[`bxl.Context`](../../api/bxl/Context) (which provides richer functionalities).
+the caveat that
+[dynamic actions](../how_tos/how_to_run_actions_based_on_the_content_of_artifact)
+use the [`bxl.Context`](../../api/bxl/Context) (which provides richer
+functionalities).
 
 A common workflow would be to run analysis on a target, and use some interesting
 bits found in the analysis result to construct an augmented
