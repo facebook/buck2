@@ -16,13 +16,20 @@ git_fetch(
 genrule(
     name = "libaegis-cmake",
     out = "out",
-    cmd = "cmake -DCMAKE_INSTALL_PREFIX=$OUT $(location :libaegis.git) && make install",
+    cmd = """
+        cmake \
+            -DCMAKE_INSTALL_PREFIX=$OUT \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DCMAKE_INSTALL_INCLUDEDIR=include \
+            $(location :libaegis.git) && \
+        make install
+    """,
 )
 
 prebuilt_cxx_library(
     name = "aegis",
     exported_linker_flags = [
-        "-L$(location :libaegis-cmake)/lib64",
+        "-L$(location :libaegis-cmake)/lib",
         "-laegis",
     ],
     exported_preprocessor_flags = ["-I$(location :libaegis-cmake)/include"],
