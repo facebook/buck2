@@ -44,6 +44,12 @@ def _my_anon_impl(bxl_ctx: bxl.Context, attrs: struct) -> list[Provider]
 
 ### 3. Create and resolve the anonymous target in your BXL script
 
+You can use
+[`actions.anon_target`](../../../api/build/AnalysisActions/#analysisactionsanon_target)
+to create one anon target or
+[`actions.anon_targets`](../../../api/build/AnalysisActions/#analysisactionsanon_targets)
+to create several anon targets.
+
 ```python
 def _bxl_main_impl(bxl_ctx: bxl.Context):
     ...

@@ -22,7 +22,8 @@ BXL leverages Buck2 core's incremental
 [caching](./faq#when-is-my-bxl-script-cached). It also has support for
 [running actions](./how_tos/basic_how_tos#running-actions),
 [dynamic outputs](./how_tos/how_to_run_actions_based_on_the_content_of_artifact),
-and [anonymous targets](./anon_target). In addition, BXL has
+and [anonymous targets](./how_tos/how_to_cache_and_share_operations). In
+addition, BXL has
 [profiling](./how_tos/basic_how_tos#profiling-testing-and-debugging-a-bxl-script)
 capabilities, and allows users to add their own [telemetry](./telemetry)
 directly within the BXL scripts.
