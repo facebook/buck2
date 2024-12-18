@@ -11,7 +11,7 @@ import shutil
 import string
 
 BINARY_TARGET_TEMPLATE = string.Template(
-    """      .binaryTarget(name: "$name", path: "$path")"""
+    """    .binaryTarget(name: "$name", path: "$path")"""
 )
 
 PACKAGE_TEMPLATE = string.Template(
@@ -20,15 +20,15 @@ PACKAGE_TEMPLATE = string.Template(
 import PackageDescription
 
 let package = Package(
-    name: "$name",
-    products: [
-        .library(
-            name: "$name",
-            targets: [$targets]),
-    ],
-    targets: [
+  name: "$name",
+  products: [
+    .library(
+      name: "$name",
+      targets: [$targets]),
+  ],
+  targets: [
 $binary_targets,
-    ]
+  ]
 )
 """
 )
@@ -83,7 +83,7 @@ def _main() -> None:
     swift_source = PACKAGE_TEMPLATE.substitute(
         {
             "name": args.package_name,
-            "targets": ",".join(targets),
+            "targets": ", ".join(targets),
             "binary_targets": ",\n".join(binary_targets),
         }
     )
