@@ -15,7 +15,7 @@ load(":groups_types.bzl", "Group", "GroupFilterInfo", "Traversal")
 # These are targets or link groups that will be added to .linker.argsfile
 # Targets will be expanded to .o files, link groups will be added to NEEDS
 LinkGroupsDebugLinkableEntry = record(
-    name = field(Label | str),
+    name = field(TargetLabel | Label | str),
     output_style = field(LibOutputStyle),
 )
 

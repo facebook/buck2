@@ -332,7 +332,7 @@ def create_debug_linkable_entries(
 
     for link_info in labels_to_links_map.values():
         link_groups_linkable_info = LinkGroupsDebugLinkableEntry(
-            name = link_info.link_name,
+            name = link_info.link_name if type(link_info.link_name) == "string" else link_info.link_name.raw_target(),
             output_style = link_info.output_style,
         )
         entries.append(link_groups_linkable_info)
