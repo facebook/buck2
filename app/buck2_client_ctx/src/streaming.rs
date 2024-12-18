@@ -79,13 +79,14 @@ fn default_subscribers<'a, T: StreamingCommand>(
     if let Some(build_graph_stats) = try_get_build_graph_stats(cmd, ctx)? {
         subscribers.push(build_graph_stats)
     }
-    let recorder = try_get_invocation_recorder(
+    let mut recorder = try_get_invocation_recorder(
         ctx,
         cmd.event_log_opts(),
         cmd.logging_name(),
         cmd.sanitize_argv(ctx.argv.clone()).argv,
         log_size_counter_bytes,
     )?;
+    recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
     subscribers.push(recorder);
 
     subscribers.extend(cmd.extra_subscribers());

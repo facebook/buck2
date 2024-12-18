@@ -150,6 +150,29 @@ async def test_client_metadata_clean(buck: Buck, tmp_path: Path) -> None:
     assert record["metadata"]["strings"]["client"] == "baz"
 
 
+@buck_test(skip_for_os=["windows"])
+async def test_client_metadata_debug(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    # Start the daemon
+    await buck.debug(
+        "allocator-stats",
+        "--client-metadata=foo=bar",
+        "--client-metadata=id=baz",
+        "--unstable-write-invocation-record",
+        str(record),
+    )
+
+    record = read_invocation_record(record)
+
+    assert record["client_metadata"] == [
+        {"key": "foo", "value": "bar"},
+        {"key": "id", "value": "baz"},
+    ]
+
+    assert record["metadata"]["strings"]["client"] == "baz"
+
+
 @buck_test()
 async def test_action_error_message_in_record(buck: Buck, tmp_path: Path) -> None:
     record = tmp_path / "record.json"
