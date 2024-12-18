@@ -30,6 +30,7 @@ use std::path::Path;
 
 use buck2_cli_proto::config_override::ConfigType;
 use buck2_cli_proto::ConfigOverride;
+use buck2_common::argv::ExpandedArgv;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use dupe::Dupe;
@@ -403,16 +404,23 @@ pub enum PrintOutputsFormat {
 #[derive(Clone, Copy)]
 pub struct BuckArgMatches<'a> {
     inner: &'a clap::ArgMatches,
+    expanded_argv: &'a ExpandedArgv,
 }
 
 impl<'a> BuckArgMatches<'a> {
-    pub fn from_clap(inner: &'a clap::ArgMatches) -> Self {
-        Self { inner }
+    pub fn from_clap(inner: &'a clap::ArgMatches, expanded_argv: &'a ExpandedArgv) -> Self {
+        Self {
+            inner,
+            expanded_argv,
+        }
     }
 
     pub fn unwrap_subcommand(&self) -> Self {
         match self.inner.subcommand().map(|s| s.1) {
-            Some(submatches) => Self { inner: submatches },
+            Some(submatches) => Self {
+                inner: submatches,
+                expanded_argv: self.expanded_argv,
+            },
             None => panic!("Parsed a subcommand but couldn't extract subcommand argument matches"),
         }
     }

@@ -246,10 +246,11 @@ impl ParsedArgv {
         process: ProcessContext<'_>,
         immediate_config: &ImmediateConfigContext,
     ) -> ExitResult {
+        let expanded_args = self.argv.expanded_argv.clone();
         self.opt.exec(
             process,
             &immediate_config,
-            BuckArgMatches::from_clap(&self.matches),
+            BuckArgMatches::from_clap(&self.matches, &expanded_args),
             self.argv,
         )
     }
