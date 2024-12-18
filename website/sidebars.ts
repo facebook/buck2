@@ -176,15 +176,9 @@ export const sidebars: SidebarsConfig = {
             'bxl/how_tos/how_to_handle_errors',
             'bxl/how_tos/how_to_catch_building_artifacts_errors',
             'bxl/how_tos/how_to_run_actions_based_on_the_content_of_artifact',
+            'bxl/how_tos/how_to_use_target_universe',
             'bxl/how_tos/how_to_collect_telemetry_events'
           ]
-        },
-        {
-          type: 'category',
-          label: 'User Guide',
-          items: [
-            'bxl/target_universe',
-          ],
         },
         {
           type: 'category',

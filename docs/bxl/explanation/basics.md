@@ -67,7 +67,8 @@ instead.
 
 Querying the configured graph means that configurations have been applied to the
 target graph. For cquery, we require that users use a
-[target universe](../../target_universe) for their query inputs.
+[target universe](../../how_tos/how_to_use_target_universe) for their query
+inputs.
 
 #### Aquery
 

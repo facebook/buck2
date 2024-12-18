@@ -1,15 +1,16 @@
 ---
-id: target_universe
-title: Target Universe in BXL
+id: how_to_use_target_universe
+title: How to Use Target Universe in BXL
 ---
 
 ## BXL cquery and target universe
 
-BXL cannot infer the [target universe](../concepts/glossary.md#target-universe)
-like in the CLI (in most cases). BXL splits up cquery functions per function
-(ex: `ctx.cquery().kind(...)`), with the exception of `ctx.cquery.eval(...)`,
-which accepts literals exactly like in the CLI. For the `eval` query, target
-universe is inferred exactly like the CLI.
+BXL cannot infer the
+[target universe](../../concepts/glossary.md#target-universe) like in the CLI
+(in most cases). BXL splits up cquery functions per function (ex:
+`ctx.cquery().kind(...)`), with the exception of `ctx.cquery.eval(...)`, which
+accepts literals exactly like in the CLI. For the `eval` query, target universe
+is inferred exactly like the CLI.
 
 For all other cases, take the following query as an example:
 
