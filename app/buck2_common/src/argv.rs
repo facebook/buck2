@@ -11,7 +11,8 @@ use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::cells::cell_path::CellPath;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use gazebo::prelude::VecExt;
 
 /// Argv contains the bare process argv and the "expanded" argv. The expanded argv is
@@ -39,10 +40,16 @@ pub struct FlagfileArgSource {
     pub parent: Option<Arc<FlagfileArgSource>>,
 }
 
+#[derive(Clone, Debug, derive_more::Display)]
+pub enum ArgFilePath {
+    Project(CellPath),
+    External(AbsNormPathBuf),
+}
+
 #[derive(Clone, Debug)]
 pub enum ArgFileKind {
-    PythonExecutable(AbsPathBuf, Option<String>),
-    Path(AbsPathBuf),
+    PythonExecutable(ArgFilePath, Option<String>),
+    Path(ArgFilePath),
     Stdin,
 }
 
@@ -50,11 +57,11 @@ impl Display for ArgFileKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ArgFileKind::PythonExecutable(abs_path_buf, Some(flag)) => {
-                write!(f, "{}#{}", abs_path_buf, flag)
+                write!(f, "@{}#{}", abs_path_buf, flag)
             }
-            ArgFileKind::PythonExecutable(abs_path_buf, None) => abs_path_buf.fmt(f),
-            ArgFileKind::Path(abs_path_buf) => abs_path_buf.fmt(f),
-            ArgFileKind::Stdin => f.write_str("-"),
+            ArgFileKind::PythonExecutable(abs_path_buf, None) => write!(f, "@{}", abs_path_buf),
+            ArgFileKind::Path(abs_path_buf) => write!(f, "@{}", abs_path_buf),
+            ArgFileKind::Stdin => f.write_str("@-"),
         }
     }
 }

@@ -15,6 +15,7 @@ use std::process::Command;
 use std::str;
 
 use buck2_common::argv::ArgFileKind;
+use buck2_common::argv::ArgFilePath;
 use buck2_common::argv::ExpandedArgv;
 use buck2_common::argv::ExpandedArgvBuilder;
 use buck2_core::fs::fs_util;
@@ -161,27 +162,40 @@ fn resolve_and_expand_argfile(
 ) -> buck2_error::Result<()> {
     let flagfile = resolve_flagfile(path, context, cwd)
         .with_buck_error_context(|| format!("Error resolving flagfile `{}`", path))?;
-    let flagfile_lines = expand_argfile_contents(&flagfile)?;
+    let flagfile_lines = expand_argfile_contents(context, &flagfile)?;
     expanded.argfile_scope(flagfile, |expanded| {
         expand_argfiles_with_context(expanded, flagfile_lines, context, cwd)
     })
 }
 
-fn expand_argfile_contents(flagfile: &ArgFileKind) -> buck2_error::Result<Vec<String>> {
+fn argfile_abs_path(
+    context: &ImmediateConfigContext,
+    path: &ArgFilePath,
+) -> buck2_error::Result<AbsNormPathBuf> {
+    match path {
+        ArgFilePath::Project(path) => context.resolve_project_path(path.as_ref()),
+        ArgFilePath::External(path) => Ok(path.clone()),
+    }
+}
+
+fn expand_argfile_contents(
+    context: &ImmediateConfigContext,
+    flagfile: &ArgFileKind,
+) -> buck2_error::Result<Vec<String>> {
     match flagfile {
         ArgFileKind::Path(path) => {
             let mut lines = Vec::new();
-            let file = File::open(path).map_err(|source| {
+            let file = File::open(argfile_abs_path(context, path)?).map_err(|source| {
                 ArgExpansionError::MissingFlagFileOnDiskWithSource {
                     source: source.into(),
-                    path: path.to_string_lossy().into_owned(),
+                    path: path.to_string(),
                 }
             })?;
             let reader = io::BufReader::new(file);
             for line_result in reader.lines() {
                 let line = line_result.map_err(|source| ArgExpansionError::FlagFileReadError {
                     source: source.into(),
-                    path: path.to_string_lossy().into_owned(),
+                    path: path.to_string(),
                 })?;
                 if line.is_empty() {
                     continue;
@@ -197,7 +211,7 @@ fn expand_argfile_contents(flagfile: &ArgFileKind) -> buck2_error::Result<Vec<St
                 "fbpython"
             });
             cmd.env("BUCK2_ARG_FILE", "1");
-            cmd.arg(path.as_os_str());
+            cmd.arg(argfile_abs_path(context, path)?.as_os_str());
             if let Some(flag) = flag.as_deref() {
                 cmd.args(["--flavors", flag]);
             }
@@ -207,7 +221,7 @@ fn expand_argfile_contents(flagfile: &ArgFileKind) -> buck2_error::Result<Vec<St
             if cmd_out.status.success() {
                 Ok(str::from_utf8(&cmd_out.stdout)
                     .map_err(|_| ArgExpansionError::PythonOutputNotUtf8 {
-                        path: path.to_string_lossy().into_owned(),
+                        path: path.to_string(),
                     })?
                     .lines()
                     .filter(|line| !line.is_empty())
@@ -215,7 +229,7 @@ fn expand_argfile_contents(flagfile: &ArgFileKind) -> buck2_error::Result<Vec<St
                     .collect::<Vec<String>>())
             } else {
                 Err(ArgExpansionError::PythonExecutableFailed {
-                    path: path.to_string_lossy().into_owned(),
+                    path: path.to_string(),
                     err: String::from_utf8_lossy(&cmd_out.stderr).to_string(),
                 }
                 .into())
@@ -294,15 +308,10 @@ fn resolve_flagfile(
     };
 
     // FIXME(JakobDegen): Don't canonicalize
-    context.push_trace(&fs_util::canonicalize(&resolved_path)?);
-    if path_part.ends_with(".py") {
-        Ok(ArgFileKind::PythonExecutable(
-            resolved_path,
-            flag.map(ToOwned::to_owned),
-        ))
-    } else {
-        Ok(ArgFileKind::Path(resolved_path))
-    }
+
+    let canonicalized_path = fs_util::canonicalize(resolved_path)?;
+    context.push_trace(&canonicalized_path);
+    context.resolve_argfile_kind(canonicalized_path, flag)
 }
 
 #[cfg(test)]
@@ -311,19 +320,83 @@ mod tests {
     use buck2_common::argv::FlagfileArgSource;
     use buck2_core::fs::paths::abs_path::AbsPath;
     use buck2_core::fs::paths::abs_path::AbsPathBuf;
-    use buck2_core::fs::working_dir::AbsWorkingDir;
+    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 
     use super::*;
 
     #[test]
-    fn test_expand_argfile_content() {
-        let tempdir = tempfile::tempdir().unwrap();
-        let root = AbsPath::new(tempdir.path()).unwrap();
+    fn test_resolve_argfile_kind_with_project() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let root = AbsPathBuf::new(fs_util::canonicalize(root)?)?;
+
+        let project_root = root.join("project");
+        let symlinked_project_root = root.join("symlinked-project");
+
+        fs_util::create_dir(&project_root)?;
+        fs_util::write(project_root.join(".buckconfig"), "[cells]\nroot = .")?;
+        fs_util::symlink(&project_root, &symlinked_project_root)?;
+
+        let external_mode_file = root.join("mode-file");
+        fs_util::write(&external_mode_file, "")?;
+
+        let project_mode_file = project_root.join("mode-file");
+        fs_util::write(&project_mode_file, "")?;
+
+        let project_mode_file_in_symlink_root = symlinked_project_root.join("mode-file");
+
+        let cwd = AbsWorkingDir::unchecked_new(AbsNormPathBuf::new(project_root.to_path_buf())?);
+        let context = ImmediateConfigContext::new(&cwd);
+
+        let kind =
+            context.resolve_argfile_kind(fs_util::canonicalize(external_mode_file)?, None)?;
+        assert!(
+            matches!(kind, ArgFileKind::Path(ArgFilePath::External(_))),
+            "{:?}",
+            kind
+        );
+
+        let kind = context.resolve_argfile_kind(
+            AbsNormPathBuf::new(project_mode_file.into_path_buf())?,
+            None,
+        )?;
+        assert!(
+            matches!(kind, ArgFileKind::Path(ArgFilePath::Project(_))),
+            "{:?}",
+            kind
+        );
+
+        let kind = context.resolve_argfile_kind(
+            AbsNormPathBuf::new(
+                fs_util::canonicalize(project_mode_file_in_symlink_root)?.into_path_buf(),
+            )?,
+            None,
+        )?;
+        assert!(
+            matches!(kind, ArgFileKind::Path(ArgFilePath::Project(_))),
+            "{:?}",
+            kind
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_expand_argfile_content() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let cwd =
+            AbsWorkingDir::unchecked_new(AbsNormPathBuf::new(root.canonicalize()?.join("foo"))?);
+        let context = ImmediateConfigContext::new(&cwd);
+
         let mode_file = root.join("mode-file");
         // Test skips empty lines.
-        fs_util::write(&mode_file, "a\n\nb\n").unwrap();
-        let lines = expand_argfile_contents(&ArgFileKind::Path(mode_file)).unwrap();
+        fs_util::write(&mode_file, "a\n\nb\n")?;
+        let kind =
+            context.resolve_argfile_kind(AbsNormPathBuf::new(mode_file.into_path_buf())?, None)?;
+        let lines = expand_argfile_contents(&context, &kind)?;
         assert_eq!(vec!["a".to_owned(), "b".to_owned()], lines);
+        Ok(())
     }
 
     #[test]
@@ -338,7 +411,9 @@ mod tests {
         fs_util::write(root.join("foo/bar/arg2.txt"), "--magic").unwrap();
         fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .").unwrap();
         let cwd = AbsWorkingDir::unchecked_new(
-            AbsNormPathBuf::new(root.canonicalize().unwrap().join("foo")).unwrap(),
+            fs_util::canonicalize(root)
+                .unwrap()
+                .join(ForwardRelativePath::unchecked_new("foo")),
         );
         let mut context = ImmediateConfigContext::new(&cwd);
         let mut args = ExpandedArgvBuilder::new();
@@ -368,7 +443,9 @@ mod tests {
         fs_util::write(&arg2_path, "--magic").unwrap();
         fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .").unwrap();
         let cwd = AbsWorkingDir::unchecked_new(
-            AbsNormPathBuf::new(root.canonicalize().unwrap().join("foo")).unwrap(),
+            fs_util::canonicalize(root)
+                .unwrap()
+                .join(ForwardRelativePath::unchecked_new("foo")),
         );
         let mut context = ImmediateConfigContext::new(&cwd);
         let mut args = ExpandedArgvBuilder::new();
@@ -392,7 +469,7 @@ mod tests {
                     "{}{}",
                     v.kind,
                     if let Some(v) = &v.parent {
-                        format!("@{}", display_flagfile(&v))
+                        display_flagfile(&v)
                     } else {
                         "".to_owned()
                     }
@@ -409,8 +486,8 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 "--inline1 inline".to_owned(),
-                format!("--magic {}@{}", &arg2_path, &arg1_path),
-                format!("--other-arg {}", &arg1_path),
+                format!("--magic @root//foo/bar/arg2.txt@root//foo/bar/arg1.txt"),
+                format!("--other-arg @root//foo/bar/arg1.txt"),
                 "--inline2 inline".to_owned()
             ]
         )

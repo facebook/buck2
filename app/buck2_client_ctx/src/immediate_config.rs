@@ -10,11 +10,14 @@
 use std::sync::OnceLock;
 use std::time::SystemTime;
 
+use buck2_common::argv::ArgFileKind;
+use buck2_common::argv::ArgFilePath;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_core::buck2_env;
+use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -117,6 +120,16 @@ impl<'a> ImmediateConfigContext<'a> {
         Ok(data.project_filesystem.resolve(&path))
     }
 
+    pub(crate) fn resolve_project_path(
+        &self,
+        path: CellPathRef,
+    ) -> buck2_error::Result<AbsNormPathBuf> {
+        let data = self.data()?;
+        Ok(data
+            .project_filesystem
+            .resolve(data.cell_resolver.resolve_path(path)?))
+    }
+
     pub fn resolve_alias_to_path_in_cwd(
         &self,
         alias: &str,
@@ -160,6 +173,32 @@ impl<'a> ImmediateConfigContext<'a> {
                 })
             })
             .buck_error_context("Error creating cell resolver")
+    }
+
+    pub(crate) fn resolve_argfile_kind(
+        &self,
+        canonicalized_path: AbsNormPathBuf,
+        flag: Option<&str>,
+    ) -> Result<buck2_common::argv::ArgFileKind, buck2_error::Error> {
+        let is_py = canonicalized_path.extension() == Some("py".as_ref());
+        let resolved_path =
+            match self.data() {
+                Ok(data) if canonicalized_path.starts_with(data.project_filesystem.root()) => {
+                    ArgFilePath::Project(data.cell_resolver.get_cell_path_from_abs_path(
+                        &canonicalized_path,
+                        &data.project_filesystem,
+                    )?)
+                }
+                _ => ArgFilePath::External(canonicalized_path),
+            };
+        if is_py {
+            Ok(ArgFileKind::PythonExecutable(
+                resolved_path,
+                flag.map(ToOwned::to_owned),
+            ))
+        } else {
+            Ok(ArgFileKind::Path(resolved_path))
+        }
     }
 }
 
