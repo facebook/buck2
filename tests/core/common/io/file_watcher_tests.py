@@ -158,13 +158,24 @@ async def run_replace_file_test(
     with open(path, "a"):
         pass
 
+    # By getting files here, we clear the log of the previous file watcher events
+    # including the create event for 'def'; this also removes the directory modify event
+    # that we would normally expect to see when creating a file in a directory on native file systems
+    await get_files(buck)
+
     fromPath = os.path.join(buck.cwd, "files", "abc")
     toPath = os.path.join(buck.cwd, "files", "def")
     os.rename(fromPath, toPath)
 
     required = [
+        # Watchman reports a modify event for replacing a file if we have already cleared the
+        # previous file watcher events from the log - this is the case when we get files as above.
         FileWatcherEvent(
-            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/def"
+            FileWatcherEventType.MODIFY
+            if file_watcher_provider is FileWatcherProvider.WATCHMAN
+            else FileWatcherEventType.CREATE,
+            FileWatcherKind.FILE,
+            "root//files/def",
         ),
         FileWatcherEvent(
             FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"

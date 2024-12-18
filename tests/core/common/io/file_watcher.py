@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from enum import Enum
 
 from buck2.tests.e2e_util.api.buck import Buck
-
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
