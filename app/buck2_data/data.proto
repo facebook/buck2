@@ -2143,6 +2143,12 @@ message InvocationRecord {
   // Source code revision where invocation happened
   optional VersionControlRevision version_control_revision = 104;
 
+  // A subset of the expanded argv containing config flags. When a config flag
+  // is from an argfile in the project, it will be represented with the argfile
+  // rather than the raw config flag. The flags and argfiles here will be in a
+  // normalized form.
+  repeated string representative_config_flags = 105;
+
   // Detailed per-backend RE stats.
   optional uint64 zdb_download_queries = 200;
   optional uint64 zdb_download_bytes = 201;

@@ -149,6 +149,7 @@ impl<'a> ClientCommandContext<'a> {
             &event_log_opts,
             command_name,
             std::env::args().collect(),
+            Vec::new(),
             None,
         )?;
 

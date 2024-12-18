@@ -41,6 +41,7 @@ use crate::subscribers::subscribers::EventSubscribers;
 
 fn default_subscribers<'a, T: StreamingCommand>(
     cmd: &T,
+    matches: BuckArgMatches<'_>,
     ctx: &ClientCommandContext<'a>,
 ) -> buck2_error::Result<EventSubscribers<'a>> {
     let console_opts = cmd.console_opts();
@@ -79,11 +80,17 @@ fn default_subscribers<'a, T: StreamingCommand>(
     if let Some(build_graph_stats) = try_get_build_graph_stats(cmd, ctx)? {
         subscribers.push(build_graph_stats)
     }
+    let representative_config_flags = if let Some(v) = ctx.maybe_paths()? {
+        matches.get_representative_config_flags()?
+    } else {
+        Vec::new()
+    };
     let mut recorder = try_get_invocation_recorder(
         ctx,
         cmd.event_log_opts(),
         cmd.logging_name(),
         cmd.sanitize_argv(ctx.argv.clone()).argv,
+        representative_config_flags,
         log_size_counter_bytes,
     )?;
     recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
@@ -194,7 +201,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
             };
 
             let mut connect_options = BuckdConnectOptions {
-                subscribers: default_subscribers(&self, &ctx)?,
+                subscribers: default_subscribers(&self, matches, &ctx)?,
                 constraints,
             };
 
