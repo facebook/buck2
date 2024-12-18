@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 load(
     "@prelude//:artifacts.bzl",
     "ArtifactGroupInfo",
@@ -36,8 +43,8 @@ def _python_toolchain_impl(ctx):
 python_toolchain = rule(
     impl = _python_toolchain_impl,
     attrs = {
-        "distribution": attrs.exec_dep(),
         "binary_linker_flags": attrs.default_only(attrs.list(attrs.arg(), default = [])),
+        "distribution": attrs.exec_dep(),
         "fail_with_message": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:fail_with_message")),
         "generate_static_extension_info": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//python/tools:generate_static_extension_info")),
         "linker_flags": attrs.default_only(attrs.list(attrs.arg(), default = [])),

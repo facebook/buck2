@@ -2,6 +2,7 @@ load(":buildbuddy.bzl", "buildbuddy")
 load(":local.bzl", "local")
 
 host_cpu = "prelude//cpu:" + ("arm64" if host_info().arch.is_aarch64 else "x86_64")
+
 host_os = "prelude//os:" + ("macos" if host_info().os.is_macos else "linux")
 
 buildbuddy(

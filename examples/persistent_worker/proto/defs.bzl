@@ -1,3 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 def _proto_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     prefix = ctx.label.package
     depth = len(prefix.split("/"))
@@ -16,6 +23,7 @@ def _proto_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         category = "protoc",
     )
+
     # protoc does not let us control the import prefix and path prefix separately.
     # So, we need to copy the generated files into the correct location after the fact.
     python_out_copied = ctx.actions.declare_output("{}.py".format(libname))
