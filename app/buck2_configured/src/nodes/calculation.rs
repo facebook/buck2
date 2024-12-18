@@ -271,21 +271,6 @@ impl ExecutionPlatformConstraints {
         Ok(result.into())
     }
 
-    async fn one(
-        self,
-        ctx: &mut DiceComputations<'_>,
-        node: TargetNodeRef<'_>,
-    ) -> buck2_error::Result<ExecutionPlatformResolution> {
-        let toolchain_allows = self.toolchain_allows(ctx).await?;
-        ctx.resolve_execution_platform_from_constraints(
-            node.label().pkg().cell_name(),
-            self.exec_compatible_with,
-            self.exec_deps,
-            toolchain_allows,
-        )
-        .await
-    }
-
     pub(crate) async fn one_for_cell(
         self,
         ctx: &mut DiceComputations<'_>,
@@ -440,7 +425,9 @@ async fn resolve_execution_platform(
     };
 
     let constraints = ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)?;
-    constraints.one(ctx, node).await
+    constraints
+        .one_for_cell(ctx, node.label().pkg().cell_name())
+        .await
 }
 
 fn unpack_target_compatible_with_attr(
