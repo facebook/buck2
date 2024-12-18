@@ -11,7 +11,7 @@ fbsource = none
 buck = none
 
 [external_cells]
-  prelude = bundled
+prelude = bundled
 
 [parser]
 target_platform_detector_spec = target:root//...->prelude//platforms:default
