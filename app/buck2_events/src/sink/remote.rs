@@ -354,6 +354,7 @@ mod fbcode {
     use futures::Stream;
     use futures::StreamExt;
     use tonic::transport::Channel;
+    use tonic::transport::channel::ClientTlsConfig;
     use tonic::Request;
 
     use tokio::runtime::Builder;
@@ -385,10 +386,19 @@ mod fbcode {
 
     async fn connect_build_event_server() -> anyhow::Result<PublishBuildEventClient<Channel>> {
         let uri = std::env::var("BES_URI")?.parse()?;
-        let channel = Channel::builder(uri);
-        // TODO: enable TLS and handle API token
-        // let tls_config = ClientTlsConfig::new();
-        // channel = channel.tls_config(tls_config)?;
+        let mut channel = Channel::builder(uri);
+        let tls_config = ClientTlsConfig::new();
+        {
+            let tls_setting = std::env::var("BES_TLS").unwrap_or("0".to_owned());
+            match tls_setting.as_str() {
+                "1" | "true" => {
+                    channel = channel.tls_config(tls_config)?;
+                },
+                _ => {},
+            }
+        }
+        // TODO: parse PEM
+        // TODO: handle API token
         channel
             .connect()
             .await
