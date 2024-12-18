@@ -426,17 +426,37 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
         )
 
+        link_groups_binary_debug_info = LinkGroupsDebugLinkableItem(
+            ordered_linkables = create_debug_linkable_entries(labels_to_links.map, root = None),
+        )
         link_groups_debug_info = LinkGroupsDebugLinkInfo(
-            binary = LinkGroupsDebugLinkableItem(
-                ordered_linkables = create_debug_linkable_entries(labels_to_links.map, root = None),
-            ),
+            binary = link_groups_binary_debug_info,
             libs = link_group_libs_debug_info,
         )
+        link_groups_libs_sub_targets = {}
+        for name, lib in link_group_libs_debug_info.items():
+            link_groups_libs_sub_targets[name] = [
+                DefaultInfo(
+                    default_output = ctx.actions.write_json(
+                        ctx.label.name + ".link-groups-info.libs.{}.json".format(name),
+                        lib,
+                    ),
+                ),
+            ]
         sub_targets["link-groups-info"] = [DefaultInfo(
             default_output = ctx.actions.write_json(
                 ctx.label.name + ".link-groups-info.json",
                 link_groups_debug_info,
             ),
+            sub_targets = {
+                "bin": [DefaultInfo(
+                    default_output = ctx.actions.write_json(
+                        ctx.label.name + ".link-groups-info.bin.json",
+                        link_groups_binary_debug_info,
+                    ),
+                )],
+                "shared-libraries": [DefaultInfo(sub_targets = link_groups_libs_sub_targets)],
+            },
         )]
 
         if is_cxx_test and link_group != None:
