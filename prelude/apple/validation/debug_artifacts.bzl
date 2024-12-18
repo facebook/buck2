@@ -28,7 +28,7 @@ def get_debug_artifacts_validators(ctx, artifacts: ArtifactTSet) -> dict[str, Ar
 
     return name_to_validation_result
 
-def _get_analysis_input_artifacts(ctx, artifacts: ArtifactTSet) -> dict[Label, list[_AnalysisInput]]:
+def _get_analysis_input_artifacts(ctx, artifacts: ArtifactTSet) -> dict[Label | str, list[_AnalysisInput]]:
     underlying_tset = artifacts._tset
     if underlying_tset == None:
         return {}
@@ -52,7 +52,7 @@ def _analyze_artifacts(
         ctx,
         key: str,
         analysis_tool: RunInfo,
-        label_to_artifacts: dict[Label, list[_AnalysisInput]]) -> dict[Label, list[Artifact]]:
+        label_to_artifacts: dict[Label | str, list[_AnalysisInput]]) -> dict[Label | str, list[Artifact]]:
     label_to_analysis = {}
     for label, inputs in label_to_artifacts.items():
         for input in inputs:
@@ -76,7 +76,7 @@ def _reduce_analysis_artifacts(
         ctx,
         key: str,
         reducer_tool: RunInfo,
-        label_to_artifacts: dict[Label, list[Artifact]]) -> Artifact:
+        label_to_artifacts: dict[Label | str, list[Artifact]]) -> Artifact:
     input_json = ctx.actions.write_json(
         "{}_reducer_args.json".format(key),
         label_to_artifacts,
