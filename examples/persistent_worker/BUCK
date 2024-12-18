@@ -16,8 +16,8 @@ python_binary(
 
 worker(
     name = "worker",
-    worker = ":worker_py",
     visibility = ["PUBLIC"],
+    worker = ":worker_py",
 )
 
 [

@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
 """Buck2 local and remote persistent worker and action runner.
 
 This script can:
@@ -7,29 +14,32 @@ This script can:
 """
 
 import argparse
-from concurrent import futures
-from dataclasses import dataclass
-import google.protobuf.proto as proto
-import grpc
 import os
+import shlex
+import socket
 import sys
 import time
+from concurrent import futures
+from dataclasses import dataclass
+
+import google.protobuf.proto as proto
+import grpc
 import proto.bazel.worker_protocol_pb2 as bazel_pb2
 import proto.buck2.worker_pb2 as buck2_pb2
 import proto.buck2.worker_pb2_grpc as buck2_pb2_grpc
-import shlex
-import socket
 
 
 @dataclass
 class Request:
     """Universal worker request, independent of Buck2 or Bazel protocol."""
+
     argv: list[str]
 
 
 @dataclass
 class Response:
     """Universal worker response, independent of Buck2 or Bazel protocol."""
+
     exit_code: int
     stderr: str
 
@@ -45,19 +55,26 @@ class RecoverableArgumentParser(argparse.ArgumentParser):
 
 class Implementation:
     """Universal worker implementation, independent of Buck2 or Bazel protocol."""
+
     def __init__(self):
         self.parser = RecoverableArgumentParser(
-            fromfile_prefix_chars='@',
+            fromfile_prefix_chars="@",
             prog="worker_py_handler",
-            description="Persistent Worker Request Handler")
+            description="Persistent Worker Request Handler",
+        )
         self.parser.add_argument(
-            "outfile",
-            type=argparse.FileType("w"),
-            help="Output file.")
+            "outfile", type=argparse.FileType("w"), help="Output file."
+        )
 
     def execute(self, request: Request) -> Response:
         try:
-            print("WORKER", socket.gethostname(), os.getpid(), os.getcwd(), file=sys.stderr)
+            print(
+                "WORKER",
+                socket.gethostname(),
+                os.getpid(),
+                os.getcwd(),
+                file=sys.stderr,
+            )
             print("REQUEST", request.argv, file=sys.stderr)
             args = self.parser.parse_args(request.argv)
             print("ARGS", args, file=sys.stderr)
@@ -69,15 +86,14 @@ class Implementation:
             time.sleep(1)
             print("COMPLETED", name, file=sys.stderr)
             output.close()
-            return Response(
-                exit_code = 0,
-                stderr = f"wrote to {output.name}")
+            return Response(exit_code=0, stderr=f"wrote to {output.name}")
         except ArgumentParserError as e:
-            return Response(exit_code = 2, stderr = str(e))
+            return Response(exit_code=2, stderr=str(e))
 
 
 class Buck2Servicer(buck2_pb2_grpc.WorkerServicer):
     """Buck2 remote persistent worker implementation."""
+
     def __init__(self):
         self.impl = Implementation()
 
@@ -86,13 +102,14 @@ class Buck2Servicer(buck2_pb2_grpc.WorkerServicer):
         print("BUCK2", request, file=sys.stderr)
         # Decode arguments as UTF-8 strings.
         argv = [arg.decode("utf-8") for arg in request.argv]
-        response = self.impl.execute(Request(argv = argv))
+        response = self.impl.execute(Request(argv=argv))
         host = socket.gethostname()
         pid = os.getpid()
         cwd = os.getcwd()
         return buck2_pb2.ExecuteResponse(
-            exit_code = response.exit_code,
-            stderr = f"Buck2 persistent worker {host} {pid} {cwd}\n" + response.stderr)
+            exit_code=response.exit_code,
+            stderr=f"Buck2 persistent worker {host} {pid} {cwd}\n" + response.stderr,
+        )
 
 
 class BazelServicer:
@@ -101,26 +118,30 @@ class BazelServicer:
 
     def Execute(self, request: bazel_pb2.WorkRequest) -> bazel_pb2.WorkResponse:
         print("BAZEL", request, file=sys.stderr)
-        response = self.impl.execute(Request(argv = request.arguments))
+        response = self.impl.execute(Request(argv=request.arguments))
         host = socket.gethostname()
         pid = os.getpid()
         cwd = os.getcwd()
         return bazel_pb2.WorkResponse(
-            exit_code = response.exit_code,
-            output = f"Bazel persistent worker {host} {pid} {cwd} {request.request_id}\n" + response.stderr,
-            request_id = request.request_id)
+            exit_code=response.exit_code,
+            output=f"Bazel persistent worker {host} {pid} {cwd} {request.request_id}\n"
+            + response.stderr,
+            request_id=request.request_id,
+        )
 
 
 def main():
     print("MAIN", socket.gethostname(), os.getpid(), os.getcwd(), file=sys.stderr)
     parser = argparse.ArgumentParser(
-        fromfile_prefix_chars='@',
+        fromfile_prefix_chars="@",
         prog="worker",
-        description="Buck2/Bazel Local/Remote Persistent Worker")
+        description="Buck2/Bazel Local/Remote Persistent Worker",
+    )
     parser.add_argument(
         "--persistent_worker",
         action="store_true",
-        help="Enable persistent worker (Bazel protocol).")
+        help="Enable persistent worker (Bazel protocol).",
+    )
 
     (args, rest) = parser.parse_known_args()
 
@@ -133,7 +154,9 @@ def main():
             parser.print_usage()
             sys.exit(2)
 
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 1))
+        server = grpc.server(
+            futures.ThreadPoolExecutor(max_workers=os.cpu_count() or 1)
+        )
         buck2_pb2_grpc.add_WorkerServicer_to_server(Buck2Servicer(), server)
         server.add_insecure_port(f"unix://{socket_path}")
         server.start()
@@ -150,12 +173,17 @@ def main():
         servicer = BazelServicer()
         # uses length prefixed serialization features added in proto version 5.28.0.
         # https://github.com/protocolbuffers/protobuf/pull/16965
-        while request := proto.parse_length_prefixed(bazel_pb2.WorkRequest, sys.stdin.buffer):
+        while request := proto.parse_length_prefixed(
+            bazel_pb2.WorkRequest, sys.stdin.buffer
+        ):
             response = servicer.Execute(request)
             proto.serialize_length_prefixed(response, sys.stdout.buffer)
             sys.stdout.flush()
     else:
-        print("Expected either 'WORKER_SOCKET' environment variable or '--persistent_worker' argument.", file=sys.stderr)
+        print(
+            "Expected either 'WORKER_SOCKET' environment variable or '--persistent_worker' argument.",
+            file=sys.stderr,
+        )
         sys.exit(2)
 
 
