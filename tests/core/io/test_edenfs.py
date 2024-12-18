@@ -10,9 +10,12 @@
 from buck2.tests.core.common.io.file_watcher import FileWatcherProvider
 from buck2.tests.core.common.io.file_watcher_tests import (
     FileSystemType,
+    run_create_directory_test,
     run_create_file_test,
     run_modify_file_test,
+    run_remove_directory_test,
     run_remove_file_test,
+    run_rename_directory_test,
     run_rename_file_test,
     run_replace_file_test,
 )
@@ -53,5 +56,26 @@ async def test_edenfs_rename_file_eden(buck: Buck) -> None:
 @buck_test(setup_eden=True, skip_for_os=["windows"])
 async def test_edenfs_replace_file_eden(buck: Buck) -> None:
     await run_replace_file_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_create_directory_eden(buck: Buck) -> None:
+    await run_create_directory_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_remove_directory_eden(buck: Buck) -> None:
+    await run_remove_directory_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_rename_directory_eden(buck: Buck) -> None:
+    await run_rename_directory_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )

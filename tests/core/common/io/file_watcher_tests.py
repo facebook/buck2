@@ -9,6 +9,7 @@
 
 
 import os
+import shutil
 import subprocess
 from enum import Enum
 
@@ -183,3 +184,73 @@ async def run_replace_file_test(
     ]
 
     verify_results((await get_file_watcher_events(buck)), required)
+
+
+async def run_create_directory_test(
+    buck: Buck,
+    file_system_type: FileSystemType,
+    file_watcher_provider: FileWatcherProvider,
+) -> None:
+    await setup_file_watcher_test(buck)
+    path = os.path.join(buck.cwd, "files", "def")
+    os.mkdir(path)
+
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.DIRECTORY, "root//files/def"
+        )
+    ]
+
+    verify_results((await get_file_watcher_events(buck)), required)
+
+
+async def run_remove_directory_test(
+    buck: Buck,
+    file_system_type: FileSystemType,
+    file_watcher_provider: FileWatcherProvider,
+) -> None:
+    await setup_file_watcher_test(buck)
+    path = os.path.join(buck.cwd, "files", "d")
+    shutil.rmtree(path)
+
+    required = [
+        # Watchman on EdenFS reports a delete *file* event for removing a directory
+        FileWatcherEvent(
+            FileWatcherEventType.DELETE,
+            FileWatcherKind.FILE
+            if file_watcher_provider is FileWatcherProvider.WATCHMAN
+            and file_system_type is FileSystemType.EDEN_FS
+            else FileWatcherKind.DIRECTORY,
+            "root//files/d",
+        ),
+    ]
+
+    verify_results(await get_file_watcher_events(buck), required)
+
+
+async def run_rename_directory_test(
+    buck: Buck,
+    file_system_type: FileSystemType,
+    file_watcher_provider: FileWatcherProvider,
+) -> None:
+    await setup_file_watcher_test(buck)
+    fromPath = os.path.join(buck.cwd, "files", "d")
+    toPath = os.path.join(buck.cwd, "files", "def")
+    os.rename(fromPath, toPath)
+
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.DIRECTORY, "root//files/def"
+        ),
+        # Watchman on EdenFS reports a delete file event for the fromPath directory
+        FileWatcherEvent(
+            FileWatcherEventType.DELETE,
+            FileWatcherKind.FILE
+            if file_watcher_provider is FileWatcherProvider.WATCHMAN
+            and file_system_type is FileSystemType.EDEN_FS
+            else FileWatcherKind.DIRECTORY,
+            "root//files/d",
+        ),
+    ]
+
+    verify_results(await get_file_watcher_events(buck), required)
