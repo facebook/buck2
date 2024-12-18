@@ -497,7 +497,7 @@ mod fbcode {
 
     type GrpcService = InterceptedService<Channel, InjectHeadersInterceptor>;
 
-    async fn connect_build_event_server() -> anyhow::Result<PublishBuildEventClient<Channel>> {
+    async fn connect_build_event_server() -> anyhow::Result<PublishBuildEventClient<GrpcService>> {
         let uri = std::env::var("BES_URI")?.parse()?;
         let mut channel = Channel::builder(uri);
         let tls_config = ClientTlsConfig::new();
@@ -511,14 +511,19 @@ mod fbcode {
             }
         }
         // TODO: parse PEM
-        // TODO: handle API token
-        channel
+        let endpoint = channel
             .connect()
             .await
             .context("connecting to Bazel event stream gRPC server")?;
-        let client = PublishBuildEventClient::connect(channel)
-            .await
-            .context("creating Bazel event stream gRPC client")?;
+        let mut headers = vec![];
+        for hdr in std::env::var("BES_HEADERS").unwrap_or("".to_owned()).split(",") {
+            let hdr = hdr.trim();
+            if !hdr.is_empty() {
+                headers.push(HttpHeader::from_str(hdr)?);
+            }
+        };
+        let interceptor = InjectHeadersInterceptor::new(&headers)?;
+        let client = PublishBuildEventClient::with_interceptor(endpoint, interceptor);
         Ok(client)
     }
 
