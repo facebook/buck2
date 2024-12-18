@@ -8,17 +8,15 @@
 # pyre-strict
 
 
-from buck2.tests.core.common.io.file_watcher_tests import run_aba_test
+import json
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(setup_eden=False)
-async def test_watchman_aba_no_eden(buck: Buck) -> None:
-    await run_aba_test(buck)
-
-
-@buck_test(setup_eden=True)
-async def test_watchman_aba_eden(buck: Buck) -> None:
-    await run_aba_test(buck)
+async def get_files(buck: Buck) -> list[str]:
+    res = await buck.targets("root//:")
+    for x in res.stderr.splitlines():
+        p = x.split("Files: ", 1)
+        if len(p) > 1:
+            return json.loads(p[1])
+    raise Exception("Missing files output: " + res.stderr)

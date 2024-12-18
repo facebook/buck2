@@ -4,8 +4,9 @@ oncall("build_infra")
 
 python_library(
     name = "io",
-    srcs = ["io/file_watcher.py"],
+    srcs = glob(["io/*.py"]),
     deps = [
+        "//buck2/tests/e2e_util:utils",
         "//buck2/tests/e2e_util/api:api",
     ],
 )

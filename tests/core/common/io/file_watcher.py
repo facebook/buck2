@@ -7,34 +7,100 @@
 
 # pyre-strict
 
-
-import json
-import subprocess
+from dataclasses import dataclass
+from enum import Enum
 
 from buck2.tests.e2e_util.api.buck import Buck
 
-
-async def get_files(buck: Buck) -> list[str]:
-    res = await buck.targets("root//:")
-    for x in res.stderr.splitlines():
-        p = x.split("Files: ", 1)
-        if len(p) > 1:
-            return json.loads(p[1])
-    raise Exception("Missing files output: " + res.stderr)
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-async def run_aba_test(buck: Buck) -> None:
-    # Fails on eden because the repo exists, that's ok
-    subprocess.run(["sl", "init"], cwd=buck.cwd)
-    subprocess.run(["sl", "commit", "--addremove", "-m", "temp"], cwd=buck.cwd)
-    subprocess.run(["sl", "bookmark", "main"], cwd=buck.cwd, check=True)
+class FileWatcherProvider(Enum):
+    WATCHMAN = 0
+    RUST_NOTIFY = 1
+    FS_HASH_CRAWLER = 2
+    EDEN_FS = 3
 
-    assert subprocess.check_output(["sl", "status"], cwd=buck.cwd) == b""
 
-    assert (await get_files(buck)) == ["files/abc", "files/d/empty"]
+class FileWatcherEventType(Enum):
+    CREATE = 0
+    MODIFY = 1
+    DELETE = 2
 
-    subprocess.run(["sl", "mv", "files/abc", "files/d/"], cwd=buck.cwd, check=True)
-    assert (await get_files(buck)) == ["files/d/abc", "files/d/empty"]
 
-    subprocess.run(["sl", "shelve"], cwd=buck.cwd, check=True)
-    assert (await get_files(buck)) == ["files/abc", "files/d/empty"]
+class FileWatcherKind(Enum):
+    FILE = 0
+    DIRECTORY = 1
+    SYMLINK = 2
+
+
+@dataclass
+class FileWatcherEvent:
+    event: FileWatcherEventType
+    kind: FileWatcherKind
+    path: str
+
+    # pyre-ignore[2] - Missing parameter annotation
+    def __lt__(self, other) -> bool:
+        return (
+            (self.event.value < other.event.value)
+            or (
+                (self.event.value == other.event.value)
+                and (self.kind.value < other.kind.value)
+            )
+            or (
+                (self.event.value == other.event.value)
+                and (self.kind.value == other.kind.value)
+                and (self.path < other.path)
+            )
+        )
+
+
+#
+# Example FileWatcher.stats - see https://fburl.com/code/pphlekfn:
+#   "FileWatcher": {
+#     "stats": {
+#       "fresh_instance": false,
+#       "events_total": 2,
+#       "events_processed": 1,
+#       "branched_from_revision": "e40262cca30528e4bc0b209e4e7d9cf823528359",
+#       "branched_from_global_rev": 1018835633,
+#       "events": [
+#         {
+#           "event": 1,
+#           "kind": 0,
+#           "path": "fbcode//buck2/tests/core/io/test_watchman.py"
+#         }
+#       ],
+#       "incomplete_events_reason": null,
+#       "watchman_version": "2024-12-13T03:32:07Z",
+#       "fresh_instance_data": null,
+#       "branched_from_revision_timestamp": 1734038044
+#     }
+#  }
+#
+async def get_file_watcher_events(buck: Buck) -> list[FileWatcherEvent]:
+    await buck.targets("root//:")
+    filtered_events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "FileWatcher",
+        "stats",
+        "events",
+    )
+
+    file_watcher_events: list[FileWatcherEvent] = []
+    for events in filtered_events:
+        for event in events:
+            file_watcher_events.append(
+                FileWatcherEvent(
+                    FileWatcherEventType(event.get("event")),
+                    FileWatcherKind(event.get("kind")),
+                    event.get("path"),
+                )
+            )
+
+    return file_watcher_events
