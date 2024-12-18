@@ -10,6 +10,7 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
     "project_artifacts",
+    "project_identified_artifacts",
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -337,10 +338,12 @@ def cxx_link_into(
     if should_generate_dwp:
         dwp_inputs = cmd_args()
         dwp_from_dwo = getattr(ctx.attrs, "separate_debug_info", False) and cxx_toolchain_info.split_debug_mode == SplitDebugMode("split")
-        if not dwp_from_dwo:
+        if dwp_from_dwo:
+            dwp_inputs.add(project_identified_artifacts(ctx.actions, [external_debug_info]))
+        else:
             for link in opts.links:
                 dwp_inputs.add(unpack_link_args(link))
-        dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
+            dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
 
         dwp_artifact = dwp(
             ctx,
