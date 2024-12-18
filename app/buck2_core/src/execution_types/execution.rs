@@ -106,7 +106,7 @@ impl ExecutionPlatform {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
 pub enum ExecutionPlatformIncompatibleReason {
     ConstraintNotSatisfied(ProvidersLabel),
     ExecutionDependencyIncompatible(Arc<IncompatiblePlatformReason>),

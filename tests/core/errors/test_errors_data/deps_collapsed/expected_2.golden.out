@@ -6,6 +6,8 @@ Error in configured node dependency, dependency chain follows (-> indicates depe
     -> root//deps_collapsed:mid1 (^)
     -> root//deps_collapsed:mid2 (^)
     -> root//deps_collapsed:mid3 (^)
+    -> root//deps_collapsed:toolchain1 (^)
+    -> root//deps_collapsed:toolchain2 (^)
 
 
 Caused by:

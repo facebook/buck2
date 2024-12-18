@@ -33,6 +33,7 @@ use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatform;
+use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -86,6 +87,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
+use crate::configuration::calculation::check_execution_platform;
 use crate::configuration::calculation::ConfigurationCalculation;
 
 #[derive(Debug, buck2_error::Error)]
@@ -257,63 +259,55 @@ impl ExecutionPlatformConstraints {
         ))
     }
 
-    async fn toolchain_allows(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Arc<[ToolchainConstraints]>> {
-        // We could merge these constraints together, but the time to do that
-        // probably outweighs the benefits given there are likely to only be a few
-        // execution platforms to test.
-        let mut result = Vec::with_capacity(self.toolchain_deps.len());
-        for x in self.toolchain_deps.iter() {
-            result.push(execution_platforms_for_toolchain(ctx, x.dupe()).await?)
-        }
-        Ok(result.into())
-    }
-
     pub(crate) async fn one_for_cell(
         self,
         ctx: &mut DiceComputations<'_>,
         cell: CellNameForConfigurationResolution,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
-        let toolchain_allows = self.toolchain_allows(ctx).await?;
         ctx.resolve_execution_platform_from_constraints(
             cell,
             self.exec_compatible_with,
             self.exec_deps,
-            toolchain_allows,
+            self.toolchain_deps,
         )
         .await
     }
 }
 
-async fn execution_platforms_for_toolchain(
+pub(crate) async fn check_toolchain_execution_platform_compatibility(
     ctx: &mut DiceComputations<'_>,
     target: TargetConfiguredTargetLabel,
-) -> buck2_error::Result<ToolchainConstraints> {
+    exec_platform: ExecutionPlatform,
+) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-    struct ExecutionPlatformsForToolchainKey(TargetConfiguredTargetLabel);
+    #[display(
+        "ToolchainExecutionPlatformCompatibilityKey({}, {})",
+        target,
+        exec_platform.id()
+    )]
+    struct ToolchainExecutionPlatformCompatibilityKey {
+        target: TargetConfiguredTargetLabel,
+        exec_platform: ExecutionPlatform,
+    }
 
-    #[async_trait]
-    impl Key for ExecutionPlatformsForToolchainKey {
-        type Value = buck2_error::Result<ToolchainConstraints>;
-        async fn compute(
+    impl ToolchainExecutionPlatformCompatibilityKey {
+        async fn compute_impl(
             &self,
-            ctx: &mut DiceComputations,
-            _cancellation: &CancellationContext,
-        ) -> Self::Value {
-            let node = ctx.get_target_node(self.0.unconfigured()).await?;
+            ctx: &mut DiceComputations<'_>,
+        ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
+            let node = ctx.get_target_node(self.target.unconfigured()).await?;
             if node.transition_deps().next().is_some() {
                 // We could actually check this when defining the rule, but a bit of a corner
                 // case, and much simpler to do so here.
                 return Err(buck2_error::Error::from(
-                    ToolchainDepError::ToolchainTransitionDep(self.0.unconfigured().dupe()),
+                    ToolchainDepError::ToolchainTransitionDep(self.target.unconfigured().dupe()),
                 ));
             }
+            let cell_name = CellNameForConfigurationResolution(self.target.pkg().cell_name());
             let resolved_configuration = &ctx
                 .get_resolved_configuration(
-                    self.0.cfg(),
-                    CellNameForConfigurationResolution(self.0.pkg().cell_name()),
+                    self.target.cfg(),
+                    cell_name,
                     node.get_configuration_deps(),
                 )
                 .await?;
@@ -330,7 +324,7 @@ async fn execution_platforms_for_toolchain(
                 &platform_cfgs,
             );
             let (gathered_deps, errors_and_incompats) =
-                gather_deps(&self.0, node.as_ref(), &cfg_ctx, ctx).await?;
+                gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx).await?;
             if let Some(ret) = errors_and_incompats.finalize() {
                 // Statically assert that we hit one of the `?`s
                 enum Void {}
@@ -338,12 +332,31 @@ async fn execution_platforms_for_toolchain(
             }
             let constraints =
                 ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
-            let toolchain_allows = constraints.toolchain_allows(ctx).await?;
-            Ok(ToolchainConstraints::new(
-                &constraints.exec_deps,
+
+            check_execution_platform(
+                ctx,
+                cell_name,
                 &constraints.exec_compatible_with,
-                &toolchain_allows,
-            ))
+                &constraints.exec_deps,
+                &self.exec_platform,
+                &constraints.toolchain_deps,
+            )
+            .await
+        }
+    }
+
+    #[async_trait]
+    impl Key for ToolchainExecutionPlatformCompatibilityKey {
+        type Value = buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>>;
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
+            Ok(LookingUpConfiguredNodeContext::add_context(
+                self.compute_impl(ctx).await,
+                self.target.inner().dupe(),
+            )?)
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -354,8 +367,11 @@ async fn execution_platforms_for_toolchain(
         }
     }
 
-    ctx.compute(&ExecutionPlatformsForToolchainKey(target))
-        .await?
+    ctx.compute(&ToolchainExecutionPlatformCompatibilityKey {
+        target,
+        exec_platform,
+    })
+    .await?
 }
 
 pub async fn get_execution_platform_toolchain_dep(

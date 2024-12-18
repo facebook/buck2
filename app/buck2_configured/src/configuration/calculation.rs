@@ -51,6 +51,7 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_node::configuration::calculation::{ConfigurationCalculationDyn, CONFIGURATION_CALCULATION};
 use buck2_node::execution::{GetExecutionPlatformsImpl, GET_EXECUTION_PLATFORMS, GetExecutionPlatforms, EXECUTION_PLATFORMS_BUCKCONFIG};
+use crate::nodes::calculation::check_toolchain_execution_platform_compatibility;
 use crate::nodes::calculation::ExecutionPlatformConstraints;
 
 #[derive(Debug, buck2_error::Error)]
@@ -180,31 +181,20 @@ async fn compute_execution_platforms(
 
 /// Check if a particular execution platform is compatible with the constraints or not.
 /// Return either Ok/Ok if it is, or a reason if not.
-async fn check_execution_platform(
+pub(crate) async fn check_execution_platform(
     ctx: &mut DiceComputations<'_>,
     target_node_cell: CellNameForConfigurationResolution,
     exec_compatible_with: &[ConfigurationSettingKey],
     exec_deps: &[TargetLabel],
     exec_platform: &ExecutionPlatform,
-    toolchain_allows: &[ToolchainConstraints],
+    toolchain_deps: &[TargetConfiguredTargetLabel],
 ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
     let resolved_platform_configuration = ctx
-        .get_resolved_configuration(
-            exec_platform.cfg(),
-            target_node_cell,
-            toolchain_allows
-                .iter()
-                .flat_map(ToolchainConstraints::exec_compatible_with)
-                .chain(exec_compatible_with),
-        )
+        .get_resolved_configuration(exec_platform.cfg(), target_node_cell, exec_compatible_with)
         .await?;
 
     // Then check if the platform satisfies compatible_with
-    for constraint in toolchain_allows
-        .iter()
-        .flat_map(ToolchainConstraints::exec_compatible_with)
-        .chain(exec_compatible_with)
-    {
+    for constraint in exec_compatible_with {
         if resolved_platform_configuration
             .settings()
             .setting_matches(constraint)
@@ -219,11 +209,7 @@ async fn check_execution_platform(
     // Then check that all exec_deps are compatible with the platform. We collect errors separately,
     // so that we do not report an error if we would later find an incompatibility
     let mut errs = Vec::new();
-    for dep in toolchain_allows
-        .iter()
-        .flat_map(ToolchainConstraints::exec_deps)
-        .chain(exec_deps)
-    {
+    for dep in exec_deps {
         match ctx
             .get_internal_configured_target_node(
                 &dep.configure_pair_no_exec(exec_platform.cfg_pair_no_exec().dupe()),
@@ -245,6 +231,22 @@ async fn check_execution_platform(
             ))),
         };
     }
+
+    for dep in toolchain_deps {
+        match check_toolchain_execution_platform_compatibility(
+            ctx,
+            dep.dupe(),
+            exec_platform.dupe(),
+        )
+        .await
+        {
+            Ok(Ok(())) => {}
+            Ok(Err(reason)) => {
+                return Ok(Err(reason));
+            }
+            Err(e) => errs.push(e),
+        }
+    }
     if let Some(e) = errs.pop() {
         return Err(e.into());
     }
@@ -265,7 +267,7 @@ async fn resolve_execution_platform_from_constraints(
     target_node_cell: CellNameForConfigurationResolution,
     exec_compatible_with: &[ConfigurationSettingKey],
     exec_deps: &[TargetLabel],
-    toolchain_allows: &[ToolchainConstraints],
+    toolchain_deps: &[TargetConfiguredTargetLabel],
 ) -> buck2_error::Result<ExecutionPlatformResolution> {
     let mut skipped = Vec::new();
     let execution_platforms = get_execution_platforms_enabled(ctx).await?;
@@ -276,7 +278,7 @@ async fn resolve_execution_platform_from_constraints(
             exec_compatible_with,
             exec_deps,
             exec_platform,
-            toolchain_allows,
+            toolchain_deps,
         )
         .await?
         {
@@ -408,7 +410,7 @@ pub(crate) trait ConfigurationCalculation {
         target_node_cell: CellNameForConfigurationResolution,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         exec_deps: Arc<[TargetLabel]>,
-        toolchain_allows: Arc<[ToolchainConstraints]>,
+        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution>;
 }
 
@@ -676,13 +678,13 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         target_node_cell: CellNameForConfigurationResolution,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         exec_deps: Arc<[TargetLabel]>,
-        toolchain_allows: Arc<[ToolchainConstraints]>,
+        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         self.compute(&ExecutionPlatformResolutionKey {
             target_node_cell,
             exec_compatible_with,
             exec_deps,
-            toolchain_allows,
+            toolchain_deps,
         })
         .await?
     }
@@ -697,7 +699,7 @@ pub struct ExecutionPlatformResolutionKey {
     target_node_cell: CellNameForConfigurationResolution,
     exec_compatible_with: Arc<[ConfigurationSettingKey]>,
     exec_deps: Arc<[TargetLabel]>,
-    toolchain_allows: Arc<[ToolchainConstraints]>,
+    toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
 }
 
 impl Display for ExecutionPlatformResolutionKey {
@@ -720,22 +722,12 @@ impl Display for ExecutionPlatformResolutionKey {
             write!(f, ", exec_deps=[{}]", self.exec_deps.iter().join(", "))?
         }
 
-        let mut iter = self
-            .toolchain_allows
-            .iter()
-            .flat_map(|v| v.exec_compatible_with())
-            .peekable();
-        if iter.peek().is_some() {
-            write!(f, ", toolchain_exec_compatible_with=[{}]", iter.join(", "))?
-        }
-
-        let mut iter = self
-            .toolchain_allows
-            .iter()
-            .flat_map(|v| v.exec_deps())
-            .peekable();
-        if iter.peek().is_some() {
-            write!(f, ", toolchain_exec_deps=[{}]", iter.join(", "))?
+        if !self.toolchain_deps.is_empty() {
+            write!(
+                f,
+                ", toolchain_deps=[{}]",
+                self.toolchain_deps.iter().join(", ")
+            )?;
         }
 
         Ok(())
@@ -756,7 +748,7 @@ impl Key for ExecutionPlatformResolutionKey {
             self.target_node_cell,
             &self.exec_compatible_with,
             &self.exec_deps,
-            &self.toolchain_allows,
+            &self.toolchain_deps,
         )
         .await
     }
