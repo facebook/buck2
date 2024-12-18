@@ -244,8 +244,8 @@ def create_linkable_graph(
             if graph:
                 graph_deps.append(graph)
 
-    deps_labels = {x.label: True for x in graph_deps}
     if node and node.linkable:
+        deps_labels = set([x.label for x in graph_deps])
         for l in [node.linkable.deps, node.linkable.exported_deps]:  # buildifier: disable=confusing-name
             for d in l:
                 if not d in deps_labels:

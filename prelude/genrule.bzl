@@ -22,7 +22,7 @@ GENRULE_OUT_DIR = "out"
 # Currently, some rules require running from the project root, so provide an
 # opt-in list for those here.  Longer-term, these should be ported to actual
 # rule implementations in v2, rather then using `genrule`s.
-_BUILD_ROOT_LABELS = {label: True for label in [
+_BUILD_ROOT_LABELS = set([
     # The buck2 test suite
     "buck2_test_build_root",
     "antlir_macros",
@@ -44,7 +44,7 @@ _BUILD_ROOT_LABELS = {label: True for label in [
     "flowtype_ota_safety_target",  # produces JSON containing file paths that are project-relative
     "ctrlr_setting_paths",
     "llvm_buck_genrule",
-]}
+])
 
 # In Buck1 the SRCS environment variable is only set if the substring SRCS is on the command line.
 # That's a horrible heuristic, and doesn't account for users accessing $SRCS from a shell script.

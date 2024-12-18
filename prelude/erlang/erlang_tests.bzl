@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//utils:utils.bzl", "dedupe_by_value")
 load(
     ":erlang_build.bzl",
     "BuildEnvironment",
@@ -30,7 +31,6 @@ load(
 load(
     ":erlang_utils.bzl",
     "file_mapping",
-    "list_dedupe",
     "preserve_structure",
 )
 
@@ -80,7 +80,7 @@ def erlang_tests_macro(
 
     common_attributes["labels"] = common_attributes.get("labels", [])
 
-    common_attributes["labels"] = list_dedupe(common_attributes["labels"])
+    common_attributes["labels"] = dedupe_by_value(common_attributes["labels"])
 
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target

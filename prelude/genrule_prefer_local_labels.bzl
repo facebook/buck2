@@ -10,10 +10,10 @@ Handle labels used to make genrules prefer local execution
 """
 
 # Some rules prefer to be run locally for various reasons listed next to the label.
-_GENRULE_PREFER_LOCAL_LABELS = {label: True for label in [
+_GENRULE_PREFER_LOCAL_LABELS = set([
     # Used for rules that just copy large files and will be faster to do locally
     "large_copy",
-]}
+])
 
 def genrule_labels_prefer_local(labels):
     for label in labels:

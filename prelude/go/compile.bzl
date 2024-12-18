@@ -35,11 +35,11 @@ def infer_package_root(srcs: list[Artifact]) -> str:
     go_sources = [s for s in srcs if s.extension == ".go"]
     if len(go_sources) == 0:
         return ""
-    dir_set = {paths.dirname(s.short_path): None for s in go_sources}
+    dir_set = set([paths.dirname(s.short_path) for s in go_sources])
     if len(dir_set) > 1:
         fail("Provide `package_root` target attribute. Can't infer it when there are multiple directories containing .go files: {}. Sources: {}".format(
-            dir_set.keys(),
+            dir_set,
             [s.short_path for s in go_sources],
         ))
 
-    return dir_set.keys()[0]
+    return list(dir_set)[0]
