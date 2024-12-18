@@ -26,7 +26,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_futures::spawn::spawn_cancellable;
-use buck2_futures::spawn::DropCancelFuture;
+use buck2_futures::spawn::DropcancelJoinHandle;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
@@ -260,7 +260,7 @@ impl TargetHashes {
     {
         let mut hashes: HashMap<
             T::Key,
-            Shared<DropCancelFuture<buck2_error::Result<BuckTargetHash>>>,
+            Shared<DropcancelJoinHandle<buck2_error::Result<BuckTargetHash>>>,
         > = HashMap::new();
 
         let visit = |target: T| {

@@ -42,8 +42,8 @@ pub struct FutureAndCancellationHandle<T> {
 }
 
 impl<T> FutureAndCancellationHandle<T> {
-    pub fn into_drop_cancel(self) -> DropCancelFuture<T> {
-        DropCancelFuture {
+    pub fn into_drop_cancel(self) -> DropcancelJoinHandle<T> {
+        DropcancelJoinHandle {
             fut: self.future.0,
             cancellation_handle: Some(self.cancellation_handle),
         }
@@ -102,14 +102,24 @@ impl<T> Future for CancellableJoinHandle<T> {
     }
 }
 
+/// An owned permission to join on a task (await its termination).
+///
+/// When dropped this will cancel the ongoing task.
+///
+/// This can be thought of as the equivalent of [tokio::task::JoinHandle] for cancellable
+/// tasks.
+///
+/// This struct is created by `spawn_dropcancel` and related functions, and like
+/// [tokio::task::spawn] the task associated with this will have started immediately on spawn,
+/// even if this future has not been awaited.
 #[pin_project(PinnedDrop)]
-pub struct DropCancelFuture<T> {
+pub struct DropcancelJoinHandle<T> {
     #[pin]
     fut: BoxFuture<'static, Result<T, WeakFutureError>>,
     cancellation_handle: Option<CancellationHandle>,
 }
 
-impl<T> Future for DropCancelFuture<T> {
+impl<T> Future for DropcancelJoinHandle<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -124,7 +134,7 @@ impl<T> Future for DropCancelFuture<T> {
 }
 
 #[pinned_drop]
-impl<T> PinnedDrop for DropCancelFuture<T> {
+impl<T> PinnedDrop for DropcancelJoinHandle<T> {
     fn drop(mut self: Pin<&mut Self>) {
         // ignore the termination future of when we actually shutdown. The creator of this
         // DropCancelFuture has the termination future as well that it can use to observe termination
