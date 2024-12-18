@@ -38,11 +38,19 @@ async def run_create_file_test(
     with open(path, "a"):
         pass
 
-    required = [
-        FileWatcherEvent(
-            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/def"
-        )
-    ]
+    if file_watcher_provider != FileWatcherProvider.RUST_NOTIFY:
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/def"
+            )
+        ]
+    else:
+        # notify returns modify file events for all changes
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/def"
+            )
+        ]
 
     verify_results((await get_file_watcher_events(buck)), required)
 
@@ -75,11 +83,19 @@ async def run_remove_file_test(
     path = os.path.join(buck.cwd, "files", "abc")
     os.remove(path)
 
-    required = [
-        FileWatcherEvent(
-            FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
-        )
-    ]
+    if file_watcher_provider != FileWatcherProvider.RUST_NOTIFY:
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+            )
+        ]
+    else:
+        # notify returns modify file events for all changes
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
+            )
+        ]
 
     verify_results((await get_file_watcher_events(buck)), required)
 
@@ -95,14 +111,25 @@ async def run_rename_file_test(
     toPath = os.path.join(buck.cwd, "files", "def")
     os.rename(fromPath, toPath)
 
-    required = [
-        FileWatcherEvent(
-            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/def"
-        ),
-        FileWatcherEvent(
-            FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
-        ),
-    ]
+    if file_watcher_provider != FileWatcherProvider.RUST_NOTIFY:
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/def"
+            ),
+            FileWatcherEvent(
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+            ),
+        ]
+    else:
+        # notify returns modify file events for all changes
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/def"
+            ),
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
+            ),
+        ]
 
     verify_results((await get_file_watcher_events(buck)), required)
 
@@ -127,19 +154,41 @@ async def run_replace_file_test(
     toPath = os.path.join(buck.cwd, "files", "def")
     os.rename(fromPath, toPath)
 
-    required = [
-        # Watchman reports a modify event for replacing a file if we have already cleared the
-        # previous file watcher events from the log - this is the case when we get files as above.
-        FileWatcherEvent(
-            FileWatcherEventType.MODIFY
-            if file_watcher_provider is FileWatcherProvider.WATCHMAN
-            else FileWatcherEventType.CREATE,
-            FileWatcherKind.FILE,
-            "root//files/def",
-        ),
-        FileWatcherEvent(
-            FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
-        ),
-    ]
+    if file_watcher_provider in [
+        FileWatcherProvider.EDEN_FS,
+        FileWatcherProvider.WATCHMAN,
+    ]:
+        required = [
+            # Watchman reports a modify event for replacing a file if we have already cleared the
+            # previous file watcher events from the log - this is the case when we get files as above.
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY
+                if file_watcher_provider is not FileWatcherProvider.EDEN_FS
+                else FileWatcherEventType.CREATE,
+                FileWatcherKind.FILE,
+                "root//files/def",
+            ),
+            FileWatcherEvent(
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+            ),
+        ]
+    elif file_watcher_provider is FileWatcherProvider.FS_HASH_CRAWLER:
+        # fs hash crawler returns a delete for replacing a file
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/abc"
+            ),
+        ]
+
+    else:
+        # notify returns modify file events for all changes
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/def"
+            ),
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/abc"
+            ),
+        ]
 
     verify_results((await get_file_watcher_events(buck)), required)

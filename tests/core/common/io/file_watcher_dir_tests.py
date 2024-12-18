@@ -36,11 +36,21 @@ async def run_create_directory_test(
     path = os.path.join(buck.cwd, "files", "def")
     os.mkdir(path)
 
-    required = [
-        FileWatcherEvent(
-            FileWatcherEventType.CREATE, FileWatcherKind.DIRECTORY, "root//files/def"
-        )
-    ]
+    if file_watcher_provider != FileWatcherProvider.RUST_NOTIFY:
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.CREATE,
+                FileWatcherKind.DIRECTORY,
+                "root//files/def",
+            )
+        ]
+    else:
+        # notify returns modify file events for all changes
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/def"
+            )
+        ]
 
     verify_results((await get_file_watcher_events(buck)), required)
 
@@ -54,17 +64,32 @@ async def run_remove_directory_test(
     path = os.path.join(buck.cwd, "files", "d")
     shutil.rmtree(path)
 
-    required = [
-        # Watchman on EdenFS reports a delete *file* event for removing a directory
-        FileWatcherEvent(
-            FileWatcherEventType.DELETE,
-            FileWatcherKind.FILE
-            if file_watcher_provider is FileWatcherProvider.WATCHMAN
+    if file_watcher_provider != FileWatcherProvider.RUST_NOTIFY:
+        if (
+            file_watcher_provider is FileWatcherProvider.WATCHMAN
             and file_system_type is FileSystemType.EDEN_FS
-            else FileWatcherKind.DIRECTORY,
-            "root//files/d",
-        ),
-    ]
+        ):
+            # Watchman on EdenFS reports a delete *file* event for removing a directory
+            required = [
+                FileWatcherEvent(
+                    FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/d"
+                ),
+            ]
+        else:
+            required = [
+                FileWatcherEvent(
+                    FileWatcherEventType.DELETE,
+                    FileWatcherKind.DIRECTORY,
+                    "root//files/d",
+                ),
+            ]
+    else:
+        # notify returns modify file events for all changes
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/d"
+            ),
+        ]
 
     verify_results(await get_file_watcher_events(buck), required)
 
@@ -79,19 +104,32 @@ async def run_rename_directory_test(
     toPath = os.path.join(buck.cwd, "files", "def")
     os.rename(fromPath, toPath)
 
-    required = [
-        FileWatcherEvent(
-            FileWatcherEventType.CREATE, FileWatcherKind.DIRECTORY, "root//files/def"
-        ),
-        # Watchman on EdenFS reports a delete file event for the fromPath directory
-        FileWatcherEvent(
-            FileWatcherEventType.DELETE,
-            FileWatcherKind.FILE
-            if file_watcher_provider is FileWatcherProvider.WATCHMAN
-            and file_system_type is FileSystemType.EDEN_FS
-            else FileWatcherKind.DIRECTORY,
-            "root//files/d",
-        ),
-    ]
+    if file_watcher_provider != FileWatcherProvider.RUST_NOTIFY:
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.CREATE,
+                FileWatcherKind.DIRECTORY,
+                "root//files/def",
+            ),
+            # Watchman on EdenFS reports a delete file event for the fromPath directory
+            FileWatcherEvent(
+                FileWatcherEventType.DELETE,
+                FileWatcherKind.FILE
+                if file_watcher_provider is FileWatcherProvider.WATCHMAN
+                and file_system_type is FileSystemType.EDEN_FS
+                else FileWatcherKind.DIRECTORY,
+                "root//files/d",
+            ),
+        ]
+    else:
+        # notify returns modify file events for all changes
+        required = [
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/def"
+            ),
+            FileWatcherEvent(
+                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/d"
+            ),
+        ]
 
     verify_results(await get_file_watcher_events(buck), required)
