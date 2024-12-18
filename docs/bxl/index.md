@@ -25,8 +25,9 @@ BXL leverages Buck2 core's incremental
 and [anonymous targets](./how_tos/how_to_cache_and_share_operations). In
 addition, BXL has
 [profiling](./how_tos/basic_how_tos#profiling-testing-and-debugging-a-bxl-script)
-capabilities, and allows users to add their own [telemetry](./telemetry)
-directly within the BXL scripts.
+capabilities, and allows users to add their own
+[telemetry](./how_tos/how_to_collect_telemetry_events) directly within the BXL
+scripts.
 
 BXL is considered to be mostly stable, with a bit more active development here
 and there.

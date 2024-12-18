@@ -1,6 +1,6 @@
 ---
-id: telemetry
-title: BXL Telemetry
+id: how_to_collect_telemetry_events
+title: How to Collect Telemetry Events
 ---
 
 ## Telemetry
