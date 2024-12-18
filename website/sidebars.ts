@@ -139,6 +139,7 @@ export const sidebars: SidebarsConfig = {
         'rule_authors/writing_rules',
         'rule_authors/transitive_sets',
         'rule_authors/configurations',
+        'rule_authors/configurations_by_example',
         'rule_authors/configuration_transitions',
         'rule_authors/dynamic_dependencies',
         'rule_authors/anon_targets',
