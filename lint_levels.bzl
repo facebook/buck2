@@ -86,8 +86,13 @@ CLIPPY_DENY = [
     "clippy::useless-vec",  # TBD if this should be CLIPPY_ALLOW
     "clippy::useless_transmute",
     "clippy::verbose_file_reads",
+    "dead_code",
     "let_underscore_drop",
+    "unexpected_cfgs",
     "unused_extern_crates",
+    "unused_imports",
+    "unused_macros",
+    "unused_variables",
 ]
 
 # buildifier: keep sorted
