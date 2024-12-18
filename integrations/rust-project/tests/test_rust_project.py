@@ -105,7 +105,7 @@ async def test_resolve_owning_buildfile_no_extra_targets(buck: Buck) -> None:
     assert len(result) == 1
     buildfile_path, owners = result.popitem()
     assert buildfile_path.endswith(
-        "buck2/integrations/rust-project/tests/targets/foo/TARGETS.v2"
+        "buck2/integrations/rust-project/tests/targets/foo/BUCK.v2"
     )
     owners.sort()
     assert owners == [
