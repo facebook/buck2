@@ -259,7 +259,9 @@ async fn analysis<'v>(
 /// bxl.Lazy can be resolved to the actual result. The computation only happens when called `.resolve()` or `.catch().resolve()`.
 #[starlark_module]
 fn lazy_operation_methods(builder: &mut MethodsBuilder) {
-    /// Resolve the operation to the actual result without catching the error.
+    /// Resolve the operation to the final result.
+    /// When called via `.catch().resolve()`, the error will be catched and returned as a [`bxl.Result`](../Result).
+    /// Otherwise, it will return the raw type without catching the error.
     ///
     /// Example:
     /// ```python
