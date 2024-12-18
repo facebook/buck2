@@ -531,10 +531,10 @@ mod fbcode {
         let mut target_actions: HashMap<(String, String), Vec<(BuildEventId, bool)>> = HashMap::new();
         stream! {
             for await event in events {
-                println!("EVENT {:?} {:?}", event.event.trace_id, event);
+                //println!("EVENT {:?} {:?}", event.event.trace_id, event);
                 match event.data() {
                     buck2_data::buck_event::Data::SpanStart(start) => {
-                        println!("START {:?}", start);
+                        //println!("START {:?}", start);
                         match start.data.as_ref() {
                             None => {},
                             Some(buck2_data::span_start_event::Data::Command(command)) => {
@@ -632,7 +632,7 @@ mod fbcode {
                         }
                     },
                     buck2_data::buck_event::Data::SpanEnd(end) => {
-                        println!("END   {:?}", end);
+                        //println!("END   {:?}", end);
                         match end.data.as_ref() {
                             None => {},
                             Some(buck2_data::span_end_event::Data::Command(command)) => {
@@ -820,11 +820,11 @@ mod fbcode {
                             Some(_) => {},
                         }
                     },
-                    buck2_data::buck_event::Data::Instant(instant) => {
-                        println!("INST  {:?}", instant);
+                    buck2_data::buck_event::Data::Instant(_instant) => {
+                        //println!("INST  {:?}", instant);
                     },
-                    buck2_data::buck_event::Data::Record(record) => {
-                        println!("REC   {:?}", record);
+                    buck2_data::buck_event::Data::Record(_record) => {
+                        //println!("REC   {:?}", record);
                     },
                 }
             }
@@ -859,12 +859,12 @@ mod fbcode {
             .flat_map(|v|stream::iter(v));
         while let Some(event) = recv.next().await {
             let dbg_trace_id = event.event.trace_id.clone();
-            println!("event_sink_loop event {:?}", &dbg_trace_id);
+            //println!("event_sink_loop event {:?}", &dbg_trace_id);
             if let Some((send, _)) = handlers.get(&event.event.trace_id) {
-                println!("event_sink_loop redirect {:?}", &dbg_trace_id);
+                //println!("event_sink_loop redirect {:?}", &dbg_trace_id);
                 send.send(event).unwrap_or_else(|e| println!("build event send failed {:?}", e));
             } else {
-                println!("event_sink_loop new handler {:?}", event.event.trace_id);
+                //println!("event_sink_loop new handler {:?}", event.event.trace_id);
                 let (send, recv) = mpsc::unbounded_channel::<BuckEvent>();
                 let mut client = client.clone();
                 let dbg_trace_id = dbg_trace_id.clone();
@@ -872,20 +872,20 @@ mod fbcode {
                 let handler = tokio::spawn(async move {
                     let recv = UnboundedReceiverStream::new(recv);
                     let request = Request::new(stream_build_tool_events(trace_id, buck_to_bazel_events(recv)));
-                    println!("new handler request {:?}", &dbg_trace_id);
+                    println!("BES request {:?}", &dbg_trace_id);
                     let response = client.publish_build_tool_event_stream(request).await?;
-                    println!("new handler response {:?}", &dbg_trace_id);
+                    println!("BES response {:?}", &dbg_trace_id);
                     let mut inbound = response.into_inner();
-                    while let Some(ack) = inbound.message().await? {
+                    while let Some(_ack) = inbound.message().await? {
                         // TODO: Handle ACKs properly and add retry.
-                        println!("ACK  {:?}", ack);
+                        //println!("ACK  {:?}", ack);
                     }
                     Ok(())
                 });
                 handlers.insert(event.event.trace_id.to_owned(), (send, handler));
             }
         }
-        println!("event_sink_loop recv CLOSED");
+        //println!("event_sink_loop recv CLOSED");
         // TODO: handle closure and retry.
         // close send handles and await all handlers.
         let handlers: Vec<tokio::task::JoinHandle<anyhow::Result<()>>> = handlers.into_values().map(|(_, handler)|handler).collect();
