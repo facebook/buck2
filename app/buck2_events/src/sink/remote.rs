@@ -335,9 +335,12 @@ mod fbcode {
 #[cfg(not(fbcode_build))]
 mod fbcode {
     use std::collections::HashMap;
+    use std::env::VarError;
+    use std::str::FromStr;
     use std::sync::Arc;
     use std::thread::JoinHandle;
 
+    use allocative::Allocative;
     use anyhow::Context;
 
     use async_stream::stream;
@@ -349,10 +352,17 @@ mod fbcode {
     use buck2_data;
     use buck2_data::BuildCommandStart;
     use buck2_util::future::try_join_all;
+    use dupe::Dupe;
     use futures::stream;
+    use once_cell::sync::Lazy;
 
     use futures::Stream;
     use futures::StreamExt;
+    use tonic::metadata;
+    use tonic::metadata::MetadataKey;
+    use tonic::metadata::MetadataValue;
+    use tonic::service::interceptor::InterceptedService;
+    use tonic::service::Interceptor;
     use tonic::transport::Channel;
     use tonic::transport::channel::ClientTlsConfig;
     use tonic::Request;
@@ -373,6 +383,8 @@ mod fbcode {
     use prost::Message;
     use prost_types;
 
+    use regex::Regex;
+
     use crate::BuckEvent;
     use crate::Event;
     use crate::EventSink;
@@ -383,6 +395,107 @@ mod fbcode {
         _handler: JoinHandle<()>,
         send: UnboundedSender<Vec<BuckEvent>>,
     }
+
+    // TODO[AH] re-use definitions from REOSS crate.
+    #[derive(Clone, Debug, Default, Allocative)]
+    pub struct HttpHeader {
+        pub key: String,
+        pub value: String,
+    }
+
+    impl FromStr for HttpHeader {
+        type Err = anyhow::Error;
+
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            let mut iter = s.split(':');
+            match (iter.next(), iter.next(), iter.next()) {
+                (Some(key), Some(value), None) => Ok(Self {
+                    key: key.trim().to_owned(),
+                    value: value.trim().to_owned(),
+                }),
+                _ => Err(anyhow::anyhow!(
+                    "Invalid header (expect exactly one `:`): `{}`",
+                    s
+                )),
+            }
+        }
+    }
+
+    /// Replace occurrences of $FOO in a string with the value of the env var $FOO.
+    fn substitute_env_vars(s: &str) -> anyhow::Result<String> {
+        substitute_env_vars_impl(s, |v| std::env::var(v))
+    }
+
+    fn substitute_env_vars_impl(
+        s: &str,
+        getter: impl Fn(&str) -> Result<String, VarError>,
+    ) -> anyhow::Result<String> {
+        static ENV_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\$[a-zA-Z_][a-zA-Z_0-9]*").unwrap());
+
+        let mut out = String::with_capacity(s.len());
+        let mut last_idx = 0;
+
+        for mat in ENV_REGEX.find_iter(s) {
+            out.push_str(&s[last_idx..mat.start()]);
+            let var = &mat.as_str()[1..];
+            let val = getter(var).with_context(|| format!("Error substituting `{}`", mat.as_str()))?;
+            out.push_str(&val);
+            last_idx = mat.end();
+        }
+
+        if last_idx < s.len() {
+            out.push_str(&s[last_idx..s.len()]);
+        }
+
+        Ok(out)
+    }
+
+    #[derive(Clone, Dupe)]
+    struct InjectHeadersInterceptor {
+        headers: Arc<Vec<(MetadataKey<metadata::Ascii>, MetadataValue<metadata::Ascii>)>>,
+    }
+
+    impl InjectHeadersInterceptor {
+        pub fn new(headers: &[HttpHeader]) -> anyhow::Result<Self> {
+            let headers = headers
+                .iter()
+                .map(|h| {
+                    // This means we can't have `$` in a header key or value, which isn't great. On the
+                    // flip side, env vars are good for things like credentials, which those headers
+                    // are likely to contain. In time, we should allow escaping.
+                    let key = substitute_env_vars(&h.key)?;
+                    let value = substitute_env_vars(&h.value)?;
+
+                    let key = MetadataKey::<metadata::Ascii>::from_bytes(key.as_bytes())
+                        .with_context(|| format!("Invalid key in header: `{}: {}`", key, value))?;
+
+                    let value = MetadataValue::try_from(&value)
+                        .with_context(|| format!("Invalid value in header: `{}: {}`", key, value))?;
+
+                    anyhow::Ok((key, value))
+                })
+                .collect::<Result<_, _>>()
+                .context("Error converting headers")?;
+
+            Ok(Self {
+                headers: Arc::new(headers),
+            })
+        }
+    }
+
+    impl Interceptor for InjectHeadersInterceptor {
+        fn call(
+            &mut self,
+            mut request: tonic::Request<()>,
+        ) -> Result<tonic::Request<()>, tonic::Status> {
+            for (k, v) in self.headers.iter() {
+                request.metadata_mut().insert(k.clone(), v.clone());
+            }
+            Ok(request)
+        }
+    }
+
+    type GrpcService = InterceptedService<Channel, InjectHeadersInterceptor>;
 
     async fn connect_build_event_server() -> anyhow::Result<PublishBuildEventClient<Channel>> {
         let uri = std::env::var("BES_URI")?.parse()?;

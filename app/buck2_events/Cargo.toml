@@ -17,6 +17,7 @@ once_cell = { workspace = true }
 pin-project = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
+regex = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
 sys-info = { workspace = true }
