@@ -109,6 +109,11 @@ def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_laz
     elif attrs["buck_type"] == "cxx_test" and "BUCK_BASE_BINARY" in attrs["env"]:
         test_binary_path = attrs["env"]["BUCK_BASE_BINARY"][0]
         debug_settings[DEBUG_CMD] = test_binary_path
+    elif attrs["buck_type"] == "cxx_test" and "AVATAR_LAUNCHER_TARGET" in attrs["env"]:
+        # Replicate Avatar launcher script https://fburl.com/code/wylf2zjx
+        test_binary_path = attrs["env"]["AVATAR_LAUNCHER_TARGET"][0]
+        debug_settings[DEBUG_CMD] = test_binary_path
+        debug_settings[DEBUG_PWD] = dirname(test_binary_path, separator = "\\")
 
     return debug_settings
 
