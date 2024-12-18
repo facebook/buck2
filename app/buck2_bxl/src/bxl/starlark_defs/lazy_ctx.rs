@@ -110,7 +110,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
 
     /// Join a list of lazy operations into a single operation that can be evaluated.
     /// This is useful when you want to evaluate multiple operations in parallel.
-    /// Using `.try_resolve()` can catch errors for the individual operations.
+    /// Using `.catch().resolve()` can catch errors for the individual operations.
     ///
     /// Example:
     /// ```python
@@ -136,8 +136,14 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     /// ```python
     /// def _impl(ctx):
     ///     target = ctx.configured_targets("cell//path/to:target")
+    ///     # Get the analysis result without catching errors
     ///     analysis_result = ctx.lazy.analysis(target).resolve()
-    ///     (analysis_result, err) = ctx.lazy.analysis(target).try_resolve()
+    ///     # Catch errors. It will return a `bxl.Result`
+    ///     result = ctx.lazy.analysis(target).catch().resolve()
+    ///     if result.is_ok():
+    ///         analysis_result = result.unwrap()
+    ///     else:
+    ///         err = result.unwrap_err()
     /// ```
     fn analysis<'v>(
         #[starlark(this)] _this: &'v StarlarkLazyCtx,
