@@ -43,7 +43,10 @@ pub struct FutureAndCancellationHandle<T> {
 
 impl<T> FutureAndCancellationHandle<T> {
     pub fn into_drop_cancel(self) -> DropCancelFuture<T> {
-        self.future.into_drop_cancel(self.cancellation_handle)
+        DropCancelFuture {
+            fut: self.future.0,
+            cancellation_handle: Some(self.cancellation_handle),
+        }
     }
 }
 
@@ -133,15 +136,6 @@ impl<T> PinnedDrop for DropCancelFuture<T> {
     }
 }
 
-impl<T> CancellableJoinHandle<T> {
-    fn into_drop_cancel(self, cancellation_handle: CancellationHandle) -> DropCancelFuture<T> {
-        DropCancelFuture {
-            fut: self.0,
-            cancellation_handle: Some(cancellation_handle),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -194,10 +188,7 @@ mod tests {
 
         let sp = Arc::new(TokioSpawner);
 
-        let FutureAndCancellationHandle {
-            future: task,
-            cancellation_handle,
-        } = spawn_cancellable(
+        let task = spawn_cancellable(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -209,7 +200,7 @@ mod tests {
             &MockCtx,
         );
 
-        let future = task.into_drop_cancel(cancellation_handle);
+        let future = task.into_drop_cancel();
 
         drop(future);
 
@@ -238,12 +229,9 @@ mod tests {
         let sp = Arc::new(TokioSpawner);
         let fut = async { "Hello world!" }.boxed();
 
-        let FutureAndCancellationHandle {
-            future: task,
-            cancellation_handle,
-        } = spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx);
+        let task = spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx);
 
-        let future = task.into_drop_cancel(cancellation_handle);
+        let future = task.into_drop_cancel();
 
         let res = future.await;
         assert_eq!(res, "Hello world!");
