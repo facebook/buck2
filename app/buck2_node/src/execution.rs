@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::target::label::label::TargetLabel;
@@ -19,6 +18,7 @@ use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLa
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 
+use crate::configuration::calculation::CellNameForConfigurationResolution;
 use crate::configuration::resolved::ConfigurationSettingKey;
 
 pub const EXECUTION_PLATFORMS_BUCKCONFIG: BuckconfigKeyRef = BuckconfigKeyRef {
@@ -39,7 +39,7 @@ pub trait GetExecutionPlatformsImpl: 'static + Send + Sync {
         exec_deps: Arc<[TargetLabel]>,
         toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-        cell: CellName,
+        cell: CellNameForConfigurationResolution,
     ) -> buck2_error::Result<ExecutionPlatformResolution>;
 }
 

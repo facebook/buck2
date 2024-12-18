@@ -15,7 +15,6 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
-use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
@@ -30,6 +29,7 @@ use buck2_error::buck2_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
+use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::execution::GET_EXECUTION_PLATFORMS;
@@ -70,7 +70,7 @@ enum BxlActionsError {
 
 pub(crate) async fn resolve_bxl_execution_platform(
     ctx: &mut DiceComputations<'_>,
-    cell: CellName,
+    cell: CellNameForConfigurationResolution,
     exec_deps: Vec<ProvidersLabel>,
     toolchain_deps: Vec<ProvidersLabel>,
     target_platform: Option<TargetLabel>,

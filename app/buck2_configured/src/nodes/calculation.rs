@@ -24,7 +24,6 @@ use buck2_common::dice::cycles::CycleGuard;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
-use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -61,6 +60,7 @@ use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
@@ -274,7 +274,7 @@ impl ExecutionPlatformConstraints {
     pub(crate) async fn one_for_cell(
         self,
         ctx: &mut DiceComputations<'_>,
-        cell: CellName,
+        cell: CellNameForConfigurationResolution,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         let toolchain_allows = self.toolchain_allows(ctx).await?;
         ctx.resolve_execution_platform_from_constraints(
@@ -313,7 +313,7 @@ async fn execution_platforms_for_toolchain(
             let resolved_configuration = &ctx
                 .get_resolved_configuration(
                     self.0.cfg(),
-                    self.0.pkg().cell_name(),
+                    CellNameForConfigurationResolution(self.0.pkg().cell_name()),
                     node.get_configuration_deps(),
                 )
                 .await?;
@@ -369,7 +369,7 @@ pub async fn get_execution_platform_toolchain_dep(
     let resolved_configuration = ctx
         .get_resolved_configuration(
             target_cfg,
-            target_cell,
+            CellNameForConfigurationResolution(target_cell),
             target_node.get_configuration_deps(),
         )
         .await?;
@@ -426,7 +426,10 @@ async fn resolve_execution_platform(
 
     let constraints = ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)?;
     constraints
-        .one_for_cell(ctx, node.label().pkg().cell_name())
+        .one_for_cell(
+            ctx,
+            CellNameForConfigurationResolution(node.label().pkg().cell_name()),
+        )
         .await
 }
 
@@ -968,7 +971,7 @@ async fn compute_configured_target_node_no_transition(
     let resolved_configuration = ctx
         .get_resolved_configuration(
             target_cfg,
-            target_cell,
+            CellNameForConfigurationResolution(target_cell),
             target_node.get_configuration_deps(),
         )
         .await
@@ -1200,7 +1203,7 @@ async fn compute_configured_forward_target_node(
     let resolved_configuration = ctx
         .get_resolved_configuration(
             target_label_before_transition.cfg(),
-            target_node.label().pkg().cell_name(),
+            CellNameForConfigurationResolution(target_node.label().pkg().cell_name()),
             target_node.get_configuration_deps(),
         )
         .await

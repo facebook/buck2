@@ -29,6 +29,7 @@ use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -473,7 +474,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
 
                             let execution_resolution = resolve_bxl_execution_platform(
                                 ctx,
-                                this.cell_name(),
+                                CellNameForConfigurationResolution(this.cell_name()),
                                 exec_deps,
                                 toolchains,
                                 target_platform.clone(),

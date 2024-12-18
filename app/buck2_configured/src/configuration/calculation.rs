@@ -9,13 +9,13 @@
 
 use std::sync::Arc;
 
+use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use itertools::Itertools;
 use allocative::Allocative;
 use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
-use buck2_core::cells::name::CellName;
 use futures::FutureExt;
 use starlark_map::unordered_map::UnorderedMap;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -182,7 +182,7 @@ async fn compute_execution_platforms(
 /// Return either Ok/Ok if it is, or a reason if not.
 async fn check_execution_platform(
     ctx: &mut DiceComputations<'_>,
-    target_node_cell: CellName,
+    target_node_cell: CellNameForConfigurationResolution,
     exec_compatible_with: &[ConfigurationSettingKey],
     exec_deps: &[TargetLabel],
     exec_platform: &ExecutionPlatform,
@@ -262,7 +262,7 @@ async fn get_execution_platforms_enabled(
 
 async fn resolve_execution_platform_from_constraints(
     ctx: &mut DiceComputations<'_>,
-    target_node_cell: CellName,
+    target_node_cell: CellNameForConfigurationResolution,
     exec_compatible_with: &[ConfigurationSettingKey],
     exec_deps: &[TargetLabel],
     toolchain_allows: &[ToolchainConstraints],
@@ -309,7 +309,7 @@ async fn resolve_execution_platform_from_constraints(
 async fn configuration_matches(
     ctx: &mut DiceComputations<'_>,
     cfg: &ConfigurationData,
-    target_node_cell: CellName,
+    target_node_cell: CellNameForConfigurationResolution,
     constraints_and_configs: &ConfigSettingData,
 ) -> buck2_error::Result<bool> {
     for (key, value) in &constraints_and_configs.constraints {
@@ -325,7 +325,7 @@ async fn configuration_matches(
         let config_section_and_key = parse_config_section_and_key(raw_section_and_key, None)?;
         let v = ctx
             .get_legacy_config_property(
-                target_node_cell,
+                target_node_cell.0,
                 BuckconfigKeyRef {
                     section: &config_section_and_key.section,
                     property: &config_section_and_key.key,
@@ -349,7 +349,7 @@ pub struct ExecutionPlatformsKey;
 #[display("ConfigurationNode({}, {})", cfg_target, target_cfg)]
 struct ConfigurationNodeKey {
     target_cfg: ConfigurationData,
-    target_cell: CellName,
+    target_cell: CellNameForConfigurationResolution,
     cfg_target: ConfigurationSettingKey,
 }
 
@@ -362,7 +362,7 @@ struct ConfigurationNodeKey {
 )]
 struct ResolvedConfigurationKey {
     target_cfg: ConfigurationData,
-    target_cell: CellName,
+    target_cell: CellNameForConfigurationResolution,
     configuration_deps: Vec<ConfigurationSettingKey>,
 }
 
@@ -384,14 +384,14 @@ pub(crate) trait ConfigurationCalculation {
     >(
         &mut self,
         target_cfg: &ConfigurationData,
-        target_node_cell: CellName,
+        target_node_cell: CellNameForConfigurationResolution,
         configuration_deps: T,
     ) -> buck2_error::Result<ResolvedConfiguration>;
 
     async fn get_configuration_node(
         &mut self,
         target_cfg: &ConfigurationData,
-        target_cell: CellName,
+        target_cell: CellNameForConfigurationResolution,
         cfg_target: &ConfigurationSettingKey,
     ) -> buck2_error::Result<ConfigurationNode>;
 
@@ -405,7 +405,7 @@ pub(crate) trait ConfigurationCalculation {
     /// we expect these things to change rarely.
     async fn resolve_execution_platform_from_constraints(
         &mut self,
-        target_node_cell: CellName,
+        target_node_cell: CellNameForConfigurationResolution,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         exec_deps: Arc<[TargetLabel]>,
         toolchain_allows: Arc<[ToolchainConstraints]>,
@@ -428,7 +428,7 @@ impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
         &self,
         ctx: &mut DiceComputations<'_>,
         target_cfg: &ConfigurationData,
-        target_node_cell: CellName,
+        target_node_cell: CellNameForConfigurationResolution,
         configuration_deps: &[ConfigurationSettingKey],
     ) -> buck2_error::Result<ResolvedConfiguration> {
         ctx.get_resolved_configuration(target_cfg, target_node_cell, configuration_deps)
@@ -637,7 +637,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
     >(
         &mut self,
         target_cfg: &ConfigurationData,
-        target_cell: CellName,
+        target_cell: CellNameForConfigurationResolution,
         configuration_deps: T,
     ) -> buck2_error::Result<ResolvedConfiguration> {
         let configuration_deps: Vec<ConfigurationSettingKey> =
@@ -653,7 +653,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
     async fn get_configuration_node(
         &mut self,
         target_cfg: &ConfigurationData,
-        target_cell: CellName,
+        target_cell: CellNameForConfigurationResolution,
         cfg_target: &ConfigurationSettingKey,
     ) -> buck2_error::Result<ConfigurationNode> {
         self.compute(&ConfigurationNodeKey {
@@ -673,7 +673,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 
     async fn resolve_execution_platform_from_constraints(
         &mut self,
-        target_node_cell: CellName,
+        target_node_cell: CellNameForConfigurationResolution,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         exec_deps: Arc<[TargetLabel]>,
         toolchain_allows: Arc<[ToolchainConstraints]>,
@@ -690,7 +690,11 @@ impl ConfigurationCalculation for DiceComputations<'_> {
 
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
 pub struct ExecutionPlatformResolutionKey {
-    target_node_cell: CellName,
+    /// Determining a compatible execution platform requires checking the target and toolchain's
+    /// exec_compatible_with. This in turn requires a ResolvedConfiguration, which resolves the
+    /// buckconfig-related config_setting values based on the cell of the target the configuration
+    /// is being resolved for.
+    target_node_cell: CellNameForConfigurationResolution,
     exec_compatible_with: Arc<[ConfigurationSettingKey]>,
     exec_deps: Arc<[TargetLabel]>,
     toolchain_allows: Arc<[ToolchainConstraints]>,
@@ -799,7 +803,7 @@ impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
         exec_deps: Arc<[TargetLabel]>,
         toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-        cell: CellName,
+        cell: CellNameForConfigurationResolution,
     ) -> buck2_error::Result<ExecutionPlatformResolution> {
         ExecutionPlatformConstraints::new_constraints(
             exec_deps,

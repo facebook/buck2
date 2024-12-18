@@ -7,12 +7,15 @@
  * of this source tree.
  */
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::late_binding::LateBinding;
+use derive_more::Display;
 use dice::DiceComputations;
+use dupe::Dupe;
 
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::configuration::resolved::ResolvedConfiguration;
@@ -29,10 +32,21 @@ pub trait ConfigurationCalculationDyn: Send + Sync + 'static {
         &self,
         dice: &mut DiceComputations<'_>,
         target_cfg: &ConfigurationData,
-        target_node_cell: CellName,
+        target_node_cell: CellNameForConfigurationResolution,
         configuration_deps: &[ConfigurationSettingKey],
     ) -> buck2_error::Result<ResolvedConfiguration>;
 }
+
+/// For config_settings that need to be resolved when producing a ResolvedConfiguration, the buckconfig values are looked up in
+/// the cell that the configuration is resolving in. This means that for selects that appear in a target, the config_settings in the keys
+/// would resolve based on the buckconfigs from that target's cell.
+///
+/// This is subtle, non-obvious and possibly unintuitive, so we introduce a newtype here just to make it clearer in the places we are
+/// using or passing around a CellName for this purpose.
+#[derive(
+    Clone, Dupe, Copy, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+)]
+pub struct CellNameForConfigurationResolution(pub CellName);
 
 pub static CONFIGURATION_CALCULATION: LateBinding<&'static dyn ConfigurationCalculationDyn> =
     LateBinding::new("CONFIGURATION_CALCULATION");
