@@ -79,7 +79,33 @@ async def test_package_listing_errors(buck: Buck) -> None:
 )
 async def test_configured_graph_deps_collapsed_in_errors(buck: Buck) -> None:
     out = await expect_failure(
-        buck.cquery("//deps_collapsed:top", "-v=0", "--console=none")
+        buck.cquery(
+            "//deps_collapsed:top",
+            "-v=0",
+            "--console=none",
+            "-c",
+            "build.execution_platforms=root//deps_collapsed:exec_platforms",
+        )
     )
     stderr = re.sub("#[a-f0-9]*\\)", "#00000000)", out.stderr)
     golden(output=stderr, rel_path="deps_collapsed/expected.golden.out")
+
+
+@buck_test(
+    # windows errors are slightly different, just skip for now
+    skip_for_os=["windows"],
+)
+async def test_configured_graph_deps_collapsed_in_errors_2(buck: Buck) -> None:
+    out = await expect_failure(
+        buck.cquery(
+            "//deps_collapsed:top",
+            "-v=0",
+            "--console=none",
+            "-c",
+            "build.execution_platforms=root//deps_collapsed:exec_platforms",
+            "-c",
+            "core_test_errors.broken_select_in_toolchain=1",
+        )
+    )
+    stderr = re.sub("#[a-f0-9]*\\)", "#00000000)", out.stderr)
+    golden(output=stderr, rel_path="deps_collapsed/expected_2.golden.out")

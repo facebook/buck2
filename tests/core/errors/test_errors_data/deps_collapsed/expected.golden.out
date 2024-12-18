@@ -6,17 +6,18 @@ Error in configured node dependency, dependency chain follows (-> indicates depe
     -> root//deps_collapsed:mid1 (^)
     -> root//deps_collapsed:mid2 (^)
     -> root//deps_collapsed:mid3 (^)
-    -> root//deps_collapsed:next1 (root//deps_collapsed:exec#00000000)
-    -> root//deps_collapsed:next2 (^)
-    -> root//deps_collapsed:next3 (^)
-    -> root//deps_collapsed:broken (^)
-    -> root//deps_collapsed:missing (^)
 
 
 Caused by:
-    0: looking up unconfigured target node `root//deps_collapsed:missing`
-    1: Unknown target `missing` from package `root//deps_collapsed`.
-       Did you mean one of the 10 targets in root//deps_collapsed:TARGETS.fixture?
+    0: Error checking compatibility of `root//deps_collapsed:exec1` with `root//deps_collapsed:exec#65ead9094ef3d762`
+    1: Error in configured node dependency, dependency chain follows (-> indicates depends on, ^ indicates same configuration as previous):
+              root//deps_collapsed:exec1 (root//deps_collapsed:exec#00000000)
+           -> root//deps_collapsed:broken (^)
+           -> root//deps_collapsed:missing (^)
+       
+    2: looking up unconfigured target node `root//deps_collapsed:missing`
+    3: Unknown target `missing` from package `root//deps_collapsed`.
+       Did you mean one of the 12 targets in root//deps_collapsed:TARGETS.fixture?
        Maybe you meant one of these similar targets?
          root//deps_collapsed:mid1
          root//deps_collapsed:mid2

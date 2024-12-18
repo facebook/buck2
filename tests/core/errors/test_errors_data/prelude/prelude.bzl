@@ -12,13 +12,15 @@ simple_rule = rule(
     impl = _impl,
     attrs = {
         "deps": attrs.list(attrs.one_of(attrs.dep(), attrs.configured_dep()), default = []),
+        "toolchain_deps": attrs.list(attrs.toolchain_dep(), default = []),
     },
 )
 
-def _platform_impl(ctx):
-    return [DefaultInfo(), PlatformInfo(label = str(ctx.label.raw_target()), configuration = ConfigurationInfo(constraints = {}, values = {}))]
-
-platform = rule(
-    impl = _platform_impl,
-    attrs = {},
+simple_toolchain_rule = rule(
+    impl = _impl,
+    is_toolchain_rule = True,
+    attrs = {
+        "deps": attrs.list(attrs.toolchain_dep(), default = []),
+        "exec_deps": attrs.list(attrs.exec_dep(), default = []),
+    },
 )
