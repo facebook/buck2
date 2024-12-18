@@ -9,7 +9,9 @@
 set -euo pipefail
 
 echo "::group::Local build without persistent worker" >&2
-echo '<file:.buckconfig.no-workers>' > .buckconfig.local
+cat >.buckconfig.local <<EOF
+<file:.buckconfig.no-workers>
+EOF
 buck2 clean; buck2 build : -vstderr
 echo "# Verifying Buck2 log" >&2
 buck2 log what-ran --show-std-err --format json \
@@ -33,7 +35,9 @@ buck2 log what-ran --show-std-err --format json \
 echo "::endgroup::" >&2
 
 echo "::group::Local build with persistent worker" >&2
-echo '<file:.buckconfig.local-persistent-workers>' > .buckconfig.local
+cat >.buckconfig.local <<EOF
+<file:.buckconfig.local-persistent-workers>
+EOF
 buck2 clean; buck2 build : -vstderr
 echo "# Verifying Buck2 log" >&2
 buck2 log what-ran --show-std-err --format json \
@@ -60,7 +64,12 @@ echo "::group::Remote build without persistent worker" >&2
 if [[ -z ${BUILDBUDDY_API_KEY:+x} ]]; then
   echo "::notice file=$(realpath --relative-to=../.. ${BASH_SOURCE[0]}),line=${LINENO}::SKIPPED Missing BuildBuddy token. See examples/persistent_worker/README.md" >&2
 else
-  echo '<file:.buckconfig.buildbuddy>' > .buckconfig.local
+  cat >.buckconfig.local <<EOF
+<file:.buckconfig.buildbuddy>
+
+[build]
+cache_silo_key=$(date +%s.%N).${GITHUB_RUN_ID-0}
+EOF
   buck2 clean; buck2 build : -vstderr
   echo "# Verifying Buck2 log" >&2
   buck2 log what-ran --show-std-err --format json \
@@ -88,7 +97,12 @@ echo "::group::Remote build with persistent worker" >&2
 if [[ -z ${BUILDBUDDY_API_KEY:+x} ]]; then
   echo "::notice file=$(realpath --relative-to=../.. ${BASH_SOURCE[0]}),line=${LINENO}::SKIPPED Missing BuildBuddy token. See examples/persistent_worker/README.md" >&2
 else
-  echo '<file:.buckconfig.buildbuddy-persistent-workers>' > .buckconfig.local
+  cat >.buckconfig.local <<EOF
+<file:.buckconfig.buildbuddy-persistent-workers>
+
+[build]
+cache_silo_key=$(date +%s.%N).${GITHUB_RUN_ID-0}
+EOF
   buck2 clean; buck2 build : -vstderr
   echo "# Verifying Buck2 log" >&2
   buck2 log what-ran --show-std-err --format json \

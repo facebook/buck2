@@ -34,6 +34,13 @@ def _demo_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(
         cmd_args(argfile),
         category = "demo",
+        env = {
+            # modify this value to force an action rerun even if caching is enabled.
+            # `--no-remote-cache` does not have the desired effect, because it also causes
+            # the action to be omitted from `buck2 log what-ran`, which interferes with the
+            # test setup.
+            "CACHE_SILO_KEY": read_root_config("build", "cache_silo_key", "0"),
+        },
         exe = WorkerRunInfo(
             worker = ctx.attrs._worker[WorkerInfo],
             exe = ctx.attrs._one_shot[RunInfo].args,
