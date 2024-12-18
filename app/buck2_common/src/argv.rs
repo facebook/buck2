@@ -35,18 +35,19 @@ pub enum ExpandedArgSource {
     Flagfile(Arc<FlagfileArgSource>),
 }
 
+#[derive(Eq, PartialEq)]
 pub struct FlagfileArgSource {
     pub kind: ArgFileKind,
     pub parent: Option<Arc<FlagfileArgSource>>,
 }
 
-#[derive(Clone, Debug, derive_more::Display)]
+#[derive(Clone, Debug, Eq, PartialEq, derive_more::Display)]
 pub enum ArgFilePath {
     Project(CellPath),
     External(AbsNormPathBuf),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ArgFileKind {
     PythonExecutable(ArgFilePath, Option<String>),
     Path(ArgFilePath),
