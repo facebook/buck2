@@ -183,6 +183,7 @@ impl CancellationHandle {
 
 pub(crate) mod context {
     use super::*;
+    use crate::cancellation::CriticalSectionGuard;
 
     struct ExecutionContextData {
         cancellation_notification: CancellationNotificationData,
@@ -300,14 +301,12 @@ pub(crate) mod context {
     }
 
     impl ExecutionContextInner {
-        pub(crate) fn enter_structured_cancellation(
-            &self,
-        ) -> (CancellationNotificationData, CriticalSectionGuard) {
+        pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard {
             let mut shared = self.shared.lock();
 
             let notification = shared.enter_structured_cancellation();
 
-            (notification, CriticalSectionGuard::new(self))
+            CriticalSectionGuard::new(self, notification)
         }
 
         pub(crate) fn try_to_disable_cancellation(&self) -> bool {
@@ -331,40 +330,7 @@ pub(crate) mod context {
         }
     }
 }
-use context::ExecutionContextInner;
 use context::ExecutionContextOuter;
-
-pub(crate) struct CriticalSectionGuard<'a> {
-    context: &'a ExecutionContextInner,
-}
-
-impl<'a> CriticalSectionGuard<'a> {
-    fn new(context: &'a ExecutionContextInner) -> Self {
-        Self { context }
-    }
-
-    pub(crate) fn exit_prevent_cancellation(self) -> bool {
-        self.take().exit_prevent_cancellation()
-    }
-
-    pub(crate) fn try_to_disable_cancellation(self) -> bool {
-        self.take().try_to_disable_cancellation()
-    }
-
-    fn take(self) -> &'a ExecutionContextInner {
-        let r = self.context;
-        std::mem::forget(self);
-        r
-    }
-}
-
-impl<'a> Drop for CriticalSectionGuard<'a> {
-    fn drop(&mut self) {
-        // never actually exited during normal poll, but dropping this means we'll never poll
-        // again, so just release the `prevent_cancellation`
-        self.context.exit_prevent_cancellation();
-    }
-}
 
 enum CancellationNotificationStatus {
     /// no notifications yet. maps to '0'

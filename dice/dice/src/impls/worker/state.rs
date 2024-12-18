@@ -12,8 +12,8 @@
 use std::sync::Arc;
 
 use buck2_futures::cancellable_future::DisableCancellationGuard;
+use buck2_futures::cancellation::CriticalSectionGuard;
 use buck2_futures::cancellation::ExplicitCancellationContext;
-use buck2_futures::cancellation::IgnoreCancellationGuard;
 use dupe::Dupe;
 use itertools::Either;
 
@@ -39,7 +39,7 @@ pub(crate) struct DiceWorkerStateAwaitingPrevious<'a, 'b> {
     k: DiceKey,
     cycles: UserCycleDetectorData,
     internals: &'a mut DiceTaskHandle<'b>,
-    prevent_cancellation: IgnoreCancellationGuard<'a>,
+    prevent_cancellation: CriticalSectionGuard<'a>,
 }
 
 impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
@@ -47,7 +47,7 @@ impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
         k: DiceKey,
         cycles: UserCycleDetectorData,
         handle: &'a mut DiceTaskHandle<'b>,
-        prevent_cancellation: IgnoreCancellationGuard<'a>,
+        prevent_cancellation: CriticalSectionGuard<'a>,
     ) -> Self {
         debug!(msg = "Task started. Waiting for previously cancelled task if any");
         Self {

@@ -26,7 +26,6 @@ use crate::cancellable_future::DisableCancellationGuard;
 use crate::cancellation::future::context::ExecutionContextInner;
 use crate::cancellation::future::CancellationNotificationData;
 use crate::cancellation::future::CancellationNotificationFuture;
-use crate::cancellation::future::CriticalSectionGuard;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
@@ -87,12 +86,19 @@ pub struct ExplicitCancellationContext {
 /// When no longer held (unless drop or cancellations are disabled was not ran), cancellations will be allowed.
 /// `disable_cancellations`ing this will leak the guard, causing cancellations to be disabled forever, regardless
 /// of whether or not the task is already cancelled.
-pub struct IgnoreCancellationGuard<'a> {
-    guard: CriticalSectionGuard<'a>,
+pub struct CriticalSectionGuard<'a> {
+    context: Option<&'a ExecutionContextInner>,
     notification: CancellationNotificationData,
 }
 
-impl<'a> IgnoreCancellationGuard<'a> {
+impl<'a> CriticalSectionGuard<'a> {
+    fn new(context: &'a ExecutionContextInner, notification: CancellationNotificationData) -> Self {
+        Self {
+            context: Some(context),
+            notification,
+        }
+    }
+
     pub fn cancellation_observer(&self) -> CancellationObserver {
         CancellationObserver(CancellationObserverInner::Explicit(
             CancellationNotificationFuture::new(self.notification.dupe()),
@@ -102,7 +108,8 @@ impl<'a> IgnoreCancellationGuard<'a> {
     /// Allow cancellations again, but unlike dropping it, also checks if we should be cancelled
     /// right now, at this specific await point.
     pub async fn allow_cancellations_again(self) {
-        if self.guard.exit_prevent_cancellation() {
+        let context = self.take();
+        if context.exit_prevent_cancellation() {
             // TODO(cjhopman): It seems like this is likely unreliable behavior. The intent here is that by returning
             // Poll::Pending at an await point here, that that Poll::Pending be essentially propagated all the way out
             // of the corresponding cancellable future's poll call so that we can reenter that outermost poll and it can notice
@@ -145,23 +152,33 @@ impl<'a> IgnoreCancellationGuard<'a> {
     /// Ignores cancellations forever if we are not already cancelled. Otherwise, begin allowing
     /// cancellations again
     pub fn keep_going_on_cancellations_if_not_cancelled(self) -> Option<DisableCancellationGuard> {
-        if self.guard.try_to_disable_cancellation() {
+        let context = self.take();
+        if context.try_to_disable_cancellation() {
             Some(DisableCancellationGuard)
         } else {
             None
+        }
+    }
+
+    fn take(mut self) -> &'a ExecutionContextInner {
+        self.context.take().unwrap()
+    }
+}
+
+impl<'a> Drop for CriticalSectionGuard<'a> {
+    fn drop(&mut self) {
+        if let Some(context) = &self.context {
+            // never actually exited during normal poll, but dropping this means we'll never poll
+            // again, so just release the `prevent_cancellation`
+            context.exit_prevent_cancellation();
         }
     }
 }
 
 impl ExplicitCancellationContext {
     /// Ignore cancellations while 'PreventCancellation' is held
-    pub fn begin_ignore_cancellation(&self) -> IgnoreCancellationGuard {
-        let (notification, guard) = self.inner.enter_structured_cancellation();
-
-        IgnoreCancellationGuard {
-            guard,
-            notification,
-        }
+    pub fn begin_ignore_cancellation(&self) -> CriticalSectionGuard {
+        self.inner.enter_structured_cancellation()
     }
 
     /// Enter a critical section during which the current future (if supports explicit cancellation)
