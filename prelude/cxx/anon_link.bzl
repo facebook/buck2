@@ -9,6 +9,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactInfo",
     "make_artifact_tset",
+    "stringify_artifact_label",
 )
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
@@ -70,7 +71,7 @@ def _serialize_link_info(info: LinkInfo):
         info.post_flags,
         [_serialize_linkable(linkable) for linkable in info.linkables],
         # TODO(agallagher): It appears anon-targets don't allow passing in `label`.
-        [(str(info.label.raw_target()), info.artifacts) for info in external_debug_info],
+        [(stringify_artifact_label(info.label), info.artifacts) for info in external_debug_info],
         [m.version for m in info.metadata],
     )
 
