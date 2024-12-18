@@ -413,7 +413,8 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
 
-    /// Returns a List of all the sources used by this node.
+    /// Returns all source `Artifact`s exist in this target's attributes.
+    /// This method will traverse all the attributes to find and collect all the source `Artifact`s.
     ///
     /// Sample usage:
     /// ```python
