@@ -37,7 +37,6 @@ use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
-use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use derive_more::Display;
 use dice::DiceComputations;

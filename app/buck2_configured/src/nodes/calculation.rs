@@ -65,7 +65,6 @@ use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
-use buck2_node::configuration::toolchain_constraints::ToolchainConstraints;
 use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
