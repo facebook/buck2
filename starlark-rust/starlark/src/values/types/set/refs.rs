@@ -64,7 +64,7 @@ pub struct SetMut<'v> {
 impl<'v> SetMut<'v> {
     /// Downcast the value to a mutable set reference.
     #[inline]
-    pub fn from_value(x: Value<'v>) -> anyhow::Result<SetMut> {
+    pub fn from_value(x: Value<'v>) -> anyhow::Result<SetMut<'v>> {
         #[derive(thiserror::Error, Debug)]
         #[error("Value is not set, value type: `{0}`")]
         struct NotSetError(&'static str);

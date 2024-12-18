@@ -101,6 +101,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
         match captured_expr {
             Some(expr) => {
                 #[async_trait]
+                #[allow(non_local_definitions)]
                 impl<'a, T: QueryTarget, Env: QueryEnvironment<Target = T>> TraversalFilter<T> for Filter<'a, Env> {
                     async fn get_children(&self, target: &T) -> buck2_error::Result<TargetSet<T>> {
                         let augmented_functions = AugmentedQueryFunctions::augment(

@@ -435,28 +435,26 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match value.typed {
             ConfiguredTargetListArg::ConfiguredTargetSet(s) => {
-                return Ok(Self::TargetSet(Cow::Borrowed(s)));
+                Ok(Self::TargetSet(Cow::Borrowed(s)))
             }
-            ConfiguredTargetListArg::TargetSet(s) => {
-                return Ok(TargetListExpr::Iterable(
-                    dice.try_compute_join(s.0.iter(), |dice, node| {
-                        async move {
-                            Self::check_allow_unconfigured(
-                                allow_unconfigured,
-                                &node.label().to_string(),
-                                global_cfg_options,
-                            )?;
+            ConfiguredTargetListArg::TargetSet(s) => Ok(TargetListExpr::Iterable(
+                dice.try_compute_join(s.0.iter(), |dice, node| {
+                    async move {
+                        Self::check_allow_unconfigured(
+                            allow_unconfigured,
+                            &node.label().to_string(),
+                            global_cfg_options,
+                        )?;
 
-                            buck2_error::Ok(TargetExpr::Label(Cow::Owned(
-                                dice.get_configured_target(node.label(), global_cfg_options)
-                                    .await?,
-                            )))
-                        }
-                        .boxed()
-                    })
-                    .await?,
-                ));
-            }
+                        buck2_error::Ok(TargetExpr::Label(Cow::Owned(
+                            dice.get_configured_target(node.label(), global_cfg_options)
+                                .await?,
+                        )))
+                    }
+                    .boxed()
+                })
+                .await?,
+            )),
             ConfiguredTargetListArg::TargetList(unpack) => {
                 let mut resolved = vec![];
 

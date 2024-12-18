@@ -49,7 +49,6 @@ pub struct Cutoffs {
 }
 
 /// This component renders each event and a timer indicating for how long the event has been ongoing.
-
 struct TimedListBody<'c> {
     cutoffs: &'c Cutoffs,
     state: &'c SuperConsoleState,

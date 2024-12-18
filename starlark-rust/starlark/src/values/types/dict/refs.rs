@@ -87,7 +87,7 @@ impl<'v> DictRef<'v> {
 impl<'v> DictMut<'v> {
     /// Downcast the value to a mutable dict reference.
     #[inline]
-    pub fn from_value(x: Value<'v>) -> anyhow::Result<DictMut> {
+    pub fn from_value(x: Value<'v>) -> anyhow::Result<DictMut<'v>> {
         #[derive(thiserror::Error, Debug)]
         #[error("Value is not dict, value type: `{0}`")]
         struct NotDictError(&'static str);

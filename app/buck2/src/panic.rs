@@ -13,7 +13,7 @@
 //! This module sets up a shared panic hook to run before unwinding/termination for crash reporting.
 
 use std::panic;
-use std::panic::PanicInfo;
+use std::panic::PanicHookInfo;
 
 use buck2_error::BuckErrorContext;
 use fbinit::FacebookInit;
@@ -49,13 +49,13 @@ pub fn initialize() -> anyhow::Result<()> {
 ///
 /// The panic hook is called on the same thread that the panic occurred. It is possible to perform a backtrace here
 /// to collect additional information.
-fn the_panic_hook(fb: FacebookInit, info: &PanicInfo) {
+fn the_panic_hook(fb: FacebookInit, info: &PanicHookInfo) {
     imp::write_panic_to_scribe(fb, info);
 }
 
 mod imp {
     use std::collections::HashMap;
-    use std::panic::PanicInfo;
+    use std::panic::PanicHookInfo;
     use std::time::Duration;
 
     use backtrace::Backtrace;
@@ -106,13 +106,13 @@ mod imp {
             .collect()
     }
 
-    /// Extracts a stringly-formatted payload from the given PanicInfo - usually the argument to `panic!`.
-    fn get_message_for_panic(info: &PanicInfo) -> String {
+    /// Extracts a stringly-formatted payload from the given PanicHookInfo - usually the argument to `panic!`.
+    fn get_message_for_panic(info: &PanicHookInfo) -> String {
         // Rust panic payloads can be anything, but they generally take one of two forms:
         //  1. &'static str, for panics with a constant string parameter,
         //  2. String, for panics that use the format `{}` syntax to construct a message.
         //
-        // Since PanicInfo's Display implementation is implemented in libcore, it can't cover the String case (which is)
+        // Since PanicHookInfo's Display implementation is implemented in libcore, it can't cover the String case (which is)
         // a liballoc exclusive), so this code here checks for formatted messages and uses that as the message if present.
         if let Some(literal_msg) = info.payload().downcast_ref::<&str>() {
             (*literal_msg).to_owned()
@@ -144,8 +144,8 @@ mod imp {
         map
     }
 
-    /// Writes a representation of the given `PanicInfo` to Scribe, via the `StructuredError` event.
-    pub(crate) fn write_panic_to_scribe(fb: FacebookInit, info: &PanicInfo) {
+    /// Writes a representation of the given `PanicHookInfo` to Scribe, via the `StructuredError` event.
+    pub(crate) fn write_panic_to_scribe(fb: FacebookInit, info: &PanicHookInfo) {
         let message = get_message_for_panic(info);
         let location = info.location().map(|loc| Location {
             file: loc.file().to_owned(),
@@ -239,6 +239,7 @@ mod imp {
             /* retry_attempts */ 5,
             /* message_batch_size */ None,
         ) {
+            #[allow(unreachable_patterns)]
             Ok(Some(sink)) => sink,
             _ => {
                 // We're already panicking and we can't connect to the scribe daemon? Things are bad and we're SOL.

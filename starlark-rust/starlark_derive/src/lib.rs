@@ -181,11 +181,11 @@ pub fn derive_alloc_frozen_value(input: proc_macro::TokenStream) -> proc_macro::
     alloc_value::derive_alloc_frozen_value(input)
 }
 
-/// Derive accessor methods that are designed to be used from {has,get,dir}_attr
-/// in an `impl StarlarkValue` block. All fields in the struct that are not
-/// marked with #[starlark(skip)] are exported to Starlark code as attributes.
-/// NOTE: Any usage must also call `starlark_attrs!()` in the impl block for
-/// `StarlarkValue`, otherwise the generated attr methods will not be used.
+/// Derive accessor methods that are designed to be used from {has,get,dir}_attr in an `impl StarlarkValue` block.
+///
+/// All fields in the struct that are not marked with #[starlark(skip)] are exported to Starlark code as
+/// attributes. NOTE: Any usage must also call `starlark_attrs!()` in the impl block for `StarlarkValue`,
+/// otherwise the generated attr methods will not be used.
 #[proc_macro_derive(StarlarkAttrs, attributes(starlark))]
 pub fn derive_starlark_attrs(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     attrs::derive_attrs(input)

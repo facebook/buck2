@@ -307,14 +307,12 @@ impl DeclaredOutput {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Allocative, Display)]
 #[display("name = {}", "name")]
-
 pub struct ExecutorConfigOverride {
     pub name: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Allocative, Display)]
 #[display("name = {}", "name")]
-
 pub struct LocalResourceType {
     pub name: String,
 }

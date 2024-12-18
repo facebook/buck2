@@ -145,7 +145,6 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
         /// to DAP "output" events. Without this, at best these would go to stderr, but vscode's
         /// executable DAP client ignores stderr, so this subscriber allows us to get that information
         /// into somewhere visible to the user.
-
         struct ConvertToDap;
 
         impl ConvertToDap {

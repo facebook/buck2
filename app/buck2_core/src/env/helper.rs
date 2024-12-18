@@ -35,7 +35,7 @@ impl<T> EnvHelper<T> {
     // `EnvHelper` caches computed value. When it is used like
     // `EnvHelper::new(...).get(...)`, it performs unnecessary work.
     // To avoid it, we require `'static` lifetime, to force placing `EnvHelper` in static variable.
-    pub fn get(&'static self) -> buck2_error::Result<Option<&T>> {
+    pub fn get(&'static self) -> buck2_error::Result<Option<&'static T>> {
         let var = self.var;
         let convert = self.convert;
 
@@ -54,7 +54,7 @@ impl<T> EnvHelper<T> {
             .with_buck_error_context(|| format!("Invalid value for ${}", var))
     }
 
-    pub fn get_anyhow(&'static self) -> anyhow::Result<Option<&T>> {
+    pub fn get_anyhow(&'static self) -> anyhow::Result<Option<&'static T>> {
         self.get().map_err(anyhow::Error::from)
     }
 }

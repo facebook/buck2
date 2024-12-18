@@ -39,7 +39,7 @@ impl QueryTarget for ConfiguredTargetNode {
     type Attr<'a> = ConfiguredAttr;
 
     fn label_for_filter(&self) -> String {
-        return self.label().unconfigured().to_string();
+        self.label().unconfigured().to_string()
     }
 
     fn rule_type(&self) -> Cow<str> {

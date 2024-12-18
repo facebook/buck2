@@ -85,7 +85,7 @@ impl Alloca {
     }
 
     pub fn with_capacity(size_bytes: usize) -> Self {
-        let size_words = (size_bytes + ALIGN - 1) / ALIGN;
+        let size_words = size_bytes.div_ceil(ALIGN);
         let layout = Layout::array::<Align>(size_words).unwrap();
         let buffer = Buffer::alloc(layout);
         Self {
@@ -138,7 +138,7 @@ impl Alloca {
         } else {
             // Multiplication does not overflow because we know that `[T; len]`
             // is within the size of the current buffer, which is smaller than `isize::MAX`.
-            (len * mem::size_of::<T>() + ALIGN - 1) / ALIGN
+            (len * mem::size_of::<T>()).div_ceil(ALIGN)
         }
     }
 

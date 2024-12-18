@@ -72,7 +72,6 @@ mod tests;
 /// automatically deduplicated, so that identical requests share the same set of
 /// work. It is guaranteed that there is at most one computation in flight at a
 /// time if they share the same key and version.
-
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: AsyncEvaluator,

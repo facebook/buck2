@@ -259,17 +259,17 @@ impl<K, V> IntoIter<K, V> {
     }
 }
 
-impl<'a, K: 'a, V: 'a> Iterator for IntoIter<K, V> {
+impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
 
     def_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> DoubleEndedIterator for IntoIter<K, V> {
+impl<K, V> DoubleEndedIterator for IntoIter<K, V> {
     def_double_ended_iter!();
 }
 
-impl<'a, K: 'a, V: 'a> ExactSizeIterator for IntoIter<K, V> {
+impl<K, V> ExactSizeIterator for IntoIter<K, V> {
     #[inline]
     fn len(&self) -> usize {
         self.iter.len()

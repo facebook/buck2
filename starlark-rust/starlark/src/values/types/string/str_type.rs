@@ -121,7 +121,7 @@ impl StarlarkStr {
     #[doc(hidden)]
     #[inline]
     pub const fn payload_len_for_len(len: usize) -> usize {
-        (len + mem::size_of::<usize>() - 1) / mem::size_of::<usize>()
+        len.div_ceil(mem::size_of::<usize>())
     }
 
     /// Unsafe because if you do `unpack` on this it will blow up

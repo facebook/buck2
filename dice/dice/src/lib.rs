@@ -162,11 +162,9 @@
 //! });
 //! ```
 
-#![feature(entry_insert)]
 #![feature(fn_traits)]
 #![feature(test)]
 #![feature(map_try_insert)]
-#![feature(map_entry_replace)]
 #![feature(result_flattening)]
 // This sometimes flag false positives where proc-macros expand pass by value into pass by refs
 #![allow(clippy::trivially_copy_pass_by_ref)]

@@ -8,7 +8,6 @@
  */
 
 #![feature(assert_matches)]
-#![feature(is_sorted)]
 #![feature(error_generic_member_access)]
 #![feature(once_cell_try)]
 

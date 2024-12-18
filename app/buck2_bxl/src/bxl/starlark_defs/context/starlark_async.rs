@@ -36,7 +36,6 @@ enum ViaError {
 /// This is not exposed to starlark but rather, used by operations exposed to starlark to run
 /// code.
 /// This also provides a handle for dice.
-
 pub(crate) trait BxlDiceComputations {
     // via() below provides a more useful api for consumers.
     fn via_impl<'a: 'b, 'b>(

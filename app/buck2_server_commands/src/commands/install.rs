@@ -515,13 +515,13 @@ async fn send_shutdown_command(mut client: InstallerClient<Channel>) -> buck2_er
         .shutdown_server(tonic::Request::new(ShutdownRequest {}))
         .await;
 
-    return match response_result {
+    match response_result {
         Ok(_) => Ok(()),
         Err(status) => Err(InstallError::InstallerCommunicationFailure {
             err: status.message().to_owned(),
         }
         .into()),
-    };
+    }
 }
 
 async fn build_launch_installer<'a>(

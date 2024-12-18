@@ -61,7 +61,7 @@ unsafe impl<'v, 'f, T: 'f + ?Sized> Trace<'v> for FrozenRef<'f, T> {
 }
 
 impl<'f, T: 'f + ?Sized> FrozenRef<'f, T> {
-    pub(crate) const fn new(value: &'f T) -> FrozenRef<T> {
+    pub(crate) const fn new(value: &'f T) -> FrozenRef<'f, T> {
         FrozenRef { value }
     }
 

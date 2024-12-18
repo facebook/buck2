@@ -242,7 +242,7 @@ impl<'a> CowDiceKeyHashed<'a> {
         }
     }
 
-    pub(crate) fn proj_ref<K: ProjectionKey>(base: DiceKey, k: &'a K) -> CowDiceKeyHashed {
+    pub(crate) fn proj_ref<K: ProjectionKey>(base: DiceKey, k: &'a K) -> CowDiceKeyHashed<'a> {
         let key = DiceKeyErasedRef::proj(base, k);
         let hash = key.hash();
         CowDiceKeyHashed {

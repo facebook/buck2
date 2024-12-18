@@ -254,7 +254,7 @@ impl CommandExecutionResult {
     pub fn resolve_outputs<'a>(
         &'a self,
         fs: &'a ArtifactFs,
-    ) -> impl Iterator<Item = (ResolvedCommandExecutionOutput, &ArtifactValue)> + 'a {
+    ) -> impl Iterator<Item = (ResolvedCommandExecutionOutput, &'a ArtifactValue)> + 'a {
         self.outputs
             .iter()
             .map(|(output, value)| (output.as_ref().resolve(fs), value))
@@ -364,7 +364,6 @@ impl FromResidual<ControlFlow<Self, Infallible>> for CommandExecutionResult {
     fn from_residual(residual: ControlFlow<Self, Infallible>) -> Self {
         match residual {
             ControlFlow::Break(v) => v,
-            ControlFlow::Continue(_) => unreachable!(),
         }
     }
 }

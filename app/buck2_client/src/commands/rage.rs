@@ -353,7 +353,7 @@ impl RageCommand {
         &'a self,
         title: &'a str,
         command: impl FnOnce() -> Fut,
-    ) -> LocalBoxFuture<RageSection<T>>
+    ) -> LocalBoxFuture<'a, RageSection<T>>
     where
         Fut: Future<Output = buck2_error::Result<T>> + 'a,
         T: std::fmt::Display + 'a,
@@ -366,7 +366,7 @@ impl RageCommand {
         &'a self,
         title: &'a str,
         command: Option<impl FnOnce() -> Fut>,
-    ) -> LocalBoxFuture<RageSection<T>>
+    ) -> LocalBoxFuture<'a, RageSection<T>>
     where
         Fut: Future<Output = buck2_error::Result<T>> + 'a,
         T: std::fmt::Display + 'a,

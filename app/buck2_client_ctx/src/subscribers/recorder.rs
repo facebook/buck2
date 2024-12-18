@@ -850,6 +850,7 @@ impl<'a> InvocationRecorder<'a> {
             }
         }
 
+        #[allow(unreachable_patterns)]
         if let Ok(Some(scribe_sink)) =
             new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
         {

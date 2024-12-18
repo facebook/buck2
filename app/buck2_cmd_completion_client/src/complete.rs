@@ -73,7 +73,6 @@ pub struct CompleteCommand {
 /// 3. When corrections are necessary to create a label that buck2 will accept,
 ///    make the corrections first, then next-step completions in a second
 ///    stage.
-
 impl CompleteCommand {
     pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         let lockfile = buck2_env!("COMPLETION_VERIFY_LOCKFILE", applicability = testing)?

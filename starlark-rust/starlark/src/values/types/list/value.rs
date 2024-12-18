@@ -184,12 +184,8 @@ impl<'v> ListData<'v> {
 
     #[inline]
     pub(crate) fn extend<I: IntoIterator<Item = Value<'v>>>(&self, iter: I, heap: &'v Heap) {
-        match self.try_extend(iter.into_iter().map(Ok), heap) {
+        match self.try_extend(iter.into_iter().map(Ok::<_, Infallible>), heap) {
             Ok(()) => {}
-            Err(e) => {
-                let e: Infallible = e;
-                match e {}
-            }
         }
     }
 

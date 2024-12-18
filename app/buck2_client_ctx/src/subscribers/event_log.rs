@@ -40,7 +40,7 @@ impl<'a> EventLog<'a> {
         async_cleanup_context: AsyncCleanupContext<'a>,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    ) -> buck2_error::Result<EventLog> {
+    ) -> buck2_error::Result<EventLog<'a>> {
         Ok(Self {
             async_cleanup_context: Some(async_cleanup_context),
             writer: WriteEventLog::new(

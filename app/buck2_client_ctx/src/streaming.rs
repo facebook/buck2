@@ -80,7 +80,7 @@ fn default_subscribers<'a, T: StreamingCommand>(
     if let Some(build_graph_stats) = try_get_build_graph_stats(cmd, ctx)? {
         subscribers.push(build_graph_stats)
     }
-    let representative_config_flags = if let Some(v) = ctx.maybe_paths()? {
+    let representative_config_flags = if let Some(_v) = ctx.maybe_paths()? {
         matches.get_representative_config_flags()?
     } else {
         Vec::new()

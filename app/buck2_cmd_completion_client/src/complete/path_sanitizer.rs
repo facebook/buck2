@@ -237,7 +237,7 @@ impl PathSanitizer {
     fn relative_to_project<'a>(
         &'a self,
         dir: &'a AbsNormPath,
-    ) -> buck2_error::Result<Cow<ProjectRelativePath>> {
+    ) -> buck2_error::Result<Cow<'a, ProjectRelativePath>> {
         self.project_root().relativize(dir)
     }
 }

@@ -77,7 +77,6 @@ where
 {
     fn from_residual(result: Result<Infallible, E>) -> Self {
         match result {
-            Ok(infallible) => match infallible {},
             Err(err) => Self::Failure(ExitResult::err(err.into())),
         }
     }

@@ -55,7 +55,7 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
 
     /// Find an entry.
     #[inline]
-    pub fn lookup<'a>(&'a self, hash: u64, eq: impl Fn(T::Ref<'_>) -> bool) -> Option<T::Ref<'_>> {
+    pub fn lookup<'a>(&'a self, hash: u64, eq: impl Fn(T::Ref<'_>) -> bool) -> Option<T::Ref<'a>> {
         self.table_for_hash(hash).lookup(hash, eq)
     }
 

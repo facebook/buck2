@@ -190,8 +190,8 @@ macro register($var:expr, ty=$ty:ty, default=$default:expr, applicability=$appli
     };
 }}
 
-/// Code below returns anyhow::Error, it is used while we transition from anyhow to buck2_error in buck2/app
-/// TODO(minglunli): Delete the code below once we have fully transitioned to buck2_error
+// Code below returns anyhow::Error, it is used while we transition from anyhow to buck2_error in buck2/app
+// TODO(minglunli): Delete the code below once we have fully transitioned to buck2_error
 
 /// This macro is used to register environment variables that are used by Buck2.
 ///

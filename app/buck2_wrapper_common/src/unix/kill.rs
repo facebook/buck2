@@ -67,11 +67,12 @@ mod tests {
     fn test_zombie_process_exist() {
         let mut command = background_command("sh");
         command.args(["-c", "exit 0"]);
-        let child = command.spawn().unwrap();
+        let mut child = command.spawn().unwrap();
         // sleep a bit to let the child exit
         sleep(Duration::from_secs(1));
         let pid = Pid::from_u32(child.id()).unwrap();
         // we consider zombie as non existent
         assert!(!process_exists(pid).unwrap(), "process shouldn't exist");
+        child.wait().unwrap();
     }
 }

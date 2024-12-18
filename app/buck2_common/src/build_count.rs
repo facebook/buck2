@@ -78,12 +78,12 @@ impl BuildCountMap {
         }
 
         // If the target has never been successfully built it won't be in the map, in that case its count is 0.
-        return patterns
+        patterns
             .target_patterns
             .iter()
             .map(|v| self.0.get(&v.value).copied().unwrap_or(Default::default()))
             .min()
-            .unwrap(); // target_patterns is non-empty, so min() should return Some
+            .unwrap() // target_patterns is non-empty, so min() should return Some
     }
 }
 
