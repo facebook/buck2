@@ -24,7 +24,7 @@ from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env, get_mode_from_platform
-from buck2.tests.e2e_util.helper.utils import json_get, read_what_ran
+from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
 
 
 # rust rule implementations hardcode invocation of `/bin/jq` which is not available on Mac RE workers (or mac laptops)
@@ -528,6 +528,8 @@ if fbcode_linux_only():  # noqa: C901
             "buck2.miniperf2=false",
             "--no-remote-cache",
             "--local-only",
+            "-c",
+            f"test.cache_buster={random_string()}",
         )
 
         log = (await buck.log("show")).stdout.strip().splitlines()
@@ -581,6 +583,8 @@ if fbcode_linux_only():  # noqa: C901
             "buck2.miniperf2=true",
             "--no-remote-cache",
             "--local-only",
+            "-c",
+            f"test.cache_buster={random_string()}",
         )
 
         details = await get_matching_details(buck, package, name)
