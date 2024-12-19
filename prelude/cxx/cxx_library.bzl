@@ -1493,6 +1493,7 @@ def _get_shared_library_links(
         link_strategy = link_strategy,
         roots = linkable_deps(non_exported_deps + exported_deps),
         pic_behavior = pic_behavior,
+        executable_label = None,
         prefer_stripped = prefer_stripped,
         force_static_follows_dependents = force_static_follows_dependents,
     )

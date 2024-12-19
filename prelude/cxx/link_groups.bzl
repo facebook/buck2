@@ -374,9 +374,10 @@ def get_filtered_labels_to_links_map(
         link_strategy: LinkStrategy,
         roots: list[Label],
         pic_behavior: PicBehavior,
+        executable_label: Label | None,
+        is_executable_link: bool = False,
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped: bool = False,
-        executable_link_label: Label | None = None,
         force_static_follows_dependents: bool = True,
         prefer_optimized = False) -> FinalLabelsToLinks:
     """
@@ -386,7 +387,11 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    is_executable_link = executable_link_label != None
+    def todo_use_label(_executable_label):
+        # TODO: Will be used during linkables collection
+        return ()
+
+    todo_use_label(executable_label)
 
     # Get all potential linkable targets
     linkables = _collect_linkables(
@@ -738,6 +743,7 @@ def _create_link_group(
         spec: LinkGroupLibSpec,
         roots: list[Label],
         link_strategy: LinkStrategy,
+        executable_label: Label | None,
         public_nodes: set[Label] = set(),
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
         linker_flags: list[typing.Any] = [],
@@ -787,6 +793,7 @@ def _create_link_group(
         link_group_mappings,
         link_group_preferred_linkage,
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
+        executable_label = executable_label,
         link_group_libs = link_group_libs,
         link_strategy = link_strategy,
         roots = roots,
@@ -928,6 +935,7 @@ def create_link_groups(
         ctx: AnalysisContext,
         public_nodes: set[Label],
         link_strategy: LinkStrategy,
+        executable_label: Label | None,
         link_groups: dict[str, Group] = {},
         link_group_specs: list[LinkGroupLibSpec] = [],
         executable_deps: list[Label] = [],
@@ -983,6 +991,7 @@ def create_link_groups(
             spec = link_group_spec,
             roots = roots[link_group_spec.group.name],
             link_strategy = link_strategy,
+            executable_label = executable_label,
             linkable_graph_node_map = linkable_graph_node_map,
             public_nodes = public_nodes,
             linker_flags = (
