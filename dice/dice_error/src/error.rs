@@ -13,37 +13,37 @@ use allocative::Allocative;
 use dupe::Dupe;
 use thiserror::Error;
 
-use crate::legacy::cycles::RequestedKey;
+use crate::cycles::RequestedKey;
 use crate::result::CancellationReason;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
 #[error(transparent)]
-pub struct DiceError(pub(crate) Arc<DiceErrorImpl>);
+pub struct DiceError(pub Arc<DiceErrorImpl>);
 
 impl DiceError {
-    pub(crate) fn invalid_change(key: Arc<dyn RequestedKey>) -> Self {
+    pub fn invalid_change(key: Arc<dyn RequestedKey>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::ChangedToInvalid(key)))
     }
 
-    pub(crate) fn duplicate(key: Arc<dyn RequestedKey>) -> Self {
+    pub fn duplicate(key: Arc<dyn RequestedKey>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
     }
 
-    pub(crate) fn cancelled(reason: CancellationReason) -> Self {
+    pub fn cancelled(reason: CancellationReason) -> Self {
         DiceError(Arc::new(DiceErrorImpl::Cancelled(reason)))
     }
 
-    pub(crate) fn duplicate_activation_data() -> Self {
+    pub fn duplicate_activation_data() -> Self {
         DiceError(Arc::new(DiceErrorImpl::DuplicateActivationData))
     }
 
-    pub(crate) fn injected_key_invalidated(key: Arc<dyn RequestedKey>) -> Self {
+    pub fn injected_key_invalidated(key: Arc<dyn RequestedKey>) -> Self {
         DiceError(Arc::new(DiceErrorImpl::InjectedKeyGotInvalidation(key)))
     }
 }
 
 #[derive(Debug, Error, Allocative)]
-pub(crate) enum DiceErrorImpl {
+pub enum DiceErrorImpl {
     #[error("Key `{0}` was marked as changed multiple times on the same transaction.")]
     DuplicateChange(Arc<dyn RequestedKey>),
     #[error("Key `{0}` was reported as changed to an invalid value")]

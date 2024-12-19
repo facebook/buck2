@@ -9,6 +9,8 @@
 
 use std::thread;
 
+use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use gazebo::prelude::SliceExt;
 
 use super::graph::types::RejectedReason;
@@ -34,8 +36,6 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::metrics::Metrics;
-use crate::result::CancellableResult;
-use crate::result::CancellationReason;
 use crate::versions::VersionNumber;
 
 /// Core state of DICE, holding the actual graph and version information
@@ -183,6 +183,7 @@ mod tests {
     use buck2_futures::cancellation::CancellationContext;
     use buck2_futures::spawner::TokioSpawner;
     use derive_more::Display;
+    use dice_error::result::CancellationReason;
     use dupe::Dupe;
     use futures::FutureExt;
     use tokio::sync::Semaphore;
@@ -203,7 +204,6 @@ mod tests {
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
     use crate::impls::value::TrackedInvalidationPaths;
-    use crate::result::CancellationReason;
     use crate::versions::VersionNumber;
     use crate::versions::VersionRanges;
 

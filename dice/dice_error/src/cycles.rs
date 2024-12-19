@@ -18,7 +18,7 @@ use allocative::Allocative;
 use cmp_any::PartialEqAny;
 
 /// A `Key` that has been requested within Dice.
-pub(crate) trait RequestedKey: Allocative + Display + Debug + Send + Sync {
+pub trait RequestedKey: Allocative + Display + Debug + Send + Sync {
     fn get_key_equality(&self) -> PartialEqAny;
     fn hash(&self, state: &mut dyn Hasher);
 }

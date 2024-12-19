@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dice_error::result::CancellableResult;
 use dupe::Dupe;
 
 use crate::api::computations::DiceComputations;
@@ -29,7 +30,6 @@ use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
-use crate::result::CancellableResult;
 use crate::ActivationData;
 
 /// Evaluates Keys

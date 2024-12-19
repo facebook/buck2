@@ -17,6 +17,7 @@ gazebo = { workspace = true }
 ref-cast = "1.0.0"
 
 dice = { path = "../dice" }
+dice_error = { path = "../dice_error" }
 
 [dev-dependencies]
 anyhow = "1.0.65"

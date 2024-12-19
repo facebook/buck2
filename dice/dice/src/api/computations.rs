@@ -13,10 +13,10 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
+use dice_error::DiceResult;
 use futures::future::BoxFuture;
 
 use crate::api::data::DiceData;
-use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;

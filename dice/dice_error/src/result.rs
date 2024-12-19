@@ -14,7 +14,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use thiserror::Error;
 
-pub(crate) type CancellableResult<T> = Result<T, CancellationReason>;
+pub type CancellableResult<T> = Result<T, CancellationReason>;
 
 #[derive(Clone, Dupe, Copy, Display, Debug, Error, Allocative)]
 #[display("{:?}", self)]
@@ -30,6 +30,5 @@ pub enum CancellationReason {
     TransactionCancelled,
     TransactionDropped,
     /// Used by test code that manually cancels things.
-    #[cfg(test)]
     ByTest,
 }

@@ -12,6 +12,8 @@
 use std::any::Any;
 use std::future;
 
+use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::pin_mut;
@@ -53,8 +55,6 @@ use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
-use crate::result::CancellableResult;
-use crate::result::CancellationReason;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 

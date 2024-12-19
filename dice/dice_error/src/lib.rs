@@ -7,4 +7,10 @@
  * of this source tree.
  */
 
-pub(crate) mod dice_futures;
+pub mod cycles;
+mod error;
+pub mod result;
+
+pub use crate::error::DiceError;
+pub use crate::error::DiceErrorImpl;
+pub use crate::error::DiceResult;

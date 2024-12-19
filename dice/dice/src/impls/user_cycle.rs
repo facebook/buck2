@@ -9,11 +9,11 @@
 
 use std::sync::Arc;
 
+use dice_error::DiceError;
+use dice_error::DiceErrorImpl;
+use dice_error::DiceResult;
 use dupe::Dupe;
 
-use crate::api::error::DiceError;
-use crate::api::error::DiceErrorImpl;
-use crate::api::error::DiceResult;
 use crate::api::user_data::UserCycleDetector;
 use crate::api::user_data::UserCycleDetectorGuard;
 use crate::impls::key::DiceKey;

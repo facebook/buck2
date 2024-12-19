@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::spawner::TokioSpawner;
 use derive_more::Display;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use futures::pin_mut;
 use futures::poll;
@@ -42,7 +43,6 @@ use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::value::TrackedInvalidationPaths;
-use crate::result::CancellationReason;
 use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]

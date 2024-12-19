@@ -22,6 +22,7 @@ rust_library(
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_execute:buck2_execute",
         "//buck2/dice/dice:dice",
+        "//buck2/dice/dice_error:dice_error",
         "//buck2/gazebo/dupe:dupe",
     ],
 )

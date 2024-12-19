@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use dashmap::DashMap;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use fxhash::FxBuildHasher;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
@@ -22,7 +23,6 @@ use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::value::DiceComputedValue;
-use crate::result::CancellationReason;
 
 #[derive(Allocative)]
 struct Data {
@@ -190,6 +190,7 @@ mod tests {
     use buck2_futures::cancellation::CancellationContext;
     use buck2_futures::spawner::TokioSpawner;
     use derive_more::Display;
+    use dice_error::result::CancellationReason;
     use dupe::Dupe;
     use futures::FutureExt;
 
@@ -207,7 +208,6 @@ mod tests {
     use crate::impls::value::DiceValidValue;
     use crate::impls::value::MaybeValidDiceValue;
     use crate::impls::value::TrackedInvalidationPaths;
-    use crate::result::CancellationReason;
     use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]

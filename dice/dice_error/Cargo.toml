@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+license = { workspace = true }
+name = "dice_error"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+allocative = { workspace = true }
+cmp_any = { workspace = true }
+derive_more = { version = "1.0.0", features = ["full"] }
+dupe = { workspace = true }
+thiserror = "1.0.36"

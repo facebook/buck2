@@ -39,6 +39,7 @@ rust_library(
         "fbsource//third-party/rust:typed-arena",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_futures:buck2_futures",
+        "//buck2/dice/dice_error:dice_error",
         "//buck2/gazebo/cmp_any:cmp_any",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",

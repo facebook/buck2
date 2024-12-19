@@ -10,12 +10,12 @@
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
 use buck2_futures::cancellation::ExplicitCancellationContext;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 
 use crate::arc::Arc;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::value::DiceComputedValue;
-use crate::result::CancellationReason;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.

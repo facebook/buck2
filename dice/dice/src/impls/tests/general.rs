@@ -19,13 +19,13 @@ use async_trait::async_trait;
 use buck2_futures::cancellation::CancellationContext;
 use derivative::Derivative;
 use derive_more::Display;
+use dice_error::DiceErrorImpl;
 use dupe::Dupe;
 use futures::FutureExt;
 use tokio::sync::oneshot;
 
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
-use crate::api::error::DiceErrorImpl;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;

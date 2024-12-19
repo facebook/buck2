@@ -3,6 +3,7 @@ members = [
     "gazebo/gazebo",
     "gazebo/gazebo_derive",
     "dice",
+    "dice_error",
     "dice_examples",
 ]
 resolver = "2"

@@ -11,13 +11,13 @@ use std::future::Future;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dice_error::DiceResult;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use gazebo::variants::UnpackVariants;
 
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
-use crate::api::error::DiceResult;
 use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::opaque::OpaqueValue;

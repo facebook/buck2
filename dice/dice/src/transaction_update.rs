@@ -10,9 +10,9 @@
 use std::future::Future;
 
 use allocative::Allocative;
+use dice_error::DiceResult;
 use futures::FutureExt;
 
-use crate::api::error::DiceResult;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::transaction::TransactionUpdater;

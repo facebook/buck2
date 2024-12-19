@@ -11,10 +11,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use derivative::Derivative;
+use dice_error::DiceError;
+use dice_error::DiceResult;
 use dupe::Dupe;
 
-use crate::api::error::DiceError;
-use crate::api::error::DiceResult;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;

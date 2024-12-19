@@ -14,6 +14,8 @@ use std::sync::Arc;
 use buck2_futures::cancellable_future::DisableCancellationGuard;
 use buck2_futures::cancellation::CriticalSectionGuard;
 use buck2_futures::cancellation::ExplicitCancellationContext;
+use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use itertools::Either;
 
@@ -27,8 +29,6 @@ use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
-use crate::result::CancellableResult;
-use crate::result::CancellationReason;
 use crate::ActivationData;
 use crate::ActivationTracker;
 use crate::DynKey;

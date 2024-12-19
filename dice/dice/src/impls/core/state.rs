@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use derivative::Derivative;
+use dice_error::result::CancellableResult;
 use dupe::Dupe;
 use futures::Future;
 use gazebo::variants::VariantName;
@@ -38,7 +39,6 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::metrics::Metrics;
-use crate::result::CancellableResult;
 use crate::versions::VersionNumber;
 
 /// A handle to the core state that allows sending requests

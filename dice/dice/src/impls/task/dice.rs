@@ -18,6 +18,8 @@ use std::task::Poll;
 use allocative::Allocative;
 use allocative::Visitor;
 use buck2_futures::cancellation::future::CancellationHandle;
+use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::task::AtomicWaker;
@@ -34,8 +36,6 @@ use crate::impls::task::handle::TaskState;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
-use crate::result::CancellableResult;
-use crate::result::CancellationReason;
 use crate::GlobalStats;
 
 ///
