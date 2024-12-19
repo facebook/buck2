@@ -8,7 +8,11 @@
 # pyre-strict
 
 
+import asyncio
+from typing import Awaitable
+
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -37,9 +41,16 @@ def check_cfg_toolchain_graph_cycle_stderr(stderr: str) -> None:
     assert r"Resolving execution platform" in stderr
 
 
+# It's better to fail a test than to hit our test timeout. When cycle detection is not working, buck will just hang. So wrap these in a timeout.
+async def expect_cycle(
+    process: Awaitable[BuckResult],
+) -> BuckException:
+    return await asyncio.wait_for(expect_failure(process), timeout=200)
+
+
 @buck_test()
 async def test_detect_load_cycle(buck: Buck) -> None:
-    failure = await expect_failure(
+    failure = await expect_cycle(
         buck.cquery(
             "//:top",
             "-c",
@@ -51,7 +62,7 @@ async def test_detect_load_cycle(buck: Buck) -> None:
 
 @buck_test()
 async def test_detect_configured_graph_cycles(buck: Buck) -> None:
-    failure = await expect_failure(
+    failure = await expect_cycle(
         buck.cquery(
             "//:top",
             "-c",
@@ -65,7 +76,7 @@ async def test_detect_configured_graph_cycles(buck: Buck) -> None:
 async def test_detect_configured_graph_cycles_on_recompute(buck: Buck) -> None:
     await buck.cquery("//:top")
 
-    failure = await expect_failure(
+    failure = await expect_cycle(
         buck.cquery(
             "//:top",
             "-c",
@@ -78,7 +89,7 @@ async def test_detect_configured_graph_cycles_on_recompute(buck: Buck) -> None:
 
 @buck_test()
 async def test_detect_configured_graph_cycles_2(buck: Buck) -> None:
-    failure = await expect_failure(
+    failure = await expect_cycle(
         buck.cquery(
             "//:top",
             "-c",
@@ -92,7 +103,7 @@ async def test_detect_configured_graph_cycles_2(buck: Buck) -> None:
 async def test_more_recompute_cases(buck: Buck) -> None:
     await buck.cquery("//:top")
 
-    failure = await expect_failure(
+    failure = await expect_cycle(
         buck.cquery(
             "//:top",
             "-c",
@@ -101,7 +112,7 @@ async def test_more_recompute_cases(buck: Buck) -> None:
     )
     check_load_cycle_stderr(failure.stderr)
 
-    failure = await expect_failure(
+    failure = await expect_cycle(
         buck.cquery(
             "//:top",
             "-c",
