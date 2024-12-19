@@ -479,7 +479,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
     // instead of a not-found error.
     static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest::new_sha1([0; 20], 1));
 
-    fn convert_digests(val: &str) -> anyhow::Result<HashSet<FileDigest>> {
+    fn convert_digests(val: &str) -> buck2_error::Result<HashSet<FileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
@@ -487,7 +487,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
                 // This code is only used by E2E tests, so while it's not *a test*, testing_default
                 // is an OK choice here.
                 let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;
-                anyhow::Ok(digest)
+                buck2_error::Ok(digest)
             })
             .collect()
     }

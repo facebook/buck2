@@ -52,7 +52,7 @@ use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
@@ -190,7 +190,7 @@ impl Opt {
 
 pub fn exec(process: ProcessContext<'_>) -> ExitResult {
     let mut immediate_config = ImmediateConfigContext::new(process.working_dir);
-    let arg0_override = buck2_env_anyhow!("BUCK2_ARG0")?;
+    let arg0_override = buck2_env!("BUCK2_ARG0")?;
     let expanded_args = expand_argv(
         arg0_override,
         process.args.to_vec(),

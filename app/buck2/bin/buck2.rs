@@ -23,7 +23,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::restarter::Restarter;
 use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stdio;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::log_file::TracingLogFile;
@@ -127,7 +127,7 @@ fn main() -> ! {
         panic::initialize()?;
         check_cargo();
 
-        let force_want_restart = buck2_env_anyhow!("FORCE_WANT_RESTART", bool)?;
+        let force_want_restart = buck2_env!("FORCE_WANT_RESTART", bool)?;
 
         let log_reload_handle = init_logging()?;
 

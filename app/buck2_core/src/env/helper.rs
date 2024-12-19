@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 use buck2_error::BuckErrorContext;
 
 pub struct EnvHelper<T> {
-    convert: fn(&str) -> anyhow::Result<T>,
+    convert: fn(&str) -> buck2_error::Result<T>,
     var: &'static str,
     cell: OnceLock<Option<T>>,
 }
@@ -22,7 +22,7 @@ pub struct EnvHelper<T> {
 impl<T> EnvHelper<T> {
     pub const fn with_converter_from_macro(
         var: &'static str,
-        convert: fn(&str) -> anyhow::Result<T>,
+        convert: fn(&str) -> buck2_error::Result<T>,
     ) -> Self {
         Self {
             convert,
@@ -43,7 +43,7 @@ impl<T> EnvHelper<T> {
             .get_or_try_init(move || match env::var(var) {
                 Ok(v) => {
                     tracing::info!("Env override found: ${} = {}", var, v);
-                    Ok(Some((convert)(&v).map_err(anyhow::Error::from)?))
+                    Ok(Some((convert)(&v)?))
                 }
                 Err(VarError::NotPresent) => Ok(None),
                 Err(VarError::NotUnicode(..)) => {
@@ -52,9 +52,5 @@ impl<T> EnvHelper<T> {
             })
             .map(Option::as_ref)
             .with_buck_error_context(|| format!("Invalid value for ${}", var))
-    }
-
-    pub fn get_anyhow(&'static self) -> anyhow::Result<Option<&'static T>> {
-        self.get().map_err(anyhow::Error::from)
     }
 }

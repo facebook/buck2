@@ -18,7 +18,7 @@ use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestKind;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::buck2_env_anyhow;
+use buck2_core::buck2_env;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -445,19 +445,19 @@ fn add_injected_missing_digests<'a>(
     input_digests: &HashSet<&'a TrackedFileDigest>,
     missing_digests: &mut HashSet<&'a TrackedFileDigest>,
 ) -> anyhow::Result<()> {
-    fn convert_digests(val: &str) -> anyhow::Result<Vec<FileDigest>> {
+    fn convert_digests(val: &str) -> buck2_error::Result<Vec<FileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .with_context(|| format!("Invalid digest: `{}`", digest))?;
                 // This code does not run in a test but it is only used for testing.
                 let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;
-                anyhow::Ok(digest)
+                buck2_error::Ok(digest)
             })
             .collect()
     }
 
-    let ingested_digests = buck2_env_anyhow!(
+    let ingested_digests = buck2_env!(
         "BUCK2_TEST_INJECTED_MISSING_DIGESTS",
         type=Vec<FileDigest>,
         converter=convert_digests,
