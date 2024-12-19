@@ -305,6 +305,7 @@ mod fbcode {
                     Some(Data::StructuredError(..)) => true,
                     Some(Data::PersistEventLogSubprocess(..)) => true,
                     Some(Data::CleanStaleResult(..)) => true,
+                    Some(Data::ConfigurationCreated(..)) => true,
                     None => false,
                     _ => false,
                 }
