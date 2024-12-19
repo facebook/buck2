@@ -11,6 +11,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_error::starlark_error::from_starlark;
 use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -30,7 +31,6 @@ use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -157,7 +157,7 @@ fn verify_variables_type(field_key: &str, variables: Value) -> buck2_error::Resu
         Some(dict) => {
             for (key, value) in dict.iter() {
                 if ValueAsCommandLineLike::unpack_value(value)
-                    .into_anyhow_result()?
+                    .map_err(from_starlark)?
                     .is_some()
                 {
                     continue;
@@ -166,7 +166,7 @@ fn verify_variables_type(field_key: &str, variables: Value) -> buck2_error::Resu
                 if let Some(dict) = DictRef::from_value(value) {
                     for (inner_key, value) in dict.iter() {
                         if ValueAsCommandLineLike::unpack_value(value)
-                            .into_anyhow_result()?
+                            .map_err(from_starlark)?
                             .is_none()
                         {
                             return Err(

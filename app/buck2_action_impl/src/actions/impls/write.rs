@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_core::category::CategoryRef;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -39,7 +40,6 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
-use starlark::StarlarkResultExt;
 
 #[derive(Debug, buck2_error::Error)]
 enum WriteActionValidationError {
@@ -102,7 +102,7 @@ impl WriteAction {
         }
 
         if ValueAsCommandLineLike::unpack_value(contents.value())
-            .into_anyhow_result()?
+            .map_err(from_starlark)?
             .is_none()
         {
             return Err(WriteActionValidationError::ContentsNotCommandLineValue(

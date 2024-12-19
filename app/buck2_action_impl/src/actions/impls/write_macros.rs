@@ -34,6 +34,7 @@ use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -42,7 +43,6 @@ use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
-use starlark::StarlarkResultExt;
 
 #[derive(Allocative)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
@@ -105,7 +105,7 @@ impl WriteMacrosToFileAction {
         if outputs.is_empty() {
             Err(WriteMacrosActionValidationError::NoOutputsSpecified.into())
         } else if ValueAsCommandLineLike::unpack_value(contents.value())
-            .into_anyhow_result()?
+            .map_err(from_starlark)?
             .is_none()
         {
             Err(

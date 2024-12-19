@@ -18,6 +18,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
@@ -65,7 +66,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::StarlarkResultExt;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use starlark_map::StarlarkHasher;
@@ -144,7 +144,7 @@ fn create_callable_function_signature(
         }),
         None,
     )
-    .into_anyhow_result()
+    .map_err(from_starlark)
     .internal_error("Must have created correct signature")?;
 
     Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))

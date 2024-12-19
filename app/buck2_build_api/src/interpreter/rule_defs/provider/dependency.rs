@@ -41,7 +41,6 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecutionPlatformResolution;
@@ -117,7 +116,7 @@ impl<'v> Dependency<'v> {
     pub fn execution_platform(&self) -> buck2_error::Result<Option<&ExecutionPlatformResolution>> {
         let execution_platform: ValueOfUnchecked<NoneOr<&StarlarkExecutionPlatformResolution>> =
             self.execution_platform.cast();
-        match execution_platform.unpack().into_anyhow_result()? {
+        match execution_platform.unpack().map_err(from_starlark)? {
             NoneOr::None => Ok(None),
             NoneOr::Other(e) => Ok(Some(&e.0)),
         }

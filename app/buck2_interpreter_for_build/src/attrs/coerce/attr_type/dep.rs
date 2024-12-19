@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_error::starlark_error::from_starlark;
 use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
@@ -18,7 +19,6 @@ use starlark::typing::Ty;
 use starlark::values::string::STRING_TYPE;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 use crate::attrs::coerce::error::CoercionError;
@@ -53,7 +53,7 @@ impl AttrTypeCoerce for ExplicitConfiguredDepAttrType {
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
         let (label_value, platform_value): (Value, Value) = UnpackValue::unpack_value(value)
-            .into_anyhow_result()?
+            .map_err(from_starlark)?
             .ok_or_else(|| {
                 CoercionError::type_error("Tuple must be a pair of two strings", value)
             })?;

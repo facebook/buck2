@@ -10,12 +10,12 @@
 use std::time::Instant;
 
 use buck2_error::internal_error;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
-use starlark::StarlarkResultExt;
 
 use crate::starlark_profiler::data::ProfileTarget;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -86,7 +86,7 @@ impl StarlarkProfiler {
     fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
         self.finalized_at = Some(Instant::now());
         if !self.profile_mode.requires_frozen_module() {
-            self.profile_data = Some(eval.gen_profile().into_anyhow_result()?);
+            self.profile_data = Some(eval.gen_profile().map_err(from_starlark)?);
         }
         Ok(())
     }

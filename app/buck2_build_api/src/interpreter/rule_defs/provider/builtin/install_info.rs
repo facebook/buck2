@@ -11,6 +11,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
@@ -28,7 +29,6 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 
@@ -85,7 +85,7 @@ impl<'v, V: ValueLike<'v>> InstallInfoGen<V> {
             Ok((
                 k,
                 ValueAsArtifactLike::unpack_value(v)
-                    .into_anyhow_result()?
+                    .map_err(from_starlark)?
                     .ok_or_else(|| InstallInfoProviderErrors::ExpectedArtifact {
                         key: k.to_owned(),
                         got: v.get_type().to_owned(),

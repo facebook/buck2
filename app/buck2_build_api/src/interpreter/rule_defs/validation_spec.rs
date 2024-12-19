@@ -11,6 +11,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use buck2_error::starlark_error::from_starlark;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -30,7 +31,6 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
@@ -112,11 +112,11 @@ fn validate_validation_spec<'v, V>(spec: &StarlarkValidationSpecGen<V>) -> buck2
 where
     V: ValueLike<'v>,
 {
-    let name = spec.name.unpack().into_anyhow_result()?;
+    let name = spec.name.unpack().map_err(from_starlark)?;
     if name.is_empty() {
         return Err(ValidationSpecError::EmptyName.into());
     }
-    let artifact = spec.validation_result.unpack().into_anyhow_result()?;
+    let artifact = spec.validation_result.unpack().map_err(from_starlark)?;
     let artifact = match artifact.0.get_bound_artifact() {
         Ok(bound_artifact) => bound_artifact,
         Err(e) => {

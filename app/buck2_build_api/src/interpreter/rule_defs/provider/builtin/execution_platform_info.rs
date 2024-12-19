@@ -14,6 +14,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::starlark_error::from_starlark;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -28,7 +29,6 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkResultExt;
 
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
@@ -61,7 +61,7 @@ impl<'v, V: ValueLike<'v>> ExecutionPlatformInfoGen<V> {
             .label
             .cast::<&StarlarkTargetLabel>()
             .unpack()
-            .into_anyhow_result()?
+            .map_err(from_starlark)?
             .label();
         let cfg = ConfigurationInfo::from_value(self.configuration.get().to_value())
             .ok_or_else(|| {

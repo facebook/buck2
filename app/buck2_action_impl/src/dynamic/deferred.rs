@@ -65,7 +65,6 @@ use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
-use starlark::StarlarkResultExt;
 use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::attrs::DynamicAttrValue;
@@ -539,7 +538,7 @@ fn new_attr_value<'v>(
             let mut r = SmallMap::with_capacity(xs.len());
             for (k, v) in xs {
                 let prev = r.insert_hashed(
-                    k.to_value().get_hashed().into_anyhow_result()?,
+                    k.to_value().get_hashed().map_err(from_starlark)?,
                     new_attr_value(
                         v,
                         _input_artifacts_materialized,

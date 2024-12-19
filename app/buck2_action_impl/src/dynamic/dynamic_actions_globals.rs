@@ -11,6 +11,7 @@ use std::cell::OnceCell;
 use std::iter;
 
 use buck2_error::buck2_error;
+use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
@@ -21,7 +22,6 @@ use starlark::util::ArcStr;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::typing::StarlarkCallableChecked;
-use starlark::StarlarkResultExt;
 use starlark_map::small_map::SmallMap;
 
 use crate::dynamic::attrs::DynamicAttrType;
@@ -66,7 +66,7 @@ pub fn new_dynamic_actions_callable<'v>(
             None,
             &DynamicActionsCallbackReturnType::starlark_type_repr(),
         )
-        .into_anyhow_result()
+        .map_err(from_starlark)
         .buck_error_context("`impl` function must be callable with given params")?;
 
     let callable_ty = Ty::function(
@@ -77,7 +77,7 @@ pub fn new_dynamic_actions_callable<'v>(
                 ty.callable_param_ty(),
             )
         }))
-        .into_anyhow_result()
+        .map_err(from_starlark)
         .internal_error("Signature must be correct")?,
         StarlarkDynamicActions::starlark_type_repr(),
     );

@@ -49,7 +49,6 @@ use starlark::values::structs::StructRef;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::StarlarkResultExt;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::anon_target_attr::AnonTargetAttr;
@@ -251,7 +250,7 @@ impl AnonTargetDyn for AnonTarget {
 
             let promise_id = PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.dupe()), id);
 
-            match ValueAsArtifactLike::unpack_value(artifact).into_anyhow_result()? {
+            match ValueAsArtifactLike::unpack_value(artifact).map_err(from_starlark)? {
                 Some(artifact) => {
                     fulfilled_artifact_mappings
                         .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);
