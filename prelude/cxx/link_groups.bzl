@@ -341,6 +341,29 @@ FinalLabelsToLinks = record(
     map = field(dict[Label, LinkGroupLinkInfo]),
 )
 
+def _collect_linkables(
+        linkable_graph_node_map: dict[Label, LinkableNode],
+        roots: list[Label]) -> list[Label]:
+    def get_potential_linkables(node: Label) -> list[Label]:
+        linkable_node = linkable_graph_node_map[node]
+
+        # If the preferred linkage is `static` or `any` we need to link against the deps too.
+        should_traverse_private_deps = linkable_node.preferred_linkage == Linkage("static") or linkable_node.preferred_linkage == Linkage("any")
+
+        if should_traverse_private_deps:
+            return linkable_node.all_deps
+        else:
+            return linkable_node.exported_deps
+
+    # Get all potential linkable targets
+    linkables = depth_first_traversal_by(
+        linkable_graph_node_map,
+        roots,
+        get_potential_linkables,
+    )
+
+    return linkables
+
 def get_filtered_labels_to_links_map(
         public_nodes: [set[Label], None],
         linkable_graph_node_map: dict[Label, LinkableNode],
@@ -365,22 +388,10 @@ def get_filtered_labels_to_links_map(
 
     is_executable_link = executable_link_label != None
 
-    def get_potential_linkables(node: Label) -> list[Label]:
-        linkable_node = linkable_graph_node_map[node]
-
-        # If the preferred linkage is `static` or `any` we need to link against the deps too.
-        should_traverse_private_deps = linkable_node.preferred_linkage == Linkage("static") or linkable_node.preferred_linkage == Linkage("any")
-
-        if should_traverse_private_deps:
-            return linkable_node.all_deps
-        else:
-            return linkable_node.exported_deps
-
     # Get all potential linkable targets
-    linkables = depth_first_traversal_by(
+    linkables = _collect_linkables(
         linkable_graph_node_map,
         roots,
-        get_potential_linkables,
     )
 
     # An index of target to link group names, for all link group library nodes.
