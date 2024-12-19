@@ -76,7 +76,6 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
-load("@prelude//utils:set.bzl", "set")
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",

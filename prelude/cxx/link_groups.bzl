@@ -62,11 +62,6 @@ load(
     "depth_first_traversal_by",
 )
 load(
-    "@prelude//utils:set.bzl",
-    "set",
-    "set_record",
-)
-load(
     "@prelude//utils:utils.bzl",
     "value_or",
 )
@@ -347,7 +342,7 @@ FinalLabelsToLinks = record(
 )
 
 def get_filtered_labels_to_links_map(
-        public_nodes: [set_record, None],
+        public_nodes: [set[Label], None],
         linkable_graph_node_map: dict[Label, LinkableNode],
         link_group: [str, None],
         link_groups: dict[str, Group],
@@ -427,7 +422,7 @@ def get_filtered_labels_to_links_map(
         # If we've already added this link group to the link line, we're done.
 
         link_group_spec = link_groups.get(target_group, None)
-        if link_group_spec and link_group_spec.attrs.prohibit_file_duplicates and public_nodes and public_nodes.contains(target):
+        if link_group_spec and link_group_spec.attrs.prohibit_file_duplicates and public_nodes and target in public_nodes:
             if target_group not in group_srcs:
                 group_srcs[target_group] = {}
             target_group_srcs = group_srcs[target_group]
@@ -545,7 +540,7 @@ def get_public_link_group_nodes(
         linkable_graph_node_map: dict[Label, LinkableNode],
         link_group_mappings: [dict[Label, str], None],
         executable_deps: list[Label],
-        root_link_group: [str, None]) -> set_record:
+        root_link_group: [str, None]) -> set[Label]:
     external_link_group_nodes = set()
 
     # TODO(@christylee): do we need to traverse root link group and NO_MATCH_LABEL exported deps?
@@ -602,7 +597,7 @@ def get_public_link_group_nodes(
         # get transitive exported deps
         depth_first_traversal_by(
             linkable_graph_node_map,
-            external_link_group_nodes.list(),
+            list(external_link_group_nodes),
             discover_link_group_linkables,
         ),
     )
@@ -611,13 +606,13 @@ def get_public_link_group_nodes(
 
 def get_filtered_links(
         labels_to_links_map: dict[Label, LinkGroupLinkInfo],
-        public_link_group_nodes: [set_record, None] = None) -> list[LinkInfo]:
+        public_link_group_nodes: [set[Label], None] = None) -> list[LinkInfo]:
     if public_link_group_nodes == None:
         return [link_group_info.link_info for link_group_info in labels_to_links_map.values()]
     infos = []
     for label, link_group_info in labels_to_links_map.items():
         info = link_group_info.link_info
-        if public_link_group_nodes.contains(label):
+        if label in public_link_group_nodes:
             infos.append(set_link_info_link_whole(info))
         else:
             infos.append(info)
@@ -658,7 +653,7 @@ def _find_all_relevant_roots(
             # Add node into the list of roots for all link groups
             for link_group in relevant_roots.keys():
                 relevant_roots[link_group].append(node_target)
-        elif link_groups_for_full_traversal.contains(node_link_group) and node_link_group != NO_MATCH_LABEL:
+        elif node_link_group in link_groups_for_full_traversal and node_link_group != NO_MATCH_LABEL:
             relevant_roots[node_link_group].append(node_target)
         return node.all_deps
 
@@ -732,7 +727,7 @@ def _create_link_group(
         spec: LinkGroupLibSpec,
         roots: list[Label],
         link_strategy: LinkStrategy,
-        public_nodes: set_record = set(),
+        public_nodes: set[Label] = set(),
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
         linker_flags: list[typing.Any] = [],
         link_groups: dict[str, Group] = {},
@@ -920,7 +915,7 @@ def _symbol_flags_for_link_groups(
 
 def create_link_groups(
         ctx: AnalysisContext,
-        public_nodes: set_record,
+        public_nodes: set[Label],
         link_strategy: LinkStrategy,
         link_groups: dict[str, Group] = {},
         link_group_specs: list[LinkGroupLibSpec] = [],
@@ -1111,7 +1106,7 @@ def build_shared_libs_for_symlink_tree(
     symlink_tree_shared_libraries = []
 
     def is_shlib_added(soname: Soname) -> bool:
-        return soname.is_str and added_link_group_symlinks_libs.contains(soname.ensure_str())
+        return soname.is_str and soname.ensure_str() in added_link_group_symlinks_libs
 
     def add_shib(shlib: SharedLibrary):
         if shlib.soname.is_str:

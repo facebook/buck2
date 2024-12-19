@@ -141,7 +141,6 @@ load(
     "PythonLibraryInfo",
 )
 load("@prelude//utils:argfile.bzl", "at_argfile")
-load("@prelude//utils:set.bzl", "set")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
 
 HaskellIndexingTSet = transitive_set()
