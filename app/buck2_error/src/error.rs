@@ -14,8 +14,6 @@ use buck2_data::ActionError;
 use itertools::Itertools;
 use smallvec::SmallVec;
 
-use crate::ErrorTag;
-use crate::__for_macro::AsDynError;
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
 use crate::context_value::ContextValue;
@@ -23,6 +21,7 @@ use crate::context_value::StarlarkContext;
 use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
+use crate::ErrorTag;
 use crate::Tier;
 use crate::UniqueRootId;
 
@@ -69,14 +68,6 @@ impl Error {
         let error_root = ErrorRoot::new(error_msg, source_location, action_error);
 
         crate::Error(Arc::new(ErrorKind::Root(Box::new(error_root))))
-    }
-
-    #[track_caller]
-    #[cold]
-    pub fn from_anyhow_ref(e: &anyhow::Error) -> Self {
-        let source_location =
-            crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        crate::any::recover_crate_error(e.as_dyn_error(), source_location)
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
