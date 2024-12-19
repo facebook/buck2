@@ -9,6 +9,7 @@ version = "0.1.0"
 [dependencies]
 anyhow = { workspace = true }
 dupe = { workspace = true }
+dashmap = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
 http = { workspace = true }
