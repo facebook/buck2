@@ -826,7 +826,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     )],
                     external_debug_info = make_artifact_tset(
                         actions = ctx.actions,
-                        label = debug_info_identity,
+                        label = ctx.label,
+                        identity = debug_info_identity,
                         artifacts = (
                             compiled_srcs.pic.external_debug_info +
                             (compiled_srcs.pic.objects if compiled_srcs.pic.objects_have_external_debug_info else [])
@@ -1227,7 +1228,8 @@ def _form_library_outputs(
                     objects_have_external_debug_info = compiled_srcs.pic_optimized.objects_have_external_debug_info,
                     external_debug_info = make_artifact_tset(
                         ctx.actions,
-                        label = debug_info_identity,
+                        label = ctx.label,
+                        identity = debug_info_identity,
                         artifacts = compiled_srcs.pic_optimized.external_debug_info,
                         children = impl_params.additional.static_external_debug_info,
                     ),
@@ -1248,7 +1250,8 @@ def _form_library_outputs(
                     objects_have_external_debug_info = lib_compile_output.objects_have_external_debug_info,
                     external_debug_info = make_artifact_tset(
                         ctx.actions,
-                        label = debug_info_identity,
+                        label = ctx.label,
+                        identity = debug_info_identity,
                         artifacts = lib_compile_output.external_debug_info,
                         children = impl_params.additional.static_external_debug_info,
                     ),
@@ -1289,7 +1292,8 @@ def _form_library_outputs(
                     external_debug_artifacts.extend(impl_params.extra_link_input)
                 external_debug_info = make_artifact_tset(
                     actions = ctx.actions,
-                    label = debug_info_identity,
+                    label = ctx.label,
+                    identity = debug_info_identity,
                     artifacts = external_debug_artifacts,
                     children = impl_params.additional.shared_external_debug_info,
                     tags = impl_params.additional.external_debug_info_tags,
@@ -1601,7 +1605,8 @@ def _static_library(
 
     all_external_debug_info = make_artifact_tset(
         actions = ctx.actions,
-        label = debug_info_identity,
+        label = ctx.label,
+        identity = debug_info_identity,
         artifacts = object_external_debug_info,
         children = [external_debug_info],
         tags = impl_params.additional.external_debug_info_tags,

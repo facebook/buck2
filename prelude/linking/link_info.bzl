@@ -854,7 +854,8 @@ def get_link_args_for_strategy(
     )
     external_debug_info = make_artifact_tset(
         actions = ctx.actions,
-        label = get_debug_info_identity(ctx),
+        label = ctx.label,
+        identity = get_debug_info_identity(ctx),
         children = filter(
             None,
             [x._external_debug_info.get(link_strategy) for x in deps_merged_link_infos] + ([additional_link_info.external_debug_info] if additional_link_info else []),

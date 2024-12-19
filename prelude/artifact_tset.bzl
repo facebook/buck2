@@ -20,7 +20,8 @@ ArtifactInfoTag = enum(
 )
 
 ArtifactInfo = record(
-    label = field(Label | str),
+    label = field(Label),
+    identity = field(Label | str),
     artifacts = field(list[Artifact]),
     tags = field(list[ArtifactInfoTag]),
 )
@@ -37,7 +38,7 @@ def _get_identified_artifacts(entries: list[ArtifactInfo]) -> cmd_args:
     args = cmd_args()
     for entry in entries:
         for artifact in entry.artifacts:
-            format_str = "identified'{}'=".format(stringify_artifact_label(entry.label))
+            format_str = "identified'{}'=".format(stringify_artifact_label(entry.identity))
             args.add(cmd_args(artifact, format = format_str + "{}"))
     return args
 
@@ -55,7 +56,8 @@ ArtifactTSet = record(
 def make_artifact_tset(
         actions: AnalysisActions,
         # Must be non-`None` if artifacts are passed in to `artifacts`.
-        label: Label | str | None = None,
+        label: Label | None = None,
+        identity: Label | str | None = None,
         artifacts: list[Artifact] = [],
         infos: list[ArtifactInfo] = [],
         children: list[ArtifactTSet] = [],
@@ -71,7 +73,8 @@ def make_artifact_tset(
     # Build list of all non-child values.
     values = []
     if artifacts:
-        values.append(ArtifactInfo(label = label, artifacts = artifacts, tags = tags))
+        artifact_identity = identity if identity else label
+        values.append(ArtifactInfo(label = label, identity = artifact_identity, artifacts = artifacts, tags = tags))
     values.extend(infos)
 
     # If there's no children or artifacts, return `None`.
