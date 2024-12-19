@@ -390,11 +390,11 @@ impl PreparedCommandExecutor for ReExecutor {
 #[derive(buck2_error::Error, Debug)]
 #[error(
     "action_digest={}, re_code={}, re_message={}",
-    .action_digest,
-    .inner.code,
-    .inner.message
+    action_digest,
+    inner.code,
+    inner.message
 )]
-#[buck2(tier0, tag = Some(get_re_error_tag(self.inner.code)))]
+#[buck2(tier0, tag = Some(get_re_error_tag(inner.code)))]
 struct ReErrorWrapper {
     action_digest: ActionDigest,
     inner: remote_execution::TStatus,

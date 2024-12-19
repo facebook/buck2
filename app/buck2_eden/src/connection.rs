@@ -442,31 +442,33 @@ impl_has_error_handling_strategy!(GetSHA1Error);
 impl_has_error_handling_strategy!(GetCurrentJournalPositionError);
 impl_has_error_handling_strategy!(ChangesSinceV2Error);
 
-fn eden_error_kind_tag(e: &EdenError) -> Option<ErrorTag> {
-    let tag = match e {
-        EdenError::PosixError { code, .. } => match *code {
-            libc::ENOENT => ErrorTag::IoEdenFileNotFound,
-            libc::EACCES | libc::EPERM => ErrorTag::IoPermissionDenied,
-            libc::ETIMEDOUT => ErrorTag::IoTimeout,
-            libc::EBUSY => ErrorTag::IoExecutableFileBusy,
-            libc::EPIPE => ErrorTag::IoBrokenPipe,
-            libc::ENOSPC => ErrorTag::IoStorageFull,
-            libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
-            libc::ENOTCONN => ErrorTag::IoNotConnected,
-            _ => return None,
-        },
-        EdenError::ServiceError { error } => match error.errorType {
-            EdenErrorType::WIN32_ERROR => ErrorTag::IoEdenWin32Error,
-            EdenErrorType::HRESULT_ERROR => ErrorTag::IoEdenHresultError,
-            EdenErrorType::ARGUMENT_ERROR => ErrorTag::IoEdenArgumentError,
-            EdenErrorType::GENERIC_ERROR => ErrorTag::IoEdenGenericError,
-            EdenErrorType::MOUNT_GENERATION_CHANGED => ErrorTag::IoEdenMountGenerationChanged,
-            EdenErrorType::JOURNAL_TRUNCATED => ErrorTag::IoEdenJournalTruncated,
-            EdenErrorType::CHECKOUT_IN_PROGRESS => ErrorTag::IoEdenCheckoutInProgress,
-            EdenErrorType::OUT_OF_DATE_PARENT => ErrorTag::IoEdenOutOfDateParent,
-            _ => return None,
-        },
-        EdenError::UnknownField { .. } => ErrorTag::IoEdenUnknownField,
+fn eden_posix_error_tag(code: i32) -> Option<ErrorTag> {
+    let tag = match code {
+        libc::ENOENT => ErrorTag::IoEdenFileNotFound,
+        libc::EACCES | libc::EPERM => ErrorTag::IoPermissionDenied,
+        libc::ETIMEDOUT => ErrorTag::IoTimeout,
+        libc::EBUSY => ErrorTag::IoExecutableFileBusy,
+        libc::EPIPE => ErrorTag::IoBrokenPipe,
+        libc::ENOSPC => ErrorTag::IoStorageFull,
+        libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
+        libc::ENOTCONN => ErrorTag::IoNotConnected,
+        _ => return None,
+    };
+
+    Some(tag)
+}
+
+fn eden_service_error_tag(error: &edenfs::EdenError) -> Option<ErrorTag> {
+    let tag = match error.errorType {
+        EdenErrorType::WIN32_ERROR => ErrorTag::IoEdenWin32Error,
+        EdenErrorType::HRESULT_ERROR => ErrorTag::IoEdenHresultError,
+        EdenErrorType::ARGUMENT_ERROR => ErrorTag::IoEdenArgumentError,
+        EdenErrorType::GENERIC_ERROR => ErrorTag::IoEdenGenericError,
+        EdenErrorType::MOUNT_GENERATION_CHANGED => ErrorTag::IoEdenMountGenerationChanged,
+        EdenErrorType::JOURNAL_TRUNCATED => ErrorTag::IoEdenJournalTruncated,
+        EdenErrorType::CHECKOUT_IN_PROGRESS => ErrorTag::IoEdenCheckoutInProgress,
+        EdenErrorType::OUT_OF_DATE_PARENT => ErrorTag::IoEdenOutOfDateParent,
+        _ => return None,
     };
 
     Some(tag)
@@ -474,15 +476,17 @@ fn eden_error_kind_tag(e: &EdenError) -> Option<ErrorTag> {
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = IoEden)]
-#[buck2(tag = eden_error_kind_tag(&self))]
 pub enum EdenError {
     #[error("Eden POSIX error (code = {}): {}", .code, .error.message)]
+    #[buck2(tag = eden_posix_error_tag(*code))]
     PosixError { error: edenfs::EdenError, code: i32 },
 
     #[error("Eden service error: {}", .error.message)]
+    #[buck2(tag = eden_service_error_tag(error))]
     ServiceError { error: edenfs::EdenError },
 
     #[error("Eden returned an unexpected field: {}", .field)]
+    #[buck2(tag = IoEdenUnknownField)]
     UnknownField { field: i32 },
 }
 

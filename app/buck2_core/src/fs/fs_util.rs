@@ -81,7 +81,7 @@ impl IoError {
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = IoSystem)]
-#[buck2(tag = io_error_kind_tag(&self.e))]
+#[buck2(tag = io_error_kind_tag(e))]
 #[error("{}", .op)]
 pub struct IoError {
     op: String,

@@ -136,31 +136,27 @@ fn test_error_with_spelled_out_category() {
 }
 
 #[test]
-fn test_root_is_applied_conditionally() {
+fn test_source_metadata_are_included() {
     #[derive(buck2_error_derive::Error, Debug)]
-    #[error("Unused")]
+    #[error("WatchmanError")]
+    #[buck2(tag = WatchmanTimeout)]
     struct WatchmanError;
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Unused")]
-    #[buck2(tag = compute(self))]
     enum MaybeWatchmanError {
         Some(#[source] WatchmanError),
         None,
     }
 
-    fn compute(x: &MaybeWatchmanError) -> Option<crate::ErrorTag> {
-        match x {
-            MaybeWatchmanError::Some(_) => None,
-            MaybeWatchmanError::None => Some(crate::ErrorTag::AnyActionExecution),
-        }
-    }
-
     let e: crate::Error = MaybeWatchmanError::None.into();
-    assert!(e.has_tag(crate::ErrorTag::AnyActionExecution));
+    assert!(e.tags().is_empty());
 
     let e: crate::Error = MaybeWatchmanError::Some(WatchmanError).into();
-    assert!(e.tags().is_empty());
+    assert!(e.has_tag(crate::ErrorTag::WatchmanTimeout));
+
+    assert!(format!("{:?}", e).contains("Unused"));
+    assert!(format!("{:?}", e).contains("WatchmanError"));
 }
 
 #[test]
