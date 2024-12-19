@@ -85,6 +85,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `allow_hybrid_fallbacks_on_failure`: Whether to allow fallbacks when the result is failure (i.e. the command failed on the primary, but the infra worked)
     /// * `use_windows_path_separators`: Whether to use Windows path separators in command line arguments
     /// * `use_persistent workers`: Whether to use persistent workers for local execution if they are available
+    /// * `use_remote_persistent_workers`: Whether to use persistent workers for remote execution if they are available
     /// * `allow_cache_uploads`: Whether to upload local actions to the RE cache
     /// * `max_cache_upload_mebibytes`: Maximum size to upload in cache uploads
     /// * `experimental_low_pass_filter`: Whether to use the experimental low pass filter
@@ -110,6 +111,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = false, require = named)] allow_hybrid_fallbacks_on_failure: bool,
         #[starlark(default = false, require = named)] use_windows_path_separators: bool,
         #[starlark(default = false, require = named)] use_persistent_workers: bool,
+        #[starlark(default = false, require = named)] use_remote_persistent_workers: bool,
         #[starlark(default = false, require = named)] allow_cache_uploads: bool,
         #[starlark(default = NoneOr::None, require = named)] max_cache_upload_mebibytes: NoneOr<
             i32,
@@ -322,6 +324,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         PathSeparatorKind::Unix
                     },
                     output_paths_behavior,
+                    use_remote_persistent_workers,
                 },
             }
         };

@@ -1,0 +1,2 @@
+[build]
+execution_platforms = root//platforms:local
