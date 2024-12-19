@@ -1485,6 +1485,11 @@ zip_file = prelude_rule(
 
                  The regexes must be defined using `java.util.regex.Pattern` syntax.
             """),
+            "deterministic_output": attrs.option(attrs.bool(), default = None, doc = """
+                If set to true, Buck ensures that all files in the generated zip and their associated metadata are
+                consistent across all platforms, resulting in an identical zip file everywhere. Note that this might
+                come at the expense of losing some otherwise relevant metadata, like file permissions and timestamps.
+            """),
             "on_duplicate_entry": attrs.enum(OnDuplicateEntry, default = "overwrite", doc = """
                 Action performed when Buck detects that zip\\_file input contains multiple entries with the same
                  name.
