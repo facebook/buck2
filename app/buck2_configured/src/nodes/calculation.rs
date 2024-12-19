@@ -273,99 +273,99 @@ impl ExecutionPlatformConstraints {
     }
 }
 
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[display(
+        "ToolchainExecutionPlatformCompatibilityKey({}, {})",
+        target,
+        exec_platform.id()
+    )]
+pub struct ToolchainExecutionPlatformCompatibilityKey {
+    target: TargetConfiguredTargetLabel,
+    exec_platform: ExecutionPlatform,
+}
+
+impl ToolchainExecutionPlatformCompatibilityKey {
+    pub fn describe(&self) -> impl Display {
+        format!("{} ({})", self.target, self.exec_platform.id())
+    }
+
+    async fn compute_impl(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
+        let node = ctx.get_target_node(self.target.unconfigured()).await?;
+        if node.transition_deps().next().is_some() {
+            // We could actually check this when defining the rule, but a bit of a corner
+            // case, and much simpler to do so here.
+            return Err(buck2_error::Error::from(
+                ToolchainDepError::ToolchainTransitionDep(self.target.unconfigured().dupe()),
+            ));
+        }
+        let cell_name = CellNameForConfigurationResolution(self.target.pkg().cell_name());
+        let resolved_configuration = &ctx
+            .get_resolved_configuration(self.target.cfg(), cell_name, node.get_configuration_deps())
+            .await?;
+        let platform_cfgs = compute_platform_cfgs(ctx, node.as_ref()).await?;
+        // We don't really need `resolved_transitions` here:
+        // `Traversal` declared above ignores transitioned dependencies.
+        // But we pass `resolved_transitions` here to prevent breakages in the future
+        // if something here changes.
+        let resolved_transitions = OrderedMap::new();
+        let cfg_ctx = AttrConfigurationContextImpl::new(
+            resolved_configuration,
+            ConfigurationNoExec::unbound_exec(),
+            &resolved_transitions,
+            &platform_cfgs,
+        );
+        let (gathered_deps, errors_and_incompats) =
+            gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx).await?;
+        if let Some(ret) = errors_and_incompats.finalize() {
+            // Statically assert that we hit one of the `?`s
+            enum Void {}
+            let _: Void = ret?.require_compatible()?;
+        }
+        let constraints =
+            ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
+
+        check_execution_platform(
+            ctx,
+            cell_name,
+            &constraints.exec_compatible_with,
+            &constraints.exec_deps,
+            &self.exec_platform,
+            &constraints.toolchain_deps,
+        )
+        .await
+    }
+}
+
+#[async_trait]
+impl Key for ToolchainExecutionPlatformCompatibilityKey {
+    type Value = buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        Ok(LookingUpConfiguredNodeContext::add_context(
+            self.compute_impl(ctx).await,
+            self.target.inner().dupe(),
+        )?)
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+}
+
 pub(crate) async fn check_toolchain_execution_platform_compatibility(
     ctx: &mut DiceComputations<'_>,
     target: TargetConfiguredTargetLabel,
     exec_platform: ExecutionPlatform,
 ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-    #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-    #[display(
-        "ToolchainExecutionPlatformCompatibilityKey({}, {})",
-        target,
-        exec_platform.id()
-    )]
-    struct ToolchainExecutionPlatformCompatibilityKey {
-        target: TargetConfiguredTargetLabel,
-        exec_platform: ExecutionPlatform,
-    }
-
-    impl ToolchainExecutionPlatformCompatibilityKey {
-        async fn compute_impl(
-            &self,
-            ctx: &mut DiceComputations<'_>,
-        ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-            let node = ctx.get_target_node(self.target.unconfigured()).await?;
-            if node.transition_deps().next().is_some() {
-                // We could actually check this when defining the rule, but a bit of a corner
-                // case, and much simpler to do so here.
-                return Err(buck2_error::Error::from(
-                    ToolchainDepError::ToolchainTransitionDep(self.target.unconfigured().dupe()),
-                ));
-            }
-            let cell_name = CellNameForConfigurationResolution(self.target.pkg().cell_name());
-            let resolved_configuration = &ctx
-                .get_resolved_configuration(
-                    self.target.cfg(),
-                    cell_name,
-                    node.get_configuration_deps(),
-                )
-                .await?;
-            let platform_cfgs = compute_platform_cfgs(ctx, node.as_ref()).await?;
-            // We don't really need `resolved_transitions` here:
-            // `Traversal` declared above ignores transitioned dependencies.
-            // But we pass `resolved_transitions` here to prevent breakages in the future
-            // if something here changes.
-            let resolved_transitions = OrderedMap::new();
-            let cfg_ctx = AttrConfigurationContextImpl::new(
-                resolved_configuration,
-                ConfigurationNoExec::unbound_exec(),
-                &resolved_transitions,
-                &platform_cfgs,
-            );
-            let (gathered_deps, errors_and_incompats) =
-                gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx).await?;
-            if let Some(ret) = errors_and_incompats.finalize() {
-                // Statically assert that we hit one of the `?`s
-                enum Void {}
-                let _: Void = ret?.require_compatible()?;
-            }
-            let constraints =
-                ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
-
-            check_execution_platform(
-                ctx,
-                cell_name,
-                &constraints.exec_compatible_with,
-                &constraints.exec_deps,
-                &self.exec_platform,
-                &constraints.toolchain_deps,
-            )
-            .await
-        }
-    }
-
-    #[async_trait]
-    impl Key for ToolchainExecutionPlatformCompatibilityKey {
-        type Value = buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>>;
-        async fn compute(
-            &self,
-            ctx: &mut DiceComputations,
-            _cancellation: &CancellationContext,
-        ) -> Self::Value {
-            Ok(LookingUpConfiguredNodeContext::add_context(
-                self.compute_impl(ctx).await,
-                self.target.inner().dupe(),
-            )?)
-        }
-
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
-                (Ok(x), Ok(y)) => x == y,
-                _ => false,
-            }
-        }
-    }
-
     ctx.compute(&ToolchainExecutionPlatformCompatibilityKey {
         target,
         exec_platform,

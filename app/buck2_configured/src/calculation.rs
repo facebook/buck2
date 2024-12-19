@@ -34,6 +34,7 @@ use crate::configuration::calculation::ConfigurationCalculation;
 use crate::configuration::calculation::ExecutionPlatformResolutionKey;
 use crate::nodes::calculation::get_execution_platform_toolchain_dep;
 use crate::nodes::calculation::ConfiguredTargetNodeKey;
+use crate::nodes::calculation::ToolchainExecutionPlatformCompatibilityKey;
 
 struct ConfiguredTargetCalculationInstance;
 
@@ -143,6 +144,8 @@ pub enum ConfiguredGraphCycleKeys {
     #[display("{}", _0)]
     ConfiguredTargetNode(ConfiguredTargetNodeKey),
     #[display("{}", _0)]
+    ToolchainExecutionPlatformCompatibility(ToolchainExecutionPlatformCompatibilityKey),
+    #[display("{}", _0)]
     ExecutionPlatformResolution(ExecutionPlatformResolutionKey),
 }
 
@@ -170,6 +173,11 @@ impl CycleAdapterDescriptor for ConfiguredGraphCycleDescriptor {
             return Some(ConfiguredGraphCycleKeys::ExecutionPlatformResolution(
                 v.dupe(),
             ));
+        }
+        if let Some(v) = key.downcast_ref::<ToolchainExecutionPlatformCompatibilityKey>() {
+            return Some(
+                ConfiguredGraphCycleKeys::ToolchainExecutionPlatformCompatibility(v.dupe()),
+            );
         }
 
         None
