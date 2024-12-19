@@ -19,8 +19,6 @@ load(":genrule_common.bzl", "genrule_common")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 
-AaptMode = ["aapt1", "aapt2"]
-
 CompressionAlgorithm = ["xz", "zstd"]
 
 DexStore = ["raw", "jar", "xz", "xzs"]
@@ -190,7 +188,6 @@ android_binary = prelude_rule(
             "aapt2_keep_raw_values": attrs.bool(default = False),
             "aapt2_locale_filtering": attrs.bool(default = False),
             "aapt2_preferred_density": attrs.option(attrs.string(), default = None),
-            "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),
             "additional_aapt_params": attrs.list(attrs.string(), default = []),
             "allow_r_dot_java_in_secondary_dex": attrs.bool(default = False),
             "allowed_duplicate_resource_types": attrs.list(attrs.enum(RType), default = []),
@@ -424,7 +421,6 @@ android_bundle = prelude_rule(
             "aapt2_keep_raw_values": attrs.bool(default = False),
             "aapt2_locale_filtering": attrs.bool(default = False),
             "aapt2_preferred_density": attrs.option(attrs.string(), default = None),
-            "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),
             "additional_aapt_params": attrs.list(attrs.string(), default = []),
             "allow_r_dot_java_in_secondary_dex": attrs.bool(default = False),
             "allowed_duplicate_resource_types": attrs.list(attrs.enum(RType), default = []),
@@ -571,7 +567,6 @@ android_instrumentation_apk = prelude_rule(
         } |
         android_common.deps_apk_arg() |
         {
-            "aapt_mode": attrs.enum(AaptMode, default = "aapt1"),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "disable_pre_dex": attrs.bool(default = False),
