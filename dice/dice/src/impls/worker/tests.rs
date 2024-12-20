@@ -305,11 +305,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let res = task.depended_on_by(ParentKey::None).unwrap().await?;
 
     let v = dice
         .state_handle
@@ -335,11 +331,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         events.dupe(),
         None,
     );
-    let res2 = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let res2 = task.depended_on_by(ParentKey::None).unwrap().await?;
 
     // verify that we incremented the total instance counter
     assert_eq!(instance.load(Ordering::SeqCst), 2);
@@ -392,13 +384,7 @@ async fn spawn_with_no_previously_cancelled_task() {
         previously_cancelled_task,
     );
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .is_ok()
-    );
+    assert!(task.depended_on_by(ParentKey::None).unwrap().await.is_ok());
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -466,13 +452,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         previously_cancelled_task,
     );
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .is_ok()
-    );
+    assert!(task.depended_on_by(ParentKey::None).unwrap().await.is_ok());
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
@@ -523,7 +503,6 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     // wait for it to finish then trigger cancel
     previous_task
         .depended_on_by(ParentKey::None)
-        .not_cancelled()
         .unwrap()
         .await
         .unwrap();
@@ -545,13 +524,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         previously_cancelled_task,
     );
 
-    assert!(
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .is_ok()
-    );
+    assert!(task.depended_on_by(ParentKey::None).unwrap().await.is_ok());
 
     assert!(!is_ran.load(Ordering::SeqCst));
 }
@@ -586,7 +559,6 @@ async fn mismatch_epoch_results_in_cancelled_result() {
     // wait for it to finish then trigger cancel
     assert_matches!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .await,
         Err(_) => {}
@@ -721,10 +693,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         }),
     );
 
-    let promise = third_task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap();
+    let promise = third_task.depended_on_by(ParentKey::None).unwrap();
 
     pin_mut!(promise);
 
@@ -856,11 +825,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         events.dupe(),
         None,
     );
-    let computed_res = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
     assert_eq!(
         computed_res.versions(),
         &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
@@ -889,11 +854,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         events.dupe(),
         None,
     );
-    let computed_res = task
-        .depended_on_by(ParentKey::None)
-        .not_cancelled()
-        .unwrap()
-        .await?;
+    let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
     assert_eq!(
         computed_res.versions(),
         &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])

@@ -92,7 +92,6 @@ async fn simple_task() -> anyhow::Result<()> {
 
     let mut promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
 
     assert_eq!(
@@ -155,7 +154,6 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
 
     let promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
     pin_mut!(promise);
 
@@ -206,7 +204,6 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
 
     let promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
 
     assert_eq!(
@@ -242,23 +239,18 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
 
     let promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
     let promise2 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 2 }))
-        .not_cancelled()
         .unwrap();
     let promise3 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 3 }))
-        .not_cancelled()
         .unwrap();
     let promise4 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 4 }))
-        .not_cancelled()
         .unwrap();
     let promise5 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 5 }))
-        .not_cancelled()
         .unwrap();
 
     assert_eq!(
@@ -307,14 +299,12 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 
     let mut promise_before = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
-        .not_cancelled()
         .unwrap();
 
     assert!(poll!(&mut promise_before).is_pending());
 
     assert!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
@@ -327,7 +317,6 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 
     let promise_after = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
 
     assert!(
@@ -356,7 +345,6 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
 
     let mut promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
-        .not_cancelled()
         .unwrap();
 
     assert!(poll!(&mut promise).is_pending());
@@ -375,7 +363,6 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
 
     assert!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult {
                 sync_result: v_sync,
@@ -390,7 +377,6 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
     // other sync tasks no longer runs
     assert!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .sync_get_or_complete(|| panic!("should not run"))?
             .value()
@@ -422,16 +408,13 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
 
     let mut promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
 
     let mut promise2 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 2 }))
-        .not_cancelled()
         .unwrap();
     let mut promise3 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 3 }))
-        .not_cancelled()
         .unwrap();
 
     assert_eq!(
@@ -477,7 +460,6 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
 
     assert!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
@@ -533,12 +515,10 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let promise_before = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
-        .not_cancelled()
         .unwrap();
 
     assert!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
@@ -551,7 +531,6 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let promise_after = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
 
     assert!(
@@ -600,7 +579,6 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     let promise_before = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
-        .not_cancelled()
         .unwrap();
 
     let _g = sem.acquire().await.unwrap();
@@ -608,7 +586,6 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     // actually completes with `2` from the spawn
     assert!(
         task.depended_on_by(ParentKey::None)
-            .not_cancelled()
             .unwrap()
             .sync_get_or_complete(|| DiceSyncResult::testing(DiceComputedValue::new(
                 MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
@@ -621,7 +598,6 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 
     let promise_after = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
-        .not_cancelled()
         .unwrap();
 
     let polled = futures::poll!(promise_before);
@@ -680,7 +656,6 @@ async fn dropping_all_waiters_cancels_task() {
 
     let promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
-        .not_cancelled()
         .unwrap();
 
     assert!(task.is_pending());
@@ -688,7 +663,6 @@ async fn dropping_all_waiters_cancels_task() {
 
     let promise2 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
-        .not_cancelled()
         .unwrap();
 
     assert!(task.is_pending());
@@ -701,7 +675,6 @@ async fn dropping_all_waiters_cancels_task() {
 
     let promise3 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
-        .not_cancelled()
         .unwrap();
 
     drop(promise2);

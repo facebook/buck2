@@ -933,8 +933,7 @@ pub(crate) mod testing {
             };
             let _r = task
                 .depended_on_by(ParentKey::None)
-                .not_cancelled()
-                .expect("just created")
+                .unwrap()
                 .sync_get_or_complete(|| DiceSyncResult::testing(v));
 
             match self.cache.get(k) {

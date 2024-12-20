@@ -272,11 +272,7 @@ mod tests {
             .boxed()
         });
 
-        task.depended_on_by(ParentKey::None)
-            .not_cancelled()
-            .unwrap()
-            .await
-            .unwrap();
+        task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
 
         task
     }
