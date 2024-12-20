@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-import React, {useEffect, useRef, useState} from 'react'
+import React, {useRef, useState} from 'react'
 import ForceGraph2D, {LinkObject, NodeObject, ForceGraphProps} from 'react-force-graph-2d'
 
 export function GraphViz2(props: {

@@ -10,7 +10,6 @@
 import {Index} from 'flexsearch-ts'
 import {Build, ConfiguredTargetNode} from './fbs/explain'
 import {Node} from './App'
-import {formatTargetLabel} from './formatTargetLabel'
 
 export let indexCache: Index | null = null
 

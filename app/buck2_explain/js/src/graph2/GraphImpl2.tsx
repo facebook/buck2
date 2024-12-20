@@ -9,8 +9,7 @@
 
 import React, {useRef, useState} from 'react'
 import {Build} from '../fbs/explain'
-import {RuleTypeDropdown} from './RuleTypeDropdown'
-import {Node} from './GraphView2'
+import {Node} from '../App'
 import {GraphViz2} from './GraphViz2'
 import {LinkObject, NodeObject} from 'react-force-graph-2d'
 import {formatTargetLabel} from '../formatTargetLabel'
@@ -138,7 +137,6 @@ export function GraphImpl2(props: {
   // Always set root node
   nodeMap.get(0)!.displayType = DisplayType.rootNode
 
-  let displayNodes: Map<number, DisplayNode> = new Map()
   let filteredNodes = new Map()
   for (const [k, node] of nodeMap) {
     if (showNode(node)) {

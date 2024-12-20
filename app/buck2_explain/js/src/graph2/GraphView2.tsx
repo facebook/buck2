@@ -11,15 +11,6 @@ import React, {useContext} from 'react'
 import {DataContext} from '../App'
 import {GraphImpl2} from './GraphImpl2'
 import {QueryKey} from '../Router'
-import {formatTargetLabel} from '../formatTargetLabel'
-
-export interface Node {
-  value: number
-  deps: number[]
-  rdeps: number[]
-}
-
-type CategoryOption = {category: string; count: number; checked: false}
 
 export function GraphView2(props: {view: QueryKey}) {
   const {build, allTargets, graph} = useContext(DataContext)
