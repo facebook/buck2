@@ -115,21 +115,6 @@ impl Allocative for DiceTaskInternalCritical {
     }
 }
 
-pub(crate) enum MaybeCancelled {
-    Ok(DicePromise),
-    Cancelled(CancellationReason),
-}
-
-impl MaybeCancelled {
-    #[cfg(test)]
-    pub(crate) fn unwrap(self) -> DicePromise {
-        match self {
-            MaybeCancelled::Ok(promise) => promise,
-            MaybeCancelled::Cancelled(..) => panic!("expected MaybeCancelled::Ok"),
-        }
-    }
-}
-
 /// Future when resolves when task is finished or cancelled and terminated.
 pub(crate) enum TerminationObserver {
     Done,
@@ -159,33 +144,25 @@ impl Future for TerminationObserver {
 impl DiceTask {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(&self, k: ParentKey) -> MaybeCancelled {
+    pub(crate) fn depended_on_by(&self, k: ParentKey) -> CancellableResult<DicePromise> {
         if let Some(result) = self.internal.read_value() {
-            match result {
-                Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
-                Err(err) => MaybeCancelled::Cancelled(err),
-            }
+            result.map(DicePromise::ready)
         } else {
             let mut critical = self.internal.critical.lock();
             if let Some(reason) = self.cancellations.is_cancelled(&critical) {
-                return MaybeCancelled::Cancelled(reason);
+                return Err(reason);
             }
             match &mut critical.dependants {
-                None => {
-                    match self
-                        .internal
-                        .read_value()
-                        .expect("invalid state where deps are taken before state is ready")
-                    {
-                        Ok(result) => MaybeCancelled::Ok(DicePromise::ready(result)),
-                        Err(reason) => MaybeCancelled::Cancelled(reason),
-                    }
-                }
+                None => self
+                    .internal
+                    .read_value()
+                    .expect("invalid state where deps are taken before state is ready")
+                    .map(DicePromise::ready),
                 Some(ref mut wakers) => {
                     let waker = Arc::new(AtomicWaker::new());
                     let id = wakers.insert((k, waker.dupe()));
 
-                    MaybeCancelled::Ok(DicePromise::pending(
+                    Ok(DicePromise::pending(
                         SlabId::Dependants(id),
                         self.internal.dupe(),
                         waker,

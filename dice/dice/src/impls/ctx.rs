@@ -51,7 +51,6 @@ use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValueModern;
-use crate::impls::task::dice::MaybeCancelled;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::sync_dice_task;
 use crate::impls::task::PreviouslyCancelledTask;
@@ -757,12 +756,11 @@ impl SharedLiveTransactionCtx {
             DiceTaskRef::Computed(result) => Ok(DicePromise::ready(result)),
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
-                    MaybeCancelled::Ok(promise) => {
+                    Ok(promise) => {
                         debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
-
                         Ok(promise)
                     }
-                    MaybeCancelled::Cancelled(_reason) => {
+                    Err(_reason) => {
                         debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
                         let eval = eval.dupe();
@@ -783,10 +781,7 @@ impl SharedLiveTransactionCtx {
                         });
 
                         // While we wouldn't have canceled the task, it could've already finished with a canceled result.
-                        match occupied.get().depended_on_by(parent_key) {
-                            MaybeCancelled::Ok(dice_promise) => Ok(dice_promise),
-                            MaybeCancelled::Cancelled(reason) => Err(reason),
-                        }
+                        occupied.get().depended_on_by(parent_key)
                     }
                 }
             }
@@ -801,13 +796,11 @@ impl SharedLiveTransactionCtx {
                     DiceTaskWorker::spawn(key, self.version_epoch, eval, cycles, events, None);
 
                 // While we wouldn't have canceled the task, it could've already finished with a canceled result.
-                match task.depended_on_by(parent_key) {
-                    MaybeCancelled::Ok(dice_promise) => {
-                        vacant.insert(task);
-                        Ok(dice_promise)
-                    }
-                    MaybeCancelled::Cancelled(reason) => Err(reason),
+                let result = task.depended_on_by(parent_key);
+                if result.is_ok() {
+                    vacant.insert(task);
                 }
+                result
             }
             DiceTaskRef::TransactionCancelled => Err(CancellationReason::TransactionCancelled),
         };
@@ -836,12 +829,12 @@ impl SharedLiveTransactionCtx {
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
-        let lookup = match self.cache.get(key) {
-            DiceTaskRef::Computed(value) => MaybeCancelled::Ok(DicePromise::ready(value)),
+        let result = match self.cache.get(key) {
+            DiceTaskRef::Computed(value) => DicePromise::ready(value),
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
-                    MaybeCancelled::Ok(promise) => MaybeCancelled::Ok(promise),
-                    MaybeCancelled::Cancelled(_reason) => {
+                    Ok(promise) => promise,
+                    Err(_reason) => {
                         let task = unsafe {
                             // SAFETY: task completed below by `IncrementalEngine::project_for_key`
                             sync_dice_task(key)
@@ -849,7 +842,7 @@ impl SharedLiveTransactionCtx {
 
                         *occupied.get_mut() = task;
 
-                        occupied.get().depended_on_by(parent_key)
+                        occupied.get().depended_on_by(parent_key)?
                     }
                 }
             }
@@ -859,7 +852,7 @@ impl SharedLiveTransactionCtx {
                     sync_dice_task(key)
                 };
 
-                vacant.insert(task).value().depended_on_by(parent_key)
+                vacant.insert(task).value().depended_on_by(parent_key)?
             }
             DiceTaskRef::TransactionCancelled => {
                 // for projection keys, these are cheap and synchronous computes that should never
@@ -869,20 +862,13 @@ impl SharedLiveTransactionCtx {
                     sync_dice_task(key)
                 };
 
-                task.depended_on_by(parent_key)
-            }
-        };
-
-        let promise = match lookup {
-            MaybeCancelled::Ok(dice_promise) => dice_promise,
-            MaybeCancelled::Cancelled(cancellation_reason) => {
-                return Err(cancellation_reason);
+                task.depended_on_by(parent_key)?
             }
         };
 
         project_for_key(
             state,
-            promise,
+            result,
             key,
             self.version,
             self.version_epoch,

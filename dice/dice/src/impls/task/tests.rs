@@ -34,7 +34,6 @@ use crate::api::key::Key;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
-use crate::impls::task::dice::MaybeCancelled;
 use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::spawn_dice_task;
 use crate::impls::task::sync_dice_task;
@@ -681,10 +680,10 @@ async fn dropping_all_waiters_cancels_task() {
     drop(promise3);
 
     match task.depended_on_by(ParentKey::None) {
-        MaybeCancelled::Ok(_) => {
+        Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled(_) => {}
+        Err(_) => {}
     }
 
     task.await_termination().await;
@@ -704,9 +703,9 @@ async fn task_that_already_cancelled_returns_cancelled() {
     task.await_termination().await;
 
     match task.depended_on_by(ParentKey::None) {
-        MaybeCancelled::Ok(_) => {
+        Ok(_) => {
             panic!("should be cancelled")
         }
-        MaybeCancelled::Cancelled(_) => {}
+        Err(_) => {}
     }
 }
