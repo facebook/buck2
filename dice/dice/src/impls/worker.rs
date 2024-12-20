@@ -41,6 +41,7 @@ use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::task::spawn_dice_task;
@@ -106,13 +107,12 @@ impl DiceTaskWorker {
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task
             let prevent_cancellation = handle.cancellation_ctx().enter_critical_section();
-            let state =
-                DiceWorkerStateAwaitingPrevious::new(k, cycles, handle, prevent_cancellation);
+            let state = DiceWorkerStateAwaitingPrevious::new(k, cycles, prevent_cancellation);
 
             async move {
                 let previous_result = match previously_cancelled_task {
-                    Some(v) => state.await_previous(v).await,
-                    None => Either::Right(state.no_previous_task().await),
+                    Some(v) => state.await_previous(handle, v).await,
+                    None => Either::Right(state.no_previous_task(handle).await),
                 };
 
                 match previous_result {
@@ -120,7 +120,7 @@ impl DiceTaskWorker {
                         // previous result actually finished
                     }
                     Either::Right(state) => {
-                        let _ignore = worker.do_work(state_handle, state).await;
+                        let _ignore = worker.do_work(handle, state_handle, state).await;
                     }
                 }
 
@@ -134,8 +134,9 @@ impl DiceTaskWorker {
     /// This is the primary flow of how a key is computed or re-computed.
     pub(crate) async fn do_work(
         &self,
+        handle: &mut DiceTaskHandle<'_>,
         state_handle: CoreStateHandle,
-        task_state: DiceWorkerStateLookupNode<'_, '_>,
+        task_state: DiceWorkerStateLookupNode,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         let v = self.eval.per_live_version_ctx.get_version();
 
@@ -146,7 +147,7 @@ impl DiceTaskWorker {
         // handle cancelled/cache hits before sending started events
         let deps_to_check = match state_result {
             VersionedGraphResult::Match(entry) => {
-                return task_state.lookup_matches(entry);
+                return task_state.lookup_matches(handle, entry);
             }
             VersionedGraphResult::CheckDeps(mismatch2) => Some(mismatch2),
             VersionedGraphResult::Compute => None,
@@ -165,7 +166,7 @@ impl DiceTaskWorker {
         let mismatch;
         let (task_state, deps_check_continuables) = match deps_to_check {
             Some(mismatch2) => {
-                let (task_state, cycles2) = task_state.checking_deps(&self.eval);
+                let (task_state, cycles2) = task_state.checking_deps(handle, &self.eval);
                 cycles = cycles2;
                 mismatch = mismatch2;
 
@@ -190,7 +191,7 @@ impl DiceTaskWorker {
                         let invalidation_paths =
                             check_deps_result.unwrap_no_change_invalidation_paths();
 
-                        let task_state = task_state.deps_match()?;
+                        let task_state = task_state.deps_match(handle)?;
 
                         let activation_info = self.activation_info(
                             mismatch.deps_to_validate.iter_keys(),
@@ -207,20 +208,20 @@ impl DiceTaskWorker {
                             )
                             .await;
 
-                        return response.map(|r| task_state.cached(r, activation_info));
+                        return response.map(|r| task_state.cached(handle, r, activation_info));
                     }
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
                         // implicit meaning to a node having no deps at this point, but it's unclear what that is.
-                        (task_state.deps_not_match(), None)
+                        (task_state.deps_not_match(handle), None)
                     }
                     CheckDependenciesResult::Changed { continuables } => {
-                        (task_state.deps_not_match(), Some(continuables))
+                        (task_state.deps_not_match(handle), Some(continuables))
                     }
                 }
             }
             None => {
-                let (task_state, cycles2) = task_state.lookup_dirtied(&self.eval);
+                let (task_state, cycles2) = task_state.lookup_dirtied(handle, &self.eval);
                 cycles = cycles2;
                 (task_state, None)
             }
@@ -230,7 +231,7 @@ impl DiceTaskWorker {
             state,
             activation_data,
             result,
-        } = self.compute(task_state, &cycles).await?;
+        } = self.compute(handle, task_state, &cycles).await?;
 
         // explicitly drop this here to make it clear that its important that we hold onto it, it
         // otherwise appears unused, but we don't want to cancel anything that it has started requesting
@@ -264,14 +265,15 @@ impl DiceTaskWorker {
             }
         };
 
-        res.map(|res| state.cached(res, activation_info))
+        res.map(|res| state.cached(handle, res, activation_info))
     }
 
-    async fn compute<'a, 'b>(
+    async fn compute(
         &self,
-        task_state: DiceWorkerStateEvaluating<'a, 'b>,
+        handle: &mut DiceTaskHandle<'_>,
+        task_state: DiceWorkerStateEvaluating,
         cycles: &KeyComputingUserCycleDetectorData,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
         self.event_dispatcher.compute_started(self.k);
         scopeguard::defer! {
             self.event_dispatcher.compute_finished(self.k);
@@ -280,7 +282,9 @@ impl DiceTaskWorker {
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
         debug!(msg = "running evaluator");
 
-        self.eval.evaluate(self.k, task_state, cycles.clone()).await
+        self.eval
+            .evaluate(handle, self.k, task_state, cycles.clone())
+            .await
     }
 
     fn activation_info<'a>(

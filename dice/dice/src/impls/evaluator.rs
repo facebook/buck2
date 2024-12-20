@@ -25,6 +25,7 @@ use crate::impls::dice::DiceModern;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
+use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::value::TrackedInvalidationPaths;
@@ -49,12 +50,13 @@ impl AsyncEvaluator {
         }
     }
 
-    pub(crate) async fn evaluate<'a, 'b>(
+    pub(crate) async fn evaluate(
         &self,
+        handle: &mut DiceTaskHandle<'_>,
         key: DiceKey,
-        state: DiceWorkerStateEvaluating<'a, 'b>,
+        state: DiceWorkerStateEvaluating,
         cycles: KeyComputingUserCycleDetectorData,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
+    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
         let key_erased = self.dice.key_index.get(key);
 
         match key_erased {
@@ -67,13 +69,14 @@ impl AsyncEvaluator {
                     )));
 
                 let value = key_dyn
-                    .compute(&mut new_ctx, &state.cancellation_ctx())
+                    .compute(&mut new_ctx, &handle.cancellation_ctx())
                     .await;
                 let (recorded_deps, evaluation_data, cycles) = match new_ctx.0 {
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),
                 };
 
                 state.finished(
+                    handle,
                     cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, recorded_deps.deps_validity),
@@ -103,6 +106,7 @@ impl AsyncEvaluator {
                 let value = proj.proj().compute(base.value(), &ctx);
 
                 state.finished(
+                    handle,
                     cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, base.value().validity()),
