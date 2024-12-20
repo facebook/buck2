@@ -121,7 +121,6 @@ cxx_python_extension = prelude_rule(
             "prefix_header": attrs.option(attrs.source(), default = None),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "type_stub": attrs.option(attrs.source(), default = None),
-            "version_universe": attrs.option(attrs.string(), default = None),
         }
     ),
 )
@@ -297,7 +296,6 @@ python_binary = prelude_rule(
             "repl_only_deps": attrs.list(attrs.dep(), default = []),
             "repl_main": attrs.option(attrs.string(), default = None),
             "prefer_stripped_native_objects": attrs.bool(default = False),
-            "version_universe": attrs.option(attrs.string(), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
         } |
         buck.allow_cache_upload_arg() |
@@ -366,7 +364,6 @@ python_library = prelude_rule(
             "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
-            "version_universe": attrs.option(attrs.string(), default = None),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
@@ -480,7 +477,6 @@ python_test = prelude_rule(
             "prefer_stripped_native_objects": attrs.bool(default = False),
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
-            "version_universe": attrs.option(attrs.string(), default = None),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "zip_safe": attrs.option(attrs.bool(), default = None),
