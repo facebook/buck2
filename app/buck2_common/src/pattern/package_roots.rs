@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_futures::drop::DropTogether;
-use buck2_futures::spawn::spawn_cancellable;
+use buck2_futures::spawn::spawn_dropcancel;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::channel::mpsc;
@@ -47,8 +47,7 @@ pub fn find_package_roots_stream<'a>(
     // We don't wait on the task finishing. The packages_rx we return will naturally end when the tx side is dropped.
     let ctx_data = ctx.per_transaction_data();
     let mut ctx = ctx.dupe();
-    // TODO(cjhopman): This should be spawn_dropcancel. D46503316 inadvertently caused this to stop being canceled.
-    let spawned = spawn_cancellable(
+    let spawned = spawn_dropcancel(
         |_cancellations| {
             async move {
                 // ignore because the errors will be sent back via the stream
