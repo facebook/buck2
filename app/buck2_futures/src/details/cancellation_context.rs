@@ -19,9 +19,9 @@ use crate::cancellation::CancellationObserver;
 use crate::cancellation::CancellationObserverInner;
 use crate::cancellation::CriticalSectionGuard;
 use crate::cancellation::DisableCancellationGuard;
-use crate::details::cancellable_future::context::ExecutionContextInner;
-use crate::details::cancellable_future::CancellationNotificationData;
-use crate::details::cancellable_future::CancellationNotificationFuture;
+use crate::details::shared_state::CancellationNotificationData;
+use crate::details::shared_state::CancellationNotificationFuture;
+use crate::details::shared_state::ExecutionContextInner;
 
 pub struct ExplicitCriticalSectionGuard<'a> {
     pub(crate) context: Option<&'a ExecutionContextInner>,

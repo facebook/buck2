@@ -19,12 +19,12 @@ use dupe::Dupe;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
 
-use crate::details::cancellable_future::context::ExecutionContextInner;
-use crate::details::cancellable_future::CancellationNotificationData;
-use crate::details::cancellable_future::CancellationNotificationFuture;
 use crate::details::cancellation_context::CancellationContextInner;
 use crate::details::cancellation_context::ExplicitCancellationContext;
 use crate::details::cancellation_context::ExplicitCriticalSectionGuard;
+use crate::details::shared_state::CancellationNotificationData;
+use crate::details::shared_state::CancellationNotificationFuture;
+use crate::details::shared_state::ExecutionContextInner;
 use crate::details::shared_state::SharedState;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
