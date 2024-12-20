@@ -10,8 +10,7 @@
 use std::any::Any;
 
 use buck2_futures::owning_future::OwningFuture;
-use buck2_futures::spawn::spawn_cancellable;
-use buck2_futures::spawn::FutureAndCancellationHandle;
+use buck2_futures::spawn::spawn_dropcancel;
 use buck2_futures::spawner::Spawner;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -39,11 +38,9 @@ pub(crate) fn spawn_dice_task<S>(
 ) -> DiceTask {
     let internal = DiceTaskInternal::new(key);
 
-    // since the spawn is alive until cancelled via the handle, we can drop the spawn future itself
-    let FutureAndCancellationHandle {
-        cancellation_handle,
-        ..
-    } = spawn_cancellable(
+    // detach the task, we'll cancel it explicitly if we want it canceled.
+    // we don't observe the result via the future so we can just drop that.
+    let (_fut, cancellation_handle) = spawn_dropcancel(
         {
             let internal = internal.dupe();
             |cancellations| {
@@ -54,7 +51,8 @@ pub(crate) fn spawn_dice_task<S>(
         },
         spawner,
         ctx,
-    );
+    )
+    .detach();
 
     DiceTask {
         internal,

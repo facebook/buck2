@@ -198,7 +198,6 @@ use allocative::Allocative;
 pub use buck2_futures::cancellation::future::CancellationHandle; // expose cancellation handle as api
 pub use buck2_futures::cancellation::CancellationContext; // expose cancellation context as api
 pub use buck2_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
-pub use buck2_futures::spawn::FutureAndCancellationHandle;
 pub use buck2_futures::spawn::WeakFutureError; // expose future errors as api
 pub(crate) type HashMap<K, V> = std::collections::HashMap<K, V, fxhash::FxBuildHasher>;
 pub(crate) type HashSet<K> = std::collections::HashSet<K, fxhash::FxBuildHasher>;
