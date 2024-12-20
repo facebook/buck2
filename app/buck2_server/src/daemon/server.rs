@@ -56,7 +56,7 @@ use buck2_events::Event;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
-use buck2_futures::cancellation::ExplicitCancellationContext;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_dropcancel;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
@@ -657,7 +657,7 @@ fn pump_events(
 #[allow(clippy::mut_mut)] // select! does this internally
 fn streaming<
     Req: Send + Sync + 'static,
-    F: for<'a> FnOnce(Req, &'a ExplicitCancellationContext) -> BoxFuture<'a, ()>,
+    F: for<'a> FnOnce(Req, &'a CancellationContext) -> BoxFuture<'a, ()>,
 >(
     req: Request<Req>,
     events: ChannelEventSource,

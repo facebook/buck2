@@ -311,7 +311,7 @@ impl AnonTargetKey {
     fn run_analysis<'a>(
         &'a self,
         dice: &'a mut DiceComputations<'_>,
-        cancellation: &'a CancellationContext<'_>,
+        cancellation: &'a CancellationContext,
     ) -> BoxFuture<'a, buck2_error::Result<AnalysisResult>> {
         let fut = async move { self.run_analysis_impl(dice, cancellation).await };
         Box::pin(unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) })
@@ -320,7 +320,7 @@ impl AnonTargetKey {
     async fn run_analysis_impl(
         &self,
         dice: &mut DiceComputations<'_>,
-        cancellation: &CancellationContext<'_>,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;

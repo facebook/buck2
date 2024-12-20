@@ -33,7 +33,7 @@ use buck2_data::NoActiveDiceState;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_futures::cancellation::ExplicitCancellationContext;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::Display;
@@ -339,7 +339,7 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
         exclusive_cmd: Option<String>,
         exit_when_different_state: bool,
-        cancellations: &ExplicitCancellationContext,
+        cancellations: &CancellationContext,
         preemptible: PreemptibleWhen,
     ) -> buck2_error::Result<R>
     where
@@ -816,7 +816,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
         let fut2 = concurrency.enter(
@@ -832,7 +832,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
         let fut3 = concurrency.enter(
@@ -848,7 +848,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
 
@@ -882,7 +882,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
 
@@ -899,7 +899,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
 
@@ -936,7 +936,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
         let fut2 = concurrency.enter(
@@ -952,7 +952,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
         let fut3 = concurrency.enter(
@@ -968,7 +968,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
 
@@ -1017,7 +1017,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1042,7 +1042,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1069,7 +1069,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1134,7 +1134,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1159,7 +1159,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1186,7 +1186,7 @@ mod tests {
                         Vec::new(),
                         None,
                         true,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1256,7 +1256,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Always,
                     )
                     .await
@@ -1281,7 +1281,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1308,7 +1308,7 @@ mod tests {
                         Vec::new(),
                         None,
                         false,
-                        ExplicitCancellationContext::testing(),
+                        CancellationContext::testing(),
                         PreemptibleWhen::Never,
                     )
                     .await
@@ -1411,7 +1411,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
-                ExplicitCancellationContext::testing(),
+                CancellationContext::testing(),
                 PreemptibleWhen::Never,
             )
             .await?;
@@ -1430,7 +1430,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
-                ExplicitCancellationContext::testing(),
+                CancellationContext::testing(),
                 PreemptibleWhen::Never,
             )
             .await?;
@@ -1448,7 +1448,7 @@ mod tests {
                 Vec::new(),
                 None,
                 false,
-                ExplicitCancellationContext::testing(),
+                CancellationContext::testing(),
                 PreemptibleWhen::Never,
             )
             .await?;
@@ -1556,7 +1556,7 @@ mod tests {
                             Vec::new(),
                             exclusive_cmd,
                             false,
-                            ExplicitCancellationContext::testing(),
+                            CancellationContext::testing(),
                             PreemptibleWhen::Never,
                         )
                         .await
@@ -1631,7 +1631,7 @@ mod tests {
                     Vec::new(),
                     None,
                     false,
-                    ExplicitCancellationContext::testing(),
+                    CancellationContext::testing(),
                     PreemptibleWhen::Never,
                 )
                 .await
@@ -1688,7 +1688,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
         pin_mut!(fut1);
@@ -1709,7 +1709,7 @@ mod tests {
             Vec::new(),
             None,
             false,
-            ExplicitCancellationContext::testing(),
+            CancellationContext::testing(),
             PreemptibleWhen::Never,
         );
         pin_mut!(fut2);

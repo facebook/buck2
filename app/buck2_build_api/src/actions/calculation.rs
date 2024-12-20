@@ -73,7 +73,7 @@ pub struct ActionCalculation;
 
 async fn build_action_impl(
     ctx: &mut DiceComputations<'_>,
-    cancellation: &CancellationContext<'_>,
+    cancellation: &CancellationContext,
     key: &ActionKey,
 ) -> buck2_error::Result<ActionOutputs> {
     // Compute is only called if we have cache miss
@@ -97,7 +97,7 @@ async fn build_action_impl(
 
 async fn build_action_no_redirect(
     ctx: &mut DiceComputations<'_>,
-    cancellation: &CancellationContext<'_>,
+    cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
 ) -> buck2_error::Result<ActionOutputs> {
     let materialized_inputs = {
@@ -185,7 +185,7 @@ async fn build_action_no_redirect(
 
 async fn build_action_inner(
     ctx: &mut DiceComputations<'_>,
-    cancellation: &CancellationContext<'_>,
+    cancellation: &CancellationContext,
     executor: &BuckActionExecutor,
     materialized_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     action: &Arc<RegisteredAction>,

@@ -83,7 +83,7 @@ use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_file_watcher::mergebase::SetMergebase;
-use buck2_futures::cancellation::ExplicitCancellationContext;
+use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -220,7 +220,7 @@ pub struct ServerCommandContext<'a> {
     /// Sanitized argument vector from the CLI from the client side.
     pub(crate) sanitized_argv: Vec<String>,
 
-    cancellations: &'a ExplicitCancellationContext,
+    cancellations: &'a CancellationContext,
 
     exit_when_different_state: bool,
     preemptible: PreemptibleWhen,
@@ -235,7 +235,7 @@ impl<'a> ServerCommandContext<'a> {
         paths: &InvocationPaths,
         cert_state: CertState,
         snapshot_collector: SnapshotCollector,
-        cancellations: &'a ExplicitCancellationContext,
+        cancellations: &'a CancellationContext,
     ) -> buck2_error::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
@@ -1050,7 +1050,7 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
             })
     }
 
-    fn cancellation_context(&self) -> &ExplicitCancellationContext {
+    fn cancellation_context(&self) -> &CancellationContext {
         self.cancellations
     }
 }

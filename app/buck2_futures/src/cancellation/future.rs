@@ -29,7 +29,7 @@ use parking_lot::Mutex;
 use pin_project::pin_project;
 use slab::Slab;
 
-use crate::cancellation::ExplicitCancellationContext;
+use crate::cancellation::CancellationContext;
 use crate::details::shared_state::SharedState;
 use crate::drop_on_ready::DropOnReadyFuture;
 use crate::owning_future::OwningFuture;
@@ -38,14 +38,12 @@ pub(crate) fn make_cancellable_future<F, T>(
     f: F,
 ) -> (ExplicitlyCancellableFuture<T>, CancellationHandle)
 where
-    F: for<'a> FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
+    F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
 {
     let (outer_context, inner_context) = ExecutionContextOuter::new();
 
     let fut = {
-        let cancel = ExplicitCancellationContext {
-            inner: inner_context,
-        };
+        let cancel = CancellationContext::new_explicit(inner_context);
 
         OwningFuture::new(cancel, |d| f(d))
     };
@@ -81,12 +79,12 @@ struct ExplicitlyCancellableFutureInner<T> {
     /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
     started: bool,
 
-    future: Pin<Box<OwningFuture<T, ExplicitCancellationContext>>>,
+    future: Pin<Box<OwningFuture<T, CancellationContext>>>,
 }
 
 impl<T> ExplicitlyCancellableFuture<T> {
     fn new(
-        future: Pin<Box<OwningFuture<T, ExplicitCancellationContext>>>,
+        future: Pin<Box<OwningFuture<T, CancellationContext>>>,
         shared: SharedState,
         execution: ExecutionContextOuter,
     ) -> Self {
@@ -357,10 +355,6 @@ pub(crate) mod context {
         pub(crate) fn exit_prevent_cancellation(&self) -> bool {
             let mut shared = self.shared.lock();
             shared.exit_prevent_cancellation()
-        }
-
-        pub(crate) fn testing() -> ExecutionContextInner {
-            ExecutionContextOuter::new().1
         }
     }
 }

@@ -67,7 +67,7 @@ impl AsyncEvaluator {
                     )));
 
                 let value = key_dyn
-                    .compute(&mut new_ctx, &state.cancellation_ctx().into_compatible())
+                    .compute(&mut new_ctx, &state.cancellation_ctx())
                     .await;
                 let (recorded_deps, evaluation_data, cycles) = match new_ctx.0 {
                     DiceComputationsImpl::Modern(new_ctx) => new_ctx.finalize(),

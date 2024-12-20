@@ -79,7 +79,7 @@ pub async fn download_action_results<'a>(
     details: RemoteCommandExecutionDetails,
     response: &dyn RemoteActionResult,
     paranoid: Option<&ParanoidDownloader>,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
     action_exit_code: i32,
     artifact_fs: &ArtifactFs,
     materialize_failed_re_action_inputs: bool,
@@ -199,7 +199,7 @@ impl CasDownloader<'_> {
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
         details: &RemoteCommandExecutionDetails,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> ControlFlow<
         DownloadResult,
         (
@@ -377,7 +377,7 @@ impl CasDownloader<'_> {
         &self,
         artifacts: ExtractedArtifacts,
         info: CasDownloadInfo,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> buck2_error::Result<IndexMap<CommandExecutionOutput, ArtifactValue>> {
         // Declare the outputs to the materializer
         self.materializer

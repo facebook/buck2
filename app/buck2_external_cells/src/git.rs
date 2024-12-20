@@ -131,7 +131,7 @@ async fn download_impl(
     setup: &GitCellSetup,
     path: &ProjectRelativePath,
     materializer: &dyn Materializer,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
     let io = ctx.get_blocking_executor();
     io.execute_io(
@@ -191,7 +191,7 @@ async fn download_and_materialize(
     ctx: &mut DiceComputations<'_>,
     path: &ProjectRelativePath,
     setup: &GitCellSetup,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
     let materializer = ctx.per_transaction_data().get_materializer();
 

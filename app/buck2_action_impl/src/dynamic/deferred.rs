@@ -296,7 +296,7 @@ async fn execute_lambda(
 
 pub(crate) async fn prepare_and_execute_lambda(
     ctx: &mut DiceComputations<'_>,
-    cancellation: &CancellationContext<'_>,
+    cancellation: &CancellationContext,
     lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_holder_key: DynamicLambdaResultsKey,
 ) -> buck2_error::Result<RecordedAnalysisValues> {

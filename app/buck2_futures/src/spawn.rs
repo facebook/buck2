@@ -24,7 +24,7 @@ use thiserror::Error;
 use crate::cancellation::future::make_cancellable_future;
 use crate::cancellation::future::CancellationHandle;
 use crate::cancellation::future::DropcancelHandle;
-use crate::cancellation::ExplicitCancellationContext;
+use crate::cancellation::CancellationContext;
 use crate::spawner::Spawner;
 
 #[derive(Debug, Error, Copy, Clone, PartialEq)]
@@ -38,13 +38,13 @@ pub enum WeakFutureError {
 
 /// Spawn a future and return a DropcancelJoinHandle. The future will begin execution even before
 /// the handle is polled. The future will be able to observe and control its cancellation with the
-/// provided ExplicitCancellationContext.
+/// provided CancellationContext.
 ///
 /// When the handle is dropped, the task will be cancelled. The task can be detached by calling
 /// [DropcancelJoinHandle::detach].
 pub fn spawn_dropcancel<F, T, S>(f: F, spawner: &dyn Spawner<S>, ctx: &S) -> DropcancelJoinHandle<T>
 where
-    for<'a> F: FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
+    for<'a> F: FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
     T: Any + Send + 'static,
 {
     let (future, cancellation_handle) = make_cancellable_future(f);

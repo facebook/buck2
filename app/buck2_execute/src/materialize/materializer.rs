@@ -329,7 +329,7 @@ impl dyn Materializer {
         path: ProjectRelativePathBuf,
         value: ArtifactValue,
         srcs: Vec<CopiedArtifact>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         self.check_declared_external_symlink(&value)?;
         self.declare_copy_impl(path, value, srcs, cancellations)
@@ -342,7 +342,7 @@ impl dyn Materializer {
         &self,
         info: Arc<CasDownloadInfo>,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> buck2_error::Result<()> {
         for (_, value) in artifacts.iter() {
             self.check_declared_external_symlink(value)?;

@@ -72,7 +72,7 @@ where
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         let local_manager =
             CommandExecutionManager::new(claim_manager, events, liveliness_observer);
@@ -87,7 +87,7 @@ where
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
         intend_to_fallback_on_failure: bool,
     ) -> CommandExecutionResult {
         let remote_manager =

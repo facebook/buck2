@@ -73,7 +73,7 @@ impl ParanoidDownloader {
         manager: CommandExecutionManager,
         info: CasDownloadInfo,
         artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManagerWithClaim> {
         let inner = self.inner.dupe();
 

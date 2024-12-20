@@ -9,7 +9,7 @@
 
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
-use buck2_futures::cancellation::ExplicitCancellationContext;
+use buck2_futures::cancellation::CancellationContext;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
 
@@ -21,7 +21,7 @@ use crate::impls::value::DiceComputedValue;
 /// the task.
 pub(crate) struct DiceTaskHandle<'a> {
     pub(super) internal: Arc<DiceTaskInternal>,
-    pub(super) cancellations: &'a ExplicitCancellationContext,
+    pub(super) cancellations: &'a CancellationContext,
     completion_handle: TaskCompletionHandle,
 }
 
@@ -44,7 +44,7 @@ pub(crate) enum TaskState {
 impl<'a> DiceTaskHandle<'a> {
     pub(super) fn new(
         internal: Arc<DiceTaskInternal>,
-        cancellations: &'a ExplicitCancellationContext,
+        cancellations: &'a CancellationContext,
     ) -> Self {
         Self {
             internal: internal.dupe(),
@@ -72,7 +72,7 @@ impl<'a> DiceTaskHandle<'a> {
         self.completion_handle.finished(value)
     }
 
-    pub(crate) fn cancellation_ctx(&self) -> &'a ExplicitCancellationContext {
+    pub(crate) fn cancellation_ctx(&self) -> &'a CancellationContext {
         self.cancellations
     }
 }

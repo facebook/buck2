@@ -327,7 +327,7 @@ struct BuckActionExecutionContext<'a> {
     inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     outputs: &'a [BuildArtifact],
     command_reports: &'a mut Vec<CommandExecutionReport>,
-    cancellations: &'a CancellationContext<'a>,
+    cancellations: &'a CancellationContext,
 }
 
 #[async_trait]
@@ -577,7 +577,7 @@ impl BuckActionExecutor {
         &self,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> (
         Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,

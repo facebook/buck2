@@ -78,7 +78,7 @@ async fn query_action_cache_and_download_result(
     action_digest: &ActionDigest,
     command: &PreparedCommand<'_, '_>,
     manager: CommandExecutionManager,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
     upload_all_actions: bool,
     log_action_keys: bool,
     details: RemoteCommandExecutionDetails,

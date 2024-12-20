@@ -32,10 +32,10 @@ static NEVER_CANCELLED: Lazy<CancellationContext> =
 
 /// Context available to the function running inside the future to control and manage it's own
 /// cancellation
-pub struct CancellationContext<'a>(CancellationContextInner<'a>);
+pub struct CancellationContext(CancellationContextInner);
 
-impl<'a> CancellationContext<'a> {
-    pub fn testing() -> &'a Self {
+impl CancellationContext {
+    pub fn testing() -> &'static Self {
         &NEVER_CANCELLED
     }
 
@@ -54,7 +54,7 @@ impl<'a> CancellationContext<'a> {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub fn critical_section<F, Fut>(
+    pub fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -70,7 +70,7 @@ impl<'a> CancellationContext<'a> {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub fn with_structured_cancellation<F, Fut>(
+    pub fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -86,11 +86,12 @@ impl<'a> CancellationContext<'a> {
         self.begin_ignore_cancellation()
             .keep_going_on_cancellations_if_not_cancelled()
     }
-}
 
-/// Context available to only explicitly cancellable futures to manage their own cancellation
-pub struct ExplicitCancellationContext {
-    inner: ExecutionContextInner,
+    fn new_explicit(inner: ExecutionContextInner) -> CancellationContext {
+        Self(CancellationContextInner::Explicit(
+            ExplicitCancellationContext { inner },
+        ))
+    }
 }
 
 /// When held, prevents cancellation of the current explicitly cancellable future.
@@ -223,6 +224,10 @@ impl<'a> Drop for ExplicitCriticalSectionGuard<'a> {
     }
 }
 
+struct ExplicitCancellationContext {
+    inner: ExecutionContextInner,
+}
+
 impl ExplicitCancellationContext {
     /// Ignore cancellations while 'PreventCancellation' is held
     pub fn begin_ignore_cancellation(&self) -> CriticalSectionGuard {
@@ -273,42 +278,23 @@ impl ExplicitCancellationContext {
             r
         }
     }
-
-    /// Tries to ignore the cancellation for this future from here on
-    pub fn try_to_keep_going_on_cancellation(&self) -> Option<DisableCancellationGuard> {
-        self.begin_ignore_cancellation()
-            .keep_going_on_cancellations_if_not_cancelled()
-    }
-
-    pub fn into_compatible(&self) -> CancellationContext {
-        CancellationContext(CancellationContextInner::Explicit(self))
-    }
-
-    pub fn testing<'a>() -> &'a Self {
-        static INSTANCE: Lazy<ExplicitCancellationContext> =
-            Lazy::new(|| ExplicitCancellationContext {
-                inner: ExecutionContextInner::testing(),
-            });
-
-        &INSTANCE
-    }
 }
 
-enum CancellationContextInner<'a> {
+enum CancellationContextInner {
     /// A context where the outer future will not be dropped (for example, because it is known to be the outermost
     /// future in a spawn call).
     NeverCancelled,
     /// The cancellation context passed explicitly
-    Explicit(&'a ExplicitCancellationContext),
+    Explicit(ExplicitCancellationContext),
 }
 
-impl<'a> CancellationContextInner<'a> {
+impl CancellationContextInner {
     /// Enter a critical section during which the current future (if supports explicit cancellation)
     /// should not be dropped. If the future was not cancelled before entering the critical section,
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub fn critical_section<F, Fut>(
+    pub fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -327,7 +313,7 @@ impl<'a> CancellationContextInner<'a> {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub fn with_structured_cancellation<F, Fut>(
+    pub fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a

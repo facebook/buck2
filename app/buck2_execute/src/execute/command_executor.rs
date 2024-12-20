@@ -121,7 +121,7 @@ impl CommandExecutor {
         &self,
         manager: CommandExecutionManager,
         prepared_command: &PreparedCommand<'_, '_>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
         self.0
             .cache_checker
@@ -158,7 +158,7 @@ impl CommandExecutor {
         &self,
         manager: CommandExecutionManager,
         prepared_command: &PreparedCommand<'_, '_>,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
         self.0
             .inner

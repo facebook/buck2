@@ -176,7 +176,7 @@ pub struct BuckTestOrchestrator<'a: 'static> {
     results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
     events: EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserver>,
-    cancellations: &'a CancellationContext<'a>,
+    cancellations: &'a CancellationContext,
 }
 
 impl<'a> BuckTestOrchestrator<'a> {
@@ -185,7 +185,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         session: Arc<TestSession>,
         liveliness_observer: Arc<dyn LivelinessObserver>,
         results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
-        cancellations: &'a CancellationContext<'a>,
+        cancellations: &'a CancellationContext,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         Ok(Self::from_parts(
@@ -354,7 +354,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         dice: &mut DiceComputations<'_>,
         key: TestExecutionKey,
         liveliness_observer: Arc<dyn LivelinessObserver>,
-        cancellation: &CancellationContext<'_>,
+        cancellation: &CancellationContext,
     ) -> Result<ExecuteData, ExecuteError> {
         let TestExecutionKey {
             test_target,
@@ -546,7 +546,7 @@ impl Key for TestExecutionKey {
 
 async fn prepare_and_execute(
     ctx: &mut DiceComputations<'static>,
-    cancellation: &CancellationContext<'_>,
+    cancellation: &CancellationContext,
     key: TestExecutionKey,
     liveliness_observer: Arc<dyn LivelinessObserver>,
 ) -> Result<ExecuteData, ExecuteError> {
@@ -902,7 +902,7 @@ impl<'b> BuckTestOrchestrator<'b> {
     /// Core request execution logic.
     async fn execute_request(
         dice: &mut DiceComputations<'_>,
-        cancellation: &CancellationContext<'_>,
+        cancellation: &CancellationContext,
         test_target_label: &ConfiguredProvidersLabel,
         stage: &TestStage,
         executor: &CommandExecutor,
@@ -1390,7 +1390,7 @@ impl<'b> BuckTestOrchestrator<'b> {
 
     async fn setup_local_resources(
         dice: &mut DiceComputations<'_>,
-        cancellation: &CancellationContext<'_>,
+        cancellation: &CancellationContext,
         setup_contexts: Vec<LocalResourceSetupContext>,
         executor: CommandExecutor,
         default_timeout: Duration,
@@ -1498,7 +1498,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         digest_config: DigestConfig,
         executor: CommandExecutor,
         context: PreparedLocalResourceSetupContext,
-        cancellation: &CancellationContext<'_>,
+        cancellation: &CancellationContext,
     ) -> buck2_error::Result<LocalResourceState> {
         let manager = CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),

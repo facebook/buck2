@@ -217,7 +217,7 @@ mod state_machine {
             write: Arc<WriteFile>,
             version: Version,
             command_sender: Arc<MaterializerSender<Self>>,
-            _cancellations: &'a CancellationContext<'a>,
+            _cancellations: &'a CancellationContext,
         ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
             self.actually_write(&path, &write);
             async move {

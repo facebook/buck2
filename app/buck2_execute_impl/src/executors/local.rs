@@ -215,7 +215,7 @@ impl LocalExecutor {
         request: &CommandExecutionRequest,
         manager: CommandExecutionManager,
         cancellation: CancellationObserver,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
         digest_config: DigestConfig,
         local_resource_holders: &[LocalResourceHolder],
     ) -> CommandExecutionResult {
@@ -982,7 +982,7 @@ pub async fn create_output_dirs(
     request: &CommandExecutionRequest,
     materializer: Arc<dyn Materializer>,
     blocking_executor: Arc<dyn BlockingExecutor>,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
     let outputs: Vec<_> = request
         .outputs()

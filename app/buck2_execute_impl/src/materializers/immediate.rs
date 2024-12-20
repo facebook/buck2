@@ -287,7 +287,7 @@ pub async fn cas_download<'a, 'b>(
     re: &ReConnectionManager,
     info: &CasDownloadInfo,
     artifacts: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-    cancellations: &CancellationContext<'_>,
+    cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
     io.execute_io(
         Box::new(CleanOutputPaths {

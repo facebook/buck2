@@ -101,7 +101,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         write: Arc<WriteFile>,
         version: Version,
         command_sender: Arc<MaterializerSender<Self>>,
-        cancellations: &'a CancellationContext<'a>,
+        cancellations: &'a CancellationContext,
     ) -> BoxFuture<'a, Result<(), SharedMaterializingError>>;
 
     async fn immediate_write<'a>(
@@ -171,7 +171,7 @@ impl DefaultIoHandler {
         method: Arc<ArtifactMaterializationMethod>,
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         stat: &mut MaterializationStat,
-        cancellations: &CancellationContext<'_>,
+        cancellations: &CancellationContext,
     ) -> Result<(), MaterializeEntryError> {
         // Materialize the dir structure, and symlinks
         self.io_executor

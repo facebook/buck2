@@ -415,7 +415,7 @@ fn create_clean_fut<T: IoHandler>(
 async fn clean_artifact<T: IoHandler>(
     path: ProjectRelativePathBuf,
     size: u64,
-    cancellations: &'static CancellationContext<'_>,
+    cancellations: &'static CancellationContext,
     io: &Arc<T>,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 ) -> buck2_error::Result<Option<u64>> {
