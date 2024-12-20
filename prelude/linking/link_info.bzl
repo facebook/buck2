@@ -24,7 +24,6 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:utils.bzl", "flatten")
 
 ExtraLinkerOutputs = record(
     # The unbound extra outputs produced by a link action
@@ -678,40 +677,6 @@ def unpack_link_args_metadata(args: LinkArgs) -> ArgLike:
     if args.infos != None:
         return cmd_args([link_info_to_metadata_args(info) for info in args.infos])
     return cmd_args()
-
-def dedupe_dep_metadata(metadatas: list[DepMetadata]) -> list[DepMetadata]:
-    versions = set([m.version for m in metadatas])
-    return [DepMetadata(version = v) for v in versions]
-
-def traverse_link_args_metadata(args: LinkArgs) -> list[DepMetadata]:
-    """
-    Sometimes we can't use tset projections - e.g. if we don't want to project
-    as args, but instead want the actual list of DepMetadata. This function
-    does the equivalent of a dedupe(flatten(...)) for DepMetadata from a LinkArgs.
-    """
-    if args.tset != None:
-        return dedupe_dep_metadata(
-            flatten([get_link_info(infos).metadata for infos in args.tset.infos.traverse()]),
-        )
-    if args.infos != None:
-        return dedupe_dep_metadata(
-            flatten([info.metadata for info in args.infos]),
-        )
-    return []
-
-def truncate_dep_metadata(metadatas: list[DepMetadata]) -> list[DepMetadata]:
-    """
-    It's entirely possible we have way too much link metadata to put into buildinfo;
-    let's truncate based on the first 512 bytes (counting strings).
-    """
-    max_size = 512
-    size = 0
-    for i, metadata in enumerate(metadatas):
-        if size > max_size:
-            return metadatas[:i]
-        size += len(metadata.version)
-
-    return metadatas
 
 def link_args_metadata_with_flag(args: LinkArgs, link_metadata_flag: str | None = None) -> cmd_args:
     cmd = cmd_args()
