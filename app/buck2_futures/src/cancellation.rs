@@ -44,6 +44,11 @@ impl<'a> CancellationContext<'a> {
         &NEVER_CANCELLED
     }
 
+    /// Ignore cancellations while 'CriticalSectionGuard' is held
+    pub fn begin_ignore_cancellation(&self) -> CriticalSectionGuard {
+        self.0.begin_ignore_cancellation()
+    }
+
     /// Enter a critical section during which the current future (if supports explicit cancellation)
     /// should not be dropped. If the future was not cancelled before entering the critical section,
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
@@ -75,6 +80,12 @@ impl<'a> CancellationContext<'a> {
     {
         self.0.with_structured_cancellation(make)
     }
+
+    /// Tries to ignore the cancellation for this future from here on
+    pub fn try_to_keep_going_on_cancellation(&self) -> Option<DisableCancellationGuard> {
+        self.begin_ignore_cancellation()
+            .keep_going_on_cancellations_if_not_cancelled()
+    }
 }
 
 /// Context available to only explicitly cancellable futures to manage their own cancellation
@@ -86,27 +97,66 @@ pub struct ExplicitCancellationContext {
 /// When no longer held (unless drop or cancellations are disabled was not ran), cancellations will be allowed.
 /// `disable_cancellations`ing this will leak the guard, causing cancellations to be disabled forever, regardless
 /// of whether or not the task is already cancelled.
-pub struct CriticalSectionGuard<'a> {
+pub enum CriticalSectionGuard<'a> {
+    NeverCancelled,
+    Explicit(ExplicitCriticalSectionGuard<'a>),
+}
+
+impl<'a> CriticalSectionGuard<'a> {
+    pub fn cancellation_observer(&self) -> CancellationObserver {
+        match self {
+            CriticalSectionGuard::NeverCancelled => {
+                CancellationObserver(CancellationObserverInner::NeverCancelled)
+            }
+            CriticalSectionGuard::Explicit(inner) => inner.cancellation_observer(),
+        }
+    }
+
+    /// Allow cancellations again, but unlike dropping it, also checks if we should be cancelled
+    /// right now, at this specific await point.
+    pub async fn allow_cancellations_again(self) {
+        match self {
+            CriticalSectionGuard::NeverCancelled => {
+                // nothing to do.
+            }
+            CriticalSectionGuard::Explicit(inner) => inner.allow_cancellations_again().await,
+        }
+    }
+
+    /// Ignores cancellations forever if we are not already cancelled. Otherwise, begin allowing
+    /// cancellations again
+    pub fn keep_going_on_cancellations_if_not_cancelled(self) -> Option<DisableCancellationGuard> {
+        match self {
+            CriticalSectionGuard::NeverCancelled => Some(DisableCancellationGuard),
+            CriticalSectionGuard::Explicit(inner) => {
+                inner.keep_going_on_cancellations_if_not_cancelled()
+            }
+        }
+    }
+
+    fn new_explicit(
+        context: &'a ExecutionContextInner,
+        notification: CancellationNotificationData,
+    ) -> Self {
+        Self::Explicit(ExplicitCriticalSectionGuard {
+            context: Some(context),
+            notification,
+        })
+    }
+}
+
+pub struct ExplicitCriticalSectionGuard<'a> {
     context: Option<&'a ExecutionContextInner>,
     notification: CancellationNotificationData,
 }
 
-impl<'a> CriticalSectionGuard<'a> {
-    fn new(context: &'a ExecutionContextInner, notification: CancellationNotificationData) -> Self {
-        Self {
-            context: Some(context),
-            notification,
-        }
-    }
-
+impl<'a> ExplicitCriticalSectionGuard<'a> {
     pub fn cancellation_observer(&self) -> CancellationObserver {
         CancellationObserver(CancellationObserverInner::Explicit(
             CancellationNotificationFuture::new(self.notification.dupe()),
         ))
     }
 
-    /// Allow cancellations again, but unlike dropping it, also checks if we should be cancelled
-    /// right now, at this specific await point.
     pub async fn allow_cancellations_again(self) {
         let context = self.take();
         if context.exit_prevent_cancellation() {
@@ -149,8 +199,6 @@ impl<'a> CriticalSectionGuard<'a> {
         }
     }
 
-    /// Ignores cancellations forever if we are not already cancelled. Otherwise, begin allowing
-    /// cancellations again
     pub fn keep_going_on_cancellations_if_not_cancelled(self) -> Option<DisableCancellationGuard> {
         let context = self.take();
         if context.try_to_disable_cancellation() {
@@ -165,7 +213,7 @@ impl<'a> CriticalSectionGuard<'a> {
     }
 }
 
-impl<'a> Drop for CriticalSectionGuard<'a> {
+impl<'a> Drop for ExplicitCriticalSectionGuard<'a> {
     fn drop(&mut self) {
         if let Some(context) = &self.context {
             // never actually exited during normal poll, but dropping this means we'll never poll
@@ -294,6 +342,13 @@ impl<'a> CancellationContextInner<'a> {
             CancellationContextInner::Explicit(context) => {
                 Either::Right(context.with_structured_cancellation(make))
             }
+        }
+    }
+
+    fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
+        match self {
+            CancellationContextInner::NeverCancelled => CriticalSectionGuard::NeverCancelled,
+            CancellationContextInner::Explicit(inner) => inner.begin_ignore_cancellation(),
         }
     }
 }

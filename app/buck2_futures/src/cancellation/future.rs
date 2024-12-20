@@ -340,7 +340,7 @@ pub(crate) mod context {
 
             let notification = shared.enter_structured_cancellation();
 
-            CriticalSectionGuard::new(self, notification)
+            CriticalSectionGuard::new_explicit(self, notification)
         }
 
         pub(crate) fn try_to_disable_cancellation(&self) -> bool {
