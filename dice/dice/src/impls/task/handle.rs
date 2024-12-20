@@ -10,6 +10,7 @@
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
 use buck2_futures::cancellation::CancellationContext;
+use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
 
@@ -22,14 +23,9 @@ use crate::impls::value::DiceComputedValue;
 pub(crate) struct DiceTaskHandle<'a> {
     pub(super) internal: Arc<DiceTaskInternal>,
     pub(super) cancellations: &'a CancellationContext,
-    completion_handle: TaskCompletionHandle,
-}
-
-pub(crate) struct TaskCompletionHandle {
-    internal: Arc<DiceTaskInternal>,
     // holds the result while `DiceTaskHandle` is not dropped, then upon drop, stores it into
-    // `DiceTaskInternal`. So the result is never held in two spots at the same time.
-    result: Option<DiceComputedValue>,
+    // `DiceTaskInternal` so that the result is always reported consistently at the very end of the task.
+    result: Option<CancellableResult<DiceComputedValue>>,
 }
 
 /// After reporting that we are about to transition to a state, should we continue processing or
@@ -49,10 +45,7 @@ impl<'a> DiceTaskHandle<'a> {
         Self {
             internal: internal.dupe(),
             cancellations,
-            completion_handle: TaskCompletionHandle {
-                internal,
-                result: None,
-            },
+            result: None,
         }
     }
 
@@ -68,37 +61,36 @@ impl<'a> DiceTaskHandle<'a> {
         self.internal.state.report_computing()
     }
 
-    pub(crate) fn finished(&mut self, value: DiceComputedValue) {
-        self.completion_handle.finished(value)
-    }
-
     pub(crate) fn cancellation_ctx(&self) -> &'a CancellationContext {
         self.cancellations
     }
-}
 
-impl TaskCompletionHandle {
     pub(crate) fn finished(&mut self, value: DiceComputedValue) {
-        let _ignore = self.result.insert(value);
-    }
-}
-
-impl Drop for TaskCompletionHandle {
-    fn drop(&mut self) {
-        if let Some(value) = self.result.take() {
-            // okay to ignore as it only errors on cancelled, in which case we don't care to set
-            // the result successfully.
-            debug!("{:?} finished. Notifying result", self.internal.key);
-            let _ignore = self.internal.set_value(value);
-        } else {
-            debug!("{:?} cancelled. Notifying cancellation", self.internal.key);
-
-            // This is only owned by the main worker task. If this was dropped, and no result was
-            // ever recorded, then we must have been terminated.
-            self.internal
-                .report_terminated(CancellationReason::NoResult)
-        }
+        self.result = Some(Ok(value));
     }
 }
 
 unsafe impl<'a> Send for DiceTaskHandle<'a> {}
+
+impl Drop for DiceTaskHandle<'_> {
+    fn drop(&mut self) {
+        match self.result.take() {
+            Some(Ok(v)) => {
+                debug!("{:?} finished. Notifying result", self.internal.key);
+                let _ignore = self.internal.set_value(v);
+            }
+            Some(Err(reason)) => {
+                debug!("{:?} cancelled. Notifying cancellation", self.internal.key);
+                self.internal.report_terminated(reason);
+            }
+            None => {
+                debug!(
+                    "{:?} dropped without result. Notifying cancellation",
+                    self.internal.key
+                );
+                self.internal
+                    .report_terminated(CancellationReason::HandleDropped);
+            }
+        }
+    }
+}

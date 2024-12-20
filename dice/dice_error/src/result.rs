@@ -20,7 +20,6 @@ pub type CancellableResult<T> = Result<T, CancellationReason>;
 #[display("{:?}", self)]
 pub enum CancellationReason {
     OutdatedEpoch,
-    NoResult,
     Rejected,
     DepsMatch,
     WorkerFinished,
@@ -31,4 +30,6 @@ pub enum CancellationReason {
     TransactionDropped,
     /// Used by test code that manually cancels things.
     ByTest,
+    /// Indicates the DiceTaskHandle was dropped without producing any result or (other) cancellation.
+    HandleDropped,
 }
