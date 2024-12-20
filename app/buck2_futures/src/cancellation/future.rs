@@ -14,6 +14,7 @@
 //! It is not intended to be polled directly.
 
 use std::future::Future;
+use std::mem::ManuallyDrop;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
@@ -178,6 +179,39 @@ impl CancellationHandle {
         if !self.shared_state.cancel() {
             unreachable!("We consume the CancellationHandle on cancel, so this isn't possible")
         }
+    }
+
+    pub fn into_dropcancel(self) -> DropcancelHandle {
+        DropcancelHandle::new(self.shared_state)
+    }
+}
+
+/// A handle that will cancel the associated ExplicitlyCancellableFuture when it is dropped.
+pub struct DropcancelHandle {
+    shared_state: ManuallyDrop<SharedState>,
+}
+
+impl DropcancelHandle {
+    fn new(shared_state: SharedState) -> Self {
+        Self {
+            shared_state: ManuallyDrop::new(shared_state),
+        }
+    }
+
+    pub fn into_cancellable(mut self) -> CancellationHandle {
+        let shared_state = unsafe { ManuallyDrop::take(&mut self.shared_state) };
+        std::mem::forget(self);
+
+        CancellationHandle { shared_state }
+    }
+}
+
+impl Drop for DropcancelHandle {
+    fn drop(&mut self) {
+        if !self.shared_state.cancel() {
+            unreachable!("We consume the handle on cancel, so this isn't possible")
+        }
+        unsafe { ManuallyDrop::drop(&mut self.shared_state) };
     }
 }
 

@@ -19,11 +19,11 @@ use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::FutureExt;
 use pin_project::pin_project;
-use pin_project::pinned_drop;
 use thiserror::Error;
 
 use crate::cancellation::future::make_cancellable_future;
 use crate::cancellation::future::CancellationHandle;
+use crate::cancellation::future::DropcancelHandle;
 use crate::cancellation::ExplicitCancellationContext;
 use crate::spawner::Spawner;
 
@@ -44,8 +44,8 @@ pub struct FutureAndCancellationHandle<T> {
 impl<T> FutureAndCancellationHandle<T> {
     pub fn into_drop_cancel(self) -> DropcancelJoinHandle<T> {
         DropcancelJoinHandle {
+            guard: self.cancellation_handle.into_dropcancel(),
             fut: self.future.0,
-            cancellation_handle: Some(self.cancellation_handle),
         }
     }
 }
@@ -112,37 +112,29 @@ impl<T> Future for CancellableJoinHandle<T> {
 /// This struct is created by `spawn_dropcancel` and related functions, and like
 /// [tokio::task::spawn] the task associated with this will have started immediately on spawn,
 /// even if this future has not been awaited.
-#[pin_project(PinnedDrop)]
+#[pin_project]
 pub struct DropcancelJoinHandle<T> {
+    guard: DropcancelHandle,
     #[pin]
     fut: BoxFuture<'static, Result<T, WeakFutureError>>,
-    cancellation_handle: Option<CancellationHandle>,
+}
+
+impl<T> DropcancelJoinHandle<T> {
+    pub fn into_cancellable(self) -> FutureAndCancellationHandle<T> {
+        FutureAndCancellationHandle {
+            future: CancellableJoinHandle(self.fut),
+            cancellation_handle: self.guard.into_cancellable(),
+        }
+    }
 }
 
 impl<T> Future for DropcancelJoinHandle<T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.project().fut.poll(cx).map(|r| {
-            // since the lifetime of this future is responsible for cancellation, this future can't
-            // possibly have been canceled.
-            // We can only have join errors, which is when the executor shuts down. To be consistent
-            // with existing spawn behaviour, we can ignore that.
-            r.unwrap()
-        })
-    }
-}
-
-#[pinned_drop]
-impl<T> PinnedDrop for DropcancelJoinHandle<T> {
-    fn drop(mut self: Pin<&mut Self>) {
-        // ignore the termination future of when we actually shutdown. The creator of this
-        // DropCancelFuture has the termination future as well that it can use to observe termination
-        // if it cares
-        self.cancellation_handle
-            .take()
-            .expect("dropped twice")
-            .cancel();
+        // When we have a DropCancelJoinHandle, we expect the future to not have been cancelled.
+        let this = self.project();
+        this.fut.poll(cx).map(|r| r.unwrap())
     }
 }
 
