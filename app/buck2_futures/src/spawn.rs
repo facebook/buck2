@@ -50,13 +50,13 @@ impl<T> FutureAndCancellationHandle<T> {
     }
 }
 
-/// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
-/// does not cancel the future
-pub fn spawn_cancellable<F, T, S>(
-    f: F,
-    spawner: &dyn Spawner<S>,
-    ctx: &S,
-) -> FutureAndCancellationHandle<T>
+/// Spawn a future and return a DropcancelJoinHandle. The future will begin execution even before
+/// the handle is polled. The future will be able to observe and control its cancellation with the
+/// provided ExplicitCancellationContext.
+///
+/// When the handle is dropped, the task will be cancelled. The task can be detached by calling
+/// [DropcancelJoinHandle::detach].
+pub fn spawn_dropcancel<F, T, S>(f: F, spawner: &dyn Spawner<S>, ctx: &S) -> DropcancelJoinHandle<T>
 where
     for<'a> F: FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
     T: Any + Send + 'static,
@@ -85,8 +85,26 @@ where
         })
         .boxed();
 
+    DropcancelJoinHandle {
+        fut: task,
+        guard: cancellation_handle.into_dropcancel(),
+    }
+}
+
+/// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
+/// does not cancel the future
+pub fn spawn_cancellable<F, T, S>(
+    f: F,
+    spawner: &dyn Spawner<S>,
+    ctx: &S,
+) -> FutureAndCancellationHandle<T>
+where
+    for<'a> F: FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
+    T: Any + Send + 'static,
+{
+    let (future, cancellation_handle) = spawn_dropcancel(f, spawner, ctx).detach();
     FutureAndCancellationHandle {
-        future: CancellableJoinHandle(task),
+        future,
         cancellation_handle,
     }
 }
@@ -120,11 +138,13 @@ pub struct DropcancelJoinHandle<T> {
 }
 
 impl<T> DropcancelJoinHandle<T> {
-    pub fn into_cancellable(self) -> FutureAndCancellationHandle<T> {
-        FutureAndCancellationHandle {
-            future: CancellableJoinHandle(self.fut),
-            cancellation_handle: self.guard.into_cancellable(),
-        }
+    /// "Detaches" the task. This will return a pair of the Future for the task and a CancellationHandle for it. The task will no
+    /// longer be cancelled on drop of anything (unless the CancellationHandle is explicitly converted into a new DropcancelHandle).
+    pub fn detach(self) -> (CancellableJoinHandle<T>, CancellationHandle) {
+        (
+            CancellableJoinHandle(self.fut),
+            self.guard.into_cancellable(),
+        )
     }
 }
 
