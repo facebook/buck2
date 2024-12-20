@@ -855,7 +855,7 @@ mod tests {
     async fn test_disable_cancellation() {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
-                assert!(cancellations.try_to_keep_going_on_cancellation().is_some());
+                assert!(cancellations.try_disable_cancellation().is_some());
                 tokio::task::yield_now().await;
             }
             .boxed()
@@ -872,7 +872,7 @@ mod tests {
     async fn test_disable_cancellation_already_canceled() {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
-                assert!(cancellations.try_to_keep_going_on_cancellation().is_none());
+                assert!(cancellations.try_disable_cancellation().is_none());
                 tokio::task::yield_now().await;
                 panic!("already canceled")
             }
@@ -894,7 +894,7 @@ mod tests {
                         futures::pin_mut!(obs);
                         assert_matches!(futures::poll!(&mut obs), Poll::Ready(()));
 
-                        assert!(cancellations.try_to_keep_going_on_cancellation().is_none());
+                        assert!(cancellations.try_disable_cancellation().is_none());
                     })
                     .await;
             }
@@ -912,7 +912,7 @@ mod tests {
     async fn test_disable_cancellation_synced_with_structured_cancellation_not_cancelled() {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async move {
-                assert!(cancellations.try_to_keep_going_on_cancellation().is_some());
+                assert!(cancellations.try_disable_cancellation().is_some());
 
                 tokio::task::yield_now().await;
 
@@ -921,7 +921,7 @@ mod tests {
                         futures::pin_mut!(obs);
                         assert_matches!(futures::poll!(&mut obs), Poll::Pending);
 
-                        assert!(cancellations.try_to_keep_going_on_cancellation().is_some());
+                        assert!(cancellations.try_disable_cancellation().is_some());
                     })
                     .await;
             }
@@ -1025,10 +1025,10 @@ mod tests {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
                 {
-                    let prevent_cancellation = cancellations.begin_ignore_cancellation();
+                    let prevent_cancellation = cancellations.enter_critical_section();
                     tokio::task::yield_now().await;
 
-                    prevent_cancellation.allow_cancellations_again().await;
+                    prevent_cancellation.exit_critical_section().await;
                 }
                 futures::future::pending::<()>().await
             }
@@ -1051,7 +1051,7 @@ mod tests {
     async fn test_prevent_cancellation_drop_is_allowed() {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
-                let prevent_cancellation = cancellations.begin_ignore_cancellation();
+                let prevent_cancellation = cancellations.enter_critical_section();
                 drop(prevent_cancellation);
 
                 futures::future::pending::<()>().await
@@ -1078,18 +1078,18 @@ mod tests {
             let barrier = barrier.dupe();
             async move {
                 {
-                    let prevent1 = cancellations.begin_ignore_cancellation();
-                    let prevent2 = cancellations.begin_ignore_cancellation();
+                    let prevent1 = cancellations.enter_critical_section();
+                    let prevent2 = cancellations.enter_critical_section();
                     // 1
                     barrier.wait().await;
 
                     // 2
                     barrier.wait().await;
 
-                    prevent1.allow_cancellations_again().await;
+                    prevent1.exit_critical_section().await;
 
                     panic.set(false);
-                    prevent2.allow_cancellations_again().await;
+                    prevent2.exit_critical_section().await;
 
                     // should never hit this line as the cancellation should be applied immediately at the await above.
                     panic.set(true);
@@ -1117,7 +1117,7 @@ mod tests {
     async fn test_prevent_cancellation_cancellation_observer_notifies() {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
-                let prevent_cancellation = cancellations.begin_ignore_cancellation();
+                let prevent_cancellation = cancellations.enter_critical_section();
                 prevent_cancellation.cancellation_observer().await;
             }
             .boxed()
@@ -1136,7 +1136,7 @@ mod tests {
     async fn test_cancellation_observer_wakes_up_other_tasks() {
         let (fut, handle) = make_cancellable_future(|cancellations| {
             async {
-                let prevent_cancellation = cancellations.begin_ignore_cancellation();
+                let prevent_cancellation = cancellations.enter_critical_section();
                 let observer = prevent_cancellation.cancellation_observer();
 
                 let _ignore = tokio::spawn(observer).await;

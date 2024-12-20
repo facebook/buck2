@@ -130,7 +130,7 @@ impl ExplicitCancellationContext {
         async move {
             let r = make().await;
 
-            guard.allow_cancellations_again().await;
+            guard.exit_critical_section().await;
 
             r
         }
@@ -152,7 +152,7 @@ impl ExplicitCancellationContext {
         async move {
             let r = make(guard.cancellation_observer()).await;
 
-            guard.allow_cancellations_again().await;
+            guard.exit_critical_section().await;
 
             r
         }

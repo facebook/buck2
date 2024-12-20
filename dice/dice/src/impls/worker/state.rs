@@ -64,9 +64,7 @@ impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         debug!(msg = "previously cancelled task actually finished");
 
-        let guard = self
-            .prevent_cancellation
-            .keep_going_on_cancellations_if_not_cancelled();
+        let guard = self.prevent_cancellation.try_disable_cancellation();
 
         finish_with_cached_value(value, guard, self.internals)
     }
@@ -74,7 +72,7 @@ impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
     pub(crate) async fn previously_cancelled(self) -> DiceWorkerStateLookupNode<'a, 'b> {
         debug!(msg = "previously cancelled task was cancelled");
 
-        self.prevent_cancellation.allow_cancellations_again().await;
+        self.prevent_cancellation.exit_critical_section().await;
 
         self.internals.report_initial_lookup();
 
@@ -88,7 +86,7 @@ impl<'a, 'b> DiceWorkerStateAwaitingPrevious<'a, 'b> {
     pub(crate) async fn no_previous_task(self) -> DiceWorkerStateLookupNode<'a, 'b> {
         debug!(msg = "no previous task to wait for");
 
-        self.prevent_cancellation.allow_cancellations_again().await;
+        self.prevent_cancellation.exit_critical_section().await;
 
         self.internals.report_initial_lookup();
 
@@ -212,9 +210,7 @@ impl<'a, 'b> DiceWorkerStateLookupNode<'a, 'b> {
 
         finish_with_cached_value(
             value,
-            self.internals
-                .cancellation_ctx()
-                .try_to_keep_going_on_cancellation(),
+            self.internals.cancellation_ctx().try_disable_cancellation(),
             self.internals,
         )
     }
@@ -239,11 +235,7 @@ impl<'a, 'b> DiceWorkerStateCheckingDeps<'a, 'b> {
     pub(crate) fn deps_match(self) -> CancellableResult<DiceWorkerStateFinished<'a, 'b>> {
         debug!(msg = "reusing previous value because deps didn't change. Updating caches");
 
-        let guard = match self
-            .internals
-            .cancellation_ctx()
-            .try_to_keep_going_on_cancellation()
-        {
+        let guard = match self.internals.cancellation_ctx().try_disable_cancellation() {
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");
@@ -276,11 +268,7 @@ impl<'a, 'b> DiceWorkerStateEvaluating<'a, 'b> {
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating<'a, 'b>> {
         debug!(msg = "evaluation finished. updating caches");
 
-        let guard = match self
-            .internals
-            .cancellation_ctx()
-            .try_to_keep_going_on_cancellation()
-        {
+        let guard = match self.internals.cancellation_ctx().try_disable_cancellation() {
             Some(g) => g,
             None => {
                 debug!("evaluation cancelled, skipping cache updates");

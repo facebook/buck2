@@ -105,7 +105,7 @@ impl DiceTaskWorker {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task
-            let prevent_cancellation = handle.cancellation_ctx().begin_ignore_cancellation();
+            let prevent_cancellation = handle.cancellation_ctx().enter_critical_section();
             let state =
                 DiceWorkerStateAwaitingPrevious::new(k, cycles, handle, prevent_cancellation);
 
