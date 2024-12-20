@@ -38,6 +38,9 @@ use num_bigint::BigInt;
 use serde::Serialize;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::dict::Dict;
@@ -77,8 +80,18 @@ pub(crate) struct CliArgs {
 
 starlark_simple_value!(CliArgs);
 
+/// Type of the bxl.CliArgs object returned by methods under [`cli_args`](../cli_args) namespace, e. g. `cli_args.string()`.
+#[starlark_module]
+fn starlark_attribute_methods(builder: &mut MethodsBuilder) {}
+
 #[starlark_value(type = "bxl.CliArgs")]
-impl<'v> StarlarkValue<'v> for CliArgs {}
+impl<'v> StarlarkValue<'v> for CliArgs {
+    // Used to add type documentation to the generated documentation
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(starlark_attribute_methods)
+    }
+}
 
 impl CliArgs {
     /// Helper to create an attribute from attrs.foo functions
