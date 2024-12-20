@@ -58,7 +58,7 @@ use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_futures::cancellation::ExplicitCancellationContext;
 use buck2_futures::drop::DropTogether;
-use buck2_futures::spawn::spawn_cancellable;
+use buck2_futures::spawn::spawn_dropcancel;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
@@ -688,9 +688,7 @@ where
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
 
-    // TODO(cjhopman): This should be spawn_dropcancel. We currently could be failing to cancel
-    // this if we encounter an error later in this function.
-    let spawned = spawn_cancellable(
+    let spawned = spawn_dropcancel(
         |cancellations| func(req, cancellations),
         &BuckSpawner::new(rt.clone()),
         &events_ctx,
@@ -749,10 +747,7 @@ where
     let events = MultiEventStream::new(events);
 
     Response::new(Box::pin(SyncStream {
-        wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(
-            events,
-            spawned.into_drop_cancel(),
-        )),
+        wrapped: sync_wrapper::SyncWrapper::new(DropTogether::new(events, spawned)),
     }))
 }
 
