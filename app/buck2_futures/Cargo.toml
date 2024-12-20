@@ -6,10 +6,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-allocative = { workspace = true }
-buck2_data = { workspace = true }
-buck2_events = { workspace = true }
-buck2_wrapper_common = { workspace = true }
 dupe = { workspace = true }
 futures = "0.3"
 once_cell = { workspace = true }
