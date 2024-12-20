@@ -7,12 +7,13 @@
  * of this source tree.
  */
 
-import React, {useRef, useState} from 'react'
+import React, {useContext, useRef, useState} from 'react'
 import {Build} from '../fbs/explain'
 import {Node} from '../App'
 import {GraphViz2} from './GraphViz2'
 import {LinkObject, NodeObject} from 'react-force-graph-2d'
 import {formatTargetLabel} from '../formatTargetLabel'
+import {RouterContext} from '../Router'
 
 enum DisplayType {
   rootNode,
@@ -54,6 +55,7 @@ export function GraphImpl2(props: {
   build: Build
   allTargets: Map<string, number>
 }) {
+  const {setParams} = useContext(RouterContext)
   const {nodes, build} = props
 
   const nodeMap: Map<number, DisplayNode> = new Map()
@@ -343,7 +345,7 @@ export function GraphImpl2(props: {
           const url = new URL(window.location.href)
           url.searchParams.set('target', name)
           url.searchParams.delete('graph')
-          window.open(url.toString(), '_blank')
+          setParams(url.searchParams.toString())
         }}
       />
     </>
