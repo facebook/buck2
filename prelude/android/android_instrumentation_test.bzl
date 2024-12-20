@@ -18,9 +18,9 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 
 ANDROID_EMULATOR_ABI_LABEL_PREFIX = "tpx-re-config::"
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"

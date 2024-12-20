@@ -10,6 +10,8 @@ load(
     "ArtifactGroupInfo",
     "ArtifactOutputs",  # @unused Used as a type
 )
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
@@ -82,8 +84,6 @@ load(
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
-load("@prelude//paths.bzl", "paths")
-load("@prelude//resources.bzl", "gather_resources")
 load(":compile.bzl", "compile_manifests")
 load(
     ":interface.bzl",

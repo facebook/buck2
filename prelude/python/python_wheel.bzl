@@ -16,6 +16,7 @@ load(
     "@prelude//cxx:link_types.bzl",
     "link_options",
 )
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
@@ -36,13 +37,12 @@ load(
 load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
 )
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
-load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides")
 
 def _link_deps(
         link_infos: dict[Label, LinkableNode],

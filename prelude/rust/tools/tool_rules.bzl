@@ -5,8 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 
 def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load(":zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
 def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:

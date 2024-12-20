@@ -1,5 +1,5 @@
 # @noautodeps
-load("//test_utils.bzl", "assert_output")
+load("//:test_utils.bzl", "assert_output")
 
 python_binary(
     name = "main",

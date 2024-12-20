@@ -45,12 +45,12 @@ load(
 )
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
 load("@prelude//utils:utils.bzl", "flatten_dict")
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(
     ":build.bzl",
     "compile_context",

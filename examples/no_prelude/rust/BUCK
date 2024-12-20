@@ -1,4 +1,4 @@
-load("//rust/rules.bzl", "rust_binary")
+load("//rust:rules.bzl", "rust_binary")
 
 rust_binary(
     name = "main",

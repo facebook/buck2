@@ -5,13 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:genrule.bzl", "genrule_attributes")
 load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//js:js_bundle.bzl", "js_bundle_impl")
 load("@prelude//js:js_bundle_genrule.bzl", "js_bundle_genrule_impl")
 load("@prelude//js:js_library.bzl", "js_library_impl")
-load("@prelude//decls/common.bzl", "buck")
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
-load("@prelude//genrule.bzl", "genrule_attributes")
 
 def _select_platform():
     return select({

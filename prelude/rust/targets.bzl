@@ -5,8 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls:core_rules.bzl", "Platform", "TargetCpuType")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//decls/core_rules.bzl", "Platform", "TargetCpuType")
 
 _platform = enum(*Platform)
 _cpu = enum(*TargetCpuType)

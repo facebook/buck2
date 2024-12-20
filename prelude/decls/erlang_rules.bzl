@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//erlang/erlang_application.bzl", "StartTypeValues")
+load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
 load(":common.bzl", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 

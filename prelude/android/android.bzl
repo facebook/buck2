@@ -5,18 +5,18 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:genrule.bzl", "genrule_attributes")
 load(
     "@prelude//:validation_deps.bzl",
     "VALIDATION_DEPS_ATTR_NAME",
 )
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
+load("@prelude//decls:android_rules.bzl", "DuplicateResourceBehaviour")
+load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:core_rules.bzl", "TargetCpuType")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
-load("@prelude//decls/android_rules.bzl", "DuplicateResourceBehaviour")
-load("@prelude//decls/common.bzl", "buck")
-load("@prelude//decls/core_rules.bzl", "TargetCpuType")
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
-load("@prelude//genrule.bzl", "genrule_attributes")
-load("@prelude//transitions/constraint_overrides.bzl", "constraint_overrides")
+load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":android_aar.bzl", "android_aar_impl")
 load(":android_apk.bzl", "android_apk_impl")
 load(":android_build_config.bzl", "android_build_config_impl")

@@ -5,8 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:test_common.bzl", "test_common")
-load("@prelude//decls/common.bzl", "buck")
 load(":julia_binary.bzl", "julia_binary_impl")
 load(":julia_library.bzl", "julia_jll_library_impl", "julia_library_impl")
 load(":julia_test.bzl", "julia_test_impl")

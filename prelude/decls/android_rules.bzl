@@ -11,7 +11,7 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//decls:test_common.bzl", "test_common")
-load("@prelude//utils/clear_platform.bzl", "clear_platform_transition")
+load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
 load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "ForkMode", "LogLevel", "OnDuplicateEntry", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
 load(":core_rules.bzl", "TargetCpuType")

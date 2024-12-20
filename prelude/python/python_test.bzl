@@ -6,12 +6,12 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
 load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
 load(":interface.bzl", "EntryPointKind")
 load(":make_py_package.bzl", "PexProviders", "make_default_info")
 load(

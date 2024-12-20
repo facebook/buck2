@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//test/inject_test_run_info.bzl", "inject_test_run_info")
+load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
 load(":julia_binary.bzl", "build_julia_command")
 
 def julia_test_impl(ctx: AnalysisContext) -> list[Provider]:

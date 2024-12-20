@@ -1,5 +1,5 @@
+load("@prelude//apple/tools:defs.bzl", "meta_python_test")
 load("@prelude//utils:source_listing.bzl", "source_listing")
-load("@prelude//apple/tools/defs.bzl", "meta_python_test")
 
 source_listing()
 

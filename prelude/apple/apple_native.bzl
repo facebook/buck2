@@ -11,8 +11,8 @@ load(
     "APPLE",
 )
 load("@prelude//platforms/apple:platforms.bzl", "config_backed_apple_target_platform", "get_default_target_platform_for_platform", "set_apple_platforms")
-load("@prelude//platforms/apple/platforms_map.bzl", "APPLE_SDK_DEFAULT_PLATFORM_MAP")
-load("@prelude//utils/buckconfig.bzl", "read")
+load("@prelude//platforms/apple:platforms_map.bzl", "APPLE_SDK_DEFAULT_PLATFORM_MAP")
+load("@prelude//utils:buckconfig.bzl", "read")
 
 def _apple_library(**kwargs):
     kwargs = _update_platforms(**kwargs)

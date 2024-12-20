@@ -26,6 +26,10 @@ load(
     "apple_create_frameworks_linkable",
     "apple_get_link_info_by_deduping_link_infos",
 )
+load(
+    "@prelude//apple:apple_resource_types.bzl",
+    "CxxResourceSpec",
+)
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
 load(
     "@prelude//apple/swift:swift_runtime.bzl",
@@ -107,10 +111,6 @@ load(
     "flatten",
     "map_val",
     "value_or",
-)
-load(
-    "@prelude//apple/apple_resource_types.bzl",
-    "CxxResourceSpec",
 )
 load(":archive.bzl", "make_archive")
 load(

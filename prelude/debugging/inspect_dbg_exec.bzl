@@ -5,9 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//debugging/common.bzl", "create_target_info", "target_name")
-load("@prelude//debugging/types.bzl", "JavaInfo", "ScriptSettings")
-load("@prelude//java/class_to_srcs.bzl", "JavaClassToSourceMapInfo")
+load("@prelude//debugging:common.bzl", "create_target_info", "target_name")
+load("@prelude//debugging:types.bzl", "JavaInfo", "ScriptSettings")
+load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 
 def inspect_dbg_exec(ctx: bxl.Context, actions: AnalysisActions, target: bxl.ConfiguredTargetNode, settings: ScriptSettings):
     pointer_name = target_name(target)

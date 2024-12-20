@@ -20,10 +20,10 @@
 
 load("@prelude//:prelude.bzl", "native")
 load("@prelude//decls:common.bzl", "buck")
+load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
-load("@prelude//decls/toolchains_common.bzl", "toolchains_common")
 load(":build.bzl", "dependency_args")
 load(":build_params.bzl", "MetadataKind")
 load(":context.bzl", "DepCollectionContext")

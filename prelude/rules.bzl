@@ -5,13 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
-load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
-load("@prelude//decls/common.bzl", "prelude_rule")
-load("@prelude//is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 
 # Combine the attributes we generate, we the custom implementations we have.
-load("@prelude//rules_impl.bzl", "extra_attributes", "extra_implemented_rules", "rule_decl_records", "toolchain_rule_names", "transitions")
+load("@prelude//:rules_impl.bzl", "extra_attributes", "extra_implemented_rules", "rule_decl_records", "toolchain_rule_names", "transitions")
+load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
+load("@prelude//configurations:rules.bzl", _config_implemented_rules = "implemented_rules")
+load("@prelude//decls:common.bzl", "prelude_rule")
 
 def _unimplemented(name, ctx):
     fail("Unimplemented rule type `{}` for target `{}`.".format(name, ctx.label))

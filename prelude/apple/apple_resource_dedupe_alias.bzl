@@ -6,8 +6,8 @@
 # of this source tree.
 
 load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//apple/user:apple_resource_transition.bzl", "apple_resource_transition")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
-load("@prelude//apple/user/apple_resource_transition.bzl", "apple_resource_transition")
 
 def _apple_resource_dedupe_alias_impl(ctx: AnalysisContext) -> list[Provider]:
     return ctx.attrs.actual.providers

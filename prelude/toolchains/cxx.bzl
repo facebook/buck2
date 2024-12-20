@@ -22,10 +22,10 @@ load(
 )
 load("@prelude//cxx:headers.bzl", "HeaderMode")
 load("@prelude//cxx:linker.bzl", "is_pdb_generated")
+load("@prelude//decls:common.bzl", "buck")
 load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
-load("@prelude//decls/common.bzl", "buck")
 
 CxxToolsInfo = provider(
     fields = {
