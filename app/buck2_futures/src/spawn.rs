@@ -36,20 +36,6 @@ pub enum WeakFutureError {
     Cancelled,
 }
 
-pub struct FutureAndCancellationHandle<T> {
-    pub future: CancellableJoinHandle<T>,
-    pub cancellation_handle: CancellationHandle,
-}
-
-impl<T> FutureAndCancellationHandle<T> {
-    pub fn into_drop_cancel(self) -> DropcancelJoinHandle<T> {
-        DropcancelJoinHandle {
-            guard: self.cancellation_handle.into_dropcancel(),
-            fut: self.future.0,
-        }
-    }
-}
-
 /// Spawn a future and return a DropcancelJoinHandle. The future will begin execution even before
 /// the handle is polled. The future will be able to observe and control its cancellation with the
 /// provided ExplicitCancellationContext.
@@ -88,24 +74,6 @@ where
     DropcancelJoinHandle {
         fut: task,
         guard: cancellation_handle.into_dropcancel(),
-    }
-}
-
-/// Spawn a future that's cancellable via an CancellationHandle. Dropping the future or the handle
-/// does not cancel the future
-pub fn spawn_cancellable<F, T, S>(
-    f: F,
-    spawner: &dyn Spawner<S>,
-    ctx: &S,
-) -> FutureAndCancellationHandle<T>
-where
-    for<'a> F: FnOnce(&'a ExplicitCancellationContext) -> BoxFuture<'a, T> + Send,
-    T: Any + Send + 'static,
-{
-    let (future, cancellation_handle) = spawn_dropcancel(f, spawner, ctx).detach();
-    FutureAndCancellationHandle {
-        future,
-        cancellation_handle,
     }
 }
 
@@ -177,10 +145,7 @@ mod tests {
 
         let sp = Arc::new(TokioSpawner);
 
-        let FutureAndCancellationHandle {
-            cancellation_handle,
-            ..
-        } = spawn_cancellable(
+        let (_, cancellation_handle) = spawn_dropcancel(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -190,7 +155,8 @@ mod tests {
             },
             sp.as_ref(),
             &MockCtx,
-        );
+        )
+        .detach();
 
         // Trigger cancellation
         cancellation_handle.cancel();
@@ -204,13 +170,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cancellation_of_cancellable_convert_dropcancel() {
+    async fn test_cancellation_of_dropcancel() {
         let (release_task, recv_release_task) = oneshot::channel();
         let (notify_success, recv_success) = oneshot::channel();
 
         let sp = Arc::new(TokioSpawner);
 
-        let task = spawn_cancellable(
+        let future = spawn_dropcancel(
             move |_| {
                 async move {
                     recv_release_task.await.unwrap();
@@ -221,8 +187,6 @@ mod tests {
             sp.as_ref(),
             &MockCtx,
         );
-
-        let future = task.into_drop_cancel();
 
         drop(future);
 
@@ -235,12 +199,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_spawn_cancellable() {
+    async fn test_spawn_and_detach() {
         let sp = Arc::new(TokioSpawner);
         let fut = async { "Hello world!" }.boxed();
 
-        let FutureAndCancellationHandle { future: task, .. } =
-            spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx);
+        let (task, _) = spawn_dropcancel(|_| fut, sp.as_ref(), &MockCtx).detach();
 
         let res = task.await;
         assert_eq!(res, Ok("Hello world!"));
