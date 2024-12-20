@@ -26,7 +26,7 @@ def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
 
     on_duplicate_entry = ctx.attrs.on_duplicate_entry
     entries_to_exclude = ctx.attrs.entries_to_exclude
-    deterministic_output = ctx.attrs.deterministic_output
+    hardcode_permissions_for_deterministic_output = ctx.attrs.hardcode_permissions_for_deterministic_output
     zip_srcs = ctx.attrs.zip_srcs
     srcs = ctx.attrs.srcs
 
@@ -60,8 +60,8 @@ def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
         create_zip_cmd.append("--entries_to_exclude")
         create_zip_cmd.append(entries_to_exclude)
 
-    if deterministic_output:
-        create_zip_cmd.append("--deterministic_output")
+    if hardcode_permissions_for_deterministic_output:
+        create_zip_cmd.append("--hardcode_permissions_for_deterministic_output")
 
     ctx.actions.run(cmd_args(create_zip_cmd), category = "zip")
 
