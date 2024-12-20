@@ -68,6 +68,10 @@ impl<'a> DiceTaskHandle<'a> {
     pub(crate) fn finished(&mut self, value: DiceComputedValue) {
         self.result = Some(Ok(value));
     }
+
+    pub(crate) fn cancelled(&mut self, reason: CancellationReason) {
+        self.result = Some(Err(reason));
+    }
 }
 
 unsafe impl<'a> Send for DiceTaskHandle<'a> {}

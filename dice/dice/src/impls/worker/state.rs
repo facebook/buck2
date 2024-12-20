@@ -56,14 +56,12 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 
     pub(crate) fn previously_finished(
         self,
-        internals: &mut DiceTaskHandle,
         value: DiceComputedValue,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
         debug!(msg = "previously cancelled task actually finished");
 
         let guard = self.prevent_cancellation.try_disable_cancellation();
-
-        finish_with_cached_value(internals, value, guard)
+        finish_with_cached_value(value, guard)
     }
 
     pub(crate) async fn previously_cancelled(
@@ -115,7 +113,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
             .expect("Terminated task must have finished value")
         {
             Ok(res) => {
-                return Either::Left(self.previously_finished(internals, res));
+                return Either::Left(self.previously_finished(res));
             }
             Err(_cancelled) => {
                 // actually was cancelled, so just continue re-evaluating
@@ -127,19 +125,15 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 }
 
 fn finish_with_cached_value(
-    internals: &mut DiceTaskHandle<'_>,
     value: DiceComputedValue,
     disable_cancellation: Option<DisableCancellationGuard>,
 ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
     match disable_cancellation {
         None => Err(CancellationReason::Cached),
-        Some(g) => {
-            internals.finished(value);
-
-            Ok(DiceWorkerStateFinishedAndCached {
-                _prevent_cancellation: g,
-            })
-        }
+        Some(g) => Ok(DiceWorkerStateFinishedAndCached {
+            value,
+            _prevent_cancellation: g,
+        }),
     }
 }
 
@@ -198,7 +192,7 @@ impl DiceWorkerStateLookupNode {
         debug!(msg = "found existing entry with matching version in cache. reusing result.");
 
         let guard = internals.cancellation_ctx().try_disable_cancellation();
-        finish_with_cached_value(internals, value, guard)
+        finish_with_cached_value(value, guard)
     }
 }
 
@@ -287,7 +281,6 @@ pub(crate) struct DiceWorkerStateFinished {
 impl DiceWorkerStateFinished {
     pub(crate) fn cached(
         self,
-        internals: &mut DiceTaskHandle,
         value: DiceComputedValue,
         activation_info: Option<ActivationInfo>,
     ) -> DiceWorkerStateFinishedAndCached {
@@ -300,9 +293,9 @@ impl DiceWorkerStateFinished {
                 activation_info.activation_data,
             )
         }
-        internals.finished(value);
 
         DiceWorkerStateFinishedAndCached {
+            value,
             _prevent_cancellation: self._prevent_cancellation,
         }
     }
@@ -342,5 +335,6 @@ impl ActivationInfo {
 /// When the spawned dice worker is done computing and saving the value to core state cache.
 /// The final value is known.
 pub(crate) struct DiceWorkerStateFinishedAndCached {
-    _prevent_cancellation: DisableCancellationGuard,
+    pub(crate) value: DiceComputedValue,
+    pub(crate) _prevent_cancellation: DisableCancellationGuard,
 }

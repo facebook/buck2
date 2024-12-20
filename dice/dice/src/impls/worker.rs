@@ -115,12 +115,23 @@ impl DiceTaskWorker {
                     None => Either::Right(state.no_previous_task(handle).await),
                 };
 
-                match previous_result {
-                    Either::Left(_) => {
+                let result = match previous_result {
+                    Either::Left(previous_result) => {
                         // previous result actually finished
+                        previous_result
                     }
-                    Either::Right(state) => {
-                        let _ignore = worker.do_work(handle, state_handle, state).await;
+                    Either::Right(state) => worker.do_work(handle, state_handle, state).await,
+                };
+
+                match result {
+                    Ok(DiceWorkerStateFinishedAndCached {
+                        _prevent_cancellation,
+                        value,
+                    }) => {
+                        handle.finished(value);
+                    }
+                    Err(reason) => {
+                        handle.cancelled(reason);
                     }
                 }
 
@@ -208,7 +219,7 @@ impl DiceTaskWorker {
                             )
                             .await;
 
-                        return response.map(|r| task_state.cached(handle, r, activation_info));
+                        return response.map(|r| task_state.cached(r, activation_info));
                     }
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
@@ -265,7 +276,7 @@ impl DiceTaskWorker {
             }
         };
 
-        res.map(|res| state.cached(handle, res, activation_info))
+        res.map(|res| state.cached(res, activation_info))
     }
 
     async fn compute(

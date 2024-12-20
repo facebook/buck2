@@ -284,7 +284,7 @@ impl DiceTaskInternal {
         }
     }
 
-    pub(super) fn set_value(
+    pub(crate) fn set_value(
         &self,
         value: DiceComputedValue,
     ) -> CancellableResult<DiceComputedValue> {
@@ -332,7 +332,7 @@ impl DiceTaskInternal {
 
     /// report the task as terminated. This should only be called once. No effect if called affect
     /// task is already ready
-    pub(super) fn report_terminated(&self, reason: CancellationReason) {
+    pub(crate) fn report_terminated(&self, reason: CancellationReason) {
         match self.state.sync() {
             TaskState::Continue => {}
             TaskState::Finished => {
