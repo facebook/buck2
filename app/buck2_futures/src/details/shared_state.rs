@@ -24,6 +24,84 @@ use slab::Slab;
 
 use crate::cancellation::CriticalSectionGuard;
 
+/// Shared cancellation related execution context for a cancellable task.
+///
+/// This is the "outer" context, held by the task's spawned future impl within
+/// its poll loop.
+pub(crate) struct ExecutionContextOuter {
+    shared: Arc<Mutex<ExecutionContextData>>,
+}
+
+impl ExecutionContextOuter {
+    pub(crate) fn new() -> (ExecutionContextOuter, ExecutionContextInner) {
+        let shared = Arc::new(Mutex::new(ExecutionContextData {
+            cancellation_notification: {
+                CancellationNotificationData {
+                    inner: Arc::new(CancellationNotificationDataInner {
+                        notified: Default::default(),
+                        wakers: Mutex::new(Some(Default::default())),
+                    }),
+                }
+            },
+            prevent_cancellation: 0,
+        }));
+        (
+            ExecutionContextOuter {
+                shared: shared.dupe(),
+            },
+            ExecutionContextInner { shared },
+        )
+    }
+
+    pub(crate) fn notify_cancelled(&self) -> bool {
+        let mut lock = self.shared.lock();
+        if lock.can_exit() {
+            true
+        } else {
+            lock.notify_cancelled();
+            false
+        }
+    }
+
+    pub(crate) fn can_exit(&self) -> bool {
+        self.shared.lock().can_exit()
+    }
+}
+
+/// Shared cancellation related execution context for a cancellable task.
+///
+/// This is the "inner" context, used by a CancellationContext to observe cancellation
+/// and enter critical sections.
+pub(crate) struct ExecutionContextInner {
+    shared: Arc<Mutex<ExecutionContextData>>,
+}
+
+impl ExecutionContextInner {
+    pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard {
+        let mut shared = self.shared.lock();
+
+        let notification = shared.enter_structured_cancellation();
+
+        CriticalSectionGuard::new_explicit(self, notification)
+    }
+
+    pub(crate) fn try_to_disable_cancellation(&self) -> bool {
+        let mut shared = self.shared.lock();
+        if shared.try_to_disable_cancellation() {
+            true
+        } else {
+            // couldn't prevent cancellation, so release our hold onto the counter
+            shared.exit_prevent_cancellation();
+            false
+        }
+    }
+
+    pub(crate) fn exit_prevent_cancellation(&self) -> bool {
+        let mut shared = self.shared.lock();
+        shared.exit_prevent_cancellation()
+    }
+}
+
 pub(crate) struct SharedState {
     inner: Arc<SharedStateData>,
 }
@@ -179,79 +257,6 @@ impl ExecutionContextData {
                 matches!(old, CancellationNotificationStatus::Disabled)
             }
         }
-    }
-}
-
-/// Context relating to execution of the `poll` of the future. This will contain the information
-/// required for the `CancellationContext` that the future holds to enter critical sections and
-/// structured cancellations.
-pub(crate) struct ExecutionContextOuter {
-    shared: Arc<Mutex<ExecutionContextData>>,
-}
-
-pub(crate) struct ExecutionContextInner {
-    shared: Arc<Mutex<ExecutionContextData>>,
-}
-
-impl ExecutionContextOuter {
-    pub(crate) fn new() -> (ExecutionContextOuter, ExecutionContextInner) {
-        let shared = Arc::new(Mutex::new(ExecutionContextData {
-            cancellation_notification: {
-                CancellationNotificationData {
-                    inner: Arc::new(CancellationNotificationDataInner {
-                        notified: Default::default(),
-                        wakers: Mutex::new(Some(Default::default())),
-                    }),
-                }
-            },
-            prevent_cancellation: 0,
-        }));
-        (
-            ExecutionContextOuter {
-                shared: shared.dupe(),
-            },
-            ExecutionContextInner { shared },
-        )
-    }
-
-    pub(crate) fn notify_cancelled(&self) -> bool {
-        let mut lock = self.shared.lock();
-        if lock.can_exit() {
-            true
-        } else {
-            lock.notify_cancelled();
-            false
-        }
-    }
-
-    pub(crate) fn can_exit(&self) -> bool {
-        self.shared.lock().can_exit()
-    }
-}
-
-impl ExecutionContextInner {
-    pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard {
-        let mut shared = self.shared.lock();
-
-        let notification = shared.enter_structured_cancellation();
-
-        CriticalSectionGuard::new_explicit(self, notification)
-    }
-
-    pub(crate) fn try_to_disable_cancellation(&self) -> bool {
-        let mut shared = self.shared.lock();
-        if shared.try_to_disable_cancellation() {
-            true
-        } else {
-            // couldn't prevent cancellation, so release our hold onto the counter
-            shared.exit_prevent_cancellation();
-            false
-        }
-    }
-
-    pub(crate) fn exit_prevent_cancellation(&self) -> bool {
-        let mut shared = self.shared.lock();
-        shared.exit_prevent_cancellation()
     }
 }
 
