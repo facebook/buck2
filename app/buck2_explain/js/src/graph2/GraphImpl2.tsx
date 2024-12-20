@@ -63,6 +63,7 @@ export function GraphImpl2(props: {
 
   const [colorByCfg, setColorByCfg] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
+  const [transitiveReduction, setTransitiveReduction] = useState(true)
   const [includeContaining, setIncludeContaining] = useState<string[]>([])
   const [excludeContaining, setExcludeContaining] = useState<string[]>([])
   const [highlighted, setHighlighted] = useState<string | null>(null)
@@ -137,7 +138,7 @@ export function GraphImpl2(props: {
   // Always set root node
   nodeMap.get(0)!.displayType = DisplayType.rootNode
 
-  let filteredNodes = new Map()
+  let filteredNodes = new Map<number, DisplayNode>()
   for (const [k, node] of nodeMap) {
     if (showNode(node)) {
       filteredNodes.set(k, node)
@@ -154,7 +155,7 @@ export function GraphImpl2(props: {
     let stack = [k]
 
     while (stack.length > 0) {
-      const n1 = stack.shift()
+      const n1 = stack.shift()!
 
       for (const r of nodeMap.get(n1)!.rdeps) {
         if (visited.has(r)) {
@@ -166,6 +167,28 @@ export function GraphImpl2(props: {
           nodeMap.get(r)!.allowedDeps.set(k, distance)
         } else {
           stack.push(r)
+        }
+      }
+    }
+  }
+
+  if (transitiveReduction) {
+    for (const [k, node] of filteredNodes) {
+      let queue = [...node.allowedDeps.keys()]
+      let visited = new Set()
+      // for each dep we check all its transitive deps
+      while (queue.length != 0) {
+        const curr = queue.shift()!
+        if (visited.has(curr)) {
+          continue
+        } else {
+          visited.add(curr)
+          let n = filteredNodes.get(curr)!
+          for (const [k, _] of n.allowedDeps) {
+            // reachable, delete link from node in question
+            node.allowedDeps.delete(k)
+            queue.push(k)
+          }
         }
       }
     }
@@ -300,6 +323,13 @@ export function GraphImpl2(props: {
               checked={showLabels}
               onChange={e => setShowLabels(e.target.checked)}></input>{' '}
             Show labels
+          </label>
+          <label className="checkbox ml-2 mt-4">
+            <input
+              type="checkbox"
+              checked={transitiveReduction}
+              onChange={e => setTransitiveReduction(e.target.checked)}></input>{' '}
+            Transitive reduction
           </label>
         </div>
       </div>
