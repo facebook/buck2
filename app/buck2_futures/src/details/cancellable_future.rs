@@ -435,8 +435,8 @@ mod tests {
     use pin_project::pinned_drop;
     use tokio::sync::Barrier;
 
-    use crate::cancellation::future::make_cancellable_future;
     use crate::cancellation::CancellationHandle;
+    use crate::details::cancellable_future::make_cancellable_future;
 
     #[derive(Debug)]
     struct MaybePanicOnDrop {

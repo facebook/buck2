@@ -9,9 +9,6 @@
 
 //! Defines a future with explicit cancellation
 
-mod details;
-pub(crate) mod future;
-
 use std::future::Future;
 use std::mem::ManuallyDrop;
 use std::pin::Pin;
@@ -22,12 +19,12 @@ use dupe::Dupe;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
 
-use crate::cancellation::details::CancellationContextInner;
-use crate::cancellation::details::ExplicitCancellationContext;
-use crate::cancellation::details::ExplicitCriticalSectionGuard;
-use crate::cancellation::future::context::ExecutionContextInner;
-use crate::cancellation::future::CancellationNotificationData;
-use crate::cancellation::future::CancellationNotificationFuture;
+use crate::details::cancellable_future::context::ExecutionContextInner;
+use crate::details::cancellable_future::CancellationNotificationData;
+use crate::details::cancellable_future::CancellationNotificationFuture;
+use crate::details::cancellation_context::CancellationContextInner;
+use crate::details::cancellation_context::ExplicitCancellationContext;
+use crate::details::cancellation_context::ExplicitCriticalSectionGuard;
 use crate::details::shared_state::SharedState;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
@@ -90,7 +87,7 @@ impl CancellationContext {
             .keep_going_on_cancellations_if_not_cancelled()
     }
 
-    fn new_explicit(inner: ExecutionContextInner) -> CancellationContext {
+    pub(crate) fn new_explicit(inner: ExecutionContextInner) -> CancellationContext {
         Self(CancellationContextInner::Explicit(
             ExplicitCancellationContext { inner },
         ))
@@ -138,7 +135,7 @@ impl<'a> CriticalSectionGuard<'a> {
         }
     }
 
-    fn new_explicit(
+    pub(crate) fn new_explicit(
         context: &'a ExecutionContextInner,
         notification: CancellationNotificationData,
     ) -> Self {
@@ -185,7 +182,7 @@ pub struct CancellationHandle {
 }
 
 impl CancellationHandle {
-    fn new(shared_state: SharedState) -> Self {
+    pub(crate) fn new(shared_state: SharedState) -> Self {
         CancellationHandle { shared_state }
     }
 

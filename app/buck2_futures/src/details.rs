@@ -7,4 +7,6 @@
  * of this source tree.
  */
 
+pub(crate) mod cancellable_future;
+pub(crate) mod cancellation_context;
 pub(crate) mod shared_state;

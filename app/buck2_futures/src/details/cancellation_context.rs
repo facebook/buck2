@@ -15,27 +15,27 @@ use std::task::Poll;
 use dupe::Dupe;
 use futures::future::Either;
 
-use crate::cancellation::future::context::ExecutionContextInner;
-use crate::cancellation::future::CancellationNotificationData;
-use crate::cancellation::future::CancellationNotificationFuture;
 use crate::cancellation::CancellationObserver;
 use crate::cancellation::CancellationObserverInner;
 use crate::cancellation::CriticalSectionGuard;
 use crate::cancellation::DisableCancellationGuard;
+use crate::details::cancellable_future::context::ExecutionContextInner;
+use crate::details::cancellable_future::CancellationNotificationData;
+use crate::details::cancellable_future::CancellationNotificationFuture;
 
 pub struct ExplicitCriticalSectionGuard<'a> {
-    pub(super) context: Option<&'a ExecutionContextInner>,
-    pub(super) notification: CancellationNotificationData,
+    pub(crate) context: Option<&'a ExecutionContextInner>,
+    pub(crate) notification: CancellationNotificationData,
 }
 
 impl<'a> ExplicitCriticalSectionGuard<'a> {
-    pub(super) fn cancellation_observer(&self) -> CancellationObserver {
+    pub(crate) fn cancellation_observer(&self) -> CancellationObserver {
         CancellationObserver(CancellationObserverInner::Explicit(
             CancellationNotificationFuture::new(self.notification.dupe()),
         ))
     }
 
-    pub(super) async fn allow_cancellations_again(self) {
+    pub(crate) async fn allow_cancellations_again(self) {
         let context = self.take();
         if context.exit_prevent_cancellation() {
             // TODO(cjhopman): It seems like this is likely unreliable behavior. The intent here is that by returning
@@ -77,7 +77,7 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
         }
     }
 
-    pub(super) fn keep_going_on_cancellations_if_not_cancelled(
+    pub(crate) fn keep_going_on_cancellations_if_not_cancelled(
         self,
     ) -> Option<DisableCancellationGuard> {
         let context = self.take();
@@ -103,13 +103,13 @@ impl<'a> Drop for ExplicitCriticalSectionGuard<'a> {
     }
 }
 
-pub(super) struct ExplicitCancellationContext {
-    pub(super) inner: ExecutionContextInner,
+pub(crate) struct ExplicitCancellationContext {
+    pub(crate) inner: ExecutionContextInner,
 }
 
 impl ExplicitCancellationContext {
     /// Ignore cancellations while 'PreventCancellation' is held
-    pub(super) fn begin_ignore_cancellation(&self) -> CriticalSectionGuard {
+    pub fn begin_ignore_cancellation(&self) -> CriticalSectionGuard {
         self.inner.enter_structured_cancellation()
     }
 
@@ -118,7 +118,7 @@ impl ExplicitCancellationContext {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub(super) fn critical_section<'a, F, Fut>(
+    pub fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -139,7 +139,7 @@ impl ExplicitCancellationContext {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub(super) fn with_structured_cancellation<'a, F, Fut>(
+    pub fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -159,7 +159,7 @@ impl ExplicitCancellationContext {
     }
 }
 
-pub(super) enum CancellationContextInner {
+pub(crate) enum CancellationContextInner {
     /// A context where the outer future will not be dropped (for example, because it is known to be the outermost
     /// future in a spawn call).
     NeverCancelled,
@@ -173,7 +173,7 @@ impl CancellationContextInner {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub(super) fn critical_section<'a, F, Fut>(
+    pub fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -192,7 +192,7 @@ impl CancellationContextInner {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub(super) fn with_structured_cancellation<'a, F, Fut>(
+    pub fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -210,7 +210,7 @@ impl CancellationContextInner {
         }
     }
 
-    pub(super) fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
+    pub(crate) fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
         match self {
             CancellationContextInner::NeverCancelled => CriticalSectionGuard::NeverCancelled,
             CancellationContextInner::Explicit(inner) => inner.begin_ignore_cancellation(),
