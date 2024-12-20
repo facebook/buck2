@@ -19,12 +19,12 @@ use crate::cancellation::CancellationObserver;
 use crate::cancellation::CancellationObserverInner;
 use crate::cancellation::CriticalSectionGuard;
 use crate::cancellation::DisableCancellationGuard;
+use crate::details::shared_state::CancellationContextSharedStateView;
 use crate::details::shared_state::CancellationNotificationData;
 use crate::details::shared_state::CancellationNotificationFuture;
-use crate::details::shared_state::ExecutionContextInner;
 
 pub struct ExplicitCriticalSectionGuard<'a> {
-    pub(crate) context: Option<&'a ExecutionContextInner>,
+    pub(crate) context: Option<&'a CancellationContextSharedStateView>,
     pub(crate) notification: CancellationNotificationData,
 }
 
@@ -88,7 +88,7 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
         }
     }
 
-    fn take(mut self) -> &'a ExecutionContextInner {
+    fn take(mut self) -> &'a CancellationContextSharedStateView {
         self.context.take().unwrap()
     }
 }
@@ -104,7 +104,7 @@ impl<'a> Drop for ExplicitCriticalSectionGuard<'a> {
 }
 
 pub(crate) struct ExplicitCancellationContext {
-    pub(crate) inner: ExecutionContextInner,
+    pub(crate) inner: CancellationContextSharedStateView,
 }
 
 impl ExplicitCancellationContext {

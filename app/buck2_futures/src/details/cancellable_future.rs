@@ -23,8 +23,7 @@ use pin_project::pin_project;
 
 use crate::cancellation::CancellationContext;
 use crate::cancellation::CancellationHandle;
-use crate::details::shared_state::ExecutionContextOuter;
-use crate::details::shared_state::SharedState;
+use crate::details::shared_state::CancellableFutureSharedStateView;
 use crate::drop_on_ready::DropOnReadyFuture;
 use crate::owning_future::OwningFuture;
 
@@ -34,18 +33,16 @@ pub(crate) fn make_cancellable_future<F, T>(
 where
     F: for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, T> + Send,
 {
-    let (outer_context, inner_context) = ExecutionContextOuter::new();
+    let (handle_view, future_view, context_view) = CancellableFutureSharedStateView::new();
 
     let fut = {
-        let cancel = CancellationContext::new_explicit(inner_context);
+        let cancel = CancellationContext::new_explicit(context_view);
 
         OwningFuture::new(cancel, |d| f(d))
     };
 
-    let (state1, state2) = SharedState::new();
-
-    let fut = ExplicitlyCancellableFuture::new(fut, state1, outer_context);
-    let handle = CancellationHandle::new(state2);
+    let fut = ExplicitlyCancellableFuture::new(fut, future_view);
+    let handle = CancellationHandle::new(handle_view);
 
     (fut, handle)
 }
@@ -65,9 +62,7 @@ pub struct ExplicitlyCancellableFuture<T> {
 }
 
 struct ExplicitlyCancellableFutureInner<T> {
-    shared: SharedState,
-
-    execution: ExecutionContextOuter,
+    view: CancellableFutureSharedStateView,
 
     /// NOTE: this is duplicative of the `SharedState`, but unlike that state this is not behind a
     /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
@@ -79,13 +74,11 @@ struct ExplicitlyCancellableFutureInner<T> {
 impl<T> ExplicitlyCancellableFuture<T> {
     fn new(
         future: Pin<Box<OwningFuture<T, CancellationContext>>>,
-        shared: SharedState,
-        execution: ExecutionContextOuter,
+        view: CancellableFutureSharedStateView,
     ) -> Self {
         ExplicitlyCancellableFuture {
             fut: DropOnReadyFuture::new(ExplicitlyCancellableFutureInner {
-                shared,
-                execution,
+                view,
                 started: false,
                 future,
             }),
@@ -104,10 +97,10 @@ impl<T> Future for ExplicitlyCancellableFuture<T> {
 
 impl<T> ExplicitlyCancellableFutureInner<T> {
     fn poll_inner(self: &mut Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T>> {
-        let is_cancelled = self.shared.is_cancelled();
+        let is_cancelled = self.view.is_cancelled();
 
         if is_cancelled {
-            if self.execution.notify_cancelled() {
+            if self.view.notify_cancelled() {
                 return Poll::Ready(None);
             }
         }
@@ -116,7 +109,7 @@ impl<T> ExplicitlyCancellableFutureInner<T> {
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
-        if is_cancelled && self.execution.can_exit() {
+        if is_cancelled && self.view.can_exit() {
             return Poll::Ready(None);
         }
 
@@ -134,7 +127,7 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         // Once we start, the `poll_inner` will check whether we are actually canceled and return
         // the proper poll value.
         if !self.started {
-            self.shared.set_waker(cx);
+            self.view.set_waker(cx);
             self.started = true;
         }
 
@@ -143,9 +136,9 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
         if poll.is_ready() {
-            let was_cancelled = self.shared.set_exited();
+            let was_cancelled = self.view.set_exited();
             if was_cancelled {
-                if self.execution.can_exit() {
+                if self.view.can_exit() {
                     return Poll::Ready(None);
                 }
             }

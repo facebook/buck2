@@ -26,15 +26,33 @@ use crate::cancellation::CriticalSectionGuard;
 
 /// Shared cancellation related execution context for a cancellable task.
 ///
-/// This is the "outer" context, held by the task's spawned future impl within
-/// its poll loop.
-pub(crate) struct ExecutionContextOuter {
-    shared: Arc<Mutex<ExecutionContextData>>,
+/// This is the view on the context used by a CancellationHandle to signal a request for cancellation.
+pub(crate) struct CancellationHandleSharedStateView {
+    shared_state: SharedState,
 }
 
-impl ExecutionContextOuter {
-    pub(crate) fn new() -> (ExecutionContextOuter, ExecutionContextInner) {
-        let shared = Arc::new(Mutex::new(ExecutionContextData {
+impl CancellationHandleSharedStateView {
+    pub(crate) fn cancel(&self) -> bool {
+        self.shared_state.cancel()
+    }
+}
+
+/// Shared cancellation related execution context for a cancellable task.
+///
+/// This is the "outer" context, held by the task's spawned future impl within
+/// its poll loop.
+pub(crate) struct CancellableFutureSharedStateView {
+    context_data: Arc<Mutex<ExecutionContextData>>,
+    shared_state: SharedState,
+}
+
+impl CancellableFutureSharedStateView {
+    pub(crate) fn new() -> (
+        CancellationHandleSharedStateView,
+        CancellableFutureSharedStateView,
+        CancellationContextSharedStateView,
+    ) {
+        let context_data = Arc::new(Mutex::new(ExecutionContextData {
             cancellation_notification: {
                 CancellationNotificationData {
                     inner: Arc::new(CancellationNotificationDataInner {
@@ -45,16 +63,33 @@ impl ExecutionContextOuter {
             },
             prevent_cancellation: 0,
         }));
+        let (shared1, shared2) = SharedState::new();
         (
-            ExecutionContextOuter {
-                shared: shared.dupe(),
+            CancellationHandleSharedStateView {
+                shared_state: shared1,
             },
-            ExecutionContextInner { shared },
+            CancellableFutureSharedStateView {
+                context_data: context_data.dupe(),
+                shared_state: shared2,
+            },
+            CancellationContextSharedStateView { context_data },
         )
     }
 
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.shared_state.is_cancelled()
+    }
+
+    pub(crate) fn set_waker(&self, cx: &mut Context<'_>) {
+        self.shared_state.set_waker(cx);
+    }
+
+    pub(crate) fn set_exited(&self) -> bool {
+        self.shared_state.set_exited()
+    }
+
     pub(crate) fn notify_cancelled(&self) -> bool {
-        let mut lock = self.shared.lock();
+        let mut lock = self.context_data.lock();
         if lock.can_exit() {
             true
         } else {
@@ -64,7 +99,7 @@ impl ExecutionContextOuter {
     }
 
     pub(crate) fn can_exit(&self) -> bool {
-        self.shared.lock().can_exit()
+        self.context_data.lock().can_exit()
     }
 }
 
@@ -72,13 +107,13 @@ impl ExecutionContextOuter {
 ///
 /// This is the "inner" context, used by a CancellationContext to observe cancellation
 /// and enter critical sections.
-pub(crate) struct ExecutionContextInner {
-    shared: Arc<Mutex<ExecutionContextData>>,
+pub(crate) struct CancellationContextSharedStateView {
+    context_data: Arc<Mutex<ExecutionContextData>>,
 }
 
-impl ExecutionContextInner {
+impl CancellationContextSharedStateView {
     pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard {
-        let mut shared = self.shared.lock();
+        let mut shared = self.context_data.lock();
 
         let notification = shared.enter_structured_cancellation();
 
@@ -86,7 +121,7 @@ impl ExecutionContextInner {
     }
 
     pub(crate) fn try_to_disable_cancellation(&self) -> bool {
-        let mut shared = self.shared.lock();
+        let mut shared = self.context_data.lock();
         if shared.try_to_disable_cancellation() {
             true
         } else {
@@ -97,17 +132,17 @@ impl ExecutionContextInner {
     }
 
     pub(crate) fn exit_prevent_cancellation(&self) -> bool {
-        let mut shared = self.shared.lock();
+        let mut shared = self.context_data.lock();
         shared.exit_prevent_cancellation()
     }
 }
 
-pub(crate) struct SharedState {
+struct SharedState {
     inner: Arc<SharedStateData>,
 }
 
 impl SharedState {
-    pub(crate) fn new() -> (Self, Self) {
+    fn new() -> (Self, Self) {
         let data = Arc::new(SharedStateData {
             state: Mutex::new(State::Pending),
             cancelled: AtomicBool::new(false),
@@ -115,7 +150,7 @@ impl SharedState {
         (Self { inner: data.dupe() }, Self { inner: data })
     }
 
-    pub(crate) fn cancel(&self) -> bool {
+    fn cancel(&self) -> bool {
         // Store to the boolean first before we write to state.
         // This is because on `poll`, the future will update the state first then check the boolean.
         // This ordering ensures that either the `poll` has read our cancellation, and hence will
@@ -145,11 +180,11 @@ impl SharedState {
         }
     }
 
-    pub(crate) fn is_cancelled(&self) -> bool {
+    fn is_cancelled(&self) -> bool {
         self.inner.cancelled.load(Ordering::SeqCst)
     }
 
-    pub(crate) fn set_waker(&self, cx: &mut Context<'_>) {
+    fn set_waker(&self, cx: &mut Context<'_>) {
         // we only update the Waker once at the beginning of the poll. For the same tokio
         // runtime, this is always safe and behaves correctly, as such, this future is
         // restricted to be ran on the same tokio executor and never moved from one runtime to
@@ -162,7 +197,7 @@ impl SharedState {
         };
     }
 
-    pub(crate) fn set_exited(&self) -> bool {
+    fn set_exited(&self) -> bool {
         let mut lock = self.inner.state.lock();
         let state = std::mem::replace(&mut *lock, State::Exited);
         match state {

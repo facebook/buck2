@@ -22,10 +22,10 @@ use once_cell::sync::Lazy;
 use crate::details::cancellation_context::CancellationContextInner;
 use crate::details::cancellation_context::ExplicitCancellationContext;
 use crate::details::cancellation_context::ExplicitCriticalSectionGuard;
+use crate::details::shared_state::CancellationContextSharedStateView;
+use crate::details::shared_state::CancellationHandleSharedStateView;
 use crate::details::shared_state::CancellationNotificationData;
 use crate::details::shared_state::CancellationNotificationFuture;
-use crate::details::shared_state::ExecutionContextInner;
-use crate::details::shared_state::SharedState;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
@@ -87,7 +87,7 @@ impl CancellationContext {
         self.enter_critical_section().try_disable_cancellation()
     }
 
-    pub(crate) fn new_explicit(inner: ExecutionContextInner) -> CancellationContext {
+    pub(crate) fn new_explicit(inner: CancellationContextSharedStateView) -> CancellationContext {
         Self(CancellationContextInner::Explicit(
             ExplicitCancellationContext { inner },
         ))
@@ -136,7 +136,7 @@ impl<'a> CriticalSectionGuard<'a> {
     }
 
     pub(crate) fn new_explicit(
-        context: &'a ExecutionContextInner,
+        context: &'a CancellationContextSharedStateView,
         notification: CancellationNotificationData,
     ) -> Self {
         Self::Explicit(ExplicitCriticalSectionGuard {
@@ -178,52 +178,51 @@ pub struct DisableCancellationGuard;
 
 /// A handle providing the ability to explicitly cancel the associated ExplicitlyCancellableFuture.
 pub struct CancellationHandle {
-    shared_state: SharedState,
+    view: CancellationHandleSharedStateView,
 }
 
 impl CancellationHandle {
-    pub(crate) fn new(shared_state: SharedState) -> Self {
-        CancellationHandle { shared_state }
+    pub(crate) fn new(view: CancellationHandleSharedStateView) -> Self {
+        CancellationHandle { view }
     }
 
     /// Attempts to cancel the future this handle is associated with as soon as possible, returning
     /// a future that completes when the future is canceled.
     pub fn cancel(self) {
-        if !self.shared_state.cancel() {
+        if !self.view.cancel() {
             unreachable!("We consume the CancellationHandle on cancel, so this isn't possible")
         }
     }
 
     pub fn into_dropcancel(self) -> DropcancelHandle {
-        DropcancelHandle::new(self.shared_state)
+        DropcancelHandle::new(self.view)
     }
 }
 
 /// A handle that will cancel the associated ExplicitlyCancellableFuture when it is dropped.
 pub struct DropcancelHandle {
-    shared_state: ManuallyDrop<SharedState>,
+    view: ManuallyDrop<CancellationHandleSharedStateView>,
 }
 
 impl DropcancelHandle {
-    fn new(shared_state: SharedState) -> Self {
+    fn new(view: CancellationHandleSharedStateView) -> Self {
         Self {
-            shared_state: ManuallyDrop::new(shared_state),
+            view: ManuallyDrop::new(view),
         }
     }
 
     pub fn into_cancellable(mut self) -> CancellationHandle {
-        let shared_state = unsafe { ManuallyDrop::take(&mut self.shared_state) };
+        let view = unsafe { ManuallyDrop::take(&mut self.view) };
         std::mem::forget(self);
-
-        CancellationHandle { shared_state }
+        CancellationHandle { view }
     }
 }
 
 impl Drop for DropcancelHandle {
     fn drop(&mut self) {
-        if !self.shared_state.cancel() {
+        if !self.view.cancel() {
             unreachable!("We consume the handle on cancel, so this isn't possible")
         }
-        unsafe { ManuallyDrop::drop(&mut self.shared_state) };
+        unsafe { ManuallyDrop::drop(&mut self.view) };
     }
 }
