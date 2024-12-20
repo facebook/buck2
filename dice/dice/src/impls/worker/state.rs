@@ -11,9 +11,9 @@
 
 use std::sync::Arc;
 
-use buck2_futures::cancellable_future::DisableCancellationGuard;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_futures::cancellation::CriticalSectionGuard;
+use buck2_futures::cancellation::DisableCancellationGuard;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;

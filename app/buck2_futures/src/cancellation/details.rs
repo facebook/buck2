@@ -15,13 +15,13 @@ use std::task::Poll;
 use dupe::Dupe;
 use futures::future::Either;
 
-use crate::cancellable_future::CancellationObserver;
-use crate::cancellable_future::CancellationObserverInner;
-use crate::cancellable_future::DisableCancellationGuard;
 use crate::cancellation::future::context::ExecutionContextInner;
 use crate::cancellation::future::CancellationNotificationData;
 use crate::cancellation::future::CancellationNotificationFuture;
+use crate::cancellation::CancellationObserver;
+use crate::cancellation::CancellationObserverInner;
 use crate::cancellation::CriticalSectionGuard;
+use crate::cancellation::DisableCancellationGuard;
 
 pub struct ExplicitCriticalSectionGuard<'a> {
     pub(super) context: Option<&'a ExecutionContextInner>,

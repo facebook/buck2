@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
-use buck2_futures::cancellable_future::CancellationObserver;
+use buck2_futures::cancellation::CancellationObserver;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 

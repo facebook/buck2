@@ -14,7 +14,6 @@
 //! It is not intended to be polled directly.
 
 use std::future::Future;
-use std::mem::ManuallyDrop;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
@@ -30,6 +29,7 @@ use pin_project::pin_project;
 use slab::Slab;
 
 use crate::cancellation::CancellationContext;
+use crate::cancellation::CancellationHandle;
 use crate::details::shared_state::SharedState;
 use crate::drop_on_ready::DropOnReadyFuture;
 use crate::owning_future::OwningFuture;
@@ -158,58 +158,6 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         }
 
         poll
-    }
-}
-
-/// A handle providing the ability to explicitly cancel the associated ExplicitlyCancellableFuture.
-pub struct CancellationHandle {
-    shared_state: SharedState,
-}
-
-impl CancellationHandle {
-    fn new(shared_state: SharedState) -> Self {
-        CancellationHandle { shared_state }
-    }
-
-    /// Attempts to cancel the future this handle is associated with as soon as possible, returning
-    /// a future that completes when the future is canceled.
-    pub fn cancel(self) {
-        if !self.shared_state.cancel() {
-            unreachable!("We consume the CancellationHandle on cancel, so this isn't possible")
-        }
-    }
-
-    pub fn into_dropcancel(self) -> DropcancelHandle {
-        DropcancelHandle::new(self.shared_state)
-    }
-}
-
-/// A handle that will cancel the associated ExplicitlyCancellableFuture when it is dropped.
-pub struct DropcancelHandle {
-    shared_state: ManuallyDrop<SharedState>,
-}
-
-impl DropcancelHandle {
-    fn new(shared_state: SharedState) -> Self {
-        Self {
-            shared_state: ManuallyDrop::new(shared_state),
-        }
-    }
-
-    pub fn into_cancellable(mut self) -> CancellationHandle {
-        let shared_state = unsafe { ManuallyDrop::take(&mut self.shared_state) };
-        std::mem::forget(self);
-
-        CancellationHandle { shared_state }
-    }
-}
-
-impl Drop for DropcancelHandle {
-    fn drop(&mut self) {
-        if !self.shared_state.cancel() {
-            unreachable!("We consume the handle on cancel, so this isn't possible")
-        }
-        unsafe { ManuallyDrop::drop(&mut self.shared_state) };
     }
 }
 
@@ -488,7 +436,7 @@ mod tests {
     use tokio::sync::Barrier;
 
     use crate::cancellation::future::make_cancellable_future;
-    use crate::cancellation::future::CancellationHandle;
+    use crate::cancellation::CancellationHandle;
 
     #[derive(Debug)]
     struct MaybePanicOnDrop {

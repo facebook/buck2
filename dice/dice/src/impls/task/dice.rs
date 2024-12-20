@@ -17,7 +17,7 @@ use std::task::Poll;
 
 use allocative::Allocative;
 use allocative::Visitor;
-use buck2_futures::cancellation::future::CancellationHandle;
+use buck2_futures::cancellation::CancellationHandle;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;

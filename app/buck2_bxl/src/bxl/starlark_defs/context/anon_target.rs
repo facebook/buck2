@@ -29,7 +29,7 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
-use buck2_futures::cancellable_future::CancellationObserver;
+use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;

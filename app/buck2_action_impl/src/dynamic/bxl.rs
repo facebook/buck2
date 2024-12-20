@@ -16,7 +16,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_futures::cancellable_future::CancellationObserver;
+use buck2_futures::cancellation::CancellationObserver;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use futures::Future;

@@ -195,8 +195,8 @@ use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
-pub use buck2_futures::cancellation::future::CancellationHandle; // expose cancellation handle as api
 pub use buck2_futures::cancellation::CancellationContext; // expose cancellation context as api
+pub use buck2_futures::cancellation::CancellationHandle; // expose cancellation handle as api
 pub use buck2_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
 pub use buck2_futures::spawn::WeakFutureError; // expose future errors as api
 pub(crate) type HashMap<K, V> = std::collections::HashMap<K, V, fxhash::FxBuildHasher>;

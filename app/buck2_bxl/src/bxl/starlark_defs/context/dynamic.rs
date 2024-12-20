@@ -38,7 +38,7 @@ use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
-use buck2_futures::cancellable_future::CancellationObserver;
+use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;

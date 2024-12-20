@@ -22,9 +22,9 @@ use pin_project::pin_project;
 use thiserror::Error;
 
 use crate::cancellation::future::make_cancellable_future;
-use crate::cancellation::future::CancellationHandle;
-use crate::cancellation::future::DropcancelHandle;
 use crate::cancellation::CancellationContext;
+use crate::cancellation::CancellationHandle;
+use crate::cancellation::DropcancelHandle;
 use crate::spawner::Spawner;
 
 #[derive(Debug, Error, Copy, Clone, PartialEq)]

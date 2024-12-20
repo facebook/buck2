@@ -10,20 +10,25 @@
 //! Defines a future with explicit cancellation
 
 mod details;
-pub mod future;
+pub(crate) mod future;
 
 use std::future::Future;
+use std::mem::ManuallyDrop;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 
+use dupe::Dupe;
+use futures::FutureExt;
 use once_cell::sync::Lazy;
 
-use crate::cancellable_future::CancellationObserver;
-use crate::cancellable_future::CancellationObserverInner;
-use crate::cancellable_future::DisableCancellationGuard;
 use crate::cancellation::details::CancellationContextInner;
 use crate::cancellation::details::ExplicitCancellationContext;
 use crate::cancellation::details::ExplicitCriticalSectionGuard;
 use crate::cancellation::future::context::ExecutionContextInner;
 use crate::cancellation::future::CancellationNotificationData;
+use crate::cancellation::future::CancellationNotificationFuture;
+use crate::details::shared_state::SharedState;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
@@ -141,5 +146,87 @@ impl<'a> CriticalSectionGuard<'a> {
             context: Some(context),
             notification,
         })
+    }
+}
+
+/// A Future that resolves only when the associated task has been canceled.
+#[derive(Clone, Dupe)]
+pub struct CancellationObserver(pub(crate) CancellationObserverInner);
+
+impl CancellationObserver {
+    pub(crate) fn never_cancelled() -> Self {
+        CancellationObserver(CancellationObserverInner::NeverCancelled)
+    }
+}
+
+#[derive(Clone, Dupe)]
+pub(crate) enum CancellationObserverInner {
+    NeverCancelled,
+    Explicit(CancellationNotificationFuture),
+}
+
+impl Future for CancellationObserver {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match &mut self.0 {
+            CancellationObserverInner::Explicit(fut) => fut.poll_unpin(cx),
+            CancellationObserverInner::NeverCancelled => Poll::Pending,
+        }
+    }
+}
+
+/// A marker that indicates that cancellations have been disabled indefinitely for this task.
+pub struct DisableCancellationGuard;
+
+/// A handle providing the ability to explicitly cancel the associated ExplicitlyCancellableFuture.
+pub struct CancellationHandle {
+    shared_state: SharedState,
+}
+
+impl CancellationHandle {
+    fn new(shared_state: SharedState) -> Self {
+        CancellationHandle { shared_state }
+    }
+
+    /// Attempts to cancel the future this handle is associated with as soon as possible, returning
+    /// a future that completes when the future is canceled.
+    pub fn cancel(self) {
+        if !self.shared_state.cancel() {
+            unreachable!("We consume the CancellationHandle on cancel, so this isn't possible")
+        }
+    }
+
+    pub fn into_dropcancel(self) -> DropcancelHandle {
+        DropcancelHandle::new(self.shared_state)
+    }
+}
+
+/// A handle that will cancel the associated ExplicitlyCancellableFuture when it is dropped.
+pub struct DropcancelHandle {
+    shared_state: ManuallyDrop<SharedState>,
+}
+
+impl DropcancelHandle {
+    fn new(shared_state: SharedState) -> Self {
+        Self {
+            shared_state: ManuallyDrop::new(shared_state),
+        }
+    }
+
+    pub fn into_cancellable(mut self) -> CancellationHandle {
+        let shared_state = unsafe { ManuallyDrop::take(&mut self.shared_state) };
+        std::mem::forget(self);
+
+        CancellationHandle { shared_state }
+    }
+}
+
+impl Drop for DropcancelHandle {
+    fn drop(&mut self) {
+        if !self.shared_state.cancel() {
+            unreachable!("We consume the handle on cancel, so this isn't possible")
+        }
+        unsafe { ManuallyDrop::drop(&mut self.shared_state) };
     }
 }

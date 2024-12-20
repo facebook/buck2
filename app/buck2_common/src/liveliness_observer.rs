@@ -221,7 +221,7 @@ where
 }
 
 #[async_trait]
-impl LivelinessObserver for buck2_futures::cancellable_future::CancellationObserver {
+impl LivelinessObserver for buck2_futures::cancellation::CancellationObserver {
     async fn while_alive(&self) {
         self.dupe().await
     }

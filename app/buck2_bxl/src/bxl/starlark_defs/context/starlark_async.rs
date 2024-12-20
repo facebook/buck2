@@ -14,7 +14,7 @@ use buck2_common::events::HasEvents;
 use buck2_data::BxlDiceInvocationEnd;
 use buck2_data::BxlDiceInvocationStart;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_futures::cancellable_future::CancellationObserver;
+use buck2_futures::cancellation::CancellationObserver;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::UserComputationData;

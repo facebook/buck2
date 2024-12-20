@@ -10,7 +10,6 @@
 #![feature(assert_matches)]
 #![feature(pin_deref_mut)]
 
-pub mod cancellable_future;
 pub mod cancellation;
 mod details;
 pub mod drop;
