@@ -23,7 +23,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
-use buck2_futures::spawn::spawn_cancellable;
+use buck2_futures::spawn::spawn_dropcancel;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -211,14 +211,13 @@ async fn generate_profile(
             let profiles = buck2_util::future::try_join_all(resolved.specs.into_iter().map(
                 |(package, _spec)| {
                     let ctx = ctx.dupe();
-                    spawn_cancellable(
+                    spawn_dropcancel(
                         move |_cancel| {
                             async move { generate_profile_loading(&ctx, package).await }.boxed()
                         },
                         &*ctx_data.spawner,
                         ctx_data,
                     )
-                    .into_drop_cancel()
                 },
             ))
             .await?;

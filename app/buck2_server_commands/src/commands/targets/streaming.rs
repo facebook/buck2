@@ -24,7 +24,7 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::name::TargetName;
-use buck2_futures::spawn::spawn_cancellable;
+use buck2_futures::spawn::spawn_dropcancel;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::paths::package::PackageFilePath;
@@ -85,7 +85,7 @@ pub(crate) async fn targets_streaming(
             let threads = threads.dupe();
             let mut ctx = cloned_dice.dupe();
 
-            spawn_cancellable(
+            spawn_dropcancel(
                 |_cancellation| {
                     {
                         async move {
@@ -162,7 +162,6 @@ pub(crate) async fn targets_streaming(
                 &*cloned_dice.per_transaction_data().spawner,
                 cloned_dice.per_transaction_data(),
             )
-            .into_drop_cancel()
         })
         // Use unlimited parallelism - tokio will restrict us anyway
         .buffer_unordered(1000000);

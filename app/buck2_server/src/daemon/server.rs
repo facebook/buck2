@@ -687,6 +687,9 @@ where
 
     let req = req.into_inner();
     let events_ctx = EventsCtx { dispatcher };
+
+    // TODO(cjhopman): This should be spawn_dropcancel. We currently could be failing to cancel
+    // this if we encounter an error later in this function.
     let spawned = spawn_cancellable(
         |cancellations| func(req, cancellations),
         &BuckSpawner::new(rt.clone()),

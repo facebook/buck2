@@ -25,7 +25,7 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_futures::spawn::spawn_cancellable;
+use buck2_futures::spawn::spawn_dropcancel;
 use buck2_futures::spawn::DropcancelJoinHandle;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -284,7 +284,7 @@ impl TargetHashes {
             // this allows us to start the computations for dependents before finishing the computation for a node.
             hashes.insert(
                 target.node_key().clone(),
-                spawn_cancellable(
+                spawn_dropcancel(
                     |_| {
                         async move {
                             let mut hasher = TargetHashes::new_hasher(use_fast_hash);
@@ -315,7 +315,6 @@ impl TargetHashes {
                     &*dice.per_transaction_data().spawner,
                     dice.per_transaction_data(),
                 )
-                .into_drop_cancel()
                 .shared(),
             );
 

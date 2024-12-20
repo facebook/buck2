@@ -245,17 +245,4 @@ mod tests {
         let res = task.await;
         assert_eq!(res, Ok("Hello world!"));
     }
-
-    #[tokio::test]
-    async fn test_spawn_cancellable_convert_to_dropcancel() {
-        let sp = Arc::new(TokioSpawner);
-        let fut = async { "Hello world!" }.boxed();
-
-        let task = spawn_cancellable(|_| fut, sp.as_ref(), &MockCtx);
-
-        let future = task.into_drop_cancel();
-
-        let res = future.await;
-        assert_eq!(res, "Hello world!");
-    }
 }
