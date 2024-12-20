@@ -753,17 +753,15 @@ impl SharedLiveTransactionCtx {
         eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> {
-        match self.cache.get(key) {
-            DiceTaskRef::Computed(result) => {
-                DicePromise::ready(result).left_future()
-            }
+        let res: CancellableResult<DicePromise> = match self.cache.get(key) {
+            DiceTaskRef::Computed(result) => Ok(DicePromise::ready(result)),
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
                     MaybeCancelled::Ok(promise) => {
                         debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
-                        promise
-                    },
+                        Ok(promise)
+                    }
                     MaybeCancelled::Cancelled(_reason) => {
                         debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
@@ -780,20 +778,17 @@ impl SharedLiveTransactionCtx {
                                 eval,
                                 cycles,
                                 events,
-                                 Some(PreviouslyCancelledTask {
-                                    previous,
-                                }),
+                                Some(PreviouslyCancelledTask { previous }),
                             )
                         });
 
-                        occupied
-                            .get()
-                            .depended_on_by(parent_key)
-                            .not_cancelled()
-                            .expect("just created")
+                        // While we wouldn't have canceled the task, it could've already finished with a canceled result.
+                        match occupied.get().depended_on_by(parent_key) {
+                            MaybeCancelled::Ok(dice_promise) => Ok(dice_promise),
+                            MaybeCancelled::Cancelled(reason) => Err(reason),
+                        }
                     }
                 }
-                .left_future()
             }
             DiceTaskRef::Vacant(vacant) => {
                 debug!(msg = "shared state is empty, spawning new task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
@@ -802,35 +797,33 @@ impl SharedLiveTransactionCtx {
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let task = DiceTaskWorker::spawn(
-                    key,
-                    self.version_epoch,
-                    eval,
-                    cycles,
-                    events,
-                    None,
-                );
+                let task =
+                    DiceTaskWorker::spawn(key, self.version_epoch, eval, cycles, events, None);
 
-                let fut = task
-                    .depended_on_by(parent_key)
-                    .not_cancelled()
-                    .expect("just created");
-
-                vacant.insert(task);
-
-                fut.left_future()
+                // While we wouldn't have canceled the task, it could've already finished with a canceled result.
+                match task.depended_on_by(parent_key) {
+                    MaybeCancelled::Ok(dice_promise) => {
+                        vacant.insert(task);
+                        Ok(dice_promise)
+                    }
+                    MaybeCancelled::Cancelled(reason) => Err(reason),
+                }
             }
-            DiceTaskRef::TransactionCancelled => {
+            DiceTaskRef::TransactionCancelled => Err(CancellationReason::TransactionCancelled),
+        };
+
+        match res {
+            Ok(v) => v.left_future(),
+            Err(reason) => {
                 let v = self.version;
                 let v_epoch = self.version_epoch;
                 async move {
                     debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
                     tokio::task::yield_now().await;
-
-                    Err(CancellationReason::TransactionCancelled)
+                    Err(reason)
                 }
                     .right_future()
-            },
+            }
         }
     }
 
@@ -843,11 +836,11 @@ impl SharedLiveTransactionCtx {
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
-        let promise = match self.cache.get(key) {
-            DiceTaskRef::Computed(value) => DicePromise::ready(value),
+        let lookup = match self.cache.get(key) {
+            DiceTaskRef::Computed(value) => MaybeCancelled::Ok(DicePromise::ready(value)),
             DiceTaskRef::Occupied(mut occupied) => {
                 match occupied.get().depended_on_by(parent_key) {
-                    MaybeCancelled::Ok(promise) => promise,
+                    MaybeCancelled::Ok(promise) => MaybeCancelled::Ok(promise),
                     MaybeCancelled::Cancelled(_reason) => {
                         let task = unsafe {
                             // SAFETY: task completed below by `IncrementalEngine::project_for_key`
@@ -856,11 +849,7 @@ impl SharedLiveTransactionCtx {
 
                         *occupied.get_mut() = task;
 
-                        occupied
-                            .get()
-                            .depended_on_by(parent_key)
-                            .not_cancelled()
-                            .expect("just created")
+                        occupied.get().depended_on_by(parent_key)
                     }
                 }
             }
@@ -870,12 +859,7 @@ impl SharedLiveTransactionCtx {
                     sync_dice_task(key)
                 };
 
-                vacant
-                    .insert(task)
-                    .value()
-                    .depended_on_by(parent_key)
-                    .not_cancelled()
-                    .expect("just created")
+                vacant.insert(task).value().depended_on_by(parent_key)
             }
             DiceTaskRef::TransactionCancelled => {
                 // for projection keys, these are cheap and synchronous computes that should never
@@ -886,8 +870,13 @@ impl SharedLiveTransactionCtx {
                 };
 
                 task.depended_on_by(parent_key)
-                    .not_cancelled()
-                    .expect("just created")
+            }
+        };
+
+        let promise = match lookup {
+            MaybeCancelled::Ok(dice_promise) => dice_promise,
+            MaybeCancelled::Cancelled(cancellation_reason) => {
+                return Err(cancellation_reason);
             }
         };
 

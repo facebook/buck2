@@ -121,6 +121,7 @@ pub(crate) enum MaybeCancelled {
 }
 
 impl MaybeCancelled {
+    #[cfg(test)]
     pub(crate) fn not_cancelled(self) -> Option<DicePromise> {
         match self {
             MaybeCancelled::Ok(promise) => Some(promise),
