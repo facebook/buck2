@@ -16,6 +16,9 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
@@ -40,8 +43,18 @@ pub struct StarlarkAttribute(Attribute);
 
 starlark_simple_value!(StarlarkAttribute);
 
+/// Type of the attribute object returned by methods under [`attrs`](../attrs) namespace, e. g. `attrs.string()`.
+#[starlark_module]
+fn starlark_attribute_methods(builder: &mut MethodsBuilder) {}
+
 #[starlark_value(type = "attribute")]
-impl<'v> StarlarkValue<'v> for StarlarkAttribute {}
+impl<'v> StarlarkValue<'v> for StarlarkAttribute {
+    // Used to add type documentation to the generated documentation
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(starlark_attribute_methods)
+    }
+}
 
 impl StarlarkAttribute {
     pub fn new(attr: Attribute) -> Self {
