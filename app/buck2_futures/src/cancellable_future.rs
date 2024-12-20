@@ -12,14 +12,12 @@ use std::pin::Pin;
 use dupe::Dupe;
 use futures::future::Future;
 use futures::future::FutureExt;
-use futures::future::Shared;
 use futures::task::Context;
 use futures::task::Poll;
-use tokio::sync::oneshot;
 
 use crate::cancellation::future::CancellationNotificationFuture;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Dupe)]
 pub struct CancellationObserver(pub(crate) CancellationObserverInner);
 
 impl CancellationObserver {
@@ -28,30 +26,17 @@ impl CancellationObserver {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Dupe)]
 pub(crate) enum CancellationObserverInner {
     NeverCancelled,
-    Legacy(Option<Shared<oneshot::Receiver<()>>>),
     Explicit(CancellationNotificationFuture),
 }
-
-impl Default for CancellationObserverInner {
-    fn default() -> Self {
-        CancellationObserverInner::Legacy(Default::default())
-    }
-}
-
-impl Dupe for CancellationObserver {}
 
 impl Future for CancellationObserver {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match &mut self.0 {
-            CancellationObserverInner::Legacy(fut) => match fut {
-                Some(ref mut rx) => rx.poll_unpin(cx).map(|_| ()),
-                None => Poll::Pending,
-            },
             CancellationObserverInner::Explicit(fut) => fut.poll_unpin(cx),
             CancellationObserverInner::NeverCancelled => Poll::Pending,
         }
