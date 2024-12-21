@@ -8,8 +8,6 @@
 # pyre-strict
 
 
-import sys
-
 from buck2.tests.core.common.io.file_watcher import FileWatcherProvider
 from buck2.tests.core.common.io.file_watcher_dir_tests import (
     run_create_directory_test,
