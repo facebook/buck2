@@ -17,6 +17,10 @@ load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
 )
+load(
+    "@prelude//cxx:runtime_dependency_handling.bzl",
+    "cxx_attr_runtime_dependency_handling",
+)
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_groups.bzl",
@@ -275,6 +279,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         use_header_units = ctx.attrs.use_header_units,
+        runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
     )
     output = cxx_executable(ctx, params)
 
@@ -770,6 +775,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         use_header_units = ctx.attrs.use_header_units,
+        runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 

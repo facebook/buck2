@@ -100,6 +100,7 @@ cxx_binary = prelude_rule(
         cxx_common.raw_headers_arg() |
         cxx_common.include_directories_arg() |
         cxx_common.raw_headers_as_headers_mode_arg() |
+        cxx_common.runtime_dependency_handling_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
@@ -863,6 +864,7 @@ cxx_test = prelude_rule(
         cxx_common.raw_headers_arg() |
         cxx_common.raw_headers_as_headers_mode_arg() |
         cxx_common.include_directories_arg() |
+        cxx_common.runtime_dependency_handling_arg() |
         {
             "framework": attrs.option(attrs.enum(CxxTestType), default = None, doc = """
                 Unused.

@@ -11,6 +11,10 @@ load(
     "LinkGroupInfo",  # @unused Used as a type
 )
 load(
+    "@prelude//cxx:runtime_dependency_handling.bzl",
+    "RuntimeDependencyHandling",  # @unused Used as a type
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",
     "SwiftmoduleLinkable",
@@ -242,4 +246,6 @@ CxxRuleConstructorParams = record(
     export_header_unit = field([str, None], None),
     # Filter what headers to include in header units.
     export_header_unit_filter = field(list[str], []),
+    # Additional behavior for how to handle runtime dependencies
+    runtime_dependency_handling = field([RuntimeDependencyHandling, None], None),
 )

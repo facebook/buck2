@@ -33,6 +33,10 @@ load(
     "LinkGroupsDebugLinkableItem",
 )
 load(
+    "@prelude//cxx:runtime_dependency_handling.bzl",
+    "RuntimeDependencyHandling",
+)
+load(
     "@prelude//dist:dist_info.bzl",
     "DistInfo",
 )
@@ -508,7 +512,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
     gnu_use_link_groups = cxx_is_gnu(ctx) and len(link_group_mappings) > 0
     shlib_deps = []
-    if link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
+    if impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink") or link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
         shlib_deps = (
             [d.shared_library_info for d in link_deps] +
             [d.shared_library_info for d in impl_params.extra_link_roots]

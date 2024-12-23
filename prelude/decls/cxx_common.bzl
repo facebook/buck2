@@ -10,7 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "CxxSourceType", "IncludeType", "RawHeadersAsHeadersMode")
+load(":common.bzl", "CxxSourceType", "IncludeType", "RawHeadersAsHeadersMode", "RuntimeDependencyHandling")
 
 def _srcs_arg():
     return {
@@ -442,6 +442,15 @@ def _version_arg():
 """),
     }
 
+def _runtime_dependency_handling_arg():
+    return {
+        "runtime_dependency_handling": attrs.option(attrs.enum(RuntimeDependencyHandling), default = None, doc = """
+    When this is set to `symlink`, shared library dependencies are included in a symlink tree
+    alongside the resulting executable, even if the link style is not shared. Can be `none` or
+    `symlink`.
+"""),
+    }
+
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
@@ -485,4 +494,5 @@ cxx_common = struct(
     public_include_directories_arg = _public_include_directories_arg,
     public_system_include_directories_arg = _public_system_include_directories_arg,
     version_arg = _version_arg,
+    runtime_dependency_handling_arg = _runtime_dependency_handling_arg,
 )
