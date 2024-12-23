@@ -52,7 +52,9 @@ async def run_create_directory_test(
             )
         ]
 
-    verify_results((await get_file_watcher_events(buck)), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)
 
 
 async def run_remove_directory_test(
@@ -91,7 +93,9 @@ async def run_remove_directory_test(
             ),
         ]
 
-    verify_results(await get_file_watcher_events(buck), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)
 
 
 async def run_rename_directory_test(
@@ -132,4 +136,6 @@ async def run_rename_directory_test(
             ),
         ]
 
-    verify_results(await get_file_watcher_events(buck), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)

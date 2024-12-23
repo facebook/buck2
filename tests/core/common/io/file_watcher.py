@@ -9,6 +9,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Tuple
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.helper.utils import filter_events
@@ -78,7 +79,7 @@ class FileWatcherEvent:
 #     }
 #  }
 #
-async def get_file_watcher_events(buck: Buck) -> list[FileWatcherEvent]:
+async def get_file_watcher_events(buck: Buck) -> Tuple[bool, list[FileWatcherEvent]]:
     await buck.targets("root//:")
     filtered_events = await filter_events(
         buck,
@@ -102,4 +103,15 @@ async def get_file_watcher_events(buck: Buck) -> list[FileWatcherEvent]:
                 )
             )
 
-    return file_watcher_events
+    fresh_instance = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "FileWatcher",
+        "stats",
+        "fresh_instance",
+    )
+
+    return fresh_instance[0], file_watcher_events

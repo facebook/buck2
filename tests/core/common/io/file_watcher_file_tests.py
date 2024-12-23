@@ -52,7 +52,9 @@ async def run_create_file_test(
             )
         ]
 
-    verify_results((await get_file_watcher_events(buck)), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)
 
 
 async def run_modify_file_test(
@@ -71,7 +73,9 @@ async def run_modify_file_test(
         )
     ]
 
-    verify_results((await get_file_watcher_events(buck)), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)
 
 
 async def run_remove_file_test(
@@ -97,7 +101,9 @@ async def run_remove_file_test(
             )
         ]
 
-    verify_results((await get_file_watcher_events(buck)), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)
 
 
 async def run_rename_file_test(
@@ -131,7 +137,9 @@ async def run_rename_file_test(
             ),
         ]
 
-    verify_results((await get_file_watcher_events(buck)), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)
 
 
 async def run_replace_file_test(
@@ -191,4 +199,6 @@ async def run_replace_file_test(
             ),
         ]
 
-    verify_results((await get_file_watcher_events(buck)), required)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert not is_fresh_instance
+    verify_results(results, required)
