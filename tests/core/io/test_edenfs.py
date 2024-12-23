@@ -27,28 +27,28 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(setup_eden=True)
-async def test_edenfs_create_file_eden(buck: Buck) -> None:
+async def test_edenfs_create_file(buck: Buck) -> None:
     await run_create_file_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
 
 
 @buck_test(setup_eden=True)
-async def test_edenfs_modify_file_eden(buck: Buck) -> None:
+async def test_edenfs_modify_file(buck: Buck) -> None:
     await run_modify_file_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
 
 
 @buck_test(setup_eden=True)
-async def test_edenfs_remove_file_eden(buck: Buck) -> None:
+async def test_edenfs_remove_file(buck: Buck) -> None:
     await run_remove_file_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
 
 
 @buck_test(setup_eden=True)
-async def test_edenfs_rename_file_eden(buck: Buck) -> None:
+async def test_edenfs_rename_file(buck: Buck) -> None:
     await run_rename_file_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
@@ -56,28 +56,28 @@ async def test_edenfs_rename_file_eden(buck: Buck) -> None:
 
 # File replace is not supported on Windows
 @buck_test(setup_eden=True, skip_for_os=["windows"])
-async def test_edenfs_replace_file_eden(buck: Buck) -> None:
+async def test_edenfs_replace_file(buck: Buck) -> None:
     await run_replace_file_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
 
 
 @buck_test(setup_eden=True)
-async def test_edenfs_create_directory_eden(buck: Buck) -> None:
+async def test_edenfs_create_directory(buck: Buck) -> None:
     await run_create_directory_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
 
 
 @buck_test(setup_eden=True)
-async def test_edenfs_remove_directory_eden(buck: Buck) -> None:
+async def test_edenfs_remove_directory(buck: Buck) -> None:
     await run_remove_directory_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
 
 
 @buck_test(setup_eden=True)
-async def test_edenfs_rename_directory_eden(buck: Buck) -> None:
+async def test_edenfs_rename_directory(buck: Buck) -> None:
     await run_rename_directory_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )

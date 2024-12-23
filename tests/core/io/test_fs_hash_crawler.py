@@ -78,7 +78,7 @@ async def test_fs_hash_cralwer_remove_directory(buck: Buck) -> None:
 
 
 @buck_test(setup_eden=False)
-async def test_edenfs_rename_directory(buck: Buck) -> None:
+async def test_fs_hash_cralwer_rename_directory(buck: Buck) -> None:
     await run_rename_directory_test(
         buck, FileSystemType.NATIVE, FileWatcherProvider.FS_HASH_CRAWLER
     )

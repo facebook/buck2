@@ -78,7 +78,7 @@ async def test_notify_remove_directory(buck: Buck) -> None:
 
 
 @buck_test(setup_eden=False)
-async def test_edenfs_rename_directory(buck: Buck) -> None:
+async def test_notify_rename_directory(buck: Buck) -> None:
     await run_rename_directory_test(
         buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
     )
