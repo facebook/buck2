@@ -78,7 +78,7 @@ impl dyn FileWatcher {
             )),
             #[cfg(fbcode_build)]
             "edenfs" => Ok(Arc::new(
-                EdenFsFileWatcher::new(fb, project_root, cells, ignore_specs)
+                EdenFsFileWatcher::new(fb, project_root, root_config, cells, ignore_specs)
                     .buck_error_context("Creating edenfs file watcher")?,
             )),
             other => Err(buck2_error!([], "Invalid buck2.file_watcher: {}", other)),

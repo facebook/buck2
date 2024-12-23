@@ -8,4 +8,5 @@
  */
 
 pub(crate) mod interface;
+pub(crate) mod sapling;
 pub(crate) mod utils;
