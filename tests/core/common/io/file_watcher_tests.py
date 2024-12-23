@@ -45,14 +45,7 @@ def verify_results(
 
 
 async def run_aba_test(buck: Buck) -> None:
-    # Fails on eden because the repo exists, that's ok
-    subprocess.run(["sl", "init"], cwd=buck.cwd)
-    subprocess.run(["sl", "commit", "--addremove", "-m", "temp"], cwd=buck.cwd)
-    subprocess.run(["sl", "bookmark", "main"], cwd=buck.cwd, check=True)
-
-    assert subprocess.check_output(["sl", "status"], cwd=buck.cwd) == b""
-
-    assert (await get_files(buck)) == ["files/abc", "files/d/empty"]
+    await setup_file_watcher_test(buck)
 
     subprocess.run(["sl", "mv", "files/abc", "files/d/"], cwd=buck.cwd, check=True)
     assert (await get_files(buck)) == ["files/d/abc", "files/d/empty"]
