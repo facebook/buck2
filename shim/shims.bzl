@@ -151,12 +151,12 @@ def cpp_library(
     if oss_depends_on_folly and header_base_path.startswith("folly"):
         header_base_path = header_base_path.replace("folly/", "", 1)
 
-    _unused = (undefined_symbols, arch_preprocessor_flags, modular_headers, arch_compiler_flags, tags, propagated_pp_flags)  # @unused
+    _unused = (undefined_symbols, arch_preprocessor_flags, modular_headers, arch_compiler_flags, labels, propagated_pp_flags)  # @unused
     if os_deps:
         deps += _select_os_deps(_fix_dict_deps(os_deps))
     if headers == None:
         headers = []
-    if tags != None and "oss_dependency" in tags:
+    if labels != None and "oss_dependency" in labels:
         if oss_depends_on_folly:
             headers = [item.replace("//:", "//folly:") if item == "//:folly-config.h" else item for item in headers]
     if is_select(srcs) and auto_headers == AutoHeaders.SOURCES:
@@ -209,7 +209,7 @@ def cpp_unittest(
         resources = {},
         test_main = None,
         **kwargs):
-    _unused = (supports_static_listing, allocator, owner, tags, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode)  # @unused
+    _unused = (supports_static_listing, allocator, owner, labels, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode)  # @unused
     if test_main != None:
         deps = deps + [test_main]
     elif read_config("oss", "folly_cxx_tests", True):
