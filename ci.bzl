@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@fbcode//target_determinator/macros:ci.bzl", "ci")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 
 # We want to test most things on all platforms we support, but for various reasons,
 # this PACKAGE should be treated as Linux-only.
