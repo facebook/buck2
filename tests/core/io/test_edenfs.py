@@ -7,7 +7,12 @@
 
 # pyre-strict
 
-from buck2.tests.core.common.io.file_watcher import FileWatcherProvider
+import subprocess
+
+from buck2.tests.core.common.io.file_watcher import (
+    FileWatcherProvider,
+    get_file_watcher_events,
+)
 from buck2.tests.core.common.io.file_watcher_dir_tests import (
     run_create_directory_test,
     run_remove_directory_test,
@@ -26,7 +31,10 @@ from buck2.tests.core.common.io.file_watcher_scm_tests import (
     run_rebase_wtih_mergebase_test,
     run_restack_wtih_mergebase_test,
 )
-from buck2.tests.core.common.io.file_watcher_tests import FileSystemType
+from buck2.tests.core.common.io.file_watcher_tests import (
+    FileSystemType,
+    setup_file_watcher_test,
+)
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -115,3 +123,12 @@ async def test_edenfs_restack_with_mergebase(buck: Buck) -> None:
     await run_restack_wtih_mergebase_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_truncate_journal(buck: Buck) -> None:
+    await setup_file_watcher_test(buck)
+    subprocess.run(["edenfsctl", "debug", "flush_journal"], cwd=buck.cwd)
+
+    is_fresh_instance, _ = await get_file_watcher_events(buck)
+    assert is_fresh_instance
