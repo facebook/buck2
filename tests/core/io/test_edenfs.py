@@ -20,6 +20,12 @@ from buck2.tests.core.common.io.file_watcher_file_tests import (
     run_rename_file_test,
     run_replace_file_test,
 )
+from buck2.tests.core.common.io.file_watcher_scm_tests import (
+    run_checkout_mergebase_changes_test,
+    run_checkout_wtih_mergebase_test,
+    run_rebase_wtih_mergebase_test,
+    run_restack_wtih_mergebase_test,
+)
 from buck2.tests.core.common.io.file_watcher_tests import FileSystemType
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -79,5 +85,33 @@ async def test_edenfs_remove_directory(buck: Buck) -> None:
 @buck_test(setup_eden=True)
 async def test_edenfs_rename_directory(buck: Buck) -> None:
     await run_rename_directory_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_checkout_mergebase_changes(buck: Buck) -> None:
+    await run_checkout_mergebase_changes_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_checkout_with_mergebase(buck: Buck) -> None:
+    await run_checkout_wtih_mergebase_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_rebase_with_mergebase(buck: Buck) -> None:
+    await run_rebase_wtih_mergebase_test(
+        buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
+    )
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_restack_with_mergebase(buck: Buck) -> None:
+    await run_restack_wtih_mergebase_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.EDEN_FS
     )

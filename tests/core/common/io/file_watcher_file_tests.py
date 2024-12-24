@@ -153,10 +153,9 @@ async def run_replace_file_test(
     with open(path, "a"):
         pass
 
-    # By getting files here, we clear the log of the previous file watcher events
-    # including the create event for 'def'; this also removes the directory modify event
-    # that we would normally expect to see when creating a file in a directory on native file systems
-    await get_files(buck)
+    # clear log - run build twice
+    await buck.targets("root//:")
+    await buck.targets("root//:")
 
     fromPath = os.path.join(buck.cwd, "files", "abc")
     toPath = os.path.join(buck.cwd, "files", "def")

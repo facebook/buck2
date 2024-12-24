@@ -21,6 +21,12 @@ from buck2.tests.core.common.io.file_watcher_file_tests import (
     run_rename_file_test,
     run_replace_file_test,
 )
+from buck2.tests.core.common.io.file_watcher_scm_tests import (
+    run_checkout_mergebase_changes_test,
+    run_checkout_wtih_mergebase_test,
+    run_rebase_wtih_mergebase_test,
+    run_restack_wtih_mergebase_test,
+)
 from buck2.tests.core.common.io.file_watcher_tests import FileSystemType
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -80,5 +86,33 @@ async def test_notify_remove_directory(buck: Buck) -> None:
 @buck_test(setup_eden=False)
 async def test_notify_rename_directory(buck: Buck) -> None:
     await run_rename_directory_test(
+        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+    )
+
+
+@buck_test(setup_eden=False)
+async def test_notify_checkout_mergebase_changes(buck: Buck) -> None:
+    await run_checkout_mergebase_changes_test(
+        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+    )
+
+
+@buck_test(setup_eden=False)
+async def test_notify_checkout_with_mergebase(buck: Buck) -> None:
+    await run_checkout_wtih_mergebase_test(
+        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+    )
+
+
+@buck_test(setup_eden=False)
+async def test_notify_rebase_with_mergebase(buck: Buck) -> None:
+    await run_rebase_wtih_mergebase_test(
+        buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
+    )
+
+
+@buck_test(setup_eden=False)
+async def test_notify_restack_with_mergebase(buck: Buck) -> None:
+    await run_restack_wtih_mergebase_test(
         buck, FileSystemType.NATIVE, FileWatcherProvider.RUST_NOTIFY
     )
