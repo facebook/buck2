@@ -311,17 +311,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_disposition() {
-        let (val, disposition) = STRING_INTERNER.observed_intern("hello".to_owned());
-        assert_eq!(val.to_string(), "hello".to_owned());
-        assert!(std::matches!(disposition, InternDisposition::Computed));
-
-        let (val, disposition) = STRING_INTERNER.observed_intern("hello".to_owned());
-        assert_eq!(val.to_string(), "hello".to_owned());
-        assert!(std::matches!(disposition, InternDisposition::Interned));
-    }
-
     // Make sure things work with reallocation.
     #[test]
     fn test_resize() {
@@ -349,6 +338,18 @@ mod tests {
         fn from(value: StrRef<'_>) -> Self {
             value.0.to_owned()
         }
+    }
+
+    static TEST_DISPOSITION_STRING: Interner<String> = Interner::new();
+    #[test]
+    fn test_disposition() {
+        let (val, disposition) = TEST_DISPOSITION_STRING.observed_intern("hello".to_owned());
+        assert_eq!(val.to_string(), "hello".to_owned());
+        assert!(std::matches!(disposition, InternDisposition::Computed));
+
+        let (val, disposition) = TEST_DISPOSITION_STRING.observed_intern("hello".to_owned());
+        assert_eq!(val.to_string(), "hello".to_owned());
+        assert!(std::matches!(disposition, InternDisposition::Interned));
     }
 
     static TEST_GET_INTERNER: Interner<String> = Interner::new();
