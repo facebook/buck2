@@ -56,9 +56,9 @@ ABSOLUTIZE_PATH_EXE = "prelude//ide_integrations/visual_studio:absolutize_path_e
 VS_BUCK_BUILD_PROPS = "prelude//ide_integrations/visual_studio:vs_buck_build_props"
 
 def _get_platform(vs_version: str) -> str:
-    if "android" in read_root_config("build", "default_target_platform"):
+    if "android" in (read_root_config("build", "default_target_platform") or ""):
         return "android"
-    elif "clang" in read_root_config("cxx_#default", "cxx_type"):
+    elif "clang" in (read_root_config("cxx_#default", "cxx_type") or ""):
         return "clang"
     else:
         return "vs" + vs_version
