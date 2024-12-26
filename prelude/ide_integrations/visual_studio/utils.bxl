@@ -164,6 +164,10 @@ def get_mode_config_path(mode_name):
     return mode_name.replace("/", "_") + ".props"
 
 def get_root_path_relative_to(target_label):
+    # Workaround: "".split("/") returns [""], which is not expected.
+    if not target_label.package:
+        return "../"
+
     # + 1 for the hash layer of directory
     return "../" * (len(target_label.package.split("/")) + 1)
 
