@@ -12,8 +12,11 @@ offers superb performance and handles incremental changes extremely well.
 
 ## Quick Start
 
+Use project "buck2/examples/vscode" as an example,
+
 ```
-buck2 bxl prelude/ide_integrations/visual_studio/main.bxl:main -- --target //cpp/hello_world:main
+mkdir modes && echo "" > modes/debug  # One-time setup. Skip if there is one already exists.
+python prelude/ide_integrations/visual_studio/vsgo.py root//:main --mode_files modes/debug
 ```
 
 This will generate project and solution files for the specific target and output
@@ -23,7 +26,7 @@ browse, edit, and run/debug your buck target.
 To list all options and their help docs, run
 
 ```
-buck2 bxl prelude/ide_integrations/visual_studio/main.bxl:main -- --help
+python prelude/ide_integrations/visual_studio/vsgo.py --help
 ```
 
 ## How It Works
