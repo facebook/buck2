@@ -13,7 +13,7 @@ def _make_entry(ctx: bxl.Context, compile_command: CxxSrcCompileCommand) -> dict
     args = compile_command.cxx_compile_cmd.base_compile_cmd.copy()
 
     # This prevents clangd from jumping into `buck-out` when using Go To
-    # Definition, which significantly improces user experience.
+    # Definition, which significantly improves user experience.
     args.add(["-I", "."])
     args.add(compile_command.cxx_compile_cmd.argsfile.cmd_form)
     args.add(compile_command.args)
