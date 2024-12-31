@@ -131,9 +131,6 @@ pub struct RecordTypeGen<V: RecordCell> {
     pub(crate) ty_record_data: V::TyRecordDataOpt,
     /// The V is the type the field must satisfy (e.g. `"string"`)
     fields: SmallMap<String, FieldGen<V>>,
-    /// Creating these on every invoke is pretty expensive (profiling shows)
-    /// so compute them in advance and cache.
-    parameter_spec: ParametersSpec<FrozenValue>,
 }
 
 impl<'v, V: ValueLike<'v> + RecordCell> Display for RecordTypeGen<V> {
@@ -157,30 +154,11 @@ pub(crate) fn record_fields<'v>(
 
 impl<'v> RecordType<'v> {
     pub(crate) fn new(fields: SmallMap<String, FieldGen<Value<'v>>>) -> Self {
-        let parameter_spec = Self::make_parameter_spec(&fields);
         Self {
             id: TypeInstanceId::gen(),
             fields,
-            parameter_spec,
             ty_record_data: OnceCell::new(),
         }
-    }
-
-    fn make_parameter_spec(
-        fields: &SmallMap<String, FieldGen<Value<'v>>>,
-    ) -> ParametersSpec<FrozenValue> {
-        ParametersSpec::new_named_only(
-            "record",
-            fields.iter().map(|(name, field)| {
-                (
-                    name.as_str(),
-                    match field.default {
-                        None => ParametersSpecParam::Required,
-                        Some(_default) => ParametersSpecParam::Optional,
-                    },
-                )
-            }),
-        )
     }
 }
 
@@ -190,7 +168,6 @@ impl<'v> Freeze for RecordType<'v> {
         Ok(FrozenRecordType {
             id: self.id,
             fields: self.fields.freeze(freezer)?,
-            parameter_spec: self.parameter_spec,
             ty_record_data: self.ty_record_data.into_inner(),
         })
     }
@@ -210,6 +187,21 @@ where
             .expect("Instances can only be created if named are assigned")
             .ty_record
             .dupe()
+    }
+
+    fn make_parameter_spec(fields: &SmallMap<String, FieldGen<V>>) -> ParametersSpec<FrozenValue> {
+        ParametersSpec::new_named_only(
+            "record",
+            fields.iter().map(|(name, field)| {
+                (
+                    name.as_str(),
+                    match field.default {
+                        None => ParametersSpecParam::Required,
+                        Some(_default) => ParametersSpecParam::Optional,
+                    },
+                )
+            }),
+        )
     }
 }
 
@@ -236,15 +228,16 @@ where
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        if self.ty_record_data().is_none() {
+        let Some(ty_record_data) = self.ty_record_data() else {
             return Err(crate::Error::new_other(
                 RecordTypeError::RecordTypeNotAssigned,
             ));
-        }
+        };
 
         let this = me;
 
-        self.parameter_spec
+        ty_record_data
+            .parameter_spec
             .parser(args, eval, |param_parser, eval| {
                 let fields = record_fields(RecordType::from_value(this).unwrap());
                 let mut values = Vec::with_capacity(fields.len());
@@ -346,6 +339,7 @@ where
                 id: self.id,
                 ty_record,
                 ty_record_type,
+                parameter_spec: Self::make_parameter_spec(&self.fields),
             }))
         })
     }
