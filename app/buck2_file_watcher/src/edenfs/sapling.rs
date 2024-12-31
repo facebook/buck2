@@ -8,7 +8,6 @@
  */
 
 use std::path::Path;
-use std::process::ExitStatus;
 use std::process::Stdio;
 
 use buck2_error::buck2_error;

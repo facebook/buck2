@@ -27,7 +27,6 @@ use buck2_core::soft_error;
 use buck2_data::FileWatcherEventType as Type;
 use buck2_data::FileWatcherKind as Kind;
 use buck2_eden::connection::EdenConnectionManager;
-use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use dice::DiceTransactionUpdater;
@@ -483,10 +482,6 @@ impl EdenFsFileWatcher {
                                     Type::Delete,
                                     path.as_bytes(),
                                 ),
-                            _ => Err(buck2_error!(
-                                [],
-                                "Unexpected SaplingStatus returned from sapling::get_status."
-                            )),
                         })
                         .collect();
 
