@@ -269,7 +269,7 @@ def executable_shared_lib_arguments(
 
     dwp_symlink_tree = None
     if len(shared_libs) > 0:
-        if linker_type == LinkerType("windows"):
+        if host_info().os.is_windows:
             shared_libs_symlink_tree = [ctx.actions.symlink_file(
                 shlib.lib.output.basename,
                 shlib.lib.output,
