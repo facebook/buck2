@@ -415,4 +415,16 @@ noop(f_fail_rt)(RecFailRt2(a = 1, b = 2))
             "record(a = field(int))(a = 1)",
         );
     }
+
+    #[test]
+    fn test_missing_field_error() {
+        assert::fail_golden(
+            "src/values/types/record/record_type/missing_field_error.golden",
+            r#"
+RecFail = record(a = field(int), b = field(int))
+
+_x = RecFail(a = 1)
+"#,
+        );
+    }
 }
