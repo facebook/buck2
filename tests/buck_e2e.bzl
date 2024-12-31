@@ -6,10 +6,10 @@
 # of this source tree.
 
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
-load("@fbcode//target_determinator/macros:ci.bzl", "ci")
-load("@fbcode//target_determinator/macros:ci_hint.bzl", "ci_hint")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
+load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
 
 def buck_e2e_test(
         name,

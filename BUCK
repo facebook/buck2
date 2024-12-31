@@ -1,5 +1,5 @@
-load("@fbcode//target_determinator/macros:ci.bzl", "ci")
 load("@fbcode_macros//build_defs:native_rules.bzl", "alias")
+load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load(":defs.bzl", "buck2_bundle")
 
 oncall("build_infra")
