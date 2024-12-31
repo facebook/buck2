@@ -189,9 +189,12 @@ where
             .dupe()
     }
 
-    fn make_parameter_spec(fields: &SmallMap<String, FieldGen<V>>) -> ParametersSpec<FrozenValue> {
+    fn make_parameter_spec(
+        name: &str,
+        fields: &SmallMap<String, FieldGen<V>>,
+    ) -> ParametersSpec<FrozenValue> {
         ParametersSpec::new_named_only(
-            "record",
+            name,
             fields.iter().map(|(name, field)| {
                 (
                     name.as_str(),
@@ -339,7 +342,7 @@ where
                 id: self.id,
                 ty_record,
                 ty_record_type,
-                parameter_spec: Self::make_parameter_spec(&self.fields),
+                parameter_spec: Self::make_parameter_spec(variable_name, &self.fields),
             }))
         })
     }
