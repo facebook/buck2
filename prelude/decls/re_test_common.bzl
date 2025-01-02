@@ -21,6 +21,7 @@ def _opts_for_tests_arg() -> Attr:
     #     "remote_cache_enabled": bool | None
     #     "dependencies": list<Dict<str, str>> | []
     #     "resource_units": int | None
+    #     "remote_execution_dynamic_image": dict<str, str | list<str>> | None
     # }
     return attrs.dict(
         key = attrs.string(),
@@ -28,7 +29,10 @@ def _opts_for_tests_arg() -> Attr:
             attrs.one_of(
                 attrs.dict(
                     key = attrs.string(),
-                    value = attrs.string(),
+                    value = attrs.one_of(
+                        attrs.string(),
+                        attrs.list(attrs.string()),
+                    ),
                     sorted = False,
                 ),
                 attrs.string(),

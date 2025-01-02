@@ -80,6 +80,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     local_enabled = re_props_copy.pop("local_enabled", False)
     local_listing_enabled = re_props_copy.pop("local_listing_enabled", False)
     re_resource_units = re_props_copy.pop("resource_units", None)
+    re_dynamic_image = re_props_copy.pop("remote_execution_dynamic_image", None)
     if re_props_copy:
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
@@ -98,6 +99,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         remote_execution_action_key = remote_execution_action_key,
         remote_execution_dependencies = re_dependencies,
         remote_execution_resource_units = re_resource_units,
+        remote_execution_dynamic_image = re_dynamic_image,
     )
     listing_executor = default_executor
     if listing_capabilities:
@@ -109,5 +111,6 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
             remote_cache_enabled = remote_cache_enabled,
             remote_execution_action_key = remote_execution_action_key,
             remote_execution_resource_units = re_resource_units,
+            remote_execution_dynamic_image = re_dynamic_image,
         )
     return default_executor, {"listing": listing_executor}
