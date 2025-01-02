@@ -30,6 +30,7 @@ load(
 )
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
+    "BuildMode",
     "OutputPaths",
     "TargetType",
     "add_java_7_8_bootclasspath",
@@ -103,12 +104,16 @@ def create_jar_artifact_javacd(
     # external javac does not support used classes
     track_class_usage = javac_tool == None and java_toolchain.track_class_usage
 
-    def encode_library_command(
+    def encode_command(
+            build_mode: BuildMode,
+            target_type: TargetType,
             output_paths: OutputPaths,
-            path_to_class_hashes: Artifact,
-            classpath_jars_tag: ArtifactTag) -> struct:
-        target_type = TargetType("library")
-
+            path_to_class_hashes: [Artifact, None],
+            classpath_jars_tag: ArtifactTag,
+            source_only_abi_compiling_deps: list[JavaClasspathEntry],
+            track_class_usage: bool,
+            incremental_state_dir: [Artifact, None]) -> struct:
+        expect(incremental_state_dir == None, "incremenatl_state_dir should not be provided for java library: {}".format(incremental_state_dir))
         base_jar_command = encode_base_jar_command(
             javac_tool,
             target_type,
@@ -128,45 +133,12 @@ def create_jar_artifact_javacd(
             plugin_params,
             manifest_file,
             extra_arguments,
-            source_only_abi_compiling_deps = [],
-            track_class_usage = track_class_usage,
-        )
-
-        return struct(
-            buildMode = "LIBRARY",
-            baseJarCommand = base_jar_command,
-        )
-
-    def encode_abi_command(
-            output_paths: OutputPaths,
-            target_type: TargetType,
-            classpath_jars_tag: ArtifactTag,
-            source_only_abi_compiling_deps: list[JavaClasspathEntry] = []) -> struct:
-        base_jar_command = encode_base_jar_command(
-            javac_tool,
-            target_type,
-            output_paths,
-            None,  # path_to_class_hashes
-            remove_classes,
-            label,
-            compiling_deps_tset,
-            classpath_jars_tag,
-            bootclasspath_entries,
-            source_level,
-            target_level,
-            abi_generation_mode,
-            srcs,
-            resources_map,
-            annotation_processor_properties,
-            plugin_params,
-            manifest_file,
-            extra_arguments,
             source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             track_class_usage = track_class_usage,
         )
 
         return struct(
-            buildMode = "ABI",
+            buildMode = build_mode,
             baseJarCommand = base_jar_command,
         )
 
@@ -271,7 +243,16 @@ def create_jar_artifact_javacd(
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
-    command = encode_library_command(output_paths, path_to_class_hashes_out, library_classpath_jars_tag)
+    command = encode_command(
+        build_mode = BuildMode("LIBRARY"),
+        target_type = TargetType("library"),
+        output_paths = output_paths,
+        path_to_class_hashes = path_to_class_hashes_out,
+        classpath_jars_tag = library_classpath_jars_tag,
+        source_only_abi_compiling_deps = [],
+        track_class_usage = track_class_usage,
+        incremental_state_dir = None,
+    )
     define_javacd_action(
         "",
         actions_identifier,
@@ -310,7 +291,8 @@ def create_jar_artifact_javacd(
             source_only_abi_deps,
             class_abi_jar = class_abi_jar,
             class_abi_output_dir = class_abi_output_dir,
-            encode_abi_command = encode_abi_command,
+            track_class_usage = track_class_usage,
+            encode_abi_command = encode_command,
             define_action = define_javacd_action,
         )
 

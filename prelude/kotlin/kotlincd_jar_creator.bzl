@@ -26,6 +26,7 @@ load(
 )
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
+    "BuildMode",
     "OutputPaths",
     "TargetType",
     "base_qualified_name",
@@ -162,12 +163,15 @@ def create_jar_artifact_kotlincd(
     # external javac does not support used classes
     track_class_usage = enable_used_classes and javac_tool == None and kotlin_toolchain.track_class_usage_plugin != None
 
-    def encode_library_command(
+    def encode_command(
+            build_mode: BuildMode,
+            target_type: TargetType,
             output_paths: OutputPaths,
-            path_to_class_hashes: Artifact,
+            path_to_class_hashes: [Artifact, None],
             classpath_jars_tag: ArtifactTag,
-            incremental_state_dir: Artifact | None) -> struct:
-        target_type = TargetType("library")
+            source_only_abi_compiling_deps: list[JavaClasspathEntry],
+            track_class_usage: bool,
+            incremental_state_dir: [Artifact, None]) -> struct:
         base_jar_command = encode_base_jar_command(
             javac_tool,
             target_type,
@@ -187,49 +191,15 @@ def create_jar_artifact_kotlincd(
             plugin_params = plugin_params,
             manifest_file = manifest_file,
             extra_arguments = cmd_args(extra_arguments),
-            source_only_abi_compiling_deps = [],
+            source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             track_class_usage = track_class_usage,
             is_incremental = should_kotlinc_run_incrementally,
         )
 
         return struct(
-            buildMode = "LIBRARY",
+            buildMode = build_mode,
             baseJarCommand = base_jar_command,
             kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir),
-        )
-
-    def encode_abi_command(
-            output_paths: OutputPaths,
-            target_type: TargetType,
-            classpath_jars_tag: ArtifactTag,
-            source_only_abi_compiling_deps: list[JavaClasspathEntry] = []) -> struct:
-        base_jar_command = encode_base_jar_command(
-            javac_tool,
-            target_type,
-            output_paths,
-            None,  # path_to_class_hashes
-            remove_classes,
-            label,
-            compiling_deps_tset,
-            classpath_jars_tag,
-            bootclasspath_entries,
-            source_level,
-            target_level,
-            actual_abi_generation_mode,
-            srcs,
-            resources_map,
-            annotation_processor_properties,
-            plugin_params,
-            manifest_file,
-            cmd_args(extra_arguments),
-            source_only_abi_compiling_deps = source_only_abi_compiling_deps,
-            track_class_usage = True,
-        )
-
-        return struct(
-            buildMode = "ABI",
-            baseJarCommand = base_jar_command,
-            kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins),
         )
 
     # buildifier: disable=uninitialized
@@ -349,7 +319,16 @@ def create_jar_artifact_kotlincd(
         return proto
 
     library_classpath_jars_tag = actions.artifact_tag()
-    command = encode_library_command(output_paths, path_to_class_hashes_out, library_classpath_jars_tag, incremental_state_dir)
+    command = encode_command(
+        build_mode = BuildMode("LIBRARY"),
+        target_type = TargetType("library"),
+        output_paths = output_paths,
+        path_to_class_hashes = path_to_class_hashes_out,
+        classpath_jars_tag = library_classpath_jars_tag,
+        source_only_abi_compiling_deps = [],
+        track_class_usage = track_class_usage,
+        incremental_state_dir = incremental_state_dir,
+    )
     proto = define_kotlincd_action(
         category_prefix = "",
         actions_identifier = actions_identifier,
@@ -391,7 +370,8 @@ def create_jar_artifact_kotlincd(
             source_only_abi_deps = source_only_abi_deps,
             class_abi_jar = class_abi_jar,
             class_abi_output_dir = class_abi_output_dir,
-            encode_abi_command = encode_abi_command,
+            track_class_usage = True,
+            encode_abi_command = encode_command,
             define_action = define_kotlincd_action,
         )
         abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)

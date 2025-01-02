@@ -71,6 +71,7 @@ def get_abi_generation_mode(
 # Our protobuf format mostly encodes paths in RelPath/AbsPath structs with a single "path" field.
 # Note that we don't actually use abspath and instead enable JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD
 TargetType = enum("library", "source_abi", "source_only_abi")
+BuildMode = enum("LIBRARY", "ABI")
 
 def encode_abi_generation_mode(mode: AbiGenerationMode) -> str:
     return {
@@ -535,6 +536,7 @@ def generate_abi_jars(
         source_only_abi_deps: list[Dependency],
         class_abi_jar: Artifact | None,
         class_abi_output_dir: Artifact | None,
+        track_class_usage: bool,
         encode_abi_command: typing.Callable,
         define_action: typing.Callable) -> tuple:
     class_abi = None
@@ -554,7 +556,16 @@ def generate_abi_jars(
             source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label)
             source_abi_classpath_jars_tag = actions.artifact_tag()
             source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", dir = True)
-            source_abi_command = encode_abi_command(source_abi_output_paths, source_abi_target_type, source_abi_classpath_jars_tag)
+            source_abi_command = encode_abi_command(
+                build_mode = BuildMode("ABI"),
+                target_type = source_abi_target_type,
+                output_paths = source_abi_output_paths,
+                path_to_class_hashes = None,
+                classpath_jars_tag = source_abi_classpath_jars_tag,
+                source_only_abi_compiling_deps = [],
+                track_class_usage = track_class_usage,
+                incremental_state_dir = None,
+            )
             define_action(
                 "source_abi_",
                 source_abi_identifier,
@@ -579,7 +590,16 @@ def generate_abi_jars(
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", dir = True)
             source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
-            source_only_abi_command = encode_abi_command(source_only_abi_output_paths, source_only_abi_target_type, source_only_abi_classpath_jars_tag, source_only_abi_compiling_deps)
+            source_only_abi_command = encode_abi_command(
+                build_mode = BuildMode("ABI"),
+                target_type = source_only_abi_target_type,
+                output_paths = source_only_abi_output_paths,
+                path_to_class_hashes = None,
+                classpath_jars_tag = source_only_abi_classpath_jars_tag,
+                source_only_abi_compiling_deps = source_only_abi_compiling_deps,
+                track_class_usage = track_class_usage,
+                incremental_state_dir = None,
+            )
             define_action(
                 "source_only_abi_",
                 source_only_abi_identifier,
