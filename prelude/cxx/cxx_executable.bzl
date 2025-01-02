@@ -416,14 +416,14 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 for name, lib in link_group_libs.items()
             },
             link_strategy = link_strategy,
-            roots = (
+            roots = set(
                 exec_dep_roots +
                 find_relevant_roots(
                     link_group = link_group,
                     linkable_graph_node_map = linkable_graph_node_map,
                     link_group_mappings = link_group_mappings,
                     roots = link_group_extra_link_roots,
-                )
+                ),
             ),
             executable_label = ctx.label,
             is_executable_link = True,
@@ -476,7 +476,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 link_group_preferred_linkage,
                 link_strategy,
                 pic_behavior = pic_behavior,
-                roots = [d.linkable_graph.nodes.value.label for d in link_deps],
+                roots = set([d.linkable_graph.nodes.value.label for d in link_deps]),
                 executable_label = ctx.label,
                 prefer_stripped = impl_params.prefer_stripped_objects,
             )

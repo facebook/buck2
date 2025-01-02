@@ -343,7 +343,7 @@ FinalLabelsToLinks = record(
 
 def _collect_linkables(
         linkable_graph_node_map: dict[Label, LinkableNode],
-        roots: list[Label]) -> list[Label]:
+        roots: set[Label]) -> list[Label]:
     def get_potential_linkables(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]
 
@@ -358,7 +358,7 @@ def _collect_linkables(
     # Get all potential linkable targets
     linkables = depth_first_traversal_by(
         linkable_graph_node_map,
-        roots,
+        list(roots),
         get_potential_linkables,
     )
 
@@ -372,7 +372,7 @@ def get_filtered_labels_to_links_map(
         link_group_mappings: [dict[Label, str], None],
         link_group_preferred_linkage: dict[Label, Linkage],
         link_strategy: LinkStrategy,
-        roots: list[Label],
+        roots: set[Label],
         pic_behavior: PicBehavior,
         executable_label: Label | None,
         is_executable_link: bool = False,
@@ -645,16 +645,16 @@ def _find_all_relevant_roots(
         specs: list[LinkGroupLibSpec],
         link_group_mappings: dict[Label, str],  # target label to link group name
         roots: list[Label],
-        linkable_graph_node_map: dict[Label, LinkableNode]) -> dict[str, list[Label]]:
+        linkable_graph_node_map: dict[Label, LinkableNode]) -> dict[str, set[Label]]:
     relevant_roots = {}
     link_groups_for_full_traversal = set()  # list[str]
 
     for spec in specs:
         if spec.root != None:
-            relevant_roots[spec.group.name] = spec.root.deps
+            relevant_roots[spec.group.name] = set(spec.root.deps)
         else:
             roots_from_mappings, has_empty_root = _get_roots_from_mappings(spec, linkable_graph_node_map)
-            relevant_roots[spec.group.name] = roots_from_mappings
+            relevant_roots[spec.group.name] = set(roots_from_mappings)
             if has_empty_root:
                 link_groups_for_full_traversal.add(spec.group.name)
 
@@ -668,9 +668,9 @@ def _find_all_relevant_roots(
         if node_link_group == MATCH_ALL_LABEL:
             # Add node into the list of roots for all link groups
             for link_group in relevant_roots.keys():
-                relevant_roots[link_group].append(node_target)
+                relevant_roots[link_group].add(node_target)
         elif node_link_group in link_groups_for_full_traversal and node_link_group != NO_MATCH_LABEL:
-            relevant_roots[node_link_group].append(node_target)
+            relevant_roots[node_link_group].add(node_target)
         return node.all_deps
 
     depth_first_traversal_by(
@@ -741,7 +741,7 @@ _CreatedLinkGroup = record(
 def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec,
-        roots: list[Label],
+        roots: set[Label],
         link_strategy: LinkStrategy,
         executable_label: Label | None,
         public_nodes: set[Label] = set(),

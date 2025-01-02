@@ -1037,13 +1037,13 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
                 for name, lib in link_group_libs.items()
             },
             link_strategy = link_strategy,
-            roots = (
+            roots = set(
                 [
                     d.linkable_graph.nodes.value.label
                     for d in link_deps
                     if d.linkable_graph != None
                 ] +
-                link_group_relevant_roots
+                link_group_relevant_roots,
             ),
             executable_label = ctx.label,
             is_executable_link = True,

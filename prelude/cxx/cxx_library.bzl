@@ -1491,7 +1491,7 @@ def _get_shared_library_links(
             for name, lib in link_group_libs.items()
         },
         link_strategy = link_strategy,
-        roots = linkable_deps(non_exported_deps + exported_deps),
+        roots = set(linkable_deps(non_exported_deps + exported_deps)),
         pic_behavior = pic_behavior,
         executable_label = None,
         prefer_stripped = prefer_stripped,
