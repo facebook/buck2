@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//python/sourcedb/filter.bxl", "BUCK_PYTHON_RULE_KIND_QUERY")
+load("@prelude//python/sourcedb:filter.bxl", "BUCK_PYTHON_RULE_KIND_QUERY")
 
 def get_owners_for_files(
         query: bxl.UqueryContext,

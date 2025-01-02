@@ -5,9 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:comp_db.bzl", "CxxCompilationDbInfo")
+load("@prelude//cxx:compile.bzl", "CxxSrcCompileCommand")
 load("@prelude//utils:utils.bzl", "flatten")
-load("@prelude//cxx/comp_db.bzl", "CxxCompilationDbInfo")
-load("@prelude//cxx/compile.bzl", "CxxSrcCompileCommand")
 
 def _make_entry(ctx: bxl.Context, compile_command: CxxSrcCompileCommand) -> dict:
     args = compile_command.cxx_compile_cmd.base_compile_cmd.copy()

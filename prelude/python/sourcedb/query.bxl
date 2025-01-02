@@ -7,7 +7,7 @@
 
 load("@prelude//python:python.bzl", "PythonLibraryManifestsTSet")
 load("@prelude//python:source_db.bzl", "PythonSourceDBInfo")
-load("@prelude//python/sourcedb/filter.bxl", "filter_root_targets")
+load("@prelude//python/sourcedb:filter.bxl", "filter_root_targets")
 
 def _get_python_library_manifests_from_analysis_result(
         analysis_result: bxl.AnalysisResult) -> [PythonLibraryManifestsTSet, None]:

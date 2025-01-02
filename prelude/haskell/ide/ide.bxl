@@ -5,11 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//haskell:library_info.bzl", "HaskellLibraryProvider")
 load("@prelude//haskell:link_info.bzl", "HaskellLinkInfo")
 load("@prelude//haskell:toolchain.bzl", "HaskellToolchainInfo")
 load("@prelude//linking:link_info.bzl", "LinkStyle")
-load("@prelude//paths.bzl", "paths")
 
 # This script computes a solution for loading a Haskell project in VSCode
 # The solution includes:
