@@ -20,7 +20,6 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
-#[cfg(fbcode_build)]
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
@@ -187,15 +186,45 @@ impl CommandExecutor {
                 }
                 CommandExecutionInput::ScratchPath(_) => None,
             });
+            let mut platform = self.0.re_platform.clone();
+            let args = if self.0.options.use_remote_persistent_workers
+                && let Some(worker) = request.worker()
+                && let Some(key) = worker.remote_key.as_ref()
+            {
+                platform.properties.push(RE::Property {
+                    name: "persistentWorkerKey".to_owned(),
+                    value: key.to_string(),
+                });
+                // TODO[AH] Ideally, Buck2 could generate an argfile on the fly.
+                for arg in request.args() {
+                    if !(arg.starts_with("@")
+                        || arg.starts_with("-flagfile")
+                        || arg.starts_with("--flagfile"))
+                    {
+                        return Err(buck2_error!(
+                            [],
+                            "Remote persistent worker arguments must be passed as `@argfile`, `-flagfile=argfile`, or `--flagfile=argfile`."
+                        ));
+                    }
+                }
+                worker
+                    .exe
+                    .iter()
+                    .chain(request.args().iter())
+                    .cloned()
+                    .collect()
+            } else {
+                request.all_args_vec()
+            };
             let action = re_create_action(
-                request.all_args_vec(),
+                args,
                 request.paths().output_paths(),
                 request.working_directory(),
                 request.env(),
                 input_digest,
                 action_metadata_blobs,
                 request.timeout(),
-                self.0.re_platform.clone(),
+                platform,
                 false,
                 digest_config,
                 self.0.options.output_paths_behavior,
