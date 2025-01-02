@@ -260,6 +260,7 @@ def encode_base_jar_command(
         javac_tool: [str, RunInfo, Artifact, None],
         target_type: TargetType,
         output_paths: OutputPaths,
+        path_to_class_hashes: [Artifact, None],
         remove_classes: list[str],
         label: Label,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
@@ -341,6 +342,10 @@ def encode_base_jar_command(
         resolvedJavac = resolved_javac,
         resolvedJavacOptions = resolved_java_options,
         jarParameters = jar_parameters,
+        pathToClasses = output_paths.jar.as_output(),
+        rootOutput = output_paths.jar_parent.as_output(),
+        pathToClassHashes = path_to_class_hashes.as_output() if path_to_class_hashes else None,
+        annotationsPath = output_paths.annotations.as_output(),
     )
 
 def setup_dep_files(

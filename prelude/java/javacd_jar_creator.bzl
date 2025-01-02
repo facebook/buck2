@@ -113,6 +113,7 @@ def create_jar_artifact_javacd(
             javac_tool,
             target_type,
             output_paths,
+            path_to_class_hashes,
             remove_classes,
             label,
             compiling_deps_tset,
@@ -132,15 +133,8 @@ def create_jar_artifact_javacd(
         )
 
         return struct(
-            libraryJarCommand = struct(
-                baseJarCommand = base_jar_command,
-                libraryJarBaseCommand = struct(
-                    pathToClasses = output_paths.jar.as_output(),
-                    rootOutput = output_paths.jar_parent.as_output(),
-                    pathToClassHashes = path_to_class_hashes.as_output(),
-                    annotationsPath = output_paths.annotations.as_output(),
-                ),
-            ),
+            buildMode = "LIBRARY",
+            baseJarCommand = base_jar_command,
         )
 
     def encode_abi_command(
@@ -152,6 +146,7 @@ def create_jar_artifact_javacd(
             javac_tool,
             target_type,
             output_paths,
+            None,  # path_to_class_hashes
             remove_classes,
             label,
             compiling_deps_tset,
@@ -170,12 +165,9 @@ def create_jar_artifact_javacd(
             track_class_usage = track_class_usage,
         )
 
-        abi_command = struct(
-            baseJarCommand = base_jar_command,
-        )
-
         return struct(
-            abiJarCommand = abi_command,
+            buildMode = "ABI",
+            baseJarCommand = base_jar_command,
         )
 
     # buildifier: disable=uninitialized
