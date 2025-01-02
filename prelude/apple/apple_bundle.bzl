@@ -26,7 +26,7 @@ load(
     "create_index_store_subtargets_and_provider",
 )
 load(
-    "@prelude//ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations/xcode:data.bzl",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfoKeys",
     "generate_xcode_data",

@@ -29,7 +29,7 @@ load(
     "@prelude//cxx:linker.bzl",
     "SharedLibraryFlagOverrides",
 )
-load("@prelude//ide_integrations:xcode.bzl", "XcodeDataInfoKeys")
+load("@prelude//ide_integrations/xcode:data.bzl", "XcodeDataInfoKeys")
 load(
     "@prelude//utils:dicts.bzl",
     "flatten_x",

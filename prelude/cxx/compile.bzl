@@ -8,6 +8,10 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
+load(
+    "@prelude//ide_integrations/xcode:argsfiles.bzl",
+    "XCODE_ARG_SUBSTITUTIONS",
+)
 load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//utils:utils.bzl",
@@ -193,14 +197,6 @@ CxxCompileFlavor = enum(
     # using optimization flags from toolchain
     "pic_optimized",
 )
-
-_XCODE_ARG_SUBSTITUTION = [
-    (regex("-filter-error=.+"), "-fcolor-diagnostics"),
-    (regex("-filter-ignore=.+"), "-fcolor-diagnostics"),
-    (regex("-filter-warning=.+"), "-fcolor-diagnostics"),
-    # @oss-disable: (regex("-fobjc-export-direct-methods"), "-fcolor-diagnostics"), 
-    # @oss-disable: (regex("-fpika-runtime-checks"), "-fcolor-diagnostics"), 
-]
 
 def get_source_extension_for_header(header_extension: str, default: CxxExtension) -> CxxExtension:
     """
@@ -1106,7 +1102,7 @@ def _mk_argsfile(
         is_xcode_argsfile: bool) -> Artifact:
     if is_xcode_argsfile:
         replace_regex = []
-        for re, sub in _XCODE_ARG_SUBSTITUTION:
+        for re, sub in XCODE_ARG_SUBSTITUTIONS:
             replace_regex.append((re, sub))
         file_args = cmd_args(args_list, replace_regex = replace_regex)
     else:
@@ -1177,7 +1173,7 @@ def _mk_argsfiles(
 
     if is_xcode_argsfile:
         replace_regex = []
-        for re, sub in _XCODE_ARG_SUBSTITUTION:
+        for re, sub in XCODE_ARG_SUBSTITUTIONS:
             replace_regex.append((re, sub))
         args = cmd_args(args_list, replace_regex = replace_regex)
         file_args = cmd_args(argsfiles, format = "@{}")

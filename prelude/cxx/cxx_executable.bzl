@@ -41,8 +41,11 @@ load(
     "DistInfo",
 )
 load(
-    "@prelude//ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations/xcode:argsfiles.bzl",
     "XCODE_ARGSFILES_SUB_TARGET",
+)
+load(
+    "@prelude//ide_integrations/xcode:data.bzl",
     "XCODE_DATA_SUB_TARGET",
     "XcodeDataInfo",
     "generate_xcode_data",

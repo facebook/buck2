@@ -6,7 +6,7 @@
 # of this source tree.
 
 load(
-    "@prelude//ide_integrations:xcode.bzl",
+    "@prelude//ide_integrations/xcode:data.bzl",
     "XCODE_DATA_SUB_TARGET",
     "generate_xcode_data",
 )
