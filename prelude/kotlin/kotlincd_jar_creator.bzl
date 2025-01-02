@@ -220,7 +220,6 @@ def create_jar_artifact_kotlincd(
         _unused = source_only_abi_compiling_deps
 
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
-        proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
 
         compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
         exe, local_only = prepare_cd_exe(
@@ -238,44 +237,23 @@ def create_jar_artifact_kotlincd(
         )
 
         args = cmd_args()
-        args.add(
-            "--action-id",
-            qualified_name,
-            "--command-file",
-            proto_with_inputs,
-        )
-
+        post_build_params = {}
         if target_type == TargetType("library") and should_create_class_abi:
-            args.add(
-                "--full-library",
-                output_paths.jar.as_output(),
-                "--class-abi-output",
-                class_abi_jar.as_output(),
-                "--jvm-abi-gen-output",
-                jvm_abi_gen.as_output(),
-                "--abi-output-dir",
-                class_abi_output_dir.as_output(),
-            )
+            post_build_params["fullLibrary"] = output_paths.jar.as_output()
+            post_build_params["classAbi"] = class_abi_jar.as_output()
+            post_build_params["jvmAbiGen"] = jvm_abi_gen.as_output()
+            post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
 
         if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
-            args.add(
-                "--kotlincd-abi-output",
-                output_paths.jar.as_output(),
-                "--abi-output-dir",
-                abi_dir.as_output(),
-            )
+            post_build_params["cdAbi"] = output_paths.jar.as_output()
+            post_build_params["abiOutputDir"] = abi_dir.as_output()
 
         if optional_dirs:
-            args.add(
-                "--optional-dirs",
-                optional_dirs,
-            )
+            post_build_params["optionalDirs"] = optional_dirs
 
         if incremental_state_dir:
-            args.add(
-                "--incremental-state-dir",
-                incremental_state_dir.as_output(),
-            )
+            post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
+
         dep_files = {}
         if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
             used_classes_json_outputs = [
@@ -286,12 +264,25 @@ def create_jar_artifact_kotlincd(
                 actions,
                 actions_identifier,
                 args,
+                post_build_params,
                 classpath_jars_tag,
                 used_classes_json_outputs,
                 compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
             )
 
             dep_files["classpath_jars"] = classpath_jars_tag
+        kotlin_build_command = struct(
+            buildCommand = encoded_command,
+            postBuildParams = post_build_params,
+        )
+        proto_with_inputs = actions.write_json(proto, kotlin_build_command, with_inputs = True)
+
+        args.add(
+            "--action-id",
+            qualified_name,
+            "--command-file",
+            proto_with_inputs,
+        )
 
         incremental_run_params = {
             "metadata_env_var": "ACTION_METADATA",
