@@ -277,7 +277,7 @@ def encode_base_jar_command(
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool,
         is_incremental: bool = False) -> struct:
-    library_jar_params = encode_jar_params(remove_classes, output_paths, manifest_file)
+    jar_parameters = encode_jar_params(remove_classes, output_paths, manifest_file)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
         compiling_classpath = classpath_jars_tag.tag_artifacts([dep.abi for dep in source_only_abi_compiling_deps])
@@ -340,7 +340,7 @@ def encode_base_jar_command(
         ],
         resolvedJavac = resolved_javac,
         resolvedJavacOptions = resolved_java_options,
-        libraryJarParameters = library_jar_params,
+        jarParameters = jar_parameters,
     )
 
 def setup_dep_files(

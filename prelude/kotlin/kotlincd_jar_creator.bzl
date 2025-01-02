@@ -32,7 +32,6 @@ load(
     "declare_prefixed_output",
     "define_output_paths",
     "encode_base_jar_command",
-    "encode_jar_params",
     "generate_abi_jars",
     "get_compiling_deps_tset",
     "prepare_cd_exe",
@@ -231,10 +230,8 @@ def create_jar_artifact_kotlincd(
             source_only_abi_compiling_deps = source_only_abi_compiling_deps,
             track_class_usage = True,
         )
-        abi_params = encode_jar_params(remove_classes, output_paths, manifest_file)
         abi_command = struct(
             baseJarCommand = base_jar_command,
-            abiJarParameters = abi_params,
         )
 
         return struct(
