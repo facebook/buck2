@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @nolint
-
 def third_party_rust_prebuilt_cxx_library(name, **kwargs):
     # FIXME: This should probably be a fixup.toml, but it currently can't be expressed.
     # The windows-sys crate does -lwindows to find windows. We pass libwindows.a on the command line,
@@ -15,4 +13,5 @@ def third_party_rust_prebuilt_cxx_library(name, **kwargs):
     if name.endswith("libwindows.a"):
         kwargs["exported_linker_flags"] = ["-Lshim/third-party/rust/" + kwargs["static_lib"].rpartition("/")[0]]
 
+    # @lint-ignore BUCKLINT
     native.prebuilt_cxx_library(name = name, **kwargs)
