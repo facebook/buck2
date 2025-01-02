@@ -424,9 +424,6 @@ impl RunAction {
         visitor: &mut impl RunActionVisitor,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> buck2_error::Result<PreparedRunAction> {
-        let executor_fs = ctx.executor_fs();
-        let fs = executor_fs.fs();
-
         let (expanded, worker) = self.expand_command_line_and_worker(ctx, visitor)?;
 
         // TODO (@torozco): At this point, might as well just receive the list already. Finding
@@ -438,31 +435,22 @@ impl RunAction {
 
         let mut inputs: Vec<CommandExecutionInput> =
             artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
-
-        // Handle case when user requested file with action metadata to be generated.
-        // Generate content and output path for the file. It will be either passed
-        // to RE as a blob or written to disk in local executor.
-        // Path to this file is passed to user in environment variable which is selected by user.
-        let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
-
         let mut extra_env = Vec::new();
 
-        if let Some(metadata_param) = &self.inner.metadata_param {
-            let path =
-                BuildArtifactPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
-            let env = cli_ctx
-                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path))?
-                .into_string();
-            let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
-            inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
-                data,
-                digest,
-                path,
-            }));
-            extra_env.push((metadata_param.env_var.to_owned(), env));
+        {
+            let executor_fs = ctx.executor_fs();
+            let fs = executor_fs.fs();
+            let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
+            self.prepare_action_metadata(
+                ctx,
+                &cli_ctx,
+                fs,
+                &artifact_inputs,
+                &mut inputs,
+                &mut extra_env,
+            )?;
+            self.prepare_scratch_path(ctx, &cli_ctx, fs, &mut inputs, &mut extra_env)?;
         }
-
-        self.prepare_scratch_path(ctx, &cli_ctx, fs, &mut inputs, &mut extra_env)?;
 
         let paths = CommandExecutionPaths::new(
             inputs,
@@ -483,6 +471,36 @@ impl RunAction {
             paths,
             worker,
         })
+    }
+
+    /// Handle case when user requested file with action metadata to be generated.
+    /// Generate content and output path for the file. It will be either passed
+    /// to RE as a blob or written to disk in local executor.
+    /// Path to this file is passed to user in environment variable which is selected by user.
+    fn prepare_action_metadata(
+        &self,
+        ctx: &dyn ActionExecutionCtx,
+        cli_ctx: &DefaultCommandLineContext,
+        fs: &ArtifactFs,
+        artifact_inputs: &[&ArtifactGroupValues],
+        inputs: &mut Vec<CommandExecutionInput>,
+        extra_env: &mut Vec<(String, String)>,
+    ) -> buck2_error::Result<()> {
+        if let Some(metadata_param) = &self.inner.metadata_param {
+            let path =
+                BuildArtifactPath::new(ctx.target().owner().dupe(), metadata_param.path.clone());
+            let env = cli_ctx
+                .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(&path))?
+                .into_string();
+            let (data, digest) = metadata_content(fs, artifact_inputs, ctx.digest_config())?;
+            inputs.push(CommandExecutionInput::ActionMetadata(ActionMetadataBlob {
+                data,
+                digest,
+                path,
+            }));
+            extra_env.push((metadata_param.env_var.to_owned(), env));
+        }
+        Ok(())
     }
 
     fn prepare_scratch_path(
