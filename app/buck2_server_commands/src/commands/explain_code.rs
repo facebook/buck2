@@ -241,7 +241,7 @@ pub(crate) async fn explain(
                 .eval_cquery(
                     &mut ctx,
                     server_ctx.working_dir(),
-                    &format!("owner({})", file_change),
+                    &format!("owner(\"{}\")", file_change),
                     &[],
                     global_cfg_options.dupe(),
                     Some(&[req.target.clone()]), // target universe
