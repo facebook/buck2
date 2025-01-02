@@ -19,7 +19,7 @@ async def test_validation_affects_build_command(buck: Buck) -> None:
         stderr_regex="""
 Validation for `prelude//:mate \\(<unspecified>\\)` failed:
 
-"Here I am describing the failure reason"\\.
+Here I am describing the failure reason
 
 Full validation result is located at""",
     )
@@ -33,7 +33,7 @@ async def test_validation_affects_run_command(buck: Buck) -> None:
         stderr_regex="""
 Validation for `prelude//:mate \\(<unspecified>\\)` failed:
 
-"Here I am describing the failure reason"\\.
+Here I am describing the failure reason
 
 Full validation result is located at""",
     )
@@ -48,7 +48,7 @@ async def test_validation_affects_test_command(buck: Buck) -> None:
         stderr_regex="""
 Validation for `prelude//:mate \\(<unspecified>\\)` failed:
 
-"Here I am describing the failure reason"\\.
+Here I am describing the failure reason
 
 Full validation result is located at""",
     )

@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -31,7 +30,7 @@ pub(crate) enum CachedValidationResultData {
 #[derive(buck2_error::Error, Debug, PartialEq, Allocative, Clone)]
 #[buck2(input)]
 #[error(
-    "Validation for `{target}` failed:\n\n{}.\n\nFull validation result is located at: `{result_path}`", self.rendered_message()
+    "Validation for `{target}` failed:\n\n{}\n\nFull validation result is located at: `{result_path}`", self.rendered_message()
 )]
 pub(crate) struct ValidationFailedUserFacingError {
     target: BaseDeferredKey,
@@ -40,11 +39,10 @@ pub(crate) struct ValidationFailedUserFacingError {
 }
 
 impl ValidationFailedUserFacingError {
-    pub(crate) fn rendered_message(&self) -> Cow<str> {
-        self.short_message.as_deref().map_or_else(
-            || Cow::Borrowed("Diagnostic message is missing from validation result"),
-            |x| Cow::Owned(format!("\"{}\"", x)),
-        )
+    pub(crate) fn rendered_message(&self) -> &str {
+        self.short_message
+            .as_deref()
+            .unwrap_or("Diagnostic message is missing from validation result")
     }
 }
 
@@ -143,7 +141,7 @@ mod tests {
             ),
             r#"Validation for `cell//pkg:foo (<testing>#2c29d96c65b4379a)` failed:
 
-Diagnostic message is missing from validation result.
+Diagnostic message is missing from validation result
 
 Full validation result is located at: `/my/path/to/validation/result`"#
         );
@@ -158,7 +156,7 @@ Full validation result is located at: `/my/path/to/validation/result`"#
             ),
             r#"Validation for `cell//pkg:foo (<testing>#2c29d96c65b4379a)` failed:
 
-"Here is my diagnostic message".
+Here is my diagnostic message
 
 Full validation result is located at: `/my/path/to/validation/result`"#
         );
