@@ -31,9 +31,6 @@ buck2_util = { workspace = true }
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }
 
-[target.'cfg(windows)'.dependencies]
-winapi = { workspace = true }
-
 [dev-dependencies]
 fbinit = { workspace = true }
 

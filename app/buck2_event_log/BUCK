@@ -5,14 +5,6 @@ oncall("build_infra")
 rust_library(
     name = "buck2_event_log",
     srcs = glob(["src/**/*.rs"]),
-    os_deps = [
-        (
-            "windows",
-            [
-                "fbsource//third-party/rust:winapi",
-            ],
-        ),
-    ],
     test_deps = [
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:tempfile",
