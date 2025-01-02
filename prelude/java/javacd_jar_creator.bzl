@@ -176,12 +176,13 @@ def create_jar_artifact_javacd(
         post_build_params = {}
         args = cmd_args()
         if target_type == TargetType("library") and should_create_class_abi:
-            post_build_params["fullLibrary"] = output_paths.jar.as_output()
-            post_build_params["classAbi"] = class_abi_jar.as_output()
+            post_build_params["shouldCreateClassAbi"] = True
+            post_build_params["libraryJar"] = output_paths.jar.as_output()
+            post_build_params["abiJar"] = class_abi_jar.as_output()
             post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
 
         if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
-            post_build_params["cdAbi"] = output_paths.jar.as_output()
+            post_build_params["abiJar"] = output_paths.jar.as_output()
             post_build_params["abiOutputDir"] = abi_dir.as_output()
 
         dep_files = {}
