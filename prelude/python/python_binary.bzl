@@ -441,6 +441,7 @@ def _convert_python_library_to_executable(
 
     extensions = {}
     extra_artifacts = {}
+    link_args = []
     for manifest in library.iter_manifests():
         if manifest.extensions:
             _merge_extensions(extensions, manifest.label, manifest.extensions)
@@ -677,6 +678,7 @@ def _convert_python_library_to_executable(
             ),
         ))
 
+        link_args = executable_info.link_args
         extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
     else:
         shared_libs = [
@@ -785,6 +787,7 @@ def _convert_python_library_to_executable(
         main = main,
         allow_cache_upload = allow_cache_upload,
         debuginfo_files = debuginfo_files,
+        link_args = link_args,
     )
 
     pex.sub_targets.update(extra)

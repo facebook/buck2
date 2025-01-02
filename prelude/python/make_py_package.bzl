@@ -18,6 +18,15 @@ load(
     "cxx_is_gnu",
 )
 load(
+    "@prelude//linking:link_info.bzl",
+    "DepMetadata",
+    "LinkArgs",
+    "LinkInfosTSet",
+    "dedupe_dep_metadata",
+    "get_link_info",
+    "truncate_dep_metadata",
+)
+load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
     "gen_shared_libs_action",
@@ -135,6 +144,7 @@ def make_py_package(
         shared_libraries: list[(str, SharedLibrary, bool)],
         main: EntryPoint,
         allow_cache_upload: bool,
+        link_args: list[LinkArgs] = [],
         debuginfo_files: list[(str | (str, SharedLibrary, str), Artifact)] = []) -> PexProviders:
     """
     Passes a standardized set of flags to a `make_py_package` binary to create a python
@@ -165,8 +175,12 @@ def make_py_package(
             if preload
         ],
     )
-    startup_function = generate_startup_function_loader(ctx)
-    manifest_module = generate_manifest_module(ctx, python_toolchain, srcs)
+
+    # Add link metadata to manifest_module_entries if requested.
+    manifest_module_entries = _maybe_add_dep_metadata_to_manifest_module(ctx, map(lambda s: s[1], shared_libraries), link_args)
+
+    startup_function = generate_startup_function_loader(ctx, manifest_module_entries)
+    manifest_module = generate_manifest_module(ctx, manifest_module_entries, python_toolchain, srcs)
     common_modules_args, dep_artifacts, debug_artifacts = _pex_modules_common_args(
         ctx,
         pex_modules,
@@ -714,7 +728,69 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources: lis
             msg += "  {}\n".format(resource)
     return msg
 
-def generate_startup_function_loader(ctx: AnalysisContext) -> ArgLike:
+def _get_shared_library_dep_metadata(
+        ctx: AnalysisContext,
+        shared_libraries: list[SharedLibrary],
+        link_args: list[LinkArgs]) -> list[DepMetadata]:
+    """
+    Dedupes the linker metadata for each shared library into a single string.
+
+    Note: this can be expensive because we're traversing a tset rather than
+    projecting the value. This is unfortunate but we need to be able to truncate
+    how much metadata we put into the manifest module.
+    """
+    link_infos_tsets = []
+    link_infos = []
+
+    def add_inner_infos(args: LinkArgs) -> None:
+        if args.tset != None:
+            tset = args.tset
+            link_infos_tsets.append(tset.infos)
+        elif args.infos != None:
+            link_infos.extend(args.infos)
+
+    for args in link_args:
+        add_inner_infos(args)
+
+    for lib in shared_libraries:
+        # Note: refer to SharedLibrary.LinkedObject.link_args here. SharedLibrary.link_args isn't
+        # always populated.
+        for args in lib.lib.link_args or []:
+            if args:
+                add_inner_infos(args)
+
+    tset = ctx.actions.tset(LinkInfosTSet, children = link_infos_tsets)
+    metadatas = []
+    for info in tset.traverse():
+        metadatas.extend(get_link_info(info).metadata)
+    for info in link_infos:
+        metadatas.extend(info.metadata)
+
+    return dedupe_dep_metadata(metadatas)
+
+def _maybe_add_dep_metadata_to_manifest_module(
+        ctx: AnalysisContext,
+        shared_libraries: list[SharedLibrary],
+        link_args: list[LinkArgs]) -> dict[str, typing.Any] | None:
+    """
+    Possibly updates manifest_module_entries with link metadata if requested.
+    """
+    manifest_module_entries = ctx.attrs.manifest_module_entries
+    if manifest_module_entries == None:
+        return None
+
+    metadatas = _get_shared_library_dep_metadata(ctx, shared_libraries, link_args)
+    if metadatas:
+        manifest_module_entries["library_versions"] = [
+            metadata.version
+            for metadata in truncate_dep_metadata(metadatas)
+        ]
+
+    return manifest_module_entries
+
+def generate_startup_function_loader(
+        ctx: AnalysisContext,
+        manifest_module_entries: dict[str, typing.Any] | None) -> ArgLike:
     """
     Generate `__startup_function_loader__.py` used for early bootstrap of a par.
     Things that go here are also enumerated in `__manifest__['startup_functions']`
@@ -724,13 +800,13 @@ def generate_startup_function_loader(ctx: AnalysisContext) -> ArgLike:
      * cinderx init
     """
 
-    if ctx.attrs.manifest_module_entries == None:
+    if manifest_module_entries == None:
         startup_functions_list = ""
     else:
         startup_functions_list = "\n".join(
             [
                 "'''" + startup_function + "''',"
-                for _, startup_function in sorted(ctx.attrs.manifest_module_entries.get("startup_functions", {}).items())
+                for _, startup_function in sorted(manifest_module_entries.get("startup_functions", {}).items())
             ],
         )
 
@@ -781,6 +857,7 @@ def load_startup_functions():
 
 def generate_manifest_module(
         ctx: AnalysisContext,
+        manifest_module_entries: dict[str, typing.Any] | None,
         python_toolchain: PythonToolchainInfo,
         src_manifests: list[ArgLike]) -> ManifestModule | None:
     """
@@ -790,10 +867,10 @@ def generate_manifest_module(
     attribute is None, this function does nothing.
     """
 
-    if ctx.attrs.manifest_module_entries == None:
+    if manifest_module_entries == None:
         return None
     module = ctx.actions.declare_output("manifest/__manifest__.py")
-    entries_json = ctx.actions.write_json("manifest/entries.json", ctx.attrs.manifest_module_entries)
+    entries_json = ctx.actions.write_json("manifest/entries.json", manifest_module_entries)
     src_manifests_path = ctx.actions.write(
         "__module_manifests.txt",
         _srcs(src_manifests, format = "--module-manifest={}"),
