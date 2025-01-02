@@ -5,6 +5,17 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:alias.bzl", "alias_impl", "configured_alias_impl", "toolchain_alias_impl", "versioned_alias_impl")
+load("@prelude//:command_alias.bzl", "command_alias_impl")
+load("@prelude//:export_file.bzl", "export_file_impl")
+load("@prelude//:filegroup.bzl", "filegroup_impl")
+load("@prelude//:genrule.bzl", "genrule_attributes", "genrule_impl")
+load("@prelude//:http_file.bzl", "http_file_impl")
+load("@prelude//:remote_file.bzl", "remote_file_impl")
+load("@prelude//:sh_binary.bzl", "sh_binary_impl")
+load("@prelude//:sh_test.bzl", "sh_test_impl")
+load("@prelude//:test_suite.bzl", "test_suite_impl")
+load("@prelude//:worker_tool.bzl", "worker_tool")
 load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
@@ -84,17 +95,6 @@ load("@prelude//python:python_test.bzl", "python_test_impl")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attributes", _zip_file_implemented_rules = "implemented_rules")
-load(":alias.bzl", "alias_impl", "configured_alias_impl", "toolchain_alias_impl", "versioned_alias_impl")
-load(":command_alias.bzl", "command_alias_impl")
-load(":export_file.bzl", "export_file_impl")
-load(":filegroup.bzl", "filegroup_impl")
-load(":genrule.bzl", "genrule_attributes", "genrule_impl")
-load(":http_file.bzl", "http_file_impl")
-load(":remote_file.bzl", "remote_file_impl")
-load(":sh_binary.bzl", "sh_binary_impl")
-load(":sh_test.bzl", "sh_test_impl")
-load(":test_suite.bzl", "test_suite_impl")
-load(":worker_tool.bzl", "worker_tool")
 
 BUILD_INFO_ATTR = attrs.dict(
     key = attrs.string(),
