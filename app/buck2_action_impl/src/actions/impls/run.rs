@@ -39,6 +39,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::Wor
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::starlark_error::from_starlark;
@@ -461,13 +462,7 @@ impl RunAction {
             extra_env.push((metadata_param.env_var.to_owned(), env));
         }
 
-        let scratch = ctx.target().scratch_path();
-        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
-        extra_env.push((
-            "BUCK_SCRATCH_PATH".to_owned(),
-            cli_ctx.resolve_project_path(scratch_path)?.into_string(),
-        ));
-        inputs.push(CommandExecutionInput::ScratchPath(scratch));
+        self.prepare_scratch_path(ctx, &cli_ctx, fs, &mut inputs, &mut extra_env)?;
 
         let paths = CommandExecutionPaths::new(
             inputs,
@@ -488,6 +483,24 @@ impl RunAction {
             paths,
             worker,
         })
+    }
+
+    fn prepare_scratch_path(
+        &self,
+        ctx: &dyn ActionExecutionCtx,
+        cli_ctx: &DefaultCommandLineContext,
+        fs: &ArtifactFs,
+        inputs: &mut Vec<CommandExecutionInput>,
+        extra_env: &mut Vec<(String, String)>,
+    ) -> buck2_error::Result<()> {
+        let scratch = ctx.target().scratch_path();
+        let scratch_path = fs.buck_out_path_resolver().resolve_scratch(&scratch);
+        extra_env.push((
+            "BUCK_SCRATCH_PATH".to_owned(),
+            cli_ctx.resolve_project_path(scratch_path)?.into_string(),
+        ));
+        inputs.push(CommandExecutionInput::ScratchPath(scratch));
+        Ok(())
     }
 
     pub(crate) async fn check_cache_result_is_useable(
