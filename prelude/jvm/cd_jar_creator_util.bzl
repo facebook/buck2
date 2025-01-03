@@ -165,6 +165,7 @@ def command_abi_generation_mode(target_type: TargetType, abi_generation_mode: [A
 # TODO(cjhopman): Get correct ignore paths.
 filesystem_params = struct(
     # For buck2, everything is relative to the project root.
+    rootPath = "",
     configuredBuckOut = "buck-out/v2",
 )
 
