@@ -86,9 +86,12 @@ def _create_fat_jar(
     if main_class:
         args += ["--main_class", main_class]
 
-    manifest_file = ctx.attrs.manifest_file
-    if manifest_file:
-        args += ["--manifest", manifest_file]
+    if ctx.attrs.manifest_file:
+        args += ["--manifest", ctx.attrs.manifest_file]
+
+    build_manifest = ctx.attrs.build_manifest
+    if build_manifest:
+        args += ["--build_manifest", build_manifest]
 
     blocklist = ctx.attrs.blacklist
     if blocklist:

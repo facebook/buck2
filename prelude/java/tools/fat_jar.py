@@ -49,7 +49,14 @@ def _parse_args():
         "--main_class", type=str, help="main class to include into manifest file"
     )
     parser.add_argument(
-        "--manifest", type=pathlib.Path, help="a path to a custom manifest file"
+        "--manifest",
+        type=pathlib.Path,
+        help="a path to a custom manifest file",
+    )
+    parser.add_argument(
+        "--build_manifest",
+        type=pathlib.Path,
+        help="a path to a custom build manifest file",
     )
     parser.add_argument(
         "--blocklist",
@@ -134,6 +141,7 @@ def _fat_jar(
     entries_to_jar_file: Optional[str] = None,
     override_entries_to_jar_file: Optional[str] = None,
     manifest_file: Optional[str] = None,
+    build_manifest_file: Optional[str] = None,
     blocklist_file: Optional[str] = None,
 ) -> None:
     cmd = []
@@ -150,6 +158,8 @@ def _fat_jar(
         cmd.extend(["--override-entries-to-jar", override_entries_to_jar_file])
     if manifest_file:
         cmd.extend(["--manifest-file", manifest_file])
+    if build_manifest_file:
+        cmd.extend(["--manifest-file", build_manifest_file])
     if blocklist_file:
         cmd.extend(["--blocklist-patterns", blocklist_file])
         cmd.extend(["--blocklist-patterns-matcher", "substring"])
@@ -184,6 +194,7 @@ def main():
     jars_file = args.jars_file
     main_class = args.main_class
     manifest = args.manifest
+    build_manifest = args.build_manifest
     blocklist_file = args.blocklist
     meta_inf_directory = args.meta_inf_directory
     append_jar = args.append_jar
@@ -219,6 +230,8 @@ def main():
         utils.log_message("main_class = {}".format(main_class))
     if manifest:
         utils.log_message("manifest = {}".format(manifest))
+    if build_manifest:
+        utils.log_message("build_manifest = {}".format(build_manifest))
     if blocklist_file:
         utils.log_message("blocklist_file = {}".format(blocklist_file))
     if meta_inf_directory:
@@ -338,8 +351,7 @@ def main():
                 meta_inf_directory_file = (
                     pathlib.Path(temp_dir) / "meta_inf_directory_file"
                 )
-                with open(meta_inf_directory_file, "w") as f:
-                    f.write(str(meta_inf_staging))
+                meta_inf_directory_file.write_text(str(meta_inf_staging))
 
                 override_entries_to_jar = meta_inf_directory_file
 
@@ -358,6 +370,7 @@ def main():
                 entries_to_jar_file=entries_to_jar_file,
                 override_entries_to_jar_file=override_entries_to_jar,
                 manifest_file=manifest,
+                build_manifest_file=build_manifest,
                 blocklist_file=blocklist_file,
                 append_jar=append_jar,
                 concat_jars=concat_jars,
@@ -413,7 +426,7 @@ def main():
 
             zip_scrubber_cmd = []
             zip_scrubber_cmd.extend(utils.shlex_split(zip_scrubber_tool))
-            zip_scrubber_cmd.extend([contents_zip_path])
+            zip_scrubber_cmd.append(contents_zip_path)
             utils.execute_command(zip_scrubber_cmd)
 
             entries_to_jar_file = os.path.join(temp_dir, "entries_to_jar.txt")
@@ -425,6 +438,7 @@ def main():
                 output_path=output_path,
                 main_class=fat_jar_main_class,
                 entries_to_jar_file=entries_to_jar_file,
+                build_manifest_file=build_manifest,
             )
 
 

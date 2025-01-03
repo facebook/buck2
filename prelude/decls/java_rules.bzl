@@ -107,6 +107,9 @@ java_binary = prelude_rule(
                 Rule (normally of type `java_library`) that should be
                  compiled and used as a base JAR to receive all dependencies through an append operation.
             """),
+            "build_manifest": attrs.option(attrs.source(), default = None, doc = """
+                MANIFEST containing stamped build attributes, that should be merged into the main jar manifest
+            """),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Rules (normally of type `java_library`) that should be
                  compiled and whose `.class` files and resources should be
