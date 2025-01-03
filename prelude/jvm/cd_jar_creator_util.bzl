@@ -161,6 +161,13 @@ def command_abi_generation_mode(target_type: TargetType, abi_generation_mode: [A
         return AbiGenerationMode("source_only")
     return abi_generation_mode
 
+# TODO(cjhopman): Get correct output root (and figure out whether its even actually necessary).
+# TODO(cjhopman): Get correct ignore paths.
+filesystem_params = struct(
+    # For buck2, everything is relative to the project root.
+    configuredBuckOut = "buck-out/v2",
+)
+
 def get_compiling_deps_tset(
         actions: AnalysisActions,
         deps: list[Dependency],
@@ -322,7 +329,7 @@ def encode_base_jar_command(
         abiCompatibilityMode = encode_abi_generation_mode(AbiGenerationMode("class")),
         abiGenerationMode = encode_abi_generation_mode(command_abi_generation_mode(target_type, abi_generation_mode)),
         trackClassUsage = track_class_usage,
-        configuredBuckOut = "buck-out/v2",
+        filesystemParams = filesystem_params,
         buildTargetValue = build_target_value,
         resourcesMap = [
             {
