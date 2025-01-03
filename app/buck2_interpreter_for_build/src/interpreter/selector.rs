@@ -322,10 +322,12 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<bool> {
         StarlarkSelector::select_test(d, eval, func)
     }
-
+}
+#[starlark_module]
+pub fn register_select_internal(globals: &mut GlobalsBuilder) {
     /// Tests that two selects are equal to each other. For testing use only.
     /// We simply compare their string representations.
-    fn select_equal_internal<'v>(
+    fn select_equal<'v>(
         #[starlark(require = pos)] left: Value<'v>,
         #[starlark(require = pos)] right: Value<'v>,
     ) -> starlark::Result<bool> {

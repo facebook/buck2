@@ -32,7 +32,7 @@ def _test_func(value):
 
 def _assert_eq(expected, actual):
     if type(expected) == type(select({"DEFAULT": []})):
-        result = select_equal_internal(expected, actual)
+        result = __internal__.select_equal(expected, actual)
     else:
         result = expected == actual
 

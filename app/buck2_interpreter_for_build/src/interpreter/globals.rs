@@ -39,6 +39,7 @@ use crate::interpreter::functions::starlark::register_set_starlark_peak_allocate
 use crate::interpreter::functions::warning::register_warning;
 use crate::interpreter::natives::register_module_natives;
 use crate::interpreter::selector::register_select;
+use crate::interpreter::selector::register_select_internal;
 use crate::plugins::register_plugins;
 use crate::rule::register_rule_function;
 use crate::super_package::defs::register_package_natives;
@@ -127,6 +128,7 @@ fn register_all_natives(builder: &mut GlobalsBuilder) {
 fn register_all_internals(builder: &mut GlobalsBuilder) {
     register_internals(builder);
     from_late_binding(&REGISTER_BUCK2_BUILD_API_INTERNALS, builder);
+    register_select_internal(builder);
 }
 
 /// The standard set of globals that is available in all files.

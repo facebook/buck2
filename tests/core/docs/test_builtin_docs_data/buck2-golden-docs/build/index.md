@@ -29,7 +29,6 @@
 ## rule
 ## rule\_exists
 ## select
-## select\_equal\_internal
 ## select\_map
 ## select\_test
 ## set\_cfg\_constructor
