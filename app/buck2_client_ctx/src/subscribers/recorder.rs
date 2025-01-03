@@ -1663,6 +1663,12 @@ impl<'a> Drop for InvocationRecorder<'a> {
     }
 }
 
+fn unique_and_sorted<T: Iterator<Item = String>>(input: T) -> Vec<String> {
+    let mut unique: Vec<String> = input.unique_by(|x| x.clone()).collect();
+    unique.sort();
+    unique
+}
+
 #[async_trait]
 impl<'a> EventSubscriber for InvocationRecorder<'a> {
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
@@ -1692,17 +1698,12 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
         self.has_command_result = true;
         match &result.result {
             Some(command_result::Result::BuildResponse(res)) => {
-                let mut built_rule_type_names: Vec<String> = res
-                    .build_targets
-                    .iter()
-                    .map(|t| {
+                let built_rule_type_names: Vec<String> =
+                    unique_and_sorted(res.build_targets.iter().map(|t| {
                         t.target_rule_type_name
                             .clone()
                             .unwrap_or_else(|| "NULL".to_owned())
-                    })
-                    .unique_by(|x| x.clone())
-                    .collect();
-                built_rule_type_names.sort();
+                    }));
                 self.target_rule_type_names = built_rule_type_names;
             }
             _ => {}
