@@ -37,7 +37,7 @@ prelude.filegroup(
 prelude.genrule(
     name = "copy_android_constraint",
     out = "BUCK.v2",
-    cmd = "cp $(location prelude//android/constraints:files)/TARGETS.v2 $OUT",
+    cmd = "cp $(location prelude//android/constraints:files)/BUCK.v2 $OUT",
     visibility = ["PUBLIC"],
 )
 
