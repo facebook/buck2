@@ -104,7 +104,7 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "android_binary": {
-        "application_module_blacklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
+        "application_module_blocklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
@@ -135,7 +135,7 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_bundle": {
-        "application_module_blacklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
+        "application_module_blocklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
         "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
         "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),

@@ -72,7 +72,7 @@ def android_app_modularity_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
-        ctx.attrs.application_module_blacklist,
+        ctx.attrs.application_module_blocklist,
     )
 
     if ctx.attrs.should_include_classes:
@@ -135,7 +135,7 @@ def get_target_to_module_mapping(ctx: AnalysisContext, deps_by_platform: dict[st
         ctx.attrs._android_toolchain[AndroidToolchainInfo],
         ctx.attrs.application_module_configs,
         ctx.attrs.application_module_dependencies,
-        ctx.attrs.application_module_blacklist,
+        ctx.attrs.application_module_blocklist,
     )
 
     cmd.add("--output-module-info-and-target-to-module-only")

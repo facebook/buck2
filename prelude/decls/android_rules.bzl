@@ -162,7 +162,7 @@ android_app_modularity = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "application_module_blacklist": attrs.option(attrs.list(attrs.dep()), default = None),
+            "application_module_blocklist": attrs.option(attrs.list(attrs.dep()), default = None),
             "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), sorted = False, default = {}),
             "application_module_dependencies": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), sorted = False), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
@@ -192,7 +192,7 @@ android_binary = prelude_rule(
             "allow_r_dot_java_in_secondary_dex": attrs.bool(default = False),
             "allowed_duplicate_resource_types": attrs.list(attrs.enum(RType), default = []),
             "android_sdk_proguard_config": attrs.option(attrs.enum(SdkProguardType), default = None),
-            "application_module_blacklist": attrs.option(attrs.list(attrs.dep()), default = None),
+            "application_module_blocklist": attrs.option(attrs.list(attrs.dep()), default = None),
             "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), sorted = False, default = {}),
             "application_module_dependencies": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), sorted = False), default = None),
             "asset_compression_algorithm": attrs.option(attrs.enum(CompressionAlgorithm), default = None),
@@ -425,7 +425,7 @@ android_bundle = prelude_rule(
             "allow_r_dot_java_in_secondary_dex": attrs.bool(default = False),
             "allowed_duplicate_resource_types": attrs.list(attrs.enum(RType), default = []),
             "android_sdk_proguard_config": attrs.option(attrs.enum(SdkProguardType), default = None),
-            "application_module_blacklist": attrs.option(attrs.list(attrs.dep()), default = None),
+            "application_module_blocklist": attrs.option(attrs.list(attrs.dep()), default = None),
             "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), sorted = False, default = {}),
             "application_module_dependencies": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), sorted = False), default = None),
             "asset_compression_algorithm": attrs.option(attrs.enum(CompressionAlgorithm), default = None),
