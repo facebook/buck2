@@ -353,7 +353,6 @@ def setup_dep_files(
         actions: AnalysisActions,
         actions_identifier: [str, None],
         cmd: cmd_args,
-        post_build_params: dict,
         classpath_jars_tag: ArtifactTag,
         used_classes_json_outputs: list[Artifact],
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
@@ -363,22 +362,29 @@ def setup_dep_files(
     new_cmd_args = []
     new_cmd_hidden = []
     new_cmd_args.append(cmd)
-    post_build_params["usedClasses"] = [
+    new_cmd_args.append([
+        "--used-classes",
+    ] + [
         used_classes_json.as_output()
         for used_classes_json in used_classes_json_outputs
-    ]
-    post_build_params["depFile"] = classpath_jars_tag.tag_artifacts(dep_file.as_output())
+    ] + [
+        "--dep-file",
+        classpath_jars_tag.tag_artifacts(dep_file.as_output()),
+    ])
 
     if abi_to_abi_dir_map:
         abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map")
         actions.write(abi_to_abi_dir_map_file, abi_to_abi_dir_map)
-        post_build_params["jarToJarDirMap"] = abi_to_abi_dir_map_file
+        new_cmd_args.extend([
+            "--jar-to-jar-dir-map",
+            abi_to_abi_dir_map_file,
+        ])
         if isinstance(abi_to_abi_dir_map, TransitiveSetArgsProjection):
             new_cmd_hidden.append(classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map))
         for hidden_artifact in hidden:
             new_cmd_hidden.append(classpath_jars_tag.tag_artifacts(hidden_artifact))
 
-    return cmd_args(hidden = new_cmd_hidden)
+    return cmd_args(new_cmd_args, hidden = new_cmd_hidden)
 
 FORCE_PERSISTENT_WORKERS = read_root_config("build", "require_persistent_workers", "false").lower() == "true"
 
