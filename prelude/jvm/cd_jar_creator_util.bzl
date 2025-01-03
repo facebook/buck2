@@ -167,6 +167,7 @@ filesystem_params = struct(
     # For buck2, everything is relative to the project root.
     rootPath = "",
     configuredBuckOut = "buck-out/v2",
+    globIgnorePaths = [],
 )
 
 def get_compiling_deps_tset(
