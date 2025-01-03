@@ -36,6 +36,7 @@ JavaToolchainInfo = provider(
         "gen_class_to_source_map_debuginfo": provider_field(typing.Any, default = None),  # optional
         "gen_class_to_source_map_include_sourceless_compiled_packages": provider_field(typing.Any, default = None),
         "global_code_config": provider_field(typing.Any, default = None),
+        "graalvm_java": provider_field(typing.Any, default = None),
         "is_bootstrap_toolchain": provider_field(typing.Any, default = None),
         "jar": provider_field(typing.Any, default = None),
         "jar_builder": provider_field(typing.Any, default = None),
@@ -60,6 +61,7 @@ JavaToolchainInfo = provider(
         "src_root_prefixes": provider_field(typing.Any, default = None),
         "target_level": provider_field(typing.Any, default = None),
         "track_class_usage": provider_field(bool, default = True),
+        "use_graalvm_java_for_javacd": provider_field(typing.Any, default = None),
         "zip_scrubber": provider_field(typing.Any, default = None),
     },
 )
