@@ -296,6 +296,11 @@ impl AstModule {
         self.codemap.file_span(x)
     }
 
+    /// Get back the AST statement for the module
+    pub fn statement(&self) -> &AstStmt {
+        &self.statement
+    }
+
     /// Locations where statements occur.
     pub fn stmt_locations(&self) -> Vec<FileSpan> {
         fn go(x: &AstStmt, codemap: &CodeMap, res: &mut Vec<FileSpan>) {

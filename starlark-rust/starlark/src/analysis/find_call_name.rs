@@ -21,7 +21,6 @@ use starlark_syntax::syntax::ast::Argument;
 use starlark_syntax::syntax::ast::AstExpr;
 use starlark_syntax::syntax::ast::AstLiteral;
 use starlark_syntax::syntax::ast::Expr;
-use starlark_syntax::syntax::module::AstModuleFields;
 
 use crate::codemap::Span;
 use crate::codemap::Spanned;
