@@ -1706,6 +1706,11 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
                     }));
                 self.target_rule_type_names = built_rule_type_names;
             }
+            Some(command_result::Result::TestResponse(res)) => {
+                let built_rule_type_names: Vec<String> =
+                    unique_and_sorted(res.target_rule_type_names.clone().into_iter());
+                self.target_rule_type_names = built_rule_type_names;
+            }
             _ => {}
         }
         Ok(())

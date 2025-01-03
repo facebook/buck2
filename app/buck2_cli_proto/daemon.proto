@@ -586,6 +586,7 @@ message TestResponse {
   // these are messages that the test executor wants to show the user at the
   // end of the run
   repeated string executor_info_messages = 6;
+  repeated string target_rule_type_names = 7;
 }
 
 message InstallResponse {}

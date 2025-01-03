@@ -1,0 +1,14 @@
+load(":defs.bzl", "one", "two")
+
+one(
+    name = "rule0",
+)
+
+one(
+    name = "rule1",
+    deps = [":rule0"],
+)
+
+two(
+    name = "rule2",
+)

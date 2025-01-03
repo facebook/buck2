@@ -16,6 +16,7 @@ use std::time::Duration;
 use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
+use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
@@ -443,6 +444,12 @@ async fn test(
         None
     };
 
+    let mut target_rule_type_names: Vec<String> = Vec::new();
+    for configured in test_outcome.build_target_result.configured.keys() {
+        target_rule_type_names
+            .push(get_target_rule_type_name(&mut ctx, &configured.target()).await?);
+    }
+
     Ok(TestResponse {
         exit_code,
         errors: test_outcome.errors,
@@ -451,6 +458,7 @@ async fn test(
         executor_stderr: test_outcome.executor_stderr,
         executor_info_messages: test_outcome.executor_report.info_messages,
         serialized_build_report,
+        target_rule_type_names,
     })
 }
 
