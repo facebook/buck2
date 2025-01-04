@@ -1066,7 +1066,8 @@ impl<'b> BuckTestOrchestrator<'b> {
                 execution_kind: Some(execution_kind),
                 outputs,
             },
-            CommandExecutionStatus::Failure { execution_kind } => ExecuteData {
+            CommandExecutionStatus::Failure { execution_kind }
+            | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
                 stdout,
                 stderr,
                 status: ExecutionStatus::Finished {
@@ -1546,7 +1547,8 @@ impl<'b> BuckTestOrchestrator<'b> {
 
         match status {
             CommandExecutionStatus::Success { .. } => {}
-            CommandExecutionStatus::Failure { .. } => {
+            CommandExecutionStatus::Failure { .. }
+            | CommandExecutionStatus::WorkerFailure { .. } => {
                 return Err(anyhow::anyhow!(
                     "Local resource setup command failed with `{}` exit code, stdout:\n{}\nstderr:\n{}\n",
                     exit_code.unwrap_or(1),

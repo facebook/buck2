@@ -564,7 +564,9 @@ async fn command_execution_report_to_proto(
     let status = match &report.status {
         CommandExecutionStatus::Success { .. } => buck2_data::command_execution::Success {}.into(),
         CommandExecutionStatus::Cancelled => buck2_data::command_execution::Cancelled {}.into(),
-        CommandExecutionStatus::Failure { .. } => buck2_data::command_execution::Failure {}.into(),
+        CommandExecutionStatus::Failure { .. } | CommandExecutionStatus::WorkerFailure { .. } => {
+            buck2_data::command_execution::Failure {}.into()
+        }
         CommandExecutionStatus::TimedOut { duration, .. } => {
             buck2_data::command_execution::Timeout {
                 duration: (*duration).try_into().ok(),

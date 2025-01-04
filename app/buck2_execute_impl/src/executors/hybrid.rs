@@ -259,7 +259,8 @@ where
                     // If the execution is successful, use the result.
                     CommandExecutionStatus::Success { .. } => false,
                     // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
-                    CommandExecutionStatus::Failure { .. } => fallback_on_failure,
+                    CommandExecutionStatus::Failure { .. }
+                    | CommandExecutionStatus::WorkerFailure { .. } => fallback_on_failure,
                     // Don't retry timeouts. They are used for tests and falling back on a timeout is
                     // sort of the opposite of what's been requested.
                     CommandExecutionStatus::TimedOut { .. } => false,

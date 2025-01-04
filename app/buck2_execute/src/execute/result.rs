@@ -46,6 +46,9 @@ pub enum CommandExecutionStatus {
     Failure {
         execution_kind: CommandExecutionKind,
     },
+    WorkerFailure {
+        execution_kind: CommandExecutionKind,
+    },
     Error {
         stage: &'static str,
         error: buck2_error::Error,
@@ -64,7 +67,8 @@ impl CommandExecutionStatus {
     pub fn execution_kind(&self) -> Option<&CommandExecutionKind> {
         match self {
             CommandExecutionStatus::Success { execution_kind, .. } => Some(execution_kind),
-            CommandExecutionStatus::Failure { execution_kind } => Some(execution_kind),
+            CommandExecutionStatus::Failure { execution_kind }
+            | CommandExecutionStatus::WorkerFailure { execution_kind } => Some(execution_kind),
             CommandExecutionStatus::Error { execution_kind, .. } => execution_kind.as_ref(),
             CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
             CommandExecutionStatus::Cancelled => None,
@@ -77,6 +81,9 @@ impl Display for CommandExecutionStatus {
         match self {
             CommandExecutionStatus::Success { execution_kind, .. } => {
                 write!(f, "success {}", execution_kind,)
+            }
+            CommandExecutionStatus::WorkerFailure { execution_kind } => {
+                write!(f, "worker failure {}", execution_kind,)
             }
             CommandExecutionStatus::Failure { execution_kind } => {
                 write!(f, "failure {}", execution_kind,)
@@ -292,7 +299,8 @@ impl CommandExecutionReport {
                 buck2_data::command_execution::Success {}.into()
             }
             CommandExecutionStatus::Cancelled => buck2_data::command_execution::Cancelled {}.into(),
-            CommandExecutionStatus::Failure { .. } => {
+            CommandExecutionStatus::Failure { .. }
+            | CommandExecutionStatus::WorkerFailure { .. } => {
                 buck2_data::command_execution::Failure {}.into()
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
