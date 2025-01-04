@@ -535,18 +535,31 @@ impl LocalExecutor {
                 // We are lying about the std streams here because we don't have a good mechanism
                 // to report that the command does not exist, and because that's exactly what RE
                 // also does when this happens.
-                manager.failure(
-                    execution_kind,
-                    Default::default(),
-                    CommandStdStreams::Local {
-                        stdout: Default::default(),
-                        stderr: format!("Spawning executable `{}` failed: {}", args[0], reason)
-                            .into_bytes(),
-                    },
-                    None,
-                    *timing,
-                    None,
-                )
+                if matches!(execution_kind, CommandExecutionKind::Local { .. }) {
+                    manager.failure(
+                        execution_kind,
+                        Default::default(),
+                        CommandStdStreams::Local {
+                            stdout: Default::default(),
+                            stderr: format!("Spawning executable `{}` failed: {}", args[0], reason)
+                                .into_bytes(),
+                        },
+                        None,
+                        *timing,
+                        None,
+                    )
+                } else {
+                    // Workers executing tests often employ a health check to avoid producing
+                    // invalid test results. Differentiating a worker spawn failure from a normal
+                    // spawn or execution failure allows the test runner to handle this case
+                    // accordingly.
+                    manager.worker_failure(
+                        execution_kind,
+                        // Could probably use a better error message.
+                        format!("Spawning executable `{}` failed: {}", args[0], reason),
+                        *timing,
+                    )
+                }
             }
             GatherOutputStatus::TimedOut(duration) => {
                 manager.timeout(execution_kind, duration, std_streams, *timing, None)

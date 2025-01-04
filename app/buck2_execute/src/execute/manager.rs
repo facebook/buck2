@@ -250,6 +250,13 @@ pub trait CommandExecutionManagerExt: Sized {
         additional_message: Option<String>,
     ) -> CommandExecutionResult;
 
+    fn worker_failure(
+        self,
+        execution_kind: CommandExecutionKind,
+        stderr: String,
+        timing: CommandExecutionMetadata,
+    ) -> CommandExecutionResult;
+
     fn timeout(
         self,
         execution_kind: CommandExecutionKind,
@@ -295,6 +302,25 @@ where
             exit_code,
             timing,
             additional_message,
+        )
+    }
+
+    fn worker_failure(
+        self,
+        execution_kind: CommandExecutionKind,
+        stderr: String,
+        timing: CommandExecutionMetadata,
+    ) -> CommandExecutionResult {
+        self.result(
+            CommandExecutionStatus::WorkerFailure { execution_kind },
+            Default::default(),
+            CommandStdStreams::Local {
+                stdout: Default::default(),
+                stderr: stderr.into_bytes(),
+            },
+            None,
+            timing,
+            None,
         )
     }
 

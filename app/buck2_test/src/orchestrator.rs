@@ -1066,6 +1066,11 @@ impl<'b> BuckTestOrchestrator<'b> {
                 execution_kind: Some(execution_kind),
                 outputs,
             },
+            CommandExecutionStatus::WorkerFailure {
+                execution_kind: CommandExecutionKind::LocalWorker { .. },
+            } => {
+                return Err(ExecuteError::Cancelled(Cancelled));
+            }
             CommandExecutionStatus::Failure { execution_kind }
             | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
                 stdout,
