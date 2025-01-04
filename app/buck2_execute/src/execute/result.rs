@@ -67,8 +67,8 @@ impl CommandExecutionStatus {
     pub fn execution_kind(&self) -> Option<&CommandExecutionKind> {
         match self {
             CommandExecutionStatus::Success { execution_kind, .. } => Some(execution_kind),
-            CommandExecutionStatus::Failure { execution_kind }
-            | CommandExecutionStatus::WorkerFailure { execution_kind } => Some(execution_kind),
+            CommandExecutionStatus::Failure { execution_kind } => Some(execution_kind),
+            CommandExecutionStatus::WorkerFailure { execution_kind } => Some(execution_kind),
             CommandExecutionStatus::Error { execution_kind, .. } => execution_kind.as_ref(),
             CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
             CommandExecutionStatus::Cancelled => None,
@@ -299,9 +299,11 @@ impl CommandExecutionReport {
                 buck2_data::command_execution::Success {}.into()
             }
             CommandExecutionStatus::Cancelled => buck2_data::command_execution::Cancelled {}.into(),
-            CommandExecutionStatus::Failure { .. }
-            | CommandExecutionStatus::WorkerFailure { .. } => {
+            CommandExecutionStatus::Failure { .. } => {
                 buck2_data::command_execution::Failure {}.into()
+            }
+            CommandExecutionStatus::WorkerFailure { .. } => {
+                buck2_data::command_execution::WorkerFailure {}.into()
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 buck2_data::command_execution::Timeout {

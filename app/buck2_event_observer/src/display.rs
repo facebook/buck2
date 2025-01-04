@@ -793,6 +793,7 @@ fn failure_reason_for_command_execution(
     use buck2_data::command_execution::Status;
     use buck2_data::command_execution::Success;
     use buck2_data::command_execution::Timeout;
+    use buck2_data::command_execution::WorkerFailure;
 
     let command = command_execution
         .details
@@ -819,7 +820,7 @@ fn failure_reason_for_command_execution(
 
     Ok(match status {
         Status::Success(Success {}) => "Unexpected command status".to_owned(),
-        Status::Failure(Failure {}) => {
+        Status::Failure(Failure {}) | Status::WorkerFailure(WorkerFailure {}) => {
             struct OptionalExitCode {
                 code: Option<i32>,
             }

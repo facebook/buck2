@@ -1271,6 +1271,8 @@ message CommandExecution {
 
   message Failure {}
 
+  message WorkerFailure {}
+
   message Timeout {
     google.protobuf.Duration duration = 1;
   }
@@ -1294,6 +1296,7 @@ message CommandExecution {
     Timeout timeout = 4;
     Error error = 5;
     Cancelled cancelled = 7;
+    WorkerFailure worker_failure = 8;
   }
 }
 
