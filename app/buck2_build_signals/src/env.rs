@@ -34,8 +34,7 @@ pub struct NodeDuration {
 
 impl NodeDuration {
     /// Returns the duration we are using in our critical path calculation. This doesn't really
-    /// *need* to be a function but right now we use user and want to switch to total so it's
-    /// easier to do that if this is in a single function.
+    /// *need* to be a function but is helpful so that not every callsite has to know which one we chose.
     pub fn critical_path_duration(&self) -> Duration {
         self.total
     }
