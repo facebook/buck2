@@ -540,9 +540,9 @@ message CriticalPathEntry2 {
 
   repeated uint64 span_ids = 1;
 
-  // The duration we used to compute the critical path. This will be one of the
-  // durations below, but to ensure not every callsite has to know which one we
-  // chose, we expose it here.
+  // The duration we used to compute the critical path. This tracks total
+  // duration, but to ensure not every callsite has to know which one we chose,
+  // we expose it here.
   google.protobuf.Duration duration = 2;
 
   // The subset of the duration for this entry whose runtime is controlled by
