@@ -486,6 +486,7 @@ def _compile_swiftmodule(
             "-emit-module-interface",
             "-emit-module-interface-path",
             output_swiftinterface.as_output(),
+            "-remove-module-prefixes",
         ])
         _compile_with_argsfile(ctx, "emit_swiftinterface", ".swiftinterface", swiftinterface_argsfile, srcs, swiftinterface_cmd, toolchain, num_threads = 1)
 

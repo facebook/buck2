@@ -6,12 +6,86 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+import json
 import os
+import re
 import subprocess
 import sys
 
 _RE_TMPDIR_ENV_VAR = "TMPDIR"
 _FILE_WRITE_FAILURE_MARKER = "could not write"
+
+
+def _expand_args(command):
+    for arg in command:
+        if arg.startswith("@"):
+            with open(arg[1:]) as argsfile:
+                return [line.rstrip() for line in argsfile.readlines()]
+
+    return []
+
+
+def _get_modulemap(args):
+    for i in range(len(args)):
+        if args[i].startswith("-explicit-swift-module-map-file"):
+            if args[i + 1].startswith("-Xfrontend"):
+                path = args[i + 2]
+            else:
+                path = args[i + 1]
+
+            with open(path.strip()) as modulemap:
+                return json.load(modulemap)
+
+    return None
+
+
+def _get_modulename(args):
+    return args[args.index("-module-name") + 1]
+
+
+def _get_modules(command):
+    args = _expand_args(command)
+    modulemap = _get_modulemap(args)
+    if modulemap is None:
+        return set()
+
+    modules = set()
+    for entry in modulemap:
+        # We only remove prefixes from first party modules.
+        if "sdk_deps" in entry.get("clangModulePath", ""):
+            pass
+        elif "sdk_deps" in entry.get("modulePath", ""):
+            pass
+        else:
+            modules.add(entry["moduleName"])
+
+    modules.add(_get_modulename(args))
+
+    return modules
+
+
+def _remove_swiftinterface_module_prefixes(command):
+    interface_path = command[command.index("-emit-module-interface-path") + 1]
+    modules = _get_modules(command)
+    if len(modules) == 0:
+        return
+
+    with open(interface_path) as f:
+        interface = f.read()
+
+    output = []
+    pattern = re.compile(r"(\w+)\.(\w+)")
+    for line in interface.splitlines():
+        outline = line
+        for m in pattern.finditer(line):
+            if m.group(1) in modules:
+                outline = outline.replace(m.group(0), m.group(2))
+
+        output.append(outline)
+
+    with open(interface_path, "w") as f:
+        f.write("\n".join(output))
+        f.write("\n")
 
 
 def main():
@@ -34,6 +108,11 @@ def main():
         env["CLANG_MODULE_CACHE_PATH"] = "/tmp/buck-module-cache"
 
     command = sys.argv[1:]
+
+    # Check if we need to strip module prefixes from types in swiftinterface output.
+    should_remove_module_prefixes = "-remove-module-prefixes" in command
+    if should_remove_module_prefixes:
+        command.remove("-remove-module-prefixes")
 
     # Use relative paths for debug information and index information,
     # so we generate relocatable files.
@@ -78,6 +157,10 @@ def main():
                 "Detected Swift compiler file write error but compiler exited with code 0, failing command..."
             )
             sys.exit(1)
+
+    # https://github.com/swiftlang/swift/issues/56573
+    if should_remove_module_prefixes:
+        _remove_swiftinterface_module_prefixes(command)
 
     sys.exit(result.returncode)
 
