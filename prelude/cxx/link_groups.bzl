@@ -645,9 +645,15 @@ def _find_all_relevant_roots(
         specs: list[LinkGroupLibSpec],
         link_group_mappings: dict[Label, str],  # target label to link group name
         roots: list[Label],
+        link_strategy: LinkStrategy,
         linkable_graph_node_map: dict[Label, LinkableNode]) -> dict[str, set[Label]]:
     relevant_roots = {}
     link_groups_for_full_traversal = set()  # list[str]
+
+    # For shared linkage we need to always traverse whole graph to discover
+    # roots because `_collect_linkables` (next step in algorithm) stops linkables discovery
+    # early due to shared link strategy semantics
+    always_traverse_all_roots = link_strategy == LinkStrategy("shared")
 
     for spec in specs:
         if spec.root != None:
@@ -655,7 +661,7 @@ def _find_all_relevant_roots(
         else:
             roots_from_mappings, has_empty_root = _get_roots_from_mappings(spec, linkable_graph_node_map)
             relevant_roots[spec.group.name] = set(roots_from_mappings)
-            if has_empty_root:
+            if has_empty_root or always_traverse_all_roots:
                 link_groups_for_full_traversal.add(spec.group.name)
 
     def collect_and_traverse_roots(node_target: Label) -> list[Label]:
@@ -979,6 +985,7 @@ def create_link_groups(
         specs,
         link_group_mappings,
         executable_deps + other_roots,
+        link_strategy,
         linkable_graph_node_map,
     )
 
