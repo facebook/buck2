@@ -18,6 +18,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
@@ -402,7 +403,9 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     ) -> starlark::Result<Value<'v>> {
         match self.callable.get() {
             Some(callable) => callable.invoke(args, eval),
-            None => Err(starlark::Error::new_other(ProviderCallableError::NotBound)),
+            None => Err(starlark::Error::new_other(buck2_error::Error::from(
+                ProviderCallableError::NotBound,
+            ))),
         }
     }
 
@@ -519,7 +522,9 @@ fn provider_field_parse_type<'v>(
     ty: Value<'v>,
     eval: &mut Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
-    Ok(TypeCompiled::new(ty, eval.heap()).map(|ty| ty.to_frozen(eval.frozen_heap()))?)
+    TypeCompiled::new(ty, eval.heap())
+        .map(|ty| ty.to_frozen(eval.frozen_heap()))
+        .map_err(from_any)
 }
 
 #[starlark_module]

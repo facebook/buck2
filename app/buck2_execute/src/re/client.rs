@@ -18,6 +18,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use chrono::DateTime;
@@ -349,7 +350,11 @@ impl RemoteExecutionClient {
     }
 
     pub fn get_experiment_name(&self) -> buck2_error::Result<Option<String>> {
-        Ok(self.data.client.client().get_experiment_name()?)
+        self.data
+            .client
+            .client()
+            .get_experiment_name()
+            .map_err(from_any)
     }
 
     pub fn fill_network_stats(&self, stats: &mut RemoteExecutionClientStats) {
@@ -924,8 +929,7 @@ impl RemoteExecutionClientImpl {
                             },
                         };
 
-                        let event =
-                            event.buck_error_context("Error was returned on the stream by RE")?;
+                        let event = event.context("Error was returned on the stream by RE")?;
 
                         if event.execute_response.is_some() || event.stage != previous_stage {
                             return Ok(ResponseOrStateChange::Present(event));
@@ -935,9 +939,7 @@ impl RemoteExecutionClientImpl {
                         if let Some(re_max_queue_time) = re_max_queue_time {
                             if let Some(info) = event.metadata.task_info {
                                 let est = u64::try_from(info.estimated_queue_time_ms)
-                                    .buck_error_context(
-                                        "estimated_queue_time_ms from RE is negative",
-                                    )?;
+                                    .context("estimated_queue_time_ms from RE is negative")?;
                                 let queue_time = Duration::from_millis(est);
 
                                 if queue_time > re_max_queue_time {
@@ -1230,7 +1232,7 @@ impl RemoteExecutionClientImpl {
             bool,
             applicability = testing
         )? {
-            return Err(test_re_error("Injected error", TCode::NOT_FOUND).into());
+            return Err(test_re_error("Injected error", TCode::NOT_FOUND));
         }
 
         let use_case = &use_case;

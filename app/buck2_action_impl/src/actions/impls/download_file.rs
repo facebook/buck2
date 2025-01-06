@@ -29,6 +29,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -173,6 +174,7 @@ impl DownloadFileAction {
             .map(|content_length| {
                 let content_length = content_length
                     .to_str()
+                    .map_err(from_any)
                     .buck_error_context("Header is not valid utf-8")?;
                 let content_length_number =
                     content_length.parse().with_buck_error_context(|| {

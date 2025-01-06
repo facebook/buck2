@@ -20,10 +20,6 @@ pub struct Error1;
 fn test_derive_error1() {
     let e: crate::Error = Error1.into();
     assert_eq!(e.get_tier(), Some(crate::Tier::Input));
-
-    let e: anyhow::Error = Error1.into();
-    let e: crate::Error = e.into();
-    assert_eq!(e.get_tier(), Some(crate::Tier::Input));
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
@@ -144,16 +140,18 @@ fn test_source_metadata_are_included() {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Unused")]
+    #[buck2(tag = WatchmanRequestError)]
     enum MaybeWatchmanError {
         Some(#[source] WatchmanError),
         None,
     }
 
     let e: crate::Error = MaybeWatchmanError::None.into();
-    assert!(e.tags().is_empty());
+    assert!(e.has_tag(crate::ErrorTag::WatchmanRequestError));
 
     let e: crate::Error = MaybeWatchmanError::Some(WatchmanError).into();
     assert!(e.has_tag(crate::ErrorTag::WatchmanTimeout));
+    assert!(e.has_tag(crate::ErrorTag::WatchmanRequestError));
 
     assert!(format!("{:?}", e).contains("Unused"));
     assert!(format!("{:?}", e).contains("WatchmanError"));
@@ -161,7 +159,7 @@ fn test_source_metadata_are_included() {
 
 #[test]
 fn test_error_tags() {
-    fn f(_: &TaggedError) -> Option<crate::ErrorTag> {
+    fn f() -> Option<crate::ErrorTag> {
         Some(crate::ErrorTag::StarlarkFail)
     }
 
@@ -169,7 +167,7 @@ fn test_error_tags() {
     #[error("Unused")]
     #[buck2(tag = WatchmanTimeout)]
     enum TaggedError {
-        #[buck2(tag = f(self))]
+        #[buck2(tag = f())]
         A,
         #[buck2(tag = WatchmanTimeout)]
         B,
@@ -203,29 +201,13 @@ fn test_correct_transparent() {
 }
 
 #[test]
-fn test_recovery_through_transparent() {
+fn test_error_message_with_provided_field() {
     #[derive(buck2_error_derive::Error, Debug)]
-    #[error("base_display")]
-    struct BaseError;
+    #[error("Some message {0} + {1}")]
+    struct SomeError(String, String);
 
-    #[derive(buck2_error_derive::Error, Debug)]
-    #[error(transparent)]
-    enum PartiallyStructured {
-        #[error(transparent)]
-        Other(anyhow::Error),
-    }
-
-    let base: crate::Error = crate::Error::from(BaseError).tag([crate::ErrorTag::StarlarkFail]);
-    let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone().into()).into();
-    let wrapped_recovery: crate::Error =
-        anyhow::Error::from(PartiallyStructured::Other(base.into())).into();
-
-    assert!(format!("{:?}", wrapped_direct).contains("base_display"));
-    assert!(format!("{:?}", wrapped_recovery).contains("base_display"));
-
-    // FIXME(JakobDegen): Bug: Should be `&[crate::ErrorTag::StarlarkFail]`
-    assert_eq!(&wrapped_direct.tags()[..], &[]);
-    assert_eq!(&wrapped_recovery.tags()[..], &[]);
+    let t: crate::Error = SomeError("test123".to_owned(), "test222".to_owned()).into();
+    assert!(format!("{:?}", t).contains("Some message test123"));
 }
 
 #[test]
@@ -243,13 +225,7 @@ fn test_recovery_through_transparent_buck2_error() {
 
     let base: crate::Error = crate::Error::from(BaseError).tag([crate::ErrorTag::StarlarkFail]);
     let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone()).into();
-    let wrapped_recovery: crate::Error =
-        anyhow::Error::from(PartiallyStructured::Other(base)).into();
 
     assert!(format!("{:?}", wrapped_direct).contains("base_display"));
-    assert!(format!("{:?}", wrapped_recovery).contains("base_display"));
-
-    // FIXME(JakobDegen): Bug: Should be `&[crate::ErrorTag::StarlarkFail]`
-    assert_eq!(&wrapped_direct.tags()[..], &[]);
-    assert_eq!(&wrapped_recovery.tags()[..], &[]);
+    assert_eq!(&wrapped_direct.tags()[..], &[crate::ErrorTag::StarlarkFail]);
 }

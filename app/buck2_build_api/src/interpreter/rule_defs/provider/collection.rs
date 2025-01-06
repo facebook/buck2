@@ -391,10 +391,10 @@ where
         match self.get_impl(index, GetOp::At)? {
             Either::Left(v) => Ok(v),
             Either::Right(provider_id) => Err(starlark::Error::new_other(
-                ProviderCollectionError::AtNotFound(
+                buck2_error::Error::from(ProviderCollectionError::AtNotFound(
                     provider_id.name.clone(),
                     self.providers.keys().map(|k| k.name.clone()).collect(),
-                ),
+                )),
             )),
         }
     }

@@ -42,7 +42,7 @@ impl ForkserverCommand {
         _ctx: ClientCommandContext<'_>,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
-        fs_util::create_dir_all(&self.state_dir)?;
+        fs_util::create_dir_all(&self.state_dir).map_err(buck2_error::Error::from)?;
 
         #[cfg(unix)]
         {

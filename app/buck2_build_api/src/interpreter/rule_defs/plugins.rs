@@ -85,9 +85,9 @@ where
         let kind = (PLUGIN_KIND_FROM_VALUE.get()?)(index)?;
         match self.plugins.get(&kind) {
             Some(v) => Ok(v.to_value()),
-            None => Err(starlark::Error::new_other(
+            None => Err(starlark::Error::new_other(buck2_error::Error::from(
                 AnalysisPluginsError::PluginKindNotUsed(kind),
-            )),
+            ))),
         }
     }
 

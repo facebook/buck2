@@ -63,9 +63,9 @@ enum WatchmanClientError {
         "Watchman request timed out after {0}s; try restarting watchman, probably via `watchman shutdown-server`"
     )]
     Timeout(u64),
-    #[buck2(tag = watchman_error_tag(source))]
+    #[buck2(tag = watchman_error_tag(&inner))]
     #[error(transparent)]
-    RequestFailed { source: watchman_client::Error },
+    RequestFailed { inner: watchman_client::Error },
 }
 
 // We use the "new" field. This is marked as deprecated, but buck1 uses it and
@@ -182,7 +182,7 @@ async fn with_timeout<R>(
             validate_certs()
                 .await
                 .buck_error_context("Watchman Request Failed")?;
-            Err(WatchmanClientError::RequestFailed { source: e }.into())
+            Err(WatchmanClientError::RequestFailed { inner: e }.into())
         }
         Err(_) => {
             validate_certs()

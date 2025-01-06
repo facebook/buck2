@@ -48,6 +48,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::errors::create_error_report;
@@ -395,7 +396,7 @@ impl BuckdServer {
         OneshotCommandOptions::pre_run(&opts, self)?;
 
         let daemon_state = self.0.daemon_state.dupe();
-        let trace_id = client_ctx.trace_id.parse()?;
+        let trace_id = client_ctx.trace_id.parse().map_err(from_any)?;
         let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
         let ActiveCommand {
             guard,
@@ -1271,7 +1272,7 @@ impl DaemonApi for BuckdServer {
 
         let res: buck2_error::Result<_> = try {
             let client_ctx = req.get_ref().client_context()?;
-            let trace_id = client_ctx.trace_id.parse()?;
+            let trace_id = client_ctx.trace_id.parse().map_err(from_any)?;
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
             let active_command = ActiveCommand::new(&dispatcher, client_ctx.sanitized_argv.clone());
             (event_source, dispatcher, active_command)
@@ -1300,7 +1301,7 @@ impl DaemonApi for BuckdServer {
                     let result = try {
                         spawn_allocative(
                             this,
-                            AbsPathBuf::try_from(req.output_path)?,
+                            AbsPathBuf::try_from(req.output_path).map_err(from_any)?,
                             dispatcher.dupe(),
                         )
                         .await?;

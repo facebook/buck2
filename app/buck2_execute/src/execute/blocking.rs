@@ -13,6 +13,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_util::threads::thread_spawn;
@@ -60,7 +61,8 @@ impl dyn BlockingExecutor {
             res = Some(f()?);
             Ok(())
         }))
-        .await?;
+        .await
+        .map_err(from_any)?;
         res.buck_error_context("Inline I/O did not execute")
     }
 }

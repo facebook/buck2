@@ -17,26 +17,6 @@ use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
 
-// This implementation is fairly magic and is what allows us to bypass the issue with conflicting
-// implementations between `anyhow::Error` and `T: StdError`. The `T: Into<anyhow::Error>` bound is
-// what we actually make use of in the implementation, while the other bound is needed to make sure
-// this impl does not accidentally cover too many types. Importantly, this impl does not conflict
-// with `T: From<T>`
-impl<T: fmt::Debug + fmt::Display + Sync + Send + 'static> From<T> for crate::Error
-where
-    T: Into<anyhow::Error>,
-    Result<(), T>: anyhow::Context<(), T>,
-{
-    #[track_caller]
-    #[cold]
-    fn from(value: T) -> crate::Error {
-        let source_location =
-            crate::source_location::from_file(std::panic::Location::caller().file(), None);
-        let anyhow: anyhow::Error = value.into();
-        recover_crate_error(anyhow.as_ref(), source_location)
-    }
-}
-
 fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) -> crate::Error {
     if let Some(metadata) = request_value::<ProvidableMetadata>(context) {
         if !metadata.tags.is_empty() {
@@ -48,7 +28,7 @@ fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) 
     }
 }
 
-pub(crate) fn recover_crate_error(
+pub fn recover_crate_error(
     value: &'_ (dyn StdError + 'static),
     source_location: Option<String>,
 ) -> crate::Error {
@@ -107,13 +87,6 @@ pub(crate) fn recover_crate_error(
     e
 }
 
-impl From<crate::Error> for anyhow::Error {
-    #[cold]
-    fn from(value: crate::Error) -> Self {
-        Into::into(CrateAsStdError(value))
-    }
-}
-
 #[derive(derive_more::Display, RefCast)]
 #[repr(transparent)]
 pub(crate) struct CrateAsStdError(pub(crate) crate::Error);
@@ -159,24 +132,34 @@ mod tests {
 
     use super::*;
     use crate as buck2_error;
+    use crate::conversion::from_any;
     use crate::TypedContext;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;
+
+    impl From<TestError> for crate::Error {
+        #[cold]
+        fn from(value: TestError) -> Self {
+            let error = anyhow::Error::from(value);
+            let source_location = Some(file!().to_owned());
+            crate::any::recover_crate_error(error.as_ref(), source_location)
+        }
+    }
 
     impl StdError for TestError {}
 
     #[test]
     fn test_roundtrip_no_context() {
         let e = crate::Error::from(TestError).context("context 1");
-        let e2 = crate::Error::from(anyhow::Error::from(e.clone()));
+        let e2 = from_any(anyhow::Error::from(e.clone()));
         crate::Error::check_equal(&e, &e2);
     }
 
     #[test]
     fn test_roundtrip_with_context() {
         let e = crate::Error::from(TestError).context("context 1");
-        let e2 = crate::Error::from(anyhow::Error::from(e.clone()).context("context 2"));
+        let e2 = from_any(anyhow::Error::from(e.clone()).context("context 2"));
         let e3 = e.context("context 2");
         crate::Error::check_equal(&e2, &e3);
     }
@@ -201,13 +184,22 @@ mod tests {
         }
 
         let e = crate::Error::from(TestError).context(T(1));
-        let e2 = crate::Error::from(anyhow::Error::from(e.clone()).context("context 2"));
+        let e2 = from_any(anyhow::Error::from(e.clone()).context("context 2"));
         let e3 = e.context("context 2");
         crate::Error::check_equal(&e2, &e3);
     }
 
     #[derive(Debug, derive_more::Display)]
     struct FullMetadataError;
+
+    impl From<FullMetadataError> for crate::Error {
+        #[cold]
+        fn from(value: FullMetadataError) -> Self {
+            let error = anyhow::Error::from(value);
+            let source_location = Some(file!().to_owned());
+            crate::any::recover_crate_error(error.as_ref(), source_location)
+        }
+    }
 
     impl StdError for FullMetadataError {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
@@ -249,12 +241,12 @@ mod tests {
     fn test_metadata_through_anyhow() {
         let e: anyhow::Error = FullMetadataError.into();
         let e = e.context("anyhow");
-        let e: crate::Error = e.into();
+        let e: crate::Error = from_any(e);
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
         assert!(format!("{:?}", e).contains("anyhow"));
     }
 
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error_derive::Error)]
     #[error("wrapper")]
     struct WrapperError(#[source] FullMetadataError);
 

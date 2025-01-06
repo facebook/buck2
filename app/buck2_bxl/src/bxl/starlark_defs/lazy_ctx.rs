@@ -240,8 +240,8 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
     ) -> anyhow::Result<StarlarkLazy> {
         match artifact {
             ArtifactArg::DeclaredArtifact(_) => {
-                return Err(BxlBuildArtifactError::NotSupportDeclaredArtifact(
-                    artifact.to_string(),
+                return Err(buck2_error::Error::from(
+                    BxlBuildArtifactError::NotSupportDeclaredArtifact(artifact.to_string()),
                 )
                 .into());
             }

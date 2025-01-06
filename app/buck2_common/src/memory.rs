@@ -20,6 +20,8 @@
 mod imp {
     use std::env;
 
+    use buck2_error::conversion::from_any;
+
     /// Output the current state of the heap to the filename specified.
     /// Intended to be used for debugging purposes.
     /// Requires MALLOC_CONF=prof:true to be set in environment variables
@@ -32,7 +34,7 @@ mod imp {
             ));
         }
 
-        let prof_enabled: bool = memory::mallctl_read("opt.prof")?;
+        let prof_enabled: bool = memory::mallctl_read("opt.prof").map_err(from_any)?;
         if !prof_enabled {
             if env::var_os("MALLOC_CONF").is_some() {
                 return Err(buck2_error::buck2_error!(
@@ -48,13 +50,13 @@ mod imp {
         }
 
         eprintln!("dumping heap to: {:?}", filename);
-        memory::mallctl_write("prof.dump", filename)?;
+        memory::mallctl_write("prof.dump", filename).map_err(from_any)?;
         Ok(())
     }
 
     /// Dump allocator stats from JEMalloc. Intended for debug purposes
     pub fn allocator_stats(options: &str) -> buck2_error::Result<String> {
-        Ok(allocator_stats::malloc_stats(options)?)
+        allocator_stats::malloc_stats(options).map_err(from_any)
     }
 
     /// Enables background threads for jemalloc. See [here](http://jemalloc.net/jemalloc.3.html#background_thread) for
@@ -64,7 +66,7 @@ mod imp {
     /// This function has no effect if not using jemalloc.
     pub fn enable_background_threads() -> buck2_error::Result<()> {
         if memory::is_using_jemalloc() {
-            memory::mallctl_write("background_thread", true)?;
+            memory::mallctl_write("background_thread", true).map_err(from_any)?;
         }
         Ok(())
     }

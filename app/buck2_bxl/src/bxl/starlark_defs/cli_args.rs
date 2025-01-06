@@ -21,6 +21,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -106,7 +107,8 @@ impl CliArgs {
             Some(x) => Some(Arc::new(
                 coercer
                     .coerce_value(x)
-                    .map_err(|_| ValueError::IncorrectParameterType)?,
+                    .map_err(|_| ValueError::IncorrectParameterType)
+                    .map_err(from_any)?,
             )),
         };
 
@@ -115,11 +117,13 @@ impl CliArgs {
             Some(s) => match s.unpack_str() {
                 Some(s) => {
                     if s.len() != 1 {
-                        return Err(ValueError::IncorrectParameterType.into());
+                        return Err(from_any(ValueError::IncorrectParameterType));
                     }
                     Some(s.chars().next().unwrap())
                 }
-                None => return Err(ValueError::IncorrectParameterType.into()),
+                None => {
+                    return Err(from_any(ValueError::IncorrectParameterType));
+                }
             },
         };
 
@@ -544,7 +548,8 @@ impl CliArgType {
                     r.map(Some)
                 })?,
                 CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
-                    let r: buck2_error::Result<_> = try { CliArgValue::Int(x.parse::<BigInt>()?) };
+                    let r: buck2_error::Result<_> =
+                        try { CliArgValue::Int(x.parse::<BigInt>().map_err(from_any)?) };
                     r.map(Some)
                 })?,
                 CliArgType::Float => clap.value_of().map_or(Ok(None), |x| {

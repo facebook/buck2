@@ -27,6 +27,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
@@ -338,6 +339,7 @@ async fn run_analysis_with_env_underlying(
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     {
         let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
+            .map_err(from_any)
             .internal_error("Just allocated provider collection")?;
         analysis_registry
             .analysis_value_storage
@@ -402,6 +404,7 @@ fn get_rule_callable<'v>(
 ) -> buck2_error::Result<FrozenValue> {
     let rule_callable = module
         .get_any_visibility(name)
+        .map_err(from_any)
         .with_buck_error_context(|| format!("Couldn't find rule `{}`", name))?
         .0;
     let rule_callable = rule_callable.owned_value(eval.frozen_heap());

@@ -57,6 +57,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -302,7 +303,8 @@ async fn test(
     let (test_executor, test_executor_args) = match test_executor_config {
         Some(config) => {
             let test_executor = post_process_test_executor(config.as_ref())
-                .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))?;
+                .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))
+                .map_err(from_any)?;
             let test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
             (test_executor, test_executor_args)
@@ -330,7 +332,8 @@ async fn test(
     let options = request
         .session_options
         .as_ref()
-        .context("Missing `options`")?;
+        .context("Missing `options`")
+        .map_err(from_any)?;
 
     let session = TestSession::new(TestSessionOptions {
         allow_re: options.allow_re,
@@ -348,7 +351,8 @@ async fn test(
         .as_ref()
         .map(|t| t.clone().try_into())
         .transpose()
-        .context("Invalid `duration`")?;
+        .context("Invalid `duration`")
+        .map_err(from_any)?;
 
     let test_outcome = test_targets(
         ctx.dupe(),
@@ -370,7 +374,8 @@ async fn test(
         timeout,
         request.ignore_tests_attribute,
     )
-    .await?;
+    .await
+    .map_err(from_any)?;
 
     send_target_cfg_event(
         server_ctx.events(),
@@ -379,7 +384,10 @@ async fn test(
     );
 
     // TODO(bobyf) remap exit code for buck reserved exit code
-    let exit_code = test_outcome.exit_code().context("No exit code available")?;
+    let exit_code = test_outcome
+        .exit_code()
+        .context("No exit code available")
+        .map_err(from_any)?;
 
     let test_statuses = buck2_cli_proto::test_response::TestStatuses {
         passed: Some(
@@ -505,7 +513,7 @@ async fn test_targets(
 
     let res = tag_result!(
         "executor_launch_failed",
-        res.map_err(|e| e.into()),
+        res.map_err(from_any),
         quiet: true,
         daemon_in_memory_state_is_corrupted: true,
         task: false
@@ -965,7 +973,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 Err(e) => {
                     return ControlFlow::Break(vec![BuildEvent::new_configured(
                         label,
-                        ConfiguredBuildEventVariant::Error { err: e.into() },
+                        ConfiguredBuildEventVariant::Error { err: from_any(e) },
                     )]);
                 }
             };
@@ -1010,7 +1018,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             {
                 return ControlFlow::Break(vec![BuildEvent::new_configured(
                     label,
-                    ConfiguredBuildEventVariant::Error { err: e.into() },
+                    ConfiguredBuildEventVariant::Error { err: from_any(e) },
                 )]);
             }
 

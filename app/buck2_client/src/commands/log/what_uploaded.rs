@@ -17,6 +17,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::ReUploadMetrics;
+use buck2_error::conversion::from_any;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -235,7 +236,8 @@ impl WhatUploadedCommand {
 
                 Ok(())
             })
-        })?;
+        })
+        .map_err(from_any)?;
         ExitResult::success()
     }
 }

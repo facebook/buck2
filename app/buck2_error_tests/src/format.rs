@@ -7,9 +7,10 @@
  * of this source tree.
  */
 
+use buck2_error::conversion::from_any;
 use buck2_util::golden_test_helper::trim_rust_backtrace;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, buck2_error::Error)]
 #[error("test error")]
 struct TestError;
 
@@ -38,9 +39,12 @@ Caused by:
 
 #[test]
 fn test_shows_anyhow_context() {
-    // This context can't be understood by `buck2_error`
-    let e = anyhow::Error::from(TestError).context("context 1");
-    let e = buck2_error::Error::from(e).context("context 2");
+    #[derive(Debug, thiserror::Error)]
+    #[error("test error")]
+    struct AnyhowError;
+
+    let e = anyhow::Error::from(AnyhowError).context("context 1");
+    let e = from_any(e).context("context 2");
     assert_eq_no_backtrace(
         format!("{:?}", e),
         r#"context 2
@@ -59,7 +63,7 @@ fn test_after_anyhow_conversion() {
     assert_eq_no_backtrace(format!("{:?}", e), format!("{:?}", e2));
     assert_eq_no_backtrace(format!("{:#}", e), format!("{:#}", e2));
 
-    let e3 = buck2_error::Error::from(e2);
+    let e3 = from_any(e2);
     assert_eq_no_backtrace(format!("{}", e), format!("{}", e3));
     assert_eq_no_backtrace(format!("{:?}", e), format!("{:?}", e3));
     assert_eq_no_backtrace(format!("{:#}", e), format!("{:#}", e3));

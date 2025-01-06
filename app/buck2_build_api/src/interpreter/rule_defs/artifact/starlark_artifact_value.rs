@@ -81,8 +81,8 @@ fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> starlark::Result<Va
             } else if let Some(x) = x.as_f64() {
                 Ok(heap.alloc(x))
             } else {
-                Err(starlark::Error::new_other(JsonError::NumberOutOfBounds(
-                    x.to_string(),
+                Err(starlark::Error::new_other(buck2_error::Error::from(
+                    JsonError::NumberOutOfBounds(x.to_string()),
                 )))
             }
         }

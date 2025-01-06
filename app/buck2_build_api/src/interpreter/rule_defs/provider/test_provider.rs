@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use buck2_core::cells::name::CellName;
+use buck2_error::conversion::from_any;
 use buck2_test_api::data::ConfiguredTarget;
 use buck2_test_api::data::ExternalRunnerSpec;
 use buck2_test_api::data::ExternalRunnerSpecValue;
@@ -95,7 +96,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
             working_dir_cell,
         };
 
-        async move { Ok(executor.external_runner_spec(spec).await?) }.boxed()
+        async move { executor.external_runner_spec(spec).await.map_err(from_any) }.boxed()
     }
 }
 

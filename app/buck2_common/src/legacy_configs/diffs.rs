@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::sync::Mutex;
 
 use buck2_core::cells::name::CellName;
+use buck2_error::conversion::from_any;
 use buck2_events::dispatch::get_dispatcher;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -70,6 +71,7 @@ impl ConfigDiffTracker {
                 section: "buck2",
                 property: "config_diff_size_limit",
             })
+            .map_err(from_any)
             // FIXME(JakobDegen): Don't ignore errors
             .unwrap_or_default();
 

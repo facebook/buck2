@@ -18,6 +18,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_error::conversion::from_any;
 use buck2_event_log::stream_value::StreamValue;
 use serde::Serialize;
 use tokio_stream::StreamExt;
@@ -226,7 +227,7 @@ impl WhatMaterializedCommand {
 
                 buck2_error::Ok(())
             })
-        })?;
+        }).map_err(from_any)?;
         ExitResult::success()
     }
 }

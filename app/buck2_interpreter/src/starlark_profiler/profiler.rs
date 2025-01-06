@@ -9,6 +9,7 @@
 
 use std::time::Instant;
 
+use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
@@ -77,7 +78,7 @@ impl StarlarkProfiler {
 
     /// Prepare an Evaluator to capture output relevant to this profiler.
     fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
-        eval.enable_profile(&self.profile_mode)?;
+        eval.enable_profile(&self.profile_mode).map_err(from_any)?;
         self.initialized_at = Some(Instant::now());
         Ok(())
     }
@@ -86,7 +87,11 @@ impl StarlarkProfiler {
     fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
         self.finalized_at = Some(Instant::now());
         if !self.profile_mode.requires_frozen_module() {
-            self.profile_data = Some(eval.gen_profile().map_err(from_starlark)?);
+            self.profile_data = Some(
+                eval.gen_profile()
+                    .map_err(from_starlark)
+                    .map_err(from_any)?,
+            );
         }
         Ok(())
     }
@@ -100,7 +105,7 @@ impl StarlarkProfiler {
 
         if self.profile_mode.requires_frozen_module() {
             let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
-            let profile = module.heap_profile()?;
+            let profile = module.heap_profile().map_err(from_any)?;
             self.profile_data = Some(profile);
         }
 

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
@@ -154,7 +155,9 @@ fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> buck2_error::Res
     Ok(ProviderIdSet::from(providers.try_map(
         |v| match v.as_provider_callable() {
             Some(callable) => buck2_error::Ok(callable.id()?.dupe()),
-            None => Err(ValueError::IncorrectParameterTypeNamed("providers".to_owned()).into()),
+            None => Err(from_any(ValueError::IncorrectParameterTypeNamed(
+                "providers".to_owned(),
+            ))),
         },
     )?))
 }

@@ -41,7 +41,9 @@ impl FromStr for ClientMetadata {
             .with_buck_error_context(|| ClientMetadataError::InvalidFormat(value.to_owned()))?;
 
         if !REGEX.is_match(key) {
-            return Err(ClientMetadataError::InvalidKey(key.to_owned()).into());
+            return Err(
+                buck2_error::Error::from(ClientMetadataError::InvalidKey(key.to_owned())).into(),
+            );
         }
 
         Ok(Self {

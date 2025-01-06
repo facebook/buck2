@@ -21,6 +21,7 @@ use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
+use buck2_error::conversion::from_any;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
@@ -60,7 +61,8 @@ impl WhatUpCommand {
             let (invocation, mut events) = log_path.unpack_stream().await?;
 
             let mut super_console = StatefulSuperConsole::console_builder()
-                .build_forced(StatefulSuperConsole::FALLBACK_SIZE)?;
+                .build_forced(StatefulSuperConsole::FALLBACK_SIZE)
+                .map_err(from_any)?;
 
             let build_count_dir = ctx
                 .maybe_paths()?
@@ -103,7 +105,9 @@ impl WhatUpCommand {
                     StreamValue::Result(result) => {
                         let result = StatefulSuperConsole::render_result_errors(&result);
                         super_console.emit(result);
-                        super_console.finalize(&Self::component(&super_console_state))?;
+                        super_console
+                            .finalize(&Self::component(&super_console_state))
+                            .map_err(from_any)?;
                         buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                         return Ok(());
                     }
@@ -111,7 +115,8 @@ impl WhatUpCommand {
             }
 
             super_console
-                .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)?;
+                .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)
+                .map_err(from_any)?;
             buck2_error::Ok(())
         })?;
 

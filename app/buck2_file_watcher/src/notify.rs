@@ -22,6 +22,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_error::conversion::from_any;
 use buck2_events::dispatch::span_async;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
@@ -100,7 +101,7 @@ impl NotifyFileData {
         cells: &CellResolver,
         ignore_specs: &HashMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<()> {
-        let event = event?;
+        let event = event.map_err(from_any)?;
         let change_type = ChangeType::new(event.kind);
         for path in event.paths {
             // Testing shows that we get absolute paths back from the `notify` library.
@@ -199,8 +200,11 @@ impl NotifyFileWatcher {
                     *guard = Err(e);
                 }
             }
-        })?;
-        watcher.watch(root.root().as_path(), notify::RecursiveMode::Recursive)?;
+        })
+        .map_err(from_any)?;
+        watcher
+            .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
+            .map_err(from_any)?;
         Ok(Self { watcher, data })
     }
 

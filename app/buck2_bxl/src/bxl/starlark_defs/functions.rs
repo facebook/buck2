@@ -243,6 +243,8 @@ pub(crate) fn register_instant_function(builder: &mut GlobalsBuilder) {
 #[error("fail:{0}")]
 pub(crate) struct BxlErrorWithoutStacktrace(String);
 
+impl std::error::Error for BxlErrorWithoutStacktrace {}
+
 /// Global method for error handling.
 #[starlark_module]
 pub(crate) fn register_error_handling_function(builder: &mut GlobalsBuilder) {

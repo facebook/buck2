@@ -12,10 +12,12 @@
 #![feature(trait_alias)]
 #![feature(trait_upcasting)]
 
-mod any;
+pub mod any;
 pub mod classify;
 mod context;
 mod context_value;
+pub mod conversion;
+mod conversion_test;
 mod derive_tests;
 mod error;
 mod format;

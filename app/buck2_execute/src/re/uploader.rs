@@ -13,7 +13,6 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::Context;
 use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileDigestKind;
@@ -30,6 +29,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use chrono::Duration;
 use chrono::Utc;
@@ -128,7 +128,10 @@ impl Uploader {
         input_digests.sort();
 
         let mut digest_ttls = digest_ttls.into_try_map(|d| {
-            anyhow::Ok((FileDigest::from_re(&d.digest, digest_config)?, d.ttl))
+            anyhow::Ok((
+                FileDigest::from_re(&d.digest, digest_config).map_err(buck2_error::Error::from)?,
+                d.ttl,
+            ))
         })?;
         digest_ttls.sort();
 
@@ -273,11 +276,12 @@ impl Uploader {
                                 if should_error_for_missing_digest(info) {
                                     soft_error!(
                                         "cas_missing_fatal",
-                                        anyhow::anyhow!(
+                                        buck2_error::buck2_error!(
+                                            [],
                                             "{} missing (origin: {})",
                                             file.digest,
                                             info.origin.as_display_for_not_found(),
-                                        ).into(),
+                                        ),
                                         daemon_in_memory_state_is_corrupted: true,
                                         action_cache_is_corrupted: info.origin.guaranteed_by_action_cache()
                                     )?;
@@ -294,12 +298,13 @@ impl Uploader {
 
                                 soft_error!(
                                     "cas_missing",
-                                    anyhow::anyhow!(
+                                    buck2_error::buck2_error!(
+                                        [],
                                         "{} (expires = {}) is missing in the CAS but expected to exist as per: {:#}",
                                         file.digest,
                                         file.digest.expires(),
                                         err
-                                    ).into(),
+                                    ),
                                     quiet: true
                                 )?;
 
@@ -449,7 +454,8 @@ fn add_injected_missing_digests<'a>(
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
-                    .with_context(|| format!("Invalid digest: `{}`", digest))?;
+                    .map_err(from_any)
+                    .with_buck_error_context(|| format!("Invalid digest: `{}`", digest))?;
                 // This code does not run in a test but it is only used for testing.
                 let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;
                 buck2_error::Ok(digest)

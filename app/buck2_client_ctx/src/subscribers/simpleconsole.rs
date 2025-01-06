@@ -19,6 +19,7 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_error::conversion::from_any;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -546,7 +547,7 @@ where
             let mut buffer = String::new();
 
             for line in msg {
-                writeln!(buffer, "{}", line.to_unstyled())?;
+                writeln!(buffer, "{}", line.to_unstyled()).map_err(from_any)?;
             }
             //Printing the test output in multiple lines. It makes easier for the user to read.
             echo!("{}", buffer)?;

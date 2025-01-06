@@ -77,6 +77,7 @@ use buck2_data::TestRunStart;
 use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -529,14 +530,17 @@ impl Key for TestExecutionKey {
                         Ok(ok) => Ok(Arc::new(ok)),
                         Err(err) => match err {
                             ExecuteError::Error(err) => Err(err)?,
-                            ExecuteError::Cancelled(_) => Err(ExecuteDiceErr::Cancelled)?,
+                            ExecuteError::Cancelled(_) => {
+                                Err(buck2_error::Error::from(ExecuteDiceErr::Cancelled))?
+                            }
                         },
                     };
                     result
                 }
                 .boxed()
             })
-            .await?)
+            .await
+            .map_err(from_any)?)
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -1446,15 +1450,12 @@ impl<'b> BuckTestOrchestrator<'b> {
                 async move {
                     (
                         missing_target.dupe(),
-                        setup
-                            .await
-                            .with_buck_error_context_anyhow(|| {
-                                format!(
-                                    "Error setting up local resource declared in `{}`",
-                                    missing_target
-                                )
-                            })
-                            .map_err(buck2_error::Error::from),
+                        setup.await.with_buck_error_context(|| {
+                            format!(
+                                "Error setting up local resource declared in `{}`",
+                                missing_target
+                            )
+                        }),
                     )
                 }
             });
@@ -1548,39 +1549,48 @@ impl<'b> BuckTestOrchestrator<'b> {
         let std_streams = std_streams
             .into_bytes()
             .await
-            .buck_error_context_anyhow("Error accessing setup local resource output")?;
+            .buck_error_context("Error accessing setup local resource output")?;
 
         match status {
             CommandExecutionStatus::Success { .. } => {}
             CommandExecutionStatus::Failure { .. }
             | CommandExecutionStatus::WorkerFailure { .. } => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    [],
                     "Local resource setup command failed with `{}` exit code, stdout:\n{}\nstderr:\n{}\n",
                     exit_code.unwrap_or(1),
                     String::from_utf8_lossy(&std_streams.stdout),
                     String::from_utf8_lossy(&std_streams.stderr),
-                ).into());
+                ));
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
-                return Err(anyhow::anyhow!(
+                return Err(buck2_error::buck2_error!(
+                    [],
                     "Local resource setup command timed out after `{}s`, stdout:\n{}\nstderr:\n{}\n",
                     duration.as_secs(),
                     String::from_utf8_lossy(&std_streams.stdout),
                     String::from_utf8_lossy(&std_streams.stderr),
-                ).into());
+                ));
             }
             CommandExecutionStatus::Error { error, .. } => {
                 return Err(error.into());
             }
             CommandExecutionStatus::Cancelled => {
-                return Err(anyhow::anyhow!("Local resource setup command cancelled").into());
+                return Err(buck2_error::buck2_error!(
+                    [],
+                    "Local resource setup command cancelled"
+                )
+                .into());
             }
         };
 
         let string_content = String::from_utf8_lossy(&std_streams.stdout);
         let data: LocalResourcesSetupResult = serde_json::from_str(&string_content)
-            .context("Error parsing local resource setup command output")?;
-        let state = data.into_state(context.target.clone(), &context.env_var_mapping)?;
+            .context("Error parsing local resource setup command output")
+            .map_err(from_any)?;
+        let state = data
+            .into_state(context.target.clone(), &context.env_var_mapping)
+            .map_err(from_any)?;
 
         Ok(state)
     }

@@ -8,6 +8,7 @@
  */
 
 use anyhow::Context;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_util::golden_test_helper::golden_test_template;
 use buck2_util::golden_test_helper::trim_rust_backtrace;
@@ -26,7 +27,7 @@ fn starlark_conversion_helper() -> starlark::Error {
     }
 
     fn fail3() -> buck2_error::Result<()> {
-        fail2().map_err(|e| buck2_error::Error::from(e).context("rust failure"))
+        fail2().map_err(|e| from_any(e).context("rust failure"))
     }
 
     #[starlark_module]

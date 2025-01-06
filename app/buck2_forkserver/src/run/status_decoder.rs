@@ -11,6 +11,7 @@ use std::process::ExitStatus;
 
 use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfOutput;
 
@@ -106,8 +107,9 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 format!("Error removing miniperf output at `{}`", self.out_path)
             })?;
 
-        let status =
-            bincode::deserialize::<MiniperfOutput>(&status).with_buck_error_context(|| {
+        let status = bincode::deserialize::<MiniperfOutput>(&status)
+            .map_err(from_any)
+            .with_buck_error_context(|| {
                 format!("Invalid miniperf output at `{}`", self.out_path.display())
             })?;
 

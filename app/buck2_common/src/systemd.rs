@@ -19,19 +19,19 @@ use crate::init::ResourceControlConfig;
 use crate::init::ResourceControlStatus;
 
 const SYSTEMD_MIN_VERSION: u32 = 253;
-static AVAILABILITY: OnceLock<Option<SystemdNotAvailableReason>> = OnceLock::new();
+static AVAILABILITY: OnceLock<Option<buck2_error::Error>> = OnceLock::new();
 
 #[derive(Debug, buck2_error::Error)]
 enum SystemdNotAvailableReason {
     #[error("Unexpected `systemctl --version` output format: {0}")]
     UnexpectedVersionOutputFormat(String),
-    #[error("Failed to parse systemd version number into u32: {:#}", .0)]
+    #[error("Failed to parse systemd version number into u32: {0:#}")]
     VersionNumberParseError(ParseIntError),
     #[error("Detected systemd version {detected}. Minimum requirement is {min_required}.")]
     TooOldSystemdVersion { detected: u32, min_required: u32 },
     #[error("Systemctl command returned non-zero: {0}")]
     SystemctlCommandReturnedNonZero(String),
-    #[error("Systemctl command failed to launch: {:#}", .0)]
+    #[error("Systemctl command failed to launch: {0:#}")]
     SystemctlCommandLaunchFailed(std::io::Error),
     #[error("Systemctl command not found in PATH.")]
     SystemctlCommandNotFound,
@@ -234,7 +234,7 @@ fn is_available() -> buck2_error::Result<()> {
         return Err(SystemdNotAvailableReason::UnsupportedPlatform.into());
     }
 
-    let unavailable_reason = AVAILABILITY.get_or_init(|| -> Option<SystemdNotAvailableReason> {
+    let unavailable_reason = AVAILABILITY.get_or_init(|| -> Option<buck2_error::Error> {
         match process::background_command("systemctl")
             .arg("--version")
             .output()
@@ -243,24 +243,29 @@ fn is_available() -> buck2_error::Result<()> {
                 if output.status.success() {
                     match validate_systemd_version(&output.stdout) {
                         Ok(_) => None,
-                        Err(e) => Some(e),
+                        Err(e) => Some(e.into()),
                     }
                 } else {
-                    Some(SystemdNotAvailableReason::SystemctlCommandReturnedNonZero(
-                        String::from_utf8_lossy(&output.stderr).to_string(),
-                    ))
+                    Some(
+                        SystemdNotAvailableReason::SystemctlCommandReturnedNonZero(
+                            String::from_utf8_lossy(&output.stderr).to_string(),
+                        )
+                        .into(),
+                    )
                 }
             }
             Err(e) => match e.kind() {
-                ErrorKind::NotFound => Some(SystemdNotAvailableReason::SystemctlCommandNotFound),
-                _ => Some(SystemdNotAvailableReason::SystemctlCommandLaunchFailed(e)),
+                ErrorKind::NotFound => {
+                    Some(SystemdNotAvailableReason::SystemctlCommandNotFound.into())
+                }
+                _ => Some(SystemdNotAvailableReason::SystemctlCommandLaunchFailed(e).into()),
             },
         }
     });
 
     match unavailable_reason {
         None => Ok(()),
-        Some(r) => Err(r.into()),
+        Some(r) => Err(r.clone()),
     }
 }
 

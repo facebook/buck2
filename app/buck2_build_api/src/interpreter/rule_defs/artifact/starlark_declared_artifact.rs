@@ -20,6 +20,7 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -202,6 +203,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     fn as_output<'v>(&'v self, this: Value<'v>) -> buck2_error::Result<StarlarkOutputArtifact<'v>> {
         Ok(StarlarkOutputArtifact::new(
             ValueTyped::<StarlarkDeclaredArtifact>::new_err(this)
+                .map_err(from_any)
                 .internal_error("Type must have been checked earlier")?,
         ))
     }

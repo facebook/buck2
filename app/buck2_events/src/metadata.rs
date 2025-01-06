@@ -150,7 +150,8 @@ pub fn ces_id() -> Option<String> {
 pub fn username() -> buck2_error::Result<Option<String>> {
     #[cfg(fbcode_build)]
     {
-        Ok(Some(user::current_username()?))
+        use buck2_error::conversion::from_any;
+        Ok(Some(user::current_username().map_err(from_any)?))
     }
     #[cfg(not(fbcode_build))]
     {

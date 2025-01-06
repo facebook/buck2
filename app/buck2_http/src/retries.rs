@@ -52,10 +52,14 @@ pub trait HttpErrorForRetry {
     fn is_retryable(&self) -> bool;
 }
 
+pub trait AsBuck2Error {
+    fn as_buck2_error(self) -> buck2_error::Error;
+}
+
 pub async fn http_retry<Exec, F, T, E>(exec: Exec, mut intervals: Vec<Duration>) -> Result<T, E>
 where
     Exec: Fn() -> F,
-    E: std::error::Error + HttpErrorForRetry + std::fmt::Display + Send + Sync + 'static,
+    E: AsBuck2Error + HttpErrorForRetry + std::fmt::Display + Send + Sync + 'static,
     F: Future<Output = Result<T, E>>,
 {
     intervals.insert(0, Duration::from_secs(0));
@@ -78,7 +82,7 @@ where
                     "Retrying a HTTP error after {} seconds: {:#}",
                     b.as_secs(),
                     // Print as a buck2_error to make sure we get the source
-                    buck2_error::Error::from(err)
+                    err.as_buck2_error()
                 );
                 continue;
             }
@@ -130,6 +134,12 @@ mod tests {
             match self {
                 Self::Client(e) => e.is_retryable(),
             }
+        }
+    }
+
+    impl AsBuck2Error for HttpTestError {
+        fn as_buck2_error(self) -> buck2_error::Error {
+            buck2_error::Error::from(self)
         }
     }
 

@@ -9,6 +9,7 @@
 
 use std::time::Duration;
 
+use buck2_error::conversion::from_any;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::fmt_duration;
@@ -133,7 +134,7 @@ impl TimedRow {
         age: Duration,
         cutoffs: &Cutoffs,
     ) -> buck2_error::Result<Self> {
-        let event = Span::new_styled(styled_for_delay(event, age, cutoffs))?;
+        let event = Span::new_styled(styled_for_delay(event, age, cutoffs)).map_err(from_any)?;
 
         let line = if padding > 0 {
             Line::from_iter([Span::padding(padding), event])
@@ -141,7 +142,9 @@ impl TimedRow {
             Line::from_iter([event])
         };
 
-        let time = Line::from_iter([Span::new_styled(styled_for_delay(time, age, cutoffs))?]);
+        let time = Line::from_iter([
+            Span::new_styled(styled_for_delay(time, age, cutoffs)).map_err(from_any)?
+        ]);
         Ok(Self { event: line, time })
     }
 }

@@ -24,6 +24,7 @@ use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
 use buck2_data::StarlarkFailNoStacktrace;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
@@ -173,7 +174,8 @@ impl BxlInnerEvaluator {
                         .iter()
                         .map(|(k, v)| (k, v.as_starlark(env.heap()))),
                 )),
-            )?;
+            )
+            .map_err(from_any)?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
             let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), error_file.dupe());
@@ -197,7 +199,8 @@ impl BxlInnerEvaluator {
                 digest_config,
             )?;
 
-            let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_ctx))?;
+            let bxl_ctx =
+                ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_ctx)).map_err(from_any)?;
 
             tokio::task::block_in_place(|| {
                 with_dispatcher(dispatcher.clone(), || {
@@ -369,7 +372,11 @@ pub(crate) fn get_bxl_callable(
     spec: &BxlFunctionLabel,
     bxl_module: &LoadedModule,
 ) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenBxlFunction>> {
-    let callable = bxl_module.env().get_any_visibility(&spec.name)?.0;
+    let callable = bxl_module
+        .env()
+        .get_any_visibility(&spec.name)
+        .map_err(from_any)?
+        .0;
 
     callable
         .downcast_starlark::<FrozenBxlFunction>()
@@ -416,7 +423,7 @@ pub(crate) async fn resolve_cli_args<'a>(
 
                 Ok(BxlResolvedCliArgs::Help)
             }
-            _ => Err(e.into()),
+            _ => Err(from_any(e)),
         },
     }
 }

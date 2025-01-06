@@ -25,6 +25,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use dupe::Dupe;
@@ -124,7 +125,7 @@ impl EdenConnectionManager {
         if cfg!(windows) {
             let config_path = dot_eden_dir.join("config");
             let config_contents = fs_util::read_to_string(config_path)?;
-            let config: EdenConfig = toml::from_str(&config_contents)?;
+            let config: EdenConfig = toml::from_str(&config_contents).map_err(from_any)?;
             let mount = Arc::new(EdenMountPoint(AbsPathBuf::new(config.config.root)?));
             let socket = AbsPathBuf::new(PathBuf::from(config.config.socket))?;
             Ok(EdenConnector { fb, mount, socket })
@@ -161,7 +162,10 @@ impl EdenConnectionManager {
     /// pattern-matched off of what the Eden CLI does.
     pub async fn get_eden_version(&self) -> buck2_error::Result<Option<String>> {
         let fb303 = self.connector.connect_fb303()?;
-        let values = fb303.getRegexExportedValues("^build_.*").await?;
+        let values = fb303
+            .getRegexExportedValues("^build_.*")
+            .await
+            .map_err(from_any)?;
 
         fn join_version(values: &BTreeMap<String, String>) -> Option<String> {
             let version = values.get("build_package_version")?;
@@ -273,7 +277,8 @@ fn thrift_builder(
     const THRIFT_TIMEOUT_MS: u32 = 120_000;
 
     Ok(
-        ::thriftclient::ThriftChannelBuilder::from_path(fb, socket.as_path())?
+        ::thriftclient::ThriftChannelBuilder::from_path(fb, socket.as_path())
+            .map_err(from_any)?
             .with_conn_timeout(THRIFT_TIMEOUT_MS)
             .with_recv_timeout(THRIFT_TIMEOUT_MS)
             .with_secure(false),
@@ -290,6 +295,7 @@ impl EdenConnector {
             tracing::info!("Creating a new Eden connection via `{}`", socket.display());
             let eden: Arc<dyn EdenService + Send + Sync> = thrift_builder(fb, &socket)?
                 .build_client(::edenfs_clients::make_EdenService)
+                .map_err(from_any)
                 .buck_error_context("Error constructing Eden client")?;
 
             wait_until_mount_is_ready(eden.as_ref(), &mount).await?;
@@ -305,14 +311,15 @@ impl EdenConnector {
     }
 
     fn connect_fb303(&self) -> buck2_error::Result<Arc<dyn BaseService + Send + Sync>> {
-        Ok(thrift_builder(self.fb, &self.socket)?
-            .build_client(::fb303_core_clients::make_BaseService)?)
+        thrift_builder(self.fb, &self.socket)?
+            .build_client(::fb303_core_clients::make_BaseService)
+            .map_err(from_any)
     }
 }
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = IoEdenMountNotReady)]
-#[error("Mount never became ready: `{}`", self.mount)]
+#[error("Mount never became ready: `{mount}`")]
 struct MountNeverBecameReady {
     mount: AbsPathBuf,
 }
@@ -347,7 +354,7 @@ async fn wait_until_mount_is_ready(
 
 #[derive(buck2_error::Error, Debug)]
 pub enum IsMountReadyError {
-    #[error("Mount does not exist in Eden: `{}`", .mount)]
+    #[error("Mount does not exist in Eden: `{mount}`")]
     #[buck2(tag = IoEdenMountDoesNotExist)]
     MountDoesNotExist { mount: AbsPathBuf },
     #[error(transparent)]
@@ -381,9 +388,27 @@ pub enum ConnectAndRequestError<E> {
     #[error(transparent)]
     #[buck2(tag = IoEdenConnectionError)]
     ConnectionError(buck2_error::Error),
-    #[error(transparent)]
+    #[error("Eden Request Failed: {0}")]
     #[buck2(tag = IoEdenRequestError)]
     RequestError(E),
+}
+
+impl<E> std::error::Error for ConnectAndRequestError<E>
+where
+    E: std::error::Error,
+    Self: std::fmt::Debug + std::fmt::Display + std::marker::Send + std::marker::Sync + 'static,
+{
+    fn source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)> {
+        use buck2_error::__for_macro::AsDynError;
+        match self {
+            ConnectAndRequestError::ConnectionError { 0: transparent } => {
+                std::error::Error::source(transparent.as_dyn_error())
+            }
+            ConnectAndRequestError::RequestError { 0: transparent } => {
+                std::error::Error::source(transparent.as_dyn_error())
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, Dupe, PartialEq, Eq)]
@@ -477,15 +502,15 @@ fn eden_service_error_tag(error: &edenfs::EdenError) -> Option<ErrorTag> {
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = IoEden)]
 pub enum EdenError {
-    #[error("Eden POSIX error (code = {}): {}", .code, .error.message)]
-    #[buck2(tag = eden_posix_error_tag(*code))]
+    #[error("Eden POSIX error (code = {code}): {0}", error.message)]
+    #[buck2(tag = eden_posix_error_tag(code))]
     PosixError { error: edenfs::EdenError, code: i32 },
 
-    #[error("Eden service error: {}", .error.message)]
-    #[buck2(tag = eden_service_error_tag(error))]
+    #[error("Eden service error: {0}", error.message)]
+    #[buck2(tag = eden_service_error_tag(&error))]
     ServiceError { error: edenfs::EdenError },
 
-    #[error("Eden returned an unexpected field: {}", .field)]
+    #[error("Eden returned an unexpected field: {field}")]
     #[buck2(tag = IoEdenUnknownField)]
     UnknownField { field: i32 },
 }

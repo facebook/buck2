@@ -12,6 +12,7 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
@@ -222,6 +223,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetGen<V> {
         &self,
     ) -> buck2_error::Result<ValueTypedComplex<'v, TransitiveSetDefinition<'v>>> {
         ValueTypedComplex::unpack_value_err(self.definition.to_value())
+            .map_err(from_any)
             .internal_error("Must be a TransitiveSetDefinition")
     }
 }
@@ -422,7 +424,9 @@ impl<'v> TransitiveSet<'v> {
                             TransitiveSetArgsProjection::as_command_line(projected_value)?;
                         }
                         TransitiveSetProjectionKind::Json => {
-                            validate_json(JsonUnpack::unpack_value_err(projected_value)?)?;
+                            validate_json(
+                                JsonUnpack::unpack_value_err(projected_value).map_err(from_any)?,
+                            )?;
                         }
                     }
                     buck2_error::Ok(projected_value)

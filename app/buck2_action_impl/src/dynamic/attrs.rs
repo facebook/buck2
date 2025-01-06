@@ -17,6 +17,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackArtifactOrDeclaredArtifact;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::typing::Ty;
@@ -298,15 +299,18 @@ impl DynamicAttrType {
     ) -> buck2_error::Result<DynamicAttrValue<Value<'v>, OutputArtifact>> {
         match self {
             DynamicAttrType::Output => {
-                let artifact = <&StarlarkOutputArtifact>::unpack_value_err(value)?;
+                let artifact =
+                    <&StarlarkOutputArtifact>::unpack_value_err(value).map_err(from_any)?;
                 Ok(DynamicAttrValue::Output(artifact.artifact()?))
             }
             DynamicAttrType::ArtifactValue => {
-                let artifact = UnpackArtifactOrDeclaredArtifact::unpack_value_err(value)?;
+                let artifact =
+                    UnpackArtifactOrDeclaredArtifact::unpack_value_err(value).map_err(from_any)?;
                 Ok(DynamicAttrValue::ArtifactValue(artifact.artifact()?))
             }
             DynamicAttrType::DynamicValue => {
-                let dynamic_value = <&StarlarkDynamicValue>::unpack_value_err(value)?;
+                let dynamic_value =
+                    <&StarlarkDynamicValue>::unpack_value_err(value).map_err(from_any)?;
                 Ok(DynamicAttrValue::DynamicValue(
                     dynamic_value.dynamic_value.dupe(),
                 ))
@@ -323,7 +327,7 @@ impl DynamicAttrType {
                 Ok(DynamicAttrValue::Value(value))
             }
             DynamicAttrType::List(elem_ty) => {
-                let list = <&ListRef>::unpack_value_err(value)?;
+                let list = <&ListRef>::unpack_value_err(value).map_err(from_any)?;
                 let mut res = Vec::with_capacity(list.len());
                 for elem in list.iter() {
                     res.push(elem_ty.coerce(elem)?);
@@ -332,7 +336,7 @@ impl DynamicAttrType {
             }
             DynamicAttrType::Dict(elem_ty) => {
                 let (key_ty, value_ty) = &**elem_ty;
-                let dict = DictRef::unpack_value_err(value)?;
+                let dict = DictRef::unpack_value_err(value).map_err(from_any)?;
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (key, value) in dict.iter_hashed() {
                     if !key_ty.matches(key.into_key()) {
@@ -348,7 +352,7 @@ impl DynamicAttrType {
                 Ok(DynamicAttrValue::Dict(res))
             }
             DynamicAttrType::Tuple(elem_tys) => {
-                let tuple = <&TupleRef>::unpack_value_err(value)?;
+                let tuple = <&TupleRef>::unpack_value_err(value).map_err(from_any)?;
                 if tuple.len() != elem_tys.len() {
                     return Err(buck2_error!(
                         [],

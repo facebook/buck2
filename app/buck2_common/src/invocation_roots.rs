@@ -18,6 +18,7 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
 
@@ -47,7 +48,7 @@ impl InvocationRoots {
     pub fn paranoid_info_path(&self) -> buck2_error::Result<AbsPathBuf> {
         // Used in tests
         if let Some(p) = buck2_env!("BUCK2_PARANOID_PATH")? {
-            return Ok(AbsPathBuf::try_from(p.to_owned())?);
+            return AbsPathBuf::try_from(p.to_owned()).map_err(from_any);
         }
 
         Ok(self

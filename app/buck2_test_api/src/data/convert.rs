@@ -14,6 +14,7 @@ use anyhow::Context as _;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::*;
 
@@ -700,6 +701,7 @@ impl TryFrom<buck2_test_proto::Output> for Output {
             Value::LocalPath(value) => Self::LocalPath(
                 value
                     .try_into()
+                    .map_err(from_any)
                     .buck_error_context_anyhow("Invalid local path value.")?,
             ),
             Value::RemoteObject(value) => Self::RemoteObject(value.try_into()?),
@@ -963,6 +965,7 @@ impl TryFrom<buck2_test_proto::PrepareForLocalExecutionResult> for LocalExecutio
             cwd: s
                 .cwd
                 .try_into()
+                .map_err(from_any)
                 .buck_error_context_anyhow("Invalid cwd value.")?,
             env: s
                 .env
@@ -984,6 +987,7 @@ impl TryFrom<buck2_test_proto::SetupLocalResourceLocalExecutionCommand> for Loca
             cwd: s
                 .cwd
                 .try_into()
+                .map_err(from_any)
                 .buck_error_context_anyhow("Invalid cwd value.")?,
             env: s
                 .env

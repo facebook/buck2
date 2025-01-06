@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
@@ -64,12 +65,13 @@ impl AttrTypeCoerce for MetadataAttrType {
 
             let key = MetadataKeyRef::new(key)?;
 
-            let value = value.to_json_value().with_buck_error_context(|| {
-                MetadataAttrTypeCoerceError::ValueIsNotJson {
+            let value = value
+                .to_json_value()
+                .map_err(from_any)
+                .with_buck_error_context(|| MetadataAttrTypeCoerceError::ValueIsNotJson {
                     key: key.to_owned(),
                     value: value.to_repr(),
-                }
-            })?;
+                })?;
 
             map.insert(key.to_owned(), MetadataValue::new(value));
         }

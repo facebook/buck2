@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_error::conversion::from_any;
 use starlark::typing::Ty;
 use starlark::typing::TyStarlarkValue;
 use starlark::typing::TyUser;
@@ -28,18 +29,21 @@ pub(crate) fn ty_provider(
     matcher: Option<TypeMatcherFactory>,
     fields: SortedMap<String, Ty>,
 ) -> buck2_error::Result<Ty> {
-    Ok(Ty::custom(TyUser::new(
-        name.to_owned(),
-        base,
-        type_instance_id,
-        TyUserParams {
-            supertypes: AbstractProvider::starlark_type_repr().iter_union().to_vec(),
-            matcher,
-            fields: TyUserFields {
-                known: fields,
-                unknown: false,
+    Ok(Ty::custom(
+        TyUser::new(
+            name.to_owned(),
+            base,
+            type_instance_id,
+            TyUserParams {
+                supertypes: AbstractProvider::starlark_type_repr().iter_union().to_vec(),
+                matcher,
+                fields: TyUserFields {
+                    known: fields,
+                    unknown: false,
+                },
+                ..TyUserParams::default()
             },
-            ..TyUserParams::default()
-        },
-    )?))
+        )
+        .map_err(from_any)?,
+    ))
 }

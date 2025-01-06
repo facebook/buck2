@@ -55,6 +55,7 @@ use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
@@ -220,7 +221,7 @@ impl ParsedArgv {
         let clap = Opt::command();
         let matches = clap.get_matches_from(argv.expanded_argv.args());
 
-        let opt: Opt = Opt::from_arg_matches(&matches)?;
+        let opt: Opt = Opt::from_arg_matches(&matches).map_err(from_any)?;
 
         if opt.common_opts.help_wrapper {
             return Err(buck2_error!(
@@ -421,9 +422,12 @@ impl CommandKind {
             #[cfg(not(client_only))]
             CommandKind::Forkserver(cmd) => cmd
                 .exec(matches, command_ctx, process.log_reload_handle.dupe())
+                .map_err(from_any)
                 .into(),
             #[cfg(not(client_only))]
-            CommandKind::InternalTestRunner(cmd) => cmd.exec(matches, command_ctx).into(),
+            CommandKind::InternalTestRunner(cmd) => {
+                cmd.exec(matches, command_ctx).map_err(from_any).into()
+            }
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),

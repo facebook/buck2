@@ -10,6 +10,7 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
@@ -70,7 +71,8 @@ impl<'v> AnalysisExtraValue<'v> {
         };
         Ok(Some(
             &extra
-                .downcast_ref_err::<StarlarkAnyComplex<AnalysisExtraValue>>()?
+                .downcast_ref_err::<StarlarkAnyComplex<AnalysisExtraValue>>()
+                .map_err(from_any)?
                 .value,
         ))
     }
@@ -79,11 +81,13 @@ impl<'v> AnalysisExtraValue<'v> {
         if let Some(extra) = Self::get(module)? {
             return Ok(extra);
         }
-        module.set_extra_value_no_overwrite(
-            module
-                .heap()
-                .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
-        )?;
+        module
+            .set_extra_value_no_overwrite(
+                module
+                    .heap()
+                    .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
+            )
+            .map_err(from_any)?;
         Self::get(module)?.internal_error("extra_value must be set")
     }
 }

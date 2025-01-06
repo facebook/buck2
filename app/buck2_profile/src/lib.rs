@@ -20,6 +20,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
@@ -128,6 +129,7 @@ pub fn write_starlark_profile(
                 profile.as_bytes(),
                 &mut svg,
             )
+            .map_err(from_any)
             .buck_error_context("writing SVG from profile data")?;
 
             fs_util::write(output.join("flame.src"), &profile)

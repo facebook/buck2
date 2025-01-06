@@ -177,7 +177,7 @@ pub(crate) fn tonic_status_to_error(status: tonic::Status) -> buck2_error::Error
             tags.push(ErrorTag::GrpcResponseMessageTooLarge);
         }
     }
-    buck2_error::Error::from(status).tag(tags).into()
+    buck2_error::Error::from(status).tag(tags)
 }
 
 /// Translates a tonic streaming response into a stream of StreamValues, the set of things that can flow across the gRPC

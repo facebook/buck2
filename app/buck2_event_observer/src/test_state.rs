@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_error::conversion::from_any;
 use buck2_test_api::data::TestStatus;
 
 #[derive(Default)]
@@ -26,7 +27,7 @@ pub struct TestState {
 
 impl TestState {
     pub(crate) fn update(&mut self, result: &buck2_data::TestResult) -> buck2_error::Result<()> {
-        let status = TestStatus::try_from(result.status)?;
+        let status = TestStatus::try_from(result.status).map_err(from_any)?;
         let counter = match status {
             TestStatus::PASS => &mut self.pass,
             TestStatus::FAIL => &mut self.fail,

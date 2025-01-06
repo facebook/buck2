@@ -81,8 +81,8 @@ impl IoError {
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = IoSystem)]
-#[buck2(tag = io_error_kind_tag(e))]
-#[error("{}", .op)]
+#[buck2(tag = io_error_kind_tag(&e))]
+#[error("{op}")]
 pub struct IoError {
     op: String,
     #[source]
@@ -571,7 +571,10 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
         use std::mem::MaybeUninit;
         use std::os::unix::ffi::OsStrExt;
 
+        use buck2_error::conversion::from_any;
+
         let path_c = CString::new(path.as_os_str().as_bytes())
+            .map_err(from_any)
             .with_buck_error_context(|| format!("Failed to convert path to CString: {:?}", path))?;
         let mut statvfs = unsafe { MaybeUninit::<libc::statvfs>::zeroed().assume_init() };
         unsafe {

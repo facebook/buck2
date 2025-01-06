@@ -170,7 +170,6 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     ) -> buck2_error::Result<LoadedModule> {
         ctx.compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .await?
-            .map_err(buck2_error::Error::from)
     }
 
     async fn get_module_deps(

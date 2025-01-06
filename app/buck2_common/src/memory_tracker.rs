@@ -107,7 +107,7 @@ pub(crate) mod memory_tracker {
     }
 
     impl MemoryTracker {
-        pub async fn start_tracking() -> anyhow::Result<Arc<MemoryTracker>> {
+        pub async fn start_tracking() -> buck2_error::Result<Arc<MemoryTracker>> {
             const MAX_RETRIES: u32 = 5;
             const TICK_DURATION: Duration = Duration::from_millis(300);
             let info = CGroupInfo::read_async().await?;
@@ -125,7 +125,7 @@ pub(crate) mod memory_tracker {
             memory_current_path: AbsPathBuf,
             max_retries: u32,
             mut timer: impl Timer + Send + 'static,
-        ) -> anyhow::Result<Arc<MemoryTracker>> {
+        ) -> buck2_error::Result<Arc<MemoryTracker>> {
             let tracker = Arc::new(MemoryTracker::new(memory_current_path));
             tokio::spawn({
                 let tracker = tracker.dupe();

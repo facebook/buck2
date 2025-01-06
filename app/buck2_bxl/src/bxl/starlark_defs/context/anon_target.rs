@@ -26,6 +26,7 @@ use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::Ab
 use buck2_common::events::HasEvents;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -240,7 +241,8 @@ async fn eval_bxl_for_anon_target(
                 analysis_registry,
                 attributes,
             )?;
-            let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_anon_ctx))?;
+            let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_anon_ctx))
+                .map_err(from_any)?;
 
             let action_factory = bxl_ctx.state;
 
@@ -258,7 +260,8 @@ async fn eval_bxl_for_anon_target(
                     })
                 })?;
                 Ok(invoke_res)
-            })?;
+            })
+            .map_err(from_any)?;
 
             let res_typed = ProviderCollection::try_from_value(list_res)?;
             let res = env.heap().alloc(res_typed);

@@ -309,9 +309,11 @@ impl Error {
 mod tests {
     use std::sync::Arc;
 
+    use crate as buck2_error;
+    use crate::conversion::from_any;
     use crate::Tier;
 
-    #[derive(Debug, thiserror::Error)]
+    #[derive(Debug, buck2_error_derive::Error)]
     #[error("Test")]
     struct TestError;
 
@@ -322,7 +324,7 @@ mod tests {
         let e = e.mark_emitted(Arc::new(|_| Ok(())));
         assert!(e.is_emitted().is_some());
         let e: anyhow::Error = e.into();
-        let e: crate::Error = e.context("context").into();
+        let e: crate::Error = from_any(e.context("context"));
         assert!(e.is_emitted().is_some());
     }
 

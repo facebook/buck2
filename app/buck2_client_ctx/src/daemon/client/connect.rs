@@ -31,6 +31,7 @@ use buck2_common::systemd::SystemdRunnerConfig;
 use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_util::process::async_background_command;
@@ -257,7 +258,7 @@ pub async fn new_daemon_api_client(
     Ok(DaemonApiClient::with_interceptor(
         channel,
         BuckAddAuthTokenInterceptor {
-            auth_token: AsciiMetadataValue::try_from(auth_token)?,
+            auth_token: AsciiMetadataValue::try_from(auth_token).map_err(from_any)?,
         },
     )
     .max_encoding_message_size(usize::MAX)

@@ -16,6 +16,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::re_platform::Property;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::fmt_duration;
@@ -157,7 +158,8 @@ impl WhatRanCommand {
                 WhatRanCommandState::execute(events, &mut output, &options).await?;
                 buck2_error::Ok(())
             })
-        })?;
+        })
+        .map_err(from_any)?;
         ExitResult::success()
     }
 }
@@ -443,13 +445,15 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                     #[serde(skip_serializing_if = "Option::is_none")]
                     std_err: Option<&'a str>,
                 }
-                writer.serialize(Record {
-                    reason: command.reason,
-                    identity: command.identity,
-                    executor: command.repro.executor(),
-                    reproducer: command.repro.as_human_readable().to_string(),
-                    std_err: std_err_formatted,
-                })?;
+                writer
+                    .serialize(Record {
+                        reason: command.reason,
+                        identity: command.identity,
+                        executor: command.repro.executor(),
+                        reproducer: command.repro.as_human_readable().to_string(),
+                        std_err: std_err_formatted,
+                    })
+                    .map_err(from_any)?;
                 Ok(())
             }
         }

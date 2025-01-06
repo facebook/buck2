@@ -410,15 +410,15 @@ pub(crate) fn print_outputs(
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
+    use buck2_error::conversion::from_any;
     use build_providers::Action;
     use clap::Parser;
 
     use super::*;
 
     fn parse(args: &[&str]) -> buck2_error::Result<BuildCommand> {
-        Ok(BuildCommand::try_parse_from(
-            std::iter::once("program").chain(args.iter().copied()),
-        )?)
+        BuildCommand::try_parse_from(std::iter::once("program").chain(args.iter().copied()))
+            .map_err(from_any)
     }
 
     #[test]

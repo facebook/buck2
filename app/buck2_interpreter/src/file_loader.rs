@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
+use buck2_error::conversion::from_any;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
@@ -113,7 +114,7 @@ impl LoadedModule {
     pub fn extra_globals_from_prelude_for_buck_files(
         &self,
     ) -> buck2_error::Result<impl Iterator<Item = (&str, FrozenValue)> + '_> {
-        if let Some(native) = self.0.env.get_option("native")? {
+        if let Some(native) = self.0.env.get_option("native").map_err(from_any)? {
             unsafe {
                 match FrozenStructRef::<'static>::from_value(native.unchecked_frozen_value()) {
                     Some(native) => Ok(Either::Left(native.iter().map(|(n, v)| (n.as_str(), v)))),

@@ -68,7 +68,7 @@ pub enum HttpError {
         source: hyper::Error,
     },
     #[error("HTTP {} Error ({status}) when querying URI: {uri}. Response text: {text}", http_error_label(*.status))]
-    #[buck2(tag = tag_from_status(*status))]
+    #[buck2(tag = tag_from_status(status))]
     Status {
         status: StatusCode,
         uri: String,

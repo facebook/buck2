@@ -36,6 +36,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_core::category::CategoryRef;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -118,7 +119,7 @@ impl WriteJsonAction {
         outputs: IndexSet<BuildArtifact>,
         inner: UnregisteredWriteJsonAction,
     ) -> buck2_error::Result<Self> {
-        validate_json(JsonUnpack::unpack_value_err(contents.value())?)?;
+        validate_json(JsonUnpack::unpack_value_err(contents.value()).map_err(from_any)?)?;
 
         let mut outputs = outputs.into_iter();
 
@@ -144,7 +145,7 @@ impl WriteJsonAction {
     fn get_contents(&self, fs: &ExecutorFs) -> buck2_error::Result<Vec<u8>> {
         let mut writer = Vec::new();
         json::write_json(
-            JsonUnpack::unpack_value_err(self.contents.value())?,
+            JsonUnpack::unpack_value_err(self.contents.value()).map_err(from_any)?,
             Some(fs),
             &mut writer,
             self.inner.pretty,
@@ -280,7 +281,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> 
         builder: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
     ) -> buck2_error::Result<()> {
-        ValueAsCommandLineLike::unpack_value_err(self.artifact.to_value())?
+        ValueAsCommandLineLike::unpack_value_err(self.artifact.to_value())
+            .map_err(from_any)?
             .0
             .add_to_command_line(builder, context)
     }
@@ -291,7 +293,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> 
     ) -> buck2_error::Result<()> {
         let artifact = self.artifact.to_value();
         let content = self.content.to_value();
-        ValueAsCommandLineLike::unpack_value_err(artifact)?
+        ValueAsCommandLineLike::unpack_value_err(artifact)
+            .map_err(from_any)?
             .0
             .visit_artifacts(visitor)?;
         json::visit_json_artifacts(content, visitor)

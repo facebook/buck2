@@ -126,8 +126,6 @@ impl HasImportPaths for DiceComputations<'_> {
             }
         }
 
-        self.compute(&ImportPathsKey { cell_name })
-            .await?
-            .map_err(buck2_error::Error::from)
+        self.compute(&ImportPathsKey { cell_name }).await?
     }
 }

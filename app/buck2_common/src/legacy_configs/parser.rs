@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::RelativePath;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -334,7 +335,10 @@ impl<'p> LegacyConfigFileParser<'p> {
         T: IntoIterator<Item = Result<String, E>>,
         E: std::error::Error + Send + Sync + 'static,
     {
-        let lines: Vec<String> = lines.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let lines: Vec<String> = lines
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(from_any)?;
 
         let lines = lines
             .into_iter()

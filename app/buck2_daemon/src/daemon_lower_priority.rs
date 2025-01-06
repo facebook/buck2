@@ -8,6 +8,8 @@
  */
 
 use buck2_core::buck2_env;
+#[cfg(target_os = "macos")]
+use buck2_error::conversion::from_any;
 
 /// Buck2 sets priority class = utility on macOS.
 ///
@@ -73,7 +75,7 @@ fn do_lower_priority() -> buck2_error::Result<()> {
     }
 
     let exe = env::current_exe()?;
-    let exe = CString::new(exe.into_os_string().as_bytes())?;
+    let exe = CString::new(exe.into_os_string().as_bytes()).map_err(from_any)?;
 
     struct Spawnattr(libc::posix_spawnattr_t);
 
@@ -103,8 +105,10 @@ fn do_lower_priority() -> buck2_error::Result<()> {
     let mut spawnattr = Spawnattr::new()?;
 
     let mut argv: Vec<CString> = env::args()
-        .map(|s| Ok(CString::new(s)?))
-        .chain(iter::once(Ok(CString::new("--skip-macos-qos")?)))
+        .map(|s| CString::new(s).map_err(from_any))
+        .chain(iter::once(Ok(
+            CString::new("--skip-macos-qos").map_err(from_any)?
+        )))
         .collect::<buck2_error::Result<Vec<_>>>()?;
     let argv: Vec<*mut libc::c_char> = argv
         .iter_mut()

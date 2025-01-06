@@ -28,6 +28,7 @@ use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::log_file::TracingLogFile;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_error::conversion::from_any;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 
@@ -124,12 +125,12 @@ fn main() -> ! {
     });
 
     fn main_with_result() -> ExitResult {
-        panic::initialize()?;
+        panic::initialize().map_err(from_any)?;
         check_cargo();
 
         let force_want_restart = buck2_env!("FORCE_WANT_RESTART", bool)?;
 
-        let log_reload_handle = init_logging()?;
+        let log_reload_handle = init_logging().map_err(from_any)?;
 
         // Log the start timestamp
         tracing::debug!("Client initialized logging");

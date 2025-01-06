@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -229,7 +230,7 @@ impl<'v> TestCommandMember<'v> {
 }
 
 fn iter_value<'v>(value: Value<'v>) -> buck2_error::Result<impl Iterator<Item = Value<'v>> + 'v> {
-    match Either::<&ListRef, &TupleRef>::unpack_value_err(value)? {
+    match Either::<&ListRef, &TupleRef>::unpack_value_err(value).map_err(from_any)? {
         Either::Left(list) => Ok(list.iter()),
         Either::Right(tuple) => Ok(tuple.iter()),
     }
@@ -261,6 +262,7 @@ fn iter_test_command<'v>(
         }
 
         let arglike = ValueAsCommandLineLike::unpack_value_err(item)
+            .map_err(from_any)
             .with_buck_error_context(|| format!("Invalid item in `command`: {}", item))?
             .0;
 
@@ -294,6 +296,7 @@ fn iter_test_env<'v>(
         })?;
 
         let arglike = ValueAsCommandLineLike::unpack_value_err(value)
+            .map_err(from_any)
             .with_buck_error_context(|| format!("Invalid value in `env` for key `{}`", key))?
             .0;
 

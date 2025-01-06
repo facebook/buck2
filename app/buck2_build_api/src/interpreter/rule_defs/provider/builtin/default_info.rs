@@ -15,6 +15,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api_derive::internal_provider;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
@@ -213,9 +214,11 @@ impl FrozenDefaultInfo {
             .buck_error_context("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
-                FrozenValueTyped::new_err(v).buck_error_context(
-                    "Values inside of a frozen provider should be frozen provider collection",
-                )
+                FrozenValueTyped::new_err(v)
+                    .map_err(from_any)
+                    .buck_error_context(
+                        "Values inside of a frozen provider should be frozen provider collection",
+                    )
             })
             .transpose()
     }
@@ -300,7 +303,8 @@ impl FrozenDefaultInfo {
     ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
             processor(
-                ValueAsArtifactLike::unpack_value_err(value)?
+                ValueAsArtifactLike::unpack_value_err(value)
+                    .map_err(from_any)?
                     .0
                     .get_bound_artifact()?,
             );
@@ -313,7 +317,8 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup),
     ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
-            let others = ValueAsArtifactLike::unpack_value_err(value)?
+            let others = ValueAsArtifactLike::unpack_value_err(value)
+                .map_err(from_any)?
                 .0
                 .get_associated_artifacts();
             others
@@ -339,7 +344,9 @@ impl FrozenDefaultInfo {
         }
 
         self.for_each_in_list(self.other_outputs.get(), |value| {
-            let arg_like = ValueAsCommandLineLike::unpack_value_err(value)?.0;
+            let arg_like = ValueAsCommandLineLike::unpack_value_err(value)
+                .map_err(from_any)?
+                .0;
             arg_like.visit_artifacts(&mut Visitor(processor))?;
             Ok(())
         })

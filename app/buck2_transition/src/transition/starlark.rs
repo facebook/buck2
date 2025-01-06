@@ -292,13 +292,13 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
 
         let path: ImportPath = (*starlark_path_from_build_context(eval)?
             .unpack_load_file()
-            .ok_or(TransitionError::OnlyBzl)?)
+            .ok_or(buck2_error::Error::from(TransitionError::OnlyBzl))?)
         .clone();
 
         if let Some(attrs) = &attrs {
             let attrs_set: HashSet<StringValue> = attrs.items.iter().copied().collect();
             if attrs_set.len() != attrs.items.len() {
-                return Err(TransitionError::NonUniqueAttrs.into());
+                return Err(buck2_error::Error::from(TransitionError::NonUniqueAttrs).into());
             }
         };
 

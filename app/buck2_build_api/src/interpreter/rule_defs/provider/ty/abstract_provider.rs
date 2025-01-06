@@ -10,6 +10,7 @@
 use std::sync::OnceLock;
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use dupe::Dupe;
 use starlark::typing::Ty;
@@ -37,17 +38,20 @@ impl TypeMatcher for ProviderMatcher {
 }
 
 fn mk_ty_provider() -> buck2_error::Result<Ty> {
-    Ok(Ty::custom(TyUser::new(
-        UserProvider::TYPE.to_owned(),
-        // Builtin providers behave like `UserProvider`.
-        TyStarlarkValue::new::<UserProvider>(),
-        TypeInstanceId::gen(),
-        TyUserParams {
-            matcher: Some(TypeMatcherFactory::new(ProviderMatcher)),
-            fields: TyUserFields::unknown(),
-            ..TyUserParams::default()
-        },
-    )?))
+    Ok(Ty::custom(
+        TyUser::new(
+            UserProvider::TYPE.to_owned(),
+            // Builtin providers behave like `UserProvider`.
+            TyStarlarkValue::new::<UserProvider>(),
+            TypeInstanceId::gen(),
+            TyUserParams {
+                matcher: Some(TypeMatcherFactory::new(ProviderMatcher)),
+                fields: TyUserFields::unknown(),
+                ..TyUserParams::default()
+            },
+        )
+        .map_err(from_any)?,
+    ))
 }
 
 /// Type of any provider instance. In Starlark it is available as `Provider`.

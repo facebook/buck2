@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
@@ -278,9 +279,10 @@ impl AbsNormPath {
     #[cfg(windows)]
     fn strip_prefix_impl(&self, base: &AbsNormPath) -> buck2_error::Result<&Path> {
         if self.windows_prefix()? == base.windows_prefix()? {
-            self.strip_windows_prefix()?
+            self.strip_windows_prefix()
+                .map_err(from_any)?
                 .strip_prefix(base.strip_windows_prefix()?)
-                .map_err(buck2_error::Error::from)
+                .map_err(from_any)
         } else {
             Err(buck2_error::buck2_error!([], "Path is not a prefix"))
         }
@@ -426,7 +428,7 @@ impl AbsNormPath {
         }
         let path_buf = stack.iter().collect::<PathBuf>();
 
-        Ok(AbsNormPathBuf::try_from(path_buf)?)
+        AbsNormPathBuf::try_from(path_buf).map_err(from_any)
     }
 
     /// Convert to an owned [`AbsNormPathBuf`].
@@ -550,7 +552,7 @@ impl AbsNormPath {
         if let Some(component) = iter.next() {
             prefix.push(component);
         }
-        Ok(self.as_path().strip_prefix(&prefix)?)
+        self.as_path().strip_prefix(&prefix).map_err(from_any)
     }
 
     pub fn ancestors(&self) -> impl Iterator<Item = &'_ AbsNormPath> {
@@ -569,7 +571,7 @@ impl AbsNormPath {
 
 impl AbsNormPathBuf {
     pub fn new(path: PathBuf) -> buck2_error::Result<AbsNormPathBuf> {
-        let path = AbsPathBuf::try_from(path)?;
+        let path = AbsPathBuf::try_from(path).map_err(from_any)?;
         verify_abs_path(&path)?;
         Ok(AbsNormPathBuf(path))
     }
@@ -587,7 +589,7 @@ impl AbsNormPathBuf {
     }
 
     pub fn from(s: String) -> buck2_error::Result<Self> {
-        Ok(AbsNormPathBuf::try_from(s)?)
+        AbsNormPathBuf::try_from(s).map_err(from_any)
     }
 
     /// Creates a new 'AbsPathBuf' with a given capacity used to create the internal

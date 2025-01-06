@@ -22,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackAr
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -213,7 +214,7 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         let dynamic_actions = dynamic_actions
             .data
             .try_borrow_mut()
-            .map_err(buck2_error::Error::from)?
+            .map_err(from_any)?
             .take()
             .buck_error_context(
                 "dynamic_action data can be used only in one `dynamic_output_new` call",

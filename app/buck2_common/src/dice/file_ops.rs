@@ -60,7 +60,6 @@ impl DiceFileComputations {
             check_ignores: CheckIgnores::Yes,
         })
         .await?
-        .map_err(buck2_error::Error::from)
     }
 
     pub async fn read_dir_include_ignores(
@@ -72,7 +71,6 @@ impl DiceFileComputations {
             check_ignores: CheckIgnores::No,
         })
         .await?
-        .map_err(buck2_error::Error::from)
     }
 
     /// Like read_dir, but with extended error information. This may add additional dice dependencies.
@@ -113,9 +111,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        ctx.compute(&PathMetadataKey(path.to_owned()))
-            .await?
-            .map_err(buck2_error::Error::from)
+        ctx.compute(&PathMetadataKey(path.to_owned())).await?
     }
 
     /// Does not check if the path is ignored

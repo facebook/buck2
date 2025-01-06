@@ -25,6 +25,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use chrono::DateTime;
@@ -235,8 +236,9 @@ impl ReConnectionManager {
     }
 
     pub fn get_network_stats(&self) -> buck2_error::Result<RemoteExecutionClientStats> {
-        let client_stats =
-            RE::get_network_stats().buck_error_context("Error getting RE network stats")?;
+        let client_stats = RE::get_network_stats()
+            .map_err(from_any)
+            .buck_error_context("Error getting RE network stats")?;
 
         // Those two fields come from RE and are always available.
         let mut res = RemoteExecutionClientStats {

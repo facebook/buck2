@@ -243,6 +243,7 @@ mod tests {
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
+    use buck2_error::conversion::from_any;
     use buck2_event_observer::action_stats::ActionStats;
     use buck2_event_observer::verbosity::Verbosity;
     use buck2_events::span::SpanId;
@@ -367,7 +368,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )?;
+        )
+        .map_err(from_any)?;
         let expected = [
 
             "----------------------------------------",
@@ -452,7 +454,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )?;
+        )
+        .map_err(from_any)?;
         let expected = [
             "----------------------------------------",
             "e1 -- speak of the devil            1.0s",
@@ -499,13 +502,15 @@ mod tests {
             .await?;
 
         {
-            let output = TimedList::new(&CUTOFFS, &state).draw(
-                Dimensions {
-                    width: 60,
-                    height: 10,
-                },
-                DrawMode::Normal,
-            )?;
+            let output = TimedList::new(&CUTOFFS, &state)
+                .draw(
+                    Dimensions {
+                        width: 60,
+                        height: 10,
+                    },
+                    DrawMode::Normal,
+                )
+                .map_err(from_any)?;
 
             let expected = [
                 "------------------------------------------------------------",
@@ -518,13 +523,15 @@ mod tests {
         {
             state.config.max_lines = 1; // With fewer lines now
 
-            let output = TimedList::new(&CUTOFFS, &state).draw(
-                Dimensions {
-                    width: 60,
-                    height: 10,
-                },
-                DrawMode::Normal,
-            )?;
+            let output = TimedList::new(&CUTOFFS, &state)
+                .draw(
+                    Dimensions {
+                        width: 60,
+                        height: 10,
+                    },
+                    DrawMode::Normal,
+                )
+                .map_err(from_any)?;
 
             let expected = [
                 "------------------------------------------------------------",
@@ -599,7 +606,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )?;
+        )
+        .map_err(from_any)?;
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
@@ -643,7 +651,8 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )?;
+        )
+        .map_err(from_any)?;
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",

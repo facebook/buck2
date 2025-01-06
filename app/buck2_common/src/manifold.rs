@@ -13,6 +13,7 @@ use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 use buck2_http::retries::http_retry;
+use buck2_http::retries::AsBuck2Error;
 use buck2_http::retries::HttpError;
 use buck2_http::retries::HttpErrorForRetry;
 use buck2_http::HttpClient;
@@ -81,6 +82,18 @@ impl HttpErrorForRetry for HttpAppendError {
         match self {
             Self::Client(e) => e.is_retryable(),
         }
+    }
+}
+
+impl AsBuck2Error for HttpWriteError {
+    fn as_buck2_error(self) -> buck2_error::Error {
+        buck2_error::Error::from(self)
+    }
+}
+
+impl AsBuck2Error for HttpAppendError {
+    fn as_buck2_error(self) -> buck2_error::Error {
+        buck2_error::Error::from(self)
     }
 }
 

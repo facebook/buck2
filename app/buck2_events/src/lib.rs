@@ -41,6 +41,7 @@ use std::time::SystemTime;
 
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::PartialResult;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::From;
@@ -102,7 +103,7 @@ impl BuckEvent {
     }
 
     pub fn trace_id(&self) -> buck2_error::Result<TraceId> {
-        Ok(TraceId::from_str(&self.event.trace_id)?)
+        TraceId::from_str(&self.event.trace_id).map_err(from_any)
     }
 
     pub fn span_id(&self) -> Option<SpanId> {

@@ -201,6 +201,7 @@ impl Drop for FileLockGuard {
 
 #[cfg(test)]
 mod tests {
+    use buck2_error::conversion::from_any;
     use gazebo::prelude::VecExt;
 
     use super::*;
@@ -299,7 +300,8 @@ mod tests {
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let mut expected = HashMap::new();
         expected.insert("//some:target".to_owned(), BuildCount::new(1, 1));
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         let bc = bcm.read(FileName::new(file_name)?).await?;
         assert_eq!(bc.0, expected);
 
@@ -311,7 +313,8 @@ mod tests {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "aaa").await?;
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         assert!(bcm.read(FileName::new(file_name)?).await.is_err());
 
         Ok(())
@@ -321,7 +324,8 @@ mod tests {
     async fn test_write_normal_input() -> buck2_error::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         let mut data = HashMap::new();
         data.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         bcm.write(&BuildCountMap(data), FileName::new(file_name)?)
@@ -338,7 +342,8 @@ mod tests {
     async fn test_write_empty_input() -> buck2_error::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let file_name = "some_file";
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         let data = HashMap::new();
         bcm.write(&BuildCountMap(data), FileName::new(file_name)?)
             .await?;
@@ -356,7 +361,8 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         assert_eq!(
             bcm.increment(file_name, &target_patterns, true).await?,
             BuildCount::new(1, 1),
@@ -375,7 +381,8 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         assert_eq!(
             bcm.increment(file_name, &target_patterns, true).await?,
             BuildCount::new(1, 1),
@@ -394,7 +401,8 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{}").await?;
         let target_patterns = make_patterns(vec![]);
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         assert_eq!(
             bcm.increment(file_name, &target_patterns, true).await?,
             BuildCount::new(0, 0),
@@ -409,7 +417,8 @@ mod tests {
         let file_name = "some_file";
         tokio::fs::write(temp_dir.path().join(file_name), "{\"//some:target\":[1,1]}").await?;
         let target_patterns = make_patterns(vec!["//some:target", "//some/other:target"]);
-        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let bcm =
+            BuildCountManager::new(temp_dir.path().to_path_buf().try_into().map_err(from_any)?);
         let _ = bcm.increment(file_name, &target_patterns, true).await?;
         assert_eq!(
             bcm.min_count(file_name, &target_patterns).await?,

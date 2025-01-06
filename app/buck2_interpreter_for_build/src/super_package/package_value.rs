@@ -12,6 +12,7 @@ use std::io;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
@@ -159,6 +160,7 @@ impl OwnedFrozenStarlarkPackageValue {
         self.0
             .value()
             .to_json_value()
+            .map_err(from_any)
             .internal_error("Not valid JSON, should have been validated at construction")
     }
 

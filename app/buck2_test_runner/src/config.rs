@@ -50,12 +50,15 @@ impl EnvValue {
 }
 
 impl FromStr for EnvValue {
-    type Err = EnvValueParseError;
+    type Err = anyhow::Error;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input.split_once('=') {
             Some((key, value)) => Ok(EnvValue::new(key, value)),
-            None => Err(EnvValueParseError::IncorrectSyntax(input.to_owned())),
+            None => Err(
+                buck2_error::Error::from(EnvValueParseError::IncorrectSyntax(input.to_owned()))
+                    .into(),
+            ),
         }
     }
 }

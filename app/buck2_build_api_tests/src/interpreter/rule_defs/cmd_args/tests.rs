@@ -43,7 +43,7 @@ pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
     }
 }
 
-fn tester() -> anyhow::Result<Tester> {
+fn tester() -> buck2_error::Result<Tester> {
     let mut tester = Tester::new()?;
     tester.additional_globals(testing::command_line_stringifier);
     tester.additional_globals(inputs_helper);

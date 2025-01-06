@@ -15,6 +15,7 @@ use std::sync::Arc;
 use buck2_common::init::ResourceControlConfig;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_forkserver_proto::forkserver_server;
 use buck2_grpc::DuplexChannel;
@@ -48,7 +49,8 @@ pub async fn run_forkserver(
 
     buck2_grpc::spawn_oneshot(io, router)
         .into_join_handle()
-        .await??;
+        .await?
+        .map_err(from_any)?;
 
     Ok(())
 }

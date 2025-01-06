@@ -42,6 +42,7 @@ use buck2_directory::directory::find::find;
 use buck2_directory::directory::find::DirectoryFindError;
 use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_error::buck2_error;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -56,10 +57,12 @@ use dice::DiceComputations;
 use dice::Key;
 
 fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
-    let path = env::var("NANO_PRELUDE").buck_error_context(
-        "NANO_PRELUDE env var must be set to the location of nano prelude\n\
+    let path = env::var("NANO_PRELUDE")
+        .map_err(from_any)
+        .buck_error_context(
+            "NANO_PRELUDE env var must be set to the location of nano prelude\n\
         Consider `export NANO_PRELUDE=$HOME/fbsource/fbcode/buck2/tests/e2e_util/nano_prelude`",
-    )?;
+        )?;
     if path.is_empty() {
         return Err(buck2_error!([], "NANO_PRELUDE env var must not be empty"));
     }

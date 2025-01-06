@@ -13,6 +13,7 @@ use std::iter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -122,7 +123,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     Impl::Item(v) => v.add_to_command_line(cli, context),
                     Impl::List(items) => {
                         for v in *items {
-                            ValueAsCommandLineLike::unpack_value_err(*v)?
+                            ValueAsCommandLineLike::unpack_value_err(*v)
+                                .map_err(from_any)?
                                 .0
                                 .add_to_command_line(cli, context)?;
                         }
@@ -157,7 +159,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     Impl::Item(v) => v.visit_write_to_file_macros(visitor),
                     Impl::List(items) => {
                         for v in *items {
-                            ValueAsCommandLineLike::unpack_value_err(*v)?
+                            ValueAsCommandLineLike::unpack_value_err(*v)
+                                .map_err(from_any)?
                                 .0
                                 .visit_write_to_file_macros(visitor)?;
                         }
@@ -174,7 +177,8 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     Impl::Item(v) => v.visit_artifacts(visitor),
                     Impl::List(items) => {
                         for v in *items {
-                            ValueAsCommandLineLike::unpack_value_err(*v)?
+                            ValueAsCommandLineLike::unpack_value_err(*v)
+                                .map_err(from_any)?
                                 .0
                                 .visit_artifacts(visitor)?;
                         }
@@ -187,12 +191,14 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
         let value = v.to_value();
         if let Some(values) = ListRef::from_value(value) {
             for v in values.content() {
-                ValueAsCommandLineLike::unpack_value_err(*v)?;
+                ValueAsCommandLineLike::unpack_value_err(*v).map_err(from_any)?;
             }
             Ok(Impl::List(values.content()))
         } else {
             Ok(Impl::Item(
-                ValueAsCommandLineLike::unpack_value_err(value)?.0,
+                ValueAsCommandLineLike::unpack_value_err(value)
+                    .map_err(from_any)?
+                    .0,
             ))
         }
     }

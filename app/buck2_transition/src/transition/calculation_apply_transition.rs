@@ -24,6 +24,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
@@ -105,12 +106,18 @@ fn call_transition_function<'v>(
                 }
                 Ok(TransitionApplied::Split(SortedMap::from(split)))
             }
-            None => Err(ApplyTransitionError::SplitTransitionMustReturnDict.into()),
+            None => Err(buck2_error::Error::from(
+                ApplyTransitionError::SplitTransitionMustReturnDict,
+            )
+            .into()),
         }
     } else {
         match <&PlatformInfo>::unpack_value_err(new_platforms) {
             Ok(platform) => Ok(TransitionApplied::Single(platform.to_configuration()?)),
-            Err(_) => Err(ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo.into()),
+            Err(_) => Err(buck2_error::Error::from(
+                ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo,
+            )
+            .into()),
         }
     }
 }
@@ -182,11 +189,14 @@ async fn do_apply_transition(
                     return Err(ApplyTransitionError::InconsistentTransitionAndComputation.into());
                 }
             };
-            match call_transition_function(&transition, conf, refs, attrs, &mut eval)? {
+            match call_transition_function(&transition, conf, refs, attrs, &mut eval)
+                .map_err(from_any)?
+            {
                 TransitionApplied::Single(new) => {
                     let new_2 =
                         match call_transition_function(&transition, &new, refs, attrs, &mut eval)
-                            .context("applying transition again on transition output")?
+                            .context("applying transition again on transition output")
+                            .map_err(from_any)?
                         {
                             TransitionApplied::Single(new_2) => new_2,
                             TransitionApplied::Split(_) => {

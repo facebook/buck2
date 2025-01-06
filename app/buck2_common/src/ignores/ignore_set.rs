@@ -9,6 +9,7 @@
 
 use allocative::Allocative;
 use buck2_core::cells::paths::CellRelativePath;
+use buck2_error::conversion::from_any;
 use globset::Candidate;
 use globset::GlobSetBuilder;
 use once_cell::sync::Lazy;
@@ -71,16 +72,18 @@ impl IgnoreSet {
                 patterns_builder.add(
                     globset::GlobBuilder::new(val)
                         .literal_separator(true)
-                        .build()?,
+                        .build()
+                        .map_err(from_any)?,
                 );
             } else {
-                patterns_builder.add(globset::Glob::new(&format!("{{{},{}/**}}", val, val))?);
+                patterns_builder
+                    .add(globset::Glob::new(&format!("{{{},{}/**}}", val, val)).map_err(from_any)?);
             }
             patterns.push(val.to_owned());
         }
 
         Ok(Self {
-            globset: patterns_builder.build()?,
+            globset: patterns_builder.build().map_err(from_any)?,
             patterns,
         })
     }

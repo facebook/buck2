@@ -104,7 +104,5 @@ pub(crate) async fn check_starlark_stack_size(
         }
     }
 
-    ctx.compute(&StarlarkStackSizeChecker)
-        .await?
-        .map_err(buck2_error::Error::from)
+    ctx.compute(&StarlarkStackSizeChecker).await?
 }

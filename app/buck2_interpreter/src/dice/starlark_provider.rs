@@ -11,6 +11,7 @@ use std::ops::DerefMut;
 
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_error::conversion::from_any;
 use dice::DiceComputations;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
@@ -67,7 +68,7 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
         ) -> buck2_error::Result<(Evaluator<'v, 'a, 'e>, bool)> {
             let mut eval = Evaluator::new(module);
             if let Some(stack_size) = self.starlark_max_callstack_size {
-                eval.set_max_callstack_size(stack_size)?;
+                eval.set_max_callstack_size(stack_size).map_err(from_any)?;
             }
 
             let is_profiling_enabled = self.profiler.initialize(&mut eval)?;

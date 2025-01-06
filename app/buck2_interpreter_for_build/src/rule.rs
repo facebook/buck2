@@ -350,9 +350,9 @@ impl<'v> StarlarkValue<'v> for RuleCallable<'v> {
         _args: &Arguments<'v, '_>,
         _eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        Err(starlark::Error::new_other(
+        Err(starlark::Error::new_other(buck2_error::Error::from(
             RuleError::RuleCalledBeforeFreezing,
-        ))
+        )))
     }
 
     fn documentation(&self) -> DocItem {

@@ -13,9 +13,13 @@ use std::fmt::Arguments;
 #[cold]
 #[track_caller]
 pub fn buck2_error_impl(tags: &[crate::ErrorTag], args: Arguments) -> crate::Error {
-    let anyhow_error = anyhow::anyhow!("{args}");
-    let error = crate::Error::from(anyhow_error).tag(tags.iter().copied());
-    error
+    let line_number = std::panic::Location::caller().line().to_string();
+    let source_location = crate::source_location::from_file(
+        std::panic::Location::caller().file(),
+        Some(&line_number),
+    );
+    let root_error = crate::Error::new(format!("{}", args), source_location, None);
+    root_error.tag(tags.iter().copied())
 }
 
 #[doc(hidden)]

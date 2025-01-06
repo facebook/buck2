@@ -7,17 +7,48 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    named_deps = {
+        # @oss-disable: "edenfs_clients": "//eden/fs/service:thrift-rust-clients", 
+    },
+    os_deps = [
+        (
+            "linux",
+            [
+                "fbsource//third-party/rust:nix",
+            ],
+        ),
+        (
+            "macos",
+            [
+                "fbsource//third-party/rust:nix",
+            ],
+        ),
+    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:fancy-regex",
+        "fbsource//third-party/rust:hex",
+        "fbsource//third-party/rust:http",
+        "fbsource//third-party/rust:hyper",
         "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:prost",
+        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:ref-cast",
+        "fbsource//third-party/rust:regex",
+        "fbsource//third-party/rust:relative-path",
+        "fbsource//third-party/rust:rusqlite",
+        "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tonic",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error_derive:buck2_error_derive",
+        "//buck2/dice/dice_error:dice_error",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/starlark-rust/starlark_syntax:starlark_syntax",
+        "//watchman/rust/watchman_client:watchman_client",
     ],
 )

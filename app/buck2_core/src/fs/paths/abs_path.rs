@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use derive_more::Display;
 use ref_cast::RefCast;
 
@@ -173,7 +174,7 @@ impl AbsPath {
     }
 
     pub fn strip_prefix<P: AsRef<AbsPath>>(&self, prefix: P) -> buck2_error::Result<&Path> {
-        Ok(self.0.strip_prefix(prefix.as_ref())?)
+        self.0.strip_prefix(prefix.as_ref()).map_err(from_any)
     }
 
     pub fn ancestors(&self) -> impl Iterator<Item = &'_ AbsPath> {

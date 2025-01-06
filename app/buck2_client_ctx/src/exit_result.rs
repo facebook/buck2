@@ -22,6 +22,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_error::classify::best_error;
 use buck2_error::classify::ErrorLike;
+use buck2_error::conversion::from_any;
 use buck2_error::ErrorTag;
 use buck2_error::Tier;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -334,16 +335,6 @@ impl<E: Into<::buck2_error::Error>> FromResidual<Result<Infallible, E>> for Exit
     }
 }
 
-// TODO(minglunli): Temporary change, all the froms above should be changed to buck2_error instead
-impl From<anyhow::Result<()>> for ExitResult {
-    fn from(e: anyhow::Result<()>) -> Self {
-        match e {
-            Ok(()) => Self::success(),
-            Err(e) => Self::err(e.into()),
-        }
-    }
-}
-
 /// Implementing Termination lets us set the exit code for the process.
 impl ExitResultVariant {
     pub fn report(self) -> ! {
@@ -423,7 +414,7 @@ impl From<csv::Error> for ClientIoError {
     fn from(error: csv::Error) -> Self {
         match error.kind() {
             csv::ErrorKind::Io(_) => {}
-            _ => return ClientIoError::Other(error.into()),
+            _ => return ClientIoError::Other(from_any(error)),
         }
         match error.into_kind() {
             csv::ErrorKind::Io(io_error) => ClientIoError::from(io_error),

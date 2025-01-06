@@ -12,6 +12,8 @@ use std::ops::ControlFlow;
 use std::ops::FromResidual;
 use std::ops::Try;
 
+use buck2_error::conversion::from_any;
+
 use crate::exit_result::ExitResult;
 
 /// The final outcome returned to the client of running a command in the daemon.
@@ -85,6 +87,6 @@ where
 impl<T> FromResidual<CommandFailure> for buck2_error::Result<T> {
     fn from_residual(residual: CommandFailure) -> buck2_error::Result<T> {
         // Err(residual.0.in)
-        Err(residual.0.into())
+        Err(from_any(residual.0))
     }
 }

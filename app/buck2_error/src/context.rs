@@ -222,11 +222,19 @@ mod tests {
     use allocative::Allocative;
 
     use super::*;
+    use crate::conversion::from_any;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;
 
     impl StdError for TestError {}
+
+    impl From<TestError> for crate::Error {
+        #[cold]
+        fn from(_: TestError) -> Self {
+            crate::Error::new("".to_owned(), Some(file!().to_owned()), None)
+        }
+    }
 
     #[derive(Debug, Allocative, Eq, PartialEq)]
     struct SomeContext(Vec<u32>);
@@ -250,7 +258,7 @@ mod tests {
     fn test_compute_context() {
         crate::Error::check_equal(
             &crate::Error::from(TestError).context("string"),
-            &crate::Error::from(crate::Error::from(TestError).compute_context(
+            &from_any(crate::Error::from(TestError).compute_context(
                 |_t: Arc<SomeContext>| -> SomeContext { panic!() },
                 || "string",
             )),
@@ -258,7 +266,7 @@ mod tests {
 
         crate::Error::check_equal(
             &crate::Error::from(TestError).context(SomeContext(vec![0, 1, 2])),
-            &crate::Error::from(
+            &from_any(
                 crate::Error::from(TestError)
                     .context(SomeContext(vec![]))
                     .compute_context(
@@ -270,7 +278,7 @@ mod tests {
 
         crate::Error::check_equal(
             &crate::Error::from(Option::<()>::None.buck_error_context("string").unwrap_err()),
-            &crate::Error::from(
+            &from_any(
                 Option::<()>::None
                     .compute_context(
                         |_t: Arc<SomeContext>| -> SomeContext { panic!() },

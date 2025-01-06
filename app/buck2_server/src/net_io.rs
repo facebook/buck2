@@ -27,6 +27,7 @@ mod collector {
     use std::sync::Arc;
     use std::sync::Mutex;
 
+    use buck2_error::conversion::from_any;
     use buck2_error::BuckErrorContext;
     use dupe::Dupe;
     use psutil::network::NetIoCountersCollector;
@@ -56,6 +57,7 @@ mod collector {
             let mut collector = self.collector.lock().expect("poisoned lock");
             let counters: HashMap<_, _> = collector
                 .net_io_counters_pernic()
+                .map_err(from_any)
                 .buck_error_context("collecting old counters")?
                 .into_iter()
                 .filter(|(s, _)| {

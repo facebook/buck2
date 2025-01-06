@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use buck2_error::conversion::from_any;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -79,7 +80,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
         cli: &mut dyn CommandLineBuilder,
         context: &mut dyn CommandLineContext,
     ) -> buck2_error::Result<()> {
-        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())
+            .map_err(from_any)?
             .0
             .add_to_command_line(cli, context)
     }
@@ -90,7 +92,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
     ) -> buck2_error::Result<()> {
         let mut visitor = self.inner.wrap_visitor(visitor);
 
-        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())
+            .map_err(from_any)?
             .0
             .visit_artifacts(&mut visitor)
     }
@@ -104,7 +107,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
-        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())
+            .map_err(from_any)?
             .0
             .visit_write_to_file_macros(visitor)
     }

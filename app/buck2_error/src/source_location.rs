@@ -13,7 +13,7 @@
 /// The extra parameter, if present, will be appended to the end of the path.
 ///
 /// May return `None` if the path is not in `buck2/app`.
-pub(crate) fn from_file(path: &str, extra: Option<&str>) -> Option<String> {
+pub fn from_file(path: &str, extra: Option<&str>) -> Option<String> {
     // The path is passed in as a host path, not a target path. So we need to manually standardize
     // the path separators
     let path: String = path
@@ -37,6 +37,9 @@ pub(crate) fn from_file(path: &str, extra: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate as buck2_error;
+    use crate::conversion::from_any;
+    use crate::conversion_test::MyError;
 
     #[test]
     fn test_this_file() {
@@ -63,39 +66,37 @@ mod tests {
         );
     }
 
-    #[derive(Debug, thiserror::Error)]
-    #[error("My error")]
-    struct MyError;
+    #[test]
+    fn test_via_error_macro() {
+        let err_msg = "some error message";
+        let err: crate::Error = crate::buck2_error!([], "some error message");
+        assert_eq!(err.to_string(), err_msg);
+        assert!(
+            err.source_location()
+                .unwrap()
+                .contains("buck2_error/src/source_location.rs")
+        );
+    }
 
     #[test]
     fn test_via_error_new() {
-        let err: crate::Error = crate::Error::from(MyError);
-        assert_eq!(
-            err.source_location(),
-            Some("buck2_error/src/source_location.rs"),
+        let err_msg = "Test Error";
+        let err: crate::Error = crate::Error::new(
+            err_msg.to_owned(),
+            Some("test_source_location".to_owned()),
+            None,
         );
+        assert_eq!(err.to_string(), err_msg);
+        assert_eq!(err.source_location(), Some("test_source_location"));
     }
 
     #[test]
     fn test_via_anyhow_from() {
         let err: anyhow::Error = anyhow::Error::new(MyError);
-        let err: crate::Error = crate::Error::from(err);
+        let err: crate::Error = from_any(err);
         assert_eq!(
             err.source_location(),
             Some("buck2_error/src/source_location.rs"),
-        );
-    }
-
-    #[test]
-    fn test_via_anyhow_into() {
-        let err: anyhow::Error = anyhow::Error::new(MyError);
-        let err: crate::Error = err.into();
-        // This doesn't work because the `#[track_caller]` location points to the body of the
-        // `impl<T: From> Into for T` in std. This is not really fixable with this approach.
-        // Update: Since 1.77.1 this now has a value not `None`.
-        assert_eq!(
-            err.source_location(),
-            Some("buck2_error/src/source_location.rs")
         );
     }
 
@@ -106,28 +107,27 @@ mod tests {
             Ok(())
         }
 
-        let err = foo().unwrap_err();
+        let e = foo().unwrap_err();
         assert_eq!(
-            err.source_location(),
+            e.source_location(),
             Some("buck2_error/src/source_location.rs"),
         );
     }
 
     #[test]
     fn test_via_context() {
-        use crate::BuckErrorContext;
+        use anyhow::Context;
 
-        let e: anyhow::Error = Err::<(), _>(MyError)
-            .buck_error_context_anyhow("foo")
-            .unwrap_err();
-        let e: crate::Error = e.into();
+        let e: anyhow::Error = Err::<(), _>(MyError).context("foo").unwrap_err();
+        let e: crate::Error = from_any(e);
         assert_eq!(
             e.source_location(),
             Some("buck2_error/src/source_location.rs"),
         );
 
-        let e: anyhow::Error = MyError.into();
-        let e: crate::Error = e.into();
+        let e: buck2_error::Error = from_any(MyError);
+        let e: anyhow::Error = e.into();
+        let e: crate::Error = from_any(e);
         assert_eq!(
             e.source_location(),
             Some("buck2_error/src/source_location.rs"),
@@ -149,6 +149,25 @@ mod tests {
         assert_eq!(
             e.source_location(),
             Some("buck2_error/src/derive_tests.rs::Error3::VariantB")
+        );
+    }
+
+    #[test]
+    fn test_via_implicit() {
+        fn foo() -> Result<(), String> {
+            Err("Some string error".to_owned())
+        }
+
+        fn bar() -> Result<(), crate::Error> {
+            Ok(foo()?)
+        }
+
+        let e = bar().unwrap_err();
+        assert!(e.source_location().is_some());
+        assert!(
+            e.source_location()
+                .unwrap()
+                .contains("buck2_error/src/source_location.rs")
         );
     }
 }

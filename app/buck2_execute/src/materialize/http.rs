@@ -24,6 +24,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_http::retries::http_retry;
+use buck2_http::retries::AsBuck2Error;
 use buck2_http::retries::HttpError;
 use buck2_http::retries::HttpErrorForRetry;
 use buck2_http::HttpClient;
@@ -216,6 +217,18 @@ impl HttpErrorForRetry for HttpDownloadError {
             }
             Self::IoError(..) | Self::MaybeNotAllowedOnVpnless { .. } => false,
         }
+    }
+}
+
+impl AsBuck2Error for HttpHeadError {
+    fn as_buck2_error(self) -> buck2_error::Error {
+        buck2_error::Error::from(self)
+    }
+}
+
+impl AsBuck2Error for HttpDownloadError {
+    fn as_buck2_error(self) -> buck2_error::Error {
+        buck2_error::Error::from(self)
     }
 }
 

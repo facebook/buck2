@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
@@ -40,11 +41,12 @@ impl AttrTypeCoerce for TargetModifiersAttrType {
         if configurable == AttrIsConfigurable::Yes {
             return Err(internal_error!("modifiers attribute is not configurable"));
         }
-        let value = value.to_json_value().with_buck_error_context(|| {
-            TargetModifiersAttrTypeCoerceError::ValueIsNotJson {
+        let value = value
+            .to_json_value()
+            .map_err(from_any)
+            .with_buck_error_context(|| TargetModifiersAttrTypeCoerceError::ValueIsNotJson {
                 value: value.to_repr(),
-            }
-        })?;
+            })?;
 
         Ok(CoercedAttr::TargetModifiers(TargetModifiersValue::new(
             value,

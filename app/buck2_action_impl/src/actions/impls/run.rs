@@ -42,6 +42,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
@@ -255,7 +256,7 @@ impl FrozenStarlarkRunActionValues {
             return Ok(None);
         };
         ValueOf::unpack_value_err(worker.to_value())
-            .map_err(buck2_error::Error::from)
+            .map_err(from_any)
             .map(Some)
     }
 }
@@ -308,7 +309,9 @@ impl RunAction {
                 for (k, v) in d.iter() {
                     res.push((
                         k.unpack_str().buck_error_context("expecting string")?,
-                        ValueAsCommandLineLike::unpack_value_err(v)?.0,
+                        ValueAsCommandLineLike::unpack_value_err(v)
+                            .map_err(from_any)?
+                            .0,
                     ));
                 }
                 res
