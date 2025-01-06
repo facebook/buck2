@@ -15,10 +15,6 @@ load(":apple_resource_types.bzl", "AppleResourceDestination", "AppleResourceSpec
 load(":resource_groups.bzl", "create_resource_graph")
 
 def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
-    data = {
-        XcodeDataInfoKeys.PRODUCT_NAME: ctx.attrs.name.replace(".", "_"),
-    }
-
     extra_xcode_files = []
 
     # ctx.attrs.files can contain Dependency
@@ -34,6 +30,7 @@ def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
     for val in ctx.attrs.named_variants.values():
         extra_xcode_files.extend(val)
 
+    data = {}
     if extra_xcode_files:
         data[XcodeDataInfoKeys.EXTRA_XCODE_FILES] = extra_xcode_files
 
