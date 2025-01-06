@@ -29,7 +29,7 @@ pub(crate) struct ForkserverCommand {
     fd: RawFd,
 
     #[clap(long)]
-    state_dir: AbsNormPathBuf,
+    state_dir: String,
 
     #[clap(long, value_parser = ResourceControlConfig::deserialize)]
     resource_control: ResourceControlConfig,
@@ -42,7 +42,8 @@ impl ForkserverCommand {
         _ctx: ClientCommandContext<'_>,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
     ) -> anyhow::Result<()> {
-        fs_util::create_dir_all(&self.state_dir).map_err(buck2_error::Error::from)?;
+        let state_dir = AbsNormPathBuf::from(self.state_dir)?;
+        fs_util::create_dir_all(&state_dir).map_err(buck2_error::Error::from)?;
 
         #[cfg(unix)]
         {
@@ -57,7 +58,7 @@ impl ForkserverCommand {
             Ok(rt.block_on(buck2_forkserver::unix::run_forkserver(
                 self.fd,
                 log_reload_handle,
-                self.state_dir,
+                state_dir,
                 self.resource_control,
             ))?)
         }

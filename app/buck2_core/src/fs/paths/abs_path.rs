@@ -16,7 +16,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use allocative::Allocative;
-use buck2_error::conversion::from_any;
 use derive_more::Display;
 use ref_cast::RefCast;
 
@@ -174,7 +173,7 @@ impl AbsPath {
     }
 
     pub fn strip_prefix<P: AsRef<AbsPath>>(&self, prefix: P) -> buck2_error::Result<&Path> {
-        self.0.strip_prefix(prefix.as_ref()).map_err(from_any)
+        Ok(self.0.strip_prefix(prefix.as_ref())?)
     }
 
     pub fn ancestors(&self) -> impl Iterator<Item = &'_ AbsPath> {
@@ -246,7 +245,7 @@ impl AbsPathBuf {
 }
 
 impl TryFrom<PathBuf> for AbsPathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
         AbsPath::new(&path)?;
@@ -255,7 +254,7 @@ impl TryFrom<PathBuf> for AbsPathBuf {
 }
 
 impl TryFrom<String> for AbsPathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(path: String) -> Result<Self, Self::Error> {
         AbsPathBuf::try_from(PathBuf::from(path))
@@ -263,9 +262,9 @@ impl TryFrom<String> for AbsPathBuf {
 }
 
 impl FromStr for AbsPathBuf {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
-    fn from_str(s: &str) -> anyhow::Result<AbsPathBuf> {
+    fn from_str(s: &str) -> buck2_error::Result<AbsPathBuf> {
         AbsPathBuf::try_from(s.to_owned())
     }
 }

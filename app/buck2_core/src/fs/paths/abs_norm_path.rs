@@ -17,7 +17,6 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use allocative::Allocative;
-use buck2_error::conversion::from_any;
 use derive_more::Display;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
@@ -271,18 +270,15 @@ impl AbsNormPath {
 
     #[cfg(not(windows))]
     fn strip_prefix_impl(&self, base: &AbsNormPath) -> buck2_error::Result<&Path> {
-        self.0
-            .strip_prefix(&base.0)
-            .map_err(buck2_error::Error::from)
+        self.0.strip_prefix(&base.0)
     }
 
     #[cfg(windows)]
     fn strip_prefix_impl(&self, base: &AbsNormPath) -> buck2_error::Result<&Path> {
         if self.windows_prefix()? == base.windows_prefix()? {
-            self.strip_windows_prefix()
-                .map_err(from_any)?
-                .strip_prefix(base.strip_windows_prefix()?)
-                .map_err(from_any)
+            Ok(self
+                .strip_windows_prefix()?
+                .strip_prefix(base.strip_windows_prefix()?)?)
         } else {
             Err(buck2_error::buck2_error!([], "Path is not a prefix"))
         }
@@ -428,7 +424,7 @@ impl AbsNormPath {
         }
         let path_buf = stack.iter().collect::<PathBuf>();
 
-        AbsNormPathBuf::try_from(path_buf).map_err(from_any)
+        AbsNormPathBuf::try_from(path_buf)
     }
 
     /// Convert to an owned [`AbsNormPathBuf`].
@@ -552,7 +548,7 @@ impl AbsNormPath {
         if let Some(component) = iter.next() {
             prefix.push(component);
         }
-        self.as_path().strip_prefix(&prefix).map_err(from_any)
+        Ok(self.as_path().strip_prefix(&prefix)?)
     }
 
     pub fn ancestors(&self) -> impl Iterator<Item = &'_ AbsNormPath> {
@@ -571,7 +567,7 @@ impl AbsNormPath {
 
 impl AbsNormPathBuf {
     pub fn new(path: PathBuf) -> buck2_error::Result<AbsNormPathBuf> {
-        let path = AbsPathBuf::try_from(path).map_err(from_any)?;
+        let path = AbsPathBuf::try_from(path)?;
         verify_abs_path(&path)?;
         Ok(AbsNormPathBuf(path))
     }
@@ -589,7 +585,7 @@ impl AbsNormPathBuf {
     }
 
     pub fn from(s: String) -> buck2_error::Result<Self> {
-        AbsNormPathBuf::try_from(s).map_err(from_any)
+        AbsNormPathBuf::try_from(s)
     }
 
     /// Creates a new 'AbsPathBuf' with a given capacity used to create the internal
@@ -730,7 +726,7 @@ impl AbsNormPathBuf {
 }
 
 impl TryFrom<String> for AbsNormPathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -753,22 +749,22 @@ impl TryFrom<String> for AbsNormPathBuf {
     ///     assert!(AbsNormPathBuf::try_from("c:/normalize/../bar".to_owned()).is_err());
     /// }
     /// ```
-    fn try_from(s: String) -> anyhow::Result<AbsNormPathBuf> {
+    fn try_from(s: String) -> buck2_error::Result<AbsNormPathBuf> {
         AbsNormPathBuf::try_from(OsString::from(s))
     }
 }
 
 impl TryFrom<OsString> for AbsNormPathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     // no allocation
-    fn try_from(s: OsString) -> anyhow::Result<AbsNormPathBuf> {
+    fn try_from(s: OsString) -> buck2_error::Result<AbsNormPathBuf> {
         AbsNormPathBuf::try_from(PathBuf::from(s))
     }
 }
 
 impl TryFrom<PathBuf> for AbsNormPathBuf {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     /// no allocation conversion
     ///
@@ -792,7 +788,7 @@ impl TryFrom<PathBuf> for AbsNormPathBuf {
     ///     assert!(AbsNormPathBuf::try_from(PathBuf::from("c:/normalize/../bar")).is_err());
     /// }
     /// ```
-    fn try_from(p: PathBuf) -> anyhow::Result<AbsNormPathBuf> {
+    fn try_from(p: PathBuf) -> buck2_error::Result<AbsNormPathBuf> {
         let p = AbsPathBuf::try_from(p)?;
         verify_abs_path(&p)?;
         Ok(AbsNormPathBuf(p))
@@ -800,9 +796,9 @@ impl TryFrom<PathBuf> for AbsNormPathBuf {
 }
 
 impl FromStr for AbsNormPathBuf {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
-    fn from_str(s: &str) -> anyhow::Result<Self> {
+    fn from_str(s: &str) -> buck2_error::Result<Self> {
         AbsNormPathBuf::try_from(s.to_owned())
     }
 }

@@ -55,7 +55,7 @@ pub struct PersistEventLogsCommand {
     #[clap(long, help = "Name this log will take in Manifold")]
     manifold_name: String,
     #[clap(long, help = "Where to write this log to on disk")]
-    local_path: AbsPathBuf,
+    local_path: String,
     #[clap(long, help = "If present, only write to disk and don't upload")]
     no_upload: bool,
     #[clap(
@@ -133,7 +133,9 @@ async fn write_task(
     Ok(())
 }
 
-async fn create_log_file(local_path: AbsPathBuf) -> Result<tokio::fs::File, buck2_error::Error> {
+async fn create_log_file(local_path: String) -> Result<tokio::fs::File, buck2_error::Error> {
+    let local_path = AbsPathBuf::new(local_path)?;
+
     let file = OpenOptions::new()
         .create(true)
         .append(true)

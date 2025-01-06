@@ -6,7 +6,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-anyhow = { workspace = true }
 arc-swap = { workspace = true }
 blake3 = { workspace = true }
 compact_str = { workspace = true }
