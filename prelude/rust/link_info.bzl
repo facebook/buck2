@@ -269,20 +269,22 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
         out.append(RustOrNativeDependency(
             dep = explicit_sysroot_deps.core,
             name = None,
-            flags = ["nounused"],
+            flags = ["noprelude", "nounused"],
         ))
     if explicit_sysroot_deps.std:
         out.append(RustOrNativeDependency(
             dep = explicit_sysroot_deps.std,
             name = None,
-            flags = ["nounused", "force"],
+            # "force" is used here in order to link std internals (like alloc hooks) even if the rest
+            # of std is otherwise unused (e.g. we are building a no_std crate that needs to link with
+            # other std-enabled crates as a standalone dylib).
+            flags = ["noprelude", "nounused", "force"],
         ))
     if explicit_sysroot_deps.proc_macro:
-        flags = ["noprelude"] if not dep_ctx.is_proc_macro or dep_ctx.include_doc_deps else []
         out.append(RustOrNativeDependency(
             dep = explicit_sysroot_deps.proc_macro,
             name = None,
-            flags = ["nounused"] + flags,
+            flags = ["noprelude", "nounused"],
         ))
 
     # When advanced_unstable_linking is on, we only add the dep that matches the
@@ -293,19 +295,16 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
             out.append(RustOrNativeDependency(
                 dep = explicit_sysroot_deps.panic_unwind,
                 name = None,
-                flags = ["nounused"],
+                flags = ["noprelude", "nounused"],
             ))
     if explicit_sysroot_deps.panic_abort:
         if not dep_ctx.advanced_unstable_linking or dep_ctx.panic_runtime == PanicRuntime("abort"):
             out.append(RustOrNativeDependency(
                 dep = explicit_sysroot_deps.panic_abort,
                 name = None,
-                flags = ["nounused"],
+                flags = ["noprelude", "nounused"],
             ))
     for d in explicit_sysroot_deps.others:
-        # FIXME(JakobDegen): Ideally we would not be using `noprelude` here but
-        # instead report these as regular transitive dependencies. However,
-        # that's a bit harder to get right, so leave it like this for now.
         out.append(RustOrNativeDependency(
             dep = d,
             name = None,
