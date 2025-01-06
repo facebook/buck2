@@ -382,7 +382,8 @@ def python_executable(
 
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
 
-    dbg_source_db = create_dbg_source_db(ctx, src_manifest, python_deps)
+    dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
+    dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
 
     exe = _convert_python_library_to_executable(
         ctx,
@@ -394,8 +395,9 @@ def python_executable(
         raw_deps,
         compile,
         allow_cache_upload,
-        dbg_source_db,
+        dbg_source_db_output,
     )
+
     exe.sub_targets.update({
         "dbg-source-db": [dbg_source_db],
         "library-info": [library_info],
@@ -430,7 +432,7 @@ def _convert_python_library_to_executable(
         deps: list[Dependency],
         compile: bool,
         allow_cache_upload: bool,
-        dbg_source_db: [DefaultInfo, None]) -> PexProviders:
+        dbg_source_db: [Artifact, None]) -> PexProviders:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -695,7 +697,7 @@ def _convert_python_library_to_executable(
             ]
 
     if dbg_source_db:
-        extra_artifacts["dbg-db.json"] = dbg_source_db.default_outputs[0]
+        extra_artifacts["dbg-db.json"] = dbg_source_db
 
     if python_toolchain.default_sitecustomize != None:
         extra_artifacts["sitecustomize.py"] = python_toolchain.default_sitecustomize

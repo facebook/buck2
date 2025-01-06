@@ -24,9 +24,9 @@ def create_python_source_db_info(manifests: [PythonLibraryManifestsTSet, None]) 
 
 def create_dbg_source_db(
         ctx: AnalysisContext,
+        output: Artifact,
         srcs: [ManifestInfo, None],
         python_deps: list[PythonLibraryInfo]) -> DefaultInfo:
-    output = ctx.actions.declare_output("dbg-db.json")
     artifacts = []
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
