@@ -81,6 +81,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
                 android_toolchain,
                 pre_dexed_libs,
                 dex_merge_config,
+                enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )
         else:
             dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
@@ -96,6 +97,7 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
                 ctx.attrs._android_toolchain[AndroidToolchainInfo],
                 jars_to_owners,
                 ctx.attrs.primary_dex_patterns,
+                enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
             )
         else:
             dex_files_info = get_single_primary_dex(

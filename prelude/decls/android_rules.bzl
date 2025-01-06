@@ -570,6 +570,7 @@ android_instrumentation_apk = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "disable_pre_dex": attrs.bool(default = False),
+            "enable_bootstrap_dexes": attrs.bool(default = False),
             "includes_vector_drawables": attrs.bool(default = False),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
