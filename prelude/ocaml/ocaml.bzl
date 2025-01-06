@@ -88,6 +88,7 @@ load(
     "SharedLibraryInfo",
     "merge_shared_libraries",
 )
+load("@prelude//linking:types.bzl", "Linkage")
 load(
     "@prelude//python:python.bzl",
     "PythonLibraryInfo",
@@ -227,6 +228,7 @@ def _get_empty_link_infos() -> dict[LibOutputStyle, LinkInfos]:
 
 def _get_linkable_graph(
         ctx: AnalysisContext,
+        preferred_linkage: Linkage,
         deps: list[Dependency] = [],
         link_infos: dict[LibOutputStyle, LinkInfos] = {},
         linker_flags: [LinkerFlags, None] = None) -> LinkableGraph:
@@ -239,6 +241,7 @@ def _get_linkable_graph(
             linkable_node = create_linkable_node(
                 ctx,
                 default_soname = None,
+                preferred_linkage = preferred_linkage,
                 deps = deps,
                 link_infos = link_infos if link_infos else _get_empty_link_infos(),
                 linker_flags = linker_flags,
@@ -726,7 +729,7 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, _attr_deps(ctx))),
         merge_link_group_lib_info(deps = _attr_deps(ctx)),
         other_outputs_info,
-        _get_linkable_graph(ctx),
+        _get_linkable_graph(ctx, Linkage("any")),
     ]
 
 def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -916,7 +919,7 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
         obj_link_info,
         merge_link_group_lib_info(deps = deps),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, deps)),
-        _get_linkable_graph(ctx, deps, link_infos, LinkerFlags(post_flags = linker_flags)),
+        _get_linkable_graph(ctx, Linkage("static"), deps, link_infos, LinkerFlags(post_flags = linker_flags)),
     ]
 
 # `ocaml_shared` enables one to produce an OCaml "plugin". Such native code
@@ -988,7 +991,7 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [
         DefaultInfo(default_output = binary_nat, sub_targets = sub_targets),
-        _get_linkable_graph(ctx),
+        _get_linkable_graph(ctx, Linkage("shared")),
     ]
 
 def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -1054,5 +1057,5 @@ def prebuilt_ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
         create_merged_link_info_for_propagation(ctx, native_infos),
         merge_link_group_lib_info(deps = ctx.attrs.deps),
         merge_shared_libraries(ctx.actions, deps = filter_and_map_idx(SharedLibraryInfo, ctx.attrs.deps)),
-        _get_linkable_graph(ctx),
+        _get_linkable_graph(ctx, Linkage("any")),
     ]
