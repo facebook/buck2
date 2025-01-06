@@ -511,7 +511,6 @@ where
             isolation_dir: Some(ctx.isolation_prefix.into_inner().into()),
             num_nodes,
             num_edges,
-            uses_total_duration: true,
             backend_name: Some(T::name().to_string()),
         });
         Ok(())
