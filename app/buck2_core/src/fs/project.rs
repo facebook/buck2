@@ -15,7 +15,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use ref_cast::RefCast;
@@ -518,10 +517,7 @@ impl ProjectRoot {
                 src.parent()
                     .expect("a path with a parent in symlink target"),
             );
-            target = Self::find_relative_path(
-                &AbsNormPathBuf::try_from(absolute_target).map_err(from_any)?,
-                dest,
-            );
+            target = Self::find_relative_path(&AbsNormPathBuf::try_from(absolute_target)?, dest);
         }
         fs_util::symlink(target, dest)
     }

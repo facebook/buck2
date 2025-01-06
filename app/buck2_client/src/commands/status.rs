@@ -55,7 +55,7 @@ impl StatusCommand {
                     let entry = entry.map_err(from_any)?;
                     if entry.file_type().is_dir() {
                         let dir = DaemonDir {
-                            path: entry.into_path().try_into().map_err(from_any)?,
+                            path: entry.into_path().try_into()?,
                         };
 
                         if dir.buckd_info().exists() {

@@ -263,5 +263,4 @@ fn log_critical_path(
         }
         Ok(())
     })
-    .map_err(from_any)
 }

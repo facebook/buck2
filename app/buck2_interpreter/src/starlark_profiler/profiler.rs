@@ -87,11 +87,7 @@ impl StarlarkProfiler {
     fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
         self.finalized_at = Some(Instant::now());
         if !self.profile_mode.requires_frozen_module() {
-            self.profile_data = Some(
-                eval.gen_profile()
-                    .map_err(from_starlark)
-                    .map_err(from_any)?,
-            );
+            self.profile_data = Some(eval.gen_profile().map_err(from_starlark)?);
         }
         Ok(())
     }

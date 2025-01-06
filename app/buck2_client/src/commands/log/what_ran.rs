@@ -158,8 +158,7 @@ impl WhatRanCommand {
                 WhatRanCommandState::execute(events, &mut output, &options).await?;
                 buck2_error::Ok(())
             })
-        })
-        .map_err(from_any)?;
+        })?;
         ExitResult::success()
     }
 }

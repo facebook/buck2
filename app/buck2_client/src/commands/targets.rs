@@ -31,7 +31,6 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::query_args::CommonAttributeArgs;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_error::conversion::from_any;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
@@ -421,8 +420,7 @@ async fn targets_show_outputs(
             }
         }
         print.finish()
-    })
-    .map_err(from_any)?;
+    })?;
 
     ExitResult::success()
 }

@@ -1301,7 +1301,7 @@ impl DaemonApi for BuckdServer {
                     let result = try {
                         spawn_allocative(
                             this,
-                            AbsPathBuf::try_from(req.output_path).map_err(from_any)?,
+                            AbsPathBuf::try_from(req.output_path)?,
                             dispatcher.dupe(),
                         )
                         .await?;

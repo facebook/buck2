@@ -18,11 +18,17 @@ use relative_path::FromPathError;
 use crate::any::recover_crate_error;
 use crate::any::CrateAsStdError;
 
+// Helper function that can be explicited called to convert `std::error::Error` into `buck2_error`.
+// Common types should have a proper From implemented in this file, but this function is useful for
+// one-off error types in the codebase
 #[cold]
 #[track_caller]
 pub fn from_any<T>(e: T) -> crate::Error
 where
     T: Into<anyhow::Error>,
+    // This bound prevent `from_any` from being called on an error that's
+    // already a `buck2_error` which prevents unecessary uses of `from_any`
+    Result<(), T>: anyhow::Context<(), T>,
 {
     let anyhow: anyhow::Error = e.into();
     let source_location =
