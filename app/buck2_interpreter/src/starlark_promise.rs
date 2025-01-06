@@ -14,7 +14,6 @@ use std::convert::Infallible;
 use std::mem;
 
 use allocative::Allocative;
-use buck2_error::starlark_error::from_starlark;
 use derivative::Derivative;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
@@ -170,8 +169,7 @@ impl<'v> StarlarkPromise<'v> {
         x: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<Value<'v>> {
-        eval.eval_function(f.0, &[x], &[])
-            .map_err(|e| from_starlark(e).into())
+        Ok(eval.eval_function(f.0, &[x], &[])?)
     }
 
     pub fn map(
@@ -421,10 +419,9 @@ mod tests {
             "test.bzl",
             content.to_owned(),
             &StarlarkFileType::Bzl.dialect(false),
-        )
-        .map_err(from_starlark)?;
+        )?;
         let mut eval = Evaluator::new(modu);
-        let res = eval.eval_module(ast, &globals).map_err(from_starlark)?;
+        let res = eval.eval_module(ast, &globals)?;
         let promises = get_promises(modu);
         for (key, promise) in promises.0.borrow().iter() {
             promise.resolve(modu.heap().alloc(key), &mut eval)?;

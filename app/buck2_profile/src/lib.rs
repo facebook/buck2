@@ -21,7 +21,6 @@ use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -118,7 +117,7 @@ pub fn write_starlark_profile(
         ProfileMode::HeapFlameAllocated
         | ProfileMode::HeapFlameRetained
         | ProfileMode::TimeFlame => {
-            let mut profile = profile_data.profile_data.gen().map_err(from_starlark)?;
+            let mut profile = profile_data.profile_data.gen()?;
             if profile.is_empty() {
                 // inferno does not like empty flamegraphs.
                 profile = "empty 1\n".to_owned();
@@ -138,7 +137,7 @@ pub fn write_starlark_profile(
                 .buck_error_context("Failed to write profile")?;
         }
         _ => {
-            let profile = profile_data.profile_data.gen().map_err(from_starlark)?;
+            let profile = profile_data.profile_data.gen()?;
             fs_util::write(output.join("profile.txt"), profile)
                 .buck_error_context("Failed to write profile")?;
         }

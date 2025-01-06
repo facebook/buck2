@@ -177,7 +177,6 @@ impl FileLoader for InterpreterFileLoader {
 #[cfg(test)]
 mod tests {
     use buck2_error::buck2_error;
-    use buck2_error::starlark_error::from_starlark;
     use starlark::environment::Module;
 
     use super::*;
@@ -275,7 +274,7 @@ mod tests {
         let id = resolver.resolve_load(&path, None)?.to_string();
 
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver);
-        let loaded = loader.load(&path).map_err(from_starlark)?;
+        let loaded = loader.load(&path)?;
 
         let v = loaded.get("name").unwrap();
         assert_eq!(v.value().unpack_str(), Some(id.as_str()));

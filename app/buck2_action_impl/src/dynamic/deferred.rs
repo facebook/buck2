@@ -35,7 +35,6 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
@@ -127,9 +126,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
             (&[], &named)
         }
     };
-    let return_value = eval
-        .eval_function(lambda, pos, named)
-        .map_err(from_starlark)?;
+    let return_value = eval.eval_function(lambda, pos, named)?;
 
     let provider_collection = match args {
         DynamicLambdaArgs::OldPositional { .. } => {
@@ -538,7 +535,7 @@ fn new_attr_value<'v>(
             let mut r = SmallMap::with_capacity(xs.len());
             for (k, v) in xs {
                 let prev = r.insert_hashed(
-                    k.to_value().get_hashed().map_err(from_starlark)?,
+                    k.to_value().get_hashed()?,
                     new_attr_value(
                         v,
                         _input_artifacts_materialized,

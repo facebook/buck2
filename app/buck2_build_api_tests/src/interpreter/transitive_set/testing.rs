@@ -19,7 +19,6 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_core::deferred::key::DeferredHolderKey;
-use buck2_error::starlark_error::from_starlark;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -87,7 +86,7 @@ pub(crate) fn new_transitive_set(
         .owned_extra_value()
         .context("Frozen value must be in extra value")?
         .downcast_starlark()
-        .map_err(from_starlark)?)
+        .map_err(buck2_error::Error::from)?)
 }
 
 #[test]

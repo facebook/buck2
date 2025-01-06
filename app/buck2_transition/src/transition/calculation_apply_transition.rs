@@ -25,7 +25,6 @@ use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
@@ -93,7 +92,7 @@ fn call_transition_function<'v>(
     }
     let new_platforms = eval
         .eval_function(transition.implementation.to_value(), &[], &args)
-        .map_err(from_starlark)?;
+        .map_err(buck2_error::Error::from)?;
     if transition.split {
         match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)
             .into_anyhow_result()?

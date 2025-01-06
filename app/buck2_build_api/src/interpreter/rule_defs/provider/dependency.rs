@@ -15,7 +15,6 @@ use allocative::Allocative;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProviderName;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use starlark::any::ProvidesStaticType;
@@ -116,7 +115,7 @@ impl<'v> Dependency<'v> {
     pub fn execution_platform(&self) -> buck2_error::Result<Option<&ExecutionPlatformResolution>> {
         let execution_platform: ValueOfUnchecked<NoneOr<&StarlarkExecutionPlatformResolution>> =
             self.execution_platform.cast();
-        match execution_platform.unpack().map_err(from_starlark)? {
+        match execution_platform.unpack()? {
             NoneOr::None => Ok(None),
             NoneOr::Other(e) => Ok(Some(&e.0)),
         }
@@ -141,7 +140,6 @@ where
         self.provider_collection
             .to_value()
             .at(index, heap)
-            .map_err(from_starlark)
             .with_buck_error_context(|| format!("Error accessing dependencies of `{}`", self.label))
             .map_err(Into::into)
     }

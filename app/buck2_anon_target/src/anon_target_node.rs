@@ -37,7 +37,6 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
-use buck2_error::starlark_error::from_starlark;
 use buck2_node::rule_type::StarlarkRuleType;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
@@ -244,13 +243,11 @@ impl AnonTargetDyn for AnonTarget {
         let mut fulfilled_artifact_mappings = HashMap::new();
 
         for (id, func) in promise_artifact_mappings.values().enumerate() {
-            let artifact = eval
-                .eval_function(*func, &[anon_target_result], &[])
-                .map_err(from_starlark)?;
+            let artifact = eval.eval_function(*func, &[anon_target_result], &[])?;
 
             let promise_id = PromiseArtifactId::new(BaseDeferredKey::AnonTarget(self.dupe()), id);
 
-            match ValueAsArtifactLike::unpack_value(artifact).map_err(from_starlark)? {
+            match ValueAsArtifactLike::unpack_value(artifact)? {
                 Some(artifact) => {
                     fulfilled_artifact_mappings
                         .insert(promise_id.clone(), artifact.0.get_bound_artifact()?);

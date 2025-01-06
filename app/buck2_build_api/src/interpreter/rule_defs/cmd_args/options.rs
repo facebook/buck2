@@ -17,7 +17,6 @@ use buck2_core::fs::paths::RelativePath;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_interpreter::types::cell_root::CellRoot;
@@ -685,7 +684,6 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
 
         let origin = value
             .unpack()
-            .map_err(from_starlark)
             .internal_error("Must be a valid RelativeOrigin as this was checked in the setter")?;
         let mut relative_path = origin.resolve(ctx)?;
         for _ in 0..parent {

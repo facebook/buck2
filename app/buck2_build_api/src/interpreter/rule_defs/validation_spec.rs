@@ -11,7 +11,6 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
-use buck2_error::starlark_error::from_starlark;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -112,11 +111,11 @@ fn validate_validation_spec<'v, V>(spec: &StarlarkValidationSpecGen<V>) -> buck2
 where
     V: ValueLike<'v>,
 {
-    let name = spec.name.unpack().map_err(from_starlark)?;
+    let name = spec.name.unpack()?;
     if name.is_empty() {
         return Err(ValidationSpecError::EmptyName.into());
     }
-    let artifact = spec.validation_result.unpack().map_err(from_starlark)?;
+    let artifact = spec.validation_result.unpack()?;
     let artifact = match artifact.0.get_bound_artifact() {
         Ok(bound_artifact) => bound_artifact,
         Err(e) => {

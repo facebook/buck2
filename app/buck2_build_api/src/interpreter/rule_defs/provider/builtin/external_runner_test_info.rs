@@ -15,7 +15,6 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use either::Either;
@@ -492,11 +491,9 @@ where
         }
     }
 
-    NoneOr::<bool>::unpack_value(info.use_project_relative_paths.get().to_value())
-        .map_err(from_starlark)?
+    NoneOr::<bool>::unpack_value(info.use_project_relative_paths.get().to_value())?
         .buck_error_context("`use_project_relative_paths` must be a bool if provided")?;
-    NoneOr::<bool>::unpack_value(info.run_from_project_root.get().to_value())
-        .map_err(from_starlark)?
+    NoneOr::<bool>::unpack_value(info.run_from_project_root.get().to_value())?
         .buck_error_context("`run_from_project_root` must be a bool if provided")?;
     unpack_opt_executor(info.default_executor.get().to_value())
         .buck_error_context("Invalid `default_executor`")?;

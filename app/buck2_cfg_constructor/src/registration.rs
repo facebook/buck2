@@ -12,7 +12,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_error::starlark_error::from_starlark;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_CFG_CONSTRUCTOR_GLOBALS;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::build_context::PerFileTypeContext;
@@ -117,9 +116,7 @@ impl<'v> Freeze for StarlarkCfgConstructor<'v> {
 fn make_cfg_constructor(
     cfg_constructor: OwnedFrozenValue,
 ) -> buck2_error::Result<Arc<dyn CfgConstructorImpl>> {
-    let cfg_constructor = cfg_constructor
-        .downcast_starlark::<FrozenStarlarkCfgConstructor>()
-        .map_err(from_starlark)?;
+    let cfg_constructor = cfg_constructor.downcast_starlark::<FrozenStarlarkCfgConstructor>()?;
     let (
         cfg_constructor_pre_constraint_analysis,
         cfg_constructor_post_constraint_analysis,

@@ -22,7 +22,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -406,16 +405,11 @@ impl CliArgType {
             CliArgType::Bool => CliArgValue::Bool(value.unpack_bool().ok_or_else(|| {
                 CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
             })?),
-            CliArgType::Int => CliArgValue::Int(
-                BigInt::unpack_value(value)
-                    .map_err(from_starlark)?
-                    .ok_or_else(|| {
-                        CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
-                    })?,
-            ),
+            CliArgType::Int => CliArgValue::Int(BigInt::unpack_value(value)?.ok_or_else(|| {
+                CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
+            })?),
             CliArgType::Float => CliArgValue::Float(
-                StarlarkFloat::unpack_value(value)
-                    .map_err(from_starlark)?
+                StarlarkFloat::unpack_value(value)?
                     .ok_or_else(|| {
                         CliArgError::DefaultValueTypeError(self.dupe(), value.get_type().to_owned())
                     })?

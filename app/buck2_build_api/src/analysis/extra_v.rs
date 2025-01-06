@@ -11,7 +11,6 @@ use std::cell::OnceCell;
 
 use allocative::Allocative;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
@@ -97,10 +96,9 @@ impl FrozenAnalysisExtraValue {
         module: &FrozenModule,
     ) -> buck2_error::Result<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisExtraValue>>>
     {
-        module
+        Ok(module
             .owned_extra_value()
             .internal_error("extra_value not set")?
-            .downcast_starlark()
-            .map_err(from_starlark)
+            .downcast_starlark()?)
     }
 }

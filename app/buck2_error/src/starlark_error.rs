@@ -35,12 +35,12 @@ pub enum NativeErrorHandling {
     Unknown,
 }
 
-// Need to do this for now instead `impl From<starlark::Error> for crate::Error`
-// Otherwise it will conflict with `From<T> for crate::Error` impl in any.rs
-// This will change once the `anyhow` migration is complete at which point we can update this
-#[cold]
-pub fn from_starlark(e: starlark_syntax::Error) -> crate::Error {
-    from_starlark_impl(e, NativeErrorHandling::InputError, false)
+impl From<starlark_syntax::Error> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(e: starlark_syntax::Error) -> Self {
+        from_starlark_impl(e, NativeErrorHandling::InputError, false)
+    }
 }
 
 #[cold]
@@ -221,7 +221,6 @@ impl std::error::Error for StarlarkErrorWrapper {}
 mod tests {
     use std::error::Request;
 
-    use super::from_starlark;
     use crate::any::ProvidableMetadata;
     use crate::buck2_error;
     use crate::context_value::StarlarkContext;
@@ -258,7 +257,7 @@ mod tests {
     fn test_roundtrip_starlark() {
         // Tests buck2_error->starlark->buck2_error
         let e = crate::Error::from(FullMetadataError).context("context 1");
-        let e2 = from_starlark(starlark_syntax::Error::from(e.clone()));
+        let e2: crate::Error = starlark_syntax::Error::from(e.clone()).into();
         crate::Error::check_equal(&e, &e2);
     }
 
@@ -269,7 +268,7 @@ mod tests {
         let e = e.context("test context 123");
         let e: anyhow::Error = e.into();
         let e: starlark_syntax::Error = e.into();
-        let e = from_starlark(e);
+        let e: crate::Error = e.into();
 
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
         assert!(format!("{:?}", e).contains("test context 123"));

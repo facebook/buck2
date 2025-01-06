@@ -16,7 +16,6 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
-use buck2_error::starlark_error::from_starlark;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -132,9 +131,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                 let mut res = SmallMap::with_capacity(dict.len());
                 for (k, v) in dict.iter() {
                     res.insert_hashed(
-                        k.resolve_single(pkg, ctx)?
-                            .get_hashed()
-                            .map_err(from_starlark)?,
+                        k.resolve_single(pkg, ctx)?.get_hashed()?,
                         v.resolve_single(pkg, ctx)?,
                     );
                 }
@@ -246,9 +243,7 @@ fn configured_attr_to_value<'v>(
 
             for (k, v) in map.iter() {
                 res.insert_hashed(
-                    configured_attr_to_value(&k, pkg, heap)?
-                        .get_hashed()
-                        .map_err(from_starlark)?,
+                    configured_attr_to_value(&k, pkg, heap)?.get_hashed()?,
                     configured_attr_to_value(&v, pkg, heap)?,
                 );
             }
@@ -272,7 +267,7 @@ fn configured_attr_to_value<'v>(
 
             for (trans, p) in t.deps.iter() {
                 map.insert_hashed(
-                    heap.alloc(trans).get_hashed().map_err(from_starlark)?,
+                    heap.alloc(trans).get_hashed()?,
                     heap.alloc(StarlarkConfiguredProvidersLabel::new(p.dupe())),
                 );
             }

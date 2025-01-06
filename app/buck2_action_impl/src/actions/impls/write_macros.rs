@@ -35,7 +35,6 @@ use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -105,10 +104,7 @@ impl WriteMacrosToFileAction {
     ) -> buck2_error::Result<Self> {
         if outputs.is_empty() {
             Err(WriteMacrosActionValidationError::NoOutputsSpecified.into())
-        } else if ValueAsCommandLineLike::unpack_value(contents.value())
-            .map_err(from_starlark)?
-            .is_none()
-        {
+        } else if ValueAsCommandLineLike::unpack_value(contents.value())?.is_none() {
             Err(
                 WriteMacrosActionValidationError::ContentsNotCommandLineValue(
                     contents.value().to_repr(),

@@ -28,7 +28,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -455,8 +454,7 @@ pub fn get_user_defined_rule_spec(
             ctx: ValueTyped<'v, AnalysisContext<'v>>,
         ) -> buck2_error::Result<Value<'v>> {
             let rule_impl = get_rule_impl(eval, &self.module, &self.name)?;
-            eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])
-                .map_err(|e| from_starlark(e).into())
+            Ok(eval.eval_function(rule_impl.to_value(), &[ctx.to_value()], &[])?)
         }
 
         fn promise_artifact_mappings<'v>(

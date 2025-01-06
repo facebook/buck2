@@ -8,7 +8,6 @@
  */
 
 use buck2_core::soft_error;
-use buck2_error::starlark_error::from_starlark;
 use buck2_node::attrs::attr_type::any::AnyAttrType;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
 use buck2_node::attrs::attr_type::list::ListLiteral;
@@ -38,7 +37,7 @@ fn to_literal(value: Value, ctx: &dyn AttrCoercionContext) -> buck2_error::Resul
         Ok(CoercedAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(CoercedAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = i64::unpack_value(value).map_err(from_starlark)? {
+    } else if let Some(x) = i64::unpack_value(value)? {
         Ok(CoercedAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(CoercedAttr::Dict(

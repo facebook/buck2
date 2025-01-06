@@ -16,7 +16,6 @@ use allocative::Allocative;
 use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use starlark::eval::ProfileData;
 
@@ -73,8 +72,7 @@ impl StarlarkProfileDataAndStats {
             total_retained_bytes += data.total_retained_bytes;
         }
 
-        let profile_data = ProfileData::merge(datas.iter().map(|data| &data.profile_data))
-            .map_err(from_starlark)?;
+        let profile_data = ProfileData::merge(datas.iter().map(|data| &data.profile_data))?;
 
         Ok(StarlarkProfileDataAndStats {
             profile_data,

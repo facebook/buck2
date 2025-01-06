@@ -11,7 +11,6 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use either::Either;
 use indexmap::IndexMap;
@@ -85,8 +84,7 @@ where
     let env_vars = info
         .resource_env_vars
         .cast::<UnpackDictEntries<&str, &str>>()
-        .unpack()
-        .map_err(from_starlark)?;
+        .unpack()?;
     if env_vars.entries.is_empty() {
         return Err(buck2_error::buck2_error!(
             [],

@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -416,7 +415,7 @@ impl<'v> TransitiveSet<'v> {
                     let projected_value = eval
                         .eval_function(spec.projection.get(), &[value], &[])
                         .map_err(|error| TransitiveSetError::ProjectionError {
-                            error: from_starlark(error).into(),
+                            error: error.into(),
                             name: name.clone(),
                         })?;
                     match spec.kind {
@@ -454,7 +453,7 @@ impl<'v> TransitiveSet<'v> {
                 let reduced = eval
                     .eval_function(reduce.get(), &[children_values, value], &[])
                     .map_err(|error| TransitiveSetError::ReductionError {
-                        error: from_starlark(error).into(),
+                        error: error.into(),
                         name: name.clone(),
                     })?;
 

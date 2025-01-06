@@ -24,7 +24,6 @@ use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::action_util::get_action_digest;
 use buck2_events::dispatch::async_record_root_spans;
@@ -430,7 +429,7 @@ fn try_run_error_handler(
                             )),
                         },
                         Err(e) => {
-                            let e = from_starlark(e).context("Error handler failed");
+                            let e = buck2_error::Error::from(e).context("Error handler failed");
                             Data::HandlerInvocationError(format!("{:#}", e))
                         }
                     };

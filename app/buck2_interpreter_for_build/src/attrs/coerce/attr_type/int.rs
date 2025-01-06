@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_error::starlark_error::from_starlark;
 use buck2_node::attrs::attr_type::int::IntAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
@@ -27,7 +26,7 @@ impl AttrTypeCoerce for IntAttrType {
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        match i64::unpack_value(value).map_err(from_starlark)? {
+        match i64::unpack_value(value)? {
             Some(x) => Ok(CoercedAttr::Int(x)),
             None => Err(CoercionError::type_error("int", value).into()),
         }

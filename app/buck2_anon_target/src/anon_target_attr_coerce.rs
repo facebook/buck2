@@ -18,7 +18,6 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
-use buck2_error::starlark_error::from_starlark;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::attr_type::bool::BoolLiteral;
@@ -60,7 +59,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                 Some(s) => Ok(AnonTargetAttr::Bool(BoolLiteral(s))),
                 None => Err(AnonTargetCoercionError::type_error("bool", value).into()),
             },
-            AttrTypeInner::Int(_) => match i64::unpack_value(value).map_err(from_starlark)? {
+            AttrTypeInner::Int(_) => match i64::unpack_value(value)? {
                 Some(x) => Ok(AnonTargetAttr::Int(x)),
                 None => Err(AnonTargetCoercionError::type_error("int", value).into()),
             },
@@ -132,9 +131,7 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                         id: promise_artifact.artifact.id.as_ref().clone(),
                         short_path: promise_artifact.short_path.clone(),
                     }))
-                } else if let Some(artifact_like) =
-                    ValueAsArtifactLike::unpack_value(value).map_err(from_starlark)?
-                {
+                } else if let Some(artifact_like) = ValueAsArtifactLike::unpack_value(value)? {
                     let artifact = artifact_like.0.get_bound_artifact()?;
                     Ok(AnonTargetAttr::Artifact(artifact))
                 } else {
@@ -226,7 +223,7 @@ fn to_anon_target_any(value: Value, ctx: &AnonAttrCtx) -> buck2_error::Result<An
         Ok(AnonTargetAttr::None)
     } else if let Some(x) = value.unpack_bool() {
         Ok(AnonTargetAttr::Bool(BoolLiteral(x)))
-    } else if let Some(x) = i64::unpack_value(value).map_err(from_starlark)? {
+    } else if let Some(x) = i64::unpack_value(value)? {
         Ok(AnonTargetAttr::Int(x))
     } else if let Some(x) = DictRef::from_value(value) {
         Ok(AnonTargetAttr::Dict(

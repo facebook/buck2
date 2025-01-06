@@ -26,7 +26,6 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::soft_error;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
@@ -446,7 +445,7 @@ impl InterpreterForCell {
         ) {
             Ok(ast) => ast,
             Err(e) => {
-                return Ok(Err(from_starlark(e).context(format!(
+                return Ok(Err(buck2_error::Error::from(e).context(format!(
                     "Error parsing: `{}`",
                     OwnedStarlarkPath::new(import)
                 ))));
@@ -535,7 +534,7 @@ impl InterpreterForCell {
                     cpu_instruction_count
                 }
                 Err(p) => {
-                    return Err(from_starlark(p).into());
+                    return Err(p.into());
                 }
             }
         };

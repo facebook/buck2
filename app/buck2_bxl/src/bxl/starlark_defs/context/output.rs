@@ -23,7 +23,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::buck2_error;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
@@ -180,7 +179,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         };
 
         for arg in args {
-            if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg).map_err(from_starlark)? {
+            if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg)? {
                 let path = get_artifact_path_display(
                     ensured.get_artifact_path(),
                     ensured.abs(),
@@ -188,9 +187,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     &this.artifact_fs,
                 )?;
                 write(&path)?;
-            } else if let Some(ensured) =
-                <&EnsuredArtifactGroup>::unpack_value(arg).map_err(from_starlark)?
-            {
+            } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg)? {
                 BxlEvalExtra::from_context(eval)?
                     .dice
                     .borrow_mut()

@@ -27,7 +27,6 @@ use buck2_common::events::HasEvents;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
@@ -164,7 +163,7 @@ impl AnonImpl {
             &[bxl_ctx.to_value(), attrs.get()],
             &[],
         )
-        .map_err(|e| from_starlark(e).into())
+        .map_err(|e| e.into())
     }
 
     fn promise_artifact_mappings<'v>(

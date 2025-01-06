@@ -25,7 +25,6 @@ use buck2_data::BxlExecutionStart;
 use buck2_data::StarlarkFailNoStacktrace;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
@@ -378,9 +377,7 @@ pub(crate) fn get_bxl_callable(
         .map_err(from_any)?
         .0;
 
-    callable
-        .downcast_starlark::<FrozenBxlFunction>()
-        .map_err(from_starlark)
+    Ok(callable.downcast_starlark::<FrozenBxlFunction>()?)
 }
 
 pub(crate) struct CliResolutionCtx<'a> {

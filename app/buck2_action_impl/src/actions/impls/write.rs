@@ -29,7 +29,6 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_core::category::CategoryRef;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -101,10 +100,7 @@ impl WriteAction {
             return Err(WriteActionValidationError::TooManyInputs.into());
         }
 
-        if ValueAsCommandLineLike::unpack_value(contents.value())
-            .map_err(from_starlark)?
-            .is_none()
-        {
+        if ValueAsCommandLineLike::unpack_value(contents.value())?.is_none() {
             return Err(WriteActionValidationError::ContentsNotCommandLineValue(
                 contents.value().to_repr(),
             )

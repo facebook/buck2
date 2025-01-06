@@ -19,7 +19,6 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
@@ -241,7 +240,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
 
         let mut providers = SmallMap::with_capacity(list.len());
         for value in list.iter() {
-            match ValueAsProviderLike::unpack_value(value).map_err(from_starlark)? {
+            match ValueAsProviderLike::unpack_value(value)? {
                 Some(provider) => {
                     if let Some(existing_value) = providers.insert(provider.0.id().dupe(), value) {
                         return Err(ProviderCollectionError::CollectionSpecifiedProviderTwice {
@@ -492,7 +491,7 @@ impl FrozenProviderCollectionValue {
 
     pub fn try_from_value(value: OwnedFrozenValue) -> buck2_error::Result<Self> {
         Ok(Self {
-            value: value.downcast_starlark().map_err(from_starlark)?,
+            value: value.downcast_starlark()?,
         })
     }
 

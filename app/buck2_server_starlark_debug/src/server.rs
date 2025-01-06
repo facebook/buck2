@@ -19,7 +19,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::conversion::from_any;
-use buck2_error::starlark_error::from_starlark;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::starlark_debug::StarlarkDebugController;
@@ -909,7 +908,7 @@ impl ServerState {
             },
         ) {
             Ok(v) => Ok(v),
-            Err(e) => Err(from_starlark(e)),
+            Err(e) => Err(e.into()),
         }
     }
 }
