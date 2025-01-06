@@ -103,7 +103,12 @@ pub mod __macro_refs {
 #[macro_export]
 macro_rules! ident_key {
     ($name:ident) => {{
-        const KEY: $crate::Key = $crate::Key::new(stringify!(name));
+        const KEY: $crate::Key = $crate::Key::new(stringify!($name));
         KEY
     }};
+}
+
+#[test]
+fn ident_key() {
+    assert_eq!(ident_key!(foo), Key::new("foo"));
 }
