@@ -61,6 +61,7 @@ PexProviders = record(
     hidden_resources = list[ArgLike],
     sub_targets = dict[str, list[Provider]],
     run_cmd = cmd_args,
+    dbg_source_db = field(Artifact | None, None),
 )
 
 ManifestModule = record(

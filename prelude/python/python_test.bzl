@@ -73,13 +73,16 @@ def python_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Setup RE executors based on the `remote_execution` param.
     re_executor, executor_overrides = get_re_executors_from_props(ctx)
+    test_env = ctx.attrs.env
+    if pex.dbg_source_db:
+        test_env["PYTHON_SOURCE_MAP"] = pex.dbg_source_db
 
     return inject_test_run_info(
         ctx,
         ExternalRunnerTestInfo(
             type = "pyunit",
             command = [test_cmd],
-            env = ctx.attrs.env,
+            env = test_env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
             default_executor = re_executor,

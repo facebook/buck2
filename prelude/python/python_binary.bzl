@@ -398,6 +398,16 @@ def python_executable(
         dbg_source_db_output,
     )
 
+    exe = PexProviders(
+        default_output = exe.default_output,
+        other_outputs = exe.other_outputs,
+        other_outputs_prefix = exe.other_outputs_prefix,
+        hidden_resources = exe.hidden_resources,
+        sub_targets = exe.sub_targets,
+        run_cmd = exe.run_cmd,
+        dbg_source_db = dbg_source_db_output,
+    )
+
     exe.sub_targets.update({
         "dbg-source-db": [dbg_source_db],
         "library-info": [library_info],
