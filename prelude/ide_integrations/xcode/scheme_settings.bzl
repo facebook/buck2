@@ -16,7 +16,7 @@ XcodeSchemeSettingsInfo = provider(
 )
 
 XCODE_SCHEME_SETTINGS_ATTR_NAME = "xcode_scheme_settings"
-XCODE_SCHEME_SETTINGS_ATTR_TYPE = attrs.option(attrs.dep(providers = [XcodeSchemeSettingsInfo]), default = None, doc = "Optional settings to set on schemes when this target is represented in Xcode.")
+XCODE_SCHEME_SETTINGS_ATTR_TYPE = attrs.option(attrs.source(), default = None, doc = "Optional settings to set on schemes when this target is represented in Xcode.")
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     data = {}
