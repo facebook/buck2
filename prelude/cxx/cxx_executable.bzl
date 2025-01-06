@@ -28,6 +28,10 @@ load(
     "cxx_use_bolt",
 )
 load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "PicBehavior",
+)
+load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupsDebugLinkInfo",
     "LinkGroupsDebugLinkableItem",
@@ -56,6 +60,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkArgs",
     "LinkCommandDebugOutput",
     "LinkInfo",
@@ -63,6 +68,7 @@ load(
     "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
     "ObjectsLinkable",
+    "get_lib_output_style",
     "make_link_command_debug_output",
     "make_link_command_debug_output_json_info",
     "to_link_strategy",
@@ -515,11 +521,19 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # Only setup a shared library symlink tree when shared linkage or link_groups is used
     gnu_use_link_groups = cxx_is_gnu(ctx) and len(link_group_mappings) > 0
     shlib_deps = []
-    if impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink") or link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
+    if link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
         shlib_deps = (
             [d.shared_library_info for d in link_deps] +
             [d.shared_library_info for d in impl_params.extra_link_roots]
         )
+    elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink"):
+        for d in link_deps + impl_params.extra_link_roots:
+            if d.linkable_graph == None:
+                continue
+            preferred_linkage = d.linkable_graph.nodes.value.linkable.preferred_linkage
+            output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
+            if output_style == LibOutputStyle("shared_lib"):
+                shlib_deps.append(d.shared_library_info)
 
     shlib_info = merge_shared_libraries(ctx.actions, deps = shlib_deps)
 
