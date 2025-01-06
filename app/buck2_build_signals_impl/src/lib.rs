@@ -46,8 +46,8 @@ use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
-use buck2_interpreter_for_build::interpreter::calculation::IntepreterResultsKeyActivationData;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
+use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use dice::ActivationData;
 use dice::ActivationTracker;
@@ -181,7 +181,7 @@ pub(crate) struct Evaluation {
     /// NodeKey::BuildKey).
     action_with_extra_data: Option<ActionWithExtraData>,
 
-    /// The Load result that corresponds to this Evaluation (this will only be pesent for
+    /// The Load result that corresponds to this Evaluation (this will only be present for
     /// InterpreterResultsKey).
     load_result: Option<Arc<EvaluationResult>>,
 }
@@ -276,7 +276,7 @@ impl ActivationTracker for BuildSignalSender {
                     queue: None,
                 };
                 signal.spans = spans;
-            } else if let Some(IntepreterResultsKeyActivationData {
+            } else if let Some(InterpreterResultsKeyActivationData {
                 duration,
                 result,
                 spans,
@@ -518,7 +518,7 @@ where
     }
 
     /// Receive an Evaluation. Do a little enrichment if it's a load, then pass through to the
-    /// underying backend.
+    /// underlying backend.
     fn process_evaluation(&mut self, mut evaluation: Evaluation) {
         self.enrich_load(&mut evaluation);
 
@@ -532,7 +532,7 @@ where
     }
 
     /// If the evaluation is a load (InterpreterResultsKey) and carries a load_result, then inject
-    /// some extra edges that indicate which packages have now become visibile as a result of this
+    /// some extra edges that indicate which packages have now become visible as a result of this
     /// load.
     fn enrich_load(&mut self, evaluation: &mut Evaluation) {
         let pkg = match &evaluation.key {

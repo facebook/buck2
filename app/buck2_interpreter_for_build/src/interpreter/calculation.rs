@@ -74,7 +74,7 @@ impl Key for InterpreterResultsKey {
         let ((duration, result), spans) =
             async_record_root_spans(ctx.get_interpreter_results_uncached(self.0.dupe())).await;
 
-        ctx.store_evaluation_data(IntepreterResultsKeyActivationData {
+        ctx.store_evaluation_data(InterpreterResultsKeyActivationData {
             duration,
             result: result.dupe(),
             spans,
@@ -252,7 +252,7 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
     }
 }
 
-pub struct IntepreterResultsKeyActivationData {
+pub struct InterpreterResultsKeyActivationData {
     /// Duration of just the starlark evaluation of the build file.
     pub duration: Duration,
     pub result: buck2_error::Result<Arc<EvaluationResult>>,

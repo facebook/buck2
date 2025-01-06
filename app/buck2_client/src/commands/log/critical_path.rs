@@ -30,7 +30,7 @@ use crate::commands::log::LogCommandOutputFormatWithWriter;
 ///
 /// This produces tab-delimited output listing every node on the critical path.
 ///
-/// It includes the kind of node, its name, category and identfier, as well as total duration
+/// It includes the kind of node, its name, category and identifier, as well as total duration
 /// (runtime of this node), user duration (duration the user can improve) and potential improvement
 /// before this node stops being on the critical path.
 ///
