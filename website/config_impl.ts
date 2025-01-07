@@ -141,7 +141,7 @@ const themeConfig: ClassicPresetConfig = ({
     internal: undefined,
     external: {
       appId: '9RT0EWXQO8',
-      apiKey: 'c0c0727b6bdf3fe8bc6f743ae1878232',
+      apiKey: 'cf8a08e681e1e1d8a73a08d3f13948c7',
       indexName: 'buck2',
     }
   }),
