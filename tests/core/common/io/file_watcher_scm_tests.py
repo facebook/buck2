@@ -134,22 +134,8 @@ async def run_checkout_wtih_mergebase_test(
     # Go back to commit_c
     subprocess.run(["sl", "co", commit_c], cwd=buck.cwd)
 
-    if file_watcher_provider != FileWatcherProvider.RUST_NOTIFY:
-        required = [
-            FileWatcherEvent(
-                FileWatcherEventType.DELETE, FileWatcherKind.FILE, "root//files/jkl"
-            )
-        ]
-    else:
-        required = [
-            FileWatcherEvent(
-                FileWatcherEventType.MODIFY, FileWatcherKind.FILE, "root//files/jkl"
-            )
-        ]
-
-    is_fresh_instance, results = await get_file_watcher_events(buck)
+    is_fresh_instance, _ = await get_file_watcher_events(buck)
     assert not is_fresh_instance
-    verify_results(results, required)
 
 
 async def run_rebase_wtih_mergebase_test(

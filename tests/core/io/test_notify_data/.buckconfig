@@ -9,3 +9,4 @@
 
 [project]
   watchman_merge_base = main
+  ignore = .hg
