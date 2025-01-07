@@ -156,8 +156,6 @@ def create_jar_artifact_javacd(
             source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
         proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
 
-        proto_with_inputs = actions.write_json(proto, encoded_command, with_inputs = True)
-
         # for javacd we expect java_toolchain.javac to be a dependency. Otherwise, it won't work when we try to debug it.
         expect(isinstance(java_toolchain.javac, Dependency), "java_toolchain.javac must be of type dependency but it is {}".format(type(java_toolchain.javac)))
         compiler = java_toolchain.javac[DefaultInfo].default_outputs[0]
@@ -175,30 +173,16 @@ def create_jar_artifact_javacd(
             extra_jvm_args_target = java_toolchain.javacd_jvm_args_target,
         )
 
+        post_build_params = {}
         args = cmd_args()
-        args.add(
-            "--action-id",
-            qualified_name,
-            "--command-file",
-            proto_with_inputs,
-        )
         if target_type == TargetType("library") and should_create_class_abi:
-            args.add(
-                "--full-library",
-                output_paths.jar.as_output(),
-                "--class-abi-output",
-                class_abi_jar.as_output(),
-                "--abi-output-dir",
-                class_abi_output_dir.as_output(),
-            )
+            post_build_params["fullLibrary"] = output_paths.jar.as_output()
+            post_build_params["classAbi"] = class_abi_jar.as_output()
+            post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
 
         if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
-            args.add(
-                "--javacd-abi-output",
-                output_paths.jar.as_output(),
-                "--abi-output-dir",
-                abi_dir.as_output(),
-            )
+            post_build_params["cdAbi"] = output_paths.jar.as_output()
+            post_build_params["abiOutputDir"] = abi_dir.as_output()
 
         dep_files = {}
         if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
@@ -216,6 +200,7 @@ def create_jar_artifact_javacd(
                 actions,
                 actions_identifier,
                 args,
+                post_build_params,
                 classpath_jars_tag,
                 used_classes_json_outputs,
                 abi_to_abi_dir_map,
@@ -223,6 +208,19 @@ def create_jar_artifact_javacd(
             )
 
             dep_files["classpath_jars"] = classpath_jars_tag
+
+        java_build_command = struct(
+            buildCommand = encoded_command,
+            postBuildParams = post_build_params,
+        )
+        proto_with_inputs = actions.write_json(proto, java_build_command, with_inputs = True)
+
+        args.add(
+            "--action-id",
+            qualified_name,
+            "--command-file",
+            proto_with_inputs,
+        )
 
         actions.run(
             args,
