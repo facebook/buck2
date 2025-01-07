@@ -42,12 +42,8 @@ async def do_critical_path(buck: Buck, correct_analysis: bool) -> None:
         for e in critical_path
     ]
 
-    # There is now non-determism in this test since what we get back depends on
-    # where the analysis becomes the longest path. This gets fixed later in
-    # this stack.
-
-    assert len(trimmed_critical_path) > 0
     expected = [
+        ("listing", "root//"),
         ("load", "root//"),
         ("analysis", "root//:step_0"),
         ("analysis", "root//:step_1"),
@@ -60,6 +56,13 @@ async def do_critical_path(buck: Buck, correct_analysis: bool) -> None:
         ("materialization", "root//:step_3"),
         ("compute-critical-path", ""),
     ]
+    if correct_analysis:
+        assert len(critical_path) == len(expected)
+    else:
+        # If correct_analysis = False (i.e. backend is the default), analysis nodes are not handled properly.
+        # There is now non-determinism in this test since what we get back depends on
+        # where the analysis becomes the longest path.
+        assert len(trimmed_critical_path) > 0
 
     for s, e in zip(reversed(trimmed_critical_path), reversed(expected)):
         if s.kind == "action":
@@ -101,6 +104,7 @@ async def test_critical_path_json(buck: Buck) -> None:
 
     assert len(critical_path) > 0
     expected = [
+        ("listing", "root//"),
         ("load", "root//"),
         ("analysis", "root//:step_0"),
         ("analysis", "root//:step_1"),
@@ -116,9 +120,10 @@ async def test_critical_path_json(buck: Buck) -> None:
 
     for critical, exp in zip(reversed(critical_path), reversed(expected)):
         if critical["kind"] == "analysis":
-            # There is now non-determism in this test since what we get back depends on
-            # where the analysis becomes the longest path. This gets fixed later in
-            # this stack.
+            # When the backend is the default, analysis nodes are not handled properly.
+            # There is now non-determinism in this test since what we get back depends on
+            # where the analysis becomes the longest path.
+            # This is fixed when critical_path_backend2 = longest-path-graph.
             break
 
         assert "kind" in critical
