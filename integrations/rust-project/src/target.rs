@@ -25,7 +25,7 @@ use serde::Deserializer;
 use serde::Serialize;
 
 use crate::json_project::Edition;
-use crate::path::canonicalize;
+use crate::path::canonicalize_to_vcs_path;
 
 #[derive(Serialize, Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub(crate) struct Target(String);
@@ -158,9 +158,9 @@ impl TargetInfo {
         name.to_owned()
     }
 
-    pub(crate) fn root_module(&self) -> anyhow::Result<PathBuf> {
+    pub(crate) fn root_module(&self, project_root: &Path) -> anyhow::Result<PathBuf> {
         let p = self.source_folder.join(&self.crate_root);
-        canonicalize(&p).with_context(|| format!("path={}", p.display()))
+        canonicalize_to_vcs_path(&p, project_root).with_context(|| format!("path={}", p.display()))
     }
 
     pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {

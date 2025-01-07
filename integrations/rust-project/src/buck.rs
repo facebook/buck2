@@ -121,7 +121,7 @@ pub(crate) fn to_json_project(
 
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
-        let mut root_module = info.root_module();
+        let mut root_module = info.root_module(&project_root);
 
         if relative_paths {
             proc_macro_dylib_path = proc_macro_dylib_path.map(|p| relative_to(&p, &project_root));
