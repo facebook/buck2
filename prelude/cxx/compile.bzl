@@ -117,10 +117,8 @@ _CxxCompileCommand = record(
     argsfile = field(CompileArgsfile),
     # The argsfile to use for Xcode integration.
     xcode_argsfile = field(CompileArgsfile),
-    # The argsfile containing exported header units args (for precompilation).
+    # The argsfile containing header units args.
     header_units_argsfile = field(CompileArgsfile | None),
-    # The argsfile containing all header units args (for actual compilation).
-    private_header_units_argsfile = field(CompileArgsfile | None),
     headers_dep_files = field([_HeadersDepFiles, None]),
     compiler_type = field(str),
     # The action category
@@ -302,8 +300,7 @@ def create_compile_cmds(
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo],
-        add_coverage_instrumentation_compiler_flags: bool,
-        header_preprocessor_info: CPreprocessorInfo = CPreprocessorInfo()) -> CxxCompileCommandOutput:
+        add_coverage_instrumentation_compiler_flags: bool) -> CxxCompileCommandOutput:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -360,7 +357,7 @@ def create_compile_cmds(
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(ctx, impl_params, pre, header_preprocessor_info, headers_tag, ext)
+        cmd = _generate_base_compile_command(ctx, impl_params, pre, headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
@@ -658,8 +655,8 @@ def _get_base_compile_cmd(
     if pic:
         cmd.add(get_pic_flags(compiler_type))
 
-    if use_header_units and src_compile_cmd.cxx_compile_cmd.private_header_units_argsfile:
-        cmd.add(src_compile_cmd.cxx_compile_cmd.private_header_units_argsfile.cmd_form)
+    if use_header_units and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
+        cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
 
     cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
     cmd.add(src_compile_cmd.args)
@@ -838,8 +835,8 @@ module "{}" {{
             ctx = ctx,
             compiler_info = compiler_info,
             preprocessor = cxx_merge_cpreprocessors(ctx, extra_preprocessors, []),
-            name = "export" + group_name,
             ext = CxxExtension(".cpp"),
+            filename_prefix = "export{}_".format(group_name),
         )
 
     for header in headers:
@@ -921,7 +918,7 @@ def precompile_cxx(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
         preprocessors: list[CPreprocessor],
-        compile_cmd_output: CxxCompileCommandOutput) -> list[CPreprocessor]:
+        header_preprocessor_info: CPreprocessorInfo) -> list[CPreprocessor]:
     """
     Produces header units for the target and returns a list of preprocessors enabling
     them; depending on those preprocessors will allow the corresponding module to load.
@@ -931,9 +928,8 @@ def precompile_cxx(
         return []
 
     ext = CxxExtension(".cpp")
-    if ext not in compile_cmd_output.base_compile_cmds:
-        return []
-    cmd = compile_cmd_output.base_compile_cmds[ext]
+    headers_tag = ctx.actions.artifact_tag()
+    cmd = _generate_base_compile_command(ctx, impl_params, header_preprocessor_info, headers_tag, ext, "pre_")
 
     header_unit_preprocessors = []
     if len(impl_params.export_header_unit_filter) <= 1:
@@ -1117,12 +1113,14 @@ def _mk_argsfiles(
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
         headers_tag: ArtifactTag,
-        is_xcode_argsfile: bool) -> CompileArgsfile:
+        is_xcode_argsfile: bool,
+        filename_prefix: str = "") -> CompileArgsfile:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
     is_nasm = compiler_info.compiler_type == "nasm"
-    filename_prefix = "xcode_" if is_xcode_argsfile else ""
+    if is_xcode_argsfile:
+        filename_prefix += "xcode_"
 
     argsfiles = []
     args_list = []
@@ -1221,8 +1219,8 @@ def _mk_header_units_argsfile(
         ctx: AnalysisContext,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
-        name: str,
-        ext: CxxExtension) -> CompileArgsfile | None:
+        ext: CxxExtension,
+        filename_prefix: str) -> CompileArgsfile | None:
     """
     Generate and return an argsfile artifact containing all header unit options, and
     command args that utilize the argsfile.
@@ -1234,7 +1232,7 @@ def _mk_header_units_argsfile(
     if not _compiler_supports_header_units(compiler_info):
         return None
 
-    file_name = "{}.{}.header_units_args".format(ext.value, name)
+    file_name = "{}.{}header_units_args".format(ext.value, filename_prefix)
     args = cmd_args()
     args.add([
         # TODO(nml): We only support Clang 17+, which don't need/want the extra -f
@@ -1276,9 +1274,9 @@ def _generate_base_compile_command(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
         pre: CPreprocessorInfo,
-        header_pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
-        ext: CxxExtension) -> _CxxCompileCommand:
+        ext: CxxExtension,
+        filename_prefix: str = "") -> _CxxCompileCommand:
     """
     Generate a common part of a compile command that is shared by all sources
     with a given extension.
@@ -1301,10 +1299,9 @@ def _generate_base_compile_command(
                 dep_tracking_mode = tracking_mode,
             )
 
-    argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, False)
-    xcode_argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, True)
-    header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, header_pre, "public", ext)
-    private_header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, "private", ext)
+    argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, False, filename_prefix)
+    xcode_argsfile = _mk_argsfiles(ctx, impl_params, compiler_info, pre, ext, headers_tag, True, filename_prefix)
+    header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, ext, filename_prefix)
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
     return _CxxCompileCommand(
@@ -1312,7 +1309,6 @@ def _generate_base_compile_command(
         argsfile = argsfile,
         xcode_argsfile = xcode_argsfile,
         header_units_argsfile = header_units_argsfile,
-        private_header_units_argsfile = private_header_units_argsfile,
         headers_dep_files = headers_dep_files,
         compiler_type = compiler_info.compiler_type,
         category = category,

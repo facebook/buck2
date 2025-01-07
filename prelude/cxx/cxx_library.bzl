@@ -1097,25 +1097,28 @@ def cxx_compile_srcs(
     """
 
     # Create the commands and argsfiles to use for compiling each source file
+    compile_cmd_output = create_compile_cmds(
+        ctx = ctx,
+        impl_params = impl_params,
+        own_preprocessors = own_preprocessors,
+        inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
+        add_coverage_instrumentation_compiler_flags = add_coverage_instrumentation_compiler_flags,
+    )
+
+    # Define header unit.
+    header_unit_preprocessors = []
     if own_exported_preprocessors:
         header_preprocessor_info = cxx_merge_cpreprocessors(
             ctx,
             own_exported_preprocessors,
             inherited_exported_preprocessor_infos,
         )
-    else:
-        header_preprocessor_info = CPreprocessorInfo()
-    compile_cmd_output = create_compile_cmds(
-        ctx = ctx,
-        impl_params = impl_params,
-        own_preprocessors = own_preprocessors,
-        inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
-        header_preprocessor_info = header_preprocessor_info,
-        add_coverage_instrumentation_compiler_flags = add_coverage_instrumentation_compiler_flags,
-    )
-
-    # Define header unit.
-    header_unit_preprocessors = precompile_cxx(ctx, impl_params, own_exported_preprocessors, compile_cmd_output)
+        header_unit_preprocessors.extend(precompile_cxx(
+            ctx = ctx,
+            impl_params = impl_params,
+            preprocessors = own_exported_preprocessors,
+            header_preprocessor_info = header_preprocessor_info,
+        ))
 
     # Define object files.
     pic_cxx_outs = compile_cxx(
