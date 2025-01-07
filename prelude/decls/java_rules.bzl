@@ -135,7 +135,8 @@ java_binary = prelude_rule(
                  If provided, the contents in this directory will end up in the
                  `META-INF` directory inside the generated JAR file.
             """),
-            "blacklist": attrs.list(attrs.regex(), default = [], doc = """
+            "blacklist": attrs.list(attrs.regex(), default = []),
+            "blocklist": attrs.list(attrs.regex(), default = [], doc = """
                 A list of patterns that identify files to exclude from the final generated JAR
                  file. Example:
 
@@ -144,7 +145,7 @@ java_binary = prelude_rule(
 
                 java_binary(
                   name = 'example',
-                  blacklist = [
+                  blocklist = [
                     # Excludes com.example.A and com.example.Alligator,
                     # as well as their inner classes and any non-class files that happen to match
                     # the pattern

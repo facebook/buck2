@@ -93,7 +93,8 @@ def _create_fat_jar(
     if build_manifest:
         args += ["--build_manifest", build_manifest]
 
-    blocklist = ctx.attrs.blacklist
+    expect(not (ctx.attrs.blacklist and ctx.attrs.blocklist), "Cannot set both blacklist and blocklist!")
+    blocklist = ctx.attrs.blacklist or ctx.attrs.blocklist
     if blocklist:
         args += ["--blocklist", ctx.actions.write("{}blocklist_args".format(name_prefix), blocklist)]
 
