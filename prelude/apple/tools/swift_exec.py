@@ -45,11 +45,12 @@ def _get_modulename(args):
 
 def _get_modules(command):
     args = _expand_args(command)
+    modules = set()
+    modules.add(_get_modulename(args))
     modulemap = _get_modulemap(args)
     if modulemap is None:
-        return set()
+        return modules
 
-    modules = set()
     for entry in modulemap:
         # We only remove prefixes from first party modules.
         if "sdk_deps" in entry.get("clangModulePath", ""):
@@ -59,33 +60,25 @@ def _get_modules(command):
         else:
             modules.add(entry["moduleName"])
 
-    modules.add(_get_modulename(args))
-
     return modules
 
 
 def _remove_swiftinterface_module_prefixes(command):
     interface_path = command[command.index("-emit-module-interface-path") + 1]
     modules = _get_modules(command)
-    if len(modules) == 0:
-        return
+    pattern = re.compile(r"(\w+)\.([\w.]+)")
 
-    with open(interface_path) as f:
+    def replace_module_prefixes(match):
+        if match.group(1) in modules:
+            return match.group(2)
+        else:
+            return match.group(0)
+
+    with open(interface_path, "r+") as f:
         interface = f.read()
-
-    output = []
-    pattern = re.compile(r"(\w+)\.(\w+)")
-    for line in interface.splitlines():
-        outline = line
-        for m in pattern.finditer(line):
-            if m.group(1) in modules:
-                outline = outline.replace(m.group(0), m.group(2))
-
-        output.append(outline)
-
-    with open(interface_path, "w") as f:
-        f.write("\n".join(output))
-        f.write("\n")
+        f.seek(0)
+        f.write(pattern.sub(replace_module_prefixes, interface))
+        f.truncate()
 
 
 def main():
