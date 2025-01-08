@@ -30,6 +30,10 @@
                 "stdout_content": "<STRING_HASH>"
               },
               "cause_index": 0,
+              "error_tags": [
+                "ACTION_COMMAND_FAILURE",
+                "ANY_ACTION_EXECUTION"
+              ],
               "message_content": "<STRING_HASH>"
             }
           ],
@@ -52,6 +56,10 @@
             {
               "action_error": null,
               "cause_index": 1,
+              "error_tags": [
+                "ANALYSIS",
+                "STARLARK_FAIL"
+              ],
               "message_content": "<STRING_HASH>"
             }
           ],
@@ -73,6 +81,10 @@
         {
           "action_error": null,
           "cause_index": 2,
+          "error_tags": [
+            "ANALYSIS",
+            "INPUT"
+          ],
           "message_content": "<STRING_HASH>"
         }
       ],
@@ -87,6 +99,9 @@
         {
           "action_error": null,
           "cause_index": 3,
+          "error_tags": [
+            "STARLARK_FAIL"
+          ],
           "message_content": "<STRING_HASH>"
         }
       ],
@@ -101,6 +116,9 @@
         {
           "action_error": null,
           "cause_index": 4,
+          "error_tags": [
+            "INPUT"
+          ],
           "message_content": "<STRING_HASH>"
         }
       ],

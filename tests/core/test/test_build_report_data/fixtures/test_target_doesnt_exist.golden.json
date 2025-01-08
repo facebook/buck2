@@ -12,6 +12,9 @@
         {
           "action_error": null,
           "cause_index": 0,
+          "error_tags": [
+            "INPUT"
+          ],
           "message_content": "17742238780201989333"
         }
       ],

@@ -13,6 +13,9 @@
             {
               "action_error": null,
               "cause_index": 0,
+              "error_tags": [
+                "ANALYSIS"
+              ],
               "message_content": "5564745075654374890"
             }
           ],

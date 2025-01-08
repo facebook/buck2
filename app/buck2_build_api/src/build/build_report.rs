@@ -142,6 +142,7 @@ struct BuildReportEntry {
 struct BuildReportError {
     message_content: String,
     action_error: Option<BuildReportActionError>,
+    error_tags: Vec<String>,
     /// An opaque index that can be use to de-duplicate errors. Two errors with the same
     /// cause index have the same cause
     ///
@@ -436,6 +437,7 @@ impl<'a> BuildReportCollector<'a> {
             root: UniqueRootId,
             cause_index: Option<usize>,
             message: String,
+            error_tags: Vec<String>,
             action_error: Option<BuildReportActionError>,
         }
 
@@ -450,10 +452,17 @@ impl<'a> BuildReportCollector<'a> {
             } else {
                 error_report.message
             };
+            let error_tags = e
+                .tags()
+                .into_iter()
+                .map(|tag| tag.as_str_name().to_owned())
+                .collect_vec();
+
             temp.push(ExpandedErrorInfo {
                 root,
                 cause_index: self.error_cause_cache.get(&root).copied(),
                 message,
+                error_tags,
                 action_error: e
                     .action_error()
                     .map(|e| BuildReportActionError::new(e, self)),
@@ -503,6 +512,7 @@ impl<'a> BuildReportCollector<'a> {
             out.push(BuildReportError {
                 message_content,
                 action_error: info.action_error,
+                error_tags: info.error_tags,
                 cause_index,
             });
         }

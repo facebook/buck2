@@ -13,6 +13,9 @@
         {
           "action_error": null,
           "cause_index": 0,
+          "error_tags": [
+            "STARLARK_FAIL"
+          ],
           "message_content": "<STRING_HASH>"
         }
       ],
@@ -27,6 +30,9 @@
         {
           "action_error": null,
           "cause_index": 0,
+          "error_tags": [
+            "STARLARK_FAIL"
+          ],
           "message_content": "<STRING_HASH>"
         }
       ],

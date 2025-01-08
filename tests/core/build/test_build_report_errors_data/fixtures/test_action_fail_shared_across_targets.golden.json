@@ -27,6 +27,10 @@
                 "stdout_content": "<STRING_HASH>"
               },
               "cause_index": 0,
+              "error_tags": [
+                "ACTION_COMMAND_FAILURE",
+                "ANY_ACTION_EXECUTION"
+              ],
               "message_content": "<STRING_HASH>"
             }
           ],
@@ -62,6 +66,10 @@
                 "stdout_content": "<STRING_HASH>"
               },
               "cause_index": 0,
+              "error_tags": [
+                "ACTION_COMMAND_FAILURE",
+                "ANY_ACTION_EXECUTION"
+              ],
               "message_content": "<STRING_HASH>"
             }
           ],

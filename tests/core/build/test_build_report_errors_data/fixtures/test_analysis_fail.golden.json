@@ -13,6 +13,10 @@
             {
               "action_error": null,
               "cause_index": 0,
+              "error_tags": [
+                "ANALYSIS",
+                "STARLARK_FAIL"
+              ],
               "message_content": "<STRING_HASH>"
             }
           ],
