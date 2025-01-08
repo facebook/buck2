@@ -10,6 +10,7 @@ load(
     "ClasspathSnapshotGranularity",
     "JavaClasspathEntry",  # @unused Used as a type
     "JavaCompileOutputs",  # @unused Used as a type
+    "JavaCompilingDepsTSet",  # @unused Used as a type
     "generate_java_classpath_snapshot",
     "make_compile_outputs",
 )
@@ -37,7 +38,7 @@ load(
     "base_qualified_name",
     "declare_prefixed_output",
     "define_output_paths",
-    "encode_base_jar_command",
+    "encode_command",
     "generate_abi_jars",
     "get_abi_generation_mode",
     "get_compiling_deps_tset",
@@ -103,44 +104,6 @@ def create_jar_artifact_javacd(
 
     # external javac does not support used classes
     track_class_usage = javac_tool == None and java_toolchain.track_class_usage
-
-    def encode_command(
-            build_mode: BuildMode,
-            target_type: TargetType,
-            output_paths: OutputPaths,
-            path_to_class_hashes: [Artifact, None],
-            classpath_jars_tag: ArtifactTag,
-            source_only_abi_compiling_deps: list[JavaClasspathEntry],
-            track_class_usage: bool,
-            incremental_state_dir: [Artifact, None]) -> struct:
-        expect(incremental_state_dir == None, "incremenatl_state_dir should not be provided for java library: {}".format(incremental_state_dir))
-        base_jar_command = encode_base_jar_command(
-            javac_tool,
-            target_type,
-            output_paths,
-            path_to_class_hashes,
-            remove_classes,
-            label,
-            compiling_deps_tset,
-            classpath_jars_tag,
-            bootclasspath_entries,
-            source_level,
-            target_level,
-            abi_generation_mode,
-            srcs,
-            resources_map,
-            annotation_processor_properties,
-            plugin_params,
-            manifest_file,
-            extra_arguments,
-            source_only_abi_compiling_deps = source_only_abi_compiling_deps,
-            track_class_usage = track_class_usage,
-        )
-
-        return struct(
-            buildMode = build_mode,
-            baseJarCommand = base_jar_command,
-        )
 
     # buildifier: disable=uninitialized
     def define_javacd_action(
@@ -242,7 +205,23 @@ def create_jar_artifact_javacd(
         )
 
     library_classpath_jars_tag = actions.artifact_tag()
-    command = encode_command(
+    command_builder = _command_builder(
+        javac_tool = javac_tool,
+        label = label,
+        srcs = srcs,
+        remove_classes = remove_classes,
+        annotation_processor_properties = annotation_processor_properties,
+        plugin_params = plugin_params,
+        manifest_file = manifest_file,
+        source_level = source_level,
+        target_level = target_level,
+        compiling_deps_tset = compiling_deps_tset,
+        bootclasspath_entries = bootclasspath_entries,
+        abi_generation_mode = abi_generation_mode,
+        resources_map = resources_map,
+        extra_arguments = extra_arguments,
+    )
+    command = command_builder(
         build_mode = BuildMode("LIBRARY"),
         target_type = TargetType("library"),
         output_paths = output_paths,
@@ -250,7 +229,6 @@ def create_jar_artifact_javacd(
         classpath_jars_tag = library_classpath_jars_tag,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
-        incremental_state_dir = None,
     )
     define_javacd_action(
         "",
@@ -278,20 +256,20 @@ def create_jar_artifact_javacd(
 
     if not is_creating_subtarget:
         class_abi, source_abi, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
-            actions,
-            actions_identifier,
-            label,
-            abi_generation_mode,
-            additional_compiled_srcs,
-            is_building_android_binary,
-            java_toolchain.class_abi_generator,
-            final_jar_output.final_jar,
-            compiling_deps_tset,
-            source_only_abi_deps,
+            actions = actions,
+            actions_identifier = actions_identifier,
+            label = label,
+            abi_generation_mode = abi_generation_mode,
+            additional_compiled_srcs = additional_compiled_srcs,
+            is_building_android_binary = is_building_android_binary,
+            class_abi_generator = java_toolchain.class_abi_generator,
+            final_jar = final_jar_output.final_jar,
+            compiling_deps_tset = compiling_deps_tset,
+            source_only_abi_deps = source_only_abi_deps,
             class_abi_jar = class_abi_jar,
             class_abi_output_dir = class_abi_output_dir,
             track_class_usage = track_class_usage,
-            encode_abi_command = encode_command,
+            encode_abi_command = command_builder,
             define_action = define_javacd_action,
         )
 
@@ -318,3 +296,38 @@ def create_jar_artifact_javacd(
             abi_jar_snapshot = full_jar_snapshot,
         )
     return result
+
+def _command_builder(
+        javac_tool: [str, RunInfo, Artifact, None],
+        label: Label,
+        srcs: list[Artifact],
+        remove_classes: list[str],
+        annotation_processor_properties: AnnotationProcessorProperties,
+        plugin_params: [PluginParams, None],
+        manifest_file: Artifact | None,
+        source_level: int,
+        target_level: int,
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
+        bootclasspath_entries: list[Artifact],
+        abi_generation_mode: AbiGenerationMode,
+        resources_map: dict[str, Artifact],
+        extra_arguments: cmd_args):
+    return partial(
+        encode_command,
+        javac_tool = javac_tool,
+        label = label,
+        srcs = srcs,
+        remove_classes = remove_classes,
+        annotation_processor_properties = annotation_processor_properties,
+        plugin_params = plugin_params,
+        manifest_file = manifest_file,
+        source_level = source_level,
+        target_level = target_level,
+        compiling_deps_tset = compiling_deps_tset,
+        bootclasspath_entries = bootclasspath_entries,
+        abi_generation_mode = abi_generation_mode,
+        resources_map = resources_map,
+        extra_arguments = extra_arguments,
+        kotlin_extra_params = None,
+        should_compiler_run_incrementally = False,
+    )

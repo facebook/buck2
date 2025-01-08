@@ -508,6 +508,67 @@ def prepare_final_jar(
 
     return make_output(merged_jar)
 
+def encode_command(
+        javac_tool: [str, RunInfo, Artifact, None],
+        label: Label,
+        srcs: list[Artifact],
+        remove_classes: list[str],
+        annotation_processor_properties: AnnotationProcessorProperties,
+        plugin_params: [PluginParams, None],
+        manifest_file: Artifact | None,
+        source_level: int,
+        target_level: int,
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
+        bootclasspath_entries: list[Artifact],
+        abi_generation_mode: AbiGenerationMode,
+        resources_map: dict[str, Artifact],
+        extra_arguments: cmd_args,
+        kotlin_extra_params: [struct, None],
+        should_compiler_run_incrementally: bool,
+        build_mode: BuildMode,
+        target_type: TargetType,
+        output_paths: OutputPaths,
+        path_to_class_hashes: [Artifact, None],
+        classpath_jars_tag: ArtifactTag,
+        source_only_abi_compiling_deps: list[JavaClasspathEntry],
+        track_class_usage: bool) -> struct:
+    base_jar_command = encode_base_jar_command(
+        javac_tool,
+        target_type,
+        output_paths,
+        path_to_class_hashes,
+        remove_classes,
+        label,
+        compiling_deps_tset,
+        classpath_jars_tag,
+        bootclasspath_entries,
+        source_level,
+        target_level,
+        abi_generation_mode,
+        srcs,
+        resources_map,
+        annotation_processor_properties = annotation_processor_properties,
+        plugin_params = plugin_params,
+        manifest_file = manifest_file,
+        extra_arguments = cmd_args(extra_arguments),
+        source_only_abi_compiling_deps = source_only_abi_compiling_deps,
+        track_class_usage = track_class_usage,
+        is_incremental = should_compiler_run_incrementally,
+    )
+
+    if kotlin_extra_params:
+        return struct(
+            buildMode = build_mode,
+            baseJarCommand = base_jar_command,
+            kotlinExtraParams = kotlin_extra_params,
+        )
+    else:
+        return struct(
+            buildMode = build_mode,
+            baseJarCommand = base_jar_command,
+        )
+
+# buildifier: disable=unused-variable
 def generate_abi_jars(
         actions: AnalysisActions,
         actions_identifier: [str, None],
@@ -549,7 +610,6 @@ def generate_abi_jars(
                 classpath_jars_tag = source_abi_classpath_jars_tag,
                 source_only_abi_compiling_deps = [],
                 track_class_usage = track_class_usage,
-                incremental_state_dir = None,
             )
             define_action(
                 "source_abi_",
@@ -583,7 +643,6 @@ def generate_abi_jars(
                 classpath_jars_tag = source_only_abi_classpath_jars_tag,
                 source_only_abi_compiling_deps = source_only_abi_compiling_deps,
                 track_class_usage = track_class_usage,
-                incremental_state_dir = None,
             )
             define_action(
                 "source_only_abi_",

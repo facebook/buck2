@@ -10,6 +10,7 @@ load(
     "ClasspathSnapshotGranularity",
     "JavaClasspathEntry",  # @unused Used as a type
     "JavaCompileOutputs",  # @unused Used as a type
+    "JavaCompilingDepsTSet",  # @unused Used as a type
     "JavaLibraryInfo",
     "generate_java_classpath_snapshot",
     "make_compile_outputs",
@@ -32,7 +33,7 @@ load(
     "base_qualified_name",
     "declare_prefixed_output",
     "define_output_paths",
-    "encode_base_jar_command",
+    "encode_command",
     "generate_abi_jars",
     "get_compiling_deps_tset",
     "prepare_cd_exe",
@@ -113,57 +114,6 @@ def create_jar_artifact_kotlincd(
 
     # external javac does not support used classes
     track_class_usage = enable_used_classes and javac_tool == None and kotlin_toolchain.track_class_usage_plugin != None
-
-    def encode_command(
-            build_mode: BuildMode,
-            target_type: TargetType,
-            output_paths: OutputPaths,
-            path_to_class_hashes: [Artifact, None],
-            classpath_jars_tag: ArtifactTag,
-            source_only_abi_compiling_deps: list[JavaClasspathEntry],
-            track_class_usage: bool,
-            incremental_state_dir: [Artifact, None]) -> struct:
-        base_jar_command = encode_base_jar_command(
-            javac_tool,
-            target_type,
-            output_paths,
-            path_to_class_hashes,
-            remove_classes,
-            label,
-            compiling_deps_tset,
-            classpath_jars_tag,
-            bootclasspath_entries,
-            source_level,
-            target_level,
-            actual_abi_generation_mode,
-            srcs,
-            resources_map,
-            annotation_processor_properties = annotation_processor_properties,
-            plugin_params = plugin_params,
-            manifest_file = manifest_file,
-            extra_arguments = cmd_args(extra_arguments),
-            source_only_abi_compiling_deps = source_only_abi_compiling_deps,
-            track_class_usage = track_class_usage,
-            is_incremental = should_kotlinc_run_incrementally,
-        )
-
-        return struct(
-            buildMode = build_mode,
-            baseJarCommand = base_jar_command,
-            kotlinExtraParams = _encode_kotlin_extra_params(
-                kotlin_toolchain = kotlin_toolchain,
-                kotlin_compiler_plugins = kotlin_compiler_plugins,
-                extra_kotlinc_arguments = extra_kotlinc_arguments,
-                k2 = k2,
-                bootclasspath_entries = bootclasspath_entries,
-                friend_paths = friend_paths,
-                target_level = target_level,
-                should_use_jvm_abi_gen = should_use_jvm_abi_gen,
-                actual_abi_generation_mode = actual_abi_generation_mode,
-                should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
-                incremental_state_dir = incremental_state_dir,
-            ),
-        )
 
     # buildifier: disable=uninitialized
     # buildifier: disable=unused-variable
@@ -274,7 +224,42 @@ def create_jar_artifact_kotlincd(
         return proto
 
     library_classpath_jars_tag = actions.artifact_tag()
-    command = encode_command(
+    command_builder = _command_builder(
+        javac_tool = javac_tool,
+        label = label,
+        srcs = srcs,
+        remove_classes = remove_classes,
+        annotation_processor_properties = annotation_processor_properties,
+        plugin_params = plugin_params,
+        manifest_file = manifest_file,
+        source_level = source_level,
+        target_level = target_level,
+        compiling_deps_tset = compiling_deps_tset,
+        bootclasspath_entries = bootclasspath_entries,
+        abi_generation_mode = actual_abi_generation_mode,
+        resources_map = resources_map,
+        extra_arguments = extra_arguments,
+    )
+
+    kotlin_extra_params = _encode_kotlin_extra_params(
+        kotlin_toolchain = kotlin_toolchain,
+        kotlin_compiler_plugins = kotlin_compiler_plugins,
+        extra_kotlinc_arguments = extra_kotlinc_arguments,
+        k2 = k2,
+        bootclasspath_entries = bootclasspath_entries,
+        friend_paths = friend_paths,
+        target_level = target_level,
+        should_use_jvm_abi_gen = should_use_jvm_abi_gen,
+        actual_abi_generation_mode = actual_abi_generation_mode,
+        should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
+        incremental_state_dir = incremental_state_dir,
+    )
+
+    library_command_builder = command_builder(
+        kotlin_extra_params = kotlin_extra_params,
+        should_compiler_run_incrementally = should_kotlinc_run_incrementally,
+    )
+    command = library_command_builder(
         build_mode = BuildMode("LIBRARY"),
         target_type = TargetType("library"),
         output_paths = output_paths,
@@ -282,7 +267,6 @@ def create_jar_artifact_kotlincd(
         classpath_jars_tag = library_classpath_jars_tag,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
-        incremental_state_dir = incremental_state_dir,
     )
     proto = define_kotlincd_action(
         category_prefix = "",
@@ -311,6 +295,24 @@ def create_jar_artifact_kotlincd(
     )
 
     if not is_creating_subtarget:
+        kotlin_extra_params = _encode_kotlin_extra_params(
+            kotlin_toolchain = kotlin_toolchain,
+            kotlin_compiler_plugins = kotlin_compiler_plugins,
+            extra_kotlinc_arguments = extra_kotlinc_arguments,
+            k2 = k2,
+            bootclasspath_entries = bootclasspath_entries,
+            friend_paths = friend_paths,
+            target_level = target_level,
+            should_use_jvm_abi_gen = should_use_jvm_abi_gen,
+            actual_abi_generation_mode = actual_abi_generation_mode,
+            should_kotlinc_run_incrementally = False,
+            incremental_state_dir = None,
+        )
+        abi_command_builder = command_builder(
+            kotlin_extra_params = kotlin_extra_params,
+            should_compiler_run_incrementally = False,
+        )
+
         # kotlincd does not support source abi
         class_abi, _, source_only_abi, classpath_abi, classpath_abi_dir = generate_abi_jars(
             actions = actions,
@@ -326,7 +328,7 @@ def create_jar_artifact_kotlincd(
             class_abi_jar = class_abi_jar,
             class_abi_output_dir = class_abi_output_dir,
             track_class_usage = True,
-            encode_abi_command = encode_command,
+            encode_abi_command = abi_command_builder,
             define_action = define_kotlincd_action,
         )
         abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
@@ -410,4 +412,74 @@ def _encode_kotlin_extra_params(
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally and incremental_state_dir != None,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
+    )
+
+def _command_builder(
+        javac_tool: [str, RunInfo, Artifact, None],
+        label: Label,
+        srcs: list[Artifact],
+        remove_classes: list[str],
+        annotation_processor_properties: AnnotationProcessorProperties,
+        plugin_params: [PluginParams, None],
+        manifest_file: Artifact | None,
+        source_level: int,
+        target_level: int,
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
+        bootclasspath_entries: list[Artifact],
+        abi_generation_mode: AbiGenerationMode,
+        resources_map: dict[str, Artifact],
+        extra_arguments: cmd_args):
+    return partial(
+        _encode_kotlin_command,
+        javac_tool = javac_tool,
+        label = label,
+        srcs = srcs,
+        remove_classes = remove_classes,
+        annotation_processor_properties = annotation_processor_properties,
+        plugin_params = plugin_params,
+        manifest_file = manifest_file,
+        source_level = source_level,
+        target_level = target_level,
+        compiling_deps_tset = compiling_deps_tset,
+        bootclasspath_entries = bootclasspath_entries,
+        abi_generation_mode = abi_generation_mode,
+        resources_map = resources_map,
+        extra_arguments = extra_arguments,
+    )
+
+def _encode_kotlin_command(
+        javac_tool: [str, RunInfo, Artifact, None],
+        label: Label,
+        srcs: list[Artifact],
+        remove_classes: list[str],
+        annotation_processor_properties: AnnotationProcessorProperties,
+        plugin_params: [PluginParams, None],
+        manifest_file: Artifact | None,
+        source_level: int,
+        target_level: int,
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
+        bootclasspath_entries: list[Artifact],
+        abi_generation_mode: AbiGenerationMode,
+        resources_map: dict[str, Artifact],
+        extra_arguments: cmd_args,
+        kotlin_extra_params: [struct, None],
+        should_compiler_run_incrementally: bool):
+    return partial(
+        encode_command,
+        javac_tool = javac_tool,
+        label = label,
+        srcs = srcs,
+        remove_classes = remove_classes,
+        annotation_processor_properties = annotation_processor_properties,
+        plugin_params = plugin_params,
+        manifest_file = manifest_file,
+        source_level = source_level,
+        target_level = target_level,
+        compiling_deps_tset = compiling_deps_tset,
+        bootclasspath_entries = bootclasspath_entries,
+        abi_generation_mode = abi_generation_mode,
+        resources_map = resources_map,
+        extra_arguments = extra_arguments,
+        kotlin_extra_params = kotlin_extra_params,
+        should_compiler_run_incrementally = should_compiler_run_incrementally,
     )
