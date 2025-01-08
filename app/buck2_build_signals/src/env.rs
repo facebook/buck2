@@ -86,6 +86,7 @@ pub struct BuildSignalsContext {
     pub command_name: String,
     pub metadata: HashMap<String, String>,
     pub isolation_prefix: FileNameBuf,
+    pub time_spent_synchronizing_and_waiting: Option<Duration>,
 }
 
 /// Created along with the BuildSignalsInstaller (ideally, BuildSignalsInstaller's definition would

@@ -225,6 +225,11 @@ fn log_critical_path(
                     critical_path.kind = "listing";
                     critical_path.name = Some(listing.package.clone());
                 }
+                Some(Entry::TimeSpentSynchronizingAndWaiting(..)) => {
+                    critical_path.kind = "time-spent-synchronizing-and-waiting";
+                    critical_path.name = None;
+                }
+
                 None => continue,
             }
 

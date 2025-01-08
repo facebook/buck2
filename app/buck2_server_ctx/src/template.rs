@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use std::time::Instant;
+
 use async_trait::async_trait;
 use buck2_core::logging::log_file::TracingLogFile;
 use buck2_events::dispatch::span_async;
@@ -80,6 +82,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
         data: Some(command.start_event().into()),
     };
 
+    let command_start = Instant::now();
     // refresh our tracing log per command
     TracingLogFile::refresh()?;
 
@@ -94,6 +97,7 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
                     command.command(server_ctx, partial_result_dispatcher, ctx)
                 },
                 command.exclusive_command_name(),
+                Some(command_start),
             )
             .await
             .map_err(Into::into);

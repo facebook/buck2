@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
+use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_build_signals::env::BuildSignalsContext;
@@ -103,6 +104,7 @@ pub trait ServerCommandDiceContext {
         &'v self,
         exec: F,
         exclusive_cmd: Option<String>,
+        command_start: Option<Instant>,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
@@ -119,13 +121,14 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
         Fut: Future<Output = buck2_error::Result<R>> + Send,
         R: Send,
     {
-        self.with_dice_ctx_maybe_exclusive(exec, None).await
+        self.with_dice_ctx_maybe_exclusive(exec, None, None).await
     }
 
     async fn with_dice_ctx_maybe_exclusive<'v, F, Fut, R>(
         &'v self,
         exec: F,
         exclusive_cmd: Option<String>,
+        command_start: Option<Instant>,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
@@ -155,7 +158,6 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
 
                                 let request_metadata = self.request_metadata().await?;
                                 let config_metadata = self.config_metadata(&mut dice).await?;
-
                                 events
                                     .span_async(
                                         CommandCriticalStart {
@@ -163,6 +165,11 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                             dice_version: dice.equality_token().to_string(),
                                         },
                                         async move {
+                                            // The period of time between CommandStart and CommandCriticalStart is
+                                            // the time spent synchronizing changes and waiting for concurrent commands to
+                                            // finish.
+                                            let time_spent_synchronizing_and_waiting =
+                                                command_start.map(|t| t.elapsed());
                                             let res = buck2_build_signals::env::scope(
                                                 build_signals,
                                                 self.events().dupe(),
@@ -181,6 +188,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                     isolation_prefix: self
                                                         .isolation_prefix()
                                                         .to_owned(),
+                                                    time_spent_synchronizing_and_waiting,
                                                 },
                                                 || exec(self, dice),
                                             )
