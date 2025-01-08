@@ -59,6 +59,7 @@ load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
+    "GraphTraversal",
     "depth_first_traversal_by",
 )
 load(
@@ -343,11 +344,16 @@ FinalLabelsToLinks = record(
 
 def _collect_linkables(
         linkable_graph_node_map: dict[Label, LinkableNode],
+        executable_label: Label | None,
         is_executable_link: bool,
+        executable_deps: list[Label],
         link_strategy: LinkStrategy,
         link_group_preferred_linkage: dict[Label, Linkage],
         pic_behavior: PicBehavior,
-        roots: set[Label]) -> list[Label]:
+        roots: set[Label],
+        fixup_link_order: bool) -> list[Label]:
+    roots_list = list(roots)
+
     def get_potential_linkables(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]
         if not is_executable_link and node in roots:
@@ -362,11 +368,50 @@ def _collect_linkables(
     # Get all potential linkable targets
     linkables = depth_first_traversal_by(
         linkable_graph_node_map,
-        list(roots),
+        roots_list,
         get_potential_linkables,
     )
 
-    return linkables
+    # TODO(patskovn): We should have proper DFS link order everywhere.
+    #                 But now certain places fail in `opt` with fixed up link order
+    #                 so enabling it more gradually with future follow ups.
+    if not fixup_link_order:
+        return linkables
+
+    # Does one more traversal through graph to figure out proper
+    # order of linkables in the set. Additional pass makes order closer to
+    # the one we use in TSet projections when link groups are disabled.
+    result_linkables = []
+
+    # Storing in set for faster access
+    unordered_linkables = set(linkables)
+
+    def traverse_all_linkables(node: Label) -> list[Label]:
+        if node in unordered_linkables:
+            result_linkables.append(node)
+            unordered_linkables.remove(node)
+
+        if node == executable_label:
+            return executable_deps if executable_deps else roots_list
+        else:
+            return linkable_graph_node_map[node].all_deps
+
+    depth_first_traversal_by(
+        None,
+        [executable_label] if executable_label else roots_list,
+        traverse_all_linkables,
+        traversal = GraphTraversal("preorder-left-to-right"),
+    )
+
+    if unordered_linkables:
+        # Link groups machinery may be used by something that does not
+        # store all information in dependency graph. E.g. python native dlopen
+        # So gathering links starting from executable label may not collect all
+        # dependencies correctly. To account for that we add remaining pieces to
+        # final result
+        result_linkables = list(unordered_linkables) + result_linkables
+
+    return result_linkables
 
 def get_filtered_labels_to_links_map(
         public_nodes: [set[Label], None],
@@ -379,6 +424,7 @@ def get_filtered_labels_to_links_map(
         roots: set[Label],
         pic_behavior: PicBehavior,
         executable_label: Label | None,
+        executable_deps: list[Label] = [],
         is_executable_link: bool = False,
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
         prefer_stripped: bool = False,
@@ -391,20 +437,16 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    def todo_use_label(_executable_label):
-        # TODO: Will be used during linkables collection
-        return ()
-
-    todo_use_label(executable_label)
-
-    # Get all potential linkable targets
     linkables = _collect_linkables(
         linkable_graph_node_map,
+        executable_label,
         is_executable_link,
+        executable_deps,
         link_strategy,
         link_group_preferred_linkage,
         pic_behavior,
         roots,
+        fixup_link_order = link_strategy == LinkStrategy("shared"),
     )
 
     # An index of target to link group names, for all link group library nodes.
@@ -758,6 +800,7 @@ def _create_link_group(
         roots: set[Label],
         link_strategy: LinkStrategy,
         executable_label: Label | None,
+        executable_deps: list[Label],
         public_nodes: set[Label] = set(),
         linkable_graph_node_map: dict[Label, LinkableNode] = {},
         linker_flags: list[typing.Any] = [],
@@ -808,6 +851,7 @@ def _create_link_group(
         link_group_preferred_linkage,
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
         executable_label = executable_label,
+        executable_deps = executable_deps,
         link_group_libs = link_group_libs,
         link_strategy = link_strategy,
         roots = roots,
@@ -1007,6 +1051,7 @@ def create_link_groups(
             roots = roots[link_group_spec.group.name],
             link_strategy = link_strategy,
             executable_label = executable_label,
+            executable_deps = executable_deps,
             linkable_graph_node_map = linkable_graph_node_map,
             public_nodes = public_nodes,
             linker_flags = (
