@@ -109,55 +109,6 @@ def create_jar_artifact_kotlincd(
     should_kotlinc_run_incrementally = kotlin_toolchain.enable_incremental_compilation and incremental
     incremental_state_dir = declare_prefixed_output(actions, actions_identifier, "incremental_state", dir = True)
 
-    def encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir = None):
-        kosabiPluginOptionsMap = {}
-        if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
-            kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
-
-        if kotlin_toolchain.kosabi_source_modifier_plugin != None:
-            kosabiPluginOptionsMap["kosabi_source_modifier_plugin"] = kotlin_toolchain.kosabi_source_modifier_plugin
-
-        if kotlin_toolchain.kosabi_applicability_plugin != None:
-            kosabiPluginOptionsMap["kosabi_applicability_plugin"] = kotlin_toolchain.kosabi_applicability_plugin
-
-        if kotlin_toolchain.kosabi_jvm_abi_gen_plugin != None:
-            kosabiPluginOptionsMap["kosabi_jvm_abi_gen_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_plugin
-
-        current_language_version = None
-        for arg in extra_kotlinc_arguments:
-            # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
-            if isinstance(arg, str) and "-language-version" in arg:
-                current_language_version = arg.split("=")[1].strip()
-
-        if k2 == True and kotlin_toolchain.allow_k2_usage:
-            if not current_language_version or current_language_version < "2.0":
-                extra_kotlinc_arguments.append("-language-version=2.0")
-        else:  # use K1
-            if not current_language_version or current_language_version >= "2.0":
-                extra_kotlinc_arguments.append("-language-version=1.9")
-
-        return struct(
-            extraClassPaths = bootclasspath_entries,
-            standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
-            annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
-            jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
-            kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
-            kosabiPluginOptions = struct(**kosabiPluginOptionsMap),
-            friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
-            kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
-            jvmTarget = get_kotlinc_compatible_target(str(target_level)),
-            kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
-            shouldUseJvmAbiGen = should_use_jvm_abi_gen,
-            shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
-            shouldGenerateAnnotationProcessingStats = True,
-            extraKotlincArguments = extra_kotlinc_arguments,
-            depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
-            shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
-            shouldKotlincRunIncrementally = should_kotlinc_run_incrementally and incremental_state_dir != None,
-            incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
-            shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
-        )
-
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
     # external javac does not support used classes
@@ -199,7 +150,19 @@ def create_jar_artifact_kotlincd(
         return struct(
             buildMode = build_mode,
             baseJarCommand = base_jar_command,
-            kotlinExtraParams = encode_kotlin_extra_params(kotlin_compiler_plugins, incremental_state_dir),
+            kotlinExtraParams = _encode_kotlin_extra_params(
+                kotlin_toolchain = kotlin_toolchain,
+                kotlin_compiler_plugins = kotlin_compiler_plugins,
+                extra_kotlinc_arguments = extra_kotlinc_arguments,
+                k2 = k2,
+                bootclasspath_entries = bootclasspath_entries,
+                friend_paths = friend_paths,
+                target_level = target_level,
+                should_use_jvm_abi_gen = should_use_jvm_abi_gen,
+                actual_abi_generation_mode = actual_abi_generation_mode,
+                should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
+                incremental_state_dir = incremental_state_dir,
+            ),
         )
 
     # buildifier: disable=uninitialized
@@ -388,3 +351,63 @@ def create_jar_artifact_kotlincd(
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = full_jar_snapshot,
         ), proto
+
+def _encode_kotlin_extra_params(
+        kotlin_toolchain: KotlinToolchainInfo,
+        kotlin_compiler_plugins: dict,
+        extra_kotlinc_arguments: list,
+        k2: bool,
+        bootclasspath_entries: list[Artifact],
+        friend_paths: list[Dependency],
+        target_level: int,
+        should_use_jvm_abi_gen: bool,
+        actual_abi_generation_mode: AbiGenerationMode,
+        should_kotlinc_run_incrementally: bool,
+        incremental_state_dir: Artifact | None):
+    kosabiPluginOptionsMap = {}
+    if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
+        kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
+
+    if kotlin_toolchain.kosabi_source_modifier_plugin != None:
+        kosabiPluginOptionsMap["kosabi_source_modifier_plugin"] = kotlin_toolchain.kosabi_source_modifier_plugin
+
+    if kotlin_toolchain.kosabi_applicability_plugin != None:
+        kosabiPluginOptionsMap["kosabi_applicability_plugin"] = kotlin_toolchain.kosabi_applicability_plugin
+
+    if kotlin_toolchain.kosabi_jvm_abi_gen_plugin != None:
+        kosabiPluginOptionsMap["kosabi_jvm_abi_gen_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_plugin
+
+    current_language_version = None
+    for arg in extra_kotlinc_arguments:
+        # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
+        if isinstance(arg, str) and "-language-version" in arg:
+            current_language_version = arg.split("=")[1].strip()
+
+    if k2 == True and kotlin_toolchain.allow_k2_usage:
+        if not current_language_version or current_language_version < "2.0":
+            extra_kotlinc_arguments.append("-language-version=2.0")
+    else:  # use K1
+        if not current_language_version or current_language_version >= "2.0":
+            extra_kotlinc_arguments.append("-language-version=1.9")
+
+    return struct(
+        extraClassPaths = bootclasspath_entries,
+        standardLibraryClassPath = kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].library_output.full_library,
+        annotationProcessingClassPath = kotlin_toolchain.annotation_processing_jar[JavaLibraryInfo].library_output.full_library,
+        jvmAbiGenPlugin = kotlin_toolchain.jvm_abi_gen_plugin,
+        kotlinCompilerPlugins = {plugin: {"params": plugin_options} if plugin_options else {} for plugin, plugin_options in kotlin_compiler_plugins.items()},
+        kosabiPluginOptions = struct(**kosabiPluginOptionsMap),
+        friendPaths = [friend_path.library_output.abi for friend_path in map_idx(JavaLibraryInfo, friend_paths) if friend_path.library_output],
+        kotlinHomeLibraries = kotlin_toolchain.kotlin_home_libraries,
+        jvmTarget = get_kotlinc_compatible_target(str(target_level)),
+        kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
+        shouldUseJvmAbiGen = should_use_jvm_abi_gen,
+        shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
+        shouldGenerateAnnotationProcessingStats = True,
+        extraKotlincArguments = extra_kotlinc_arguments,
+        depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
+        shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
+        shouldKotlincRunIncrementally = should_kotlinc_run_incrementally and incremental_state_dir != None,
+        incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
+        shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
+    )
