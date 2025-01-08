@@ -14,7 +14,7 @@ use std::str::FromStr;
 use crate::buck;
 use crate::buck::select_mode;
 use crate::diagnostics;
-use crate::path::canonicalize;
+use crate::path::safe_canonicalize;
 
 pub(crate) struct Check {
     pub(crate) buck: buck::Buck,
@@ -24,7 +24,7 @@ pub(crate) struct Check {
 
 impl Check {
     pub(crate) fn new(mode: Option<String>, use_clippy: bool, saved_file: PathBuf) -> Self {
-        let saved_file = canonicalize(&saved_file).unwrap_or(saved_file);
+        let saved_file = safe_canonicalize(&saved_file);
 
         let mode = select_mode(mode.as_deref());
         let buck = buck::Buck::new(mode);

@@ -11,10 +11,22 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 
+/// Try to canonicalize `path`, but return `path` as-is if we couldn't
+/// (e.g. the path didn't exist, broken symlinks, etc).
+///
+/// This is useful when being invoked by the IDE on unfinished code: we
+/// might see all sorts of broken paths whilst the user is working.
+pub(crate) fn safe_canonicalize(path: &Path) -> PathBuf {
+    match canonicalize(path) {
+        Ok(path) => path,
+        Err(_) => path.to_owned(),
+    }
+}
+
 /// If the canonical version of `path` is in a source code checkout, return
 /// the canonical path, otherwise return the path as-is.
-pub(crate) fn canonicalize_to_vcs_path(path: &Path, project_root: &Path) -> io::Result<PathBuf> {
-    let canonical_path = canonicalize(path)?;
+pub(crate) fn canonicalize_to_vcs_path(path: &Path, project_root: &Path) -> PathBuf {
+    let canonical_path = safe_canonicalize(path);
 
     // Buck builds Rust code by creating symlinks in buck-out/ to the
     // files in VCS (e.g. hg, git). This is what rustc sees, but we
@@ -44,14 +56,14 @@ pub(crate) fn canonicalize_to_vcs_path(path: &Path, project_root: &Path) -> io::
         // The file was generated, use the original path, don't expand
         // symlinks.
         if rel.starts_with("buck-out") {
-            return Ok(path.to_owned());
+            return path.to_owned();
         }
     }
 
-    Ok(canonical_path)
+    canonical_path
 }
 
-pub(crate) fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
+fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
     let canonical_path = dunce::canonicalize(&path)?;
 
     if cfg!(windows) && path.as_ref().starts_with("\\\\?\\") {

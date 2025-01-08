@@ -24,7 +24,7 @@ use crate::buck::select_mode;
 use crate::buck::to_json_project;
 use crate::json_project::JsonProject;
 use crate::json_project::Sysroot;
-use crate::path::canonicalize;
+use crate::path::safe_canonicalize;
 use crate::sysroot::resolve_buckconfig_sysroot;
 use crate::sysroot::resolve_rustup_sysroot;
 use crate::sysroot::SysrootConfig;
@@ -164,10 +164,7 @@ impl Develop {
             Input::Files(files) => {
                 let canonical_files = files
                     .into_iter()
-                    .map(|p| match canonicalize(&p) {
-                        Ok(path) => path,
-                        Err(_) => p,
-                    })
+                    .map(|p| safe_canonicalize(&p))
                     .collect::<Vec<_>>();
 
                 Input::Files(canonical_files)
@@ -250,7 +247,7 @@ impl Develop {
         info!("fetching sysroot");
         let sysroot = match &sysroot {
             SysrootConfig::Sysroot(path) => {
-                let mut sysroot_path = canonicalize(expand_tilde(path)?)?;
+                let mut sysroot_path = safe_canonicalize(&expand_tilde(path)?);
                 if *relative_paths {
                     sysroot_path = relative_to(&sysroot_path, &project_root);
                 }

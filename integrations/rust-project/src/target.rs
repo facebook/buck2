@@ -14,7 +14,6 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
-use anyhow::Context;
 use rustc_hash::FxHashMap;
 use serde::de::Error as _;
 use serde::de::MapAccess;
@@ -158,9 +157,9 @@ impl TargetInfo {
         name.to_owned()
     }
 
-    pub(crate) fn root_module(&self, project_root: &Path) -> anyhow::Result<PathBuf> {
+    pub(crate) fn root_module(&self, project_root: &Path) -> PathBuf {
         let p = self.source_folder.join(&self.crate_root);
-        canonicalize_to_vcs_path(&p, project_root).with_context(|| format!("path={}", p.display()))
+        canonicalize_to_vcs_path(&p, project_root)
     }
 
     pub(crate) fn overridden_dep_names(&self) -> FxHashMap<Target, String> {
