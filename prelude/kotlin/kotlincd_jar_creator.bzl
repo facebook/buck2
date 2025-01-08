@@ -115,113 +115,21 @@ def create_jar_artifact_kotlincd(
     # external javac does not support used classes
     track_class_usage = enable_used_classes and javac_tool == None and kotlin_toolchain.track_class_usage_plugin != None
 
-    # buildifier: disable=uninitialized
-    # buildifier: disable=unused-variable
-    def define_kotlincd_action(
-            category_prefix: str,
-            actions_identifier: [str, None],
-            encoded_command: struct,
-            qualified_name: str,
-            output_paths: OutputPaths,
-            classpath_jars_tag: ArtifactTag,
-            abi_dir: Artifact | None,
-            target_type: TargetType,
-            source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
-            is_creating_subtarget: bool = False,
-            incremental_state_dir: Artifact | None = None,
-            should_action_run_incrementally: bool = False):
-        _unused = source_only_abi_compiling_deps
-
-        proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
-
-        compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
-        exe, local_only = prepare_cd_exe(
-            qualified_name,
-            java = java_toolchain.graalvm_java[RunInfo] if java_toolchain.use_graalvm_java_for_javacd else java_toolchain.java[RunInfo],
-            class_loader_bootstrapper = kotlin_toolchain.class_loader_bootstrapper,
-            compiler = compiler,
-            main_class = kotlin_toolchain.kotlincd_main_class,
-            worker = kotlin_toolchain.kotlincd_worker[WorkerInfo],
-            target_specified_debug_port = debug_port,
-            toolchain_specified_debug_port = kotlin_toolchain.kotlincd_debug_port,
-            toolchain_specified_debug_target = kotlin_toolchain.kotlincd_debug_target,
-            extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
-            extra_jvm_args_target = kotlin_toolchain.kotlincd_jvm_args_target,
-        )
-
-        args = cmd_args()
-        post_build_params = {}
-        if target_type == TargetType("library") and should_create_class_abi:
-            post_build_params["shouldCreateClassAbi"] = True
-            post_build_params["libraryJar"] = output_paths.jar.as_output()
-            post_build_params["abiJar"] = class_abi_jar.as_output()
-            post_build_params["jvmAbiGen"] = jvm_abi_gen.as_output()
-            post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
-
-        if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
-            post_build_params["abiJar"] = output_paths.jar.as_output()
-            post_build_params["abiOutputDir"] = abi_dir.as_output()
-
-        if optional_dirs:
-            post_build_params["optionalDirs"] = optional_dirs
-
-        if incremental_state_dir:
-            post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
-
-        dep_files = {}
-        if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
-            used_classes_json_outputs = [
-                output_paths.jar_parent.project("used-classes.json"),
-                output_paths.jar_parent.project("kotlin-used-classes.json"),
-            ]
-            args = setup_dep_files(
-                actions,
-                actions_identifier,
-                args,
-                post_build_params,
-                classpath_jars_tag,
-                used_classes_json_outputs,
-                compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
-            )
-
-            dep_files["classpath_jars"] = classpath_jars_tag
-        kotlin_build_command = struct(
-            buildCommand = encoded_command,
-            postBuildParams = post_build_params,
-        )
-        proto_with_inputs = actions.write_json(proto, kotlin_build_command, with_inputs = True)
-
-        args.add(
-            "--action-id",
-            qualified_name,
-            "--command-file",
-            proto_with_inputs,
-        )
-
-        incremental_run_params = {
-            "metadata_env_var": "ACTION_METADATA",
-            "metadata_path": "action_metadata.json",
-            "no_outputs_cleanup": True,
-        } if should_action_run_incrementally else {}
-        actions.run(
-            args,
-            env = {
-                "BUCK_CLASSPATH": compiler,
-                "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
-            },
-            category = "{}kotlincd_jar".format(category_prefix),
-            identifier = actions_identifier,
-            dep_files = dep_files,
-            allow_dep_file_cache_upload = True,
-            allow_cache_upload = True,
-            exe = exe,
-            local_only = local_only,
-            low_pass_filter = False,
-            weight = 2,
-            error_handler = kotlin_toolchain.kotlin_error_handler,
-            **incremental_run_params
-        )
-        return proto
+    define_kotlincd_action = partial(
+        _define_kotlincd_action,
+        actions,
+        java_toolchain,
+        kotlin_toolchain,
+        srcs,
+        should_create_class_abi,
+        class_abi_jar,
+        jvm_abi_gen,
+        class_abi_output_dir,
+        optional_dirs,
+        track_class_usage,
+        compiling_deps_tset,
+        debug_port,
+    )
 
     library_classpath_jars_tag = actions.artifact_tag()
     command_builder = _command_builder(
@@ -483,3 +391,125 @@ def _encode_kotlin_command(
         kotlin_extra_params = kotlin_extra_params,
         should_compiler_run_incrementally = should_compiler_run_incrementally,
     )
+
+# buildifier: disable=uninitialized
+# buildifier: disable=unused-variable
+def _define_kotlincd_action(
+        # provided by factory
+        actions: AnalysisActions,
+        java_toolchain: JavaToolchainInfo,
+        kotlin_toolchain: KotlinToolchainInfo,
+        srcs: list[Artifact],
+        should_create_class_abi: bool,
+        class_abi_jar: [Artifact, None],
+        jvm_abi_gen: [Artifact, None],
+        class_abi_output_dir: [Artifact, None],
+        optional_dirs: list[OutputArtifact],
+        track_class_usage: bool,
+        compiling_deps_tset: [JavaCompilingDepsTSet, None],
+        debug_port: [int, None],
+        # end of factory provided
+        category_prefix: str,
+        actions_identifier: [str, None],
+        encoded_command: struct,
+        qualified_name: str,
+        output_paths: OutputPaths,
+        classpath_jars_tag: ArtifactTag,
+        abi_dir: Artifact | None,
+        target_type: TargetType,
+        source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
+        is_creating_subtarget: bool = False,
+        incremental_state_dir: Artifact | None = None,
+        should_action_run_incrementally: bool = False):
+    _unused = source_only_abi_compiling_deps
+
+    proto = declare_prefixed_output(actions, actions_identifier, "jar_command.proto.json")
+
+    compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
+    exe, local_only = prepare_cd_exe(
+        qualified_name,
+        java = java_toolchain.graalvm_java[RunInfo] if java_toolchain.use_graalvm_java_for_javacd else java_toolchain.java[RunInfo],
+        class_loader_bootstrapper = kotlin_toolchain.class_loader_bootstrapper,
+        compiler = compiler,
+        main_class = kotlin_toolchain.kotlincd_main_class,
+        worker = kotlin_toolchain.kotlincd_worker[WorkerInfo],
+        target_specified_debug_port = debug_port,
+        toolchain_specified_debug_port = kotlin_toolchain.kotlincd_debug_port,
+        toolchain_specified_debug_target = kotlin_toolchain.kotlincd_debug_target,
+        extra_jvm_args = kotlin_toolchain.kotlincd_jvm_args,
+        extra_jvm_args_target = kotlin_toolchain.kotlincd_jvm_args_target,
+    )
+
+    args = cmd_args()
+    post_build_params = {}
+    if target_type == TargetType("library") and should_create_class_abi:
+        post_build_params["shouldCreateClassAbi"] = True
+        post_build_params["libraryJar"] = output_paths.jar.as_output()
+        post_build_params["abiJar"] = class_abi_jar.as_output()
+        post_build_params["jvmAbiGen"] = jvm_abi_gen.as_output()
+        post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
+
+    if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
+        post_build_params["abiJar"] = output_paths.jar.as_output()
+        post_build_params["abiOutputDir"] = abi_dir.as_output()
+
+    if optional_dirs:
+        post_build_params["optionalDirs"] = optional_dirs
+
+    if incremental_state_dir:
+        post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
+
+    dep_files = {}
+    if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
+        used_classes_json_outputs = [
+            output_paths.jar_parent.project("used-classes.json"),
+            output_paths.jar_parent.project("kotlin-used-classes.json"),
+        ]
+        args = setup_dep_files(
+            actions,
+            actions_identifier,
+            args,
+            post_build_params,
+            classpath_jars_tag,
+            used_classes_json_outputs,
+            compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
+        )
+
+        dep_files["classpath_jars"] = classpath_jars_tag
+    kotlin_build_command = struct(
+        buildCommand = encoded_command,
+        postBuildParams = post_build_params,
+    )
+    proto_with_inputs = actions.write_json(proto, kotlin_build_command, with_inputs = True)
+
+    args.add(
+        "--action-id",
+        qualified_name,
+        "--command-file",
+        proto_with_inputs,
+    )
+
+    incremental_run_params = {
+        "metadata_env_var": "ACTION_METADATA",
+        "metadata_path": "action_metadata.json",
+        "no_outputs_cleanup": True,
+    } if should_action_run_incrementally else {}
+    actions.run(
+        args,
+        env = {
+            "BUCK_CLASSPATH": compiler,
+            "JAVACD_ABSOLUTE_PATHS_ARE_RELATIVE_TO_CWD": "1",
+        },
+        category = "{}kotlincd_jar".format(category_prefix),
+        identifier = actions_identifier,
+        dep_files = dep_files,
+        allow_dep_file_cache_upload = True,
+        allow_cache_upload = True,
+        exe = exe,
+        local_only = local_only,
+        low_pass_filter = False,
+        weight = 2,
+        error_handler = kotlin_toolchain.kotlin_error_handler,
+        **incremental_run_params
+    )
+    return proto
