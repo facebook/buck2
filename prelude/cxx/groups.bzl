@@ -37,9 +37,10 @@ load(
 _VALID_ATTRS = [
     "enable_distributed_thinlto",
     "enable_if_node_count_exceeds",
-    "exported_linker_flags",
     "discard_group",
     "linker_flags",
+    "exported_linker_flags",
+    "no_as_needed",
     "requires_root_node_exists",
     "prohibit_file_duplicates",
     "prefer_optimized_experimental",
@@ -100,9 +101,10 @@ def parse_groups_definitions(
         group_attrs = GroupAttrs(
             enable_distributed_thinlto = attrs.get("enable_distributed_thinlto", False),
             enable_if_node_count_exceeds = attrs.get("enable_if_node_count_exceeds", None),
-            exported_linker_flags = attrs.get("exported_linker_flags", []),
             discard_group = attrs.get("discard_group", False),
             linker_flags = attrs.get("linker_flags", []),
+            exported_linker_flags = attrs.get("exported_linker_flags", []),
+            no_as_needed = attrs.get("no_as_needed", False),
             requires_root_node_exists = attrs.get("requires_root_node_exists", True),
             prohibit_file_duplicates = attrs.get("prohibit_file_duplicates", False),
             prefer_optimized_experimental = attrs.get("prefer_optimized_experimental", False),

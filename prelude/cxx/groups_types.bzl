@@ -62,6 +62,10 @@ GroupAttrs = record(
     # Adds additional linker flags to apply to dependents that link against the
     # link group's shared object.
     exported_linker_flags = field(list, []),
+    # Wraps the link group shared library with `--no-as-needed/--as-needed`,
+    # used for link groups that are required at runtime but not statically referenced.
+    # Only applicable to gnu.
+    no_as_needed = field(bool, False),
     # Requires root nodes in specs to always exist in dependency graph.
     # Otherwise fails.
     requires_root_node_exists = field(bool, True),

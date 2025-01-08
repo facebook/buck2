@@ -1105,9 +1105,21 @@ def create_link_groups(
         else:
             shlib_for_link = link_group_lib.output
 
-        link_info = LinkInfo(
-            linkables = [SharedLibLinkable(lib = shlib_for_link)],
+        link_info = wrap_link_info(
+            LinkInfo(
+                linkables = [SharedLibLinkable(lib = shlib_for_link)],
+            ),
+            pre_flags = link_group_spec.group.attrs.exported_linker_flags,
         )
+
+        if link_group_spec.group.attrs.no_as_needed:
+            toolchain_info = get_cxx_toolchain_info(ctx)
+            linker_info = toolchain_info.linker_info
+            link_info = wrap_with_no_as_needed_shared_libs_flags(
+                linker_type = linker_info.type,
+                link_info = link_info,
+            )
+
         linked_link_groups[link_group_spec.group.name] = _LinkedLinkGroup(
             artifact = link_group_lib,
             library = None if not link_group_spec.is_shared_lib else LinkGroupLib(
@@ -1121,10 +1133,7 @@ def create_link_groups(
                     ],
                 ),
                 shared_link_infos = LinkInfos(
-                    default = wrap_link_info(
-                        link_info,
-                        pre_flags = link_group_spec.group.attrs.exported_linker_flags,
-                    ),
+                    default = link_info,
                 ),
             ),
         )
