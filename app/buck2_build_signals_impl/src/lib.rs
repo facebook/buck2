@@ -425,31 +425,33 @@ where
 
         let compute_critical_path_entry = (
             buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
-            &meta_entry_data,
-            &Some(elapsed_compute_critical_path),
+            meta_entry_data,
+            Some(elapsed_compute_critical_path),
         );
 
-        let time_spent_synchronizing_and_waiting = ctx.time_spent_synchronizing_and_waiting;
-
-        let time_spent_entry_data = NodeData {
-            action_with_extra_data: None,
-            duration: NodeDuration {
-                user: Duration::ZERO,
-                total: time_spent_synchronizing_and_waiting.unwrap_or(Duration::ZERO),
-                queue: None,
-            },
-            span_ids: Default::default(),
-        };
-
-        let time_spent_synchronizing_and_waiting_entry = (
-            buck2_data::critical_path_entry2::TimeSpentSynchronizingAndWaiting {}.into(),
-            &time_spent_entry_data,
-            &time_spent_synchronizing_and_waiting,
-        );
+        let early_command_entries = ctx.early_command_entries.iter().map(|entry| {
+            let generic_entry_data = NodeData {
+                action_with_extra_data: None,
+                duration: NodeDuration {
+                    user: Duration::ZERO,
+                    total: entry.duration,
+                    queue: None,
+                },
+                span_ids: Default::default(),
+            };
+            (
+                buck2_data::critical_path_entry2::GenericEntry {
+                    kind: entry.kind.clone(),
+                }
+                .into(),
+                generic_entry_data,
+                Some(entry.duration),
+            )
+        });
 
         let critical_path_iter =
             critical_path
-                .iter()
+                .into_iter()
                 .filter_map(|(key, data, potential_improvement)| {
                     let entry: buck2_data::critical_path_entry2::Entry = match key {
                         NodeKey::BuildKey(key) => {
@@ -507,7 +509,7 @@ where
                     Some((entry, data, potential_improvement))
                 });
 
-        let critical_path2 = std::iter::once(time_spent_synchronizing_and_waiting_entry)
+        let critical_path2 = early_command_entries
             .chain(critical_path_iter)
             .chain(std::iter::once(compute_critical_path_entry))
             .map(|(entry, data, potential_improvement)| {

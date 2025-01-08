@@ -15,6 +15,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_build_signals::env::BuildSignalsContext;
 use buck2_build_signals::env::DeferredBuildSignals;
+use buck2_build_signals::env::EarlyCommandEntry;
 use buck2_build_signals::env::HasCriticalPathBackend;
 use buck2_certs::validate::CertState;
 use buck2_cli_proto::client_context::PreemptibleWhen;
@@ -38,6 +39,8 @@ use dupe::Dupe;
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
+
+const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "time-spent-synchronizing-and-waiting";
 
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync {
@@ -165,11 +168,17 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                             dice_version: dice.equality_token().to_string(),
                                         },
                                         async move {
-                                            // The period of time between CommandStart and CommandCriticalStart is
-                                            // the time spent synchronizing changes and waiting for concurrent commands to
-                                            // finish.
-                                            let time_spent_synchronizing_and_waiting =
-                                                command_start.map(|t| t.elapsed());
+                                            let early_command_entries =
+                                                command_start.map_or(vec![], |t| {
+                                                    // The period of time between CommandStart and CommandCriticalStart is
+                                                    // the time spent synchronizing changes and waiting for concurrent commands to
+                                                    // finish.
+                                                    vec![EarlyCommandEntry {
+                                                        kind: TIME_SPENT_SYNCHRONIZING_AND_WAITING
+                                                            .to_owned(),
+                                                        duration: t.elapsed(),
+                                                    }]
+                                                });
                                             let res = buck2_build_signals::env::scope(
                                                 build_signals,
                                                 self.events().dupe(),
@@ -188,7 +197,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                     isolation_prefix: self
                                                         .isolation_prefix()
                                                         .to_owned(),
-                                                    time_spent_synchronizing_and_waiting,
+                                                    early_command_entries,
                                                 },
                                                 || exec(self, dice),
                                             )
