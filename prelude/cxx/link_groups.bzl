@@ -343,17 +343,21 @@ FinalLabelsToLinks = record(
 
 def _collect_linkables(
         linkable_graph_node_map: dict[Label, LinkableNode],
+        is_executable_link: bool,
+        link_strategy: LinkStrategy,
+        link_group_preferred_linkage: dict[Label, Linkage],
+        pic_behavior: PicBehavior,
         roots: set[Label]) -> list[Label]:
     def get_potential_linkables(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]
-
-        # If the preferred linkage is `static` or `any` we need to link against the deps too.
-        should_traverse_private_deps = linkable_node.preferred_linkage == Linkage("static") or linkable_node.preferred_linkage == Linkage("any")
-
-        if should_traverse_private_deps:
+        if not is_executable_link and node in roots:
             return linkable_node.all_deps
-        else:
-            return linkable_node.exported_deps
+        return get_deps_for_link(
+            linkable_node,
+            link_strategy,
+            pic_behavior,
+            link_group_preferred_linkage.get(node, linkable_node.preferred_linkage),
+        )
 
     # Get all potential linkable targets
     linkables = depth_first_traversal_by(
@@ -396,6 +400,10 @@ def get_filtered_labels_to_links_map(
     # Get all potential linkable targets
     linkables = _collect_linkables(
         linkable_graph_node_map,
+        is_executable_link,
+        link_strategy,
+        link_group_preferred_linkage,
+        pic_behavior,
         roots,
     )
 
@@ -1162,7 +1170,7 @@ def build_shared_libs_for_symlink_tree(
             )
             add_shib(link_group_link)
 
-        elif not use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx):
+        elif not use_link_groups or is_link_group_shlib(shlib.label, link_group_ctx) or link_strategy == LinkStrategy("shared"):
             add_shib(shlib)
 
     # Add in extra, rule-specific shared libs.

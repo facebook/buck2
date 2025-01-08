@@ -327,14 +327,15 @@ def get_link_info(
 def get_deps_for_link(
         node: LinkableNode,
         strategy: LinkStrategy,
-        pic_behavior: PicBehavior) -> list[Label]:
+        pic_behavior: PicBehavior,
+        overridden_preferred_linkage: Linkage | None = None) -> list[Label]:
     """
     Return deps to follow when linking against this node with the given link
     style.
     """
 
     # If we're linking statically, include non-exported deps.
-    output_style = get_lib_output_style(strategy, node.preferred_linkage, pic_behavior)
+    output_style = get_lib_output_style(strategy, overridden_preferred_linkage if overridden_preferred_linkage else node.preferred_linkage, pic_behavior)
     if output_style != LibOutputStyle("shared_lib"):
         return node.all_deps
     else:
