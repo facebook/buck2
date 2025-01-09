@@ -16,7 +16,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::provider::id::ProviderId;
-use buck2_error::conversion::from_any;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use indexmap::map::RawEntryApiV1;
@@ -179,25 +178,23 @@ pub(crate) fn user_provider_creator<'v>(
     let values = callable
         .fields
         .iter()
-        .map(
-            |(name, field)| match param_parser.next_opt().map_err(from_any)? {
-                Some(value) => {
-                    if !field.ty.matches(value) {
-                        return Err(UserProviderError::MismatchedType(
-                            name.to_owned(),
-                            field.ty.as_ty().dupe(),
-                            value.to_repr(),
-                        )
-                        .into());
-                    }
-                    Ok(value)
+        .map(|(name, field)| match param_parser.next_opt()? {
+            Some(value) => {
+                if !field.ty.matches(value) {
+                    return Err(UserProviderError::MismatchedType(
+                        name.to_owned(),
+                        field.ty.as_ty().dupe(),
+                        value.to_repr(),
+                    )
+                    .into());
                 }
-                None => match field.default {
-                    Some(default) => Ok(default.to_value()),
-                    None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
-                },
+                Ok(value)
+            }
+            None => match field.default {
+                Some(default) => Ok(default.to_value()),
+                None => Err(UserProviderError::MissingParameter(name.to_owned()).into()),
             },
-        )
+        })
         .collect::<buck2_error::Result<Box<[Value]>>>()?;
     Ok(heap.alloc(UserProvider {
         callable,

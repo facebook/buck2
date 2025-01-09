@@ -12,7 +12,6 @@ use std::io::Write;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -78,7 +77,7 @@ impl<'a, 'v> SerializeValue<'a, 'v> {
     fn with_value(&self, x: Value<'v>) -> Buck2ErrorResultOfSerializedValue<'a, 'v> {
         Buck2ErrorResultOfSerializedValue {
             result: JsonUnpack::unpack_value_err(x)
-                .map_err(from_any)
+                .map_err(buck2_error::Error::from)
                 .map(|value| SerializeValue {
                     value,
                     fs: self.fs,
@@ -292,7 +291,7 @@ pub fn visit_json_artifacts(
     v: Value,
     visitor: &mut dyn CommandLineArtifactVisitor,
 ) -> buck2_error::Result<()> {
-    match JsonUnpack::unpack_value_err(v).map_err(from_any)? {
+    match JsonUnpack::unpack_value_err(v)? {
         JsonUnpack::None(_)
         | JsonUnpack::String(_)
         | JsonUnpack::Number(_)
@@ -335,8 +334,7 @@ pub fn visit_json_artifacts(
             // The _x function requires that the artifact is already bound, but we may need to visit artifacts
             // before that happens. Treating it like an opaque command_line works as we want for any artifact
             // type.
-            ValueAsCommandLineLike::unpack_value_err(v)
-                .map_err(from_any)?
+            ValueAsCommandLineLike::unpack_value_err(v)?
                 .0
                 .visit_artifacts(visitor)?;
         }

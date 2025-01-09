@@ -30,7 +30,7 @@ use crate::interpreter::rule_defs::cmd_args::testing;
 pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
     fn make_inputs<'v>(
         values: UnpackListOrTuple<Value<'v>>,
-    ) -> anyhow::Result<StarlarkCommandLineInputs> {
+    ) -> starlark::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         for v in values {
             let cli = ValueAsCommandLineLike::unpack_value_err(v)?.0;

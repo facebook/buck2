@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::conversion::from_any;
 use buck2_node::attrs::coerced_deps_collector::CoercedDeps;
 use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -59,7 +58,7 @@ impl TargetNodeExt for TargetNode {
         for (_, _, _) in indices {
             // Consume all the arguments.
             // We call `next_opt` even for non-optional parameters. starlark-rust doesn't check.
-            param_parser.next_opt::<Value>().map_err(from_any)?;
+            param_parser.next_opt::<Value>()?;
         }
 
         let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);

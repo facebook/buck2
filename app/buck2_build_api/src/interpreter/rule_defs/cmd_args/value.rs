@@ -11,7 +11,6 @@ use std::convert::Infallible;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_error::conversion::from_any;
 use dupe::Dupe;
 use serde::Serializer;
 use starlark::__derive_refs::serde::Serialize;
@@ -119,7 +118,7 @@ unsafe impl<'v> Coerce<CommandLineArg<'v>> for FrozenCommandLineArg {}
 
 impl FrozenCommandLineArg {
     pub fn new(value: FrozenValue) -> buck2_error::Result<FrozenCommandLineArg> {
-        ValueAsCommandLineLike::unpack_value_err(value.to_value()).map_err(from_any)?;
+        ValueAsCommandLineLike::unpack_value_err(value.to_value())?;
         Ok(FrozenCommandLineArg(value))
     }
 

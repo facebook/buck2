@@ -33,7 +33,6 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_core::category::CategoryRef;
 use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -171,8 +170,7 @@ impl IncrementalActionExecutable for WriteMacrosToFileAction {
                 let mut output_contents = Vec::with_capacity(self.outputs.len());
                 let mut macro_writer = MacroToFileWriter::new(&fs, &mut output_contents);
 
-                ValueAsCommandLineLike::unpack_value_err(self.contents.value())
-                    .map_err(from_any)?
+                ValueAsCommandLineLike::unpack_value_err(self.contents.value())?
                     .0
                     .visit_write_to_file_macros(&mut macro_writer)?;
 

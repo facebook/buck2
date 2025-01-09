@@ -11,7 +11,6 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -107,7 +106,6 @@ impl<'v> StarlarkSelector<'v> {
                         values_to_selector(Some(head), values, heap)
                     } else {
                         let v = ValueOf::unpack_value_err(v.to_value())
-                            .map_err(from_any)
                             .internal_error("validated at construction")?;
                         Ok(NoneOr::Other(StarlarkSelector::new(v)))
                     }
@@ -146,7 +144,6 @@ impl<'v> StarlarkSelector<'v> {
                     }
                     Ok(eval.heap().alloc(StarlarkSelector::new(
                         ValueOf::unpack_value_err(eval.heap().alloc(Dict::new(mapped)))
-                            .map_err(from_any)
                             .internal_error("validated at construction")?,
                     )))
                 }

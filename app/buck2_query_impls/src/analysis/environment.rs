@@ -32,7 +32,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_node_ref::ConfiguredTargetNodeRefNode;
@@ -443,8 +442,7 @@ pub(crate) async fn get_from_template_placeholder_info<'x>(
                                     // ignored
                                 }
                             }
-                            ValueAsCommandLineLike::unpack_value_err(v)
-                                .map_err(from_any)?
+                            ValueAsCommandLineLike::unpack_value_err(v)?
                                 .0
                                 .visit_artifacts(&mut Visitor(&mut artifacts, target.dupe()))?;
                         }

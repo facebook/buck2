@@ -11,7 +11,6 @@ use std::collections::HashMap;
 
 use buck2_core::target::label::label::TargetLabelRef;
 use buck2_core::target::name::TargetNameRef;
-use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr::Attribute;
@@ -88,7 +87,7 @@ impl AttributeSpecExt for AttributeSpec {
         let mut indices = self.attr_specs();
         let name = match indices.next() {
             Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE_FIELD => {
-                let name = param_parser.next().map_err(from_any)?;
+                let name = param_parser.next()?;
                 attr_values.push_sorted(
                     attr_idx,
                     CoercedAttr::String(StringLiteral(ArcStr::from(name))),
@@ -118,8 +117,8 @@ impl AttributeSpecExt for AttributeSpec {
             let configurable = attr_is_configurable(attr_name);
 
             let user_value: Option<Value> = match attribute.default() {
-                Some(_) => param_parser.next_opt().map_err(from_any)?,
-                None => Some(param_parser.next().map_err(from_any)?),
+                Some(_) => param_parser.next_opt()?,
+                None => Some(param_parser.next()?),
             };
 
             let attr_is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;

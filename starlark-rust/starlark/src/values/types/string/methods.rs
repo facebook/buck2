@@ -627,7 +627,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<ValueOfUnchecked<'v, String>> {
         #[inline(always)]
-        fn as_str<'v>(x: Value<'v>) -> anyhow::Result<StringValue<'v>> {
+        fn as_str<'v>(x: Value<'v>) -> crate::Result<StringValue<'v>> {
             StringValue::unpack_named_param(x, "to_join")
         }
 

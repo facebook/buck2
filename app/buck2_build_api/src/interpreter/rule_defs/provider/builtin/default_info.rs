@@ -301,8 +301,7 @@ impl FrozenDefaultInfo {
     ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
             processor(
-                ValueAsArtifactLike::unpack_value_err(value)
-                    .map_err(from_any)?
+                ValueAsArtifactLike::unpack_value_err(value)?
                     .0
                     .get_bound_artifact()?,
             );
@@ -315,8 +314,7 @@ impl FrozenDefaultInfo {
         processor: &mut dyn FnMut(ArtifactGroup),
     ) -> buck2_error::Result<()> {
         self.for_each_in_list(self.default_outputs.get(), |value| {
-            let others = ValueAsArtifactLike::unpack_value_err(value)
-                .map_err(from_any)?
+            let others = ValueAsArtifactLike::unpack_value_err(value)?
                 .0
                 .get_associated_artifacts();
             others
@@ -342,9 +340,7 @@ impl FrozenDefaultInfo {
         }
 
         self.for_each_in_list(self.other_outputs.get(), |value| {
-            let arg_like = ValueAsCommandLineLike::unpack_value_err(value)
-                .map_err(from_any)?
-                .0;
+            let arg_like = ValueAsCommandLineLike::unpack_value_err(value)?.0;
             arg_like.visit_artifacts(&mut Visitor(processor))?;
             Ok(())
         })

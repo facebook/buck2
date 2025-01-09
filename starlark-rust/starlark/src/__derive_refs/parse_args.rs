@@ -58,7 +58,7 @@ pub fn parse_positional_kwargs_alloc<'v, 'a, const R: usize, const O: usize>(
 
 /// Utility for checking a `this` parameter matches what you expect.
 #[inline]
-pub fn check_this<'v, T: UnpackValue<'v>>(this: Value<'v>) -> anyhow::Result<T> {
+pub fn check_this<'v, T: UnpackValue<'v>>(this: Value<'v>) -> crate::Result<T> {
     T::unpack_named_param(this, "this")
 }
 
@@ -67,7 +67,7 @@ pub fn check_this<'v, T: UnpackValue<'v>>(this: Value<'v>) -> anyhow::Result<T> 
 pub fn check_required<'v, T: UnpackValue<'v>>(
     name: &str,
     x: Option<Value<'v>>,
-) -> anyhow::Result<T> {
+) -> crate::Result<T> {
     let x = x.ok_or_else(|| ValueError::MissingRequired(name.to_owned()))?;
     T::unpack_named_param(x, name)
 }
@@ -77,7 +77,7 @@ pub fn check_required<'v, T: UnpackValue<'v>>(
 pub fn check_optional<'v, T: UnpackValue<'v>>(
     name: &str,
     x: Option<Value<'v>>,
-) -> anyhow::Result<Option<T>> {
+) -> crate::Result<Option<T>> {
     match x {
         None => Ok(None),
         Some(x) => Ok(Some(T::unpack_named_param(x, name)?)),
@@ -89,12 +89,12 @@ pub fn check_defaulted<'v, T: UnpackValue<'v>>(
     name: &str,
     x: Option<Value<'v>>,
     default: impl FnOnce() -> T,
-) -> anyhow::Result<T> {
+) -> crate::Result<T> {
     Ok(check_optional(name, x)?.unwrap_or_else(default))
 }
 
 /// We already know the parameter is set, so we just unpack it.
 #[inline]
-pub fn check_unpack<'v, T: UnpackValue<'v>>(name: &str, x: Value<'v>) -> anyhow::Result<T> {
+pub fn check_unpack<'v, T: UnpackValue<'v>>(name: &str, x: Value<'v>) -> crate::Result<T> {
     T::unpack_named_param(x, name)
 }

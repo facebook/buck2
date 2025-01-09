@@ -25,7 +25,6 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
-use buck2_error::conversion::from_any;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -136,8 +135,7 @@ async fn eval_pre_constraint_analysis<'v>(
                     cfg_constructor_pre_constraint_analysis,
                     &[],
                     &pre_constraint_analysis_args,
-                )?)
-                .map_err(from_any)?;
+                )?)?;
 
             // `params` Value lives on eval.heap() so we need to move eval out of the closure to keep it alive
             Ok((refs.items, params, eval))
@@ -221,9 +219,7 @@ async fn eval_post_constraint_analysis<'v>(
             )?;
 
             // Type check + unpack
-            <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)
-                .map_err(from_any)?
-                .to_configuration()
+            <&PlatformInfo>::unpack_value_err(post_constraint_analysis_result)?.to_configuration()
         },
     )
     .await

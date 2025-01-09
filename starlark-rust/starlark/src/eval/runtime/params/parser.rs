@@ -57,7 +57,7 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
     }
 
     /// Obtain the next optional parameter (without a default value).
-    pub fn next_opt<T: UnpackValue<'v>>(&mut self) -> anyhow::Result<Option<T>> {
+    pub fn next_opt<T: UnpackValue<'v>>(&mut self) -> crate::Result<Option<T>> {
         match self.get_next()? {
             (None, _) => Ok(None),
             (Some(v), name) => Ok(Some(T::unpack_named_param(v, name)?)),
@@ -65,13 +65,12 @@ impl<'v, 'a> ParametersParser<'v, 'a> {
     }
 
     /// Obtain the next parameter. Fail if the parameter is optional and not provided.
-    pub fn next<T: UnpackValue<'v>>(&mut self) -> anyhow::Result<T> {
+    pub fn next<T: UnpackValue<'v>>(&mut self) -> crate::Result<T> {
         let (v, name) = self.get_next()?;
         let Some(v) = v else {
             return Err(other_error!(
                 "Requested non-optional param {name} which was declared optional in signature"
-            )
-            .into_anyhow());
+            ));
         };
         T::unpack_named_param(v, name)
     }

@@ -173,8 +173,7 @@ impl BxlInnerEvaluator {
                         .iter()
                         .map(|(k, v)| (k, v.as_starlark(env.heap()))),
                 )),
-            )
-            .map_err(from_any)?;
+            )?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
             let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), error_file.dupe());

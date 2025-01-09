@@ -89,7 +89,7 @@ impl<V: ValueLifetimeless, T: StarlarkTypeRepr> ValueOfUncheckedGeneric<V, T> {
         V: ValueLike<'v>,
         T: UnpackValue<'v>,
     {
-        Ok(T::unpack_value_err(self.get().to_value())?)
+        T::unpack_value_err(self.get().to_value())
     }
 }
 
@@ -163,7 +163,7 @@ pub type FrozenValueOfUnchecked<'f, T> = ValueOfUncheckedGeneric<FrozenValue, T>
 impl<'v, T: StarlarkTypeRepr> ValueOfUnchecked<'v, T> {
     /// Construct after checking the type.
     #[inline]
-    pub fn new_checked(value: Value<'v>) -> anyhow::Result<Self>
+    pub fn new_checked(value: Value<'v>) -> crate::Result<Self>
     where
         T: UnpackValue<'v>,
     {

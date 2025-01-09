@@ -19,7 +19,6 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_error::conversion::from_any;
 use buck2_util::thin_box::ThinBoxSlice;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -584,9 +583,7 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 
     pub fn try_from_value(value: Value<'v>) -> buck2_error::Result<Self> {
-        Self::try_from_value_typed(
-            StarlarkCommandLineValueUnpack::unpack_value_err(value).map_err(from_any)?,
-        )
+        Self::try_from_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)
     }
 
     pub fn try_from_value_typed(
@@ -607,9 +604,7 @@ pub enum StarlarkCommandLineValueUnpack<'v> {
 
 impl<'v> StarlarkCommandLineData<'v> {
     fn add_value(&mut self, value: Value<'v>) -> buck2_error::Result<()> {
-        self.add_value_typed(
-            StarlarkCommandLineValueUnpack::unpack_value_err(value).map_err(from_any)?,
-        )
+        self.add_value_typed(StarlarkCommandLineValueUnpack::unpack_value_err(value)?)
     }
 
     fn add_value_typed(
@@ -639,10 +634,7 @@ impl<'v> StarlarkCommandLineData<'v> {
         match value {
             StarlarkCommandLineValueUnpack::List(values) => {
                 for value in values.content() {
-                    self.add_hidden(
-                        StarlarkCommandLineValueUnpack::unpack_value_err(*value)
-                            .map_err(from_any)?,
-                    )?
+                    self.add_hidden(StarlarkCommandLineValueUnpack::unpack_value_err(*value)?)?
                 }
             }
             StarlarkCommandLineValueUnpack::CommandLineArg(arg) => {

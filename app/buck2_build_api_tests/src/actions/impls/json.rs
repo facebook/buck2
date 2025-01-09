@@ -64,18 +64,23 @@ fn test_tagging() -> anyhow::Result<()> {
             Ok(Value::new_none())
         }
 
-        fn check_passthrough<'v>(tagged: Value<'v>, value: Value<'v>) -> anyhow::Result<Value<'v>> {
+        fn check_passthrough<'v>(
+            tagged: Value<'v>,
+            value: Value<'v>,
+        ) -> starlark::Result<Value<'v>> {
             let json1 = serde_json::to_string(&SerializeValue {
                 value: JsonUnpack::unpack_value_err(tagged)?,
                 fs: None,
                 absolute: false,
-            })?;
+            })
+            .map_err(buck2_error::Error::from)?;
 
             let json2 = serde_json::to_string(&SerializeValue {
                 value: JsonUnpack::unpack_value_err(value)?,
                 fs: None,
                 absolute: false,
-            })?;
+            })
+            .map_err(buck2_error::Error::from)?;
 
             assert_eq!(json1, json2);
 

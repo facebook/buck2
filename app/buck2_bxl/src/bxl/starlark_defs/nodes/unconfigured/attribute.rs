@@ -17,7 +17,6 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
-use buck2_error::conversion::from_any;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -245,7 +244,6 @@ impl CoercedAttrExt for CoercedAttr {
                     .collect::<buck2_error::Result<_>>()?;
                 heap.alloc(StarlarkSelector::new(
                     ValueOf::unpack_value_err(heap.alloc(map))
-                        .map_err(from_any)
                         .internal_error("validated at construction")?,
                 ))
             }
