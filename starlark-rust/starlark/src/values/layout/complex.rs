@@ -70,15 +70,14 @@ where
     }
 
     /// Downcast.
-    pub fn new_err(value: Value<'v>) -> anyhow::Result<Self> {
+    pub fn new_err(value: Value<'v>) -> crate::Result<Self> {
         match Self::new(value) {
             Some(v) => Ok(v),
             None => Err(value_error!(
                 "Expected value of type `{}`, got: `{}`",
                 T::TYPE,
                 value.to_string_for_type_error()
-            )
-            .into_anyhow()),
+            )),
         }
     }
 

@@ -1342,14 +1342,13 @@ pub trait ValueLike<'v>:
 
     /// Get a reference to underlying data or [`Err`]
     /// if contained object has different type than requested.
-    fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> anyhow::Result<&'v T> {
+    fn downcast_ref_err<T: StarlarkValue<'v>>(self) -> crate::Result<&'v T> {
         match self.downcast_ref() {
             Some(v) => Ok(v),
-            None => Err(ValueValueError::WrongType(
+            None => Err(crate::Error::new_value(ValueValueError::WrongType(
                 T::TYPE,
                 self.to_value().to_string_for_type_error(),
-            )
-            .into()),
+            ))),
         }
     }
 }

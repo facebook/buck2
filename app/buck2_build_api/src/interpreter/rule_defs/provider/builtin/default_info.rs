@@ -15,7 +15,6 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api_derive::internal_provider;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -213,11 +212,9 @@ impl FrozenDefaultInfo {
             .buck_error_context("sub_targets should be a dict-like object")?
             .get_str(name)
             .map(|v| {
-                FrozenValueTyped::new_err(v)
-                    .map_err(from_any)
-                    .buck_error_context(
-                        "Values inside of a frozen provider should be frozen provider collection",
-                    )
+                FrozenValueTyped::new_err(v).buck_error_context(
+                    "Values inside of a frozen provider should be frozen provider collection",
+                )
             })
             .transpose()
     }

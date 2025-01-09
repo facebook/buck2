@@ -64,7 +64,7 @@ where
     }
 
     /// Obtain the value from a `Value`, if it is a `StarlarkAnyComplex<T>`.
-    pub fn get_err(value: Value<'v>) -> anyhow::Result<&'v T> {
+    pub fn get_err(value: Value<'v>) -> crate::Result<&'v T> {
         value.downcast_ref_err::<Self>().map(|x| &x.value)
     }
 }

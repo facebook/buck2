@@ -35,7 +35,6 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -201,8 +200,7 @@ impl BxlDynamicOutputEvaluator<'_> {
                 self.dynamic_data,
             )?;
 
-            let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))
-                .map_err(from_any)?;
+            let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))?;
 
             let args = match (
                 &dynamic_lambda_ctx_data.lambda.attr_values,

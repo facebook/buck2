@@ -70,8 +70,7 @@ impl<'v> AnalysisExtraValue<'v> {
         };
         Ok(Some(
             &extra
-                .downcast_ref_err::<StarlarkAnyComplex<AnalysisExtraValue>>()
-                .map_err(from_any)?
+                .downcast_ref_err::<StarlarkAnyComplex<AnalysisExtraValue>>()?
                 .value,
         ))
     }

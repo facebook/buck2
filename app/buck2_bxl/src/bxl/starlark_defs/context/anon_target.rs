@@ -240,8 +240,7 @@ async fn eval_bxl_for_anon_target(
                 analysis_registry,
                 attributes,
             )?;
-            let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_anon_ctx))
-                .map_err(from_any)?;
+            let bxl_ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_anon_ctx))?;
 
             let action_factory = bxl_ctx.state;
 

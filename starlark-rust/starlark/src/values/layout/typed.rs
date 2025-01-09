@@ -184,7 +184,7 @@ impl<'v, T: StarlarkValue<'v>> ValueTyped<'v, T> {
 
     /// Downcast.
     #[inline]
-    pub fn new_err(value: Value<'v>) -> anyhow::Result<ValueTyped<'v, T>> {
+    pub fn new_err(value: Value<'v>) -> crate::Result<ValueTyped<'v, T>> {
         value.downcast_ref_err::<T>()?;
         Ok(ValueTyped(value, marker::PhantomData))
     }
@@ -258,7 +258,7 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
 
     /// Downcast.
     #[inline]
-    pub fn new_err(value: FrozenValue) -> anyhow::Result<FrozenValueTyped<'v, T>> {
+    pub fn new_err(value: FrozenValue) -> crate::Result<FrozenValueTyped<'v, T>> {
         value.downcast_ref_err::<T>()?;
         Ok(FrozenValueTyped(value, marker::PhantomData))
     }

@@ -13,7 +13,6 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -91,14 +90,12 @@ impl<'v> StarlarkOutputArtifact<'v> {
     }
 
     pub(crate) fn inner(&self) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact>> {
-        ValueTyped::new_err(self.declared_artifact.get())
-            .map_err(from_any)
-            .with_internal_error(|| {
-                format!(
-                    "Must be a declared artifact: `{}`",
-                    self.declared_artifact.get().to_string_for_type_error()
-                )
-            })
+        ValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+            format!(
+                "Must be a declared artifact: `{}`",
+                self.declared_artifact.get().to_string_for_type_error()
+            )
+        })
     }
 
     pub fn artifact(&self) -> buck2_error::Result<OutputArtifact> {
@@ -108,17 +105,15 @@ impl<'v> StarlarkOutputArtifact<'v> {
 
 impl FrozenStarlarkOutputArtifact {
     pub(crate) fn inner(&self) -> buck2_error::Result<FrozenValueTyped<StarlarkArtifact>> {
-        FrozenValueTyped::new_err(self.declared_artifact.get())
-            .map_err(from_any)
-            .with_internal_error(|| {
-                format!(
-                    "Must be a declared artifact: `{}`",
-                    self.declared_artifact
-                        .get()
-                        .to_value()
-                        .to_string_for_type_error()
-                )
-            })
+        FrozenValueTyped::new_err(self.declared_artifact.get()).with_internal_error(|| {
+            format!(
+                "Must be a declared artifact: `{}`",
+                self.declared_artifact
+                    .get()
+                    .to_value()
+                    .to_string_for_type_error()
+            )
+        })
     }
 
     pub fn artifact(&self) -> buck2_error::Result<OutputArtifact> {

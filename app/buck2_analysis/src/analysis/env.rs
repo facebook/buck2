@@ -338,7 +338,6 @@ async fn run_analysis_with_env_underlying(
     let res_typed = ProviderCollection::try_from_value(list_res)?;
     {
         let provider_collection = ValueTypedComplex::new_err(env.heap().alloc(res_typed))
-            .map_err(from_any)
             .internal_error("Just allocated provider collection")?;
         analysis_registry
             .analysis_value_storage
