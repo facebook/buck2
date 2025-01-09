@@ -142,7 +142,7 @@ impl TyUser {
         base: TyStarlarkValue,
         id: TypeInstanceId,
         params: TyUserParams,
-    ) -> anyhow::Result<TyUser> {
+    ) -> crate::Result<TyUser> {
         let TyUserParams {
             supertypes,
             matcher,
@@ -153,13 +153,19 @@ impl TyUser {
             _non_exhaustive: (),
         } = params;
         if callable.is_some() && !base.is_callable() {
-            return Err(TyUserError::CallableNotCallable(name).into());
+            return Err(crate::Error::new_native(TyUserError::CallableNotCallable(
+                name,
+            )));
         }
         if index.is_some() && !base.is_indexable() {
-            return Err(TyUserError::IndexableNotIndexable(name).into());
+            return Err(crate::Error::new_native(
+                TyUserError::IndexableNotIndexable(name),
+            ));
         }
         if iter_item.is_some() && base.iter_item().is_err() {
-            return Err(TyUserError::IterableNotIterable(name).into());
+            return Err(crate::Error::new_native(TyUserError::IterableNotIterable(
+                name,
+            )));
         }
         Ok(TyUser {
             name,
@@ -403,7 +409,7 @@ mod tests {
 
     #[starlark_module]
     fn globals(globals: &mut GlobalsBuilder) {
-        fn fruit(name: String) -> anyhow::Result<FruitCallable> {
+        fn fruit(name: String) -> starlark::Result<FruitCallable> {
             let ty_fruit = Ty::custom(TyUser::new(
                 name.clone(),
                 TyStarlarkValue::new::<Fruit>(),

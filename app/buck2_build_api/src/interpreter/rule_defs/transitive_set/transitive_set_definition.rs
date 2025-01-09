@@ -13,7 +13,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::path::StarlarkPath;
@@ -240,21 +239,18 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
                 name: variable_name.to_owned(),
             });
             let set_type_instance_id = TypeInstanceId::gen();
-            let set_ty = Ty::custom(
-                TyUser::new(
-                    variable_name.to_owned(),
-                    TyStarlarkValue::new::<TransitiveSet>(),
-                    set_type_instance_id,
-                    TyUserParams {
-                        matcher: Some(TypeMatcherFactory::new(TransitiveSetMatcher {
-                            type_instance_id: set_type_instance_id,
-                        })),
+            let set_ty = Ty::custom(TyUser::new(
+                variable_name.to_owned(),
+                TyStarlarkValue::new::<TransitiveSet>(),
+                set_type_instance_id,
+                TyUserParams {
+                    matcher: Some(TypeMatcherFactory::new(TransitiveSetMatcher {
+                        type_instance_id: set_type_instance_id,
+                    })),
 
-                        ..TyUserParams::default()
-                    },
-                )
-                .map_err(from_any)?,
-            );
+                    ..TyUserParams::default()
+                },
+            )?);
             buck2_error::Ok(TransitiveSetDefinitionExported {
                 id,
                 set_ty,

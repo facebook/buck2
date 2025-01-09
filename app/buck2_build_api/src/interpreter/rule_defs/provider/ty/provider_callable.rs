@@ -7,7 +7,6 @@
  * of this source tree.
  */
 
-use buck2_error::conversion::from_any;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
 use starlark::typing::Ty;
 use starlark::typing::TyCallable;
@@ -20,16 +19,13 @@ use starlark::values::StarlarkValue;
 pub(crate) fn ty_provider_callable<'v, C: StarlarkValue<'v> + ProviderCallableLike>(
     creator_func: TyCallable,
 ) -> buck2_error::Result<Ty> {
-    Ok(Ty::custom(
-        TyUser::new(
-            C::TYPE.to_owned(),
-            TyStarlarkValue::new::<C>(),
-            TypeInstanceId::gen(),
-            TyUserParams {
-                callable: Some(creator_func),
-                ..TyUserParams::default()
-            },
-        )
-        .map_err(from_any)?,
-    ))
+    Ok(Ty::custom(TyUser::new(
+        C::TYPE.to_owned(),
+        TyStarlarkValue::new::<C>(),
+        TypeInstanceId::gen(),
+        TyUserParams {
+            callable: Some(creator_func),
+            ..TyUserParams::default()
+        },
+    )?))
 }
