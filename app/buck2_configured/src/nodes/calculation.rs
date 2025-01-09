@@ -48,7 +48,6 @@ use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTarg
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
-use buck2_error::conversion::from_any;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
@@ -1345,7 +1344,6 @@ impl LookingUpConfiguredNodeContext {
             |parent_ctx: Arc<Self>| Self::new(target.dupe(), Some(parent_ctx)),
             || Self::new(target.dupe(), None),
         )
-        .map_err(from_any)
     }
 }
 

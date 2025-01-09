@@ -262,18 +262,17 @@ impl Error {
         self,
         map_context: F,
         new_context: F2,
-    ) -> anyhow::Error {
+    ) -> crate::Error {
         if let ErrorKind::WithContext(crate::context_value::ContextValue::Typed(v), err) = &*self.0
         {
             if let Ok(typed) = Arc::downcast(v.clone()) {
                 return Self(Arc::new(ErrorKind::WithContext(
                     map_context(typed).into(),
                     err.clone(),
-                )))
-                .into();
+                )));
             }
         }
-        self.context(new_context()).into()
+        self.context(new_context())
     }
 
     #[cfg(test)]

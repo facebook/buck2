@@ -74,7 +74,7 @@ pub trait BuckErrorContext<T>: Sealed {
         self,
         map_context: F,
         new_context: F2,
-    ) -> anyhow::Result<T>;
+    ) -> crate::Result<T>;
 }
 pub trait Sealed: Sized {}
 
@@ -137,7 +137,7 @@ where
         self,
         map_context: F,
         new_context: F2,
-    ) -> anyhow::Result<T> {
+    ) -> crate::Result<T> {
         match self {
             Ok(x) => Ok(x),
             Err(e) => Err(crate::Error::from(e).compute_context(map_context, new_context)),
@@ -205,11 +205,8 @@ impl<T> BuckErrorContext<T> for Option<T> {
         self,
         _map_context: F,
         new_context: F2,
-    ) -> anyhow::Result<T> {
-        Err(crate::Error::new_anyhow_with_context(
-            NoneError,
-            new_context(),
-        ))
+    ) -> crate::Result<T> {
+        Err(crate::Error::from(NoneError).context(new_context()))
     }
 }
 
@@ -222,7 +219,6 @@ mod tests {
     use allocative::Allocative;
 
     use super::*;
-    use crate::conversion::from_any;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;
@@ -258,34 +254,30 @@ mod tests {
     fn test_compute_context() {
         crate::Error::check_equal(
             &crate::Error::from(TestError).context("string"),
-            &from_any(crate::Error::from(TestError).compute_context(
+            &crate::Error::from(TestError).compute_context(
                 |_t: Arc<SomeContext>| -> SomeContext { panic!() },
                 || "string",
-            )),
+            ),
         );
 
         crate::Error::check_equal(
             &crate::Error::from(TestError).context(SomeContext(vec![0, 1, 2])),
-            &from_any(
-                crate::Error::from(TestError)
-                    .context(SomeContext(vec![]))
-                    .compute_context(
-                        |_t: Arc<SomeContext>| -> SomeContext { SomeContext(vec![0, 1, 2]) },
-                        || "string",
-                    ),
-            ),
+            &crate::Error::from(TestError)
+                .context(SomeContext(vec![]))
+                .compute_context(
+                    |_t: Arc<SomeContext>| -> SomeContext { SomeContext(vec![0, 1, 2]) },
+                    || "string",
+                ),
         );
 
         crate::Error::check_equal(
             &crate::Error::from(Option::<()>::None.buck_error_context("string").unwrap_err()),
-            &from_any(
-                Option::<()>::None
-                    .compute_context(
-                        |_t: Arc<SomeContext>| -> SomeContext { panic!() },
-                        || "string",
-                    )
-                    .unwrap_err(),
-            ),
+            &Option::<()>::None
+                .compute_context(
+                    |_t: Arc<SomeContext>| -> SomeContext { panic!() },
+                    || "string",
+                )
+                .unwrap_err(),
         );
     }
 }
