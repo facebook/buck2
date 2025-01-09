@@ -36,7 +36,7 @@ def _type_from_url(url: str) -> [str, None]:
             return filename_ext
     return None
 
-def archive_type(url_or_path: str, type: str | None) -> str:
+def archive_type(url_or_path: str, typ: str | None) -> str:
     if typ == None:
         typ = value_or(_type_from_url(url_or_path), "tar.gz")
     if typ not in _ARCHIVE_EXTS:
@@ -115,10 +115,14 @@ def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
     return []
 
 def unarchive(
+        ctx: AnalysisContext,
+        archive: Artifact,
         output_name: str,
+        ext_type,
         excludes,
         strip_prefix,
-        exec_deps: HttpArchiveExecDeps):
+        exec_deps: HttpArchiveExecDeps,
+        prefer_local: bool):
     exec_platform_name = exec_deps.exec_os_type[OsLookup].platform
     exec_is_windows = exec_platform_name == "windows"
 

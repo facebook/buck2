@@ -41,10 +41,14 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     output = unarchive(
+        ctx,
+        archive = archive,
         output_name = value_or(ctx.attrs.out, ctx.label.name),
+        ext_type = ext_type,
         excludes = ctx.attrs.excludes,
         strip_prefix = ctx.attrs.strip_prefix,
         exec_deps = ctx.attrs.exec_deps[HttpArchiveExecDeps],
+        prefer_local = prefer_local,
     )
 
     return [DefaultInfo(

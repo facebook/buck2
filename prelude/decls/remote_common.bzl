@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//http_archive:exec_deps.bzl", "HttpArchiveExecDeps")
 load(":common.bzl", "validate_uri")
 
 def _name_arg(name_type):
