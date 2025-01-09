@@ -269,7 +269,7 @@ def encode_base_jar_command(
         extra_arguments: cmd_args,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool,
-        is_incremental: bool = False) -> struct:
+        provide_classpath_snapshot: bool = False) -> struct:
     jar_parameters = encode_jar_params(remove_classes, output_paths, manifest_file)
     qualified_name = get_qualified_name(label, target_type)
     if target_type == TargetType("source_only_abi"):
@@ -285,7 +285,7 @@ def encode_base_jar_command(
         # The snapshot inputs are tagged for association with dep_files, but they are not marked as used,
         # as they serve the incremental compiler's internal needs,
         # which are utilized after the build system has determined whether a rebuild is necessary.
-        compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts({dep.abi: dep.abi_jar_snapshot or "" for dep in compiling_deps_list}) if is_incremental else {}
+        compiling_classpath_snapshot = classpath_jars_tag.tag_artifacts({dep.abi: dep.abi_jar_snapshot or "" for dep in compiling_deps_list}) if provide_classpath_snapshot else {}
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
@@ -524,7 +524,7 @@ def encode_command(
         resources_map: dict[str, Artifact],
         extra_arguments: cmd_args,
         kotlin_extra_params: [struct, None],
-        should_compiler_run_incrementally: bool,
+        provide_classpath_snapshot: bool,
         build_mode: BuildMode,
         target_type: TargetType,
         output_paths: OutputPaths,
@@ -553,7 +553,7 @@ def encode_command(
         extra_arguments = cmd_args(extra_arguments),
         source_only_abi_compiling_deps = source_only_abi_compiling_deps,
         track_class_usage = track_class_usage,
-        is_incremental = should_compiler_run_incrementally,
+        provide_classpath_snapshot = provide_classpath_snapshot,
     )
 
     if kotlin_extra_params:

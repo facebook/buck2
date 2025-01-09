@@ -165,7 +165,7 @@ def create_jar_artifact_kotlincd(
 
     library_command_builder = command_builder(
         kotlin_extra_params = kotlin_extra_params,
-        should_compiler_run_incrementally = should_kotlinc_run_incrementally,
+        provide_classpath_snapshot = should_kotlinc_run_incrementally,
     )
     command = library_command_builder(
         build_mode = BuildMode("LIBRARY"),
@@ -218,7 +218,7 @@ def create_jar_artifact_kotlincd(
         )
         abi_command_builder = command_builder(
             kotlin_extra_params = kotlin_extra_params,
-            should_compiler_run_incrementally = False,
+            provide_classpath_snapshot = False,
         )
 
         # kotlincd does not support source abi
@@ -317,7 +317,7 @@ def _encode_kotlin_extra_params(
         extraKotlincArguments = extra_kotlinc_arguments,
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
         shouldKotlincRunViaBuildToolsApi = kotlin_toolchain.kotlinc_run_via_build_tools_api,
-        shouldKotlincRunIncrementally = should_kotlinc_run_incrementally and incremental_state_dir != None,
+        shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
     )
@@ -371,7 +371,7 @@ def _encode_kotlin_command(
         resources_map: dict[str, Artifact],
         extra_arguments: cmd_args,
         kotlin_extra_params: [struct, None],
-        should_compiler_run_incrementally: bool):
+        provide_classpath_snapshot: bool):
     return partial(
         encode_command,
         javac_tool = javac_tool,
@@ -389,7 +389,7 @@ def _encode_kotlin_command(
         resources_map = resources_map,
         extra_arguments = extra_arguments,
         kotlin_extra_params = kotlin_extra_params,
-        should_compiler_run_incrementally = should_compiler_run_incrementally,
+        provide_classpath_snapshot = provide_classpath_snapshot,
     )
 
 # buildifier: disable=uninitialized

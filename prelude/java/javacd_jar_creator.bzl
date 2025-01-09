@@ -242,7 +242,7 @@ def _command_builder(
         resources_map = resources_map,
         extra_arguments = extra_arguments,
         kotlin_extra_params = None,
-        should_compiler_run_incrementally = False,
+        provide_classpath_snapshot = False,
     )
 
 # buildifier: disable=uninitialized
