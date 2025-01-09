@@ -16,14 +16,17 @@ load(":unarchive.bzl", "TAR_FLAGS", "archive_type", "unarchive")
 # which then can be used as an input for other rules.
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
+    archive = value_or(ctx.attrs.src, ctx.attrs.contents_archive)
+    if not archive:
+        fail("Missing attribute `src` on extract_archive")
     output, sub_targets = unarchive(
         ctx,
-        archive = ctx.attrs.contents_archive,
+        archive = archive,
         output_name = value_or(
             value_or(ctx.attrs.out, ctx.attrs.directory_name),
             ctx.label.name,
         ),
-        ext_type = archive_type(ctx.attrs.contents_archive.short_path, ctx.attrs.type),
+        ext_type = archive_type(archive.short_path, ctx.attrs.type),
         excludes = ctx.attrs.excludes,
         strip_prefix = ctx.attrs.strip_prefix,
         sub_targets = ctx.attrs.sub_targets,
@@ -41,9 +44,13 @@ registration_spec = RuleRegistrationSpec(
     name = "extract_archive",
     impl = _impl,
     attrs = remote_common.unarchive_args() | {
-        # .tar.gz archive with the contents of the result directory
-        "contents_archive": attrs.source(doc = """
+        "src": attrs.option(attrs.source(), default = None, doc = """
             .tar.gz or zip archive with the contents of the result directory
+        """),
+        # .tar.gz archive with the contents of the result directory
+        "contents_archive": attrs.option(attrs.source(), default = None, doc = """
+            .tar.gz or zip archive with the contents of the result directory
+            Deprecated in favour of `src`.
         """),
         "directory_name": attrs.option(attrs.string(), default = None, doc = """
             Name of the result directory, if omitted, `name` attribute will be used instead.
