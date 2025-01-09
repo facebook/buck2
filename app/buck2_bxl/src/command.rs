@@ -180,12 +180,7 @@ async fn bxl(
 
     let bxl_result = match eval_bxl(&mut ctx, bxl_key.clone()).await {
         Ok(result) => result.0,
-        Err(e) => {
-            // `buck2_error::Error` has more reliable downcasting
-            let e: buck2_error::Error = e.into();
-
-            return Err(e.into());
-        }
+        Err(e) => return Err(e),
     };
 
     let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
