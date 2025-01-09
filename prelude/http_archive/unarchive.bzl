@@ -122,7 +122,8 @@ def unarchive(
         excludes,
         strip_prefix,
         exec_deps: HttpArchiveExecDeps,
-        prefer_local: bool):
+        prefer_local: bool,
+        sub_targets: list[str] | dict[str, list[str]]):
     exec_platform_name = exec_deps.exec_os_type[OsLookup].platform
     exec_is_windows = exec_platform_name == "windows"
 
@@ -189,4 +190,17 @@ def unarchive(
     if needs_strip_prefix:
         ctx.actions.copy_dir(output.as_output(), script_output.project(strip_prefix))
 
-    return output
+    if type(sub_targets) == type([]):
+        sub_targets = {
+            path: [DefaultInfo(default_output = output.project(path))]
+            for path in sub_targets
+        }
+    elif type(sub_targets) == type({}):
+        sub_targets = {
+            name: [DefaultInfo(default_outputs = [output.project(path) for path in paths])]
+            for name, paths in sub_targets.items()
+        }
+    else:
+        fail("sub_targets must be a list or dict")
+
+    return output, sub_targets

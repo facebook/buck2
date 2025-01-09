@@ -16,7 +16,7 @@ load(":unarchive.bzl", "TAR_FLAGS", "archive_type", "unarchive")
 # which then can be used as an input for other rules.
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
-    output = unarchive(
+    output, sub_targets = unarchive(
         ctx,
         archive = ctx.attrs.contents_archive,
         output_name = value_or(
@@ -26,12 +26,16 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         ext_type = archive_type(ctx.attrs.contents_archive.short_path, ctx.attrs.type),
         excludes = ctx.attrs.excludes,
         strip_prefix = ctx.attrs.strip_prefix,
+        sub_targets = ctx.attrs.sub_targets,
         exec_deps = ctx.attrs.exec_deps[HttpArchiveExecDeps],
         # no need -- no http involved
         prefer_local = False,
     )
 
-    return [DefaultInfo(default_output = output)]
+    return [DefaultInfo(
+        default_output = output,
+        sub_targets = sub_targets,
+    )]
 
 registration_spec = RuleRegistrationSpec(
     name = "extract_archive",

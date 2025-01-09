@@ -71,12 +71,35 @@ def _unarchive_args():
             Supported values are: `zip`, `tar`, `tar.gz`,
             `tar.bz2`, `tar.xz`, and `tar.zst`.
         """),
-        "sub_targets": attrs.list(attrs.string(), default = [], doc = """
+        "sub_targets": attrs.one_of(
+            attrs.list(attrs.string()),
+            attrs.dict(
+                attrs.string(),
+                attrs.list(attrs.string()),
+            ),
+            default = [],
+            doc = """
             A list of filepaths within the archive to be made accessible as sub-targets.
             For example if we have an http_archive with `name = "archive"` and
             `sub_targets = ["src/lib.rs"]`, then other targets would be able to refer
             to that file as `":archive[src/lib.rs]"`.
-        """),
+
+            Or, a dict of sub_target name to list of files to be in that subtarget.
+            For example, with
+
+            http_archive(
+                name = "archive",
+                ...
+                sub_targets = {
+                    "group_1": [ "a.txt", "b.txt" ],
+                    "a.txt": [ "a.txt" ]
+                },
+            )
+
+            ... you get two sub targets: `:archive[group_1]` consisting of two files, and
+            `:archive[a.txt]` consisting of one file.
+        """,
+        ),
         "exec_deps": attrs.exec_dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps", doc = """
             When using http_archive as an anon target, the rule invoking the
             anon target needs to mirror this attribute into its own

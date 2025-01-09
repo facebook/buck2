@@ -40,21 +40,19 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         is_deferrable = True,
     )
 
-    output = unarchive(
+    output, sub_targets = unarchive(
         ctx,
         archive = archive,
         output_name = value_or(ctx.attrs.out, ctx.label.name),
         ext_type = ext_type,
         excludes = ctx.attrs.excludes,
         strip_prefix = ctx.attrs.strip_prefix,
+        sub_targets = ctx.attrs.sub_targets,
         exec_deps = ctx.attrs.exec_deps[HttpArchiveExecDeps],
         prefer_local = prefer_local,
     )
 
     return [DefaultInfo(
         default_output = output,
-        sub_targets = {
-            path: [DefaultInfo(default_output = output.project(path))]
-            for path in ctx.attrs.sub_targets
-        },
+        sub_targets = sub_targets,
     )]
