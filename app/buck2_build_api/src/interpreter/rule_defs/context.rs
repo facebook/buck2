@@ -293,7 +293,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// a `struct` containing a field `foo` of type string.
     #[starlark(attribute)]
     fn attrs<'v>(
-        this: RefAnalysisContext,
+        this: RefAnalysisContext<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
         Ok(this
             .0
@@ -305,7 +305,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// See the `actions` type for the operations that are available.
     #[starlark(attribute)]
     fn actions<'v>(
-        this: RefAnalysisContext,
+        this: RefAnalysisContext<'v>,
     ) -> starlark::Result<ValueTyped<'v, AnalysisActions<'v>>> {
         Ok(this.0.actions)
     }
@@ -314,7 +314,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// `dynamic_output` in Bxl.
     #[starlark(attribute)]
     fn label<'v>(
-        this: RefAnalysisContext,
+        this: RefAnalysisContext<'v>,
     ) -> starlark::Result<NoneOr<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>> {
         Ok(NoneOr::from_option(this.0.label))
     }
@@ -324,7 +324,7 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     /// declaration.
     #[starlark(attribute)]
     fn plugins<'v>(
-        this: RefAnalysisContext,
+        this: RefAnalysisContext<'v>,
     ) -> starlark::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
         Ok(this
             .0

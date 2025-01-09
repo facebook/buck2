@@ -96,7 +96,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     #[starlark(attribute)]
-    fn output<'v>(this: &'v BxlContext) -> starlark::Result<ValueTyped<'v, OutputStream>> {
+    fn output<'v>(this: &'v BxlContext<'v>) -> starlark::Result<ValueTyped<'v, OutputStream>> {
         let output_stream = this
             .data
             .context_type
@@ -657,7 +657,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     /// This attribute is not available on the bxl context within the a dynamic lambda.
     #[starlark(attribute)]
     fn cli_args<'v>(
-        this: &BxlContext<'v>,
+        this: &'v BxlContext<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'v>>> {
         let cli_args = this
             .data

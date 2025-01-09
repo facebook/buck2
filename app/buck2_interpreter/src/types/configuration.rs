@@ -41,7 +41,7 @@ fn configuration_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn hash<'v>(this: &StarlarkConfiguration) -> starlark::Result<&'v str> {
+    fn hash<'v>(this: &'v StarlarkConfiguration) -> starlark::Result<&'v str> {
         Ok(this.0.output_hash().as_str())
     }
 }

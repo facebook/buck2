@@ -179,7 +179,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFileNode {
 pub(crate) fn file_node_methods(methods: &mut MethodsBuilder) {
     /// The cell relative path as a string.
     #[starlark(attribute)]
-    fn path<'v>(this: &StarlarkFileNode) -> starlark::Result<&'v str> {
+    fn path<'v>(this: &'v StarlarkFileNode) -> starlark::Result<&'v str> {
         Ok(this.0.path().as_str())
     }
 

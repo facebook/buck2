@@ -115,19 +115,18 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
     };
 
     let this_value: syn::Ident = syn::parse_quote! { s_this_value };
+    let this_return_type: &syn::Type = &this.param.ty;
 
     let unpack = this.render_prepare(&this.param.ident, &this_value);
 
     let inner: syn::ItemFn = syn::parse_quote! {
         #( #attrs )*
         #[allow(non_snake_case)] // Starlark doesn't have this convention
+        #[allow(unused_variables)]
         fn #name_inner<'v>(
-            #this_value: starlark::values::Value<'v>,
-            #[allow(unused_variables)]
+            this: #this_return_type,
             __heap: &'v starlark::values::Heap,
         ) -> #return_type {
-            #[allow(unused_variables)]
-            #unpack
             #let_heap
             #body
         }
@@ -136,10 +135,10 @@ fn render_attr(x: StarAttr) -> syn::Stmt {
     let outer: syn::ItemFn = syn::parse_quote! {
         #[allow(non_snake_case)]
         fn #name<'v>(
-            #[allow(unused_variables)]
-            this: starlark::values::Value<'v>,
+            #this_value: starlark::values::Value<'v>,
             heap: &'v starlark::values::Heap,
         ) -> starlark::Result<starlark::values::Value<'v>> {
+            #unpack
             Ok(heap.alloc(#name_inner(this, heap)?))
         }
     };

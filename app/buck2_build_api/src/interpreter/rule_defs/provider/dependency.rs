@@ -154,7 +154,7 @@ where
 fn dependency_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn label<'v>(
-        this: &Dependency,
+        this: &Dependency<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, StarlarkConfiguredProvidersLabel>> {
         Ok(this.label)
     }

@@ -572,7 +572,7 @@ impl ProviderCodegen {
                 fn #provider_methods_func_name(builder: &mut starlark::environment::MethodsBuilder) {
                     #(
                         #[starlark(attribute)]
-                        fn #field_names<'v>(this: & #name)
+                        fn #field_names<'v>(this: &#name<'v>)
                                 -> starlark::Result<starlark::values::ValueOfUnchecked<'v, #field_types>>
                         {
                             Ok(this.#field_names.to_value())

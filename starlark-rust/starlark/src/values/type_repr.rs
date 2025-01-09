@@ -29,7 +29,6 @@ use crate::values::none::NoneType;
 use crate::values::string::str_type::StarlarkStr;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
-use crate::values::Value;
 
 /// Provides a starlark type representation, even if StarlarkValue is not implemented.
 ///
@@ -133,8 +132,8 @@ impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Eit
 /// Derive macros generate a reference to this method to be able to get the `type_repr` of types
 /// they can't name
 #[doc(hidden)]
-pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr, E>(
-    _f: fn(Value<'v>, &'v Heap) -> Result<T, E>,
+pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr, V, E>(
+    _f: fn(V, &'v Heap) -> Result<T, E>,
 ) -> Ty {
     T::starlark_type_repr()
 }

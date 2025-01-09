@@ -290,14 +290,14 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
     /// Gets the analysis action context to create and register actions on the execution platform
     /// corresponding to this bxl action's execution platform resolution.
     #[starlark(attribute)]
-    fn actions<'v>(this: &'v BxlActions) -> starlark::Result<ValueTyped<'v, AnalysisActions<'v>>> {
+    fn actions<'v>(this: &BxlActions<'v>) -> starlark::Result<ValueTyped<'v, AnalysisActions<'v>>> {
         Ok(this.actions)
     }
 
     /// Gets the execution deps requested correctly configured for the current execution platform
     #[starlark(attribute)]
     fn exec_deps<'v>(
-        this: &'v BxlActions,
+        this: &BxlActions<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
         if this.is_anon_target_or_dyn_action()? {
@@ -314,7 +314,7 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
     /// Gets the toolchains requested configured for the current execution platform
     #[starlark(attribute)]
     fn toolchains<'v>(
-        this: &'v BxlActions,
+        this: &BxlActions<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>>
     {
         if this.is_anon_target_or_dyn_action()? {

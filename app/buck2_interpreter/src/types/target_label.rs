@@ -117,7 +117,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn name<'v>(this: &StarlarkTargetLabel) -> starlark::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkTargetLabel) -> starlark::Result<&'v str> {
         Ok(this.label.name().as_str())
     }
 
@@ -229,7 +229,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     }
 
     #[starlark(attribute)]
-    fn name<'v>(this: &StarlarkConfiguredTargetLabel) -> starlark::Result<&'v str> {
+    fn name<'v>(this: &'v StarlarkConfiguredTargetLabel) -> starlark::Result<&'v str> {
         Ok(this.label.name().as_str())
     }
 
