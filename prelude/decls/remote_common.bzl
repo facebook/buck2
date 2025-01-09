@@ -39,8 +39,57 @@ def _urls_arg():
 """),
     }
 
+def _unarchive_args():
+    return {
+        "out": attrs.option(attrs.string(), default = None, doc = """
+            An optional name to call the directory that the downloaded artifact is
+            extracted into. Buck will generate a default name if one is not
+            provided that uses the `name` of the rule.
+        """),
+        "strip_prefix": attrs.option(attrs.string(), default = None, doc = """
+            If set, files under this path will be extracted to the root of the output
+            directory. Siblings or cousins to this prefix will not be extracted at all.
+
+
+            For example, if a tarball has the layout:
+            * foo/bar/bar-0.1.2/data.dat
+            * foo/baz/baz-0.2.3
+            * foo\\_prime/bar-0.1.2
+
+            Only `data.dat` will be extracted, and it will be extracted into the output
+            directory specified in `out`.
+        """),
+        "excludes": attrs.list(attrs.regex(), default = [], doc = """
+            An optional list of regex patterns. All file paths in the extracted archive which match
+             any of the given patterns will be omitted.
+        """),
+        "type": attrs.option(attrs.string(), default = None, doc = """
+            Normally, archive type is determined by the file's extension. If `type` is set,
+            then autodetection is overridden, and the specified type is used instead.
+
+            Supported values are: `zip`, `tar`, `tar.gz`,
+            `tar.bz2`, `tar.xz`, and `tar.zst`.
+        """),
+        "sub_targets": attrs.list(attrs.string(), default = [], doc = """
+            A list of filepaths within the archive to be made accessible as sub-targets.
+            For example if we have an http_archive with `name = "archive"` and
+            `sub_targets = ["src/lib.rs"]`, then other targets would be able to refer
+            to that file as `":archive[src/lib.rs]"`.
+        """),
+        "exec_deps": attrs.exec_dep(providers = [HttpArchiveExecDeps], default = "prelude//http_archive/tools:exec_deps", doc = """
+            When using http_archive as an anon target, the rule invoking the
+            anon target needs to mirror this attribute into its own
+            attributes, and forward the provider into the anon target
+            invocation.
+
+            When using http_archive normally not as an anon target, the
+            default value is always fine.
+        """),
+    }
+
 remote_common = struct(
     name_arg = _name_arg,
     sha256_arg = _sha256_arg,
     urls_arg = _urls_arg,
+    unarchive_args = _unarchive_args,
 )
