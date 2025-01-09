@@ -334,21 +334,37 @@ pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
 
 #[cfg(unix)]
 fn remove_file_impl(path: &Path) -> io::Result<()> {
-    fs::remove_file(path)?;
-    Ok(())
+    fs::remove_file(path)
 }
 
 #[cfg(windows)]
+#[allow(clippy::permissions_set_readonly_false)]
 fn remove_file_impl(path: &Path) -> io::Result<()> {
+    use std::io::ErrorKind;
     use std::os::windows::fs::FileTypeExt;
 
     let file_type = path.symlink_metadata()?.file_type();
     if !file_type.is_symlink() || file_type.is_symlink_file() {
-        fs::remove_file(path)?;
+        match fs::remove_file(path) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                if e.kind() == ErrorKind::PermissionDenied {
+                    let mut perms = fs::metadata(path)?.permissions();
+                    if perms.readonly() {
+                        perms.set_readonly(false);
+                        fs::set_permissions(path, perms)?;
+                        fs::remove_file(path)
+                    } else {
+                        Err(e)
+                    }
+                } else {
+                    Err(e)
+                }
+            }
+        }
     } else {
-        fs::remove_dir(path)?;
+        fs::remove_dir(path)
     }
-    Ok(())
 }
 
 pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<u64, IoError> {
