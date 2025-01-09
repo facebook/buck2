@@ -461,7 +461,7 @@ def cxx_gnu_dist_link(
             # materialize.
             if cxx_toolchain.split_debug_mode == SplitDebugMode("none"):
                 opt_cmd.add("--split-dwarf=none")
-            elif cxx_toolchain.split_debug_mode == SplitDebugMode("single"):
+            elif cxx_toolchain.split_debug_mode == SplitDebugMode("single") or getattr(ctx.attrs, "distributed_thinlto_partial_split_dwarf", False):
                 opt_cmd.add("--split-dwarf=single")
             elif cxx_toolchain.split_debug_mode == SplitDebugMode("split"):
                 opt_cmd.add("--split-dwarf=split")
