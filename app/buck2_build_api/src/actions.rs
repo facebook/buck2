@@ -119,8 +119,12 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     /// Returns a reference to an output of the action. All actions are required to have at least one output.
     fn first_output(&self) -> &BuildArtifact;
 
-    /// Obtains an executable for this action.
-    fn as_executable(&self) -> ActionExecutable<'_>;
+    /// Runs the 'Action', where all inputs are available but the output directory may not have
+    /// been cleaned up. Upon success, it is expected that all outputs will be available
+    async fn execute(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 
     /// A machine-readable category for this action, intended to be used when analyzing actions outside of buck2 itself.
     ///
@@ -162,21 +166,6 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     }
 
     // TODO this probably wants more data for execution, like printing a short_name and the target
-}
-
-pub enum ActionExecutable<'a> {
-    // FIXME(JakobDegen): This is only used in tests. Delete?
-    Incremental(&'a dyn IncrementalActionExecutable),
-}
-
-#[async_trait]
-pub trait IncrementalActionExecutable: Send + Sync + 'static {
-    /// Runs the 'Action', where all inputs are available but the output directory may not have
-    /// been cleaned up. Upon success, it is expected that all outputs will be available
-    async fn execute(
-        &self,
-        ctx: &mut dyn ActionExecutionCtx,
-    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 }
 
 /// The context for actions to use when executing

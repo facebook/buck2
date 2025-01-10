@@ -18,9 +18,7 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_common::cas_digest::RawDigest;
@@ -242,10 +240,6 @@ impl Action for DownloadFileAction {
         self.output()
     }
 
-    fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Incremental(self)
-    }
-
     fn category(&self) -> CategoryRef {
         CategoryRef::unchecked_new("download_file")
     }
@@ -256,10 +250,7 @@ impl Action for DownloadFileAction {
             .next()
             .map(|o| o.get_path().path().as_str())
     }
-}
 
-#[async_trait]
-impl IncrementalActionExecutable for DownloadFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,

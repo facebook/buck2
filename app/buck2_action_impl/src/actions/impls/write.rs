@@ -20,9 +20,7 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -159,10 +157,6 @@ impl Action for WriteAction {
         &self.output
     }
 
-    fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Incremental(self)
-    }
-
     fn category(&self) -> CategoryRef {
         CategoryRef::unchecked_new("write")
     }
@@ -181,10 +175,7 @@ impl Action for WriteAction {
             "absolute".to_owned() => self.inner.absolute.to_string(),
         }
     }
-}
 
-#[async_trait]
-impl IncrementalActionExecutable for WriteAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,

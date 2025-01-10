@@ -76,7 +76,6 @@ use crate::actions::execute::dice_data::GetReClient;
 use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run_action_knobs::HasRunActionKnobs;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
-use crate::actions::ActionExecutable;
 use crate::actions::ActionExecutionCtx;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
@@ -596,12 +595,7 @@ impl BuckActionExecutor {
                 cancellations,
             };
 
-            let (result, metadata) = match action.as_executable() {
-                ActionExecutable::Incremental(exe) => {
-                    // Let the action perform clean up in this case.
-                    exe.execute(&mut ctx).await?
-                }
-            };
+            let (result, metadata) = action.execute(&mut ctx).await?;
 
             // Check that all the outputs are the right output_type
             for x in outputs.iter() {
@@ -732,10 +726,8 @@ mod tests {
     use crate::actions::execute::action_executor::ActionOutputs;
     use crate::actions::execute::action_executor::BuckActionExecutor;
     use crate::actions::Action;
-    use crate::actions::ActionExecutable;
     use crate::actions::ActionExecutionCtx;
     use crate::actions::ExecuteError;
-    use crate::actions::IncrementalActionExecutable;
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
@@ -817,10 +809,6 @@ mod tests {
                 &self.outputs.as_slice()[0]
             }
 
-            fn as_executable(&self) -> ActionExecutable<'_> {
-                ActionExecutable::Incremental(self)
-            }
-
             fn category(&self) -> CategoryRef {
                 CategoryRef::new("testing").unwrap()
             }
@@ -828,10 +816,7 @@ mod tests {
             fn identifier(&self) -> Option<&str> {
                 None
             }
-        }
 
-        #[async_trait]
-        impl IncrementalActionExecutable for TestingAction {
             async fn execute(
                 &self,
                 ctx: &mut dyn ActionExecutionCtx,

@@ -23,9 +23,7 @@ use buck2_build_api::actions::impls::json;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::Action;
-use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::command_line_arg_like_impl;
@@ -172,10 +170,6 @@ impl Action for WriteJsonAction {
         &self.output
     }
 
-    fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Incremental(self)
-    }
-
     fn category(&self) -> CategoryRef {
         CategoryRef::unchecked_new("write_json")
     }
@@ -195,10 +189,7 @@ impl Action for WriteJsonAction {
             "absolute".to_owned() => self.inner.absolute.to_string(),
         }
     }
-}
 
-#[async_trait]
-impl IncrementalActionExecutable for WriteJsonAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
