@@ -166,18 +166,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
 
 pub enum ActionExecutable<'a> {
     // FIXME(JakobDegen): This is only used in tests. Delete?
-    Pristine(&'a dyn PristineActionExecutable),
     Incremental(&'a dyn IncrementalActionExecutable),
-}
-
-#[async_trait]
-pub trait PristineActionExecutable: Send + Sync + 'static {
-    /// Runs the 'Action', where all inputs are available and the output directory has been cleaned
-    /// up. Upon success, it is expected that all outputs will be available
-    async fn execute(
-        &self,
-        ctx: &mut dyn ActionExecutionCtx,
-    ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 }
 
 #[async_trait]

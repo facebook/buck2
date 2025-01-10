@@ -597,10 +597,6 @@ impl BuckActionExecutor {
             };
 
             let (result, metadata) = match action.as_executable() {
-                ActionExecutable::Pristine(exe) => {
-                    ctx.cleanup_outputs().await?;
-                    exe.execute(&mut ctx).await?
-                }
                 ActionExecutable::Incremental(exe) => {
                     // Let the action perform clean up in this case.
                     exe.execute(&mut ctx).await?
@@ -739,7 +735,7 @@ mod tests {
     use crate::actions::ActionExecutable;
     use crate::actions::ActionExecutionCtx;
     use crate::actions::ExecuteError;
-    use crate::actions::PristineActionExecutable;
+    use crate::actions::IncrementalActionExecutable;
     use crate::actions::RegisteredAction;
     use crate::artifact_groups::ArtifactGroup;
     use crate::artifact_groups::ArtifactGroupValues;
@@ -822,7 +818,7 @@ mod tests {
             }
 
             fn as_executable(&self) -> ActionExecutable<'_> {
-                ActionExecutable::Pristine(self)
+                ActionExecutable::Incremental(self)
             }
 
             fn category(&self) -> CategoryRef {
@@ -835,7 +831,7 @@ mod tests {
         }
 
         #[async_trait]
-        impl PristineActionExecutable for TestingAction {
+        impl IncrementalActionExecutable for TestingAction {
             async fn execute(
                 &self,
                 ctx: &mut dyn ActionExecutionCtx,

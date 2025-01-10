@@ -19,7 +19,7 @@ use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::Action;
 use buck2_build_api::actions::ActionExecutable;
 use buck2_build_api::actions::ActionExecutionCtx;
-use buck2_build_api::actions::PristineActionExecutable;
+use buck2_build_api::actions::IncrementalActionExecutable;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_core::category::Category;
@@ -122,7 +122,7 @@ impl Action for SimpleAction {
     }
 
     fn as_executable(&self) -> ActionExecutable<'_> {
-        ActionExecutable::Pristine(self)
+        ActionExecutable::Incremental(self)
     }
 
     fn category(&self) -> CategoryRef {
@@ -135,7 +135,7 @@ impl Action for SimpleAction {
 }
 
 #[async_trait]
-impl PristineActionExecutable for SimpleAction {
+impl IncrementalActionExecutable for SimpleAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
