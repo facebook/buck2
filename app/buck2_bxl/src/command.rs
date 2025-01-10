@@ -178,10 +178,7 @@ async fn bxl(
         global_cfg_options,
     );
 
-    let bxl_result = match eval_bxl(&mut ctx, bxl_key.clone()).await {
-        Ok(result) => result.0,
-        Err(e) => return Err(e),
-    };
+    let bxl_result = eval_bxl(&mut ctx, bxl_key.clone()).await?.0;
 
     let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
     let labeled_configured_build_results = filter_bxl_build_results(build_results);
