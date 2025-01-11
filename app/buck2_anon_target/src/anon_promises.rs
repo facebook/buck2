@@ -58,23 +58,23 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
         let mut shape = Vec::new();
-        let mut targets = Vec::new();
+        let mut anon_target_keys = Vec::new();
         for (promise, xs) in self.entries {
             match xs {
                 Either::Left(x) => {
                     shape.push((promise, Either::Left(shape.len())));
-                    targets.push(x);
+                    anon_target_keys.push(x);
                 }
                 Either::Right(xs) => {
                     shape.push((promise, Either::Right(shape.len()..shape.len() + xs.len())));
-                    targets.extend(xs);
+                    anon_target_keys.extend(xs);
                 }
             }
         }
 
         let values = dice
-            .try_compute_join(targets.iter(), |ctx, target| {
-                async move { target.resolve(ctx).await }.boxed()
+            .try_compute_join(anon_target_keys.iter(), |dice, anon_target_key| {
+                async move { anon_target_key.resolve(dice).await }.boxed()
             })
             .await?;
 
