@@ -68,6 +68,7 @@ use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark_map::ordered_map::OrderedMap;
 
+use crate::bxl::eval::LIMITED_EXECUTOR;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
@@ -190,6 +191,8 @@ async fn eval_bxl_for_anon_target(
     // future context, we need the future that it's attached to the cancellation context can
     // yield and be polled. To ensure that, we have to spawn the future that then enters block_in_place
 
+    let limited_executor = LIMITED_EXECUTOR.clone();
+
     let (_, futs) = unsafe {
         // SAFETY: as long as we don't `forget` the return object from `scope_and_collect`, it is safe
 
@@ -201,14 +204,14 @@ async fn eval_bxl_for_anon_target(
         // to terminate.
         scope_and_collect_with_dice(dice, |dice, s| {
             s.spawn_cancellable(
-                eval_bxl_for_anon_target_inner(
+                limited_executor.execute(eval_bxl_for_anon_target_inner(
                     dice,
                     anon_target,
                     global_cfg_options,
                     dependents_analyses,
                     execution_platform,
                     liveness,
-                ),
+                )),
                 || Err(buck2_error!([], "cancelled")),
             )
         })

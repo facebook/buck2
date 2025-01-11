@@ -8,7 +8,9 @@
  */
 
 use std::cell::RefCell;
+use std::future::Future;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
@@ -51,6 +53,7 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;
@@ -60,6 +63,7 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
 use starlark_map::ordered_map::OrderedMap;
+use tokio::sync::Semaphore;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
@@ -70,6 +74,31 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
+
+pub(crate) static LIMITED_EXECUTOR: Lazy<Arc<LimitedExecutor>> = Lazy::new(|| {
+    Arc::new(LimitedExecutor::new(500)) // Default working thread of tokio is 512 threads. We set it to 500 for here to leave some room for other things.
+});
+
+/// A limited executor that can be used to limit the number of concurrent bxl execution threads.
+pub(crate) struct LimitedExecutor {
+    semaphore: Arc<Semaphore>,
+}
+
+impl LimitedExecutor {
+    fn new(limit: usize) -> Self {
+        Self {
+            semaphore: Arc::new(Semaphore::new(limit)),
+        }
+    }
+
+    pub(crate) async fn execute<F, T>(&self, task: F) -> T
+    where
+        F: Future<Output = T>,
+    {
+        let _permit = self.semaphore.acquire().await.unwrap();
+        task.await
+    }
+}
 
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
@@ -84,6 +113,8 @@ pub(crate) async fn eval(
 
     let dispatcher = ctx.per_transaction_data().get_dispatcher().dupe();
 
+    let limited_executor = LIMITED_EXECUTOR.clone();
+
     let (_, futs) = unsafe {
         // SAFETY: as long as we don't `forget` the return object from `scope_and_collect`, it is safe
 
@@ -95,13 +126,13 @@ pub(crate) async fn eval(
         // to terminate.
         scope_and_collect_with_dice(ctx, |ctx, s| {
             s.spawn_cancellable(
-                eval_bxl_inner(
+                limited_executor.execute(eval_bxl_inner(
                     ctx,
                     dispatcher,
                     key,
                     profile_mode_or_instrumentation,
                     liveness,
-                ),
+                )),
                 || Err(buck2_error!([], "cancelled")),
             )
         })

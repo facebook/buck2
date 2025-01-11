@@ -92,3 +92,26 @@ check_anon_ouput_artifact = bxl_main(
     impl = _check_anon_ouput_artifact,
     cli_args = {},
 )
+
+def _eval_lost_of_anon_bxl(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+
+    promise = actions.anon_targets([(
+        anon,
+        {
+            "x": i,
+        },
+    ) for i in range(0, 2000)]).promise
+
+    outputs = []
+    for anon_res in ctx.resolve(actions, promise):
+        outputs.append(anon_res[Info].hello)
+
+    ensured = ctx.output.ensure_multiple(outputs)
+    for ensure in ensured:
+        ctx.output.print(ensure.abs_path())
+
+eval_lost_of_anon_bxl = bxl_main(
+    impl = _eval_lost_of_anon_bxl,
+    cli_args = {},
+)

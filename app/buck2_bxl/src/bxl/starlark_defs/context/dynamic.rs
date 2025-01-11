@@ -56,6 +56,7 @@ use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::OwnedRefFrozenRef;
 use starlark::values::ValueTyped;
 
+use crate::bxl::eval::LIMITED_EXECUTOR;
 use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -107,6 +108,8 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         print: EventDispatcherPrintHandler(dispatcher.dupe()),
     };
 
+    let limited_executor = LIMITED_EXECUTOR.clone();
+
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
@@ -122,7 +125,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         // to terminate.
         scope_and_collect_with_dice(dice_ctx, |dice_ctx, s| {
             s.spawn_cancellable(
-                async move {
+                limited_executor.execute(async move {
                     with_starlark_eval_provider(
                         dice_ctx,
                         &mut StarlarkProfilerOpt::disabled(),
@@ -134,7 +137,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                         },
                     )
                     .await
-                },
+                }),
                 || Err(buck2_error!([], "cancelled")),
             )
         })
