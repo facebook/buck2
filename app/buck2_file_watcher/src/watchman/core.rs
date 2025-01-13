@@ -28,8 +28,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 use watchman_client::prelude::*;
 
-fn watchman_error_tag(e: &watchman_client::Error) -> Option<ErrorTag> {
-    let tag = match e {
+fn watchman_error_tag(e: &watchman_client::Error) -> ErrorTag {
+    match e {
         watchman_client::Error::ConnectionError { .. } => ErrorTag::WatchmanConnectionError,
         watchman_client::Error::ConnectionLost(_) => ErrorTag::WatchmanConnectionLost,
         watchman_client::Error::ConnectionDiscovery { .. } => ErrorTag::WatchmanConnectionDiscovery,
@@ -49,8 +49,7 @@ fn watchman_error_tag(e: &watchman_client::Error) -> Option<ErrorTag> {
         watchman_client::Error::Deserialize { .. } => ErrorTag::WatchmanDeserialize,
         watchman_client::Error::Serialize { .. } => ErrorTag::WatchmanSerialize,
         watchman_client::Error::Connect { .. } => ErrorTag::WatchmanConnect,
-    };
-    Some(tag)
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]

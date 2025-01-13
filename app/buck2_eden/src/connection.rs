@@ -467,8 +467,8 @@ impl_has_error_handling_strategy!(GetSHA1Error);
 impl_has_error_handling_strategy!(GetCurrentJournalPositionError);
 impl_has_error_handling_strategy!(ChangesSinceV2Error);
 
-fn eden_posix_error_tag(code: i32) -> Option<ErrorTag> {
-    let tag = match code {
+fn eden_posix_error_tag(code: i32) -> ErrorTag {
+    match code {
         libc::ENOENT => ErrorTag::IoEdenFileNotFound,
         libc::EACCES | libc::EPERM => ErrorTag::IoPermissionDenied,
         libc::ETIMEDOUT => ErrorTag::IoTimeout,
@@ -477,14 +477,12 @@ fn eden_posix_error_tag(code: i32) -> Option<ErrorTag> {
         libc::ENOSPC => ErrorTag::IoStorageFull,
         libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
         libc::ENOTCONN => ErrorTag::IoNotConnected,
-        _ => return None,
-    };
-
-    Some(tag)
+        _ => ErrorTag::IoEden,
+    }
 }
 
-fn eden_service_error_tag(error: &edenfs::EdenError) -> Option<ErrorTag> {
-    let tag = match error.errorType {
+fn eden_service_error_tag(error: &edenfs::EdenError) -> ErrorTag {
+    match error.errorType {
         EdenErrorType::WIN32_ERROR => ErrorTag::IoEdenWin32Error,
         EdenErrorType::HRESULT_ERROR => ErrorTag::IoEdenHresultError,
         EdenErrorType::ARGUMENT_ERROR => ErrorTag::IoEdenArgumentError,
@@ -493,10 +491,8 @@ fn eden_service_error_tag(error: &edenfs::EdenError) -> Option<ErrorTag> {
         EdenErrorType::JOURNAL_TRUNCATED => ErrorTag::IoEdenJournalTruncated,
         EdenErrorType::CHECKOUT_IN_PROGRESS => ErrorTag::IoEdenCheckoutInProgress,
         EdenErrorType::OUT_OF_DATE_PARENT => ErrorTag::IoEdenOutOfDateParent,
-        _ => return None,
-    };
-
-    Some(tag)
+        _ => ErrorTag::IoEden,
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]

@@ -159,8 +159,8 @@ fn test_source_metadata_are_included() {
 
 #[test]
 fn test_error_tags() {
-    fn f() -> Option<crate::ErrorTag> {
-        Some(crate::ErrorTag::StarlarkFail)
+    fn f() -> crate::ErrorTag {
+        crate::ErrorTag::StarlarkFail
     }
 
     #[derive(buck2_error_derive::Error, Debug)]

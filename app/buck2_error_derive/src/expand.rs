@@ -297,21 +297,14 @@ fn get_tags(attrs: &Attrs) -> TokenStream {
         .iter()
         .map(|tag| match tag {
             OptionStyle::Explicit(tag) => syn::parse_quote! {
-                core::option::Option::Some(buck2_error::ErrorTag::#tag)
+                buck2_error::ErrorTag::#tag
             },
             OptionStyle::ByExpr(e) => e.clone(),
         })
         .collect();
 
     quote! {
-        let maybe_tags = [#(#tags,)*];
-        let mut tags: Vec<buck2_error::ErrorTag> = vec![];
-
-        for tag in maybe_tags {
-            if let Some(tag) = tag {
-                tags.push(tag);
-            }
-        }
+        let tags = [#(#tags,)*];
     }
 }
 

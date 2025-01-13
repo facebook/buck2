@@ -36,7 +36,7 @@ use crate::io_counters::IoCounterKey;
 // "The process cannot access the file because it is being used by another process."
 pub const ERROR_SHARING_VIOLATION: i32 = 32;
 
-fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
+fn io_error_kind_tag(e: &io::Error) -> ErrorTag {
     'from_kind: {
         let from_kind = match e.kind() {
             io::ErrorKind::NotFound => ErrorTag::IoNotFound,
@@ -48,7 +48,7 @@ fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
             io::ErrorKind::ConnectionAborted => ErrorTag::IoConnectionAborted,
             _ => break 'from_kind,
         };
-        return Some(from_kind);
+        return from_kind;
     }
 
     if let Some(os_error_code) = e.raw_os_error() {
@@ -58,15 +58,15 @@ fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
                 libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
                 _ => break 'from_os,
             };
-            return Some(from_os);
+            return from_os;
         }
 
         if cfg!(windows) && os_error_code == ERROR_SHARING_VIOLATION {
-            return Some(ErrorTag::IoWindowsSharingViolation);
+            return ErrorTag::IoWindowsSharingViolation;
         }
     }
 
-    None
+    ErrorTag::IoSystem
 }
 
 impl IoError {
