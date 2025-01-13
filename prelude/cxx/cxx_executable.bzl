@@ -149,6 +149,7 @@ load(
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "LinkGroupContext",
     "build_shared_libs_for_symlink_tree",
+    "collect_linkables",
     "create_debug_linkable_entries",
     "create_link_groups",
     "find_relevant_roots",
@@ -409,6 +410,25 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
 
+        roots = set(
+            exec_dep_roots +
+            find_relevant_roots(
+                link_group = link_group,
+                linkable_graph_node_map = linkable_graph_node_map,
+                link_group_mappings = link_group_mappings,
+                roots = link_group_extra_link_roots,
+            ),
+        )
+        is_executable_link = True
+        exec_linkables = collect_linkables(
+            linkable_graph_node_map,
+            is_executable_link,
+            link_strategy,
+            link_group_preferred_linkage,
+            pic_behavior,
+            roots,
+        )
+
         # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
         # scenarios for which we need to propagate up link info and simplify this logic. For now
         # base which links to use based on whether link groups are defined.
@@ -425,17 +445,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 for name, lib in link_group_libs.items()
             },
             link_strategy = link_strategy,
-            roots = set(
-                exec_dep_roots +
-                find_relevant_roots(
-                    link_group = link_group,
-                    linkable_graph_node_map = linkable_graph_node_map,
-                    link_group_mappings = link_group_mappings,
-                    roots = link_group_extra_link_roots,
-                ),
-            ),
+            roots = roots,
+            linkables = exec_linkables,
             executable_label = ctx.label,
-            is_executable_link = True,
+            is_executable_link = is_executable_link,
             prefer_stripped = impl_params.prefer_stripped_objects,
             force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
         )
@@ -476,6 +489,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         if is_cxx_test and link_group != None:
             # if a cpp_unittest is part of the link group, we need to traverse through all deps
             # from the root again to ensure we link in gtest deps
+            roots = set([d.linkable_graph.nodes.value.label for d in link_deps])
+            exec_linkables = collect_linkables(
+                linkable_graph_node_map,
+                is_executable_link,
+                link_strategy,
+                link_group_preferred_linkage,
+                pic_behavior,
+                roots,
+            )
             labels_to_links_to_merge = get_filtered_labels_to_links_map(
                 public_link_group_nodes,
                 linkable_graph_node_map,
@@ -485,7 +507,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 link_group_preferred_linkage,
                 link_strategy,
                 pic_behavior = pic_behavior,
-                roots = set([d.linkable_graph.nodes.value.label for d in link_deps]),
+                roots = roots,
+                linkables = exec_linkables,
                 executable_label = ctx.label,
                 prefer_stripped = impl_params.prefer_stripped_objects,
             )

@@ -25,6 +25,7 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link_groups.bzl",
     "LinkGroupLinkInfo",  # @unused Used as a type
+    "collect_linkables",
     "create_link_groups",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
@@ -467,6 +468,17 @@ def inherited_rust_cxx_link_group_info(
         if linked_link_group.library != None:
             link_group_libs[name] = linked_link_group.library
 
+    roots = set(executable_deps)
+    pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported")
+    is_executable_link = True
+    exec_linkables = collect_linkables(
+        linkable_graph_node_map,
+        is_executable_link,
+        link_strategy,
+        link_group_preferred_linkage,
+        pic_behavior,
+        roots,
+    )
     labels_to_links = get_filtered_labels_to_links_map(
         public_link_group_nodes,
         linkable_graph_node_map,
@@ -474,15 +486,16 @@ def inherited_rust_cxx_link_group_info(
         link_groups,
         link_group_mappings,
         link_group_preferred_linkage,
-        pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported"),
+        pic_behavior = pic_behavior,
         link_group_libs = {
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
         link_strategy = link_strategy,
-        roots = set(executable_deps),
+        roots = roots,
+        linkables = exec_linkables,
         executable_label = ctx.label,
-        is_executable_link = True,
+        is_executable_link = is_executable_link,
         prefer_stripped = False,
         force_static_follows_dependents = True,
     )

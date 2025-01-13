@@ -388,7 +388,32 @@ def _fixup_link_order(
 
     return result_linkables
 
-def _collect_linkables(
+def _collect_all_linkables(
+        linkable_graph_node_map: dict[Label, LinkableNode],
+        is_executable_link: bool,
+        link_strategy: LinkStrategy,
+        link_group_preferred_linkage: dict[Label, Linkage],
+        pic_behavior: PicBehavior,
+        link_group_roots: dict[str, set[Label]]) -> dict[str, list[Label]]:
+    """
+    Given a dict of direct roots (that should be linked as archive) for each link group collects
+    all linkables for link groups that should be linked as archive and dynamically
+    """
+    linkables = {}
+
+    for (link_group, roots) in link_group_roots.items():
+        linkables[link_group] = collect_linkables(
+            linkable_graph_node_map,
+            is_executable_link,
+            link_strategy,
+            link_group_preferred_linkage,
+            pic_behavior,
+            roots,
+        )
+
+    return linkables
+
+def collect_linkables(
         linkable_graph_node_map: dict[Label, LinkableNode],
         is_executable_link: bool,
         link_strategy: LinkStrategy,
@@ -424,6 +449,7 @@ def get_filtered_labels_to_links_map(
         link_group_preferred_linkage: dict[Label, Linkage],
         link_strategy: LinkStrategy,
         roots: set[Label],
+        linkables: list[Label],
         pic_behavior: PicBehavior,
         executable_label: Label | None,
         executable_deps: list[Label] = [],
@@ -438,15 +464,6 @@ def get_filtered_labels_to_links_map(
     identifies which link infos and targets belong the in the provided link group.
     If no link group is provided, all unmatched link infos are returned.
     """
-
-    linkables = _collect_linkables(
-        linkable_graph_node_map,
-        is_executable_link,
-        link_strategy,
-        link_group_preferred_linkage,
-        pic_behavior,
-        roots,
-    )
 
     # TODO(arr): re-enable when the perf fix D67982726 is ready
     if False:
@@ -806,6 +823,7 @@ _CreatedLinkGroup = record(
 def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec,
+        linkables: list[Label],
         roots: set[Label],
         link_strategy: LinkStrategy,
         executable_label: Label | None,
@@ -864,6 +882,7 @@ def _create_link_group(
         link_group_libs = link_group_libs,
         link_strategy = link_strategy,
         roots = roots,
+        linkables = linkables,
         prefer_stripped = prefer_stripped_objects,
         prefer_optimized = spec.group.attrs.prefer_optimized_experimental,
     )
@@ -1049,6 +1068,14 @@ def create_link_groups(
         link_strategy,
         linkable_graph_node_map,
     )
+    linkables = _collect_all_linkables(
+        linkable_graph_node_map = linkable_graph_node_map,
+        is_executable_link = False,
+        link_strategy = link_strategy,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
+        link_group_roots = roots,
+    )
 
     for link_group_spec in specs:
         # NOTE(agallagher): It might make sense to move this down to be
@@ -1058,6 +1085,7 @@ def create_link_groups(
             ctx = ctx,
             spec = link_group_spec,
             roots = roots[link_group_spec.group.name],
+            linkables = linkables[link_group_spec.group.name],
             link_strategy = link_strategy,
             executable_label = executable_label,
             executable_deps = executable_deps,

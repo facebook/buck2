@@ -185,6 +185,7 @@ load(
 load(
     ":link_groups.bzl",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
+    "collect_linkables",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
     "get_filtered_targets",
@@ -1485,6 +1486,16 @@ def _get_shared_library_links(
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, pic_behavior)
     linkable_graph_label_to_node_map = linkable_graph_node_map_func()
 
+    roots = set(linkable_deps(non_exported_deps + exported_deps))
+    is_executable_link = False
+    lib_linkables = collect_linkables(
+        linkable_graph_label_to_node_map,
+        is_executable_link,
+        link_strategy,
+        link_group_preferred_linkage,
+        pic_behavior,
+        roots,
+    )
     filtered_labels_to_links = get_filtered_labels_to_links_map(
         None,
         linkable_graph_label_to_node_map,
@@ -1497,7 +1508,8 @@ def _get_shared_library_links(
             for name, lib in link_group_libs.items()
         },
         link_strategy = link_strategy,
-        roots = set(linkable_deps(non_exported_deps + exported_deps)),
+        roots = roots,
+        linkables = lib_linkables,
         pic_behavior = pic_behavior,
         executable_label = None,
         prefer_stripped = prefer_stripped,

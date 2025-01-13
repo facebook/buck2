@@ -27,6 +27,7 @@ load("@prelude//cxx:groups.bzl", "get_dedupped_roots_from_groups")
 load(
     "@prelude//cxx:link_groups.bzl",
     "LinkGroupContext",
+    "collect_linkables",
     "create_link_groups",
     "find_relevant_roots",
     "get_filtered_labels_to_links_map",
@@ -1025,6 +1026,24 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             roots = get_dedupped_roots_from_groups(link_group_info.groups.values()),
         )
 
+        roots = set(
+            [
+                d.linkable_graph.nodes.value.label
+                for d in link_deps
+                if d.linkable_graph != None
+            ] +
+            link_group_relevant_roots,
+        )
+        is_executable_link = True
+        pic_behavior = PicBehavior("supported")
+        exec_linkables = collect_linkables(
+            linkable_graph_node_map,
+            is_executable_link,
+            link_strategy,
+            link_group_preferred_linkage,
+            pic_behavior,
+            roots,
+        )
         labels_to_links = get_filtered_labels_to_links_map(
             public_nodes = public_nodes,
             linkable_graph_node_map = linkable_graph_node_map,
@@ -1037,18 +1056,12 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
                 for name, lib in link_group_libs.items()
             },
             link_strategy = link_strategy,
-            roots = set(
-                [
-                    d.linkable_graph.nodes.value.label
-                    for d in link_deps
-                    if d.linkable_graph != None
-                ] +
-                link_group_relevant_roots,
-            ),
+            roots = roots,
+            linkables = exec_linkables,
             executable_label = ctx.label,
             is_executable_link = True,
             force_static_follows_dependents = True,
-            pic_behavior = PicBehavior("supported"),
+            pic_behavior = pic_behavior,
         )
 
         # NOTE: Our Haskell DLL support impl currently links transitive haskell
