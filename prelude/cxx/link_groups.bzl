@@ -440,6 +440,13 @@ def collect_linkables(
         get_potential_linkables,
     )
 
+# TODO(patskovn): We should have proper DFS link order everywhere.
+#                 But now certain places fail in `opt` with fixed up link order
+#                 so enabling it more gradually with future follow ups.
+def _should_fixup_link_order(link_strategy: LinkStrategy) -> bool:
+    # TODO(arr): re-enable when the perf fix D67982726 is ready
+    return False and link_strategy == LinkStrategy("shared")
+
 def get_filtered_labels_to_links_map(
         public_nodes: [set[Label], None],
         linkable_graph_node_map: dict[Label, LinkableNode],
@@ -465,8 +472,7 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    # TODO(arr): re-enable when the perf fix D67982726 is ready
-    if False:
+    if _should_fixup_link_order(link_strategy):
         linkables = _fixup_link_order(
             linkables,
             linkable_graph_node_map,
