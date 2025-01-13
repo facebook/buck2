@@ -342,7 +342,7 @@ FinalLabelsToLinks = record(
     map = field(dict[Label, LinkGroupLinkInfo]),
 )
 
-def _fixup_link_order(
+def _fixup_executable_link_order(
         linkables: list[Label],
         linkable_graph_node_map: dict[Label, LinkableNode],
         executable_label: Label | None,
@@ -387,6 +387,50 @@ def _fixup_link_order(
         result_linkables = list(unordered_linkables) + result_linkables
 
     return result_linkables
+
+def _fixup_link_groups_link_order(
+        linkables: dict[str, list[Label]],  # Linkables of all link groups
+        linkable_graph_node_map: dict[Label, LinkableNode],
+        executable_label: Label,
+        executable_deps: list[Label]) -> dict[str, list[Label]]:
+    # Does one more traversal through graph to figure out proper
+    # order of linkables in the set. Additional pass makes order closer to
+    # the one we use in TSet projections when link groups are disabled.
+    ordered_linkables = {}
+
+    # Storing in set for faster access
+    unprocessed_linkables = {}
+    for link_group, link_group_linkables in linkables.items():
+        unprocessed_linkables[link_group] = set(link_group_linkables)
+        ordered_linkables[link_group] = []
+
+    def traverse_all_linkables(node: Label) -> list[Label]:
+        for link_group, unordered_linkables in unprocessed_linkables.items():
+            if node in unordered_linkables:
+                ordered_linkables[link_group].append(node)
+                unordered_linkables.remove(node)
+
+        if node == executable_label:
+            return executable_deps
+        else:
+            return linkable_graph_node_map[node].all_deps
+
+    depth_first_traversal_by(
+        None,
+        [executable_label],
+        traverse_all_linkables,
+        traversal = GraphTraversal("preorder-left-to-right"),
+    )
+
+    for link_group, unordered_linkables in unprocessed_linkables.items():
+        # Link groups machinery may be used by something that does not
+        # store all information in dependency graph. E.g. python native dlopen
+        # So gathering links starting from executable label may not collect all
+        # dependencies correctly. To account for that we add remaining pieces to
+        # final result. There is no particular reasoning behing putting remaining linkables first
+        ordered_linkables[link_group] = list(unordered_linkables) + ordered_linkables[link_group]
+
+    return ordered_linkables
 
 def _collect_all_linkables(
         linkable_graph_node_map: dict[Label, LinkableNode],
@@ -472,8 +516,10 @@ def get_filtered_labels_to_links_map(
     If no link group is provided, all unmatched link infos are returned.
     """
 
-    if _should_fixup_link_order(link_strategy):
-        linkables = _fixup_link_order(
+    # Fixup link order only for executable link. Linkables for link groups
+    # should already be fixed up if required.
+    if is_executable_link and _should_fixup_link_order(link_strategy):
+        linkables = _fixup_executable_link_order(
             linkables,
             linkable_graph_node_map,
             executable_label,
@@ -1082,6 +1128,14 @@ def create_link_groups(
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
         link_group_roots = roots,
     )
+
+    if _should_fixup_link_order(link_strategy) and executable_label and executable_deps:
+        linkables = _fixup_link_groups_link_order(
+            linkables,
+            linkable_graph_node_map,
+            executable_label,
+            executable_deps,
+        )
 
     for link_group_spec in specs:
         # NOTE(agallagher): It might make sense to move this down to be
