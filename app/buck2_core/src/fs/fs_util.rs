@@ -348,6 +348,9 @@ fn remove_file_impl(path: &Path) -> io::Result<()> {
         match fs::remove_file(path) {
             Ok(_) => Ok(()),
             Err(e) => {
+                // Some tools may set readonly attribute on files in buck-out
+                // which causes `Access is denied` error on Windows.
+                // Try to remove readonly attribute and retry.
                 if e.kind() == ErrorKind::PermissionDenied {
                     let mut perms = fs::metadata(path)?.permissions();
                     if perms.readonly() {
