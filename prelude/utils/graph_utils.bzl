@@ -128,7 +128,7 @@ def find_cycle(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any] | 
     return None
 
 def post_order_traversal_by(
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func) -> list[typing.Any]:
     """
     Returns the post-order sorted list of the nodes in the traversal.
@@ -163,7 +163,7 @@ def post_order_traversal_by(
     return ordered
 
 def pre_order_traversal_by(
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func) -> list[typing.Any]:
     """
     Returns a topological sorted list of the nodes from a pre-order traversal.
@@ -175,7 +175,7 @@ def pre_order_traversal_by(
 
 def depth_first_traversal(
         graph_nodes: dict[typing.Any, list[typing.Any]],
-        roots: list[typing.Any]) -> list[typing.Any]:
+        roots: typing.Iterable) -> list[typing.Any]:
     """
     Like `depth_first_traversal_by` but the nodes are stored in the graph.
     """
@@ -206,7 +206,7 @@ GraphTraversal = enum(
 
 def depth_first_traversal_by(
         graph_nodes: [dict[typing.Any, typing.Any], None],
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func: typing.Callable,
         traversal: GraphTraversal = GraphTraversal("preorder-right-to-left"),
         node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
@@ -250,7 +250,7 @@ def depth_first_traversal_by(
 # traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
 def rust_matching_topological_traversal(
         graph_nodes: [dict[typing.Any, typing.Any], None],
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
     counts = {}
 
