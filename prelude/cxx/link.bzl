@@ -332,7 +332,6 @@ def cxx_link_into(
         output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix)
 
     final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, external_debug_info, opts.identifier)
-    final_output = stamp_build_info(ctx, final_output) if is_result_executable else final_output
 
     dwp_artifact = None
     if should_generate_dwp:
@@ -358,6 +357,8 @@ def cxx_link_into(
             referenced_objects = [dwp_inputs],
             from_exe = not dwp_from_dwo,
         )
+
+    final_output = stamp_build_info(ctx, final_output) if is_result_executable else final_output
 
     linked_object = LinkedObject(
         output = final_output,
