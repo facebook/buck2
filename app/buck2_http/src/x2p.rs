@@ -71,6 +71,7 @@ pub fn find_proxy() -> buck2_error::Result<Option<Proxy>> {
 /// denotes a URL is not authorized for vpnless access and/or using the wrong,
 /// non-vpnless url.
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum X2PAgentError {
     #[error("Host `{host}` is not authorized for vpnless access: {message}")]
     ForbiddenHost { host: String, message: String },

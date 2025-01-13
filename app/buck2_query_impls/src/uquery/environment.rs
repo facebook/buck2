@@ -61,12 +61,14 @@ use tracing::warn;
 type ArcCellPath = Arc<CellPath>;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum QueryLiteralResolutionError {
     #[error("literal `{0}` missing in pre-resolved literals")]
     LiteralMissing(String),
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum RBuildFilesError {
     #[error("no parent found for the file `{0}`")]
     ParentDoesNotExist(ArcCellPath),

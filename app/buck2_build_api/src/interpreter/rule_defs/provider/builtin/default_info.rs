@@ -376,6 +376,7 @@ impl PartialEq for FrozenDefaultInfo {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DefaultOutputError {
     #[error("Cannot specify both `default_output` and `default_outputs`.")]
     ConflictingArguments,

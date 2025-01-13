@@ -52,6 +52,7 @@ pub struct RemoteEnabledExecutorOptions {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum RemoteExecutorDependencyErrors {
     #[error("RE dependency requires `{0}` to be set")]
     MissingField(&'static str),

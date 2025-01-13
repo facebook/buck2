@@ -49,6 +49,7 @@ pub enum Checksum {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Environment)]
 enum DownloadFileError {
     #[error("Must pass in at least one checksum (e.g. `sha1 = ...`)")]
     MissingChecksum,
@@ -134,6 +135,7 @@ impl Checksum {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpHeadError {
     #[error("Error performing http_head request")]
     Client(#[source] HttpError),
@@ -146,6 +148,7 @@ impl From<HttpError> for HttpHeadError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpDownloadError {
     #[error("Error performing http_download request")]
     Client(#[source] HttpError),

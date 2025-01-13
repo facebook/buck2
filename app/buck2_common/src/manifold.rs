@@ -58,12 +58,14 @@ impl Default for Ttl {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpWriteError {
     #[error(transparent)]
     Client(HttpError),
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpAppendError {
     #[error(transparent)]
     Client(HttpError),
@@ -98,6 +100,7 @@ impl AsBuck2Error for HttpAppendError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum UploadError {
     #[error(
         "No result code from uploading path `{0}` to Manifold, probably due to signal interrupt"

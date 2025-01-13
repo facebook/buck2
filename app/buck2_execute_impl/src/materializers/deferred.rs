@@ -214,6 +214,7 @@ pub enum AccessTimesUpdates {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum AccessTimesUpdatesError {
     #[error(
         "Invalid value for buckconfig `[buck2] update_access_times`. Got `{0}`. Expected one of `full`, `partial`  or `disabled`."
@@ -340,6 +341,7 @@ pub enum SharedMaterializingError {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum MaterializeEntryError {
     #[error(transparent)]
     Error(buck2_error::Error),

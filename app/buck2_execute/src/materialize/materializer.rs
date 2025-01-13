@@ -557,6 +557,7 @@ pub struct HttpDownloadInfo {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum ArtifactNotMaterializedReason {
     #[error(
         "The artifact at path '{}' ({}) was produced by a RE action ({}), \
@@ -625,6 +626,7 @@ pub enum MaterializationMethod {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum MaterializationMethodError {
     #[error(
         "Invalid value for buckconfig `[buck2] materializations`. Got `{0}`. Expected one of `all`, `deferred`, or `deferred_skip_final_artifacts`."

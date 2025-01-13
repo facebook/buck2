@@ -189,6 +189,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum TargetExprError {
     #[error(
         "Expected a single target like item, but was `{0}`. If you have passed in a `label`, make sure to call `configured_target()` to get the underlying configured target label."

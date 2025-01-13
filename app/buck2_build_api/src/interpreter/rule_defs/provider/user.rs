@@ -43,6 +43,7 @@ use crate::interpreter::rule_defs::provider::callable::UserProviderCallableData;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum UserProviderError {
     #[error("Value for parameter `{0}` mismatches type `{1}`: `{2}`")]
     MismatchedType(String, Ty, String),

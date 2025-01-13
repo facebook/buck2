@@ -27,6 +27,7 @@ use crate::paths::module::OwnedStarlarkModulePath;
 use crate::paths::module::StarlarkModulePath;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum FileLoaderError {
     #[error("`native` in `prelude.bzl` must be a struct")]
     NativeMustBeStruct,

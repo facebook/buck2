@@ -76,6 +76,7 @@ use tokio::sync::MutexGuard;
 
 /// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ResolveLoadError {
     /// The scheme provided was not correct or supported.
     #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
@@ -184,6 +185,7 @@ struct DocsCache {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Environment)]
 enum DocsCacheError {
     #[error("Duplicate global symbol `{}` detected. Existing URL was `{}`, new URL was `{}`", .name, .existing, .new)]
     DuplicateGlobalSymbol {
@@ -298,6 +300,7 @@ struct BuckLspContext<'a> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BuckLspContextError {
     /// The scheme provided was not correct or supported.
     #[error("Url `{}` was expected to be of type `{}`", .1, .0)]

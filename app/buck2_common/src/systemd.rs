@@ -22,6 +22,7 @@ const SYSTEMD_MIN_VERSION: u32 = 253;
 static AVAILABILITY: OnceLock<Option<buck2_error::Error>> = OnceLock::new();
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 enum SystemdNotAvailableReason {
     #[error("Unexpected `systemctl --version` output format: {0}")]
     UnexpectedVersionOutputFormat(String),

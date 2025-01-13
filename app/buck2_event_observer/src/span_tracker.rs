@@ -25,6 +25,7 @@ use crate::what_ran::WhatRanRelevantAction;
 use crate::what_ran::WhatRanState;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum SpanTrackerError<T: SpanTrackable> {
     #[error(
         "Tried to end a child (`{child:#?}`) that did not exist for its parent (`{parent:#?}`)."

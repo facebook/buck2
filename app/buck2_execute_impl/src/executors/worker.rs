@@ -48,6 +48,7 @@ use tonic::transport::Channel;
 const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum WorkerInitError {
     #[error("Worker failed to spawn: {0}")]
     SpawnFailed(String),

@@ -23,6 +23,7 @@ use futures::TryStreamExt;
 use humantime::format_duration;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum BuildInfoError {
     #[error("Failed to read event log")]
     EventLogReadFail,

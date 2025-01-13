@@ -15,6 +15,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ParsePackageError {
     #[error("Package should contain `//`: `{0}`")]
     NoSlashSlash(String),

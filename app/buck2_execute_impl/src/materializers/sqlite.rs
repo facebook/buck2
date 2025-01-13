@@ -62,6 +62,7 @@ const IDENTITY_KEY: &str = "timestamp_on_initialization";
 pub type MaterializerState = Vec<(ProjectRelativePathBuf, (ArtifactMetadata, DateTime<Utc>))>;
 
 #[derive(buck2_error::Error, Debug, PartialEq, Eq)]
+#[buck2(tag = Tier0)]
 pub(crate) enum ArtifactMetadataSqliteConversionError {
     #[error("Internal error: expected field `{}` to be not null for artifact type '{}'", .field, .artifact_type)]
     ExpectedNotNull {
@@ -479,6 +480,7 @@ impl MaterializerStateSqliteTable {
 }
 
 #[derive(buck2_error::Error, Debug, PartialEq, Eq)]
+#[buck2(tag = Input)]
 enum MaterializerStateSqliteDbError {
     #[error("Path {} does not exist", .0)]
     PathDoesNotExist(AbsNormPathBuf),

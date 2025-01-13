@@ -27,6 +27,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::fs::paths::RelativePath;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tier0)]
 enum ProjectRootError {
     #[error("Provided project root `{0}` is not equal to the canonicalized path `{1}`")]
     NotCanonical(AbsNormPathBuf, AbsNormPathBuf),

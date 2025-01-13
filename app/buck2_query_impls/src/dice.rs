@@ -63,6 +63,7 @@ use crate::uquery::environment::UqueryDelegate;
 pub(crate) mod aquery;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum LiteralParserError {
     #[error("Expected a target pattern without providers, got: `{0}`")]
     ExpectingTargetPatternWithoutProviders(String),

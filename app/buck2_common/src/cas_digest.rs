@@ -344,6 +344,7 @@ impl CasDigestConfigInner {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum CasDigestConfigError {
     #[error("At least one algorithm must be enabled")]
     NotConfigured,
@@ -673,6 +674,7 @@ pub struct TinyDigest<'a, Kind: CasDigestKind> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum CasDigestParseError {
     #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
     MissingSizeSeparator,

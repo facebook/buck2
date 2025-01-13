@@ -127,6 +127,7 @@ impl<'v> ConfigurationInfo<'v> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ConfigurationInfoError {
     #[error("key `{0}` in constraints dict does not match constraint value `{1}`")]
     ConstraintsKeyValueMismatch(String, String),

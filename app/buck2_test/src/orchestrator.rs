@@ -641,6 +641,7 @@ enum ExecuteError {
 }
 
 #[derive(From, Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 /// Used to support the same ExecuteError's api via dice
 enum ExecuteDiceErr {
     #[error("Cancelled")]

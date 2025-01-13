@@ -34,6 +34,7 @@ impl AbsWorkingDir {
         let current_dir = AbsPathBuf::new(env::current_dir()?)?;
 
         #[derive(Debug, buck2_error::Error)]
+        #[buck2(tier0)]
         enum CurrentDirError {
             #[error("std::env::current_dir returns non-canonical path: `{}` -> `{}`", _0.display(), _1.display())]
             NotCanonical(AbsPathBuf, AbsNormPathBuf),

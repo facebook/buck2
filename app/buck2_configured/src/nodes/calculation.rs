@@ -90,6 +90,7 @@ use crate::configuration::calculation::check_execution_platform;
 use crate::configuration::calculation::ConfigurationCalculation;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum NodeCalculationError {
     #[error("expected `{0}` attribute to be a list but got `{1}`")]
     TargetCompatibleNotList(String, String),
@@ -173,6 +174,7 @@ enum ToolchainDepError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PluginDepError {
     #[error("Plugin dep `{0}` is a toolchain rule")]
     PluginDepIsToolchainRule(TargetLabel),

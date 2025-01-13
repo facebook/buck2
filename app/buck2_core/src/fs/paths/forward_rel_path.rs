@@ -1019,6 +1019,7 @@ impl<P: AsRef<ForwardRelativePath>> Extend<P> for ForwardRelativePathBuf {
 
 /// Errors from ForwardRelativePath creation
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum ForwardRelativePathError {
     #[error("expected a relative path but got an absolute path instead: `{0}`")]
     PathNotRelative(String),

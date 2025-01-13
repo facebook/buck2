@@ -400,6 +400,7 @@ fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum DownloadError {
     #[error("Failed to declare in materializer")]
     Materialization,

@@ -43,6 +43,7 @@ pub enum Error3 {
     #[buck2(tier0)]
     VariantB,
     #[error("baz")]
+    #[buck2(tag = Environment)]
     VariantC,
 }
 
@@ -55,7 +56,7 @@ fn test_derive_error3() {
     assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
 
     let e: crate::Error = Error3::VariantC.into();
-    assert_eq!(e.get_tier(), None);
+    assert_eq!(e.get_tier(), Some(crate::Tier::Environment));
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
@@ -85,6 +86,7 @@ struct NoAttrsStruct;
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
+#[buck2(tag = Tier0)]
 enum NoAttrsEnum {
     Variant,
 }
@@ -218,6 +220,7 @@ fn test_recovery_through_transparent_buck2_error() {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error(transparent)]
+    #[buck2(tag = Tier0)]
     enum PartiallyStructured {
         #[error(transparent)]
         Other(buck2_error::Error),
@@ -227,5 +230,8 @@ fn test_recovery_through_transparent_buck2_error() {
     let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone()).into();
 
     assert!(format!("{:?}", wrapped_direct).contains("base_display"));
-    assert_eq!(&wrapped_direct.tags()[..], &[crate::ErrorTag::StarlarkFail]);
+    assert_eq!(
+        &wrapped_direct.tags()[..],
+        &[crate::ErrorTag::StarlarkFail, crate::ErrorTag::Tier0]
+    );
 }

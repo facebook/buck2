@@ -346,6 +346,7 @@ impl Stats {
         };
 
         #[derive(buck2_error::Error, Debug)]
+        #[buck2(tag = Input)]
         enum TargetsError {
             #[error("Failed to parse {0} {1}")]
             FailedToParse(u64, &'static str),

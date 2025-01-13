@@ -64,6 +64,7 @@ use tokio::io::BufReader;
 use crate::commands::debug::upload_re_logs;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum RageError {
     #[error("Failed to get a valid user selection")]
     InvalidSelectionError,

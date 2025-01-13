@@ -37,6 +37,7 @@ enum MetadataAttrTypeCoerceError {
         .key,
         .value
     )]
+    #[buck2(tag = Input)]
     ValueIsNotJson { key: MetadataKey, value: String },
 }
 

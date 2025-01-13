@@ -34,6 +34,7 @@ use crate::interpreter::rule_defs::provider::builtin::configuration_info::Config
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ExecutionPlatformProviderErrors {
     #[error("expected a ConfigurationInfo, got `{0}` (type `{1}`)")]
     ExpectedConfigurationInfo(String, String),

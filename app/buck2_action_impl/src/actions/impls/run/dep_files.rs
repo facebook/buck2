@@ -1334,6 +1334,7 @@ impl DeclaredDepFiles {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum MaterializeDepFilesError {
     #[error("Error materializing dep file")]
     MaterializationFailed {

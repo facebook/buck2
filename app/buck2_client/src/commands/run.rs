@@ -236,6 +236,7 @@ struct CommandArgsFile {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 pub enum RunCommandError {
     #[error("Target `{0}` is not a binary rule (only binary rules can be `run`)")]
     NonBinaryRule(String),

@@ -15,6 +15,7 @@ pub(crate) mod starlark_profile;
 pub mod uquery;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum QueryCommandError {
     #[error(
         "query result was a set of files and one or more --output-attribute was requested, but files have not attributes"

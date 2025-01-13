@@ -38,6 +38,7 @@ pub struct AttributeSpec {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum AttributeSpecError {
     #[error("User provided attribute `{0}` overrides internal attribute")]
     InternalAttributeRedefined(String),

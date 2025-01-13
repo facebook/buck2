@@ -146,6 +146,7 @@ enum DepError {
         "relative labels ('{invalid_label}') are not permitted as default values for `{attr}` \
         attributes. Use a fully qualified one like //foo:bar"
     )]
+    #[buck2(tag = Input)]
     DepRelativeDefault { invalid_label: String, attr: String },
 }
 

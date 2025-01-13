@@ -12,6 +12,7 @@ use allocative::Allocative;
 use crate::configuration::builtin::BuiltinPlatform;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum BoundConfigurationLabelError {
     #[error("Configuration label is empty")]
     LabelIsEmpty,

@@ -82,6 +82,7 @@ fn capabilities() -> serde_json::Value {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DebuggerError {
     #[error("SetBreakpointsArguments invalid: {0:?}")]
     InvalidSetBreakpoints(dap::SetBreakpointsArguments),

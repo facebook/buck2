@@ -26,6 +26,7 @@ use crate::configuration::resolved::ResolvedConfiguration;
 use crate::configuration::resolved::ResolvedConfigurationSettings;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub enum PlatformConfigurationError {
     #[error("Could not find configuration for platform target `{0}`")]
     UnknownPlatformTarget(TargetLabel),

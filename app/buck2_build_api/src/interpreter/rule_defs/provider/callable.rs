@@ -79,6 +79,7 @@ use crate::interpreter::rule_defs::provider::user::user_provider_creator;
 use crate::interpreter::rule_defs::provider::user::UserProvider;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ProviderCallableError {
     #[error(
         "The result of `provider()` must be assigned to a top-level variable before it can be called"

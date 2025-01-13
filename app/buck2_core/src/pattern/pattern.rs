@@ -966,6 +966,7 @@ where
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tier0)]
 enum ResolveTargetAliasError {
     #[error("Error dereferencing alias `{}` -> `{}`", target, alias)]
     ErrorDereferencing { target: String, alias: String },

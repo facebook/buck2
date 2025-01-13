@@ -88,6 +88,7 @@ pub trait ConfigParserFileOps: Send + Sync {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ReadDirError {
     #[error("Non-utf8 entry `{0}` in directory `{1}`")]
     NotUtf8(String, String),

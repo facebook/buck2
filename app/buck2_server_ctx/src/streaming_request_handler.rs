@@ -18,6 +18,7 @@ use pin_project::pin_project;
 use tonic::Status;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum StreamingRequestError {
     #[error("Request returned error status: {0}")]
     GrpcStatus(Status),

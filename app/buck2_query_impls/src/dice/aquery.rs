@@ -51,6 +51,7 @@ use crate::dice::DiceQueryDelegate;
 use crate::uquery::environment::QueryLiterals;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ActionQueryError {
     #[error(
         "`aquery` currently only supports literal target patterns, not package or recursive (got `{0}`)"

@@ -54,6 +54,7 @@ use crate::actions::impls::run::StarlarkRunActionValues;
 use crate::actions::impls::run::UnregisteredRunAction;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum RunActionError {
     #[error("expected at least one output artifact, did not get any")]
     NoOutputsSpecified,

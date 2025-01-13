@@ -103,6 +103,7 @@ impl<'v> AllocValue<'v> for BxlFilesystem<'v> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum BxlFilesystemError {
     #[error("Inferred package path `{0}` is not a valid package within the given file path `{1}`")]
     PackageMismatch(PackageLabel, CellPath),

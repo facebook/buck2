@@ -48,6 +48,7 @@ use starlark::values::OwnedFrozenValue;
 use crate::actions::impls::offline;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CasArtifactActionDeclarationError {
     #[error("CAS artifact action should not have inputs, got {0}")]
     WrongNumberOfInputs(usize),
@@ -56,6 +57,7 @@ enum CasArtifactActionDeclarationError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CasArtifactActionExecutionError {
     #[error("Error accessing digest expiration for: `{0}`")]
     GetDigestExpirationError(FileDigest),

@@ -42,6 +42,7 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum CommandExecutorConfigErrors {
     #[error("expected a dict, got `{0}` (type `{1}`)")]
     RePropertiesNotADict(String, String),

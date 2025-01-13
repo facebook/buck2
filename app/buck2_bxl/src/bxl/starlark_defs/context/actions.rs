@@ -61,6 +61,7 @@ use starlark_map::ordered_map::OrderedMap;
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlActionsError {
     #[error(
         "An action registry was already requested via `ctx.bxl_actions().actions`. Only one action registry is allowed"

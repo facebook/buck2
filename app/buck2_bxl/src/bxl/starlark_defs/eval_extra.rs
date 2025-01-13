@@ -35,6 +35,7 @@ pub(crate) struct BxlEvalExtra<'e> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum BxlContextError {
     #[error("This function can only be called from Bxl")]
     UnavailableOutsideBxl,

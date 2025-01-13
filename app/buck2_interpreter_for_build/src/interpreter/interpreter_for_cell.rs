@@ -170,6 +170,7 @@ struct InterpreterLoadResolver {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum LoadResolutionError {
     #[error(
         "Cannot load `{0}`. Bxl loads are not allowed from within this context. bxl files can only be loaded from other bxl files."

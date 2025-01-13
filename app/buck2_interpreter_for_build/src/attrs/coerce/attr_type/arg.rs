@@ -46,6 +46,7 @@ static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
     Lazy::new(|| hashset!["classpath_abi", "maven_coords", "output", "query_paths",]);
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum MacroError {
     #[error("Expected a single target label argument. Got `[{}]`", (.0).join(", "))]
     ExpectedSingleTargetArgument(Vec<String>),

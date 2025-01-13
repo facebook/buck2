@@ -25,6 +25,7 @@ use futures::future::LocalBoxFuture;
 use futures::FutureExt;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum ViaError {
     #[error("The owning DICE evaluation has been cancelled")]
     Cancelled,

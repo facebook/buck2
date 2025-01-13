@@ -52,6 +52,7 @@ use crate::attrs::resolve::attr_type::split_transition_dep::SplitTransitionDepAt
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum ConfiguredAttrError {
     #[error("Source path `{0}` cannot be used in attributes referenced in transition")]
     SourceFileToStarlarkValue(ArcS<PackageRelativePath>),

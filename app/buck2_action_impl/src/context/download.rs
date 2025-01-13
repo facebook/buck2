@@ -34,6 +34,7 @@ use crate::actions::impls::cas_artifact::UnregisteredCasArtifactAction;
 use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum CasArtifactError {
     #[error("Not a valid RE digest: `{0}`")]
     InvalidDigest(String),

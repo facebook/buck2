@@ -368,6 +368,7 @@ async fn ensure_artifacts_inner(
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlLabelError {
     #[error(
         "bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`"

@@ -66,6 +66,7 @@ impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum JsonError {
     #[error("JSON number is outside the bounds that Starlark supports, `{0}`")]
     NumberOutOfBounds(String),

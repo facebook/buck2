@@ -49,6 +49,7 @@ use crate::daemon_lower_priority::daemon_lower_priority;
 use crate::schedule_termination::maybe_schedule_termination;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum DaemonError {
     #[error("The buckd pid file at `{}` had a mismatched pid, expected `{1}`, got `{2}`", _0.display())]
     PidFileMismatch(PathBuf, u32, u32),

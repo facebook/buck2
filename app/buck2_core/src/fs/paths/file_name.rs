@@ -27,6 +27,7 @@ use crate::package::package_relative_path::PackageRelativePath;
 
 /// Errors from ForwardRelativePath creation
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum FileNameError {
     #[error("file name is empty")]
     Empty,

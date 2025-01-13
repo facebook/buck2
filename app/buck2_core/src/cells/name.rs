@@ -19,6 +19,7 @@ use static_interner::Intern;
 use static_interner::Interner;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum CellNameError {
     #[error("Cell name must be non-empty")]
     Empty,

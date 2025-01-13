@@ -23,6 +23,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use crate::ServerAuditSubcommand;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum AuditPreludeError {
     #[error("Project has no prelude")]
     NoPrelude,

@@ -46,6 +46,7 @@ use crate::interpreter::rule_defs::provider::execution_platform::StarlarkExecuti
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DependencyError {
     #[error("Unknown subtarget, could not find `{0}`")]
     UnknownSubtarget(String),

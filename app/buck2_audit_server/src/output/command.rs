@@ -34,6 +34,7 @@ use crate::output::buck_out_path_parser::BuckOutPathType;
 use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum AuditOutputError {
     #[error(
         "BXL, anonymous target, test, and tmp artifacts are not supported for audit output. Only rule output artifacts are supported. Path: `{0}`"

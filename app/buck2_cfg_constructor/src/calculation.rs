@@ -32,6 +32,7 @@ use dupe::Dupe;
 use dupe::OptionDupedExt;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum CalculationCfgConstructorError {
     #[error(
         "Usage of both `modifiers` attribute and modifiers in metadata is not allowed for target `{0}`"

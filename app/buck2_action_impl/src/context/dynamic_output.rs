@@ -43,6 +43,7 @@ use crate::dynamic::params::DynamicLambdaStaticFields;
 use crate::dynamic::storage::DynamicLambdaParamsStorageImpl;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum DynamicOutputError {
     #[error("Output list may not be empty")]
     EmptyOutput,

@@ -907,6 +907,7 @@ fn verify_abs_path(path: &AbsPath) -> buck2_error::Result<()> {
 
 /// Errors from 'AbsPath' creation
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum AbsNormPathError {
     #[error("expected a normalized path, but found a non-normalized path instead: `{0}`")]
     PathNotNormalized(AbsPathBuf),
@@ -914,6 +915,7 @@ enum AbsNormPathError {
 
 /// Errors from normalizing paths
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum PathNormalizationError {
     #[error(
         "no such path: normalizing `{}` requires the parent directory of the root of `{}`",

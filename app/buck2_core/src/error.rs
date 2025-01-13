@@ -297,6 +297,7 @@ impl HardErrorConfigHolder {
 struct InvalidHardErrorConfig(String);
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum InvalidSoftError {
     #[error("Invalid category, must be lower_snake_case, got `{0}`")]
     InvalidCategory(String),

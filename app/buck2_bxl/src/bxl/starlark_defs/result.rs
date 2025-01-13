@@ -32,6 +32,7 @@ use starlark::values::ValueLike;
 use starlark::values::ValueTypedComplex;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlResultError {
     #[error("called `bxl.Result.unwrap()` on an `Err` value: {0}")]
     UnwrapOnError(buck2_error::Error),

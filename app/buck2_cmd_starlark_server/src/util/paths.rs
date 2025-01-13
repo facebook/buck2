@@ -29,6 +29,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum StarlarkFilesError {
     #[error("File not found, `{0}`")]
     FileNotFound(ProjectRelativePathBuf),

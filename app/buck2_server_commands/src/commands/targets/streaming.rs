@@ -272,6 +272,7 @@ fn stream_packages<'a, T: PatternType>(
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum TargetsError {
     #[error(
         "Unknown targets {} from package `{0}`.",

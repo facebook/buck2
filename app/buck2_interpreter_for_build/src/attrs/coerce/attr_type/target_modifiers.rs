@@ -24,6 +24,7 @@ use crate::attrs::coerce::AttrTypeCoerce;
 
 #[derive(Debug, buck2_error::Error)]
 enum TargetModifiersAttrTypeCoerceError {
+    #[buck2(tag = Input)]
     #[error(
          "Target modifiers attribute is not convertible to JSON: {}",
          .value

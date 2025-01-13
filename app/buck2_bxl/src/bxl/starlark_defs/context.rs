@@ -82,6 +82,7 @@ pub(crate) mod starlark_async;
 
 /// Errors that can occur when accessing some field of `BxlContext` for dynamic action or anon target.
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum BxlContextError {
     #[error("`{0}()` is unsupported")]
     Unsupported(String),

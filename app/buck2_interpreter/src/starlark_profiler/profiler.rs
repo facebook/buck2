@@ -21,6 +21,7 @@ use crate::starlark_profiler::data::ProfileTarget;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum StarlarkProfilerError {
     #[error(
         "Retained memory profiling is available only for analysis profile \

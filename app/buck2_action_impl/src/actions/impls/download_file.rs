@@ -45,6 +45,7 @@ use starlark::values::OwnedFrozenValue;
 use crate::actions::impls::offline;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DownloadFileActionError {
     #[error("download file action should not have inputs, got {0}")]
     WrongNumberOfInputs(usize),

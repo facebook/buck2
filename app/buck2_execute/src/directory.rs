@@ -432,6 +432,7 @@ pub fn re_tree_to_directory(
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub enum DirectoryReConversionError {
     // Conversion from RE::Tree errors (these shouldn't happen unless something is broken on RE side)
     #[error("Converting RE::Tree to Directory, dir `{dir}` has child `{name}` with digest=None.")]

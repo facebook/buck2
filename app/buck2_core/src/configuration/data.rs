@@ -50,6 +50,7 @@ enum ConfigurationError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ConfigurationLookupError {
     #[error("
     Could not find configuration `{0}`. Configuration lookup by string requires

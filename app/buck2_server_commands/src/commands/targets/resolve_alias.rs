@@ -10,6 +10,7 @@
 //! Server-side implementation of `buck2 targets --resolve-alias` command.
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ResolveAliasError {
     #[error("`--stat` format is not supported by `--resolve-alias`")]
     StatFormatNotSupported,

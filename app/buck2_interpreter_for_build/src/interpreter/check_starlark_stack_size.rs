@@ -23,6 +23,7 @@ use starlark::environment::Module;
 use starlark::syntax::AstModule;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CheckStarlarkStackSizeError {
     #[error("Error checking starlark stack size")]
     CheckStarlarkStackSizeError,

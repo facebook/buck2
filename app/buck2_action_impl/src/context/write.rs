@@ -46,6 +46,7 @@ use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum WriteActionError {
     #[error(
         "Argument type attributes detected in a content to be written into a file, but support for arguments was not turned on. Use `allow_args` parameter to turn on the support for arguments."

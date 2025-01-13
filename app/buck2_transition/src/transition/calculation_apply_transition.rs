@@ -54,6 +54,7 @@ use crate::transition::calculation_fetch_transition::FetchTransition;
 use crate::transition::starlark::FrozenTransition;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum ApplyTransitionError {
     #[error("transition function not marked as `split` must return a `PlatformInfo`")]
     NonSplitTransitionMustReturnPlatformInfo,

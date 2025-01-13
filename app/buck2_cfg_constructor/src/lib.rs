@@ -53,6 +53,7 @@ use starlark::values::Value;
 use crate::registration::init_registration;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum CfgConstructorError {
     #[error(
         "Parameter `refs` to post-constraint analysis function must only contain configuration rules. {0} is not a configuration rule."

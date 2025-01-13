@@ -60,6 +60,7 @@ use starlark::values::Value;
 use starlark::StarlarkResultExt;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum TransitionError {
     #[error("Transition must be assigned to a variable, e.g. `android_cpus = transition(...)`")]
     TransitionNotAssigned,

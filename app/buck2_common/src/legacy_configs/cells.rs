@@ -450,6 +450,7 @@ impl BuckConfigBasedCells {
         config: &LegacyBuckConfig,
     ) -> buck2_error::Result<ExternalCellOrigin> {
         #[derive(buck2_error::Error, Debug)]
+        #[buck2(tag = Input)]
         enum ExternalCellOriginParseError {
             #[error("Unknown external cell origin `{0}`")]
             Unknown(String),

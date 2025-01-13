@@ -31,6 +31,7 @@ use crate::interpreter::rule_defs::validation_spec::FrozenStarlarkValidationSpec
 use crate::interpreter::rule_defs::validation_spec::StarlarkValidationSpec;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ValidationInfoError {
     #[error("Expected `ValidationSpec` value, got `{0}`")]
     WrongSpecType(String),

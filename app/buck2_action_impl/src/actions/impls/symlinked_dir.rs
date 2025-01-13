@@ -41,6 +41,7 @@ use starlark::values::ValueError;
 use starlark_map::small_set::SmallSet;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum SymlinkedDirError {
     #[error("Paths to symlink_dir must be non-overlapping, but got `{0}` and `{1}`")]
     OverlappingPaths(Box<ForwardRelativePath>, Box<ForwardRelativePath>),

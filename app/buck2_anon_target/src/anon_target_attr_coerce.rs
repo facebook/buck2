@@ -173,28 +173,38 @@ impl AnonTargetAttrTypeCoerce for AttrType {
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum AnonTargetCoercionError {
     #[error("Expected value of type `{0}`, got value with type `{1}` (value was `{2}`)")]
+    #[buck2(tag = Input)]
     TypeError(String, String, String),
     #[error("Used one_of with an empty list.")]
+    #[buck2(tag = Input)]
     OneOfEmpty,
     #[error("one_of fails, the errors against each alternative in turn were:\n{}", .0.map(|x| format!("{:#}", x)).join("\n"))]
+    #[buck2(tag = Input)]
     OneOfMany(Vec<buck2_error::Error>),
     #[error("enum called with `{0}`, only allowed: {}", .1.map(|x| format!("`{}`", x)).join(", "))]
+    #[buck2(tag = Input)]
     InvalidEnumVariant(String, Vec<String>),
     #[error("Cannot coerce value of type `{0}` to any: `{1}`")]
+    #[buck2(tag = Input)]
     CannotCoerceToAny(&'static str, String),
     #[error("Attr value of type `{0}` not supported")]
+    #[buck2(tag = Input)]
     AttrTypeNotSupported(String),
     #[error("Arg attribute must have `anon_target_compatible` set to `True`")]
+    #[buck2(tag = Input)]
     ArgNotAnonTargetCompatible,
     #[error("Internal error: exec dep is missing the execution platform resolution")]
+    #[buck2(tag = Tier0)]
     ExecDepMissingExecPlatformResolution,
     #[error(
         "Exec deps and the current anon target must have the same execution platform resolution. Exec dep's execution platform: ({0}), anon target's execution platform: ({1})"
     )]
+    #[buck2(tag = Input)]
     ExecDepPlatformMismatch(String, String),
     #[error(
         "`transition_dep`, and `toolchain_dep` are not supported. By design, anon targets do not support configurations/transitions."
     )]
+    #[buck2(tag = Input)]
     OnlyIdentityDepSupported,
 }
 

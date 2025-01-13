@@ -575,6 +575,7 @@ pub enum OutputType {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum OutputTypeError {
     #[error("Expected {1:?}, but `{0}` is already declared as {2:?}")]
     CheckPath(String, OutputType, OutputType),

@@ -522,6 +522,7 @@ pub fn display_executor_stage(
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ParseEventError {
     #[error("Missing configured target label")]
     MissingConfiguredTargetLabel,

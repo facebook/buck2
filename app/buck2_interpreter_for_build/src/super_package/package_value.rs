@@ -39,6 +39,7 @@ use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::package_file_extra::PackageFileExtra;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PackageValueError {
     #[error("key already set in this file: `{0}`")]
     KeyAlreadySetInThisFile(MetadataKey),

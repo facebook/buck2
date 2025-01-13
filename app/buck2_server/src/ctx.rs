@@ -130,6 +130,7 @@ use crate::host_info;
 use crate::snapshot::SnapshotCollector;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 enum DaemonCommunicationError {
     #[error("Got invalid working directory `{0}`")]
     InvalidWorkingDirectory(String),

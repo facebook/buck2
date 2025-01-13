@@ -31,6 +31,7 @@ pub(crate) trait FetchTransition {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum FetchTransitionError {
     #[error("Transition object not found by id {:?}", _0)]
     NotFound(TransitionId),

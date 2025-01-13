@@ -122,6 +122,7 @@ impl Display for MetadataParameter {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum LocalPreferenceError {
     #[error("cannot have `local_only = True` and `prefer_local = True` at the same time")]
     LocalOnlyAndPreferLocal,

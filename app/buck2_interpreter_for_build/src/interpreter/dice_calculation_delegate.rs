@@ -66,6 +66,7 @@ use crate::interpreter::interpreter_for_cell::ParseResult;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum DiceCalculationDelegateError {
     #[error("Error evaluating build file: `{0}`")]
     EvalBuildFileError(BuildFilePath),

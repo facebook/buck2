@@ -105,6 +105,7 @@ pub async fn get_channel_tcp(socket_addr: Ipv4Addr, port: u16) -> buck2_error::R
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Environment)]
 pub enum RetryError<E> {
     #[error("Timed out after {0:.2}s")]
     Timeout(f64),

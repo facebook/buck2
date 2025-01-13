@@ -69,6 +69,13 @@ impl Enum<'_> {
                     "missing #[error(\"...\")] display attribute",
                 ));
             }
+            if self.attrs.tags.is_empty() && variant.attrs.tags.is_empty() {
+                return Err(Error::new_spanned(
+                    variant.original,
+                    "missing #[buck2(tag = ...)] attribute. All 'buck2_error' must have a tag (Default choices are 'Input', 'Tier0', and 'Environment'). 
+                    Full list: https://www.internalfb.com/code/fbsource/[4e97d95ed7f3145bf6828827e779eecaeb0c5712]/fbcode/buck2/app/buck2_data/error.proto?lines=42",
+                ));
+            }
         }
         Ok(())
     }

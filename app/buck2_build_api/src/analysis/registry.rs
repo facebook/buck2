@@ -99,6 +99,7 @@ pub struct AnalysisRegistry<'v> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum DeclaredArtifactError {
     #[error("Can't declare an artifact with an empty filename component")]
     DeclaredEmptyFileName,

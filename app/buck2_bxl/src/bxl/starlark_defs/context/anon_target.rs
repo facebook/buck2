@@ -131,6 +131,7 @@ pub(crate) fn register_anon_rule(globals: &mut GlobalsBuilder) {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum BxlAnonTargetError {
     #[error("Anon BXL is not supported in bzl files")]
     UnsupportedInBzl,

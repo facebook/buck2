@@ -28,6 +28,7 @@ use dupe::Dupe;
 use rand::Rng;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum EventLogOptionsError {
     #[error("Manifold failed; stderr:\n{}", indent("  ", _0))]
     ManifoldFailed(String),

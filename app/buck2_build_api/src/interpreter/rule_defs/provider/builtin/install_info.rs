@@ -34,6 +34,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArti
 // Provider that signals a rule is installable (ex. android_binary)
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum InstallInfoProviderErrors {
     #[error("expected a label, got `{0}` (type `{1}`)")]
     ExpectedLabel(String, String),

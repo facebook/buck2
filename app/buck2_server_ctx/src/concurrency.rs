@@ -59,6 +59,7 @@ use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ConcurrencyHandlerError {
     #[error(
         "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Ids: {0}. Recursive invocation command: `{1}`"

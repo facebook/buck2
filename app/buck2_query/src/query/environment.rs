@@ -36,6 +36,7 @@ use crate::query::traversal::ChildVisitor;
 mod tests;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 pub enum QueryEnvironmentError {
     #[error("Missing target `{}`. Targets in the package: <{}>", .0, .1.join(", "))]
     MissingTargetError(String, Vec<String>),

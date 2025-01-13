@@ -194,7 +194,7 @@ async def test_targets_error_categorization(buck: Buck, tmp_path: Path) -> None:
     record = read_invocation_record(record_path)
     errors = record["errors"]
     assert len(errors) == 1
-    assert errors[0]["tags"] == ["STARLARK_FAIL"]
+    assert errors[0]["tags"] == ["INPUT", "STARLARK_FAIL"]
     assert errors[0]["category"] == "USER"
 
 

@@ -17,6 +17,7 @@ use static_interner::Interner;
 use crate::configuration::data::ConfigurationData;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ConfigurationError {
     #[error("`ConfigurationPair` has unexpected `exec_cfg`")]
     HasExecCfg,

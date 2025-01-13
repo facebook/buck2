@@ -46,6 +46,7 @@ const TICKS_PER_SECOND: u32 = 10;
 
 #[derive(Debug, buck2_error::Error)]
 #[allow(clippy::large_enum_variant)]
+#[buck2(tag = Tier0)]
 enum BuckdCommunicationError {
     #[error("call to daemon returned an unexpected result type. got `{0:?}`")]
     UnexpectedResultType(command_result::Result),
@@ -447,6 +448,7 @@ impl<'a> EventsCtx<'a> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum EventsCtxError {
     #[error("While propagating error:\n{source:#?}, another error was detected:\n{other:#?}")]
     WrappedStreamError {

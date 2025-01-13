@@ -286,6 +286,7 @@ pub fn create_source_sink_pair() -> (ChannelEventSource, impl EventSink) {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum BuckEventError {
     #[error("The `buck2_data::BuckEvent` provided has no `Timestamp`")]
     MissingTimestamp,

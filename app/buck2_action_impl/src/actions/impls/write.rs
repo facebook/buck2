@@ -39,6 +39,7 @@ use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum WriteActionValidationError {
     #[error("WriteAction received inputs")]
     TooManyInputs,

@@ -15,6 +15,7 @@ use buck2_core::soft_error;
 use crate::commands::log::replay::ReplayCommand;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DebugReplayCommandError {
     #[error("`buck2 debug replay` is deprecated. Use `buck2 log replay` instead.")]
     Deprecated,

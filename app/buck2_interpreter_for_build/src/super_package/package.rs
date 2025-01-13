@@ -26,6 +26,7 @@ use crate::interpreter::build_context::PerFileTypeContext;
 use crate::super_package::eval_ctx::PackageFileVisibilityFields;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PackageFileError {
     #[error(
         "`package()` can only be called in `PACKAGE` files \

@@ -20,6 +20,7 @@ use regex::Regex;
 use serde::Deserialize;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum XcodeVersionError {
     #[error("XCode select symlink `{}` resolved to path without parent: `{}`", XCODE_SELECT_SYMLINK, _0.display())]
     XcodeSelectSymlinkResolvedToPathWithoutParent(AbsNormPathBuf),

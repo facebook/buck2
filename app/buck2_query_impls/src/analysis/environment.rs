@@ -64,6 +64,7 @@ use indexmap::IndexMap;
 use starlark::values::UnpackValue;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AnalysisQueryError {
     #[error("file literals aren't supported in query attributes (got `{0}`)")]
     FileLiteralsNotAllowed(String),

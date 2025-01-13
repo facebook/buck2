@@ -28,6 +28,7 @@ use crate::ctx::ServerCommandContextTrait;
 use crate::global_cfg_options::global_cfg_options_from_client_context;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PatternNotSupportedError {
     #[error("Builtin configurations are not supported: `{0}`")]
     BuiltinConfigurationsNotSupported(String),

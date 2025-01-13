@@ -112,6 +112,7 @@ impl<'v> PromiseJoin<'v> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PromiseError {
     #[error("Can't .resolve on a promise produced with .map")]
     CantResolveMap,

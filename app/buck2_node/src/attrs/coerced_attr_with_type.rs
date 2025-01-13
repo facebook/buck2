@@ -55,6 +55,7 @@ use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CoercedAttrWithTypeError {
     #[error(
         "attr and type mismatch: {}, {}; ({:?}) (internal error)",

@@ -20,6 +20,7 @@ use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 pub enum CommandLineBuilderErrors {
     #[error(
         "write-to-file macro is only supported as a part of command line argument which is written to a file"

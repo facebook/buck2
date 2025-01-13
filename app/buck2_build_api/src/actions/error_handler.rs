@@ -41,6 +41,7 @@ use crate::starlark::values::ValueLike;
 pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError<'a>>;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum ActionErrorHandlerError {
     #[error("Error handler failed. Expected return type `{0}`, got value with type `{1}`")]
     TypeError(Ty, String),

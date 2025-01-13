@@ -41,6 +41,7 @@ use tokio::time::Instant;
 const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum PersistEventLogError {
     #[error("Read more bytes than are available")]
     ReadBytesOverflow,

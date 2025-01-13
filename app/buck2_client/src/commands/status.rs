@@ -26,6 +26,7 @@ use humantime::format_duration;
 use walkdir::WalkDir;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum StatusError {
     #[error("Incorrect seconds/nanos argument")]
     NativeDateTime,

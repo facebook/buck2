@@ -32,6 +32,7 @@ use crate::package_listing::listing::PackageListing;
 use crate::package_listing::resolver::PackageListingResolver;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PackageListingError {
     #[error("Expected `{0}` to be within a package directory, but there was no buildfile in any parent directories. Expected one of `{}`", .1.join("`, `"))]
     NoContainingPackage(CellPath, Vec<FileNameBuf>),
@@ -103,6 +104,7 @@ pub struct InterpreterPackageListingResolver<'c, 'd> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum GatherPackageListingError {
     #[buck2(input)]
     NoBuildFile {

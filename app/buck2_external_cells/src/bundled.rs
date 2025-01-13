@@ -152,6 +152,7 @@ pub(crate) struct BundledFileOpsDelegate {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Environment)]
 enum BundledPathSearchError {
     #[error("Expected a directory at `{0}` but found a file")]
     ExpectedDirectory(String),

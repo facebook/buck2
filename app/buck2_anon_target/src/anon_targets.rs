@@ -102,6 +102,7 @@ pub struct AnonTargetsRegistry<'v> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum AnonTargetsError {
     #[error("Not allowed to call `anon_targets` in this context")]
     AssertNoPromisesFailed,

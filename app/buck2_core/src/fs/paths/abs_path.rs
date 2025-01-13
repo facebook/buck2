@@ -22,6 +22,7 @@ use ref_cast::RefCast;
 use crate::fs::cwd;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum AbsPathError {
     #[error("expected an absolute path but got a relative path instead: `{}`", _0.display())]
     PathNotAbsolute(PathBuf),

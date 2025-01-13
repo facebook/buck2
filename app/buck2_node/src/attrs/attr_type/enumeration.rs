@@ -20,6 +20,7 @@ pub struct EnumAttrType {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum EnumAttrError {
     #[error("enum.attr() variant names must all be lowercase, got `{0}`")]
     NotLowercase(String),
