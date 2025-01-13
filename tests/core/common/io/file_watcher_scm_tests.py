@@ -13,16 +13,12 @@ import subprocess
 from typing import Tuple
 
 from buck2.tests.core.common.io.file_watcher import (
-    FileWatcherEvent,
-    FileWatcherEventType,
-    FileWatcherKind,
     FileWatcherProvider,
     get_file_watcher_events,
 )
 from buck2.tests.core.common.io.file_watcher_tests import (
     FileSystemType,
     setup_file_watcher_test,
-    verify_results,
 )
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -113,7 +109,9 @@ async def run_checkout_mergebase_changes_test(
     # Go back to the next commit
     subprocess.run(["sl", "co", commit_b], cwd=buck.cwd)
 
-    is_fresh_instance, _ = await get_file_watcher_events(buck)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    print(results)
+
     if file_watcher_provider in [
         FileWatcherProvider.FS_HASH_CRAWLER,
         FileWatcherProvider.RUST_NOTIFY,
@@ -134,7 +132,9 @@ async def run_checkout_wtih_mergebase_test(
     # Go back to commit_c
     subprocess.run(["sl", "co", commit_c], cwd=buck.cwd)
 
-    is_fresh_instance, _ = await get_file_watcher_events(buck)
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    print(results)
+
     assert not is_fresh_instance
 
 
@@ -150,6 +150,8 @@ async def run_rebase_wtih_mergebase_test(
     subprocess.run(["sl", "rebase", "-s", commit_c, "-d", commit_b], cwd=buck.cwd)
 
     is_fresh_instance, results = await get_file_watcher_events(buck)
+    print(results)
+
     if file_system_type == FileSystemType.NATIVE:
         # Watchman is flakey on native file systems
         if file_watcher_provider != FileWatcherProvider.WATCHMAN:
@@ -170,4 +172,6 @@ async def run_restack_wtih_mergebase_test(
     subprocess.run(["sl", "rebase", "-s", commit_d, "-d", commit_a], cwd=buck.cwd)
 
     is_fresh_instance, results = await get_file_watcher_events(buck)
+    print(results)
+
     assert not is_fresh_instance

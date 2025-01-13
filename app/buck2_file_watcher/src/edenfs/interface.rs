@@ -292,12 +292,8 @@ impl EdenFsFileWatcher {
                     false
                 }
                 LargeChangeNotification::commitTransition(commit_transition) => {
-                    // TODO: temporary. There is a bug in EdenFS that causes it to report
-                    //      the to as from and the from as to. This is a temporary
-                    //      and will be removed once the bug is fixed and fully propogated.
-                    // NOTE: builds should still work, but the mergebase will be wrong.
-                    let from = hex::encode(&commit_transition.to);
-                    let to = hex::encode(&commit_transition.from);
+                    let from = hex::encode(&commit_transition.from);
+                    let to = hex::encode(&commit_transition.to);
                     self.process_commit_transition(tracker, stats, from, to)
                         .await
                         .buck_error_context("Failed to process commit transition.")?
@@ -345,11 +341,7 @@ impl EdenFsFileWatcher {
             commit_transition,
         )) = change
         {
-            // TODO: temporary. There is a bug in EdenFS that causes it to report
-            //      the to as from and the from as to. This is a temporary
-            //      and will be removed once the bug is fixed and fully propagated.
-            // NOTE: builds should still work, but the mergebase will be wrong.
-            let to = hex::encode(&commit_transition.from);
+            let to = hex::encode(&commit_transition.to);
             self.update_mergebase(&to)
                 .await
                 .buck_error_context("Failed to update mergebase.")?;
