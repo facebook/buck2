@@ -386,7 +386,12 @@ def _collect_linkables(
     # Storing in set for faster access
     unordered_linkables = set(linkables)
 
-    def traverse_all_linkables(node: Label) -> list[Label]:
+    def traverse_all_linkables(node: Label) -> list[Label] | None:
+        if not unordered_linkables:
+            # Once we collected all linkables we can stop traversal early.
+            # This is especially beneficial for "shared" link strategy
+            return None
+
         if node in unordered_linkables:
             result_linkables.append(node)
             unordered_linkables.remove(node)
