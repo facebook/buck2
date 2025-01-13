@@ -347,7 +347,7 @@ def _fixup_executable_link_order(
         linkable_graph_node_map: dict[Label, LinkableNode],
         executable_label: Label | None,
         executable_deps: list[Label],
-        roots_list: list[Label]) -> list[Label]:
+        roots: set[Label]) -> list[Label]:
     # Does one more traversal through graph to figure out proper
     # order of linkables in the set. Additional pass makes order closer to
     # the one we use in TSet projections when link groups are disabled.
@@ -367,13 +367,13 @@ def _fixup_executable_link_order(
             unordered_linkables.remove(node)
 
         if node == executable_label:
-            return executable_deps if executable_deps else roots_list
+            return executable_deps if executable_deps else list(roots)
         else:
             return linkable_graph_node_map[node].all_deps
 
     depth_first_traversal_by(
         None,
-        [executable_label] if executable_label else roots_list,
+        [executable_label] if executable_label else roots,
         traverse_all_linkables,
         traversal = GraphTraversal("preorder-left-to-right"),
     )
@@ -471,8 +471,6 @@ def collect_linkables(
         link_group_preferred_linkage: dict[Label, Linkage],
         pic_behavior: PicBehavior,
         roots: set[Label]) -> list[Label]:
-    roots_list = list(roots)
-
     def get_potential_linkables(node: Label) -> list[Label]:
         linkable_node = linkable_graph_node_map[node]
         if not is_executable_link and node in roots:
@@ -487,7 +485,7 @@ def collect_linkables(
     # Get all potential linkable targets
     return depth_first_traversal_by(
         linkable_graph_node_map,
-        roots_list,
+        roots,
         get_potential_linkables,
     )
 
@@ -531,7 +529,7 @@ def get_filtered_labels_to_links_map(
             linkable_graph_node_map,
             executable_label,
             executable_deps,
-            list(roots),
+            roots,
         )
 
     # An index of target to link group names, for all link group library nodes.
@@ -748,7 +746,7 @@ def get_public_link_group_nodes(
         # get transitive exported deps
         depth_first_traversal_by(
             linkable_graph_node_map,
-            list(external_link_group_nodes),
+            external_link_group_nodes,
             discover_link_group_linkables,
         ),
     )
