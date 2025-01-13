@@ -446,7 +446,7 @@ def get_filtered_labels_to_links_map(
         link_group_preferred_linkage,
         pic_behavior,
         roots,
-        fixup_link_order = link_strategy == LinkStrategy("shared"),
+        fixup_link_order = False,  # TODO(arr): re-enable when the perf fix D67982726 is ready
     )
 
     # An index of target to link group names, for all link group library nodes.
