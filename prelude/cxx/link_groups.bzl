@@ -400,15 +400,22 @@ def _fixup_link_groups_link_order(
 
     # Storing in set for faster access
     unprocessed_linkables = {}
+
+    # Storing keys of the dict separatedly to save up a lot of allocations.
+    # `for (key, value) in unprocessed_linkables.items()` syntax allocates additional
+    # memory for iterations so we can't use it inside `traverse_all_linkables` that is called a lot of times
+    link_group_names = []
+
     for link_group, link_group_linkables in linkables.items():
         unprocessed_linkables[link_group] = set(link_group_linkables)
         ordered_linkables[link_group] = []
+        link_group_names.append(link_group)
 
     def traverse_all_linkables(node: Label) -> list[Label]:
-        for link_group, unordered_linkables in unprocessed_linkables.items():
-            if node in unordered_linkables:
+        for link_group in link_group_names:
+            if node in unprocessed_linkables[link_group]:
                 ordered_linkables[link_group].append(node)
-                unordered_linkables.remove(node)
+                unprocessed_linkables[link_group].remove(node)
 
         if node == executable_label:
             return executable_deps
@@ -422,13 +429,13 @@ def _fixup_link_groups_link_order(
         traversal = GraphTraversal("preorder-left-to-right"),
     )
 
-    for link_group, unordered_linkables in unprocessed_linkables.items():
+    for link_group in link_group_names:
         # Link groups machinery may be used by something that does not
         # store all information in dependency graph. E.g. python native dlopen
         # So gathering links starting from executable label may not collect all
         # dependencies correctly. To account for that we add remaining pieces to
         # final result. There is no particular reasoning behing putting remaining linkables first
-        ordered_linkables[link_group] = list(unordered_linkables) + ordered_linkables[link_group]
+        ordered_linkables[link_group] = list(unprocessed_linkables[link_group]) + ordered_linkables[link_group]
 
     return ordered_linkables
 
