@@ -103,12 +103,9 @@ impl CliArgs {
     ) -> buck2_error::Result<Self> {
         let default = match default {
             None => None,
-            Some(x) => Some(Arc::new(
-                coercer
-                    .coerce_value(x)
-                    .map_err(|_| ValueError::IncorrectParameterType)
-                    .map_err(from_any)?,
-            )),
+            Some(x) => Some(Arc::new(coercer.coerce_value(x).map_err(|_| {
+                starlark::Error::from(ValueError::IncorrectParameterType)
+            })?)),
         };
 
         let short = match short {
@@ -116,12 +113,14 @@ impl CliArgs {
             Some(s) => match s.unpack_str() {
                 Some(s) => {
                     if s.len() != 1 {
-                        return Err(from_any(ValueError::IncorrectParameterType));
+                        return Err(
+                            starlark::Error::from(ValueError::IncorrectParameterType).into()
+                        );
                     }
                     Some(s.chars().next().unwrap())
                 }
                 None => {
-                    return Err(from_any(ValueError::IncorrectParameterType));
+                    return Err(starlark::Error::from(ValueError::IncorrectParameterType).into());
                 }
             },
         };

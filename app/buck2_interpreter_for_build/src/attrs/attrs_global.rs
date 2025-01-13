@@ -12,7 +12,6 @@ use std::sync::Arc;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
@@ -152,14 +151,17 @@ enum DepError {
 
 /// Common code to handle `providers` argument of dep-like attrs.
 fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> buck2_error::Result<ProviderIdSet> {
-    Ok(ProviderIdSet::from(providers.try_map(
-        |v| match v.as_provider_callable() {
+    Ok(ProviderIdSet::from(providers.try_map(|v| {
+        match v.as_provider_callable() {
             Some(callable) => buck2_error::Ok(callable.id()?.dupe()),
-            None => Err(from_any(ValueError::IncorrectParameterTypeNamed(
-                "providers".to_owned(),
-            ))),
-        },
-    )?))
+            None => Err(
+                starlark::Error::from(ValueError::IncorrectParameterTypeNamed(
+                    "providers".to_owned(),
+                ))
+                .into(),
+            ),
+        }
+    })?))
 }
 
 /// This type is available as a global `attrs` symbol, to allow the definition of attributes to the `rule` function.
