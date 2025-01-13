@@ -118,6 +118,7 @@ def get_android_binary_native_library_info(
         original_shared_libs_by_platform[platform] = shared_libs
 
     if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
+        enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
         return AndroidBinaryNativeLibsInfo(
