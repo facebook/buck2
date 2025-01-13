@@ -52,7 +52,7 @@ jobs:
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
   linux-build-examples:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4.1.0
     - uses: ./.github/actions/setup_linux_env
