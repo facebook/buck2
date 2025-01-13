@@ -342,42 +342,12 @@ FinalLabelsToLinks = record(
     map = field(dict[Label, LinkGroupLinkInfo]),
 )
 
-def _collect_linkables(
+def _fixup_link_order(
+        linkables: list[Label],
         linkable_graph_node_map: dict[Label, LinkableNode],
         executable_label: Label | None,
-        is_executable_link: bool,
         executable_deps: list[Label],
-        link_strategy: LinkStrategy,
-        link_group_preferred_linkage: dict[Label, Linkage],
-        pic_behavior: PicBehavior,
-        roots: set[Label],
-        fixup_link_order: bool) -> list[Label]:
-    roots_list = list(roots)
-
-    def get_potential_linkables(node: Label) -> list[Label]:
-        linkable_node = linkable_graph_node_map[node]
-        if not is_executable_link and node in roots:
-            return linkable_node.all_deps
-        return get_deps_for_link(
-            linkable_node,
-            link_strategy,
-            pic_behavior,
-            link_group_preferred_linkage.get(node, linkable_node.preferred_linkage),
-        )
-
-    # Get all potential linkable targets
-    linkables = depth_first_traversal_by(
-        linkable_graph_node_map,
-        roots_list,
-        get_potential_linkables,
-    )
-
-    # TODO(patskovn): We should have proper DFS link order everywhere.
-    #                 But now certain places fail in `opt` with fixed up link order
-    #                 so enabling it more gradually with future follow ups.
-    if not fixup_link_order:
-        return linkables
-
+        roots_list: list[Label]) -> list[Label]:
     # Does one more traversal through graph to figure out proper
     # order of linkables in the set. Additional pass makes order closer to
     # the one we use in TSet projections when link groups are disabled.
@@ -418,6 +388,33 @@ def _collect_linkables(
 
     return result_linkables
 
+def _collect_linkables(
+        linkable_graph_node_map: dict[Label, LinkableNode],
+        is_executable_link: bool,
+        link_strategy: LinkStrategy,
+        link_group_preferred_linkage: dict[Label, Linkage],
+        pic_behavior: PicBehavior,
+        roots: set[Label]) -> list[Label]:
+    roots_list = list(roots)
+
+    def get_potential_linkables(node: Label) -> list[Label]:
+        linkable_node = linkable_graph_node_map[node]
+        if not is_executable_link and node in roots:
+            return linkable_node.all_deps
+        return get_deps_for_link(
+            linkable_node,
+            link_strategy,
+            pic_behavior,
+            link_group_preferred_linkage.get(node, linkable_node.preferred_linkage),
+        )
+
+    # Get all potential linkable targets
+    return depth_first_traversal_by(
+        linkable_graph_node_map,
+        roots_list,
+        get_potential_linkables,
+    )
+
 def get_filtered_labels_to_links_map(
         public_nodes: [set[Label], None],
         linkable_graph_node_map: dict[Label, LinkableNode],
@@ -444,15 +441,22 @@ def get_filtered_labels_to_links_map(
 
     linkables = _collect_linkables(
         linkable_graph_node_map,
-        executable_label,
         is_executable_link,
-        executable_deps,
         link_strategy,
         link_group_preferred_linkage,
         pic_behavior,
         roots,
-        fixup_link_order = False,  # TODO(arr): re-enable when the perf fix D67982726 is ready
     )
+
+    # TODO(arr): re-enable when the perf fix D67982726 is ready
+    if False:
+        linkables = _fixup_link_order(
+            linkables,
+            linkable_graph_node_map,
+            executable_label,
+            executable_deps,
+            list(roots),
+        )
 
     # An index of target to link group names, for all link group library nodes.
     # Provides fast lookup of a link group root lib via it's label.
