@@ -171,7 +171,7 @@ regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
 ring = "=0.17.5" # Upgrading this is possible, but a pain, so we don't want to pick up every new minor version
 rusqlite = { version = "0.29.0", features = ["bundled"] }
-rustc-hash = "1.1.0"
+rustc-hash = "2.1.0"
 rustls = "0.21.0"
 rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
