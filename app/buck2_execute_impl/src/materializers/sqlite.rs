@@ -25,7 +25,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -217,7 +217,7 @@ fn convert_artifact_metadata(
         })?;
         let entry_hash_kind = entry_hash_kind
             .try_into()
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .with_buck_error_context(|| {
                 format!("Invalid entry_hash_kind: `{}`", entry_hash_kind)
             })?;

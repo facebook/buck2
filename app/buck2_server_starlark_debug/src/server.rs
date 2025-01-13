@@ -18,7 +18,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_interpreter::starlark_debug::StarlarkDebugController;
@@ -382,13 +382,13 @@ impl DebugServer for ServerState {
         x.source.path = Some(source.clone());
 
         // We currently just resolve new breakpoints against the current state of the file. This isn't quite correct, but oh well.
-        let resolved =
-            resolve_breakpoints(&x, &self.get_ast(&project_relative)?).map_err(from_any)?;
+        let resolved = resolve_breakpoints(&x, &self.get_ast(&project_relative)?)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         for hook_state in self.current_hooks.values() {
             hook_state
                 .adapter
                 .set_breakpoints(&source, &resolved)
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         }
         let response = resolved.to_response();
         self.set_breakpoints.insert(source, resolved);
@@ -432,7 +432,10 @@ impl DebugServer for ServerState {
         x: dap::StackTraceArguments,
     ) -> buck2_error::Result<dap::StackTraceResponseBody> {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
-        let mut trace_response = hook.adapter.stack_trace(x).map_err(from_any)?;
+        let mut trace_response = hook
+            .adapter
+            .stack_trace(x)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         for frame in &mut trace_response.stack_frames {
             // rewrite the sources to be absolute (like vscode sent us)
             if let Some(source) = &mut frame.source {
@@ -456,7 +459,10 @@ impl DebugServer for ServerState {
         }
 
         let hook = self.find_hook_by_pseudo_thread(thread_id)?;
-        let scopes_info = hook.adapter.scopes().map_err(from_any)?;
+        let scopes_info = hook
+            .adapter
+            .scopes()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(dap::ScopesResponseBody {
             scopes: vec![dap::Scope {
                 name: "Locals".to_owned(),
@@ -493,7 +499,10 @@ impl DebugServer for ServerState {
 
         if encoded_variable_id.variable_id() == 0 {
             let hook = self.find_hook_by_pseudo_thread(thread_id.into())?;
-            let vars_info = hook.adapter.variables().map_err(from_any)?;
+            let vars_info = hook
+                .adapter
+                .variables()
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             let known_variables = self
                 .variables_by_thread
                 .entry(thread_id)
@@ -522,7 +531,7 @@ impl DebugServer for ServerState {
                 let inspect_result = hook
                     .adapter
                     .inspect_variable(path.to_owned())
-                    .map_err(from_any)?;
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                 let current_frame_vars = self
                     .variables_by_thread
                     .get_mut(&thread_id)
@@ -557,7 +566,9 @@ impl DebugServer for ServerState {
         x: ContinueArguments,
     ) -> buck2_error::Result<dap::ContinueResponseBody> {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
-        hook.adapter.continue_().map_err(from_any)?;
+        hook.adapter
+            .continue_()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         Ok(dap::ContinueResponseBody {
             all_threads_continued: Some(false),
@@ -566,19 +577,25 @@ impl DebugServer for ServerState {
 
     fn next(&mut self, x: dap::NextArguments) -> buck2_error::Result<()> {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
-        hook.adapter.step(StepKind::Over).map_err(from_any)?;
+        hook.adapter
+            .step(StepKind::Over)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 
     fn step_in(&mut self, x: dap::StepInArguments) -> buck2_error::Result<()> {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
-        hook.adapter.step(StepKind::Into).map_err(from_any)?;
+        hook.adapter
+            .step(StepKind::Into)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 
     fn step_out(&mut self, x: dap::StepOutArguments) -> buck2_error::Result<()> {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
-        hook.adapter.step(StepKind::Out).map_err(from_any)?;
+        hook.adapter
+            .step(StepKind::Out)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 
@@ -811,7 +828,7 @@ impl ServerState {
             hook_state
                 .adapter
                 .set_breakpoints(source, breakpoints)
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         }
         self.current_hooks.insert(hook_id, hook_state);
 

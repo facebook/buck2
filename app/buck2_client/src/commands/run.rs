@@ -33,7 +33,7 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
@@ -184,7 +184,8 @@ impl StreamingCommand for RunCommand {
             if cfg!(unix) {
                 buck2_client_ctx::println!(
                     "{}",
-                    shlex::try_join(run_args.iter().map(|a| a.as_str())).map_err(from_any)?
+                    shlex::try_join(run_args.iter().map(|a| a.as_str()))
+                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                 )?;
                 return ExitResult::success();
             } else {

@@ -28,7 +28,7 @@ use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
@@ -318,7 +318,7 @@ async fn eval_bxl_for_anon_target_inner(
                     })?;
                     Ok(invoke_res)
                 })
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
                 let res_typed = ProviderCollection::try_from_value(list_res)?;
                 let res = env.heap().alloc(res_typed);

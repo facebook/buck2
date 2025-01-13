@@ -549,7 +549,7 @@ impl<'s> Component for ProgressHeader<'s> {
 mod tests {
     use std::fmt::Write;
 
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::progress::BuildProgressPhaseStatsItem;
     use itertools::Itertools;
 
@@ -620,7 +620,7 @@ mod tests {
                     },
                     DrawMode::Normal,
                 )
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             header
                 .draw(
                     Dimensions {
@@ -629,7 +629,7 @@ mod tests {
                     },
                     DrawMode::Final,
                 )
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         }
         Ok(())
     }
@@ -666,10 +666,10 @@ mod tests {
                 &mut all_output,
                 "{}",
                 draw(width, true, &phase_stats())
-                    .map_err(from_any)?
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                     .fmt_for_test()
             )
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         }
 
         for width in [60, 140] {
@@ -677,10 +677,10 @@ mod tests {
                 &mut all_output,
                 "{}",
                 draw(width, false, &phase_stats())
-                    .map_err(from_any)?
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                     .fmt_for_test()
             )
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         }
 
         let expected = indoc::indoc!(
@@ -783,7 +783,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let expected = "testRemaining: 3/3. Cache hits: 100%. Ti\n".to_owned();
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -814,7 +814,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         let expected = "test                      Remaining: 2/2. Time elapsed: 0.0s\n".to_owned();
 
@@ -846,7 +846,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let expected =
             "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s\n"
                 .to_owned();
@@ -879,7 +879,7 @@ mod tests {
             },
             DrawMode::Final,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let expected = indoc::indoc!(
             r#"
             Jobs completed: 0. Time elapsed: 0.0s.

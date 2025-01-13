@@ -22,7 +22,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_error::classify::best_error;
 use buck2_error::classify::ErrorLike;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::ErrorTag;
 use buck2_error::Tier;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -414,7 +414,7 @@ impl From<csv::Error> for ClientIoError {
     fn from(error: csv::Error) -> Self {
         match error.kind() {
             csv::ErrorKind::Io(_) => {}
-            _ => return ClientIoError::Other(from_any(error)),
+            _ => return ClientIoError::Other(from_any_with_tag(error, ErrorTag::Tier0)),
         }
         match error.into_kind() {
             csv::ErrorKind::Io(io_error) => ClientIoError::from(io_error),

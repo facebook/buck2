@@ -23,7 +23,7 @@ use buck2_cli_proto::*;
 use buck2_core::fs::async_fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -159,7 +159,7 @@ impl EventLogPathBuf {
             .ok_or(EventLogInferenceError::NoUuidInFilename(self.path.clone()))?
             .as_str();
         TraceId::from_str(uuid)
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .buck_error_context("Failed to create TraceId from uuid")
     }
 
@@ -240,7 +240,7 @@ impl EventLogPathBuf {
                 .trace_id
                 .map(|t| t.parse())
                 .transpose()
-                .map_err(from_any)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .buck_error_context("Invalid TraceId")?
                 .unwrap_or_else(TraceId::null),
         };
@@ -370,7 +370,7 @@ mod tests {
     use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_data::CommandStart;
     use buck2_data::SpanStartEvent;
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_events::span::SpanId;
 
     use super::*;
@@ -396,7 +396,8 @@ mod tests {
     fn buck_event() -> Result<BuckEvent, buck2_error::Error> {
         let event = BuckEvent::new(
             SystemTime::now(),
-            TraceId::from_str("7b797fa8-62f1-4123-85f9-875cd74b0a63").map_err(from_any)?,
+            TraceId::from_str("7b797fa8-62f1-4123-85f9-875cd74b0a63")
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             Some(SpanId::next()),
             Some(SpanId::next()),
             SpanStartEvent {

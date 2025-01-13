@@ -27,6 +27,8 @@ pub mod tokio;
 pub mod tonic;
 pub mod watchman_client;
 
+use buck2_data::error::ErrorTag;
+
 use crate::any::recover_crate_error;
 
 // Helper function that can be explicited called to convert `std::error::Error` into `buck2_error`.
@@ -34,15 +36,15 @@ use crate::any::recover_crate_error;
 // one-off error types in the codebase
 #[cold]
 #[track_caller]
-pub fn from_any<T>(e: T) -> crate::Error
+pub fn from_any_with_tag<T>(e: T, tag: ErrorTag) -> crate::Error
 where
     T: Into<anyhow::Error>,
-    // This bound prevent `from_any` from being called on an error that's
-    // already a `buck2_error` which prevents unecessary uses of `from_any`
+    // This bound prevent this function from being called on an error that's
+    // already a `buck2_error` which prevents unnecessary conversions
     Result<(), T>: anyhow::Context<(), T>,
 {
     let anyhow: anyhow::Error = e.into();
     let source_location =
         crate::source_location::from_file(std::panic::Location::caller().file(), None);
-    recover_crate_error(anyhow.as_ref(), source_location)
+    recover_crate_error(anyhow.as_ref(), source_location, tag)
 }

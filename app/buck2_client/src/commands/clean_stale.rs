@@ -21,7 +21,7 @@ use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use chrono::DateTime;
 use chrono::Duration;
@@ -53,7 +53,8 @@ pub fn parse_clean_stale_args(
 ) -> buck2_error::Result<Option<KeepSinceArg>> {
     let arg = match (stale, keep_since_time) {
         (Some(Some(human_duration)), None) => {
-            let duration = chrono::Duration::from_std(human_duration.into()).map_err(from_any)?;
+            let duration = chrono::Duration::from_std(human_duration.into())
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             Some(KeepSinceArg::Duration(duration))
         }
         (Some(None), None) => Some(KeepSinceArg::Duration(chrono::Duration::weeks(1))),
@@ -112,7 +113,7 @@ impl StreamingCommand for CleanStaleCommand {
                     humantime::format_duration(
                         duration
                             .to_std()
-                            .map_err(from_any)
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                             .buck_error_context("Error converting duration")?
                     ),
                 )?;

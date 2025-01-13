@@ -17,7 +17,7 @@ use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
@@ -74,7 +74,7 @@ impl<'v> AnalysisActions<'v> {
         let state = self
             .state
             .try_borrow_mut()
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .internal_error("AnalysisActions.state is already borrowed")?;
         RefMut::filter_map(state, |x| x.as_mut())
             .ok()

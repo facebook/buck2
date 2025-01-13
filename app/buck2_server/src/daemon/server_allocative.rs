@@ -13,7 +13,7 @@ use allocative::FlameGraph;
 use allocative::FlameGraphBuilder;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::process_stats::process_stats;
 
@@ -100,7 +100,7 @@ pub(crate) async fn spawn_allocative(
             final_fg.write().as_bytes(),
             &mut fg_svg,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         fs_util::write(path.join("flamegraph.svg"), &fg_svg)?;
 
         fs_util::write(path.join("warnings.txt"), fg.warnings())?;

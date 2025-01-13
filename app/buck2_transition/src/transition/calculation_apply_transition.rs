@@ -24,7 +24,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
@@ -190,13 +190,13 @@ async fn do_apply_transition(
                 }
             };
             match call_transition_function(&transition, conf, refs, attrs, &mut eval)
-                .map_err(from_any)?
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
             {
                 TransitionApplied::Single(new) => {
                     let new_2 =
                         match call_transition_function(&transition, &new, refs, attrs, &mut eval)
                             .context("applying transition again on transition output")
-                            .map_err(from_any)?
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                         {
                             TransitionApplied::Single(new_2) => new_2,
                             TransitionApplied::Split(_) => {

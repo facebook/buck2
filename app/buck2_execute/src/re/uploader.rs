@@ -29,7 +29,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::directory_ref::FingerprintedDirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use chrono::Duration;
 use chrono::Utc;
@@ -454,7 +454,7 @@ fn add_injected_missing_digests<'a>(
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
-                    .map_err(from_any)
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                     .with_buck_error_context(|| format!("Invalid digest: `{}`", digest))?;
                 // This code does not run in a test but it is only used for testing.
                 let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;

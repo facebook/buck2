@@ -19,7 +19,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_i
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestStage;
@@ -123,7 +123,7 @@ async fn required_providers<'v>(
             Ok(None) => None,
             Err(e) => {
                 let _ignore =
-                    soft_error!("missing_required_local_resource", from_any(e), quiet: true);
+                    soft_error!("missing_required_local_resource", from_any_with_tag(e, buck2_error::ErrorTag::Tier0), quiet: true);
                 None
             }
         })

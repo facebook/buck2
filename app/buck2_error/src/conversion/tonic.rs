@@ -11,7 +11,7 @@ impl From<tonic::transport::Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: tonic::transport::Error) -> Self {
-        crate::conversion::from_any(value)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }
 
@@ -19,6 +19,6 @@ impl From<tonic::Status> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: tonic::Status) -> Self {
-        crate::conversion::from_any(value)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }

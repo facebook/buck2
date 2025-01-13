@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use bytes::BytesMut;
 use futures::Stream;
@@ -45,7 +45,7 @@ impl<T: for<'a> Deserialize<'a>> Decoder for LspMessageLikeDecoder<T> {
         let mut headers_buff = [httparse::EMPTY_HEADER; 16];
 
         let (headers_length, headers) = match httparse::parse_headers(src, &mut headers_buff)
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .buck_error_context("Invalid headers")?
         {
             httparse::Status::Complete(r) => r,

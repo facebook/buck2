@@ -11,6 +11,6 @@ impl From<rusqlite::Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: rusqlite::Error) -> Self {
-        crate::conversion::from_any(value)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }

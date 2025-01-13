@@ -36,7 +36,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::RageResult;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::do_find_log_by_trace_id;
 use buck2_event_log::file_names::get_local_logs;
@@ -720,7 +719,6 @@ async fn generate_paste(title: &str, content: &str) -> buck2_error::Result<Strin
     let reader = async move {
         let output = tokio::time::timeout(Duration::from_secs(10), pastry.wait_with_output())
             .await
-            .map_err(from_any)
             .buck_error_context(RageError::PastryTimeout)?
             .buck_error_context(RageError::PastryOutputError)?;
         if !output.status.success() {

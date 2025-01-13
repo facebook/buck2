@@ -26,7 +26,7 @@ use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
 use buck2_data::StarlarkFailNoStacktrace;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
@@ -398,7 +398,7 @@ pub(crate) fn get_bxl_callable(
     let callable = bxl_module
         .env()
         .get_any_visibility(&spec.name)
-        .map_err(from_any)?
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
         .0;
 
     Ok(callable.downcast_starlark::<FrozenBxlFunction>()?)
@@ -444,7 +444,7 @@ pub(crate) async fn resolve_cli_args<'a>(
 
                 Ok(BxlResolvedCliArgs::Help)
             }
-            _ => Err(from_any(e)),
+            _ => Err(from_any_with_tag(e, buck2_error::ErrorTag::Tier0)),
         },
     }
 }

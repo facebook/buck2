@@ -217,7 +217,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     else:
         assert "stream closed because of a broken pipe" in error["message"]
 
-    assert error["tags"] == ["CLIENT_GRPC", "SERVER_PANICKED"]
+    assert error["tags"] == ["CLIENT_GRPC", "SERVER_PANICKED", "TIER0"]
     assert "buckd stderr:\n" in error["message"]
     assert "panicked at" in error["message"]
 

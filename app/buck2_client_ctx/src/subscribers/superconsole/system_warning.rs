@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::action_stats::ActionStats;
 use crossterm::style::Color;
 use crossterm::style::Stylize;
@@ -44,7 +44,9 @@ fn warning_styled(text: &str) -> buck2_error::Result<Line> {
     Ok(Line::from_iter([Span::new_styled(
         text.to_owned().with(orange),
     )
-    .map_err(from_any)?]))
+    .map_err(|e| {
+        from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
+    })?]))
 }
 
 impl<'a> Component for SystemWarningComponent<'a> {

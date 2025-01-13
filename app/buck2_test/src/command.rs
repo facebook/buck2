@@ -57,7 +57,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::tag_result;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -304,7 +304,7 @@ async fn test(
         Some(config) => {
             let test_executor = post_process_test_executor(config.as_ref())
                 .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             let test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
             (test_executor, test_executor_args)
@@ -333,7 +333,7 @@ async fn test(
         .session_options
         .as_ref()
         .context("Missing `options`")
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     let session = TestSession::new(TestSessionOptions {
         allow_re: options.allow_re,
@@ -352,7 +352,7 @@ async fn test(
         .map(|t| t.clone().try_into())
         .transpose()
         .context("Invalid `duration`")
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     let test_outcome = test_targets(
         ctx.dupe(),
@@ -375,7 +375,7 @@ async fn test(
         request.ignore_tests_attribute,
     )
     .await
-    .map_err(from_any)?;
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     send_target_cfg_event(
         server_ctx.events(),
@@ -387,7 +387,7 @@ async fn test(
     let exit_code = test_outcome
         .exit_code()
         .context("No exit code available")
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     let test_statuses = buck2_cli_proto::test_response::TestStatuses {
         passed: Some(
@@ -513,7 +513,7 @@ async fn test_targets(
 
     let res = tag_result!(
         "executor_launch_failed",
-        res.map_err(from_any),
+        res.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0)),
         quiet: true,
         daemon_in_memory_state_is_corrupted: true,
         task: false
@@ -973,7 +973,9 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 Err(e) => {
                     return ControlFlow::Break(vec![BuildEvent::new_configured(
                         label,
-                        ConfiguredBuildEventVariant::Error { err: from_any(e) },
+                        ConfiguredBuildEventVariant::Error {
+                            err: from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
+                        },
                     )]);
                 }
             };
@@ -1018,7 +1020,9 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             {
                 return ControlFlow::Break(vec![BuildEvent::new_configured(
                     label,
-                    ConfiguredBuildEventVariant::Error { err: from_any(e) },
+                    ConfiguredBuildEventVariant::Error {
+                        err: from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
+                    },
                 )]);
             }
 

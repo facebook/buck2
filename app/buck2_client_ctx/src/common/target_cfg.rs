@@ -83,7 +83,7 @@ pub struct TargetCfgWithUniverseOptions {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use clap::CommandFactory;
     use clap::Parser;
 
@@ -91,7 +91,7 @@ mod tests {
 
     fn parse(args: &[&str]) -> buck2_error::Result<TargetCfgOptions> {
         TargetCfgOptions::try_parse_from(std::iter::once("program").chain(args.iter().copied()))
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
     }
 
     #[test]

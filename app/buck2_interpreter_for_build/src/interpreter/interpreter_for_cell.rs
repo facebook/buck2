@@ -25,7 +25,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::soft_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
@@ -330,7 +330,7 @@ impl InterpreterForCell {
         env.set_extra_value_no_overwrite(env.heap().alloc_complex(StarlarkAnyComplex {
             value: InterpreterExtraValue::default(),
         }))
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         Ok(env)
     }

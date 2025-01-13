@@ -15,7 +15,7 @@ use buck2_cli_proto::new_generic::ExplainRequest;
 use buck2_data::action_key;
 use buck2_data::CommandInvalidationInfo;
 use buck2_data::FileWatcherEvent;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
@@ -283,7 +283,7 @@ pub(crate) async fn explain(
         req.manifold_path.as_deref(),
     )
     .await
-    .map_err(from_any)?;
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     Ok(())
 }

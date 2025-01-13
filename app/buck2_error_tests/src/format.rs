@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_util::golden_test_helper::trim_rust_backtrace;
 
 #[derive(Debug, buck2_error::Error)]
@@ -45,7 +45,7 @@ fn test_shows_anyhow_context() {
     struct AnyhowError;
 
     let e = anyhow::Error::from(AnyhowError).context("context 1");
-    let e = from_any(e).context("context 2");
+    let e = from_any_with_tag(e, buck2_error::ErrorTag::Input).context("context 2");
     assert_eq_no_backtrace(
         format!("{:?}", e),
         r#"context 2
@@ -66,7 +66,7 @@ fn test_after_anyhow_conversion() {
     // and we probably should be avoiding anyhow error printing wherever possible
     assert_eq_no_backtrace(format!("{}", e), format!("{}", e2));
 
-    let e3 = from_any(e2);
+    let e3 = from_any_with_tag(e2, buck2_error::ErrorTag::Input);
     assert_eq_no_backtrace(format!("{}", e), format!("{}", e3));
     assert_eq_no_backtrace(format!("{:?}", e), format!("{:?}", e3));
     assert_eq_no_backtrace(format!("{:#}", e), format!("{:#}", e3));

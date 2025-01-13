@@ -27,7 +27,7 @@ use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -481,7 +481,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
-                    .map_err(from_any)
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                     .with_buck_error_context(|| format!("Invalid digest: `{}`", digest))?;
                 // This code is only used by E2E tests, so while it's not *a test*, testing_default
                 // is an OK choice here.

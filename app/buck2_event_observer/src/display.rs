@@ -24,7 +24,7 @@ use buck2_data::BxlFunctionKey;
 use buck2_data::BxlFunctionLabel;
 use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
@@ -561,7 +561,8 @@ pub fn format_test_result(
         details,
         ..
     } = test_result;
-    let status = TestStatus::try_from(*status).map_err(from_any)?;
+    let status = TestStatus::try_from(*status)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     // Pass results normally have no details, unless the --print-passing-details is set.
     // Do not display anything for passing tests unless details are present to avoid
@@ -582,10 +583,11 @@ pub fn format_test_result(
         TestStatus::RERUN => Span::new_styled("↻ Rerun".to_owned().cyan()),
         TestStatus::LISTING_FAILED => Span::new_styled("⚠ Listing failed".to_owned().red()),
     }
-    .map_err(from_any)?;
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
     let mut base = Line::from_iter([
         prefix,
-        Span::new_unstyled(format!(": {}", name,)).map_err(from_any)?,
+        Span::new_unstyled(format!(": {}", name,))
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
     ]);
     if let Some(duration) = duration {
         if let Ok(duration) = Duration::try_from(duration.clone()) {
@@ -596,7 +598,7 @@ pub fn format_test_result(
                     // so it doesn't make sense to apply the speed adjustment.
                     fmt_duration::fmt_duration(duration, 1.0)
                 ))
-                .map_err(from_any)?,
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             );
         }
     }

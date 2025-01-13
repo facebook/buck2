@@ -18,7 +18,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::provider::id::ProviderId;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::types::provider::callable::ProviderCallableLike;
@@ -523,7 +523,7 @@ fn provider_field_parse_type<'v>(
 ) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
     TypeCompiled::new(ty, eval.heap())
         .map(|ty| ty.to_frozen(eval.frozen_heap()))
-        .map_err(from_any)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
 }
 
 #[starlark_module]

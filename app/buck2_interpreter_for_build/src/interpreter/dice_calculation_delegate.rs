@@ -25,7 +25,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span;
@@ -203,7 +203,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             .await
             .into_result(self.ctx)
             .await?
-            .map_err(from_any)??;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))??;
         Ok((ast, deps))
     }
 

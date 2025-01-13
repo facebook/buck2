@@ -25,7 +25,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use dupe::Dupe;
@@ -125,7 +125,8 @@ impl EdenConnectionManager {
         if cfg!(windows) {
             let config_path = dot_eden_dir.join("config");
             let config_contents = fs_util::read_to_string(config_path)?;
-            let config: EdenConfig = toml::from_str(&config_contents).map_err(from_any)?;
+            let config: EdenConfig = toml::from_str(&config_contents)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             let mount = Arc::new(EdenMountPoint(AbsPathBuf::new(config.config.root)?));
             let socket = AbsPathBuf::new(PathBuf::from(config.config.socket))?;
             Ok(EdenConnector { fb, mount, socket })
@@ -165,7 +166,7 @@ impl EdenConnectionManager {
         let values = fb303
             .getRegexExportedValues("^build_.*")
             .await
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         fn join_version(values: &BTreeMap<String, String>) -> Option<String> {
             let version = values.get("build_package_version")?;
@@ -278,7 +279,7 @@ fn thrift_builder(
 
     Ok(
         ::thriftclient::ThriftChannelBuilder::from_path(fb, socket.as_path())
-            .map_err(from_any)?
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
             .with_conn_timeout(THRIFT_TIMEOUT_MS)
             .with_recv_timeout(THRIFT_TIMEOUT_MS)
             .with_secure(false),
@@ -295,7 +296,7 @@ impl EdenConnector {
             tracing::info!("Creating a new Eden connection via `{}`", socket.display());
             let eden: Arc<dyn EdenService + Send + Sync> = thrift_builder(fb, &socket)?
                 .build_client(::edenfs_clients::make_EdenService)
-                .map_err(from_any)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .buck_error_context("Error constructing Eden client")?;
 
             wait_until_mount_is_ready(eden.as_ref(), &mount).await?;
@@ -313,7 +314,7 @@ impl EdenConnector {
     fn connect_fb303(&self) -> buck2_error::Result<Arc<dyn BaseService + Send + Sync>> {
         thrift_builder(self.fb, &self.socket)?
             .build_client(::fb303_core_clients::make_BaseService)
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
     }
 }
 

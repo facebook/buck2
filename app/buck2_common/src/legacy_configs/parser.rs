@@ -14,7 +14,7 @@ use allocative::Allocative;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::RelativePath;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -338,7 +338,7 @@ impl<'p> LegacyConfigFileParser<'p> {
         let lines: Vec<String> = lines
             .into_iter()
             .collect::<Result<Vec<_>, _>>()
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         let lines = lines
             .into_iter()

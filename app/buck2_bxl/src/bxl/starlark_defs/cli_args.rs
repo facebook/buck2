@@ -21,7 +21,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -541,8 +541,12 @@ impl CliArgType {
                     r.map(Some)
                 })?,
                 CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
-                    let r: buck2_error::Result<_> =
-                        try { CliArgValue::Int(x.parse::<BigInt>().map_err(from_any)?) };
+                    let r: buck2_error::Result<_> = try {
+                        CliArgValue::Int(
+                            x.parse::<BigInt>()
+                                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
+                        )
+                    };
                     r.map(Some)
                 })?,
                 CliArgType::Float => clap.value_of().map_or(Ok(None), |x| {

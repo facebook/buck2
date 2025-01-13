@@ -16,7 +16,7 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::re_platform::Property;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::fmt_duration;
@@ -452,7 +452,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                         reproducer: command.repro.as_human_readable().to_string(),
                         std_err: std_err_formatted,
                     })
-                    .map_err(from_any)?;
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                 Ok(())
             }
         }

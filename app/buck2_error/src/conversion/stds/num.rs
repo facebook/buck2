@@ -7,11 +7,14 @@
  * of this source tree.
  */
 
+use crate::conversion::from_any_with_tag;
+use crate::ErrorTag::Tier0;
+
 impl From<std::num::ParseIntError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::num::ParseIntError) -> Self {
-        crate::conversion::from_any(value)
+        from_any_with_tag(value, Tier0)
     }
 }
 
@@ -19,7 +22,7 @@ impl From<std::num::ParseFloatError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::num::ParseFloatError) -> Self {
-        crate::conversion::from_any(value)
+        from_any_with_tag(value, Tier0)
     }
 }
 
@@ -27,6 +30,6 @@ impl From<std::num::TryFromIntError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::num::TryFromIntError) -> Self {
-        crate::conversion::from_any(value)
+        from_any_with_tag(value, Tier0)
     }
 }

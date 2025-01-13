@@ -11,7 +11,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::VecExt;
 use rustls::Certificate;
@@ -118,7 +118,7 @@ pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
         .with_safe_defaults()
         .with_root_certificates(system_roots)
         .with_client_auth_cert(cert, key)
-        .map_err(from_any)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .buck_error_context("Error creating TLS config with cert and key path")
 }
 

@@ -18,7 +18,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use chrono::DateTime;
@@ -354,7 +354,7 @@ impl RemoteExecutionClient {
             .client
             .client()
             .get_experiment_name()
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
     }
 
     pub fn fill_network_stats(&self, stats: &mut RemoteExecutionClientStats) {

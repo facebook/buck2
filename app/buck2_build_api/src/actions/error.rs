@@ -160,7 +160,7 @@ fn error_items<T: fmt::Display>(xs: &[T]) -> String {
 #[cfg(test)]
 mod tests {
     use buck2_error::buck2_error;
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_error::ErrorTag;
 
     use super::*;
@@ -199,7 +199,7 @@ mod tests {
             None,
         );
 
-        let buck2_error = from_any(action_error);
+        let buck2_error = from_any_with_tag(action_error, ErrorTag::AnyActionExecution);
 
         assert_eq!(
             buck2_error.tags(),

@@ -19,7 +19,7 @@ use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use chrono::DateTime;
 use humantime::format_duration;
@@ -53,7 +53,8 @@ impl StatusCommand {
                 let root = ctx.paths()?.roots.common_buckd_dir()?;
                 let walker = WalkDir::new(&root).follow_links(false).into_iter();
                 for entry in walker {
-                    let entry = entry.map_err(from_any)?;
+                    let entry =
+                        entry.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                     if entry.file_type().is_dir() {
                         let dir = DaemonDir {
                             path: entry.into_path().try_into()?,

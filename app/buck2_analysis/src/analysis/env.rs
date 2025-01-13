@@ -27,7 +27,7 @@ use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -403,7 +403,7 @@ fn get_rule_callable<'v>(
 ) -> buck2_error::Result<FrozenValue> {
     let rule_callable = module
         .get_any_visibility(name)
-        .map_err(from_any)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .with_buck_error_context(|| format!("Couldn't find rule `{}`", name))?
         .0;
     let rule_callable = rule_callable.owned_value(eval.frozen_heap());

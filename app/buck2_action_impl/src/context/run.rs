@@ -26,7 +26,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info:
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use either::Either;
@@ -279,7 +279,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
             (None, Some(v)) => WeightClass::Percentage(
                 WeightPercentage::try_new(v)
-                    .map_err(from_any)
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                     .buck_error_context("Invalid `weight_percentage`")?,
             ),
             (Some(..), Some(..)) => {

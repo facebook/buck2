@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -312,7 +312,7 @@ impl StatefulSuperConsole {
             trace_id,
             builder
                 .build_forced(Self::FALLBACK_SIZE)
-                .map_err(from_any)?,
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             verbosity,
             expect_spans,
             replay_speed,
@@ -330,7 +330,10 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
         build_count_dir: Option<AbsNormPathBuf>,
     ) -> buck2_error::Result<Option<Self>> {
-        match Self::console_builder().build().map_err(from_any)? {
+        match Self::console_builder()
+            .build()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+        {
             None => Ok(None),
             Some(sc) => Ok(Some(Self::new(
                 command_name,
@@ -703,7 +706,7 @@ impl StatefulSuperConsoleImpl {
         &mut self,
         prefs: &buck2_data::ConsolePreferences,
     ) -> buck2_error::Result<()> {
-        self.state.config.max_lines = prefs.max_lines.try_into().map_err(from_any)?;
+        self.state.config.max_lines = prefs.max_lines.try_into()?;
 
         Ok(())
     }
@@ -788,7 +791,7 @@ impl StatefulSuperConsoleImpl {
                 header: &self.header,
                 state: &self.state,
             })
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 
@@ -823,7 +826,8 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 
     async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
-        self.finalize().map_err(from_any)?;
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         match self {
             Self::Running(_) => unreachable!(),
             Self::Finalized(c) => c.handle_output(raw_output).await,
@@ -856,7 +860,8 @@ impl EventSubscriber for StatefulSuperConsole {
             Self::Running(c) => c.handle_command_result(result).await?,
             Self::Finalized(c) => c.handle_command_result(result).await?,
         }
-        self.finalize().map_err(from_any)?;
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 
@@ -868,7 +873,8 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 
     async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
-        self.finalize().map_err(from_any)?;
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 }
@@ -1165,7 +1171,7 @@ mod tests {
             StatefulSuperConsole::Running(c) => c
                 .super_console
                 .test_output_mut()
-                .map_err(from_any)?
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                 .frames
                 .pop()
                 .buck_error_context("No frame was emitted")?,
@@ -1212,7 +1218,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         assert_eq!(full.len(), 2);
 
@@ -1227,7 +1233,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         assert_eq!(multiline.len(), 4);
 
@@ -1241,7 +1247,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         assert_eq!(too_small.len(), 1);
 
@@ -1271,7 +1277,7 @@ mod tests {
             StatefulSuperConsole::Running(c) => c
                 .super_console
                 .test_output_mut()
-                .map_err(from_any)?
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                 .frames
                 .pop()
                 .buck_error_context("No frame was emitted")?,

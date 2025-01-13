@@ -77,7 +77,7 @@ use buck2_data::TestRunStart;
 use buck2_data::TestSessionInfo;
 use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
@@ -540,7 +540,7 @@ impl Key for TestExecutionKey {
                 .boxed()
             })
             .await
-            .map_err(from_any)?)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?)
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -1588,10 +1588,10 @@ impl<'b> BuckTestOrchestrator<'b> {
         let string_content = String::from_utf8_lossy(&std_streams.stdout);
         let data: LocalResourcesSetupResult = serde_json::from_str(&string_content)
             .context("Error parsing local resource setup command output")
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let state = data
             .into_state(context.target.clone(), &context.env_var_mapping)
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         Ok(state)
     }

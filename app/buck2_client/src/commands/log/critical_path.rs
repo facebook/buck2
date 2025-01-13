@@ -15,7 +15,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -259,7 +259,9 @@ fn log_critical_path(
                         writer.write_all("\n".as_bytes())?;
                     }
                     LogCommandOutputFormatWithWriter::Csv(writer) => {
-                        writer.serialize(critical_path).map_err(from_any)?;
+                        writer
+                            .serialize(critical_path)
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                     }
                 }
                 Ok(())

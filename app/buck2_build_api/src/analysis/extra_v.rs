@@ -10,7 +10,7 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
@@ -85,7 +85,7 @@ impl<'v> AnalysisExtraValue<'v> {
                     .heap()
                     .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
             )
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Self::get(module)?.internal_error("extra_value must be set")
     }
 }

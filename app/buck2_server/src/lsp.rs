@@ -32,7 +32,7 @@ use buck2_core::package::source_path::SourcePath;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::target::name::TargetName;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
@@ -206,7 +206,7 @@ impl DocsCache {
         Url::from_file_path(abs_path)
             .unwrap()
             .try_into()
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
     }
 
     async fn new(
@@ -263,9 +263,9 @@ impl DocsCache {
 
                         let url = LspUrl::try_from(
                             Url::parse(&format!("starlark:{}", path.display()))
-                                .map_err(from_any)?,
+                                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
                         )
-                        .map_err(from_any)?;
+                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                         let rendered = render_doc_item_no_link(sym, mem);
                         let prev = native_starlark_files.insert(url.clone(), rendered);
                         assert!(prev.is_none());
@@ -471,7 +471,7 @@ impl<'a> BuckLspContext<'a> {
                 let url = Url::from_file_path(path)
                     .unwrap()
                     .try_into()
-                    .map_err(from_any)?;
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                 let string_literal = StringLiteralResult {
                     url,
                     location_finder: None,
@@ -529,7 +529,9 @@ impl<'a> BuckLspContext<'a> {
                                         };
                                         Ok(Some(string_literal))
                                     }
-                                    Err(e) => Err(from_any(e)),
+                                    Err(e) => {
+                                        Err(from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                                    }
                                 }
                             }))
                     })
@@ -592,7 +594,7 @@ impl<'a> LspContext for BuckLspContext<'a> {
                                 Url::from_file_path(abs_path)
                                     .unwrap()
                                     .try_into()
-                                    .map_err(from_any)
+                                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                             })
                             .await?;
 
@@ -818,14 +820,16 @@ async fn recv_from_lsp(
     mut event_sender: UnboundedSender<buck2_cli_proto::LspMessage>,
 ) -> buck2_error::Result<()> {
     loop {
-        let msg = to_client.recv().map_err(from_any)?;
+        let msg = to_client
+            .recv()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         let lsp_json = serde_json::to_string(&msg).unwrap();
         let res = buck2_cli_proto::LspMessage { lsp_json };
         match event_sender.send(res).await {
             Ok(_) => {}
             Err(e) if e.is_disconnected() => break Ok(()),
-            Err(e) => break Err(from_any(e)),
+            Err(e) => break Err(from_any_with_tag(e, buck2_error::ErrorTag::Tier0)),
         }
     }
 }
@@ -872,7 +876,7 @@ fn handle_outgoing_lsp_message(
 #[cfg(test)]
 mod tests {
     use buck2_core::bzl::ImportPath;
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use lsp_types::Url;
     use starlark::docs::DocFunction;
     use starlark::docs::DocItem;
@@ -930,9 +934,9 @@ mod tests {
                         // Make sure we use a Url which is an absolute path on Linux and Windows
                         "file:////c:/usr/local/dir/prelude.bzl",
                     )
-                    .map_err(from_any)?,
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
                 )
-                .map_err(from_any)?)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?)
             } else {
                 Err(buck2_error::buck2_error!([], "Unknown path {}", location))
             }
@@ -943,21 +947,26 @@ mod tests {
 
         assert_eq!(
             &LspUrl::try_from(
-                Url::parse("starlark:/native/native_function1.bzl").map_err(from_any)?
+                Url::parse("starlark:/native/native_function1.bzl")
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
             )
-            .map_err(from_any)?,
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             cache.url_for_symbol("native_function1").unwrap()
         );
         assert_eq!(
             &LspUrl::try_from(
-                Url::parse("starlark:/native/native_function2.bzl").map_err(from_any)?
+                Url::parse("starlark:/native/native_function2.bzl")
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
             )
-            .map_err(from_any)?,
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             cache.url_for_symbol("native_function2").unwrap()
         );
         assert_eq!(
-            &LspUrl::try_from(Url::parse("file:/c:/usr/local/dir/prelude.bzl").map_err(from_any)?)
-                .map_err(from_any)?,
+            &LspUrl::try_from(
+                Url::parse("file:/c:/usr/local/dir/prelude.bzl")
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+            )
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             cache.url_for_symbol("prelude_function").unwrap()
         );
 

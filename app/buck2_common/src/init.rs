@@ -13,7 +13,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::buck2_env;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use serde::Deserialize;
 use serde::Serialize;
@@ -283,7 +283,8 @@ impl ResourceControlConfig {
             "BUCK2_TEST_RESOURCE_CONTROL_CONFIG",
             applicability = testing,
         )? {
-            Self::deserialize(env_conf).map_err(from_any)
+            Self::deserialize(env_conf)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         } else {
             let status = config
                 .parse(BuckconfigKeyRef {

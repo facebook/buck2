@@ -17,7 +17,7 @@ use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -106,7 +106,8 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
             let nodes = iter::once(&node).chain(node.forward_target());
 
             for node in nodes {
-                writeln!(serialized_targets_output, "{}", node.label()).map_err(from_any)?;
+                writeln!(serialized_targets_output, "{}", node.label())
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                 if target_call_stacks {
                     print_target_call_stack_after_target(
                         &mut serialized_targets_output,

@@ -38,7 +38,7 @@ pub fn from_file(path: &str, extra: Option<&str>) -> Option<String> {
 mod tests {
     use super::*;
     use crate as buck2_error;
-    use crate::conversion::from_any;
+    use crate::conversion::from_any_with_tag;
     use crate::conversion_test::MyError;
 
     #[test]
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_via_anyhow_from() {
         let err: anyhow::Error = anyhow::Error::new(MyError);
-        let err: crate::Error = from_any(err);
+        let err: crate::Error = from_any_with_tag(err, crate::ErrorTag::Input);
         assert_eq!(
             err.source_location(),
             Some("buck2_error/src/source_location.rs"),
@@ -119,15 +119,15 @@ mod tests {
         use anyhow::Context;
 
         let e: anyhow::Error = Err::<(), _>(MyError).context("foo").unwrap_err();
-        let e: crate::Error = from_any(e);
+        let e: crate::Error = from_any_with_tag(e, crate::ErrorTag::Input);
         assert_eq!(
             e.source_location(),
             Some("buck2_error/src/source_location.rs"),
         );
 
-        let e: buck2_error::Error = from_any(MyError);
+        let e: buck2_error::Error = from_any_with_tag(MyError, crate::ErrorTag::Input);
         let e: anyhow::Error = e.into();
-        let e: crate::Error = from_any(e);
+        let e: crate::Error = from_any_with_tag(e, crate::ErrorTag::Input);
         assert_eq!(
             e.source_location(),
             Some("buck2_error/src/source_location.rs"),

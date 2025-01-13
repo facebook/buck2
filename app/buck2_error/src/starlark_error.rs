@@ -174,7 +174,7 @@ fn from_starlark_impl(
             let error: anyhow::Error = Into::into(BuckStarlarkError(e, description));
             let std_err: &'_ (dyn std::error::Error + 'static) = error.as_ref();
 
-            recover_crate_error(std_err, source_location)
+            recover_crate_error(std_err, source_location, tag)
         }
         _ => crate::Error::new(description, source_location, None),
     }
@@ -234,7 +234,7 @@ mod tests {
         fn from(value: FullMetadataError) -> Self {
             let error = anyhow::Error::from(value);
             let source_location = Some(file!().to_owned());
-            crate::any::recover_crate_error(error.as_ref(), source_location)
+            crate::any::recover_crate_error(error.as_ref(), source_location, crate::ErrorTag::Tier0)
         }
     }
 
@@ -281,6 +281,7 @@ mod tests {
             &[
                 crate::ErrorTag::StarlarkFail,
                 crate::ErrorTag::StarlarkNativeInput,
+                crate::ErrorTag::Tier0,
                 crate::ErrorTag::WatchmanTimeout
             ]
         );

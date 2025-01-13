@@ -23,7 +23,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::action_util::get_action_digest;
 use buck2_events::dispatch::async_record_root_spans;
@@ -288,15 +288,17 @@ async fn build_action_inner(
                 .get_dispatcher()
                 .instant_event(e.as_proto_event());
 
-            action_result = Err(from_any(e)
-                // Make sure to mark the error as emitted so that it is not printed out to console
-                // again in this command. We still need to keep it around for the build report (and
-                // in the future) other commands
-                .mark_emitted({
-                    let owner = action.owner().dupe();
-                    Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
-                })
-                .into());
+            action_result = Err(
+                from_any_with_tag(e, buck2_error::ErrorTag::AnyActionExecution)
+                    // Make sure to mark the error as emitted so that it is not printed out to console
+                    // again in this command. We still need to keep it around for the build report (and
+                    // in the future) other commands
+                    .mark_emitted({
+                        let owner = action.owner().dupe();
+                        Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
+                    })
+                    .into(),
+            );
 
             error_diagnostics
         }

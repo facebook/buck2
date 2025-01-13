@@ -14,7 +14,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
@@ -76,7 +76,7 @@ impl DiceHasCommandExecutor for DiceComputations<'_> {
             .per_transaction_data()
             .data
             .get::<HasCommandExecutorHolder>()
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .buck_error_context("CommandExecutorDelegate should be set")?;
         holder.delegate.get_command_executor(&artifact_fs, config)
     }
