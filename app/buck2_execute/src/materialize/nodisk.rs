@@ -94,7 +94,10 @@ impl Materializer for NoDiskMaterializer {
         &self,
         _gen: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
     ) -> buck2_error::Result<Vec<ArtifactValue>> {
-        Err(buck2_error!([], "NoDiskMaterializer cannot write"))
+        Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "NoDiskMaterializer cannot write"
+        ))
     }
 
     async fn invalidate_many(

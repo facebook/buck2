@@ -566,7 +566,13 @@ pub mod testing {
                     }
                     _ => None,
                 })
-                .ok_or_else(|| buck2_error::buck2_error!([], "couldn't find dir {:?}", path))?;
+                .ok_or_else(|| {
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Environment,
+                        "couldn't find dir {:?}",
+                        path
+                    )
+                })?;
             Ok(ReadDirOutput { included })
         }
 
@@ -584,7 +590,7 @@ pub mod testing {
                         to: RawSymlink::External(sym.dupe()),
                     }),
                     _ => Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "couldn't get metadata for {:?}",
                         path
                     )),

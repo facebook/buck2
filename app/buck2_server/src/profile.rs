@@ -159,7 +159,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
             }
             _ => {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "{}",
                     "Expected target profile opts, not BXL profile opts"
                 ));

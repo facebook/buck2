@@ -81,7 +81,11 @@ impl dyn FileWatcher {
                 EdenFsFileWatcher::new(fb, project_root, root_config, cells, ignore_specs)
                     .buck_error_context("Creating edenfs file watcher")?,
             )),
-            other => Err(buck2_error!([], "Invalid buck2.file_watcher: {}", other)),
+            other => Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Invalid buck2.file_watcher: {}",
+                other
+            )),
         }
     }
 }

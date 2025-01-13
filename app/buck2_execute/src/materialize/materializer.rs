@@ -360,7 +360,7 @@ impl dyn Materializer {
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
                 if !external_symlink.remaining_path().is_empty() {
                     return Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Internal error: external symlink should not be declared on materializer with non-empty remaining path: '{}'",
                         external_symlink.dupe().to_path_buf().display()
                     ));

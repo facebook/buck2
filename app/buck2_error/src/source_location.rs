@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn test_via_error_macro() {
         let err_msg = "some error message";
-        let err: crate::Error = crate::buck2_error!([], "some error message");
+        let err: crate::Error = crate::buck2_error!(crate::ErrorTag::Input, "some error message");
         assert_eq!(err.to_string(), err_msg);
         assert!(
             err.source_location()
@@ -83,6 +83,7 @@ mod tests {
         let err_msg = "Test Error";
         let err: crate::Error = crate::Error::new(
             err_msg.to_owned(),
+            crate::ErrorTag::Input,
             Some("test_source_location".to_owned()),
             None,
         );

@@ -79,7 +79,7 @@ pub(super) async fn copy_to_out(
         let single_default_output = match default_outputs.len() {
             0 => {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "target {} produced zero default outputs",
                     target.target
                 ));
@@ -87,7 +87,7 @@ pub(super) async fn copy_to_out(
             1 => &default_outputs[0],
             n => {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "target {} produced {} outputs, choice of output is ambiguous",
                     target.target,
                     n
@@ -115,7 +115,7 @@ pub(super) async fn copy_to_out(
             // files (including 0) to stdout.
             if let Some(dir_i) = outputs_to_be_copied.iter().position(|o| o.is_dir) {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "target {} produces a default output that is a directory, and cannot be sent to stdout",
                     targets[dir_i].target,
                 ));
@@ -125,7 +125,7 @@ pub(super) async fn copy_to_out(
             // Check we are outputting exactly 1 target. Okay if directory.
             if outputs_to_be_copied.len() != 1 {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "build command built multiple top-level targets, choice of output is ambiguous"
                 ));
             }

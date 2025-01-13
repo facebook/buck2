@@ -149,7 +149,7 @@ impl WriteEventLog {
             LogWriterState::Opened { .. } => return Ok(()),
             LogWriterState::Closed => {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Received events after logs were closed"
                 ));
             }

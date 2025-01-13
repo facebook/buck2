@@ -229,7 +229,12 @@ mod tests {
     impl From<TestError> for crate::Error {
         #[cold]
         fn from(_: TestError) -> Self {
-            crate::Error::new("".to_owned(), Some(file!().to_owned()), None)
+            crate::Error::new(
+                "".to_owned(),
+                crate::ErrorTag::Input,
+                Some(file!().to_owned()),
+                None,
+            )
         }
     }
 

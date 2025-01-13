@@ -1287,7 +1287,7 @@ impl DeclaredDepFiles {
                         soft_error!(
                             "missing_dep_file",
                             buck2_error::buck2_error!(
-                                [],
+                                buck2_error::ErrorTag::Input,
                                 "Dep file is missing at {}",
                                 dep_file_path
                             )

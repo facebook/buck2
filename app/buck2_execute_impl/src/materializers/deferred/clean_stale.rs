@@ -450,7 +450,7 @@ pub struct CleanInvalidatedPathRequest {
 impl IoRequest for CleanInvalidatedPathRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         if !self.liveliness_observer.is_alive_sync() {
-            return Err(buck2_error!([ErrorTag::CleanInterrupt], "Interrupt").into());
+            return Err(buck2_error!(ErrorTag::CleanInterrupt, "Interrupt").into());
         }
         cleanup_path(project_fs, &self.path)?;
         Ok(())

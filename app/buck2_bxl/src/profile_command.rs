@@ -107,7 +107,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
                             _ => {
                                 return Err(buck2_error!(
-                                    [],
+                                    buck2_error::ErrorTag::Input,
                                     "Help docs were displayed. No profiler data available"
                                 ));
                             }
@@ -159,7 +159,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             }
             _ => {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "Expected BXL profile opts, not target profile opts"
                 ));
             }

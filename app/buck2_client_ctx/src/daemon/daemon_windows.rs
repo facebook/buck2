@@ -121,7 +121,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     fn ensure_no_nuls(s: &OsStr) -> buck2_error::Result<&OsStr> {
         if s.encode_wide().any(|b| b == 0) {
             Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "{}",
                 format!("null byte found in provided data: {:?}", s)
             ))

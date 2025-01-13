@@ -62,12 +62,14 @@ impl Error {
     #[cold]
     pub fn new(
         error_msg: String,
+        error_tag: ErrorTag,
         source_location: Option<String>,
         action_error: Option<ActionError>,
     ) -> Self {
-        let error_root = ErrorRoot::new(error_msg, source_location, action_error);
+        let error_root = ErrorRoot::new(error_msg, error_tag, source_location, action_error);
 
-        crate::Error(Arc::new(ErrorKind::Root(Box::new(error_root))))
+        let buck2_error = crate::Error(Arc::new(ErrorKind::Root(Box::new(error_root))));
+        buck2_error.tag([error_tag])
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {

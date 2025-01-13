@@ -256,7 +256,10 @@ mod tests {
     impl AsyncNodeLookup<TestNode> for TestGraph {
         async fn get(&self, label: &TestNodeKey) -> buck2_error::Result<TestNode> {
             if self.errors.contains(&label.0) {
-                return Err(buck2_error::buck2_error!([], "my error"));
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "my error"
+                ));
             }
             Ok(TestNode(*label))
         }
@@ -351,6 +354,7 @@ mod tests {
                 "CONTEXT: traversing TestNodeKey(1)",
                 "CONTEXT: traversing TestNodeKey(2)",
                 "CONTEXT: traversing TestNodeKey(3)",
+                "CONTEXT: [Input]",
                 "ROOT:",
                 "\"my error\"",
                 ""

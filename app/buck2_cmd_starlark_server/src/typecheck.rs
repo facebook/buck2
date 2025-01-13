@@ -134,7 +134,10 @@ impl<'a> Cache<'a> {
             for x in errors {
                 writeln!(self.stdout, "{x}")?;
             }
-            Err(buck2_error!([], "Detected {errors_count} errors"))
+            Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Detected {errors_count} errors"
+            ))
         }
     }
 }

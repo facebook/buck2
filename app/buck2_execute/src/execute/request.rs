@@ -517,7 +517,7 @@ impl CommandExecutionRequest {
         self.required_local_resources = required_local_resources.into_iter().collect();
         if self.required_local_resources.len() != original_len {
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Each provided local resource state is supposed to come from a different target."
             ));
         }

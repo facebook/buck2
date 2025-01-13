@@ -278,7 +278,7 @@ fn iter_test_env<'v>(
         Some(env) => env,
         None => {
             return Either::Left(Either::Right(once(Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid `env`: Expected a dict, got: `{}`",
                 env
             )))));
@@ -337,7 +337,7 @@ fn iter_executor_overrides<'v>(
         Some(executor_overrides) => executor_overrides,
         None => {
             return Either::Left(Either::Right(once(Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid `executor_overrides`: Expected a dict, got: `{}`",
                 executor_overrides
             )))));
@@ -374,7 +374,7 @@ fn iter_local_resources<'v>(
         Some(local_resources) => local_resources,
         None => {
             return Either::Left(Either::Right(once(Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid `local_resources`: Expected a dict, got: `{}`",
                 local_resources
             )))));
@@ -398,7 +398,7 @@ fn iter_local_resources<'v>(
                 StarlarkConfiguredProvidersLabel::from_value(value)
                     .ok_or_else(|| {
                         buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Input,
                             "{}",
                             format!("Invalid value in `local_resources` for key `{}`", key)
                         )
@@ -477,10 +477,10 @@ where
     if !required_local_resources.is_none() {
         for resource_type in iter_value(required_local_resources).buck_error_context("`required_local_resources` should be a list or a tuple of `RequiredTestLocalResource` objects")? {
             let resource_type = StarlarkRequiredTestLocalResource::from_value(resource_type)
-                .ok_or_else(|| buck2_error!([], "`required_local_resources` should only contain `RequiredTestLocalResource` values, got {}", resource_type))?;
+                .ok_or_else(|| buck2_error!(buck2_error::ErrorTag::Input, "`required_local_resources` should only contain `RequiredTestLocalResource` values, got {}", resource_type))?;
             if !provided_local_resources.contains_key(&resource_type.name as &str) {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "`required_local_resources` contains `{}` which is not present in `local_resources`",
                     resource_type.name
                 ));

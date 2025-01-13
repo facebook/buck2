@@ -70,6 +70,7 @@ fn error_with_starlark_context(
                 // We want to keep the metadata but want to change the error message
                 let mut err = crate::Error::new(
                     format!("{}", starlark_context),
+                    root.error_tag(),
                     source_location,
                     action_error,
                 );
@@ -176,9 +177,8 @@ fn from_starlark_impl(
 
             recover_crate_error(std_err, source_location, tag)
         }
-        _ => crate::Error::new(description, source_location, None),
+        _ => crate::Error::new(description, tag, source_location, None),
     }
-    .tag(vec![tag])
 }
 
 pub(crate) struct BuckStarlarkError(pub(crate) anyhow::Error, String);
@@ -321,7 +321,7 @@ mod tests {
             span: None,
         };
 
-        let e = buck2_error!([], "{}", base_error);
+        let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
 
         let base_replaced = error_with_starlark_context(&e, starlark_context);
 

@@ -78,7 +78,7 @@ async fn wait_for_watchman(watchman_sock: &Path) -> buck2_error::Result<()> {
 
         match connector.connect().await {
             Ok(..) => return Ok(()),
-            Err(e) if i >= 100 => return Err(buck2_error!([], "{}", e)),
+            Err(e) if i >= 100 => return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "{}", e)),
             _ => {
                 tokio::time::sleep(Duration::from_millis(50)).await;
             }

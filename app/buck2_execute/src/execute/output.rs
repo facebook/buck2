@@ -255,7 +255,7 @@ impl CommandStdStreams {
                 // for the sake of being safe, check it.
                 if remote.use_case() != use_case {
                     return Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "Copying log outputs across RE use cases (from `{}` to `{}`) is not supported",
                         remote.use_case(),
                         use_case

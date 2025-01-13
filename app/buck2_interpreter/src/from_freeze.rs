@@ -14,7 +14,7 @@ use starlark::values::FreezeError;
 // conversion currently depends on 'buck2_interpreter' (And will likely be the case in the future too)
 #[cold]
 pub fn from_freeze_error(e: FreezeError) -> buck2_error::Error {
-    let mut base = buck2_error::buck2_error!([], "{}", e.err_msg);
+    let mut base = buck2_error::buck2_error!(buck2_error::ErrorTag::StarlarkError, "{}", e.err_msg);
     for err in e.contexts {
         base = base.context(err);
     }
@@ -35,7 +35,7 @@ mod tests {
         let buck2_error = from_freeze_error(freeze_error);
         let actual = buck2_error.get_stack_for_debug();
 
-        let expected = "CONTEXT: context 2\nCONTEXT: context 1\nROOT:\n\"base error\"\n";
+        let expected = "CONTEXT: context 2\nCONTEXT: context 1\nCONTEXT: [StarlarkError]\nROOT:\n\"base error\"\n";
         assert_eq!(expected, actual);
     }
 }

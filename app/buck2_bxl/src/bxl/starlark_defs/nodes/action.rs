@@ -82,7 +82,11 @@ fn action_methods(builder: &mut MethodsBuilder) {
             BaseDeferredKey::TargetLabel(label) => {
                 Ok(StarlarkConfiguredTargetLabel::new(label.dupe()))
             }
-            _ => Err(buck2_error!([], "BXL and anon targets not supported.").into()),
+            _ => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "BXL and anon targets not supported."
+            )
+            .into()),
         }
     }
 }

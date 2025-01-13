@@ -80,7 +80,7 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
         match self.dep_analysis_results() {
             Ok(deps) => Ok(get_dep(deps, target, self.module)?),
             Err(e) => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Error getting deps from analysis: `{}`",
                 e
             )),
@@ -94,7 +94,7 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
         match self.dep_analysis_results() {
             Ok(deps) => Ok(resolve_unkeyed_placeholder(deps, name, self.module)),
             Err(e) => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Error resolving unkeyed placeholder: `{}`",
                 e
             )),
@@ -105,7 +105,7 @@ impl<'v> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v> {
         match self.query_results() {
             Ok(res) => resolve_query(res, query, self.module),
             Err(e) => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Error resolving query: `{}`",
                 e
             ))

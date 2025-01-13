@@ -67,7 +67,9 @@ pub async fn upload_materializer_data(
 
     match outcome {
         CommandOutcome::Success(..) => {}
-        CommandOutcome::Failure(..) => return Err(buck2_error!([], "Command failed")),
+        CommandOutcome::Failure(..) => {
+            return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Command failed"));
+        }
     }
 
     let manifold_filename = format!("flat/{}_materializer_{}", manifold_id, materializer_data);

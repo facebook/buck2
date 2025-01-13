@@ -91,7 +91,11 @@ async fn verify_visibility(
     }
 
     if !visibility_errors.is_empty() {
-        return Err(buck2_error::buck2_error!([], "{}", 1));
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "{}",
+            1
+        ));
     }
 
     buck2_client_ctx::eprintln!("audit visibility succeeded")?;

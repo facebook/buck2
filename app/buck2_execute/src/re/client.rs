@@ -114,7 +114,10 @@ struct RemoteExecutionClientData {
 impl RemoteExecutionClient {
     pub async fn new(re_config: &RemoteExecutionConfig) -> buck2_error::Result<Self> {
         if buck2_env!("BUCK2_TEST_FAIL_CONNECT", bool, applicability = testing)? {
-            return Err(buck2_error!([], "Injected RE Connection error"));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Injected RE Connection error"
+            ));
         }
 
         let client = RemoteExecutionClientImpl::new(re_config).await?;
@@ -482,7 +485,7 @@ impl RemoteExecutionClientImpl {
                         }
                         unknown => {
                             return Err(buck2_error!(
-                                [],
+                                buck2_error::ErrorTag::Input,
                                 "Unknown RemoteCacheManagerMode: {}",
                                 unknown
                             ));
@@ -699,7 +702,7 @@ impl RemoteExecutionClientImpl {
                             });
                     } else {
                         return Err(buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Input,
                             "Both engine_host and engine_port must be set if either is set"
                         ));
                     }
@@ -1166,7 +1169,7 @@ impl RemoteExecutionClientImpl {
         // This shouldn't happen, but we can't just assume the CAS won't ever break
         if blobs.len() != expected_blobs {
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "CAS client returned fewer blobs than expected."
             ));
         }

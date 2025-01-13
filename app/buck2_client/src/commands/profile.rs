@@ -238,7 +238,7 @@ impl StreamingCommand for ProfileSubcommand {
                     .is_empty()
                 {
                     return Err::<(), _>(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "BXL profile does not support target universe"
                     ))
                     .into();
@@ -271,8 +271,9 @@ impl StreamingCommand for ProfileSubcommand {
         let elapsed = elapsed
             .buck_error_context("Missing duration")
             .and_then(|d| {
-                Duration::try_from(d)
-                    .map_err(|_| buck2_error::buck2_error!([], "Duration is negative"))
+                Duration::try_from(d).map_err(|_| {
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "Duration is negative")
+                })
             })
             .buck_error_context("Elapsed is invalid")?;
 

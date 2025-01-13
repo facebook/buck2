@@ -132,7 +132,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
         DynamicLambdaArgs::OldPositional { .. } => {
             if !return_value.is_none() {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "dynamic_output lambda must return `None`, got: `{0}`",
                     return_value.to_string_for_type_error()
                 ));
@@ -546,7 +546,10 @@ fn new_attr_value<'v>(
                     )?,
                 );
                 if prev.is_some() {
-                    return Err(buck2_error!([], "Duplicate key in dict"));
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Duplicate key in dict"
+                    ));
                 }
             }
             Ok(env.heap().alloc(AllocDict(r)))

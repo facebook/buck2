@@ -58,7 +58,7 @@ fn test_soft_error() {
     let before_error_line = line!();
     let _ignore_hard_error = soft_error!(
         "test_logged_soft_error",
-        buck2_error!([], "Should be logged").into()
+        buck2_error!(buck2_error::ErrorTag::Input, "Should be logged").into()
     );
     assert_eq!(
         Some(&format!(
@@ -80,7 +80,10 @@ fn test_reset_counters() {
     assert_eq!(0, RESULT.lock().unwrap().len(), "Sanity check");
 
     for _ in 0..100 {
-        let _ignore = soft_error!("test_reset_counters", buck2_error!([], "Message").into());
+        let _ignore = soft_error!(
+            "test_reset_counters",
+            buck2_error!(buck2_error::ErrorTag::Input, "Message").into()
+        );
     }
 
     assert_eq!(
@@ -92,7 +95,10 @@ fn test_reset_counters() {
     reset_soft_error_counters();
 
     for _ in 0..100 {
-        let _ignore = soft_error!("test_reset_counters", buck2_error!([], "Message").into());
+        let _ignore = soft_error!(
+            "test_reset_counters",
+            buck2_error!(buck2_error::ErrorTag::Input, "Message").into()
+        );
     }
 
     assert_eq!(

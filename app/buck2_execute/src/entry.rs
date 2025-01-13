@@ -88,7 +88,7 @@ pub async fn build_entry_from_disk(
         }
         FileType::Unknown => {
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Path {:?} is of an unknown file type.",
                 path
             ));

@@ -115,7 +115,7 @@ mod tests {
 
         let cell2 = AsyncOnceCell::new();
         cell2
-            .get_or_try_init(async { Err(buck2_error!([], "foo")) })
+            .get_or_try_init(async { Err(buck2_error!(buck2_error::ErrorTag::Tier0, "foo")) })
             .await
             .unwrap_err();
         assert_eq!(

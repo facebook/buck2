@@ -145,7 +145,7 @@ fn print_completion_script(
 
     if !found_insertion_point {
         Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "Failed to find {} in {:?} completion template",
             COMPLETION_INSERTION_POINT,
             shell_arg

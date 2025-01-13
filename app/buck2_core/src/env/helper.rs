@@ -46,9 +46,10 @@ impl<T> EnvHelper<T> {
                     Ok(Some((convert)(&v)?))
                 }
                 Err(VarError::NotPresent) => Ok(None),
-                Err(VarError::NotUnicode(..)) => {
-                    Err(buck2_error::buck2_error!([], "Variable is not unicode"))
-                }
+                Err(VarError::NotUnicode(..)) => Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Variable is not unicode"
+                )),
             })
             .map(Option::as_ref)
             .with_buck_error_context(|| format!("Invalid value for ${}", var))

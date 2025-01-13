@@ -138,7 +138,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                     )
                     .await
                 }),
-                || Err(buck2_error!([], "cancelled")),
+                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
             )
         })
     }

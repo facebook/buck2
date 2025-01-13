@@ -185,7 +185,7 @@ impl EdenFsFileWatcher {
                         soft_error!(
                             "edenfs_small_change_dir_rename",
                             buck2_error::buck2_error!(
-                                [],
+                                buck2_error::ErrorTag::Environment,
                                 "EdenFS reported SmallChangeNotification::renamed directory: '{}' -> '{}'. \
                                  Directory renames are handled as LargeChangeNotification changes. \
                                  EdenFS Thrift API has changed and the buck2 code needs to be updated.",
@@ -218,7 +218,7 @@ impl EdenFsFileWatcher {
                         soft_error!(
                             "edenfs_small_change_dir_replace",
                             buck2_error::buck2_error!(
-                                [],
+                                buck2_error::ErrorTag::Environment,
                                 "EdenFS reported SmallChangeNotification::replaced directory: '{}' -> '{}'. \
                                  Directory cannot be replaced (e.g. moving an a dir over an existing dir). \
                                  EdenFS Thrift API has changed and the buck2 code needs to be updated.",
@@ -260,7 +260,7 @@ impl EdenFsFileWatcher {
                     soft_error!(
                         "edenfs_small_change_unknown",
                         buck2_error::buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Environment,
                             "EdenFS reported an unknown SmallChangeNotification: '{:?}'. \
                              EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                             small_change
@@ -310,7 +310,7 @@ impl EdenFsFileWatcher {
                     soft_error!(
                         "edenfs_large_change_unknown",
                         buck2_error::buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Environment,
                             "EdenFS reported an unknown LargeChangeNotification: '{:?}'. \
                              EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                             large_change
@@ -324,7 +324,7 @@ impl EdenFsFileWatcher {
                 soft_error!(
                     "edenfs_change_unknown",
                     buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Environment,
                         "EdenFS reported an unknown ChangeNotification: '{:?}'. \
                          EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                         change

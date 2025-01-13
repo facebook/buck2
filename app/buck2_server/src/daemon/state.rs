@@ -257,7 +257,10 @@ impl DaemonState {
             applicability = testing
         )? {
             // TODO(minglunli): Errors here don't actually make it to invocation records which should be fixed
-            return Err(buck2_error::buck2_error!([], "Injected init daemon error"));
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Injected init daemon error"
+            ));
         }
 
         let daemon_state_data_rt = rt.clone();
@@ -810,7 +813,7 @@ impl DaemonState {
             let res = working_directory.is_stale().and_then(|stale| {
                 if stale {
                     Err(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Environment,
                         "Buck appears to be running in a stale working directory \
                          This will likely lead to failed or slow builds. \
                          To remediate, restart Buck2."
@@ -870,7 +873,7 @@ impl DaemonState {
             soft_error!(
                 "eden_buck_out",
                 buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Environment,
                     "Buck is running in an Eden repository, but `buck-out` is not redirected. \
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
@@ -900,7 +903,7 @@ fn convert_algorithm_kind(kind: DigestAlgorithmFamily) -> buck2_error::Result<Di
                 // We probably should just add it as a separate buckconfig, there is
                 // zero reason not to.
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "{} is not supported in the open source build",
                     kind
                 ));

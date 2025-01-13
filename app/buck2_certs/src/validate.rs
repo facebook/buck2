@@ -62,7 +62,7 @@ async fn verify(path: &OsString) -> buck2_error::Result<()> {
     let certs = load_certs(path).await?;
     if certs.is_empty() {
         return Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Environment,
             "Could not find any certs to validate at '{0}'",
             path.to_string_lossy()
         ));
@@ -79,7 +79,7 @@ async fn verify(path: &OsString) -> buck2_error::Result<()> {
 
     if !valid {
         return Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Environment,
             "Certificate Expired: expired certs found at '{0}'",
             path.to_string_lossy()
         ));

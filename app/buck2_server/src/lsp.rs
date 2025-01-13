@@ -938,7 +938,11 @@ mod tests {
                 )
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?)
             } else {
-                Err(buck2_error::buck2_error!([], "Unknown path {}", location))
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Unknown path {}",
+                    location
+                ))
             }
         }
 

@@ -54,7 +54,7 @@ where
     while let Some(v) = tail.take() {
         if !visited.insert(v) {
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Cycle in critical path: visited {} twice",
                 v
             ));

@@ -104,9 +104,12 @@ impl ReplayCommand {
                 buck2_error::Ok(())
             };
 
-            with_simple_sigint_handler(work)
-                .await
-                .unwrap_or_else(|| Err(buck2_error!([], "Signal Interrupted")))
+            with_simple_sigint_handler(work).await.unwrap_or_else(|| {
+                Err(buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Signal Interrupted"
+                ))
+            })
         })
         .into()
     }

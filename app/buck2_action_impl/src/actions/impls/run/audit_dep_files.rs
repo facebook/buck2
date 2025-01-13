@@ -66,7 +66,7 @@ async fn audit_dep_files(
         StoredFingerprints::Digests(..) => {
             // This is bit awkward but this only for testing right now so that's OK
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Fingerprints were stored as digests! You probably need to use BUCK2_KEEP_DEP_FILE_DIRECTORIES=true"
             ));
         }

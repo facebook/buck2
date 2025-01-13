@@ -1557,7 +1557,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             CommandExecutionStatus::Failure { .. }
             | CommandExecutionStatus::WorkerFailure { .. } => {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Local resource setup command failed with `{}` exit code, stdout:\n{}\nstderr:\n{}\n",
                     exit_code.unwrap_or(1),
                     String::from_utf8_lossy(&std_streams.stdout),
@@ -1566,7 +1566,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Local resource setup command timed out after `{}s`, stdout:\n{}\nstderr:\n{}\n",
                     duration.as_secs(),
                     String::from_utf8_lossy(&std_streams.stdout),
@@ -1578,7 +1578,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }
             CommandExecutionStatus::Cancelled => {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Local resource setup command cancelled"
                 )
                 .into());

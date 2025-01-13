@@ -91,7 +91,7 @@ pub async fn get_channel_uds(
     _chg_dir: bool,
 ) -> buck2_error::Result<Channel> {
     Err(buck2_error::buck2_error!(
-        [],
+        buck2_error::ErrorTag::Tier0,
         "Unix domain sockets are not supported on Windows",
     ))
 }
@@ -173,7 +173,12 @@ mod tests {
             Duration::from_millis(1),
             Duration::from_millis(1),
             Duration::from_millis(1),
-            || async { Err(buck2_error::buck2_error!([], "test")) },
+            || async {
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "test"
+                ))
+            },
         );
         let result: Result<(), RetryError<buck2_error::Error>> = future.await;
         assert!(result.is_err());

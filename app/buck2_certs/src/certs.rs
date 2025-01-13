@@ -43,7 +43,7 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
                   return Err(e.into());
               }
 
-              return Err(buck2_error!([], "Unable to load system root certificates"));
+              return Err(buck2_error!(buck2_error::ErrorTag::Environment, "Unable to load system root certificates"));
           };
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
@@ -58,7 +58,7 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
     // able to make any connections via https.
     if valid == 0 {
         return Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Environment,
             "Error loading system certs: unable to find any valid system certs"
         ));
     }

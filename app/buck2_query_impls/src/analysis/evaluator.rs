@@ -95,7 +95,11 @@ where
                             i,
                             arg_1,
                             Err::<_, buck2_error::Error>(
-                                buck2_error::buck2_error!([], "future was cancelled").into(),
+                                buck2_error::buck2_error!(
+                                    buck2_error::ErrorTag::Tier0,
+                                    "future was cancelled"
+                                )
+                                .into(),
                             ),
                         )
                     },

@@ -384,7 +384,7 @@ impl<'a> InvocationRecorder<'a> {
                     None => {
                         if is_success {
                             return Err(buck2_error!(
-                                [],
+                                buck2_error::ErrorTag::Tier0,
                                 "successful {} commands should have resolved target patterns",
                                 command_name
                             ));
@@ -913,7 +913,7 @@ impl<'a> InvocationRecorder<'a> {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "handle_command_end was passed a CommandEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1136,7 +1136,7 @@ impl<'a> InvocationRecorder<'a> {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "handle_bxl_ensure_artifacts_end was passed a BxlEnsureArtifacts not contained in a SpanEndEvent"
                 ));
             }
@@ -1423,7 +1423,7 @@ impl<'a> InvocationRecorder<'a> {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "handle_dice_block_concurrent_command_end was passed a DiceBlockConcurrentCommandEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1450,7 +1450,7 @@ impl<'a> InvocationRecorder<'a> {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "handle_dice_cleanup_end was passed a DiceCleanupEnd not contained in a SpanEndEvent"
                 ));
             }

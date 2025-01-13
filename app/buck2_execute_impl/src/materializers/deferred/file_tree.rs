@@ -120,7 +120,10 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         let mut entries = match self {
             Self::Tree(ref t) => t,
             Self::Data(..) => {
-                return Err(buck2_error!([], "Data found where tree expected"));
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Data found where tree expected"
+                ));
             }
         };
 
@@ -133,7 +136,10 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
             entries = match node {
                 Self::Tree(ref t) => t,
                 Self::Data(..) => {
-                    return Err(buck2_error!([], "Data found where tree expected"));
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Data found where tree expected"
+                    ));
                 }
             };
         }

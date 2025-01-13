@@ -113,7 +113,7 @@ pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, Provid
             r
         } else {
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "target pattern with `[` must end with `]` to mark end of providers set label"
             ));
         };
@@ -127,7 +127,7 @@ pub(crate) fn split_providers_name(s: &str) -> buck2_error::Result<(&str, Provid
                 }
             }
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "target pattern with `[` must end with `]` to mark end of providers set label"
             ));
         }

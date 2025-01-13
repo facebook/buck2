@@ -130,7 +130,7 @@ impl StarlarkArtifactLike for StarlarkDeclaredArtifact {
     fn as_output_error(&self) -> buck2_error::Error {
         // This shouldn't ever be called for StarlarkDeclaredArtifact
         buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "error trying to use declared artifact as an output, this indicates an internal buck error"
         )
     }
@@ -265,7 +265,7 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
     ) -> buck2_error::Result<()> {
         // TODO: proper error message
         Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "proper error here; we should not be adding mutable starlark objects to clis"
         ))
     }

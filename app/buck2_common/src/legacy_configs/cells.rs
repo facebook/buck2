@@ -1091,7 +1091,7 @@ mod tests {
                     Ok(())
                 } else {
                     Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "No bundled cell with name `{}`",
                         cell_name
                     ))

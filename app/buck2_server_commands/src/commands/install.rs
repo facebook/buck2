@@ -500,7 +500,7 @@ async fn send_install_info(
     if install_info_response.install_id != install_id {
         send_shutdown_command(client.clone()).await?;
         return Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "Received install id: {} doesn't match with the sent one: {}",
             install_info_response.install_id,
             &install_id

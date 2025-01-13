@@ -45,7 +45,7 @@ pub macro buck2_env {
             match s.to_lowercase().as_str() {
                 "1" | "true" => Ok(true),
                 "0" | "false" => Ok(false),
-                _ => Err(buck2_error::buck2_error!([], "Invalid bool value: {}", s).into()),
+                _ => Err(buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "Invalid bool value: {}", s).into()),
             }
         }, $($($rest)*)?);
         v

@@ -29,7 +29,7 @@ mod imp {
     pub fn write_heap_to_file(filename: &str) -> buck2_error::Result<()> {
         if !memory::is_using_jemalloc() {
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "not using jemalloc; are you building with @//mode/dev or @//mode/dbgo?"
             ));
         }
@@ -39,13 +39,13 @@ mod imp {
         if !prof_enabled {
             if env::var_os("MALLOC_CONF").is_some() {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "the environment variable MALLOC_CONF is set, but profiling is not enabled. MALLOC_CONF must contain prof:true to enable the profiler"
                 ));
             }
 
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "profiling is not enabled for this process; you must set the environment variable MALLOC_CONF to contain at least prof:true in order to profile"
             ));
         }
@@ -86,14 +86,14 @@ mod imp {
         // TODO(swgillespie) the `jemalloc_ctl` crate is probably capable of doing this
         // and we already link against it
         Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "not implemented: heap dump for Cargo builds"
         ))
     }
 
     pub fn allocator_stats(_: &str) -> buck2_error::Result<String> {
         Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "not implemented: allocator stats  for Cargo builds"
         ))
     }

@@ -146,7 +146,7 @@ mod collector {
 
                 if GetIfTable2(&mut table) != NO_ERROR {
                     return Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Failed to retrieve MIB-II interface table: {}",
                         Error::last_os_error()
                     ));

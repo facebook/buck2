@@ -103,7 +103,7 @@ impl QueryError {
             e => {
                 // TODO(cjhopman): This is going to drop the backtrace attached to the error, we should figure
                 // out how to keep that.
-                buck2_error::buck2_error!([], "{}:{}", e, context)
+                buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "{}:{}", e, context)
             }
         }
     }

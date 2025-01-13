@@ -99,7 +99,10 @@ impl CoercedSelector {
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
     ) -> buck2_error::Result<()> {
         fn duplicate_key(key: &ConfigurationSettingKey) -> buck2_error::Error {
-            buck2_error!([], "duplicate key `{key}` in `select()`")
+            buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "duplicate key `{key}` in `select()`"
+            )
         }
 
         // This is possible when select keys are specified like:
@@ -543,7 +546,7 @@ impl CoercedAttr {
             )),
             [(.., x)] => Ok(Some(x)),
             [(x, ..), (y, ..), ..] => Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Both select keys `{x}` and `{y}` match the configuration, but neither is more specific"
             )),
         }
@@ -565,7 +568,7 @@ impl CoercedAttr {
         } else {
             default.as_ref().ok_or_else(|| {
                 buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "None of {} conditions matched configuration `{}` and no default was set:\n{}",
                     entries.len(),
                     ctx.cfg().cfg(),

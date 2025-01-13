@@ -32,7 +32,7 @@ impl HostCpuUsage {
                 })
             } else {
                 Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Error getting host CPU usage"
                 ))
             }
@@ -51,7 +51,7 @@ impl HostCpuUsage {
                 })
             } else {
                 Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Error getting host CPU usage"
                 ))
             }
@@ -59,7 +59,7 @@ impl HostCpuUsage {
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "HostCpuUsage is not implemented for this platform"
             ))
         }

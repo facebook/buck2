@@ -654,7 +654,11 @@ pub mod tester {
             let collection = frozen
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
-                    buck2_error::buck2_error!([], "{:?} was not a FrozenProviderCollection", value)
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::StarlarkError,
+                        "{:?} was not a FrozenProviderCollection",
+                        value
+                    )
                 })?;
 
             let ret = collection.default_info()?.default_outputs_raw().to_value();
@@ -668,7 +672,11 @@ pub mod tester {
             let collection = frozen
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
-                    buck2_error::buck2_error!([], "{:?} was not a FrozenProviderCollection", value)
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::StarlarkError,
+                        "{:?} was not a FrozenProviderCollection",
+                        value
+                    )
                 })?;
 
             let ret = collection.default_info()?.sub_targets_raw().to_value();
@@ -692,7 +700,7 @@ pub mod tester {
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::StarlarkError,
                         "{:?} was not a FrozenProviderCollection",
                         collection
                     )
@@ -709,7 +717,7 @@ pub mod tester {
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::StarlarkError,
                         "{:?} was not a FrozenProviderCollection",
                         collection
                     )

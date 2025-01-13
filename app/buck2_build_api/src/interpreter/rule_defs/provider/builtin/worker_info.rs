@@ -108,7 +108,7 @@ where
     )?;
     if exe.is_empty() {
         return Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Value for `exe` field is an empty command line: `{}`",
             info.exe
         ));

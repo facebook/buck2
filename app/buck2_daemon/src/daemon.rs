@@ -472,7 +472,7 @@ impl DaemonCommand {
             let stderr_fd = libc::open_osfhandle(stderr.as_raw_handle() as isize, libc::O_RDWR);
             if stdout_fd == -1 || stderr_fd == -1 {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Can't get file descriptors for output files",
                 ));
             }
@@ -481,7 +481,7 @@ impl DaemonCommand {
             let stderr_exit_code = libc::dup2(stderr_fd, 2);
             if stdout_exit_code == -1 || stderr_exit_code == -1 {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Failed to redirect daemon output"
                 ));
             }
@@ -503,7 +503,10 @@ impl DaemonCommand {
     #[cfg(windows)]
     /// Restart current process in detached mode with '--dont-daemonize' flag.
     fn daemonize(_stdout: File, _stderr: File) -> buck2_error::Result<()> {
-        Err(buck2_error::buck2_error!([], "Cannot daemonize on Windows"))
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Cannot daemonize on Windows"
+        ))
     }
 }
 

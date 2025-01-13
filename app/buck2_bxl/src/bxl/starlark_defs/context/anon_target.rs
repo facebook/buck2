@@ -213,7 +213,7 @@ async fn eval_bxl_for_anon_target(
                     execution_platform,
                     liveness,
                 )),
-                || Err(buck2_error!([], "cancelled")),
+                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
             )
         })
     }

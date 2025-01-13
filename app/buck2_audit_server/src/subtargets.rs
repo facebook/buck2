@@ -176,7 +176,7 @@ async fn server_execute_with_dice(
 
     if at_least_one_evaluation_error {
         Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Evaluation of at least one target provider failed"
         ))
     } else {

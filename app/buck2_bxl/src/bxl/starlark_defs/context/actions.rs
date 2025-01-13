@@ -304,7 +304,7 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
         if this.is_anon_target_or_dyn_action()? {
             soft_error!(
                 "bxl_acessing_exec_platform",
-                buck2_error!([], "Anon target or dynamic action accesses bxl.Actions.exec_deps."),
+                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.exec_deps."),
                 quiet: true
             )?;
         }
@@ -321,7 +321,7 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
         if this.is_anon_target_or_dyn_action()? {
             soft_error!(
                 "bxl_acessing_exec_platform",
-                buck2_error!([], "Anon target or dynamic action accesses bxl.Actions.toolchains."),
+                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.toolchains."),
                 quiet: true
             )?;
         }

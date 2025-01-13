@@ -114,7 +114,7 @@ pub(crate) async fn targets_resolve_aliases(
                 Ok((package, target_name))
             }
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid alias (does not expand to a single target): `{}`",
                 alias
             )),

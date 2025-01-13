@@ -210,7 +210,7 @@ impl ProjectRoot {
     ) -> buck2_error::Result<Cow<'a, ProjectRelativePath>> {
         let relative_path = p.as_ref().strip_prefix(self.root()).map_err(|_| {
             buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Error relativizing: `{}` is not relative to project root `{}`",
                 p.as_ref(),
                 self.root()
@@ -450,7 +450,7 @@ impl ProjectRoot {
             // If we want to handle special files, we'll need to use special traits
             // https://doc.rust-lang.org/std/os/unix/fs/trait.FileTypeExt.html
             Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Attempted to copy a path ({}) of an unknown type",
                 src_abs
             ))

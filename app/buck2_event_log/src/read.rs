@@ -169,7 +169,10 @@ impl EventLogPathBuf {
         // format is of the form "{ts}_{command}_{uuid}_events{ext}"
         match file_name.split('_').nth(1) {
             Some(command) => Ok(command),
-            None => Err(buck2_error::buck2_error!([], "No command in filename")),
+            None => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "No command in filename"
+            )),
         }
     }
 
@@ -254,7 +257,10 @@ impl EventLogPathBuf {
                 Some(command_progress::Progress::PartialResult(result)) => {
                     Ok(StreamValue::PartialResult(result))
                 }
-                None => Err(buck2_error::buck2_error!([], "Event type not recognized")),
+                None => Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Event type not recognized"
+                )),
             }
         });
 
@@ -345,7 +351,7 @@ impl EventLogPathBuf {
             .await?
             .ok_or_else(|| {
                 buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "{}",
                     EventLogErrors::EndOfFile(self.path.to_str().unwrap().to_owned())
                 )

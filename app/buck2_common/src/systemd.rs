@@ -193,7 +193,7 @@ impl SystemdRunner {
         if !result.status.success() {
             let stderr = String::from_utf8(result.stderr)?;
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Failed to set memory limits for {}: {}",
                 slice,
                 stderr

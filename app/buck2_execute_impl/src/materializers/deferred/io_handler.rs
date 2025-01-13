@@ -269,7 +269,7 @@ impl DefaultIoHandler {
                     // our test suite can surface bugs when downloading things locally.
                     if downloaded.size() != info.metadata.digest.size() {
                         return Err(buck2_error::buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Tier0,
                             "Downloaded size ({}) does not match expected size ({})",
                             downloaded.size(),
                             info.metadata.digest.size(),
@@ -573,7 +573,7 @@ pub(super) fn create_ttl_refresh(
 
                 if chunk.len() != digests_expires.len() {
                     return Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Invalid response from get_digests_ttl: expected {}, got {} digests",
                         chunk.len(),
                         digests_expires.len()
@@ -583,7 +583,7 @@ pub(super) fn create_ttl_refresh(
                 for (digest, (matching_digest, expires)) in chunk.iter().zip(&digests_expires) {
                     if digest.data() != matching_digest {
                         return Err(buck2_error::buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Tier0,
                             "Invalid response from get_digests_ttl"
                         ));
                     }

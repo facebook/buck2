@@ -101,7 +101,15 @@ impl PersistEventLogsCommand {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let file = match create_log_file(self.local_path).await {
             Ok(f) => Mutex::new(f),
-            Err(e) => return (Err(e), Err(buck2_error::buck2_error!([], "Not tried"))),
+            Err(e) => {
+                return (
+                    Err(e),
+                    Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Not tried"
+                    )),
+                );
+            }
         };
         let write = write_task(&file, tx, stdin);
         let upload = upload_task(&file, rx, self.manifold_name, self.no_upload);
@@ -365,10 +373,10 @@ mod tests {
 
     #[test]
     fn test_categorize_error() {
-        let err = buck2_error!([], "CertificateRequired");
+        let err = buck2_error!(buck2_error::ErrorTag::Environment, "CertificateRequired");
         assert_eq!(categorize_error(&err), "persist_log_certificate_required");
 
-        let err = buck2_error!([], "Some other error");
+        let err = buck2_error!(buck2_error::ErrorTag::Tier0, "Some other error");
         assert_eq!(categorize_error(&err), "persist_log_other");
     }
 }

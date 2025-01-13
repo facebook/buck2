@@ -131,8 +131,14 @@ impl<'v> BxlContextType<'v> {
     fn unpack_root(&self) -> buck2_error::Result<&'v RootBxlContextData> {
         match &self {
             BxlContextType::Root(root) => Ok(root),
-            BxlContextType::Dynamic(_) => Err(buck2_error!([], "Expected root BXL context type")),
-            BxlContextType::AnonTarget => Err(buck2_error!([], "Expected root BXL context type")),
+            BxlContextType::Dynamic(_) => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected root BXL context type"
+            )),
+            BxlContextType::AnonTarget => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected root BXL context type"
+            )),
         }
     }
 }

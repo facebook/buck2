@@ -269,7 +269,7 @@ impl FromStr for ResourceControlStatus {
             "if_available" => Ok(Self::IfAvailable),
             "required" => Ok(Self::Required),
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid resource control status: `{}`",
                 s
             )),

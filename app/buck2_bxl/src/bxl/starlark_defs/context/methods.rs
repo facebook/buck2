@@ -641,7 +641,11 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             labels,
             target_platform,
             Materializations::from_str_name(&materializations.to_uppercase()).ok_or_else(|| {
-                buck2_error!([], "Unknown materialization setting `{}`", materializations)
+                buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Unknown materialization setting `{}`",
+                    materializations
+                )
             })?,
             eval,
         )?)

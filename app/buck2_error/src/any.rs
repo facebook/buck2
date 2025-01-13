@@ -70,8 +70,7 @@ pub fn recover_crate_error(
         // a string. That prevents us from having to deal with the type returned by `source` being
         // potentially non-`Send` or non-`Sync`.
         let description = format!("{}", cur);
-        let e = crate::Error::new(description, source_location, action_error);
-        let e = e.tag([error_tag]);
+        let e = crate::Error::new(description, error_tag, source_location, action_error);
         break 'base maybe_add_context_from_metadata(e, cur);
     };
     // We've converted the base error to a `buck2_error::Error`. Next, we need to add back any

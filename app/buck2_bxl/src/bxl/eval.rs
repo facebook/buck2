@@ -133,7 +133,7 @@ pub(crate) async fn eval(
                     profile_mode_or_instrumentation,
                     liveness,
                 )),
-                || Err(buck2_error!([], "cancelled")),
+                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
             )
         })
     }

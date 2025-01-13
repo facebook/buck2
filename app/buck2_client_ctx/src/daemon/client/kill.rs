@@ -207,7 +207,7 @@ async fn hard_kill_impl(
 
     let elapsed_s = timestamp_after_kill.elapsed().as_secs_f32();
     Err(buck2_error!(
-        [ErrorTag::DaemonWontDieFromKill],
+        ErrorTag::DaemonWontDieFromKill,
         "Daemon pid {pid} did not die after kill within {elapsed_s:.1}s (status: {status})"
     ))
 }

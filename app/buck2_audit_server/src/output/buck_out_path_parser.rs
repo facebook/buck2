@@ -100,19 +100,28 @@ fn validate_buck_out_and_isolation_prefix<'v>(
                         BuckOutPathParserError::MaybeBuck1Path(output_path.to_owned()).into(),
                     );
                 } else {
-                    return Err(buck2_error!([], "Path does not start with buck-out"));
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Path does not start with buck-out"
+                    ));
                 }
             }
         }
         None => {
-            return Err(buck2_error!([], "Path does not start with buck-out"));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Path does not start with buck-out"
+            ));
         }
     }
 
     // Advance the iterator to isolation dir.
     match iter.next() {
         Some(_) => Ok(()),
-        None => Err(buck2_error!([], "Path does not have an isolation dir")),
+        None => Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Path does not have an isolation dir"
+        )),
     }
 }
 
@@ -135,7 +144,10 @@ fn get_cell_path<'v>(
     let is_test = generated_prefix == "test";
     // Get cell name and validate it exists
     let Some(cell_name) = iter.next() else {
-        return Err(buck2_error!([], "Invalid cell name"));
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Invalid cell name"
+        ));
     };
 
     let cell_name = CellName::unchecked_new(cell_name.as_str())?;
@@ -146,7 +158,7 @@ fn get_cell_path<'v>(
     // Advance iterator to the config hash
     let Some(config_hash) = iter.next() else {
         return Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Path does not have a platform configuration"
         ));
     };
@@ -199,7 +211,10 @@ fn get_cell_path<'v>(
         };
         Ok(buck_out_path_data)
     } else {
-        Err(buck2_error!([], "Invalid target name"))
+        Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Invalid target name"
+        ))
     }
 }
 
@@ -217,7 +232,12 @@ fn get_target_name<'v>(
                     Some(next) => {
                         target_name_with_underscores = target_name_with_underscores.join(next);
                     }
-                    None => return Err(buck2_error!([], "Invalid target name")),
+                    None => {
+                        return Err(buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "Invalid target name"
+                        ));
+                    }
                 }
             }
 
@@ -226,7 +246,10 @@ fn get_target_name<'v>(
                 &target_name_with_underscores[2..(target_name_with_underscores.len() - 2)];
             Ok(target_name.replace(EQ_SIGN_SUBST, "="))
         }
-        None => Err(buck2_error!([], "Invalid target name")),
+        None => Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Invalid target name"
+        )),
     }
 }
 
@@ -366,19 +389,22 @@ impl BuckOutPathParser {
                         })
                     }
                     _ => Err(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Directory after isolation dir is invalid (should be gen, gen-bxl, gen-anon, tmp, or test)"
                     )),
                 };
 
                 // Validate for non-test outputs that the target name is not the last element in the path
                 if part != "test" && iter.peek().is_none() {
-                    Err(buck2_error!([], "No output artifacts found"))
+                    Err(buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "No output artifacts found"
+                    ))
                 } else {
                     result
                 }
             }
-            None => Err(buck2_error!([], "Path is empty")),
+            None => Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Path is empty")),
         }
     }
 }

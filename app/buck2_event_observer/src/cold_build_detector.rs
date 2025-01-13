@@ -64,7 +64,7 @@ impl ColdBuildDetector {
             soft_error!(
                 "parsed_target_patterns_changed_unexpectedly",
                 buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "unexpected parsed target patterns update from: {:?} to: {:?}",
                     self.target_patterns,
                     patterns

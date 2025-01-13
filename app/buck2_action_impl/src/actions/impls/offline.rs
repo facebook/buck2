@@ -57,7 +57,11 @@ pub(crate) async fn declare_copy_from_offline_cache(
 
     let entry = value
         .ok_or_else(|| {
-            buck2_error::buck2_error!([], "Missing offline cache entry: `{}`", offline_cache_path)
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Missing offline cache entry: `{}`",
+                offline_cache_path
+            )
         })?
         .map_dir(|dir| {
             dir.fingerprint(ctx.digest_config().as_directory_serializer())

@@ -293,7 +293,11 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                                             self.artifact_fs,
                                         )?;
                                         seq_ser.serialize_element(&path).map_err(|err| {
-                                            buck2_error!([], "{}", format!("{:#}", err))
+                                            buck2_error!(
+                                                buck2_error::ErrorTag::Tier0,
+                                                "{}",
+                                                format!("{:#}", err)
+                                            )
                                         })?;
                                         Ok(())
                                     },

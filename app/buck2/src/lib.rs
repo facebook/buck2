@@ -226,7 +226,7 @@ impl ParsedArgv {
 
         if opt.common_opts.help_wrapper {
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "`--help-wrapper` should have been handled by the wrapper"
             ));
         }

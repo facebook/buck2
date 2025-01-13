@@ -377,7 +377,9 @@ mod tests {
         fn get(&self, label: &Ref) -> buck2_error::Result<Node> {
             self.0
                 .get(label)
-                .ok_or_else(|| buck2_error::buck2_error!([], "missing node"))
+                .ok_or_else(|| {
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "missing node")
+                })
                 .map(|v| v.dupe())
         }
     }

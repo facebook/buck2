@@ -22,6 +22,6 @@ impl From<std::string::String> for crate::Error {
         let source_location =
             crate::source_location::from_file(std::panic::Location::caller().file(), None);
 
-        crate::Error::new(value, source_location, None)
+        crate::Error::new(value, crate::ErrorTag::Tier0, source_location, None)
     }
 }

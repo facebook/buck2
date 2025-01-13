@@ -306,7 +306,7 @@ impl VariableId {
     pub fn new(top_frame: bool, thread_id: u32, variable_id: u32) -> buck2_error::Result<Self> {
         if thread_id > 0xFFFFF {
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "{}",
                 format!(
                     "Thread ID exceeds 20-bit limit: max is 0xFFFFF, received {}",
@@ -344,7 +344,7 @@ impl TryFrom<i64> for VariableId {
             Ok(Self(value))
         } else {
             Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "{}",
                 format!("value exceeds 53-bit limit. value: {}", value)
             ))
@@ -766,9 +766,9 @@ impl ServerState {
                 response_channel,
             } => {
                 let resp = self.new_hook(handle, description)?;
-                response_channel
-                    .send(resp)
-                    .map_err(|_| buck2_error::buck2_error!([], "channel closed"))?;
+                response_channel.send(resp).map_err(|_| {
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "channel closed")
+                })?;
             }
             ServerMessage::NewHandle { id, events } => self.new_handle(id, events),
             ServerMessage::DropHook { id } => self.drop_hook(id)?,
@@ -903,14 +903,18 @@ impl ServerState {
                 return Ok(hook_state);
             }
         }
-        Err(buck2_error::buck2_error!([], "can't find evaluator thread"))
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "can't find evaluator thread"
+        ))
     }
 
     fn get_ast(&self, source: &ProjectRelativePath) -> buck2_error::Result<AstModule> {
         debug!("tried to get ast `{}`", source);
         let abs_path = self.project_root.resolve(source);
-        let content = fs_util::read_to_string_if_exists(abs_path)?
-            .ok_or_else(|| buck2_error::buck2_error!([], "file not found: {}", source))?;
+        let content = fs_util::read_to_string_if_exists(abs_path)?.ok_or_else(|| {
+            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "file not found: {}", source)
+        })?;
         match AstModule::parse(
             source.as_ref(),
             content,

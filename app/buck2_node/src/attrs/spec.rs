@@ -130,7 +130,7 @@ impl AttributeSpec {
             if name == "metadata" {
                 soft_error!(
                     "metadata_attribute",
-                    buck2_error!([], "Rules should not declare an attribute named metadata`"),
+                    buck2_error!(buck2_error::ErrorTag::Input, "Rules should not declare an attribute named metadata`"),
                     deprecation: true,
                     quiet: true
                 )?;

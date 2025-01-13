@@ -525,7 +525,10 @@ impl CacheUploadOutcome {
             }
         };
         if !self.uploaded() && error_on_cache_upload {
-            Err(buck2_error::buck2_error!([], "cache_upload_failed"))
+            Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "cache_upload_failed"
+            ))
         } else {
             Ok(self)
         }

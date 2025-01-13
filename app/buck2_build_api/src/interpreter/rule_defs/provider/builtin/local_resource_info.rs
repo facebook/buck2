@@ -87,7 +87,7 @@ where
         .unpack()?;
     if env_vars.entries.is_empty() {
         return Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Value for `resource_env_vars` field is an empty dictionary: `{}`",
             info.resource_env_vars
         ));
@@ -101,7 +101,7 @@ where
     };
     if setup_is_empty {
         return Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Value for `setup` field is an empty command line: `{}`",
             info.setup
         ));

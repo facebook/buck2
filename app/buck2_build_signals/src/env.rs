@@ -75,7 +75,7 @@ impl FromStr for CriticalPathBackendName {
         }
 
         Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Invalid backend name: `{}`",
             s
         ))

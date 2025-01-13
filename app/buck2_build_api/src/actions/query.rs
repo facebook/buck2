@@ -262,7 +262,11 @@ impl NodeKey for ActionQueryNodeRef {}
 impl ActionQueryNodeRef {
     pub fn require_action(&self) -> buck2_error::Result<&ActionKey> {
         match self {
-            Self::Analysis(a) => Err(buck2_error::buck2_error!([], "Not an action: {}", a)),
+            Self::Analysis(a) => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Not an action: {}",
+                a
+            )),
             Self::Action(a) => Ok(a),
         }
     }

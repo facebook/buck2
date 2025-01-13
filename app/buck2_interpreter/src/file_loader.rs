@@ -148,7 +148,12 @@ impl InterpreterFileLoader {
 }
 
 fn to_diagnostic(err: &buck2_error::Error, id: &str) -> buck2_error::Error {
-    buck2_error::buck2_error!([], "UnknownError in {}: {}", id, err)
+    buck2_error::buck2_error!(
+        buck2_error::ErrorTag::Tier0,
+        "UnknownError in {}: {}",
+        id,
+        err
+    )
 }
 
 impl InterpreterFileLoader {
@@ -158,7 +163,7 @@ impl InterpreterFileLoader {
             Some(v) => Ok(&v.0.env),
             None => Err(to_diagnostic(
                 &buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "Should have had an env for {}. had <{:?}>",
                     id,
                     self.loaded_modules.map.keys().collect::<Vec<_>>()
@@ -205,7 +210,7 @@ mod tests {
                 "alias2//last/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(
                     ImportPath::testing_new("cell2//last/package:import.bzl"),
                 )),
-                _ => Err(buck2_error!([], "error")),
+                _ => Err(buck2_error!(buck2_error::ErrorTag::Tier0, "error")),
             }
         }
     }

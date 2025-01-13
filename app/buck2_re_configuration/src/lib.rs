@@ -349,7 +349,7 @@ impl FromStr for HttpHeader {
                 value: value.trim().to_owned(),
             }),
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid header (expect exactly one `:`): `{}`",
                 s
             )),

@@ -210,7 +210,7 @@ impl ConfiguredAttr {
 
     fn concat_not_supported(&self, attr_ty: &'static str) -> buck2_error::Error {
         buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "addition not supported for these attribute type `{}` and value `{}`",
             attr_ty,
             self.as_display_no_ctx()
@@ -233,7 +233,7 @@ impl ConfiguredAttr {
             let first_t = oneof.get(expected_i)?;
             let next_t = oneof.get(i)?;
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Cannot concatenate values coerced/configured \
                 to different oneof variants: `{first_t}` and `{next_t}`"
             ));
@@ -302,7 +302,7 @@ impl ConfiguredAttr {
                                         }
                                         small_map::Entry::Occupied(e) => {
                                             return Err(buck2_error!(
-                                                [],
+                                                buck2_error::ErrorTag::Input,
                                                 "got same key in both sides of dictionary concat (key `{}`)",
                                                 e.key().as_display_no_ctx()
                                             ));
@@ -341,7 +341,7 @@ impl ConfiguredAttr {
                     }))
                 }
                 val => Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "addition not supported for this attribute type `{}`",
                     val.as_display_no_ctx()
                 )),
@@ -353,7 +353,7 @@ impl ConfiguredAttr {
         match self {
             ConfiguredAttr::ConfigurationDep(d) => Ok(d),
             s => Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "expecting configuration dep, got `{0}`",
                 s.as_display_no_ctx()
             )),
@@ -371,7 +371,7 @@ impl ConfiguredAttr {
         match self {
             ConfiguredAttr::List(list) => Ok(list.to_vec()),
             a => Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "expecting a list, got `{0}`",
                 a.as_display_no_ctx()
             )),

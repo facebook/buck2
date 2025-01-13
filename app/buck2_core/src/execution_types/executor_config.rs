@@ -247,7 +247,7 @@ impl FromStr for OutputPathsBehavior {
             #[cfg(not(fbcode_build))]
             "output_paths" => Ok(OutputPathsBehavior::OutputPaths),
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid OutputPathsBehavior: `{}`",
                 s
             )),

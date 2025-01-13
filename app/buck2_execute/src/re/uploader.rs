@@ -277,7 +277,7 @@ impl Uploader {
                                     soft_error!(
                                         "cas_missing_fatal",
                                         buck2_error::buck2_error!(
-                                            [],
+                                            buck2_error::ErrorTag::Input,
                                             "{} missing (origin: {})",
                                             file.digest,
                                             info.origin.as_display_for_not_found(),
@@ -299,7 +299,7 @@ impl Uploader {
                                 soft_error!(
                                     "cas_missing",
                                     buck2_error::buck2_error!(
-                                        [],
+                                        buck2_error::ErrorTag::Input,
                                         "{} (expires = {}) is missing in the CAS but expected to exist as per: {:#}",
                                         file.digest,
                                         file.digest.expires(),

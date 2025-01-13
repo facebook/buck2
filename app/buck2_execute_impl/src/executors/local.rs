@@ -176,7 +176,10 @@ impl LocalExecutor {
                     #[cfg(not(unix))]
                     {
                         let _unused = (forkserver, disable_miniperf, action_digest);
-                        Err(buck2_error!([], "Forkserver is not supported off-UNIX"))
+                        Err(buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "Forkserver is not supported off-UNIX"
+                        ))
                     }
                 }
 
@@ -316,7 +319,7 @@ impl LocalExecutor {
                     return manager.error(
                         "scratch_dir_too_long",
                         buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Environment,
                             "Scratch directory path is longer than MAX_PATH: {}",
                             scratch_path_abs
                         ),
@@ -349,7 +352,10 @@ impl LocalExecutor {
         let dispatcher = match get_dispatcher_opt() {
             Some(dispatcher) => dispatcher,
             None => {
-                return manager.error("no_dispatcher", buck2_error!([], "No dispatcher available"));
+                return manager.error(
+                    "no_dispatcher",
+                    buck2_error!(buck2_error::ErrorTag::Tier0, "No dispatcher available"),
+                );
             }
         };
         let build_id: &str = &dispatcher.trace_id().to_string();

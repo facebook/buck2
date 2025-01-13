@@ -53,7 +53,10 @@ impl PerThreadInstructionCounter {
         self.counter.disable()?;
         let count = self.counter.read_count_and_time()?;
         if count.time_running == 0 {
-            Err(buck2_error!([], "No counter data collected"))
+            Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "No counter data collected"
+            ))
         } else {
             let count =
                 (count.count as u128) * (count.time_enabled as u128) / (count.time_running as u128);

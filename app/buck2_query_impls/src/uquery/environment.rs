@@ -568,7 +568,7 @@ async fn split_universe_files<'c>(
         let buildfile_names_for_file =
             buildfile_names_by_cell.get(&file.cell()).ok_or_else(|| {
                 buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "{}",
                     RBuildFilesError::CellMissingBuildFileNames(file.cell()).to_string()
                 )

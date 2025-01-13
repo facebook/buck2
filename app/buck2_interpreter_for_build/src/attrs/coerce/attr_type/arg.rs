@@ -310,7 +310,10 @@ mod tests {
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(smallset![target.dupe()], info.deps);
         } else {
-            return Err(buck2_error!([], "Expected Location"));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected Location"
+            ));
         }
 
         Ok(())
@@ -334,7 +337,7 @@ mod tests {
             assert_eq!(smallset![label.dupe()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
         } else {
-            return Err(buck2_error!([], "Expected Exe"));
+            return Err(buck2_error!(buck2_error::ErrorTag::Input, "Expected Exe"));
         }
 
         Ok(())
@@ -358,7 +361,7 @@ mod tests {
             assert_eq!(smallset![], info.execution_deps);
             assert_eq!(smallset![label.dupe()], info.deps);
         } else {
-            return Err(buck2_error!([], "Expected Exe"));
+            return Err(buck2_error!(buck2_error::ErrorTag::Input, "Expected Exe"));
         }
 
         Ok(())

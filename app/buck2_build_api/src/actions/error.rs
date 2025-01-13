@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_error_conversion() {
-        let error = buck2_error!([ErrorTag::Http], "error");
+        let error = buck2_error!(ErrorTag::Http, "error");
 
         let execute_error = ExecuteError::Error {
             error: error.into(),

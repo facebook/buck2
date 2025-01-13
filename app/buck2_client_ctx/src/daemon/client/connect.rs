@@ -1048,9 +1048,10 @@ async fn get_constraints(
 
     let status: buck2_cli_proto::StatusResponse = match status {
         CommandOutcome::Success(r) => Ok(r),
-        CommandOutcome::Failure(_) => {
-            Err(buck2_error!([], "Unexpected failure message in status()"))
-        }
+        CommandOutcome::Failure(_) => Err(buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Unexpected failure message in status()"
+        )),
     }?;
 
     Ok(status.daemon_constraints.unwrap_or_default())

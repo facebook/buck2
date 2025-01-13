@@ -1342,7 +1342,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         // This should never happen
                         soft_error!(
                             "clean_stale_no_config",
-                            buck2_error!([], "clean scheduled without being configured").into(),
+                            buck2_error!(buck2_error::ErrorTag::Tier0, "clean scheduled without being configured").into(),
                             quiet: true
                         )
                         .unwrap();
@@ -1482,7 +1482,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     // Shouldnt really happen unless Tokio is shutting down, but be safe.
                     self.ttl_refresh_history.push(TtlRefreshHistoryEntry {
                         at: Utc::now(),
-                        outcome: Some(Err(buck2_error!([], "Shutdown"))),
+                        outcome: Some(Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Shutdown"))),
                     });
                     None
                 }
@@ -2328,7 +2328,7 @@ impl ArtifactTree {
         {
             for path in &invalidated_paths {
                 if path.as_str() == "test/invalidate/failure" {
-                    return Err(buck2_error!([], "Injected error"));
+                    return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Injected error"));
                 }
             }
         }

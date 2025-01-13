@@ -26,7 +26,13 @@ fn env_to_string(env: &'static str) -> buck2_error::Result<Option<String>> {
         .or_else(|| std::env::var_os(env.to_lowercase()))
         .map(|s| s.into_string())
         .transpose()
-        .map_err(|original| buck2_error::buck2_error!([], "Invalid utf8 string: '{:?}'", original))
+        .map_err(|original| {
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Invalid utf8 string: '{:?}'",
+                original
+            )
+        })
 }
 
 fn noproxy_from_env(scheme: Scheme) -> buck2_error::Result<Option<NoProxy>> {

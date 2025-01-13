@@ -294,7 +294,11 @@ mod state_machine {
 
             if (*self.fail_paths.lock()).contains(&path) || *self.fail.lock() {
                 self.log.lock().push((Op::MaterializeError, path));
-                Err(buck2_error::buck2_error!([], "Injected error").into())
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::MaterializationError,
+                    "Injected error"
+                )
+                .into())
             } else {
                 match _method.as_ref() {
                     ArtifactMaterializationMethod::Write(write) => {
@@ -650,7 +654,12 @@ mod state_machine {
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
                 .buck_error_context("Expected a future")?
                 .await
-                .map_err(|_| buck2_error!([], "error materializing"))?;
+                .map_err(|_| {
+                    buck2_error!(
+                        buck2_error::ErrorTag::MaterializationError,
+                        "error materializing"
+                    )
+                })?;
 
             let logs = dm.io.take_log();
             if cfg!(unix) {
@@ -737,7 +746,12 @@ mod state_machine {
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
                 .buck_error_context("Expected a future")?
                 .await
-                .map_err(|_| buck2_error!([], "error materializing"))?;
+                .map_err(|_| {
+                    buck2_error!(
+                        buck2_error::ErrorTag::MaterializationError,
+                        "error materializing"
+                    )
+                })?;
 
             let logs = dm.io.take_log();
             assert_eq!(logs, &[(Op::Materialize, target_path.clone())]);
@@ -979,7 +993,7 @@ mod state_machine {
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
                 .buck_error_context("Expected a future")?
                 .await
-                .map_err(|err| buck2_error!([], "error materializing {:?}", err))?;
+                .map_err(|err| buck2_error!(buck2_error::ErrorTag::MaterializationError, "error materializing {:?}", err))?;
             assert_eq!(
                 dm.io.take_log(),
                 &[
@@ -1034,7 +1048,7 @@ mod state_machine {
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
                 .buck_error_context("Expected a future")?
                 .await
-                .map_err(|err| buck2_error!([], "error materializing 2 {:?}", err))?;
+                .map_err(|err| buck2_error!(buck2_error::ErrorTag::MaterializationError, "error materializing 2 {:?}", err))?;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, target_path.clone()), ]);
             Ok(())
         }).await

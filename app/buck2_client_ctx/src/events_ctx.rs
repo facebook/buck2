@@ -156,7 +156,11 @@ impl<'a> EventsCtx<'a> {
                         .buck_error_context("Empty partial result")?
                         .try_into()
                         .map_err(|e| {
-                            buck2_error::buck2_error!([], "Invalid PartialResult: {:?}", e)
+                            buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Tier0,
+                                "Invalid PartialResult: {:?}",
+                                e
+                            )
                         })?;
                     partial_result_handler
                         .handle_partial_result(PartialResultCtx { inner: self }, partial_res)

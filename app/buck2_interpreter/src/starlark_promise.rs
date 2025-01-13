@@ -395,7 +395,10 @@ mod tests {
                 if x.unpack_str() == Some("ok") {
                     Ok(())
                 } else {
-                    Err(buck2_error!([], "VALIDATE_FAILED"))
+                    Err(buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "VALIDATE_FAILED"
+                    ))
                 }
             })?;
             Ok(NoneType)

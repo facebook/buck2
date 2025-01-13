@@ -280,7 +280,10 @@ impl AbsNormPath {
                 .strip_windows_prefix()?
                 .strip_prefix(base.strip_windows_prefix()?)?)
         } else {
-            Err(buck2_error::buck2_error!([], "Path is not a prefix"))
+            Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Path is not a prefix"
+            ))
         }
     }
 
@@ -465,12 +468,9 @@ impl AbsNormPath {
         use std::os::windows::ffi::OsStringExt;
         use std::path::Prefix;
 
-        match self
-            .0
-            .components()
-            .next()
-            .ok_or_else(|| buck2_error::buck2_error!([], "AbsPath is empty."))?
-        {
+        match self.0.components().next().ok_or_else(|| {
+            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "AbsPath is empty.")
+        })? {
             std::path::Component::Prefix(prefix_component) => match prefix_component.kind() {
                 Prefix::Disk(disk) | Prefix::VerbatimDisk(disk) => {
                     Ok(OsString::from_wide(&[disk.into()]))
@@ -483,13 +483,13 @@ impl AbsNormPath {
                 }
                 Prefix::DeviceNS(device) => Ok(device.to_owned()),
                 prefix => Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Unknown prefix kind: {:?}.",
                     prefix
                 )),
             },
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "AbsPath doesn't have prefix."
             )),
         }
@@ -540,9 +540,9 @@ impl AbsNormPath {
     /// ```
     pub fn strip_windows_prefix(&self) -> buck2_error::Result<&Path> {
         let mut iter = self.0.iter();
-        let prefix = iter
-            .next()
-            .ok_or_else(|| buck2_error::buck2_error!([], "AbsPath is empty."))?;
+        let prefix = iter.next().ok_or_else(|| {
+            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "AbsPath is empty.")
+        })?;
         let mut prefix = prefix.to_owned();
         // Strip leading path separator as well.
         if let Some(component) = iter.next() {

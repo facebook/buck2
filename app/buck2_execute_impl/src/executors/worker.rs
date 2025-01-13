@@ -204,7 +204,12 @@ async fn spawn_worker(
     let socket_path = worker_dir.join(FileName::unchecked_new("socket"));
     if fs_util::try_exists(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))? {
         return Err(WorkerInitError::InternalError(
-            buck2_error!([], "Directory for worker already exists: {:?}", worker_dir).into(),
+            buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Directory for worker already exists: {:?}",
+                worker_dir
+            )
+            .into(),
         ));
     }
     // TODO(ctolliday) put these in buck-out/<iso>/workers and only use /tmp dir for sockets
@@ -287,7 +292,8 @@ async fn spawn_worker(
                 }
                 Ok(GatherOutputStatus::Cancelled | GatherOutputStatus::TimedOut(_)) => {
                     WorkerInitError::InternalError(
-                        buck2_error!([], "Worker cancelled by buck").into(),
+                        buck2_error!(buck2_error::ErrorTag::Tier0, "Worker cancelled by buck")
+                            .into(),
                     )
                 }
                 Err(e) => WorkerInitError::InternalError(e.into()),

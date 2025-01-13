@@ -117,7 +117,10 @@ impl TimeSpeed {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
         if speed <= 0.0 {
-            return Err(buck2_error!([], "Time speed cannot be negative!"));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Time speed cannot be negative!"
+            ));
         }
         Ok(TimeSpeed { speed })
     }

@@ -144,7 +144,12 @@ impl ProcessGroupImpl {
     ) -> buck2_error::Result<()> {
         tokio::time::timeout(Duration::from_secs(10), self.job.terminate(0))
             .await
-            .map_err(|_| buck2_error::buck2_error!([], "Timed out on job object termination"))?
+            .map_err(|_| {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Timed out on job object termination"
+                )
+            })?
     }
 
     fn resume(&self) -> buck2_error::Result<()> {

@@ -150,7 +150,7 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 #[cfg(not(unix))]
                 {
                     Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Attempted to use Miniperf output off-UNIX"
                     ))
                 }

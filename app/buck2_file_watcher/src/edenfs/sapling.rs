@@ -51,7 +51,7 @@ pub async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
 
     if !output.status.success() || !output.stderr.is_empty() {
         buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "Failed to obtain mergebase:\n{}",
             String::from_utf8(output.stderr)
                 .buck_error_context("Failed to stderr reported by get_mergebase.")?
@@ -91,10 +91,12 @@ pub async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
         .spawn()
         .buck_error_context("Failed to obtain Sapling status")?;
 
-    let stdout = output
-        .stdout
-        .take()
-        .ok_or_else(|| buck2_error!([], "Failed to read stdout when invoking 'sl status'."))?;
+    let stdout = output.stdout.take().ok_or_else(|| {
+        buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Failed to read stdout when invoking 'sl status'."
+        )
+    })?;
     let reader = BufReader::new(stdout);
 
     let mut status: Vec<(SaplingStatus, String)> = vec![];
@@ -145,6 +147,9 @@ fn process_one_status_line(line: &str) -> buck2_error::Result<Option<(SaplingSta
             _ => None, // Skip all others
         })
     } else {
-        Err(buck2_error!([], "Invalid status line: {line}"))
+        Err(buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Invalid status line: {line}"
+        ))
     }
 }

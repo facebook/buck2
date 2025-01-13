@@ -28,7 +28,10 @@ impl Decoder for ProtobufSplitter {
             Err(..) => {
                 // 10 bytes is the largest length of an encoded size
                 if orig_len > 10 {
-                    return Err(buck2_error!([], "Corrupted stream"));
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Corrupted stream"
+                    ));
                 } else {
                     return Ok(None);
                 }

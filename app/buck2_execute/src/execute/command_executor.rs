@@ -271,7 +271,7 @@ fn re_create_action(
             #[cfg(fbcode_build)]
             {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "output_paths is not supported in fbcode_build"
                 ));
             }

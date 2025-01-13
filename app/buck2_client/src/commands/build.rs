@@ -276,7 +276,11 @@ impl StreamingCommand for BuildCommand {
         }
 
         if buck2_env!("BUCK2_TEST_BUILD_ERROR", bool, applicability = testing)? {
-            return buck2_error!([], "Injected Build Response Error").into();
+            return buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Injected Build Response Error"
+            )
+            .into();
         }
 
         // Most build errors are returned in the `result.errors` field, but some are not and printed

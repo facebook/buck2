@@ -64,7 +64,10 @@ fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
         Consider `export NANO_PRELUDE=$HOME/fbsource/fbcode/buck2/tests/e2e_util/nano_prelude`",
         )?;
     if path.is_empty() {
-        return Err(buck2_error!([], "NANO_PRELUDE env var must not be empty"));
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "NANO_PRELUDE env var must not be empty"
+        ));
     }
     let path = AbsPathBuf::new(Path::new(&path))
         .buck_error_context("NANO_PRELUDE env var must point to absolute path")?;

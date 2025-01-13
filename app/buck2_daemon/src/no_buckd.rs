@@ -73,7 +73,7 @@ pub fn start_in_process_daemon(
         match rx.recv() {
             Ok(r) => r,
             Err(_) => Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "In-process daemon failed to start and we don't know why"
             )),
         }

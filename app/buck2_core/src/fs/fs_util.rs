@@ -143,7 +143,12 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
             // Standard issue on Windows machines, so hint at the resolution, as it is not obvious.
             // Unfortunately this doesn't have an `ErrorKind`, so have to do it with substring matching.
             Err(e) if e.to_string().contains("privilege is not held") => {
-                Err(buck2_error::buck2_error!([], "{}", e.to_string()).context(
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Environment,
+                    "{}",
+                    e.to_string()
+                )
+                .context(
                     "Perhaps you need to turn on 'Developer Mode' in Windows to enable symlinks.",
                 ))
             }
@@ -161,7 +166,10 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
         Cow::Owned(
             link.parent()
                 .ok_or_else(|| {
-                    buck2_error::buck2_error!([], "Expected path with a parent in symlink target")
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Expected path with a parent in symlink target"
+                    )
                 })?
                 .join(original),
         )
