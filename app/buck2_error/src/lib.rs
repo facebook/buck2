@@ -69,6 +69,7 @@ pub use buck2_data::error::ErrorTag;
 /// # #![feature(error_generic_member_access)]
 /// #[derive(Debug, buck2_error::Error)]
 /// #[error("My error type")]
+/// #[buck2(tag = buck2_error::ErrorTag::Input)]
 /// struct MyError;
 ///
 /// let e = buck2_error::Error::from(MyError);

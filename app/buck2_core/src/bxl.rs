@@ -34,6 +34,7 @@ pub struct BxlFilePath {
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Expected a cell path to a `.bxl` file, but got `{0}`")]
+#[buck2(tag = Input)]
 struct BxlPathError(CellPath);
 
 impl BxlFilePath {

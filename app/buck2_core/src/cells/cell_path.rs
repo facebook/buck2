@@ -19,6 +19,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
 #[error("attempted to strip prefix of two CellPath with different cell names `{0}` and `{1}`")]
+#[buck2(tag = Tier0)]
 struct StripPrefixError(CellName, CellName);
 
 /// Represents a resolvable path corresponding to some path that is relative to the cell

@@ -264,6 +264,7 @@ impl<'a> ClientCommandContext<'a> {
     pub fn empty_client_context(&self, command_name: &str) -> buck2_error::Result<ClientContext> {
         #[derive(Debug, buck2_error::Error)]
         #[error("Current directory is not UTF-8")]
+        #[buck2(tag = Input)]
         struct CurrentDirIsNotUtf8;
 
         Ok(ClientContext {

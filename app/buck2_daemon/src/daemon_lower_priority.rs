@@ -155,6 +155,7 @@ fn do_lower_priority() -> buck2_error::Result<()> {
 
     #[derive(Debug, buck2_error::Error)]
     #[error("`posix_spawnp` with `POSIX_SPAWN_SETEXEC` flag should not return on success.")]
+    #[buck2(tag = Tier0)]
     struct Unreachable;
 
     Err(Unreachable.into())

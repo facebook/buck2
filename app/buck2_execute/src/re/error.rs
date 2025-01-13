@@ -14,8 +14,8 @@ use remote_execution::REClientError;
 use remote_execution::TCode;
 use remote_execution::TCodeReasonGroup;
 
-pub fn get_re_error_tag(tcode: TCode) -> ErrorTag {
-    match tcode {
+pub fn get_re_error_tag(tcode: &TCode) -> ErrorTag {
+    match *tcode {
         TCode::CANCELLED => ErrorTag::ReCancelled,
         TCode::UNKNOWN => ErrorTag::ReUnknown,
         TCode::INVALID_ARGUMENT => ErrorTag::ReInvalidArgument,
@@ -38,6 +38,7 @@ pub fn get_re_error_tag(tcode: TCode) -> ErrorTag {
 
 #[derive(Allocative, Debug, Clone, buck2_error::Error)]
 #[error("Remote Execution Error on {} for ReSession {}\nError: ({})", .re_action, .re_session_id, .message)]
+#[buck2(tag = get_re_error_tag(code))]
 pub struct RemoteExecutionError {
     re_action: String,
     re_session_id: String,
@@ -77,10 +78,7 @@ fn re_error(
     };
     let buck2_error: buck2_error::Error = err.clone().into();
 
-    buck2_error
-        .context(err)
-        .tag([get_re_error_tag(code)])
-        .context_for_key(&group.to_string())
+    buck2_error.context(err).context_for_key(&group.to_string())
 }
 
 pub(crate) async fn with_error_handler<T>(

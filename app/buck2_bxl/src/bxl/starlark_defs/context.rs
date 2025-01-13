@@ -92,12 +92,14 @@ enum BxlContextError {
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Expected a single target as a string literal, not a target pattern")]
+#[buck2(tag = Input)]
 struct NotATargetLabelString;
 
 #[derive(buck2_error::Error, Debug)]
 #[error(
     "Unconfigured target label(s)/node(s) was passed into analysis. Targets passed into analysis should be configured."
 )]
+#[buck2(tag = Input)]
 struct UnconfiguredTargetInAnalysis;
 
 /// Data object for `BxlContextType::Root`.

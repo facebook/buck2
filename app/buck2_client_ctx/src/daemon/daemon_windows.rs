@@ -19,6 +19,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
 ) -> buck2_error::Result<()> {
     #[derive(Debug, buck2_error::Error)]
     #[error("not Windows")]
+    #[buck2(tag = Tier0)]
     struct NotWindows;
 
     Err(NotWindows.into())

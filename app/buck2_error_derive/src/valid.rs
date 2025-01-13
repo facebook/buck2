@@ -48,6 +48,13 @@ impl Struct<'_> {
                 ));
             }
         }
+        if self.attrs.tags.is_empty() {
+            return Err(Error::new(
+                self.ident.span(),
+                "missing #[buck2(tag = ...)] attribute. All 'buck2_error' must have a tag (Common choices are 'Input', 'Tier0', and 'Environment'). 
+                Full list: https://www.internalfb.com/code/fbsource/[4e97d95ed7f3145bf6828827e779eecaeb0c5712]/fbcode/buck2/app/buck2_data/error.proto?lines=42",
+            ));
+        }
         check_field_attrs(&self.fields)?;
         for field in &self.fields {
             field.validate()?;

@@ -391,11 +391,6 @@ fn eval_bxl<'v>(
     Err(e.into())
 }
 
-#[derive(Debug, buck2_error::Error)]
-#[error("Expected {0} to be a bxl function, was a {1}")]
-#[allow(dead_code)]
-struct NotABxlFunction(String, &'static str);
-
 pub(crate) fn get_bxl_callable(
     spec: &BxlFunctionLabel,
     bxl_module: &LoadedModule,
@@ -456,4 +451,5 @@ pub(crate) async fn resolve_cli_args<'a>(
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Expected `NoneType` to be returned from bxl. Got return value `{0}`")]
+#[buck2(tag = Input)]
 struct NotAValidReturnType(&'static str);

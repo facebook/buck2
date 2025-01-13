@@ -135,6 +135,7 @@ pub enum DigestAlgorithmFamily {
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Invalid Digest algorithm: `{0}`")]
+#[buck2(tag = Input)]
 pub struct InvalidDigestAlgorithmFamily(String);
 
 impl std::str::FromStr for DigestAlgorithmFamily {

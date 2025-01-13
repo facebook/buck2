@@ -16,6 +16,7 @@ use crate::interpreter::module_internals::ModuleInternals;
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Fail: {0}")]
+#[buck2(tag = Tier0)]
 struct BuckFail(String);
 
 /// Registers functions that are only available in the `__internal__` global and not meant to be

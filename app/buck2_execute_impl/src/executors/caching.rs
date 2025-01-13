@@ -545,6 +545,7 @@ enum CacheUploadRejectionReason {
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Missing action result for dep file key `{0}`")]
+#[buck2(tag = Tier0)]
 struct DepFileReActionResultMissingError(String);
 
 #[async_trait]

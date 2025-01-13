@@ -43,6 +43,7 @@ pub struct ProviderName(String);
     "Invalid provider name `{}`. Inner providers names can only contain non-empty alpha numeric characters, and symbols `,`, `=`, `-`, `/`, `+` and `_`. No other characters are allowed.",
     _0
 )]
+#[buck2(tag = Input)]
 struct InvalidProviderName(String);
 
 impl ProviderName {

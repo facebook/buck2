@@ -548,6 +548,7 @@ enum ParseEventError {
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Invalid buck event: `{0:?}`")]
+#[buck2(tag = Tier0)]
 pub struct InvalidBuckEvent(pub Arc<BuckEvent>);
 
 pub fn format_test_result(

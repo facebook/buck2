@@ -314,6 +314,7 @@ mod tests {
 
     #[derive(Debug, buck2_error_derive::Error)]
     #[error("Test")]
+    #[buck2(tag = Environment)]
     struct TestError;
 
     #[test]

@@ -248,6 +248,7 @@ mod tests {
 
     #[derive(Debug, buck2_error_derive::Error)]
     #[error("wrapper")]
+    #[buck2(tag = Environment)]
     struct WrapperError(#[source] FullMetadataError);
 
     #[test]

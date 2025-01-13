@@ -214,6 +214,7 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
 
 #[derive(Debug, buck2_error::Error)]
 #[error("{} is no longer used. {}", .0, .1)]
+#[buck2(tag = Input)]
 struct DeprecatedConfigError(String, Arc<str>);
 
 fn read_config_and_report_deprecated(

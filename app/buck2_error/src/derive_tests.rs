@@ -61,6 +61,7 @@ fn test_derive_error3() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Generic error")]
+#[buck2(tag = Environment)]
 pub struct GenericError<G>(G);
 
 #[test]
@@ -71,6 +72,7 @@ fn test_generic_error() {
 /// Test that no unused fields warning is emitted.
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
+#[buck2(tag = Environment)]
 pub struct WithField {
     x: u8,
 }
@@ -82,6 +84,7 @@ fn test_with_field() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
+#[buck2(tag = Environment)]
 struct NoAttrsStruct;
 
 #[derive(buck2_error_derive::Error, Debug)]
@@ -196,6 +199,7 @@ fn test_correct_transparent() {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error(transparent)]
+    #[buck2(tag = Input)]
     struct T(E);
 
     let t: crate::Error = T(E).into();
@@ -206,6 +210,7 @@ fn test_correct_transparent() {
 fn test_error_message_with_provided_field() {
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Some message {0} + {1}")]
+    #[buck2(tag = Environment)]
     struct SomeError(String, String);
 
     let t: crate::Error = SomeError("test123".to_owned(), "test222".to_owned()).into();
@@ -216,6 +221,7 @@ fn test_error_message_with_provided_field() {
 fn test_recovery_through_transparent_buck2_error() {
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("base_display")]
+    #[buck2(tag = Environment)]
     struct BaseError;
 
     #[derive(buck2_error_derive::Error, Debug)]
@@ -232,6 +238,10 @@ fn test_recovery_through_transparent_buck2_error() {
     assert!(format!("{:?}", wrapped_direct).contains("base_display"));
     assert_eq!(
         &wrapped_direct.tags()[..],
-        &[crate::ErrorTag::StarlarkFail, crate::ErrorTag::Tier0]
+        &[
+            crate::ErrorTag::Environment,
+            crate::ErrorTag::StarlarkFail,
+            crate::ErrorTag::Tier0
+        ]
     );
 }

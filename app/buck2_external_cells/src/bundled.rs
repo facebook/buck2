@@ -115,6 +115,7 @@ fn nano_prelude() -> buck2_error::Result<BundledCell> {
 pub(crate) fn find_bundled_data(cell_name: CellName) -> buck2_error::Result<BundledCell> {
     #[derive(buck2_error::Error, Debug)]
     #[error("No bundled cell named `{0}`, options are `{}`", _1.join(", "))]
+    #[buck2(tag = Input)]
     struct CellNotBundled(String, Vec<&'static str>);
 
     let cell_name = cell_name.as_str();

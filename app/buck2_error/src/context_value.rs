@@ -145,6 +145,7 @@ mod tests {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("test error")]
+    #[buck2(tag = Tier0)]
     struct TestError;
 
     #[test]
@@ -158,7 +159,7 @@ mod tests {
     #[test]
     fn test_category_infra_preferred() {
         let e: crate::Error = TestError.into();
-        let e = e.clone().tag([ErrorTag::Tier0, ErrorTag::Input]);
+        let e = e.clone().tag([ErrorTag::Input]);
         assert_eq!(e.get_tier(), Some(Tier::Tier0));
     }
 }
