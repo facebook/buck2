@@ -33,9 +33,10 @@ def _constraints() -> list[str]:
     )
     return constraints
 
+_passthrough_constraints_val = read_root_config("buck2", "passthrough_constraints", "")
+
 def _passthrough_constraints() -> list[str]:
-    config = read_root_config("buck2", "passthrough_constraints", "")
-    return [constraint.strip() for constraint in config.split(",") if constraint.strip()]
+    return [constraint.strip() for constraint in _passthrough_constraints_val.split(",") if constraint.strip()]
 
 def _resolve(
         refs: struct,
