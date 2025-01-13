@@ -107,6 +107,11 @@ Error {
     # same cause index have the same cause. Note that that does not mean that
     # they have the same error message.
     cause_index: uint,
+
+    # List of error tags associated with the error. The error tags provide hints to the error category
+    # that the error is associated to as determined by Buck2 internally. This is meant to classify errors
+    # more precisely, helping developers better understand the nature of the error.
+    error_tags: list[str],
 }
 
 ActionError {
