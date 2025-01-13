@@ -28,7 +28,7 @@ remote_file(
 
 extract_archive(
     name = "python-extract",
-    contents_archive = ":python-download",
+    src = ":python-download",
 )
 
 python_toolchain(
