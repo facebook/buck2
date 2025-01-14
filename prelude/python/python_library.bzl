@@ -400,25 +400,24 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.
-    deps = raw_deps
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
             ctx,
             # Add in any potential native root targets from our first-order deps.
-            roots = get_roots(deps),
+            roots = get_roots(raw_deps),
             # Exclude preloaded deps from omnibus linking, to prevent preloading
             # the monolithic omnibus library.
             excluded = get_excluded(
                 deps = (
-                    (deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
+                    (raw_deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
                     # We also need to exclude deps that can't be re-linked, via
                     # the `LinkableRootInfo` provider (i.e. `prebuilt_cxx_library_group`).
-                    [d for d in deps if LinkableRootInfo not in d]
+                    [d for d in raw_deps if LinkableRootInfo not in d]
                 ),
             ),
         ),
-        deps = deps,
+        deps = raw_deps,
     )
     providers.append(linkable_graph)
 
@@ -426,8 +425,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(
         merge_cxx_extension_info(
             ctx.actions,
-            deps,
-            shared_deps = deps,
+            raw_deps,
+            shared_deps = raw_deps,
         ),
     )
 
