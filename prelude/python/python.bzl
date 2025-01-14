@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//linking:link_info.bzl", "LinkedObject")
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
 load(":interface.bzl", "PythonLibraryManifestsInterface")
@@ -17,82 +19,82 @@ PythonLibraryManifests = record(
     default_resources = field([(ManifestInfo, list[ArgLike]), None]),
     standalone_resources = field([(ManifestInfo, list[ArgLike]), None]),
     bytecode = field([dict[PycInvalidationMode, ManifestInfo], None]),
-    extensions = field([dict[str, typing.Any], None]),
+    extensions = field([dict[str, LinkedObject], None]),
 )
 
-def _bytecode_artifacts(invalidation_mode: PycInvalidationMode):
+def _bytecode_artifacts(invalidation_mode: PycInvalidationMode) -> typing.Callable[[PycInvalidationMode], list[ArgLike]]:
     return lambda value: [] if value.bytecode == None else (
         [a for a, _ in value.bytecode[invalidation_mode].artifacts]
     )
 
-def _bytecode_manifests(invalidation_mode: PycInvalidationMode):
+def _bytecode_manifests(invalidation_mode: PycInvalidationMode) -> typing.Callable[[PycInvalidationMode], list[None] | Artifact]:
     return lambda value: [] if value.bytecode == None else (
         value.bytecode[invalidation_mode].manifest
     )
 
-def _hidden_resources(value: PythonLibraryManifests):
+def _hidden_resources(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.default_resources == None:
         return []
     return value.default_resources[1]
 
-def _has_hidden_resources(children: list[bool], value: [PythonLibraryManifests, None]):
+def _has_hidden_resources(children: list[bool], value: [PythonLibraryManifests, None]) -> bool:
     if value:
         if value.default_resources and len(value.default_resources[1]) > 0:
             return True
     return any(children)
 
-def _resource_manifests(value: PythonLibraryManifests):
+def _resource_manifests(value: PythonLibraryManifests) -> list[None] | Artifact:
     if value.default_resources == None:
         return []
     return value.default_resources[0].manifest
 
-def _resource_artifacts(value: PythonLibraryManifests):
+def _resource_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.default_resources == None:
         return []
     return [a for a, _ in value.default_resources[0].artifacts]
 
-def _standalone_hidden_resources(value: PythonLibraryManifests):
+def _standalone_hidden_resources(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.standalone_resources == None:
         return []
     return value.standalone_resources[1]
 
-def _standalone_has_hidden_resources(children: list[bool], value: [PythonLibraryManifests, None]):
+def _standalone_has_hidden_resources(children: list[bool], value: [PythonLibraryManifests, None]) -> bool:
     if value:
         if value.standalone_resources and len(value.standalone_resources[1]) > 0:
             return True
     return any(children)
 
-def _standalone_resource_manifests(value: PythonLibraryManifests):
+def _standalone_resource_manifests(value: PythonLibraryManifests) -> list[None] | Artifact:
     if value.standalone_resources == None:
         return []
     return value.standalone_resources[0].manifest
 
-def _standalone_resource_artifacts(value: PythonLibraryManifests):
+def _standalone_resource_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.standalone_resources == None:
         return []
     return [a for a, _ in value.standalone_resources[0].artifacts]
 
-def _source_manifests(value: PythonLibraryManifests):
+def _source_manifests(value: PythonLibraryManifests) -> list[None] | Artifact:
     if value.srcs == None:
         return []
     return value.srcs.manifest
 
-def _source_artifacts(value: PythonLibraryManifests):
+def _source_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.srcs == None:
         return []
     return [a for a, _ in value.srcs.artifacts]
 
-def _source_type_manifests(value: PythonLibraryManifests):
+def _source_type_manifests(value: PythonLibraryManifests) -> list[None] | Artifact:
     if value.src_types == None:
         return []
     return value.src_types.manifest
 
-def _source_type_manifest_jsons(value: PythonLibraryManifests):
+def _source_type_manifest_jsons(value: PythonLibraryManifests) -> (TargetLabel, Artifact) | None:
     if value.src_types == None:
         return None
     return (value.label.raw_target(), value.src_types.manifest)
 
-def _source_type_artifacts(value: PythonLibraryManifests):
+def _source_type_artifacts(value: PythonLibraryManifests) -> list[ArgLike]:
     if value.src_types == None:
         return []
     return [a for a, _ in value.src_types.artifacts]
@@ -135,38 +137,37 @@ PythonLibraryManifestsTSet = transitive_set(
 )
 
 # Information about a python library and its dependencies.
-# TODO(nmj): Resources in general, and mapping of resources to new paths too.
 PythonLibraryInfo = provider(fields = {
-    "extension_shared_libraries": provider_field(typing.Any, default = None),  # "SharedLibraryInfo"
-    "manifests": provider_field(typing.Any, default = None),  # PythonLibraryManifestsTSet
-    "shared_libraries": provider_field(typing.Any, default = None),  # "SharedLibraryInfo"
+    "extension_shared_libraries": provider_field(SharedLibraryInfo),
+    "manifests": provider_field(PythonLibraryManifestsTSet),
+    "shared_libraries": provider_field(SharedLibraryInfo),
 })
 
-def _get_resource_manifests(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+def _get_resource_manifests(standalone: bool, manifests: PythonLibraryManifestsTSet) -> list[ArgLike]:
     if standalone:
         return [manifests.project_as_args("standalone_resource_manifests")]
     else:
         return [manifests.project_as_args("resource_manifests")]
 
-def _get_resource_artifacts(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+def _get_resource_artifacts(standalone: bool, manifests: PythonLibraryManifestsTSet) -> list[ArgLike]:
     if standalone:
         return [manifests.project_as_args("standalone_resource_artifacts")]
     else:
         return [manifests.project_as_args("resource_artifacts")]
 
-def _get_hidden_resources(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+def _get_hidden_resources(standalone: bool, manifests: PythonLibraryManifestsTSet) -> list[ArgLike]:
     if standalone:
         return [manifests.project_as_args("standalone_hidden_resources")]
     else:
         return [manifests.project_as_args("hidden_resources")]
 
-def _get_resource_artifacts_with_path(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+def _get_resource_artifacts_with_path(standalone: bool, manifests: PythonLibraryManifestsTSet) -> list[(ArgLike, ArgLike)]:
     if standalone:
         return [(a, p) for m in manifests.traverse() if m != None and m.standalone_resources != None for a, p in m.standalone_resources[0].artifacts]
     else:
         return [(a, p) for m in manifests.traverse() if m != None and m.default_resources != None for a, p in m.default_resources[0].artifacts]
 
-def _get_has_hidden_resources(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
+def _get_has_hidden_resources(standalone: bool, manifests: PythonLibraryManifestsTSet) -> bool:
     if standalone:
         return manifests.reduce("standalone_has_hidden_resources")
     else:
