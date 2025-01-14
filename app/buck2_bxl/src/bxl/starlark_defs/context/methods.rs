@@ -281,14 +281,19 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     /// Also takes in an optional `target_platform` param to configure the nodes with, and a `keep_going`
     /// flag to skip any loading or configuration errors. Note that `keep_going` currently can only be used
     /// if the input labels is a single target pattern as a string literal.
+    ///
+    /// The default modifiers used to configure the target nodes are empty. If you want to use the
+    /// modifiers from the cli, you can pass `ctx.modifiers` to the argument `modifiers` of this function.
     fn target_universe<'v>(
         this: ValueTyped<'v, BxlContext<'v>>,
         labels: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = false)] keep_going: bool,
+        #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
     ) -> starlark::Result<StarlarkTargetUniverse<'v>> {
-        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
+        let modifiers = modifiers.items;
+        let global_cfg_options = this.resolve_global_cfg_options(target_platform, modifiers)?;
 
         Ok(this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
