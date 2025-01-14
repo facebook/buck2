@@ -74,11 +74,30 @@ def build_package(
 
         symabis = _symabis(ctx, pkg_name, main, go_list.s_files, go_list.h_files, assembler_flags)
 
+        # Use -complete flag when compiling Go code only
+        complete_flag = len(go_list.cgo_files) + len(go_list.s_files) == 0
+
         def build_variant(shared: bool) -> Artifact:
             suffix = ",shared" if shared else ",non-shared"  # suffix to make artifacts unique
             go_files_to_compile = covered_go_files + ((go_list.test_go_files + go_list.x_test_go_files) if tests else [])
             importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared)
-            go_a_file, asmhdr = _compile(ctx, pkg_name, main, go_files_to_compile, importcfg, compiler_flags, shared, race, asan, suffix, embedcfg, go_list.embed_files, symabis, len(go_list.s_files) > 0)
+            go_a_file, asmhdr = _compile(
+                ctx = ctx,
+                pkg_name = pkg_name,
+                main = main,
+                go_srcs = go_files_to_compile,
+                importcfg = importcfg,
+                compiler_flags = compiler_flags,
+                shared = shared,
+                race = race,
+                asan = asan,
+                suffix = suffix,
+                complete = complete_flag,
+                embedcfg = embedcfg,
+                embed_files = go_list.embed_files,
+                symabis = symabis,
+                gen_asmhdr = len(go_list.s_files) > 0,
+            )
 
             asm_o_files = _asssembly(ctx, pkg_name, main, go_list.s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
 
@@ -113,6 +132,7 @@ def _compile(
         race: bool,
         asan: bool,
         suffix: str,
+        complete: bool,
         embedcfg: Artifact | None = None,
         embed_files: list[Artifact] = [],
         symabis: Artifact | None = None,
@@ -150,6 +170,7 @@ def _compile(
             ["-embedcfg", embedcfg] if embedcfg else [],
             ["-symabis", symabis] if symabis else [],
             ["-asmhdr", asmhdr.as_output()] if asmhdr else [],
+            ["-complete"] if complete else [],
             cmd_args(srcs_argsfile, format = "@{}", hidden = go_srcs),
         ],
         hidden = embed_files,  #  files and directories should be available for embedding
