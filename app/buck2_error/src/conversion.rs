@@ -9,6 +9,7 @@
 
 //! Conversion impls for different error types to 'buck2_error::Error'
 
+pub mod clap;
 pub mod dice_error;
 pub mod edenfs_clients;
 pub mod hex;

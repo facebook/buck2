@@ -26,6 +26,7 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:hex",

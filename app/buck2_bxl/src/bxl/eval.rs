@@ -444,7 +444,7 @@ pub(crate) async fn resolve_cli_args<'a>(
 
                 Ok(BxlResolvedCliArgs::Help)
             }
-            _ => Err(from_any_with_tag(e, buck2_error::ErrorTag::Tier0)),
+            _ => Err(e.into()),
         },
     }
 }

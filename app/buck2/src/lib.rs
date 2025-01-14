@@ -221,8 +221,7 @@ impl ParsedArgv {
         let clap = Opt::command();
         let matches = clap.get_matches_from(argv.expanded_argv.args());
 
-        let opt: Opt = Opt::from_arg_matches(&matches)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        let opt: Opt = Opt::from_arg_matches(&matches)?;
 
         if opt.common_opts.help_wrapper {
             return Err(buck2_error!(
