@@ -16,6 +16,7 @@ use buck2_util::process::async_background_command;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 
+#[derive(Debug, PartialEq)]
 pub(crate) enum SaplingStatus {
     Modified,
     Added,
@@ -149,5 +150,62 @@ fn process_one_status_line(line: &str) -> buck2_error::Result<Option<(SaplingSta
             buck2_error::ErrorTag::Tier0,
             "Invalid status line: {line}"
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sl_status_line() -> buck2_error::Result<()> {
+        assert_eq!(
+            process_one_status_line("M buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
+            Some((
+                SaplingStatus::Modified,
+                "buck2/app/buck2_file_watcher/src/edenfs/sapling.rs".to_owned()
+            ))
+        );
+
+        assert_eq!(
+            process_one_status_line("A buck2/app/buck2_file_watcher/src/edenfs/interface.rs")?,
+            Some((
+                SaplingStatus::Added,
+                "buck2/app/buck2_file_watcher/src/edenfs/interface.rs".to_owned()
+            ))
+        );
+
+        assert_eq!(
+            process_one_status_line("R buck2/app/buck2_file_watcher/src/edenfs/utils.rs")?,
+            Some((
+                SaplingStatus::Removed,
+                "buck2/app/buck2_file_watcher/src/edenfs/utils.rs".to_owned()
+            ))
+        );
+
+        assert_eq!(
+            process_one_status_line("! buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
+            Some((
+                SaplingStatus::Missing,
+                "buck2/app/buck2_file_watcher/src/edenfs/sapling.rs".to_owned()
+            ))
+        );
+
+        assert_eq!(
+            process_one_status_line("? buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
+            Some((
+                SaplingStatus::NotTracked,
+                "buck2/app/buck2_file_watcher/src/edenfs/sapling.rs".to_owned()
+            ))
+        );
+
+        assert_eq!(
+            process_one_status_line("C buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
+            None
+        );
+
+        assert!(process_one_status_line("NO").is_err());
+
+        Ok(())
     }
 }
