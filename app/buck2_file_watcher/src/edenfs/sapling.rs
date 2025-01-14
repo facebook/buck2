@@ -77,11 +77,9 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     limit_results: usize,
 ) -> buck2_error::Result<SaplingGetStatusResult> {
     let mut args = vec!["status", "--traceback", "-mardui", "--rev", first.as_ref()];
-    let second_str: String;
-    if let Some(second) = second {
-        second_str = second.as_ref().to_owned();
+    if let Some(ref second) = second {
         args.push("--rev");
-        args.push(second_str.as_str());
+        args.push(second.as_ref());
     }
 
     let mut output = async_background_command("sl")
@@ -99,7 +97,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     })?;
     let reader = BufReader::new(stdout);
 
-    let mut status: Vec<(SaplingStatus, String)> = vec![];
+    let mut status = vec![];
     let mut lines = reader.lines();
     while let Some(line) = lines.next_line().await? {
         if let Some(status_line) = process_one_status_line(&line)? {
