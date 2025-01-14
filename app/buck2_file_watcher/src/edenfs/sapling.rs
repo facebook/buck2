@@ -16,7 +16,7 @@ use buck2_util::process::async_background_command;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
 
-pub enum SaplingStatus {
+pub(crate) enum SaplingStatus {
     Modified,
     Added,
     Removed,
@@ -24,12 +24,12 @@ pub enum SaplingStatus {
     NotTracked,
 }
 
-pub enum SaplingGetStatusResult {
+pub(crate) enum SaplingGetStatusResult {
     Normal(Vec<(SaplingStatus, String)>),
     TooManyChanges,
 }
 
-pub async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
+pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
     current_dir: D,
     commit: C,
     mergegase_with: M,
@@ -70,7 +70,7 @@ pub async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
 // Get status between two revisions. If second is None, then it is the working copy.
 // Limit the number of results to limit_results. If the number of results is greater than
 // limit_results, then return true (and empty vec) to indicate that there are more results.
-pub async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
+pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     current_dir: D,
     first: F,
     second: Option<S>,
