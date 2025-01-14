@@ -33,14 +33,22 @@ export function GraphViz2(props: {
       const textWidth = ctx.measureText(label).width
       const padding = fontSize * 0.1
       const bckgDimensions = [textWidth + padding, fontSize + padding] // some padding
-
+      const angle = -Math.PI / 10 // 18 degrees
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-      ctx.fillRect(node.x!, node.y! - bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1])
+
+      // Need to save before rotating and/or translating
+      ctx.save()
+      ctx.translate(node.x!, node.y!)
+      ctx.rotate(angle)
+
+      ctx.fillRect(0, 0 - bckgDimensions[1] / 2, bckgDimensions[0], bckgDimensions[1])
 
       ctx.textAlign = 'left'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = '#000'
-      ctx.fillText(label, node.x! + padding, node.y!)
+      ctx.fillText(label, 0 + padding, 0)
+      // Reset translation and rotation back
+      ctx.restore()
     }
     paintMode = _node => 'after'
   }
