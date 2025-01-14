@@ -100,7 +100,7 @@ def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_laz
         debug_settings[DEBUG_CMD] = "$(RepoRoot)\\" + debug_settings[DEBUG_ARGS][0]
         debug_settings[DEBUG_PWD] = "$(RepoRoot)\\" + dirname(debug_settings[DEBUG_ARGS][0], separator = "\\")
         debug_settings[DEBUG_ARGS].pop(0)
-    elif attrs["buck_type"] == "command_alias":
+    elif attrs["buck_type"] == "command_alias" and attrs["exe"]:
         # Replicate generic command_alias as buck launches exe binary via child process which Visual Studio cannot debug into.
         exe_target = bxl_ctx.configured_targets(attrs["exe"], modifiers = bxl_ctx.modifiers)
         debug_settings[DEBUG_CMD] = vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][DEBUG_CMD]
