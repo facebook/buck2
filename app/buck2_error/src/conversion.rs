@@ -25,6 +25,7 @@ pub mod serde_json;
 pub mod stds;
 pub mod tokio;
 pub mod tonic;
+pub mod uuid;
 pub mod watchman_client;
 
 use buck2_data::error::ErrorTag;

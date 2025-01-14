@@ -28,6 +28,7 @@ smallvec = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
+uuid = { workspace = true }
 
 allocative = { workspace = true }
 dice_error = { workspace = true }
