@@ -171,8 +171,8 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
         dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
         filtered_map = {}
-        for info in filtered_debug_info.infos:
-            filtered_map.setdefault(info.label, []).extend(info.artifacts)
+        for selected_target_info in filtered_debug_info.selected_target_infos:
+            filtered_map.setdefault(selected_target_info.label, []).extend(selected_target_info.artifacts)
 
         debuggable_info = AppleDebuggableInfo(
             dsyms = [dsym_artifact],
