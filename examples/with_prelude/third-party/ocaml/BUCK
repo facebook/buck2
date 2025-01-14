@@ -29,6 +29,7 @@ prebuilt_ocaml_library(
     name = "ocaml.compiler-libs.common",
     bytecode_lib = "opam/lib/ocaml/compiler-libs/ocamlcommon.cma",
     include_dir = "opam/lib/ocaml/compiler-libs",
+    native_c_libs = ["opam/lib/ocaml/libcomprmarsh.a"],
     native_lib = "opam/lib/ocaml/compiler-libs/ocamlcommon.cmxa",
     visibility = ["PUBLIC"],
     deps = [],
