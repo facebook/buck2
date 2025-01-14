@@ -77,7 +77,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     second: Option<S>,
     limit_results: usize,
 ) -> buck2_error::Result<SaplingGetStatusResult> {
-    let mut args = vec!["status", "--traceback", "-mardui", "--rev", first.as_ref()];
+    let mut args = vec!["status", "--traceback", "-mardu", "--rev", first.as_ref()];
     if let Some(ref second) = second {
         args.push("--rev");
         args.push(second.as_ref());
