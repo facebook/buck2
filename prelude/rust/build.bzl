@@ -104,20 +104,34 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     srcs.update({k: v for v, k in ctx.attrs.mapped_srcs.items()})
 
     # Decide whether to use symlinked_dir or copied_dir.
-    #
-    # If a source is a prefix of any other source, use copied_dir. This supports
-    # e.g. `srcs = [":foo.crate"]` where :foo.crate is an http_archive, together
-    # with a `mapped_srcs` which overlays additional generated files into that
-    # directory. Symlinked_dir would error in this situation.
     prefixes = {}
     symlinked_srcs = None
-    for src in sorted(srcs.keys(), key = len, reverse = True):
-        if src in prefixes:
-            symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
-            break
-        components = src.split("/")
-        for i in range(1, len(components)):
-            prefixes["/".join(components[:i])] = None
+
+    if "generated" in ctx.attrs.labels:
+        # For generated code targets, we always want to copy files in the [sources]
+        # subtarget, never symlink.
+        #
+        # This ensures that IDEs that open the generated file always see the correct
+        # directory structure.
+        #
+        # VS Code will expand symlinks when doing go-to-definition. In normal source
+        # files this takes us back to the correct path, but for generated files the
+        # expanded path may not be a well-formed crate layout.
+        symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
+    else:
+        # If a source is a prefix of any other source, use copied_dir. This supports
+        # e.g. `srcs = [":foo.crate"]` where :foo.crate is an http_archive, together
+        # with a `mapped_srcs` which overlays additional generated files into that
+        # directory. Symlinked_dir would error in this situation.
+        for src in sorted(srcs.keys(), key = len, reverse = True):
+            if src in prefixes:
+                symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
+                break
+            components = src.split("/")
+            for i in range(1, len(components)):
+                prefixes["/".join(components[:i])] = None
+
+    # Otherwise, symlink it.
     if not symlinked_srcs:
         symlinked_srcs = ctx.actions.symlinked_dir("__srcs", srcs)
 
