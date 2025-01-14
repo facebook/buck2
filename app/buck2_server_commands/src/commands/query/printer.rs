@@ -437,10 +437,16 @@ impl<'a> QueryResultPrinter<'a> {
                         writeln!(&mut output)?;
                     }
                     QueryOutputFormat::Dot => {
-                        unimplemented!("dot output for files not implemented yet")
+                        return Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Unimplemented,
+                            "dot output for files not implemented yet"
+                        ));
                     }
                     QueryOutputFormat::DotCompact => {
-                        unimplemented!("dot_compact output for files not implemented yet")
+                        return Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Unimplemented,
+                            "dot_compact output for files not implemented yet"
+                        ));
                     }
                 }
             }

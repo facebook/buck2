@@ -86,14 +86,14 @@ mod imp {
         // TODO(swgillespie) the `jemalloc_ctl` crate is probably capable of doing this
         // and we already link against it
         Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Input,
+            buck2_error::ErrorTag::Unimplemented,
             "not implemented: heap dump for Cargo builds"
         ))
     }
 
     pub fn allocator_stats(_: &str) -> buck2_error::Result<String> {
         Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Input,
+            buck2_error::ErrorTag::Unimplemented,
             "not implemented: allocator stats  for Cargo builds"
         ))
     }

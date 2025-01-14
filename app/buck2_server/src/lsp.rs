@@ -709,7 +709,11 @@ impl<'a> LspContext for BuckLspContext<'a> {
         _current_file: &LspUrl,
         _workspace_root: Option<&Path>,
     ) -> anyhow::Result<String> {
-        Err(anyhow::anyhow!("Not yet implemented, render_as_load"))
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Unimplemented,
+            "Not yet implemented, render_as_load"
+        )
+        .into())
     }
 
     fn get_environment(&self, _uri: &LspUrl) -> DocModule {

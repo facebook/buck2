@@ -151,6 +151,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::HttpClient => rank!(input),
         ErrorTag::Analysis => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
+        ErrorTag::Unimplemented => rank!(input),
 
         ErrorTag::Input => rank!(input),
 

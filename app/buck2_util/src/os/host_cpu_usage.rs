@@ -59,7 +59,7 @@ impl HostCpuUsage {
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::Unimplemented,
                 "HostCpuUsage is not implemented for this platform"
             ))
         }
