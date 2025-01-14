@@ -511,7 +511,9 @@ def _compile_single_cxx(
         error_handler_args["error_handler"] = src_compile_cmd.error_handler
 
     external_debug_info = None
-    if getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang":
+    extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
+    use_external_debug_info = getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
+    if use_external_debug_info:
         external_debug_info = ctx.actions.declare_output(
             folder_name,
             "{}.{}".format(filename_base, "dwo"),
