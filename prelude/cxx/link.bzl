@@ -331,13 +331,19 @@ def cxx_link_into(
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix)
 
-    final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, external_debug_info, opts.identifier)
+    use_bolt = (is_result_executable and cxx_use_bolt(ctx))
+    if use_bolt:
+        bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, should_generate_dwp)
+        output = bolt_output.output
+        split_debug_output = bolt_output.dwo_output
 
     dwp_artifact = None
     if should_generate_dwp:
         dwp_inputs = cmd_args()
         dwp_from_dwo = getattr(ctx.attrs, "separate_debug_info", False) and cxx_toolchain_info.split_debug_mode == SplitDebugMode("split")
-        if dwp_from_dwo:
+        if use_bolt:
+            dwp_inputs.add([split_debug_output])
+        elif dwp_from_dwo:
             dwp_inputs.add(project_identified_artifacts(ctx.actions, [external_debug_info]))
         else:
             for link in opts.links:
@@ -347,7 +353,7 @@ def cxx_link_into(
         dwp_artifact = dwp(
             ctx,
             cxx_toolchain_info,
-            final_output,
+            output,
             identifier = opts.identifier,
             category_suffix = opts.category_suffix,
             # TODO(T110378142): Ideally, referenced objects are a list of
@@ -358,10 +364,11 @@ def cxx_link_into(
             from_exe = not dwp_from_dwo,
         )
 
-    final_output = stamp_build_info(ctx, final_output) if is_result_executable else final_output
+    if is_result_executable:
+        output = stamp_build_info(ctx, output)
 
     linked_object = LinkedObject(
-        output = final_output,
+        output = output,
         link_args = opts.links,
         bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
         prebolt_output = output,

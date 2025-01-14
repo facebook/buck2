@@ -626,12 +626,22 @@ def cxx_gnu_dist_link(
         ],
     )
 
-    final_output = output if not (executable_link and cxx_use_bolt(ctx)) else bolt(ctx, output, external_debug_info, identifier)
+    if (executable_link and cxx_use_bolt(ctx)):
+        bolt_output = bolt(ctx, output, external_debug_info, identifier, generate_dwp)
+        final_output = bolt_output.output
+        split_debug_output = bolt_output.dwo_output
+    else:
+        final_output = output
+        split_debug_output = None
+
     dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if generate_dwp else None
 
     if generate_dwp:
-        materialized_external_debug_info = project_artifacts(ctx.actions, [external_debug_info])
-        referenced_objects = final_link_inputs + materialized_external_debug_info
+        if split_debug_output:
+            referenced_objects = final_link_inputs + [split_debug_output]
+        else:
+            materialized_external_debug_info = project_artifacts(ctx.actions, [external_debug_info])
+            referenced_objects = final_link_inputs + materialized_external_debug_info
         run_dwp_action(
             ctx = ctx,
             toolchain = cxx_toolchain,
