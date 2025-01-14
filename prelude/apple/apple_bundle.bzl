@@ -106,6 +106,11 @@ AppleBundlePartListOutput = record(
     info_plist_part = field(AppleBundlePart),
 )
 
+_AppleBundleBinaryParts = record(
+    all_parts = field(list[AppleBundlePart]),
+    primary_part = field(AppleBundlePart),
+)
+
 def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
     binary_deps = get_flattened_binary_deps(ctx.attrs.binary)
     if len(binary_deps) > 1:
@@ -203,7 +208,7 @@ def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTS
     )
     return dsym_artifact
 
-def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, aggregated_debug_info: AggregatedAppleDebugInfo) -> (list[AppleBundlePart], AppleBundlePart):
+def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, aggregated_debug_info: AggregatedAppleDebugInfo) -> _AppleBundleBinaryParts:
     """Returns a tuple of all binary bundle parts and the primary bundle binary."""
     result = []
 
@@ -214,7 +219,10 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
     if selected_debug_target_part:
         result.append(selected_debug_target_part)
 
-    return result, primary_binary_part
+    return _AppleBundleBinaryParts(
+        all_parts = result,
+        primary_part = primary_binary_part,
+    )
 
 def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, primary_binary_path_arg: cmd_args) -> cmd_args:
     # We've already scrubbed the default binary, we only want to scrub the unstripped one if present.
@@ -328,12 +336,12 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     deps_debuggable_infos = _get_deps_debuggable_infos(ctx)
     aggregated_debug_info = _get_all_agg_debug_info(ctx, binary_outputs, deps_debuggable_infos)
 
-    all_binary_parts, primary_binary_part = _get_binary_bundle_parts(ctx, binary_outputs, aggregated_debug_info)
-    apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = all_binary_parts))
+    binary_parts = _get_binary_bundle_parts(ctx, binary_outputs, aggregated_debug_info)
+    apple_bundle_part_list_output = get_apple_bundle_part_list(ctx, AppleBundlePartListConstructorParams(binaries = binary_parts.all_parts))
 
     bundle = bundle_output(ctx)
 
-    primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, primary_binary_part)
+    primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_parts.primary_part)
 
     validation_deps_outputs = get_validation_deps_outputs(ctx)
 
