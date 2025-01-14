@@ -109,6 +109,7 @@ AppleBundlePartListOutput = record(
 _AppleBundleBinaryParts = record(
     all_parts = field(list[AppleBundlePart]),
     primary_part = field(AppleBundlePart),
+    sub_targets = field(dict[str, list[DefaultInfo]]),
 )
 
 def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
@@ -219,9 +220,14 @@ def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBin
     if selected_debug_target_part:
         result.append(selected_debug_target_part)
 
+    sub_targets = {
+        "selected-debug-paths": [DefaultInfo(default_output = selected_debug_target_part.source if selected_debug_target_part else None)],
+    }
+
     return _AppleBundleBinaryParts(
         all_parts = result,
         primary_part = primary_binary_part,
+        sub_targets = sub_targets,
     )
 
 def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, primary_binary_path_arg: cmd_args) -> cmd_args:
@@ -361,6 +367,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     sub_targets = bundle_result.sub_targets
     sub_targets.update(aggregated_debug_info.sub_targets)
+    sub_targets.update(binary_parts.sub_targets)
 
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
     primary_binary_path_arg = cmd_args(primary_binary_path, hidden = bundle)
