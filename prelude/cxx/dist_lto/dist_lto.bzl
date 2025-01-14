@@ -90,7 +90,7 @@ def cxx_gnu_dist_link(
         opts: LinkOptions,
         linker_map: Artifact | None = None,
         # This action will only happen if split_dwarf is enabled via the toolchain.
-        generate_dwp: bool = True,
+        dwp_tool_available: bool = True,
         executable_link: bool = True) -> LinkedObject:
     """
     Perform a distributed thin-lto link into the supplied output
@@ -627,16 +627,16 @@ def cxx_gnu_dist_link(
     )
 
     if (executable_link and cxx_use_bolt(ctx)):
-        bolt_output = bolt(ctx, output, external_debug_info, identifier, generate_dwp)
+        bolt_output = bolt(ctx, output, external_debug_info, identifier, dwp_tool_available)
         final_output = bolt_output.output
         split_debug_output = bolt_output.dwo_output
     else:
         final_output = output
         split_debug_output = None
 
-    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if generate_dwp else None
+    dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp") if dwp_tool_available else None
 
-    if generate_dwp:
+    if dwp_tool_available:
         if split_debug_output:
             referenced_objects = final_link_inputs + [split_debug_output]
         else:

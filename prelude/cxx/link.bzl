@@ -136,7 +136,7 @@ def cxx_link_into(
     cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = dwp_available(cxx_toolchain_info)
+    dwp_tool_available = dwp_available(cxx_toolchain_info)
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps:
@@ -172,7 +172,7 @@ def cxx_link_into(
                 output,
                 opts,
                 linker_map,
-                should_generate_dwp,
+                dwp_tool_available,
                 is_result_executable,
             )
             extra_outputs = {}
@@ -333,12 +333,12 @@ def cxx_link_into(
 
     use_bolt = (is_result_executable and cxx_use_bolt(ctx))
     if use_bolt:
-        bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, should_generate_dwp)
+        bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, dwp_tool_available)
         output = bolt_output.output
         split_debug_output = bolt_output.dwo_output
 
     dwp_artifact = None
-    if should_generate_dwp:
+    if dwp_tool_available:
         dwp_inputs = cmd_args()
         dwp_from_dwo = getattr(ctx.attrs, "separate_debug_info", False) and cxx_toolchain_info.split_debug_mode == SplitDebugMode("split")
         if use_bolt:
