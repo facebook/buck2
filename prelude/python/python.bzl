@@ -5,10 +5,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//linking:shared_libraries.bzl", "traverse_shared_library_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
-load(":interface.bzl", "PythonLibraryInterface", "PythonLibraryManifestsInterface")
+load(":interface.bzl", "PythonLibraryManifestsInterface")
 load(":manifest.bzl", "ManifestInfo")
 
 PythonLibraryManifests = record(
@@ -142,14 +141,6 @@ PythonLibraryInfo = provider(fields = {
     "manifests": provider_field(typing.Any, default = None),  # PythonLibraryManifestsTSet
     "shared_libraries": provider_field(typing.Any, default = None),  # "SharedLibraryInfo"
 })
-
-def info_to_interface(info: PythonLibraryInfo) -> PythonLibraryInterface:
-    return PythonLibraryInterface(
-        shared_libraries = lambda: traverse_shared_library_info(info.shared_libraries),
-        extension_shared_libraries = lambda: traverse_shared_library_info(info.extension_shared_libraries),
-        iter_manifests = lambda: info.manifests.traverse(),
-        manifests = lambda: manifests_to_interface(info.manifests),
-    )
 
 def _get_resource_manifests(standalone: typing.Any, manifests: typing.Any) -> typing.Any:
     if standalone:

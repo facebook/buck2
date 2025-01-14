@@ -89,7 +89,6 @@ load(
     ":interface.bzl",
     "EntryPoint",
     "EntryPointKind",
-    "PythonLibraryInterface",
 )
 load(":make_py_package.bzl", "PexModules", "PexProviders", "make_default_info", "make_py_package", "make_run_info")
 load(
@@ -98,7 +97,7 @@ load(
     "create_manifest_for_source_map",
 )
 load(":native_python_util.bzl", "merge_cxx_extension_info", "reduce_cxx_extension_info")
-load(":python.bzl", "info_to_interface")
+load(":python.bzl", "PythonLibraryInfo", "manifests_to_interface")
 load(
     ":python_library.bzl",
     "create_python_library_info",
@@ -391,7 +390,7 @@ def python_executable(
             main,
             ctx.attrs.base_module if ctx.attrs.base_module != None else ctx.label.package.replace("/", "."),
         ),
-        info_to_interface(library_info),
+        library_info,
         raw_deps,
         compile,
         allow_cache_upload,
@@ -438,7 +437,7 @@ def python_executable(
 def _convert_python_library_to_executable(
         ctx: AnalysisContext,
         main: EntryPoint,
-        library: PythonLibraryInterface,
+        library: PythonLibraryInfo,
         deps: list[Dependency],
         compile: bool,
         allow_cache_upload: bool,
@@ -454,7 +453,7 @@ def _convert_python_library_to_executable(
     extensions = {}
     extra_artifacts = {}
     link_args = []
-    for manifest in library.iter_manifests():
+    for manifest in library.manifests.traverse():
         if manifest.extensions:
             _merge_extensions(extensions, manifest.label, manifest.extensions)
 
@@ -462,10 +461,10 @@ def _convert_python_library_to_executable(
         # In fat target platforms, there may not be a CXX toolchain available.
         shared_libs = [
             ("", shared_lib)
-            for shared_lib in library.shared_libraries()
+            for shared_lib in traverse_shared_library_info(library.shared_libraries)
         ] + [
             ("", shared_lib)
-            for shared_lib in library.extension_shared_libraries()
+            for shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
         ]
     elif _link_strategy(ctx) == NativeLinkStrategy("merged"):
         # If we're using omnibus linking, re-link libraries and extensions and
@@ -695,7 +694,7 @@ def _convert_python_library_to_executable(
     else:
         shared_libs = [
             ("", shared_lib)
-            for shared_lib in library.shared_libraries()
+            for shared_lib in traverse_shared_library_info(library.shared_libraries)
         ]
 
         if (not ctx.attrs.standalone_extensions) or ctx.attrs.link_style == "shared":
@@ -703,7 +702,7 @@ def _convert_python_library_to_executable(
             # python extensions without additional transitive shared libraries
             shared_libs += [
                 ("", extension_shared_lib)
-                for extension_shared_lib in library.extension_shared_libraries()
+                for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
             ]
 
     if dbg_source_db:
@@ -777,7 +776,7 @@ def _convert_python_library_to_executable(
 
     # Combine sources and extensions into a map of all modules.
     pex_modules = PexModules(
-        manifests = library.manifests(),
+        manifests = manifests_to_interface(library.manifests),
         extra_manifests = extra_manifests,
         compile = compile,
         extensions = create_manifest_for_extensions(
