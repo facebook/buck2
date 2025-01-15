@@ -689,6 +689,7 @@ impl RunAction {
 
 pub(crate) struct PreparedRunAction {
     expanded: ExpandedCommandLine,
+    /// Environment which is added on top of the one coming from `ExpandedCommandLine::env`
     extra_env: Vec<(String, String)>,
     paths: CommandExecutionPaths,
     worker: Option<WorkerSpec>,
