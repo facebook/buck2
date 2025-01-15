@@ -157,13 +157,10 @@ async fn compute_execution_platforms(
         .provider_collection()
         .builtin_provider::<FrozenExecutionPlatformRegistrationInfo>()
         .ok_or_else(|| {
-            buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
-                "{}",
+            buck2_error::Error::from(
                 ConfigurationError::MissingExecutionPlatformRegistrationInfo(
-                    execution_platforms_target.dupe()
-                )
-                .to_string()
+                    execution_platforms_target.dupe(),
+                ),
             )
         })?;
 

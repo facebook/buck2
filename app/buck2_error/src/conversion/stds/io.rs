@@ -11,6 +11,6 @@ impl From<std::io::Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::io::Error) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::IoSystem)
     }
 }

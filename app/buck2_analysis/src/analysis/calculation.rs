@@ -106,9 +106,7 @@ impl RuleAnalsysisCalculationImpl for RuleAnalysisCalculationInstance {
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
     ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
-        ctx.compute(&AnalysisKey(target.dupe()))
-            .await?
-            .map_err(buck2_error::Error::from)
+        ctx.compute(&AnalysisKey(target.dupe())).await?
     }
 }
 

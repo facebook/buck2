@@ -46,13 +46,15 @@ const TICKS_PER_SECOND: u32 = 10;
 
 #[derive(Debug, buck2_error::Error)]
 #[allow(clippy::large_enum_variant)]
-#[buck2(tag = Tier0)]
 enum BuckdCommunicationError {
     #[error("call to daemon returned an unexpected result type. got `{0:?}`")]
+    #[buck2(tag = Tier0)]
     UnexpectedResultType(command_result::Result),
     #[error("buck daemon returned an empty CommandResult")]
+    #[buck2(tag = Tier0)]
     EmptyCommandResult,
     #[error("buck daemon request finished without returning a CommandResult")]
+    #[buck2(tag = Tier0)]
     MissingCommandResult,
     #[error(
         "The Buck2 daemon was shut down while executing your command. This happened because: {0}"
@@ -60,6 +62,7 @@ enum BuckdCommunicationError {
     #[buck2(tag = InterruptedByDaemonShutdown)]
     InterruptedByDaemonShutdown(buck2_data::DaemonShutdown),
     #[error("buckd communication encountered an unexpected error `{0:?}`")]
+    #[buck2(tag = Tier0)]
     TonicError(tonic::Status),
 }
 
