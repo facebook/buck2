@@ -174,12 +174,12 @@ def read_choice(section, field, choices, default = None, required = True, root_c
     else:
         fail("`{}:{}`: no value set".format(section, field))
 
-def read_bool(section, field, default = None, required = True, root_cell = False):
+def read_bool(section, field, default = None, required = True, root_cell = False, logging: bool = True):
     """Read a `boolean` from `.buckconfig`."""
 
     # Treat the empty string as "unset".  This allows the user to "override" a
     # previous setting by "clearing" it out.
-    val = read(section, field, root_cell = root_cell)
+    val = read(section, field, root_cell = root_cell, logging = logging)
     if val != None and val != "":
         # Fast-path string check
         if val == "True" or val == "true":
