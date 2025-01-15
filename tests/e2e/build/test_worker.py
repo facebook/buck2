@@ -110,6 +110,14 @@ async def test_worker(buck: Buck) -> None:
         ]
         assert what_ran_matching == expected, what_ran
 
+    # Streaming execution demo
+    res = await buck.build(*worker_args, package + ":gen_worker_run_out_streaming")
+    output = res.get_build_report().output_for_target(
+        package + ":gen_worker_run_out_streaming"
+    )
+    assert output.read_text() == "hello worker"
+    assert len(await read_what_ran_for_executor(buck, "Worker")) == 1
+
     # TODO(ctolliday) re-enable once cancellation is in place
     # assert_executed(
     #     await read_what_ran(buck),
