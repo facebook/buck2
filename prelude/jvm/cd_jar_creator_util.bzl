@@ -252,7 +252,6 @@ def encode_base_jar_command(
         javac_tool: [str, RunInfo, Artifact, None],
         target_type: TargetType,
         output_paths: OutputPaths,
-        path_to_class_hashes: [Artifact, None],
         remove_classes: list[str],
         label: Label,
         compiling_deps_tset: [JavaCompilingDepsTSet, None],
@@ -336,7 +335,6 @@ def encode_base_jar_command(
         jarParameters = jar_parameters,
         pathToClasses = output_paths.jar.as_output(),
         rootOutput = output_paths.jar_parent.as_output(),
-        pathToClassHashes = path_to_class_hashes.as_output() if path_to_class_hashes else None,
         annotationsPath = output_paths.annotations.as_output(),
     )
 
@@ -528,7 +526,6 @@ def encode_command(
         build_mode: BuildMode,
         target_type: TargetType,
         output_paths: OutputPaths,
-        path_to_class_hashes: [Artifact, None],
         classpath_jars_tag: ArtifactTag,
         source_only_abi_compiling_deps: list[JavaClasspathEntry],
         track_class_usage: bool) -> struct:
@@ -536,7 +533,6 @@ def encode_command(
         javac_tool,
         target_type,
         output_paths,
-        path_to_class_hashes,
         remove_classes,
         label,
         compiling_deps_tset,
@@ -606,7 +602,6 @@ def generate_abi_jars(
                 build_mode = BuildMode("ABI"),
                 target_type = source_abi_target_type,
                 output_paths = source_abi_output_paths,
-                path_to_class_hashes = None,
                 classpath_jars_tag = source_abi_classpath_jars_tag,
                 source_only_abi_compiling_deps = [],
                 track_class_usage = track_class_usage,
@@ -639,7 +634,6 @@ def generate_abi_jars(
                 build_mode = BuildMode("ABI"),
                 target_type = source_only_abi_target_type,
                 output_paths = source_only_abi_output_paths,
-                path_to_class_hashes = None,
                 classpath_jars_tag = source_only_abi_classpath_jars_tag,
                 source_only_abi_compiling_deps = source_only_abi_compiling_deps,
                 track_class_usage = track_class_usage,

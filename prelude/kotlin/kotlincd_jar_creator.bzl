@@ -90,7 +90,6 @@ def create_jar_artifact_kotlincd(
     actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("none")
 
     output_paths = define_output_paths(actions, actions_identifier, label)
-    path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
     should_create_class_abi = \
         not is_creating_subtarget and \
@@ -171,7 +170,6 @@ def create_jar_artifact_kotlincd(
         build_mode = BuildMode("LIBRARY"),
         target_type = TargetType("library"),
         output_paths = output_paths,
-        path_to_class_hashes = path_to_class_hashes_out,
         classpath_jars_tag = library_classpath_jars_tag,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,

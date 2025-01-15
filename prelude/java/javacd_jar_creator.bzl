@@ -98,7 +98,6 @@ def create_jar_artifact_javacd(
         class_abi_output_dir = None
 
     output_paths = define_output_paths(actions, actions_identifier, label)
-    path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
@@ -137,7 +136,6 @@ def create_jar_artifact_javacd(
         build_mode = BuildMode("LIBRARY"),
         target_type = TargetType("library"),
         output_paths = output_paths,
-        path_to_class_hashes = path_to_class_hashes_out,
         classpath_jars_tag = library_classpath_jars_tag,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
