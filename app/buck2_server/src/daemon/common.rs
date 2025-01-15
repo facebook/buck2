@@ -500,6 +500,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
         options: CommandGenerationOptions {
             path_separator: get_default_path_separator(host_platform),
             output_paths_behavior: Default::default(),
+            use_remote_persistent_workers: false,
         },
     }
 }

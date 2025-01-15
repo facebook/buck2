@@ -47,6 +47,8 @@ pub struct WorkerInfoGen<V: ValueLifetimeless> {
     pub exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
     pub concurrency: ValueOfUncheckedGeneric<V, NoneOr<usize>>,
+    // Remote execution capable worker
+    pub remote: ValueOfUncheckedGeneric<V, bool>,
 
     pub id: u64,
 }
@@ -64,6 +66,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] concurrency: NoneOr<
             ValueOf<'v, usize>,
         >,
+        #[starlark(require = named, default = false)] remote: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
@@ -74,6 +77,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
             exe,
             id,
             concurrency: heap.alloc_typed_unchecked(concurrency).cast(),
+            remote: heap.alloc_typed_unchecked(remote).cast(),
         })
     }
 }
@@ -91,6 +95,13 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
             .unpack()
             .expect("validated at construction")
             .into_option()
+    }
+
+    pub fn remote(&self) -> bool {
+        self.remote
+            .to_value()
+            .unpack()
+            .expect("validated at construction")
     }
 }
 

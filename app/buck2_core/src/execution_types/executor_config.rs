@@ -283,6 +283,7 @@ impl Default for CacheUploadBehavior {
 pub struct CommandGenerationOptions {
     pub path_separator: PathSeparatorKind,
     pub output_paths_behavior: OutputPathsBehavior,
+    pub use_remote_persistent_workers: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone)]
@@ -314,6 +315,7 @@ impl CommandExecutorConfig {
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),
+                use_remote_persistent_workers: false,
             },
         })
     }

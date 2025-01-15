@@ -278,11 +278,12 @@ impl CommandExecutionPaths {
 #[derive(Copy, Clone, Dupe, Debug, Display, Allocative, Hash, PartialEq, Eq)]
 pub struct WorkerId(pub u64);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
     pub concurrency: Option<usize>,
+    pub remote_key: Option<TrackedFileDigest>,
 }
 
 /// The data contains the information about the command to be executed.
