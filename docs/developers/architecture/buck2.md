@@ -163,7 +163,7 @@ action's inputs that are missing from the RE's content addressable storage. If
 Buck2 decides to run the action locally, it will first download and materialize
 in `buck-out` all of the action's inputs. These inputs might be outputs of other
 actions and are stored in RE's content addressable storage but are missing on
-the local machine.Only after those steps will Buck2 schedule the action for
+the local machine. Only after those steps will Buck2 schedule the action for
 actual execution.
 
 Buck2 can also decide to run local and remote execution simultaneously (a
