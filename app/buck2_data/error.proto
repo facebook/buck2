@@ -210,6 +210,15 @@ enum ErrorTag {
   RE_DATA_LOSS = 1315;
   RE_UNAUTHENTICATED = 1316;
 
+  // Dice Errors
+  // Value: https://fburl.com/code/5dxzaw41
+  DICE_DUPLICATED_CHANGE = 1400;
+  DICE_CHANGED_TO_INVALID = 1401;
+  DICE_INJECTED_KEY_GOT_INVALIDATION = 1402;
+  DICE_CANCELLED = 1403;
+  DICE_UNEXPECTED_CYCLE_GUARD_TYPE = 1404;
+  DICE_DUPLICATE_ACTIVATION_DATA = 1405;
+
   // Error during attribute configuration during target configuration.
   CONFIGURE_ATTR = 3001;
   // Action execution

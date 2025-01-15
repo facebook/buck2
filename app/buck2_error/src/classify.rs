@@ -117,6 +117,12 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::HttpServer => rank!(tier0),
         ErrorTag::StarlarkInternal => rank!(tier0),
         ErrorTag::ActionMismatchedOutputs => rank!(tier0),
+        ErrorTag::DiceDuplicatedChange => rank!(tier0),
+        ErrorTag::DiceChangedToInvalid => rank!(tier0),
+        ErrorTag::DiceInjectedKeyGotInvalidation => rank!(tier0),
+        ErrorTag::DiceCancelled => rank!(tier0),
+        ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
+        ErrorTag::DiceDuplicateActivationData => rank!(tier0),
 
         ErrorTag::Environment => rank!(environment),
         ErrorTag::Tier0 => rank!(tier0),
