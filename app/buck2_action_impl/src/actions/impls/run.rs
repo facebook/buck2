@@ -262,6 +262,7 @@ struct UnpackedWorkerValues<'v> {
     exe: &'v dyn CommandLineArgLike,
     id: WorkerId,
     concurrency: Option<usize>,
+    streaming: bool,
 }
 
 struct UnpackedRunActionValues<'v> {
@@ -318,6 +319,7 @@ impl RunAction {
             exe: worker.exe_command_line(),
             id: WorkerId(worker.id),
             concurrency: worker.concurrency(),
+            streaming: worker.streaming(),
         });
 
         Ok(UnpackedRunActionValues {
@@ -354,6 +356,7 @@ impl RunAction {
                 exe: worker_rendered,
                 id: worker.id,
                 concurrency: worker.concurrency,
+                streaming: worker.streaming,
             })
         } else {
             None

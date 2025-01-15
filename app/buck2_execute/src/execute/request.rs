@@ -283,6 +283,7 @@ pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
     pub concurrency: Option<usize>,
+    pub streaming: bool,
 }
 
 /// The data contains the information about the command to be executed.

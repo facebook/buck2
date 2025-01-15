@@ -1732,6 +1732,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     exe: worker_rendered,
                     id: WorkerId(worker.id),
                     concurrency: worker.concurrency(),
+                    streaming: worker.streaming(),
                 })
             }
             _ => None,

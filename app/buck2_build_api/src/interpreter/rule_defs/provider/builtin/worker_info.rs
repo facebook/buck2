@@ -20,6 +20,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::list::AllocList;
 use starlark::values::none::NoneOr;
+use starlark::values::none::NoneType;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -47,6 +48,8 @@ pub struct WorkerInfoGen<V: ValueLifetimeless> {
     pub exe: ValueOfUncheckedGeneric<V, FrozenStarlarkCmdArgs>,
     // Maximum number of concurrent commands to execute on a worker instance without queuing
     pub concurrency: ValueOfUncheckedGeneric<V, NoneOr<usize>>,
+    // Whether to always run actions using this worker via the streaming API
+    pub streaming: ValueOfUncheckedGeneric<V, bool>,
 
     pub id: u64,
 }
@@ -64,6 +67,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] concurrency: NoneOr<
             ValueOf<'v, usize>,
         >,
+        #[starlark(require = named, default = NoneType)] streaming: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
@@ -74,6 +78,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
             exe,
             id,
             concurrency: heap.alloc_typed_unchecked(concurrency).cast(),
+            streaming: ValueOfUnchecked::new(streaming),
         })
     }
 }
@@ -91,6 +96,14 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
             .unpack()
             .expect("validated at construction")
             .into_option()
+    }
+
+    pub fn streaming(&self) -> bool {
+        NoneOr::<bool>::unpack_value(self.streaming.get().to_value())
+            .unwrap()
+            .unwrap()
+            .into_option()
+            .unwrap_or(false)
     }
 }
 

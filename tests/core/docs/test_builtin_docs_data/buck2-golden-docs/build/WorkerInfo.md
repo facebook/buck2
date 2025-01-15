@@ -3,3 +3,4 @@
 # WorkerInfo
 ## WorkerInfo.concurrency
 ## WorkerInfo.exe
+## WorkerInfo.streaming
