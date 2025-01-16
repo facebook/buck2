@@ -105,6 +105,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     else:
         sub_targets = {k: [v[DefaultInfo]] for k, v in genrule_default_info[0].sub_targets.items()}
         sub_targets.update({
+            "manifest": [input_android_apk_subtargets["manifest"][DefaultInfo]],
             "native_libs": [input_android_apk_subtargets["native_libs"][DefaultInfo]],
             "unstripped_native_libraries": [input_android_apk_subtargets["unstripped_native_libraries"][DefaultInfo]],
             "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
