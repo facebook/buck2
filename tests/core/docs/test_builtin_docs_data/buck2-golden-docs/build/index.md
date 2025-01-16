@@ -33,6 +33,7 @@
 ## select\_test
 ## set\_cfg\_constructor
 ## set\_starlark\_peak\_allocated\_byte\_limit
+## sha1
 ## sha256
 ## soft\_error
 ## transition
