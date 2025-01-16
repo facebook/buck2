@@ -197,7 +197,10 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
     if src_compile_cmd.src.extension in AsmExtensions.values():
         return None
 
-    cmd = compile_cmd.copy()
+    # Use remap_cwd.py to set -ffile-prefix-map, so we have paths relative to the
+    # working directory.
+    cmd = cmd_args(toolchain.internal_tools.remap_cwd)
+    cmd.add(compile_cmd)
 
     # We use `-fsyntax-only` flag, so output will be not generated.
     # The output here is used for the identifier of the index unit file
