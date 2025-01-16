@@ -19,8 +19,10 @@ runs:
   - uses: haskell-actions/setup@v2
     with:
       ghc-version: '9.10.1'
+  - name: Install uv
+    uses: astral-sh/setup-uv@v5
   - name: Install conan
-    run: sudo pip3 install conan==1.*
+    run: uv tool install conan==1.*
     shell: bash
   - uses: actions/setup-go@v5
     with:
