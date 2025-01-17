@@ -40,7 +40,7 @@ use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
 
-const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "time-spent-synchronizing-and-waiting";
+const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "synchronizing-and-waiting";
 
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync {

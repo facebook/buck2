@@ -43,7 +43,7 @@ async def do_critical_path(buck: Buck) -> None:
     ]
 
     expected = [
-        ("time-spent-synchronizing-and-waiting", ""),
+        ("synchronizing-and-waiting", ""),
         ("listing", "root//"),
         ("load", "root//"),
         ("analysis", "root//:step_0"),
@@ -91,7 +91,7 @@ async def test_critical_path_json(buck: Buck) -> None:
     critical_path = [json.loads(e) for e in critical_path]
 
     expected = [
-        ("time-spent-synchronizing-and-waiting", None),
+        ("synchronizing-and-waiting", None),
         ("listing", "root//"),
         ("load", "root//"),
         ("analysis", "root//:step_0"),
@@ -113,7 +113,7 @@ async def test_critical_path_json(buck: Buck) -> None:
 
         if (
             critical["kind"] == "compute-critical-path"
-            or critical["kind"] == "time-spent-synchronizing-and-waiting"
+            or critical["kind"] == "synchronizing-and-waiting"
         ):
             assert "name" not in critical
         else:
@@ -179,7 +179,7 @@ async def test_dynamic_input(buck: Buck) -> None:
 
         if (
             critical["kind"] == "compute-critical-path"
-            or critical["kind"] == "time-spent-synchronizing-and-waiting"
+            or critical["kind"] == "synchronizing-and-waiting"
         ):
             assert "name" not in critical
         else:
