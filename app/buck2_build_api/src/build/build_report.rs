@@ -161,7 +161,6 @@ enum EntryLabel {
 
 pub struct BuildReportOpts {
     pub print_unconfigured_section: bool,
-    pub unstable_include_other_outputs: bool,
     pub unstable_include_failures_build_report: bool,
     pub unstable_include_package_project_relative_paths: bool,
     pub unstable_build_report_filename: String,
@@ -172,7 +171,6 @@ pub struct BuildReportCollector<'a> {
     cell_resolver: &'a CellResolver,
     overall_success: bool,
     include_unconfigured_section: bool,
-    include_other_outputs: bool,
     error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
     strings: BTreeMap<String, String>,
@@ -188,7 +186,6 @@ impl<'a> BuildReportCollector<'a> {
         cell_resolver: &'a CellResolver,
         project_root: &ProjectRoot,
         include_unconfigured_section: bool,
-        include_other_outputs: bool,
         include_failures: bool,
         include_package_project_relative_paths: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
@@ -199,7 +196,6 @@ impl<'a> BuildReportCollector<'a> {
             cell_resolver,
             overall_success: true,
             include_unconfigured_section,
-            include_other_outputs,
             error_cause_cache: HashMap::default(),
             next_cause_index: 0,
             strings: BTreeMap::default(),
@@ -357,52 +353,20 @@ impl<'a> BuildReportCollector<'a> {
         for (label, result) in results {
             let provider_name: Arc<str> = report_providers_name(label).into();
 
-            result.outputs.iter().for_each(|res| {
-                match res {
-                    Ok(artifacts) => {
-                        let mut is_default = false;
-                        let mut is_other = false;
-
-                        match artifacts.provider_type {
-                            BuildProviderType::Default => {
-                                // as long as we have requested it as a default info, it should  be
-                                // considered a default output whether or not it also appears as an other
-                                // non-main output
-                                is_default = true;
-                            }
-                            BuildProviderType::DefaultOther
-                            | BuildProviderType::Run
-                            | BuildProviderType::Test => {
-                                // as long as the output isn't the default, we add it to other outputs.
-                                // This means that the same artifact may appear twice if its part of the
-                                // default AND the other outputs, but this is intended as it accurately
-                                // describes the type of the artifact
-                                is_other = true;
-                            }
-                        }
-
+            result.outputs.iter().for_each(|res| match res {
+                Ok(artifacts) => {
+                    if artifacts.provider_type == BuildProviderType::Default {
                         for (artifact, _value) in artifacts.values.iter() {
-                            if is_default {
-                                configured_report
-                                    .inner
-                                    .outputs
-                                    .entry(provider_name.clone())
-                                    .or_default()
-                                    .insert(artifact.resolve_path(self.artifact_fs).unwrap());
-                            }
-
-                            if is_other && self.include_other_outputs {
-                                configured_report
-                                    .inner
-                                    .other_outputs
-                                    .entry(provider_name.clone())
-                                    .or_default()
-                                    .insert(artifact.resolve_path(self.artifact_fs).unwrap());
-                            }
+                            configured_report
+                                .inner
+                                .outputs
+                                .entry(provider_name.clone())
+                                .or_default()
+                                .insert(artifact.resolve_path(self.artifact_fs).unwrap());
                         }
                     }
-                    Err(e) => errors.push(e.dupe()),
                 }
+                Err(e) => errors.push(e.dupe()),
             });
 
             errors.extend(result.errors.iter().cloned());
@@ -565,16 +529,6 @@ pub async fn build_report_opts<'a>(
             )
             .await?
             .unwrap_or(true),
-        unstable_include_other_outputs: ctx
-            .parse_legacy_config_property(
-                cell_resolver.root_cell(),
-                BuckconfigKeyRef {
-                    section: "build_report",
-                    property: "unstable_include_other_outputs",
-                },
-            )
-            .await?
-            .unwrap_or(false),
         unstable_include_failures_build_report: build_opts.unstable_include_failures_build_report,
         unstable_include_package_project_relative_paths: build_opts
             .unstable_include_package_project_relative_paths,
@@ -600,7 +554,6 @@ pub fn generate_build_report(
         cell_resolver,
         project_root,
         opts.print_unconfigured_section,
-        opts.unstable_include_other_outputs,
         opts.unstable_include_failures_build_report,
         opts.unstable_include_package_project_relative_paths,
         configured,

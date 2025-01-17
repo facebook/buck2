@@ -213,7 +213,6 @@ async fn bxl(
         let build_report_opts = BuildReportOpts {
             // These are all deprecated for `buck2 build`, so don't need to support them
             print_unconfigured_section: false,
-            unstable_include_other_outputs: false,
             unstable_include_failures_build_report: false,
             unstable_include_package_project_relative_paths: false,
             unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),

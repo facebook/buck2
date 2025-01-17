@@ -439,15 +439,13 @@ async def test_build_test_dependencies(buck: Buck) -> None:
     target = "fbcode//buck2/tests/targets/rules/sh_test:test_with_env"
     build = await buck.build(
         target,
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--build-test-info",
         "--build-report",
         "-",
     )
     report = build.get_build_report().build_report
 
-    path = ["results", target, "other_outputs", "DEFAULT"]
+    path = ["results", target, "other_outputs"]
     for p in path:
         report = report[p]
 
@@ -456,7 +454,7 @@ async def test_build_test_dependencies(buck: Buck) -> None:
         if "__file__" in artifact:
             has_file = True
 
-    assert has_file
+    assert not has_file
 
 
 # TODO(marwhal): Fix and enable on Windows

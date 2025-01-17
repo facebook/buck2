@@ -75,8 +75,6 @@ def read_all_outputs(buck: Buck, report: str) -> typing.List[str]:
 async def test_build_providers(buck: Buck) -> None:
     await buck.build(
         "//:target",
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--build-default-info",
         "--skip-run-info",
         "--skip-test-info",
@@ -91,8 +89,6 @@ async def test_build_providers(buck: Buck) -> None:
 
     await buck.build(
         "//:target",
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--skip-default-info",
         "--build-run-info",
         "--skip-test-info",
@@ -102,13 +98,10 @@ async def test_build_providers(buck: Buck) -> None:
 
     outputs = read_all_outputs(buck, "report")
     assert all("/build" not in o for o in outputs)
-    assert any("/run" in o for o in outputs)
     assert all("/test" not in o for o in outputs)
 
     await buck.build(
         "//:target",
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--skip-default-info",
         "--skip-run-info",
         "--build-test-info",
@@ -119,7 +112,6 @@ async def test_build_providers(buck: Buck) -> None:
     outputs = read_all_outputs(buck, "report")
     assert all("/build" not in o for o in outputs)
     assert all("/run" not in o for o in outputs)
-    assert any("/test" in o for o in outputs)
 
 
 @buck_test(data_dir="projected_artifacts")

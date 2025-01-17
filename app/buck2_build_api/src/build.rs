@@ -59,7 +59,7 @@ pub mod build_report;
 mod graph_size;
 
 /// The types of provider to build on the configured providers label
-#[derive(Debug, Clone, Dupe, Allocative)]
+#[derive(Debug, Clone, Dupe, Allocative, PartialEq)]
 pub enum BuildProviderType {
     Default,
     DefaultOther,
