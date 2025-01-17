@@ -264,14 +264,12 @@ pub trait GetStarlarkProfilerInstrumentation {
 
     async fn get_starlark_profiler(
         &mut self,
-        will_freeze: bool,
         eval_kind: &StarlarkEvalKind,
     ) -> buck2_error::Result<StarlarkProfilerOptVal> {
         let profile_mode = self.get_starlark_profiler_mode(eval_kind).await?;
         Ok(match profile_mode.profile_mode() {
             Some(profile_mode) => StarlarkProfilerOptVal::Profiler(StarlarkProfiler::new(
                 profile_mode.dupe(),
-                will_freeze,
                 eval_kind.to_profile_target()?,
             )),
             None => StarlarkProfilerOptVal::Disabled,

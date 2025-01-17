@@ -10,7 +10,6 @@
 use std::time::Instant;
 
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use starlark::environment::FrozenModule;
 use starlark::eval::Evaluator;
@@ -32,9 +31,6 @@ enum StarlarkProfilerError {
 
 pub struct StarlarkProfiler {
     profile_mode: ProfileMode,
-    /// Evaluation will freeze the module.
-    /// (And frozen module will be passed to `visit_frozen_module`).
-    will_freeze: bool,
 
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
@@ -45,14 +41,9 @@ pub struct StarlarkProfiler {
 }
 
 impl StarlarkProfiler {
-    pub fn new(
-        profile_mode: ProfileMode,
-        will_freeze: bool,
-        target: ProfileTarget,
-    ) -> StarlarkProfiler {
+    pub fn new(profile_mode: ProfileMode, target: ProfileTarget) -> StarlarkProfiler {
         Self {
             profile_mode,
-            will_freeze,
             initialized_at: None,
             finalized_at: None,
             profile_data: None,
@@ -94,12 +85,6 @@ impl StarlarkProfiler {
     }
 
     fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> buck2_error::Result<()> {
-        if self.will_freeze != module.is_some() {
-            return Err(internal_error!(
-                "will_freeze field was initialized incorrectly"
-            ));
-        }
-
         if self.profile_mode.requires_frozen_module() {
             let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
             let profile = module

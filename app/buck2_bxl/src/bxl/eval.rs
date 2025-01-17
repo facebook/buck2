@@ -296,7 +296,7 @@ async fn eval_bxl_inner(
 
     let mut profiler_opt = profile_mode_or_instrumentation
         .profile_mode()
-        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), true, ProfileTarget::Bxl));
+        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), ProfileTarget::Bxl));
 
     let mut profiler = match &mut profiler_opt {
         None => StarlarkProfilerOpt::disabled(),

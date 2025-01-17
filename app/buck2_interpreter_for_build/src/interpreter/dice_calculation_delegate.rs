@@ -496,7 +496,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 .try_compute3(
                     |ctx| check_starlark_stack_size(ctx).boxed(),
                     |ctx| Self::resolve_package_listing(ctx, package.dupe()).boxed(),
-                    |ctx| ctx.get_starlark_profiler(false, &eval_kind),
+                    |ctx| ctx.get_starlark_profiler(&eval_kind),
                 )
                 .await?;
 

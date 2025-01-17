@@ -270,7 +270,7 @@ async fn run_analysis_with_env_underlying(
     )?;
 
     let eval_kind = StarlarkEvalKind::Analysis(node.label().dupe());
-    let mut profiler = dice.get_starlark_profiler(true, &eval_kind).await?;
+    let mut profiler = dice.get_starlark_profiler(&eval_kind).await?;
     let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
         dice,
         &mut profiler.as_mut(),
