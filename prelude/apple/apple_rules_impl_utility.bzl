@@ -143,8 +143,6 @@ def apple_test_extra_attrs():
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
-        # FIXME(T206479753): we should remove exported_deps on apple_test
-        "exported_deps": attrs.list(attrs.dep(), default = []),
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),

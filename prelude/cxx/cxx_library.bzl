@@ -965,7 +965,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         providers.append(get_java_packaging_info(ctx, non_exported_deps + exported_deps))
 
     if impl_params.generate_providers.java_global_code_info:
-        providers.append(propagate_global_code_info(ctx, ctx.attrs.deps + ctx.attrs.exported_deps))
+        providers.append(propagate_global_code_info(ctx, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])))
 
     # TODO(T107163344) this shouldn't be in cxx_library itself, use overlays to remove it.
     if impl_params.generate_providers.android_packageable_info:
