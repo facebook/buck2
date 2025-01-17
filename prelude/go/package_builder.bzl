@@ -65,11 +65,13 @@ def build_package(
         cgo_go_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(ctx, go_list.cgo_files, go_list.h_files, go_list.c_files + go_list.cxx_files, go_list.cgo_cflags, go_list.cgo_cppflags)
         ctx.actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
 
-        src_list_for_argsfile = go_list.go_files + (go_list.test_go_files + go_list.x_test_go_files if tests else [])
+        all_test_go_files = go_list.test_go_files + go_list.x_test_go_files
+
+        src_list_for_argsfile = go_list.go_files + (all_test_go_files if tests else [])
         ctx.actions.write(outputs[srcs_list_argsfile], cmd_args(src_list_for_argsfile, ""))
 
-        go_files = go_list.go_files + cgo_go_files
-        covered_go_files, coverage_vars_out = _cover(ctx, pkg_name, go_files, coverage_mode)
+        go_files_to_cover = go_list.go_files + cgo_go_files + (all_test_go_files if tests else [])
+        covered_go_files, coverage_vars_out = _cover(ctx, pkg_name, go_files_to_cover, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
         symabis = _symabis(ctx, pkg_name, main, go_list.s_files, go_list.h_files, assembler_flags)
@@ -79,7 +81,7 @@ def build_package(
 
         def build_variant(shared: bool) -> Artifact:
             suffix = ",shared" if shared else ",non-shared"  # suffix to make artifacts unique
-            go_files_to_compile = covered_go_files + ((go_list.test_go_files + go_list.x_test_go_files) if tests else [])
+            go_files_to_compile = covered_go_files
             importcfg = make_importcfg(ctx, pkg_name, all_pkgs, shared)
             go_a_file, asmhdr = _compile(
                 ctx = ctx,
