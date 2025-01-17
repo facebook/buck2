@@ -18,7 +18,6 @@ use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_error::starlark_error::from_starlark_with_options;
-use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
@@ -51,10 +50,10 @@ use starlark::values::tuple::AllocTuple;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
-use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::values::ValueOf;
 use starlark_map::small_map::SmallMap;
+
+use crate::bxl::starlark_defs::select::StarlarkSelectDict;
 
 #[derive(Debug, ProvidesStaticType, From, Allocative)]
 pub(crate) struct StarlarkCoercedAttr(pub(crate) CoercedAttr, pub(crate) PackageLabel);
@@ -167,8 +166,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::TargetModifiers(..) => {
                 Ok(OpaqueMetadata::get_type_value_static().as_str())
             }
-            // TODO(@wendyy) - should return the starlark selector type.
-            CoercedAttr::Selector(_) => Ok("selector"),
+            CoercedAttr::Selector(_) => Ok("SelectorDict"),
             // TODO(@wendyy) - starlark concat is not implemented.
             CoercedAttr::Concat(_) => Ok("concat"),
             CoercedAttr::ConfiguredDep(_) => {
@@ -238,14 +236,8 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::Metadata(data) => heap.alloc(data.to_value()),
             CoercedAttr::TargetModifiers(data) => heap.alloc(data.to_value()),
             CoercedAttr::Selector(selector) => {
-                let map: SmallMap<String, Value> = selector
-                    .all_entries()
-                    .map(|(k, v)| v.to_value(pkg.dupe(), heap).map(|v| (k.to_string(), v)))
-                    .collect::<buck2_error::Result<_>>()?;
-                heap.alloc(StarlarkSelector::new(
-                    ValueOf::unpack_value_err(heap.alloc(map))
-                        .internal_error("validated at construction")?,
-                ))
+                let select_dict = StarlarkSelectDict::new(*selector.clone(), pkg.dupe());
+                heap.alloc(select_dict)
             }
             CoercedAttr::Concat(l) => {
                 let list = l.as_ref().try_map(|attr| attr.to_value(pkg.dupe(), heap))?;

@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+#![allow(non_upper_case_globals)]
+
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use starlark::environment::GlobalsBuilder;
@@ -35,6 +37,7 @@ use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyResolvedAttrs;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkError;
 use crate::bxl::starlark_defs::result::StarlarkResult;
+use crate::bxl::starlark_defs::select::StarlarkSelectDict;
 use crate::bxl::starlark_defs::target_universe::StarlarkTargetUniverse;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;
@@ -74,4 +77,5 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const Result: StarlarkValueAsType<StarlarkResult> = StarlarkValueAsType::new();
     const LazyCqueryContext: StarlarkValueAsType<StarlarkLazyCqueryCtx> =
         StarlarkValueAsType::new();
+    const SelectDict: StarlarkValueAsType<StarlarkSelectDict> = StarlarkValueAsType::new();
 }

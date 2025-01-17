@@ -1,0 +1,24 @@
+load(":defs.bzl", "unicorn_selector_library")
+
+unicorn_selector_library(
+    name = "not_selector",
+    flags = ["--foo", "--bar"],
+)
+
+unicorn_selector_library(
+    name = "select_dict",
+    flags = select({
+        "//constraints:macos": ["--foo-macos", "--bar-macos"],
+        "//constraints:x86": ["--foo-x86", "--bar-x86"],
+        "DEFAULT": ["--foo", "--bar"],
+    }),
+)
+
+unicorn_selector_library(
+    name = "select_concat",
+    flags = ["--flag", "--baz"] + select({
+        "//constraints:macos": ["--foo-macos", "--bar-macos"],
+        "//constraints:x86": ["--foo-x86", "--bar-x86"],
+        "DEFAULT": ["--foo", "--bar"],
+    }),
+)
