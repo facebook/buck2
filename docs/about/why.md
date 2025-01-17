@@ -21,10 +21,11 @@ build systems, respectively Buck and Bazel. While the internal version of Bazel
 was started first (also known as Blaze), Buck was open sourced first (back in
 March 2013), followed by Bazel a few years later (March 2015).
 
-The retroactively named Buck1 was a capable build system and is still in use
-today at Meta (although many users have migrated). Buck2 is a rewrite that aims
-to keep the best bits of Buck1 (with a high degree of target compatibility) but
-also borrows ideas from [academic](https://ndmitchell.com/#shake_10_sep_2012)
+The retroactively named Buck1 was a capable build system, but had significant
+limitations and has been entirely phased out at Meta today. Buck2 is a rewrite
+that aims to keep the best bits of Buck1 (with a high degree of target
+compatibility) but also borrows ideas from
+[academic](https://ndmitchell.com/#shake_10_sep_2012)
 [research](https://ndmitchell.com/#shake_21_apr_2020) and build systems,
 including [Bazel](https://bazel.build/), [Pants](https://www.pantsbuild.org/),
 [Shake](https://shakebuild.com/), [Tup](https://gittup.org/tup/), and more.
@@ -52,9 +53,9 @@ Following are aspects common to Buck1 and Buck2 (and in most cases, Bazel):
 
 ## What's different about Buck2?
 
-Buck2 has many minor differences from Buck1, but there are a number that give
-new efficiency or expressiveness that are of note (most of these are also
-different from Bazel).
+Buck2 has several major differences (as well as many minor differences) from
+Buck1. Of particular note, there are a number that give new efficiency or
+expressiveness (most of these are also different from Bazel).
 
 - **Buck2 is written in Rust** - Buck1 was written in Java. One of the
   advantages of using Rust is the absence of GC pauses, However, Java also has
