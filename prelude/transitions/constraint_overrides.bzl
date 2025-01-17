@@ -8,14 +8,14 @@
 # NOTE: Currently, constraints can't be propagated via rule attrs and so need to be
 #       hard-coded here. We use a read_config to avoid hard-coding these repo-specific
 #       constraints into the prelude.
+#       The following configs must be set to use constraint_overrides.bzl:
+#         - buck2.platforms
+#         - buck2.constraints
+#         - buck2.passthrough_constraints
 
 def _platforms() -> list[str]:
     platforms = []
     config = read_root_config("buck2", "platforms", "")
-    platforms.extend(
-        [platform.strip() for platform in config.split(",") if platform.strip()],
-    )
-    config = read_root_config("buck2", "generated_platforms", "")
     platforms.extend(
         [platform.strip() for platform in config.split(",") if platform.strip()],
     )
@@ -24,10 +24,6 @@ def _platforms() -> list[str]:
 def _constraints() -> list[str]:
     constraints = []
     config = read_root_config("buck2", "constraints", "")
-    constraints.extend(
-        [constraint.strip() for constraint in config.split(",") if constraint.strip()],
-    )
-    config = read_root_config("buck2", "generated_constraints", "")
     constraints.extend(
         [constraint.strip() for constraint in config.split(",") if constraint.strip()],
     )
