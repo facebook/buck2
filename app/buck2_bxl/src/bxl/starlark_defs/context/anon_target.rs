@@ -256,6 +256,7 @@ async fn eval_bxl_for_anon_target_inner(
 
     let anon_impl = AnonImpl::new(dice, anon_target.dupe()).await?;
 
+    let eval_kind = anon_target.dupe().eval_kind();
     let (
         num_declared_actions,
         num_declared_artifacts,
@@ -264,7 +265,7 @@ async fn eval_bxl_for_anon_target_inner(
     ) = with_starlark_eval_provider(
         dice,
         &mut StarlarkProfilerOpt::disabled(),
-        format!("bxl_anon_analysis:{}", anon_target),
+        &eval_kind,
         |provider, dice| {
             let env = Module::new();
 
@@ -308,11 +309,7 @@ async fn eval_bxl_for_anon_target_inner(
                     bxl_ctx.via_dice(|dice, _| {
                         dice.via(|dice| {
                             action_factory
-                                .run_promises(
-                                    dice,
-                                    &mut eval,
-                                    format!("bxl_anon_analysis$promise:{}", anon_target),
-                                )
+                                .run_promises(dice, &mut eval, &eval_kind)
                                 .boxed_local()
                         })
                     })?;

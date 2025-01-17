@@ -303,8 +303,6 @@ async fn eval_bxl_inner(
         Some(profiler) => StarlarkProfilerOpt::for_profiler(profiler),
     };
 
-    let starlark_eval_description = format!("bxl:{}", core_data.key());
-
     let eval_ctx = BxlInnerEvaluator {
         data: core_data,
         module: bxl_module,
@@ -316,7 +314,7 @@ async fn eval_bxl_inner(
     let bxl_result = with_starlark_eval_provider(
         ctx,
         &mut profiler,
-        starlark_eval_description,
+        &key.as_starlark_eval_kind(),
         move |provider, ctx| eval_ctx.do_eval(provider, ctx),
     )
     .await?;

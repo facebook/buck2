@@ -29,6 +29,7 @@ use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -150,7 +151,7 @@ async fn do_apply_transition(
     with_starlark_eval_provider(
         ctx,
         &mut StarlarkProfilerOpt::disabled(),
-        format!("transition:{}", transition_id),
+        &StarlarkEvalKind::Transition(Arc::new(transition_id.clone())),
         move |provider, _| {
             let (mut eval, _) = provider.make(&module)?;
             eval.set_print_handler(&print);

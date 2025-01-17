@@ -755,10 +755,11 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
-        this.via_dice(|dice, this| {
+        let eval_kind = this.current_bxl().as_starlark_eval_kind();
+        this.via_dice(|dice, _this| {
             dice.via(|dice| {
                 action_factory
-                    .run_promises(dice, eval, format!("bxl$promises:{}", this.current_bxl()))
+                    .run_promises(dice, eval, &eval_kind)
                     .boxed_local()
             })
         })?;

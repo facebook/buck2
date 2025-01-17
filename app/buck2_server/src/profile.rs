@@ -24,6 +24,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::spawn::spawn_dropcancel;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -85,7 +86,10 @@ async fn generate_profile_loading(
     package: PackageLabel,
 ) -> buck2_error::Result<StarlarkProfileDataAndStats> {
     // Self-check.
-    let profile_mode = ctx.clone().get_profile_mode_for_loading(package).await?;
+    let profile_mode = ctx
+        .clone()
+        .get_starlark_profiler_mode(&StarlarkEvalKind::LoadBuildFile(package.dupe()))
+        .await?;
     match profile_mode {
         StarlarkProfileMode::None => {
             return Err(internal_error!("profile mode must be set in DICE"));

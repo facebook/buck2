@@ -13,6 +13,7 @@ derive_more = { workspace = true }
 either = { workspace = true }
 fancy-regex = { workspace = true }
 plist = { workspace = true }
+ref-cast = { workspace = true }
 regex = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }

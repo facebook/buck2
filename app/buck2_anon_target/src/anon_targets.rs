@@ -403,10 +403,11 @@ impl AnonTargetKey {
         let env = Module::new();
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
+        let eval_kind = self.0.dupe().eval_kind();
         let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
             dice,
             &mut StarlarkProfilerOpt::disabled(),
-            format!("anon_analysis:{}", self),
+            &eval_kind,
             |provider, dice| {
                 let (mut eval, _) = provider.make(&env)?;
                 eval.set_print_handler(&print);
@@ -443,7 +444,7 @@ impl AnonTargetKey {
         .await?;
 
         ctx.actions
-            .run_promises(dice, &mut eval, format!("anon_analysis$promises:{}", self))
+            .run_promises(dice, &mut eval, &eval_kind)
             .await?;
         let res_typed = ProviderCollection::try_from_value(list_res)?;
         let res = env.heap().alloc(res_typed);

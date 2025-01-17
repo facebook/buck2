@@ -16,6 +16,7 @@ rust_library(
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:plist",
+        "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:tokio",

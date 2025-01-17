@@ -32,6 +32,7 @@ use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
 use buck2_events::span::SpanId;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -257,14 +258,10 @@ async fn get_analysis_result_inner(
     let ((res, now), spans): ((buck2_error::Result<_>, Instant), _) =
         match configured_node.rule_type() {
             RuleType::Starlark(func) => {
-                let (dep_analysis, query_results, profile_mode) = ctx
-                    .try_compute3(
+                let (dep_analysis, query_results) = ctx
+                    .try_compute2(
                         |ctx| get_dep_analysis(configured_node, ctx).boxed(),
                         |ctx| resolve_queries(ctx, configured_node).boxed(),
-                        |ctx| {
-                            ctx.get_profile_mode_for_analysis(configured_node.label())
-                                .boxed()
-                        },
                     )
                     .await?;
 
@@ -296,7 +293,6 @@ async fn get_analysis_result_inner(
                                     configured_node.execution_platform_resolution(),
                                     &rule_spec,
                                     configured_node,
-                                    &profile_mode,
                                 ),
                                 buck2_data::AnalysisStageEnd {},
                             )
@@ -389,7 +385,9 @@ pub async fn profile_analysis(
 ) -> buck2_error::Result<StarlarkProfileDataAndStats> {
     // Self check.
     for target in targets {
-        let profile_mode = ctx.get_profile_mode_for_analysis(target).await?;
+        let profile_mode = ctx
+            .get_starlark_profiler_mode(&StarlarkEvalKind::Analysis(target.dupe()))
+            .await?;
         if !matches!(profile_mode, StarlarkProfileMode::Profile(_)) {
             return Err(internal_error!("recursive analysis configured incorrectly"));
         }

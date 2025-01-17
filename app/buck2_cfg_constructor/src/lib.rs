@@ -27,6 +27,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -87,7 +88,7 @@ async fn eval_pre_constraint_analysis<'v>(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
-        "pre constraint-analysis invocation".to_owned(),
+        &StarlarkEvalKind::Unknown("pre constraint-analysis invocation".into()),
         |provider, _| {
             let (mut eval, _) = provider.make(module)?;
             eval.set_print_handler(print);
@@ -196,7 +197,7 @@ async fn eval_post_constraint_analysis<'v>(
         ctx,
         // TODO: pass proper profiler (T163570348)
         &mut StarlarkProfilerOpt::disabled(),
-        "post constraint-analysis invocation for cfg".to_owned(),
+        &StarlarkEvalKind::Unknown("post constraint-analysis invocation for cfg".into()),
         |_, _| -> buck2_error::Result<ConfigurationData> {
             let post_constraint_analysis_args = vec![
                 (
