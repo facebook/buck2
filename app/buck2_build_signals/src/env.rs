@@ -50,10 +50,9 @@ impl NodeDuration {
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
 pub enum CriticalPathBackendName {
+    /// This is the default backend.
     #[display("longest-path-graph")]
     LongestPathGraph,
-    #[display("default")]
-    Default,
     #[display("logging")]
     Logging,
 }
@@ -64,13 +63,7 @@ impl FromStr for CriticalPathBackendName {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "longest-path-graph" {
             return Ok(Self::LongestPathGraph);
-        }
-
-        if s == "default" {
-            return Ok(Self::Default);
-        }
-
-        if s == "logging" {
+        } else if s == "logging" {
             return Ok(Self::Logging);
         }
 

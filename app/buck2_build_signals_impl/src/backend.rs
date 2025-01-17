@@ -8,6 +8,5 @@
  */
 
 pub(crate) mod backend;
-pub(crate) mod default;
 pub(crate) mod logging;
 pub(crate) mod longest_path_graph;

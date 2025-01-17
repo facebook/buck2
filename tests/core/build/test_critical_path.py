@@ -31,7 +31,7 @@ class critical_path_log:
     potential_improvement_duration: str
 
 
-async def do_critical_path(buck: Buck, correct_analysis: bool) -> None:
+async def do_critical_path(buck: Buck) -> None:
     await buck.build("//:step_3", "--no-remote-cache")
 
     critical_path = (await buck.log("critical-path")).stdout.strip().splitlines()
@@ -57,13 +57,7 @@ async def do_critical_path(buck: Buck, correct_analysis: bool) -> None:
         ("materialization", "root//:step_3"),
         ("compute-critical-path", ""),
     ]
-    if correct_analysis:
-        assert len(critical_path) == len(expected)
-    else:
-        # If correct_analysis = False (i.e. backend is the default), analysis nodes are not handled properly.
-        # There is now non-determinism in this test since what we get back depends on
-        # where the analysis becomes the longest path.
-        assert len(trimmed_critical_path) > 0
+    assert len(critical_path) == len(expected)
 
     for s, e in zip(reversed(trimmed_critical_path), reversed(expected)):
         if s.kind == "action":
@@ -72,15 +66,8 @@ async def do_critical_path(buck: Buck, correct_analysis: bool) -> None:
         else:
             assert s.execution_kind == ""
 
-        if not correct_analysis and s.kind == "analysis":
-            break
         assert s.kind == e[0]
         assert s.name == e[1]
-
-
-@buck_test()
-async def test_critical_path(buck: Buck) -> None:
-    await do_critical_path(buck, False)
 
 
 @buck_test()
@@ -88,7 +75,7 @@ async def test_critical_path_longest_path_graph(buck: Buck) -> None:
     with open(buck.cwd / ".buckconfig", "a") as f:
         f.write("[buck2]\n")
         f.write("critical_path_backend2 = longest-path-graph\n")
-    await do_critical_path(buck, True)
+    await do_critical_path(buck)
 
 
 @buck_test()
@@ -103,7 +90,6 @@ async def test_critical_path_json(buck: Buck) -> None:
     )
     critical_path = [json.loads(e) for e in critical_path]
 
-    assert len(critical_path) > 0
     expected = [
         ("time-spent-synchronizing-and-waiting", None),
         ("listing", "root//"),
@@ -119,15 +105,9 @@ async def test_critical_path_json(buck: Buck) -> None:
         ("materialization", "root//:step_3"),
         ("compute-critical-path", None),
     ]
+    assert len(critical_path) == len(expected)
 
     for critical, exp in zip(reversed(critical_path), reversed(expected)):
-        if critical["kind"] == "analysis":
-            # When the backend is the default, analysis nodes are not handled properly.
-            # There is now non-determinism in this test since what we get back depends on
-            # where the analysis becomes the longest path.
-            # This is fixed when critical_path_backend2 = longest-path-graph.
-            break
-
         assert "kind" in critical
         assert critical["kind"] == exp[0]
 

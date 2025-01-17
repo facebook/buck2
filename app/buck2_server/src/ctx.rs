@@ -738,7 +738,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
                 section: "buck2",
                 property: "critical_path_backend2",
             })?
-            .unwrap_or(CriticalPathBackendName::Default);
+            .unwrap_or(CriticalPathBackendName::LongestPathGraph);
 
         let override_use_case = root_config.parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
             section: "buck2_re_client",

@@ -64,7 +64,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
 use crate::backend::backend::BuildListenerBackend;
-use crate::backend::default::DefaultBackend;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
 
@@ -321,9 +320,6 @@ impl DeferredBuildSignals for DeferredBuildSignalsImpl {
         let handle = match backend {
             CriticalPathBackendName::LongestPathGraph => {
                 start_backend(events, self.receiver, LongestPathGraphBackend::new(), ctx)
-            }
-            CriticalPathBackendName::Default => {
-                start_backend(events, self.receiver, DefaultBackend::new(), ctx)
             }
             CriticalPathBackendName::Logging => start_backend(
                 events.dupe(),
