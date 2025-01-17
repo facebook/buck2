@@ -172,6 +172,7 @@ def cxx_toolchain_impl(ctx):
     ] + cxx_toolchain_infos(
         internal_tools = ctx.attrs._internal_tools[CxxInternalTools],
         platform_name = platform_name,
+        platform_deps_aliases = ctx.attrs.platform_deps_aliases,
         linker_info = linker_info,
         binary_utilities_info = utilities_info,
         bolt_enabled = value_or(ctx.attrs.bolt_enabled, False),
@@ -247,7 +248,9 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
         # which requires setting up separate platform-specific aliases with the correct constraints.
         "placeholder_tool": attrs.option(dep_type(providers = [RunInfo]), default = None),
-        # Used for resolving any 'platform_*' attributes.
+        # Used for regex matching any 'platform_*' attributes.
+        "platform_deps_aliases": attrs.option(attrs.list(attrs.string()), default = None),
+        # Used for regex matching any 'platform_*' attributes.
         "platform_name": attrs.option(attrs.string(), default = None),
         "private_headers_symlinks_enabled": attrs.bool(default = True),
         "public_headers_symlinks_enabled": attrs.bool(default = True),
