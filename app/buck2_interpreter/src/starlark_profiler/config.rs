@@ -205,7 +205,10 @@ impl ProjectionKey for StarlarkProfileModeForKind {
                     _ => Ok(StarlarkProfileMode::None),
                 }
             }
-            StarlarkProfilerConfigurationResolved::ProfileBxl(_) => Ok(StarlarkProfileMode::None),
+            StarlarkProfilerConfigurationResolved::ProfileBxl(mode) => match &self.0 {
+                StarlarkEvalKind::Bxl(..) => Ok(StarlarkProfileMode::Profile(mode.dupe())),
+                _ => Ok(StarlarkProfileMode::None),
+            },
         }
     }
 

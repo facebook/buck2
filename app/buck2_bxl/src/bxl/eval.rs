@@ -43,11 +43,8 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
-use buck2_interpreter::starlark_profiler::data::ProfileTarget;
+use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
-use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfiler;
-use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use clap::error::ErrorKind;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -103,7 +100,6 @@ impl LimitedExecutor {
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
     key: BxlKey,
-    profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
 ) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
@@ -126,13 +122,7 @@ pub(crate) async fn eval(
         // to terminate.
         scope_and_collect_with_dice(ctx, |ctx, s| {
             s.spawn_cancellable(
-                limited_executor.execute(eval_bxl_inner(
-                    ctx,
-                    dispatcher,
-                    key,
-                    profile_mode_or_instrumentation,
-                    liveness,
-                )),
+                limited_executor.execute(eval_bxl_inner(ctx, dispatcher, key, liveness)),
                 || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
             )
         })
@@ -277,7 +267,6 @@ async fn eval_bxl_inner(
     ctx: &mut DiceComputations<'_>,
     dispatcher: EventDispatcher,
     key: BxlKey,
-    profile_mode_or_instrumentation: StarlarkProfileMode,
     liveness: CancellationObserver,
 ) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     let bxl_module = ctx
@@ -294,15 +283,6 @@ async fn eval_bxl_inner(
     // futures that requires work to be done on the current thread, so using block_in_place
     // should have no noticeable different compared to spawn_blocking
 
-    let mut profiler_opt = profile_mode_or_instrumentation
-        .profile_mode()
-        .map(|profile_mode| StarlarkProfiler::new(profile_mode.dupe(), ProfileTarget::Bxl));
-
-    let mut profiler = match &mut profiler_opt {
-        None => StarlarkProfilerOpt::disabled(),
-        Some(profiler) => StarlarkProfilerOpt::for_profiler(profiler),
-    };
-
     let eval_ctx = BxlInnerEvaluator {
         data: core_data,
         module: bxl_module,
@@ -311,15 +291,17 @@ async fn eval_bxl_inner(
         dispatcher,
     };
 
+    let eval_kind = key.as_starlark_eval_kind();
+    let mut profiler = ctx.get_starlark_profiler(&eval_kind).await?;
     let bxl_result = with_starlark_eval_provider(
         ctx,
-        &mut profiler,
-        &key.as_starlark_eval_kind(),
+        &mut profiler.as_mut(),
+        &eval_kind,
         move |provider, ctx| eval_ctx.do_eval(provider, ctx),
     )
     .await?;
 
-    let profile_data = profiler_opt.map(|p| p.finish()).transpose()?;
+    let profile_data = profiler.finish()?;
     Ok((bxl_result, profile_data))
 }
 

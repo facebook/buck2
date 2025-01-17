@@ -15,7 +15,6 @@ use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_futures::cancellation::CancellationContext;
-use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -65,7 +64,7 @@ impl Key for internal::BxlComputeKey {
         cancellation
             .with_structured_cancellation(|observer| {
                 async move {
-                    eval(ctx, key, StarlarkProfileMode::None, observer)
+                    eval(ctx, key, observer)
                         .await
                         .map_err(buck2_error::Error::from)
                         .map(|(result, _)| BxlComputeResult(Arc::new(result)))

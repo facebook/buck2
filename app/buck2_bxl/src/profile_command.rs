@@ -19,10 +19,9 @@ use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
-use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
+use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_profile::get_profile_response;
-use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -82,13 +81,6 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
 
         let output = AbsPath::new(Path::new(&self.req.destination_path))?;
 
-        let profile_mode =
-            starlark_profiler_configuration_from_request(&self.req, server_ctx.project_root())?;
-
-        let StarlarkProfilerConfiguration::ProfileBxl(profile_mode) = profile_mode else {
-            return Err(internal_error!("Incorrect profile mode"));
-        };
-
         let cwd = server_ctx.working_dir();
 
         let cell_resolver = ctx.get_cell_resolver().await?;
@@ -122,21 +114,23 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             global_cfg_options,
         );
 
+        if let StarlarkProfileMode::None = ctx
+            .get_starlark_profiler_mode(&bxl_key.as_starlark_eval_kind())
+            .await?
+        {
+            return Err(internal_error!("Incorrect profile mode"));
+        }
+
         let profile_data = server_ctx
             .cancellation_context()
             .with_structured_cancellation(|observer| {
                 async move {
                     buck2_error::Ok(
-                        eval(
-                            &mut ctx,
-                            bxl_key,
-                            StarlarkProfileMode::Profile(profile_mode),
-                            observer,
-                        )
-                        .await?
-                        .1
-                        .map(Arc::new)
-                        .expect("No bxl profile data found"),
+                        eval(&mut ctx, bxl_key, observer)
+                            .await?
+                            .1
+                            .map(Arc::new)
+                            .expect("No bxl profile data found"),
                     )
                 }
                 .boxed()
