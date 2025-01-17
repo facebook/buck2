@@ -85,78 +85,63 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
         let profile_mode =
             starlark_profiler_configuration_from_request(&self.req, server_ctx.project_root())?;
 
-        let profile_data = match profile_mode {
-            StarlarkProfilerConfiguration::ProfileBxl(profile_mode) => {
-                let cwd = server_ctx.working_dir();
-
-                let cell_resolver = ctx.get_cell_resolver().await?;
-                let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
-                let bxl_label = parse_bxl_label_from_cli(
-                    cwd,
-                    &opts.bxl_label,
-                    &cell_resolver,
-                    &cell_alias_resolver,
-                )?;
-
-                let bxl_args = match get_bxl_cli_args(
-                    cwd,
-                    &mut ctx,
-                    &bxl_label,
-                    &opts.bxl_args,
-                    &cell_resolver,
-                )
-                .await?
-                {
-                    BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
-                    _ => {
-                        return Err(buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "Help docs were displayed. No profiler data available"
-                        ));
-                    }
-                };
-
-                let global_cfg_options = global_cfg_options_from_client_context(
-                    opts.target_cfg
-                        .as_ref()
-                        .internal_error("target_cfg must be set")?,
-                    server_ctx,
-                    &mut ctx,
-                )
-                .await?;
-
-                let bxl_key = BxlKey::new(
-                    bxl_label.clone(),
-                    bxl_args,
-                    /* force print stacktrace */ false,
-                    global_cfg_options,
-                );
-
-                server_ctx
-                    .cancellation_context()
-                    .with_structured_cancellation(|observer| {
-                        async move {
-                            buck2_error::Ok(
-                                eval(
-                                    &mut ctx,
-                                    bxl_key,
-                                    StarlarkProfileMode::Profile(profile_mode),
-                                    observer,
-                                )
-                                .await?
-                                .1
-                                .map(Arc::new)
-                                .expect("No bxl profile data found"),
-                            )
-                        }
-                        .boxed()
-                    })
-                    .await?
-            }
-            _ => {
-                return Err(internal_error!("Incorrect profile mode"));
-            }
+        let StarlarkProfilerConfiguration::ProfileBxl(profile_mode) = profile_mode else {
+            return Err(internal_error!("Incorrect profile mode"));
         };
+
+        let cwd = server_ctx.working_dir();
+
+        let cell_resolver = ctx.get_cell_resolver().await?;
+        let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
+        let bxl_label =
+            parse_bxl_label_from_cli(cwd, &opts.bxl_label, &cell_resolver, &cell_alias_resolver)?;
+
+        let BxlResolvedCliArgs::Resolved(bxl_args) =
+            get_bxl_cli_args(cwd, &mut ctx, &bxl_label, &opts.bxl_args, &cell_resolver).await?
+        else {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Help docs were displayed. No profiler data available"
+            ));
+        };
+        let bxl_args = Arc::new(bxl_args);
+
+        let global_cfg_options = global_cfg_options_from_client_context(
+            opts.target_cfg
+                .as_ref()
+                .internal_error("target_cfg must be set")?,
+            server_ctx,
+            &mut ctx,
+        )
+        .await?;
+
+        let bxl_key = BxlKey::new(
+            bxl_label.clone(),
+            bxl_args,
+            /* force print stacktrace */ false,
+            global_cfg_options,
+        );
+
+        let profile_data = server_ctx
+            .cancellation_context()
+            .with_structured_cancellation(|observer| {
+                async move {
+                    buck2_error::Ok(
+                        eval(
+                            &mut ctx,
+                            bxl_key,
+                            StarlarkProfileMode::Profile(profile_mode),
+                            observer,
+                        )
+                        .await?
+                        .1
+                        .map(Arc::new)
+                        .expect("No bxl profile data found"),
+                    )
+                }
+                .boxed()
+            })
+            .await?;
 
         Ok(get_profile_response(profile_data, output)?)
     }
