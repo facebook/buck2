@@ -463,6 +463,7 @@ def _define_kotlincd_action(
             output_paths.jar_parent.project("used-classes.json"),
             output_paths.jar_parent.project("kotlin-used-classes.json"),
         ]
+        used_jars_json_output = output_paths.jar_parent.project("used-jars.json")
         args = setup_dep_files(
             actions,
             actions_identifier,
@@ -470,6 +471,7 @@ def _define_kotlincd_action(
             post_build_params,
             classpath_jars_tag,
             used_classes_json_outputs,
+            used_jars_json_output,
             compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
         )
 

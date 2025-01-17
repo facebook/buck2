@@ -345,6 +345,7 @@ def setup_dep_files(
         post_build_params: dict,
         classpath_jars_tag: ArtifactTag,
         used_classes_json_outputs: list[Artifact],
+        used_jars_json_output: Artifact,
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
         hidden = ["artifact"]) -> cmd_args:
     dep_file = declare_prefixed_output(actions, actions_identifier, "dep_file.txt")
@@ -357,6 +358,7 @@ def setup_dep_files(
         for used_classes_json in used_classes_json_outputs
     ]
     post_build_params["depFile"] = classpath_jars_tag.tag_artifacts(dep_file.as_output())
+    post_build_params["usedJarsFile"] = used_jars_json_output.as_output()
 
     if abi_to_abi_dir_map:
         abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map")
