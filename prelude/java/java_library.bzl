@@ -688,6 +688,7 @@ def build_java_library(
         sources_jar = sources_jar,
         gwt_module = gwt_output,
         preprocessed_library = outputs.preprocessed_library if outputs else None,
+        used_jars_json = outputs.used_jars_json if outputs else None,
     )
 
     default_info = get_default_info(

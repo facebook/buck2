@@ -140,7 +140,7 @@ def create_jar_artifact_javacd(
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
-    define_javacd_action(
+    used_jars_json = define_javacd_action(
         category_prefix = "",
         actions_identifier = actions_identifier,
         encoded_command = command,
@@ -196,6 +196,7 @@ def create_jar_artifact_javacd(
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = abi_jar_snapshot,
+            used_jars_json = used_jars_json,
         )
     else:
         full_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
@@ -205,6 +206,7 @@ def create_jar_artifact_javacd(
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = full_jar_snapshot,
+            used_jars_json = used_jars_json,
         )
     return result
 
@@ -298,6 +300,7 @@ def _define_javacd_action(
         post_build_params["abiOutputDir"] = abi_dir.as_output()
 
     dep_files = {}
+    used_jars_json_output = None
     if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
         abi_to_abi_dir_map = None
         hidden = []
@@ -354,3 +357,5 @@ def _define_javacd_action(
         weight = 2,
         error_handler = java_toolchain.java_error_handler,
     )
+
+    return used_jars_json_output

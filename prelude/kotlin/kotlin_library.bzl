@@ -481,6 +481,7 @@ def build_kotlin_library(
                 has_srcs = bool(srcs),
                 sources_jar = sources_jar,
                 preprocessed_library = outputs.preprocessed_library if outputs else None,
+                used_jars_json = outputs.used_jars_json if outputs else None,
             )
 
             default_info = get_default_info(

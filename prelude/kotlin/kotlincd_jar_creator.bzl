@@ -174,7 +174,7 @@ def create_jar_artifact_kotlincd(
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
-    proto = define_kotlincd_action(
+    proto, used_jars_json = define_kotlincd_action(
         category_prefix = "",
         actions_identifier = actions_identifier,
         encoded_command = command,
@@ -249,6 +249,7 @@ def create_jar_artifact_kotlincd(
             annotation_processor_output = output_paths.annotations,
             incremental_state_dir = incremental_state_dir,
             abi_jar_snapshot = abi_jar_snapshot,
+            used_jars_json = used_jars_json,
         ), proto
     else:
         full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
@@ -258,6 +259,7 @@ def create_jar_artifact_kotlincd(
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = full_jar_snapshot,
+            used_jars_json = used_jars_json,
         ), proto
 
 def _encode_kotlin_extra_params(
@@ -458,6 +460,7 @@ def _define_kotlincd_action(
         post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
 
     dep_files = {}
+    used_jars_json_output = None
     if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
         used_classes_json_outputs = [
             output_paths.jar_parent.project("used-classes.json"),
@@ -512,4 +515,4 @@ def _define_kotlincd_action(
         error_handler = kotlin_toolchain.kotlin_error_handler,
         **incremental_run_params
     )
-    return proto
+    return proto, used_jars_json_output
