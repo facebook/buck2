@@ -814,7 +814,7 @@ impl DaemonState {
                 if stale {
                     Err(buck2_error!(
                         buck2_error::ErrorTag::Environment,
-                        "Buck appears to be running in a stale working directory \
+                        "Buck appears to be running in a stale working directory. \
                          This will likely lead to failed or slow builds. \
                          To remediate, restart Buck2."
                     ))
