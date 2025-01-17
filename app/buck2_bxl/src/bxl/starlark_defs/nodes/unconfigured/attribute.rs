@@ -22,7 +22,6 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use buck2_interpreter_for_build::interpreter::selector::StarlarkSelector;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -53,6 +52,7 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
+use crate::bxl::starlark_defs::select::StarlarkSelectConcat;
 use crate::bxl::starlark_defs::select::StarlarkSelectDict;
 
 #[derive(Debug, ProvidesStaticType, From, Allocative)]
@@ -239,10 +239,7 @@ impl CoercedAttrExt for CoercedAttr {
                 let select_dict = StarlarkSelectDict::new(*selector.clone(), pkg.dupe());
                 heap.alloc(select_dict)
             }
-            CoercedAttr::Concat(l) => {
-                let list = l.as_ref().try_map(|attr| attr.to_value(pkg.dupe(), heap))?;
-                StarlarkSelector::from_concat(list, heap)?
-            }
+            CoercedAttr::Concat(c) => heap.alloc(StarlarkSelectConcat::new(c.clone(), pkg.dupe())),
         })
     }
 }

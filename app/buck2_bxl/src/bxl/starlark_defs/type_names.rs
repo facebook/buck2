@@ -37,6 +37,7 @@ use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyResolvedAttrs;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkError;
 use crate::bxl::starlark_defs::result::StarlarkResult;
+use crate::bxl::starlark_defs::select::StarlarkSelectConcat;
 use crate::bxl::starlark_defs::select::StarlarkSelectDict;
 use crate::bxl::starlark_defs::target_universe::StarlarkTargetUniverse;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
@@ -78,4 +79,5 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
     const LazyCqueryContext: StarlarkValueAsType<StarlarkLazyCqueryCtx> =
         StarlarkValueAsType::new();
     const SelectDict: StarlarkValueAsType<StarlarkSelectDict> = StarlarkValueAsType::new();
+    const SelectConcat: StarlarkValueAsType<StarlarkSelectConcat> = StarlarkValueAsType::new();
 }

@@ -21,3 +21,10 @@ async def test_selector_dict_attr(buck: Buck) -> None:
     await buck.bxl(
         "//:selector_concat_dict.bxl:selector_dict_attr",
     )
+
+
+@buck_test()
+async def test_selector_concat_attr(buck: Buck) -> None:
+    await buck.bxl(
+        "//:selector_concat_dict.bxl:selector_concat_attr",
+    )

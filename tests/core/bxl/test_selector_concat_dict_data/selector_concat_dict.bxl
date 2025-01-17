@@ -57,3 +57,30 @@ selector_dict_attr = bxl_main(
     impl = _selector_dict_attr,
     cli_args = {},
 )
+
+def _selector_concat_attr(ctx):
+    node = ctx.lazy.unconfigured_target_node("root//:select_concat").resolve()
+    flags = node.get_attr("flags")
+
+    asserts.true(isinstance(flags, bxl.SelectConcat))
+    asserts.equals(str(flags), '["--flag", "--baz"]+select({"root//constraints:macos": ["--foo-macos", "--bar-macos"], "root//constraints:x86": ["--foo-x86", "--bar-x86"], "DEFAULT": ["--foo", "--bar"]})')
+
+    # test for iterator
+    for v in flags.select_iter():
+        if isinstance(v, bxl.SelectDict):
+            asserts.equals(str(v), 'select({"root//constraints:macos": ["--foo-macos", "--bar-macos"], "root//constraints:x86": ["--foo-x86", "--bar-x86"], "DEFAULT": ["--foo", "--bar"]})')
+            for key, val in v.select_items():
+                print(key)
+                print(val)
+        else:
+            asserts.true(isinstance(v, list))
+            asserts.equals(v, ["--flag", "--baz"])
+
+    asserts.equals(len(flags), 2)
+    asserts.equals(flags.select_iter()[0], ["--flag", "--baz"])
+    asserts.true(isinstance(flags.select_iter()[1], bxl.SelectDict))
+
+selector_concat_attr = bxl_main(
+    impl = _selector_concat_attr,
+    cli_args = {},
+)

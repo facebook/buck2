@@ -10,6 +10,7 @@
 use allocative::Allocative;
 use buck2_core::package::PackageLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
+use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coerced_attr::CoercedSelectorKeyRef;
 use buck2_node::attrs::display::AttrDisplayWithContext;
@@ -214,5 +215,116 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
         heap: &'v Heap,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(this.get(key, heap)?)
+    }
+}
+
+#[derive(ProvidesStaticType, Derivative, Trace, Allocative, Clone, Debug)]
+pub(crate) struct StarlarkSelectConcat {
+    concat: CoercedConcat,
+    pkg: PackageLabel,
+}
+
+impl StarlarkSelectConcat {
+    pub(crate) fn new(concat: CoercedConcat, pkg: PackageLabel) -> Self {
+        Self { concat, pkg }
+    }
+}
+
+impl Serialize for StarlarkSelectConcat {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let ctx = AttrFmtContext {
+            package: Some(self.pkg),
+            options: Default::default(),
+        };
+        self.concat.serialize_with_ctx(&ctx, serializer)
+    }
+}
+
+impl Display for StarlarkSelectConcat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ctx = AttrFmtContext {
+            package: Some(self.pkg),
+            options: Default::default(),
+        };
+        self.concat.fmt(&ctx, f)
+    }
+}
+
+starlark_simple_value!(StarlarkSelectConcat);
+
+#[starlark_value(type = "bxl.SelectConcat")]
+impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(select_concat_methods)
+    }
+
+    fn length(&self) -> starlark::Result<i32> {
+        Ok(self.concat.0.len() as i32)
+    }
+}
+
+/// In bxl, `Select = bxl.SelectDict | bxl.SelectConcat`. `bxl.SelectConcat` is a list-like object that represents a select.
+/// One example of this type is:
+/// ```
+/// ["--flags"] + select({
+//     "root//constraints:a": ["--foo"],
+//     "root//constraints:b": ["--bar"],
+//     "DEFAULT": ["baz"]
+// })
+/// ```
+/// You can:
+/// * Iterate over the values of this object (e.g. `for item in select_concat.select_iter():`)
+/// * Get the length (e.g. `len(select_concat)`)
+/// * Check its type using `isinstance(select_concat, bxl.SelectConcat)`.
+///
+/// Simple usage:
+/// ```python
+/// def _impl_select_concat(ctx):
+///     node = ctx.lazy.unconfigured_target_node("root//:select_concat").resolve()
+///     attr = node.get_attr("select_attr")
+///     for value in attr:
+///         if isinstance(value, bxl.SelectDict):
+///             for key, value in value.items():
+///                 ctx.output.print(f"{key} -> {value}")
+///         else:
+///             ctx.output.print(value)
+///     ctx.output.print(attr[0])
+/// ```
+#[starlark_module]
+fn select_concat_methods(builder: &mut MethodsBuilder) {
+    /// Return the values of the SelectConcat.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_select_concat(ctx):
+    ///     node = ctx.lazy.unconfigured_target_node("root//:select_concat").resolve()
+    ///     attr = node.get_attr("select_attr")
+    ///     for value in attr.select_iter():
+    ///         ctx.output.print(value)
+    /// ```
+    fn select_iter<'v>(
+        this: &'v StarlarkSelectConcat,
+        heap: &'v Heap,
+    ) -> anyhow::Result<Vec<Value<'v>>> {
+        let list = this
+            .concat
+            .iter()
+            .map(|a| a.to_value(this.pkg.dupe(), heap))
+            .collect::<buck2_error::Result<_>>()?;
+        Ok(list)
+    }
+
+    /// Returns the length of a SelectConcat, defined as the number of items being concatenated
+    /// at the select level (not the total number of elements across all lists).
+    ///
+    /// For example, `[1, 2] + select({"DEFAULT": [3, 4]}` returns 2 instead of 4.
+    /// Note: You can use `len()` to get the length too.
+    #[starlark(attribute)]
+    fn length(this: &StarlarkSelectConcat) -> starlark::Result<i32> {
+        Ok(this.concat.0.len() as i32)
     }
 }
