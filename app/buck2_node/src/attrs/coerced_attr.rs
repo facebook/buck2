@@ -11,6 +11,7 @@ use core::fmt;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_core::configuration::config_setting::ConfigSettingData;
@@ -216,6 +217,49 @@ impl CoercedSelector {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+pub struct CoercedConcat(pub Box<[CoercedAttr]>);
+
+impl Deref for CoercedConcat {
+    type Target = [CoercedAttr];
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl CoercedConcat {
+    pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
+        Ok(serde_json::Value::Object(serde_json::Map::from_iter([
+            (
+                "__type".to_owned(),
+                serde_json::Value::String("concat".to_owned()),
+            ),
+            (
+                "items".to_owned(),
+                serde_json::Value::Array(self.0.try_map(|item| CoercedAttr::to_json(item, ctx))?),
+            ),
+        ])))
+    }
+}
+
+impl AttrDisplayWithContext for CoercedConcat {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.iter().map(|a| a.as_display(ctx)).format("+").fmt(f)
+    }
+}
+
+impl AttrSerializeWithContext for CoercedConcat {
+    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_json(ctx)
+            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .serialize(s)
+    }
+}
+
 /// CoercedAttr is the "coerced" representation of an attribute. It has been type-checked and converted to
 /// specific types (for example, where we expect target-like things, it has been converted to something like
 /// a TargetLabel or ProvidersLabel).
@@ -230,7 +274,7 @@ impl CoercedSelector {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub enum CoercedAttr {
     Selector(Box<CoercedSelector>),
-    Concat(Box<[Self]>),
+    Concat(CoercedConcat),
 
     Bool(BoolLiteral),
     Int(i64),
@@ -286,9 +330,7 @@ impl AttrDisplayWithContext for CoercedAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoercedAttr::Selector(s) => s.fmt(ctx, f),
-            CoercedAttr::Concat(items) => {
-                items.iter().map(|a| a.as_display(ctx)).format("+").fmt(f)
-            }
+            CoercedAttr::Concat(c) => c.fmt(ctx, f),
             CoercedAttr::Bool(v) => {
                 write!(f, "{}", v)
             }
@@ -342,20 +384,7 @@ impl CoercedAttr {
     pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         match self {
             CoercedAttr::Selector(s) => s.to_json(ctx),
-            CoercedAttr::Concat(items) => {
-                Ok(serde_json::Value::Object(serde_json::Map::from_iter([
-                    (
-                        "__type".to_owned(),
-                        serde_json::Value::String("concat".to_owned()),
-                    ),
-                    (
-                        "items".to_owned(),
-                        serde_json::Value::Array(
-                            items.try_map(|item| CoercedAttr::to_json(item, ctx))?,
-                        ),
-                    ),
-                ])))
-            }
+            CoercedAttr::Concat(c) => c.to_json(ctx),
             CoercedAttr::Bool(v) => Ok(to_value(v)?),
             CoercedAttr::Int(v) => Ok(to_value(v)?),
             CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => Ok(to_value(v)?),
@@ -728,8 +757,8 @@ impl CoercedAttr {
                 }
                 Ok(false)
             }
-            CoercedAttr::Concat(items) => {
-                for item in &**items {
+            CoercedAttr::Concat(c) => {
+                for item in &*c.0 {
                     if item.any_matches(filter)? {
                         return Ok(true);
                     }

@@ -118,7 +118,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
     ) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match (attr, &ty.0.inner) {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
-            (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(c, ty)),
+            (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(&c.0, ty)),
 
             (CoercedAttr::None, _) => Ok(CoercedAttrWithType::None),
             (attr, AttrTypeInner::Option(t)) => Ok(CoercedAttrWithType::Some(attr, t)),
