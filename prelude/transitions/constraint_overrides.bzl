@@ -13,23 +13,15 @@
 #         - buck2.constraints
 #         - buck2.passthrough_constraints
 
+_platforms_val = read_root_config("buck2", "platforms", "")
+_constraints_val = read_root_config("buck2", "constraints", "")
+_passthrough_constraints_val = read_root_config("buck2", "passthrough_constraints", "")
+
 def _platforms() -> list[str]:
-    platforms = []
-    config = read_root_config("buck2", "platforms", "")
-    platforms.extend(
-        [platform.strip() for platform in config.split(",") if platform.strip()],
-    )
-    return platforms
+    return [platform.strip() for platform in _platforms_val.split(",") if platform.strip()]
 
 def _constraints() -> list[str]:
-    constraints = []
-    config = read_root_config("buck2", "constraints", "")
-    constraints.extend(
-        [constraint.strip() for constraint in config.split(",") if constraint.strip()],
-    )
-    return constraints
-
-_passthrough_constraints_val = read_root_config("buck2", "passthrough_constraints", "")
+    return [constraint.strip() for constraint in _constraints_val.split(",") if constraint.strip()]
 
 def _passthrough_constraints() -> list[str]:
     return [constraint.strip() for constraint in _passthrough_constraints_val.split(",") if constraint.strip()]
