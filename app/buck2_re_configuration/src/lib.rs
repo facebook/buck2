@@ -342,15 +342,15 @@ impl FromStr for HttpHeader {
     type Err = buck2_error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut iter = s.split(':');
-        match (iter.next(), iter.next(), iter.next()) {
-            (Some(key), Some(value), None) => Ok(Self {
+        let mut iter = s.splitn(2, ':');
+        match (iter.next(), iter.next()) {
+            (Some(key), Some(value)) => Ok(Self {
                 key: key.trim().to_owned(),
                 value: value.trim().to_owned(),
             }),
             _ => Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
-                "Invalid header (expect exactly one `:`): `{}`",
+                "Invalid header (expect name and value separated by `:`): `{}`",
                 s
             )),
         }
