@@ -178,6 +178,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::Install => rank!(unspecified),
         ErrorTag::AnyActionExecution => rank!(unspecified),
         ErrorTag::StarlarkError => rank!(unspecified),
+        ErrorTag::UnexpectedNone => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
     }
 }

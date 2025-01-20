@@ -147,7 +147,7 @@ where
 
 #[derive(Debug, buck2_error_derive::Error)]
 #[error("NoneError")]
-#[buck2(tag = Environment)]
+#[buck2(tag = UnexpectedNone)]
 struct NoneError;
 
 impl<T> Sealed for Option<T> {}

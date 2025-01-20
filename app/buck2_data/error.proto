@@ -225,4 +225,7 @@ enum ErrorTag {
   DOWNLOAD_FILE_HEAD_REQUEST = 4001;
   // Tests
   TEST_DEADLINE_EXPIRED = 5001;
+
+  // None turned into an error. This carries no useful information whatsoever.
+  UNEXPECTED_NONE = 6001;
 }
