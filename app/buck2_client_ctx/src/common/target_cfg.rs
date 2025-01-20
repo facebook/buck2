@@ -71,8 +71,8 @@ pub struct TargetCfgWithUniverseOptions {
     /// universe targets, not the command targets.
     ///
     /// This argument is particularly recommended on most non-trivial cqueries. In the absence of
-    /// this argument, buck2 will use the target literals in your cquery expression as the value for
-    /// this argument, which may not be what you want.
+    /// this argument, buck2 will use the target literals in your cquery expression as the value
+    /// for this argument, which may not be what you want.
     #[clap(long, short = 'u', use_value_delimiter = true, verbatim_doc_comment)]
     pub target_universe: Vec<String>,
 
