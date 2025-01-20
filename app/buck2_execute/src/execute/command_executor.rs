@@ -187,7 +187,7 @@ impl CommandExecutor {
                 CommandExecutionInput::ScratchPath(_) => None,
             });
             let mut platform = self.0.re_platform.clone();
-            let args = if self.0.options.use_remote_persistent_workers
+            let args = if self.0.options.use_bazel_protocol_remote_persistent_workers
                 && let Some(worker) = request.worker()
                 && let Some(key) = worker.remote_key.as_ref()
             {
