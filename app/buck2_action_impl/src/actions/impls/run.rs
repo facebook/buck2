@@ -361,7 +361,7 @@ impl RunAction {
                 if !worker_visitor.outputs.is_empty() {
                     // TODO[AH] create appropriate error enum value.
                     return Err(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "remote persistent worker command should not produce an output"
                     ));
                 }

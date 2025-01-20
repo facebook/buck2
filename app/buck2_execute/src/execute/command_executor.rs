@@ -202,7 +202,7 @@ impl CommandExecutor {
                         || arg.starts_with("--flagfile"))
                     {
                         return Err(buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Input,
                             "Remote persistent worker arguments must be passed as `@argfile`, `-flagfile=argfile`, or `--flagfile=argfile`."
                         ));
                     }
