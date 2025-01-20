@@ -274,6 +274,7 @@ python_binary = prelude_rule(
                  dependencies of these rules.
             """),
         } |
+        python_common.version_selections_arg() |
         python_common.preload_deps_arg() |
         python_common.package_style_arg() |
         python_common.linker_flags_arg() |
@@ -450,6 +451,7 @@ python_test = prelude_rule(
                 other rules used by the tests in this rule's sources.
             """),
         } |
+        python_common.version_selections_arg() |
         buck.test_rule_timeout_ms() |
         python_common.package_style_arg() |
         python_common.preload_deps_arg() |

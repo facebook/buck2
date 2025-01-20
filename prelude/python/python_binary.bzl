@@ -109,6 +109,7 @@ load(
 load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style", "get_platform_attr")
 load(":typing.bzl", "create_per_target_type_check")
+load(":versions.bzl", "LibraryName", "LibraryVersion", "gather_versioned_dependencies", "resolve_versions")
 
 OmnibusMetadataInfo = provider(
     # @unsorted-dict-items
@@ -339,6 +340,16 @@ def python_executable(
     # here we make the actual libraries to appear in the distribution.
     # TODO: make fully consistent with its usage later
     raw_deps.extend(ctx.attrs.preload_deps)
+
+    selected_deps = resolve_versions(
+        gather_versioned_dependencies(raw_deps),
+        {
+            LibraryName(value = key): LibraryVersion(value = ver)
+            for key, ver in ctx.attrs.version_selections.items()
+        },
+    )
+    raw_deps.extend(selected_deps)
+
     python_deps, shared_deps = gather_dep_libraries(raw_deps)
 
     src_manifest = None
