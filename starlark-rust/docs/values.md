@@ -1,8 +1,12 @@
 # Value Representation
 
-:::warning Some of the information in this page is outdated. However, the
-explanation of the problem, and thought process behind it, remains useful. Of
-particular note is that a garbage collected heap is now used for `Value`. :::
+:::warning
+
+Some of the information in this page is outdated. However, the explanation of
+the problem, and thought process behind it, remains useful. Of particular note
+is that a garbage collected heap is now used for `Value`.
+
+:::
 
 This page explains how values are represented in the Starlark interpreter,
 ignoring some incidental details.

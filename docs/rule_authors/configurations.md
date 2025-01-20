@@ -74,11 +74,10 @@ Once the top-level nodes have been configured via the target platform
 resolution, the configuration is propagated to dependencies (possibly altered by
 transitions).
 
-<!-- prettier-ignore -->
 :::note
+
 The target platform resolution is not applied to all nodes in the graph.
 
-<!-- prettier-ignore -->
 :::
 
 ## Transitions

@@ -154,11 +154,11 @@ attribute:
 }
 ```
 
-<!-- prettier-ignore -->
 :::note
-It is an error to pass a split transition object to `attrs.transition_dep` and a non-split transition to `attrs.split_transition_dep`.
 
-<!-- prettier-ignore -->
+It is an error to pass a split transition object to `attrs.transition_dep` and a
+non-split transition to `attrs.split_transition_dep`.
+
 :::
 
 ## Per target transition
