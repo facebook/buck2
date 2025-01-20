@@ -122,6 +122,20 @@ async def test_error_on_dep_only_incompatible_conf(buck: Buck) -> None:
     )
 
 
+@buck_test(allow_soft_errors=True)
+async def test_error_on_dep_only_incompatible_excluded(buck: Buck) -> None:
+    args = [
+        "-c",
+        "buck2.error_on_dep_only_incompatible_excluded=//dep_incompatible:dep_incompatible_conf2",
+        "//dep_incompatible:dep_incompatible_conf2",
+    ]
+    # fails now with hard error since exclusion is not implemented yet
+    await expect_failure(
+        buck.cquery(*args),
+        stderr_regex=INCOMPATIBLE_ERROR,
+    )
+
+
 async def check_dep_only_incompatible_soft_err(buck: Buck, args: list[str]) -> None:
     result = await buck.cquery(*args)
     # This can't use the same INCOMPATIBLE_ERROR str as elsewhere.
