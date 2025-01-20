@@ -1463,6 +1463,16 @@ async fn check_error_on_incompatible_dep(
     ctx: &mut DiceComputations<'_>,
     target_label: &TargetLabel,
 ) -> buck2_error::Result<bool> {
+    check_target_enabled_for_config(ctx, target_label, "buck2", "error_on_dep_only_incompatible")
+        .await
+}
+
+async fn check_target_enabled_for_config(
+    ctx: &mut DiceComputations<'_>,
+    target_label: &TargetLabel,
+    section: &'static str,
+    property: &'static str,
+) -> buck2_error::Result<bool> {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display("ConfigPatternCalculation({section}, {property})")]
     struct ConfigPatternCalculation {
@@ -1512,10 +1522,7 @@ async fn check_error_on_incompatible_dep(
     }
 
     let patterns = ctx
-        .compute(&ConfigPatternCalculation {
-            section: "buck2",
-            property: "error_on_dep_only_incompatible",
-        })
+        .compute(&ConfigPatternCalculation { section, property })
         .await??;
     for pattern in patterns.iter() {
         if pattern.matches(target_label) {
