@@ -60,6 +60,7 @@ load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibrar
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 load(":typing.bzl", "create_per_target_type_check")
+load(":versions.bzl", "VersionedDependenciesInfo", "gather_versioned_dependencies", "resolve_versions")
 
 def dest_prefix(label: Label, base_module: [None, str]) -> str:
     """
@@ -166,14 +167,21 @@ def create_python_library_info(
         extension_shared_libraries = new_extension_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: list[Dependency]) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
+def gather_dep_libraries(
+        raw_deps: list[Dependency],
+        resolve_versioned_deps: bool = True) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
-    Fails if a dependency is not one of these.
+    If resolve_versions is True, it also collects versioned_library dependencies and uses their default version. Otherwise these are skipped, and should be handled elsewhere.
     """
     deps = []
     shared_libraries = []
     for dep in raw_deps:
+        if resolve_versioned_deps and VersionedDependenciesInfo in dep:
+            vdeps, vshlibs = gather_dep_libraries(resolve_versions(dep[VersionedDependenciesInfo], {}))
+            deps.extend(vdeps)
+            shared_libraries.extend(vshlibs)
+
         if PythonLibraryInfo in dep:
             deps.append(dep[PythonLibraryInfo])
         elif SharedLibraryInfo in dep:
@@ -319,7 +327,9 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ))
     default_resource_manifest = py_resources(ctx, default_resources) if default_resources else None
     standalone_resource_manifest = py_resources(ctx, standalone_resources, "_standalone") if standalone_resources else None
-    deps, shared_libraries = gather_dep_libraries(raw_deps)
+    deps, shared_libraries = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
+    providers.append(gather_versioned_dependencies(raw_deps))
+
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,

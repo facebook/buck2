@@ -350,7 +350,7 @@ def python_executable(
     )
     raw_deps.extend(selected_deps)
 
-    python_deps, shared_deps = gather_dep_libraries(raw_deps)
+    python_deps, shared_deps = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
 
     src_manifest = None
     bytecode_manifest = None
