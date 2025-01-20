@@ -30,9 +30,11 @@ import (
 	"go/scanner"
 	"go/token"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -131,20 +133,31 @@ func main() {
 	os.Args = loadArgs(os.Args)
 	flag.Parse()
 
+	coverInfos := make([]coverInfo, 0, len(coverPkgs))
+	for importPath, varToFileMap := range coverPkgs {
+		coverVarMap := make(map[string]*CoverVar, len(varToFileMap))
+		for varName, fileName := range varToFileMap {
+			coverVarMap[fileName] = &CoverVar{
+				File: filepath.Join(importPath, fileName),
+				Var:  varName,
+			}
+		}
+
+		cover := coverInfo{
+			Package: &Package{ImportPath: importPath},
+			Vars:    coverVarMap,
+		}
+		coverInfos = append(coverInfos, cover)
+	}
+
+	testCover = testCoverMode != ""
+	testCoverPaths = append(testCoverPaths, slices.Collect(maps.Keys(coverPkgs))...)
+
 	testFuncs, err := loadTestFuncsFromFiles(pkgImportPath, flag.Args())
 	if err != nil {
 		log.Fatalln("Could not read test files:", err)
 	}
-
-	for importPath, vars := range coverPkgs {
-		cover := coverInfo{&Package{importPath}, make(map[string]*CoverVar)}
-		for v, f := range vars {
-			cover.Vars[f] = &CoverVar{File: filepath.Join(importPath, f), Var: v}
-		}
-		testFuncs.Cover = append(testFuncs.Cover, cover)
-		testCoverPaths = append(testCoverPaths, importPath)
-	}
-	testCover = testCoverMode != ""
+	testFuncs.Cover = append(testFuncs.Cover, coverInfos...)
 
 	out := os.Stdout
 	if outputFile != "" {
