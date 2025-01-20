@@ -71,13 +71,13 @@ func (c coverPkgFlag) Set(value string) error {
 	for _, path := range strings.Split(value, ";") {
 		pkgAndFiles := strings.Split(path, ":")
 		if len(pkgAndFiles) != 2 {
-			return errors.New("Bad format: expected path:...;...")
+			return errors.New("bad format: expected path1:var1=file1,var2=file2;path2:var3=file3,var4=file4")
 		}
 		pkg := pkgAndFiles[0]
 		for _, varAndFile := range strings.Split(pkgAndFiles[1], ",") {
 			varAndFile := strings.Split(varAndFile, "=")
 			if len(varAndFile) != 2 {
-				return errors.New("Bad format: expected path:var1=file1,var2=file2,...")
+				return errors.New("bad format: expected path1:var1=file1,var2=file2;path2:var3=file3,var4=file4")
 			}
 
 			if c[pkg] == nil {
@@ -90,14 +90,24 @@ func (c coverPkgFlag) Set(value string) error {
 	return nil
 }
 
-var testCoverMode string
-var coverPkgs = make(coverPkgFlag)
-var pkgImportPath = flag.String("import-path", "test", "The import path in the test file")
-var outputFile = flag.String("output", "", "The path to the output file. Default to stdout.")
+// Flags
+var (
+	pkgImportPath string
+	outputFile    string
+	testCoverMode string
+	coverPkgs     = make(coverPkgFlag)
+)
 
-var cwd, _ = os.Getwd()
+func init() {
+	flag.StringVar(&pkgImportPath, "import-path", "test", "The import path in the test file")
+	flag.StringVar(&outputFile, "output", "", "The path to the output file. Default to stdout.")
+	flag.Var(coverPkgs, "cover-pkgs", "List of packages & coverage variables to gather coverage info on, in the form of IMPORT-PATH1:var1=file1,var2=file2,var3=file3;IMPORT-PATH2:...")
+	flag.StringVar(&testCoverMode, "cover-mode", "", "Cover mode (see `go tool cover`)")
+}
+
 var testCover bool
 var testCoverPaths []string
+var cwd, _ = os.Getwd()
 
 // Resolve argsfiles in args (e.g. `@file.txt`).
 func loadArgs(args []string) []string {
@@ -119,11 +129,9 @@ func loadArgs(args []string) []string {
 
 func main() {
 	os.Args = loadArgs(os.Args)
-	flag.Var(coverPkgs, "cover-pkgs", "List of packages & coverage variables to gather coverage info on, in the form of IMPORT-PATH1:var1=file1,var2=file2,var3=file3;IMPORT-PATH2:...")
-	flag.StringVar(&testCoverMode, "cover-mode", "", "Cover mode (see `go tool cover`)")
 	flag.Parse()
 
-	testFuncs, err := loadTestFuncsFromFiles(*pkgImportPath, flag.Args())
+	testFuncs, err := loadTestFuncsFromFiles(pkgImportPath, flag.Args())
 	if err != nil {
 		log.Fatalln("Could not read test files:", err)
 	}
@@ -139,8 +147,8 @@ func main() {
 	testCover = testCoverMode != ""
 
 	out := os.Stdout
-	if *outputFile != "" {
-		out, err = os.Create(*outputFile)
+	if outputFile != "" {
+		out, err = os.Create(outputFile)
 		if err != nil {
 			log.Fatalln("Could not write test main:", err)
 		}
