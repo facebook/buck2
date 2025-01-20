@@ -1,9 +1,7 @@
 ---
 id: compilation_database
-title: Compilation databases
+title: Generate C++ compilation databases
 ---
-
-# Generating compilation databases
 
 You can generate compilation databases for consumption by tools such as clangd
 and clang-tidy by running the following BXL script:
