@@ -50,8 +50,8 @@ pub struct WorkerInfoGen<V: ValueLifetimeless> {
     pub concurrency: ValueOfUncheckedGeneric<V, NoneOr<usize>>,
     // Whether to always run actions using this worker via the streaming API
     pub streaming: ValueOfUncheckedGeneric<V, bool>,
-    // Remote execution capable worker
-    pub remote: ValueOfUncheckedGeneric<V, bool>,
+    // Bazel remote persistent worker protocol capable worker.
+    pub supports_bazel_remote_persistent_worker_protocol: ValueOfUncheckedGeneric<V, bool>,
 
     pub id: u64,
 }
@@ -70,7 +70,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
             ValueOf<'v, usize>,
         >,
         #[starlark(require = named, default = NoneType)] streaming: Value<'v>,
-        #[starlark(require = named, default = false)] remote: bool,
+        #[starlark(require = named, default = false)] supports_bazel_remote_persistent_worker_protocol: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<WorkerInfo<'v>> {
         let heap = eval.heap();
@@ -82,7 +82,7 @@ fn worker_info_creator(globals: &mut GlobalsBuilder) {
             id,
             concurrency: heap.alloc_typed_unchecked(concurrency).cast(),
             streaming: ValueOfUnchecked::new(streaming),
-            remote: heap.alloc_typed_unchecked(remote).cast(),
+            supports_bazel_remote_persistent_worker_protocol: heap.alloc_typed_unchecked(supports_bazel_remote_persistent_worker_protocol).cast(),
         })
     }
 }
@@ -110,8 +110,8 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
             .unwrap_or(false)
     }
 
-    pub fn remote(&self) -> bool {
-        self.remote
+    pub fn supports_bazel_remote_persistent_worker_protocol(&self) -> bool {
+        self.supports_bazel_remote_persistent_worker_protocol
             .to_value()
             .unpack()
             .expect("validated at construction")

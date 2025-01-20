@@ -264,7 +264,7 @@ struct UnpackedWorkerValues<'v> {
     id: WorkerId,
     concurrency: Option<usize>,
     streaming: bool,
-    remote: bool,
+    supports_bazel_remote_persistent_worker_protocol: bool,
 }
 
 struct UnpackedRunActionValues<'v> {
@@ -322,7 +322,7 @@ impl RunAction {
             id: WorkerId(worker.id),
             concurrency: worker.concurrency(),
             streaming: worker.streaming(),
-            remote: worker.remote(),
+            supports_bazel_remote_persistent_worker_protocol: worker.supports_bazel_remote_persistent_worker_protocol(),
         });
 
         Ok(UnpackedRunActionValues {
@@ -355,7 +355,7 @@ impl RunAction {
                 .exe
                 .add_to_command_line(&mut worker_rendered, &mut cli_ctx)?;
             worker.exe.visit_artifacts(artifact_visitor)?;
-            let worker_key = if worker.remote {
+            let worker_key = if worker.supports_bazel_remote_persistent_worker_protocol {
                 let mut worker_visitor = SimpleCommandLineArtifactVisitor::new();
                 worker.exe.visit_artifacts(&mut worker_visitor)?;
                 if !worker_visitor.outputs.is_empty() {
