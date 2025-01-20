@@ -13,7 +13,7 @@ def _worker_impl(ctx: AnalysisContext) -> list[Provider]:
         WorkerInfo(
             exe = ctx.attrs.worker[RunInfo].args,
             concurrency = None,
-            remote = True,
+            supports_bazel_remote_persistent_worker_protocol = True,
         ),
     ]
 
