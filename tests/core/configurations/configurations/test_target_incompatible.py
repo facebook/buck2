@@ -103,18 +103,7 @@ async def test_error_on_dep_only_incompatible(
         "//dep_incompatible:dep_incompatible",
     ]
     if soft_error:
-        result = await buck.cquery(*args)
-        # This can't use the same INCOMPATIBLE_ERROR str as elsewhere.
-        # Because the result is a soft error, stderr has timestamps
-        # prefixing each line which makes this regex, which works elsewhere,
-        # fail here. The regex could try to match with the timestamp instead,
-        # but this is easier
-        assert re.search(
-            "root//:incompatible", result.stderr, re.DOTALL | re.IGNORECASE
-        )
-        assert re.search(
-            "is incompatible with", result.stderr, re.DOTALL | re.IGNORECASE
-        )
+        await check_dep_only_incompatible_soft_err(buck, args)
     else:
         await expect_failure(
             buck.cquery(*args),
@@ -131,3 +120,14 @@ async def test_error_on_dep_only_incompatible_conf(buck: Buck) -> None:
         buck.cquery(*args),
         stderr_regex=INCOMPATIBLE_ERROR,
     )
+
+
+async def check_dep_only_incompatible_soft_err(buck: Buck, args: list[str]) -> None:
+    result = await buck.cquery(*args)
+    # This can't use the same INCOMPATIBLE_ERROR str as elsewhere.
+    # Because the result is a soft error, stderr has timestamps
+    # prefixing each line which makes this regex, which works elsewhere,
+    # fail here. The regex could try to match with the timestamp instead,
+    # but this is easier
+    assert re.search("root//:incompatible", result.stderr, re.DOTALL | re.IGNORECASE)
+    assert re.search("is incompatible with", result.stderr, re.DOTALL | re.IGNORECASE)
