@@ -30,11 +30,9 @@ import (
 	"go/scanner"
 	"go/token"
 	"log"
-	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -148,10 +146,10 @@ func main() {
 			Vars:    coverVarMap,
 		}
 		coverInfos = append(coverInfos, cover)
+		testCoverPaths = append(testCoverPaths, importPath)
 	}
 
 	testCover = testCoverMode != ""
-	testCoverPaths = append(testCoverPaths, slices.Collect(maps.Keys(coverPkgs))...)
 
 	testFuncs, err := loadTestFuncsFromFiles(pkgImportPath, flag.Args())
 	if err != nil {
