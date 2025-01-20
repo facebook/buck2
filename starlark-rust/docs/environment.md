@@ -1,8 +1,12 @@
 # Environments
 
-:::warning Some of the information within this page is outdated. However, the
-explanation of the problem, and thought process behind it, remains useful. The
-storage of values is similar but implemented using different types. :::
+:::warning
+
+Some of the information within this page is outdated. However, the explanation
+of the problem, and thought process behind it, remains useful. The storage of
+values is similar but implemented using different types.
+
+:::
 
 Starlark (with a nested `def`) has a series of environments that may be active
 during an evaluation, as illustrated in the following example:
