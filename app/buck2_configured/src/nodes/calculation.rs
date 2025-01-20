@@ -1464,10 +1464,14 @@ async fn check_error_on_incompatible_dep(
     target_label: &TargetLabel,
 ) -> buck2_error::Result<bool> {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-    struct ErrorOnIncompatibleDepKey;
+    #[display("ConfigPatternCalculation({section}, {property})")]
+    struct ConfigPatternCalculation {
+        section: &'static str,
+        property: &'static str,
+    }
 
     #[async_trait]
-    impl Key for ErrorOnIncompatibleDepKey {
+    impl Key for ConfigPatternCalculation {
         type Value = buck2_error::Result<Arc<Vec<ParsedPattern<TargetPatternExtra>>>>;
 
         async fn compute(
@@ -1482,8 +1486,8 @@ async fn check_error_on_incompatible_dep(
             let patterns: Vec<String> = root_conf
                 .view(&mut ctx)
                 .parse_list(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "error_on_dep_only_incompatible",
+                    section: self.section,
+                    property: &self.property,
                 })?
                 .unwrap_or_default();
 
@@ -1507,7 +1511,12 @@ async fn check_error_on_incompatible_dep(
         }
     }
 
-    let patterns = ctx.compute(&ErrorOnIncompatibleDepKey).await??;
+    let patterns = ctx
+        .compute(&ConfigPatternCalculation {
+            section: "buck2",
+            property: "error_on_dep_only_incompatible",
+        })
+        .await??;
     for pattern in patterns.iter() {
         if pattern.matches(target_label) {
             return Ok(true);
