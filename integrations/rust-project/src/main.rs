@@ -111,6 +111,10 @@ enum Command {
         /// Optional argument specifying build mode.
         #[clap(short = 'm', long)]
         mode: Option<String>,
+
+        /// Include a `build` section for every crate, including dependencies. Otherwise, `build` is only included for crates in the workspace.
+        #[clap(long)]
+        include_all_buildfiles: bool,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///

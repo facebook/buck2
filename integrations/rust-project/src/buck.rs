@@ -51,6 +51,7 @@ pub(crate) fn to_json_project(
     aliases: FxHashMap<Target, AliasedTargetInfo>,
     relative_paths: bool,
     check_cycles: bool,
+    include_all_buildfiles: bool,
 ) -> Result<JsonProject, anyhow::Error> {
     let mode = select_mode(None);
     let buck = Buck::new(mode);
@@ -159,11 +160,16 @@ pub(crate) fn to_json_project(
             include_dirs.insert(parent.to_owned());
         }
 
-        let build = Some(Build {
-            label: target.clone(),
-            build_file: build_file.to_owned(),
-            target_kind: info.kind.clone().into(),
-        });
+        let build = if include_all_buildfiles || info.in_workspace {
+            let build = Build {
+                label: target.clone(),
+                build_file: build_file.to_owned(),
+                target_kind: info.kind.clone().into(),
+            };
+            Some(build)
+        } else {
+            None
+        };
 
         let crate_info = Crate {
             display_name: Some(info.display_name()),

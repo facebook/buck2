@@ -38,6 +38,7 @@ pub(crate) struct Develop {
     pub(crate) buck: buck::Buck,
     pub(crate) check_cycles: bool,
     pub(crate) invoked_by_ra: bool,
+    pub(crate) include_all_buildfiles: bool,
 }
 
 pub(crate) struct OutputCfg {
@@ -64,6 +65,7 @@ impl Develop {
             relative_paths,
             mode,
             check_cycles,
+            include_all_buildfiles,
             ..
         } = command
         {
@@ -90,6 +92,7 @@ impl Develop {
                 buck,
                 check_cycles,
                 invoked_by_ra: false,
+                include_all_buildfiles,
             };
             let out = OutputCfg { out, pretty };
 
@@ -131,6 +134,7 @@ impl Develop {
                 buck,
                 check_cycles: false,
                 invoked_by_ra: true,
+                include_all_buildfiles: false,
             };
             let out = OutputCfg { out, pretty: false };
 
@@ -230,6 +234,7 @@ impl Develop {
             relative_paths,
             buck,
             check_cycles,
+            include_all_buildfiles,
             ..
         } = self;
 
@@ -269,6 +274,7 @@ impl Develop {
             aliased_libraries,
             *relative_paths,
             *check_cycles,
+            *include_all_buildfiles,
         )?;
 
         Ok(rust_project)
