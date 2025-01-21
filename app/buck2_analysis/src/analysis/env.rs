@@ -33,6 +33,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
@@ -327,7 +328,9 @@ async fn run_analysis_with_env_underlying(
 
     let declared_actions = analysis_registry.num_declared_actions();
     let declared_artifacts = analysis_registry.num_declared_artifacts();
-    let (frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+    let registry_finalizer = analysis_registry.finalize(&env)?;
+    let frozen_env = env.freeze().map_err(from_freeze_error)?;
+    let recorded_values = registry_finalizer(&frozen_env)?;
 
     profiler
         .as_mut()

@@ -39,6 +39,7 @@ use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::LoadedModule;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -246,7 +247,12 @@ impl BxlInnerEvaluator {
         };
 
         let actions_finalizer = actions.finalize(&env)?;
-        let (frozen_module, recorded_values) = actions_finalizer(env)?;
+
+        // TODO(cjhopman): Why is there so much divergence in code here for whether we created actions or
+        // not? It seems to just make this unnecessarily complex.
+
+        let frozen_module = env.freeze().map_err(from_freeze_error)?;
+        let recorded_values = actions_finalizer(&frozen_module)?;
 
         let bxl_result = BxlResult::new(
             output_stream,

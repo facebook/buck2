@@ -33,6 +33,7 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -344,7 +345,9 @@ async fn eval_bxl_for_anon_target_inner(
 
             let num_declared_actions = analysis_registry.num_declared_actions();
             let num_declared_artifacts = analysis_registry.num_declared_artifacts();
-            let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+            let registry_finalizer = analysis_registry.finalize(&env)?;
+            let frozen_env = env.freeze().map_err(from_freeze_error)?;
+            let recorded_values = registry_finalizer(&frozen_env)?;
             Ok((
                 num_declared_actions,
                 num_declared_artifacts,

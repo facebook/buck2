@@ -44,6 +44,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_futures::cancellation::CancellationObserver;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::CancellationContext;
@@ -270,8 +271,9 @@ async fn execute_lambda(
 
                 declared_actions = Some(analysis_registry.num_declared_actions());
                 declared_artifacts = Some(analysis_registry.num_declared_artifacts());
-                let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
-                recorded_values
+                let registry_finalizer = analysis_registry.finalize(&env)?;
+                let frozen_env = env.freeze().map_err(from_freeze_error)?;
+                registry_finalizer(&frozen_env)?
             };
 
             (

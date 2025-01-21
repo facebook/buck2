@@ -43,6 +43,7 @@ use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -240,7 +241,8 @@ impl BxlDynamicOutputEvaluator<'_> {
             ctx.take_state_dynamic()?
         };
 
-        let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+        let recorded_values =
+            analysis_registry.finalize(&env)?(&env.freeze().map_err(from_freeze_error)?)?;
         Ok(recorded_values)
     }
 }
