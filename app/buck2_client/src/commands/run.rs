@@ -19,7 +19,7 @@ use buck2_cli_proto::BuildRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -82,7 +82,7 @@ pub struct RunCommand {
     build_opts: CommonBuildOptions,
 
     #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
+    target_cfg: TargetCfgWithUniverseOptions,
 
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
@@ -107,7 +107,7 @@ impl StreamingCommand for RunCommand {
                     context: Some(context),
                     // TODO(wendyy): glob patterns should be prohibited, and command should fail before the build event happens.
                     target_patterns: vec![self.target.clone()],
-                    target_cfg: Some(self.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: build_providers::Action::Skip as i32,
                         run_info: build_providers::Action::Build as i32,
@@ -116,7 +116,7 @@ impl StreamingCommand for RunCommand {
                     response_options: None,
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: Materializations::Materialize as i32,
-                    target_universe: Vec::new(),
+                    target_universe: self.target_cfg.target_universe,
                     output_hashes_file: None,
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
