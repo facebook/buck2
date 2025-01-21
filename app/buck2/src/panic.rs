@@ -170,7 +170,10 @@ mod imp {
             format!("Soft Error: {}: {:#}", category, err),
             Vec::new(),
             &options,
-            Some(category),
+            Some(buck2_data::SoftError {
+                category: category.to_owned(),
+                is_quiet: options.quiet,
+            }),
         );
 
         // If the soft error was fired in a context with an ambient dispatcher, then we only send
@@ -200,7 +203,7 @@ mod imp {
         message: String,
         backtrace: Vec<buck2_data::structured_error::StackFrame>,
         options: &StructuredErrorOptions,
-        soft_error_category: Option<&str>,
+        soft_error_category: Option<buck2_data::SoftError>,
     ) -> buck2_data::StructuredError {
         let metadata = get_metadata_for_panic(options);
         buck2_data::StructuredError {
@@ -210,7 +213,8 @@ mod imp {
             backtrace,
             quiet: options.quiet,
             task: Some(options.task),
-            soft_error_category: soft_error_category.map(ToOwned::to_owned),
+            soft_error_category: soft_error_category
+                .map(|arg0: buck2_data::SoftError| ToOwned::to_owned(&arg0)),
             daemon_in_memory_state_is_corrupted: options.daemon_in_memory_state_is_corrupted,
             daemon_materializer_state_is_corrupted: options.daemon_materializer_state_is_corrupted,
             action_cache_is_corrupted: options.action_cache_is_corrupted,

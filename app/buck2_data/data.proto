@@ -470,7 +470,7 @@ message StructuredError {
   // users. If true, it won't get logged to console
   bool quiet = 5;
   // If this was a soft error, its category.
-  optional string soft_error_category = 6;
+  optional SoftError soft_error_category = 6;
   // Whether a tracking task should be created for this error.
   optional bool task = 7;
   // Is this error indicative of needing to restart the daemon?
@@ -2069,7 +2069,7 @@ message InvocationRecord {
   optional string watchman_version = 55;
   optional string command_name = 56;
   // Any soft errors we hit during this invocation.
-  repeated string soft_error_categories = 57;
+  repeated SoftError soft_error_categories = 57;
   // Version number of EdenFS if mount is EdenFS
   optional string eden_version = 58;
   // Duration of when the concurrent command is blocking
@@ -2199,6 +2199,11 @@ message InvocationRecord {
 // Record event sent directly to scribe.
 message BuildGraphStats {
   repeated BuildTarget build_targets = 1;
+}
+
+message SoftError {
+  string category = 1;
+  bool is_quiet = 2;
 }
 
 message BuildTarget {

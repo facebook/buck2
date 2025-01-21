@@ -155,7 +155,7 @@ mod fbcode {
                                     backtrace: Vec::new(),
                                     quiet: false,
                                     task: Some(true),
-                                    soft_error_category: Some("oversized_scribe".to_owned()),
+                                    soft_error_category: Some(buck2_data::SoftError {category: "oversized_scribe".to_owned(), is_quiet:false}),
                                     daemon_in_memory_state_is_corrupted: false,
                                     daemon_materializer_state_is_corrupted: false,
                                     action_cache_is_corrupted: false,

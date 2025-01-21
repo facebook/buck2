@@ -32,6 +32,7 @@ use buck2_core::soft_error;
 use buck2_data::error::ErrorTag;
 use buck2_data::ErrorReport;
 use buck2_data::ProcessedErrorReport;
+use buck2_data::SoftError;
 use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
 use buck2_error::buck2_error;
@@ -149,7 +150,7 @@ pub(crate) struct InvocationRecorder<'a> {
     initial_sink_dropped_count: Option<u64>,
     initial_sink_bytes_written: Option<u64>,
     sink_max_buffer_depth: u64,
-    soft_error_categories: HashSet<String>,
+    soft_error_categories: HashSet<SoftError>,
     concurrent_command_blocking_duration: Option<Duration>,
     metadata: HashMap<String, String>,
     analysis_count: u64,
