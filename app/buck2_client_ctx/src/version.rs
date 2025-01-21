@@ -10,6 +10,7 @@
 use std::fs::File;
 use std::sync::OnceLock;
 
+use buck2_core::buck2_env;
 use object::Object;
 
 /// Provides information about this buck version.
@@ -80,7 +81,7 @@ impl BuckVersion {
         {
             (internal_exe_hash, "<build-id>")
         } else {
-            if !buck2_core::is_open_source() {
+            if !(buck2_core::is_open_source() || buck2_env!("BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE", type=bool, default=false, applicability=testing).unwrap_or(false)) {
                 let _ignored = crate::eprintln!(
                     "version extraction failed. This indicates an issue with the buck2 release, will fallback to binary hash"
                 );

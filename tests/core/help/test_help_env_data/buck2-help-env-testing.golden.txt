@@ -9,6 +9,7 @@ BUCK2_DISABLE_FILE_ATTR                 bool                  false
 BUCK2_DISABLE_MACOS_QOS                 bool                  false
 BUCK2_EDEN_SEMAPHORE                    usize                 2048
 BUCK2_HARD_ERROR                        String
+BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE bool                  false
 BUCK2_IO_SEMAPHORE                      usize                 num_cpus::get()
 BUCK2_IO_THREADS                        usize                 4
 BUCK2_KEEP_DEP_FILE_DIRECTORIES         bool                  false

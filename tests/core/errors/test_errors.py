@@ -63,11 +63,6 @@ async def test_package_listing_errors(buck: Buck) -> None:
         stripped_stderr = re.sub(
             "read_dir(.*)", "read_dir(<stripped absolute path>)", out.stderr
         )
-        # version extraction failed message fails to respect "-v=0"
-        stripped_stderr = re.sub(
-            r"(?m)^version extraction failed.*\n?", "", stripped_stderr
-        )
-
         outs.append(stripped_stderr)
 
     golden(output="\n\n\n".join(outs), rel_path="package_listing/expected.golden.out")

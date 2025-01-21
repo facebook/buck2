@@ -84,6 +84,8 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["BUCK2_WATCHMAN_TIMEOUT"] = "30"
     # Use little threads. We don't do much work in tests but we do run lots of Bucks.
     env["BUCK2_RUNTIME_THREADS"] = "2"
+    # Avoid noise in stderr.
+    env["BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE"] = "true"
 
     # Windows uses blocking threads for subprocess I/O so we can't do this there.
     if not is_windows:
