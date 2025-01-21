@@ -361,6 +361,20 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Target build file with transitive imports.
+    ///
+    /// For each target in the provided *target expression*,
+    /// returns the build file where the target is defined,
+    /// along with all transitive imports of that file.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery 'allbuildfiles(//foo:bar)'
+    ///
+    /// foo/BUCK
+    /// foo/defs_dependent_on_utils.bzl
+    /// baz/utils.bzl
+    /// ```
     async fn allbuildfiles(
         &self,
         env: &Env,
