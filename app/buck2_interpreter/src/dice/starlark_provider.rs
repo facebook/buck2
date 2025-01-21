@@ -26,7 +26,6 @@ use buck2_error::internal_error;
 use buck2_util::arc_str::ThinArcStr;
 use dice::DiceComputations;
 use dupe::Dupe;
-use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 
@@ -180,13 +179,6 @@ pub async fn with_starlark_eval_provider<'a, D: DerefMut<Target = DiceComputatio
 
         fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
             self.profiler.evaluation_complete(eval)
-        }
-
-        fn visit_frozen_module(
-            &mut self,
-            module: Option<&FrozenModule>,
-        ) -> buck2_error::Result<()> {
-            self.profiler.visit_frozen_module(module)
         }
     }
 

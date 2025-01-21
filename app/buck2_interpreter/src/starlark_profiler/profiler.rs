@@ -35,7 +35,6 @@ pub struct StarlarkProfiler {
     initialized_at: Option<Instant>,
     finalized_at: Option<Instant>,
     profile_data: Option<ProfileData>,
-    total_retained_bytes: Option<usize>,
 
     target: ProfileTarget,
 }
@@ -47,19 +46,40 @@ impl StarlarkProfiler {
             initialized_at: None,
             finalized_at: None,
             profile_data: None,
-            total_retained_bytes: None,
             target,
         }
     }
 
     /// Collect all profiling data.
-    pub fn finish(self) -> buck2_error::Result<StarlarkProfileDataAndStats> {
+    pub fn finish(
+        mut self,
+        frozen_module: Option<&FrozenModule>,
+    ) -> buck2_error::Result<StarlarkProfileDataAndStats> {
+        let total_retained_bytes = match (frozen_module, self.profile_mode.requires_frozen_module())
+        {
+            (None, true) => {
+                return Err(StarlarkProfilerError::RetainedMemoryNotFrozen.into());
+            }
+            (Some(module), requires_frozen) => {
+                if requires_frozen {
+                    let profile = module
+                        .heap_profile()
+                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                    self.profile_data = Some(profile);
+                }
+
+                module
+                    .frozen_heap()
+                    .allocated_summary()
+                    .total_allocated_bytes()
+            }
+            _ => 0,
+        };
+
         Ok(StarlarkProfileDataAndStats {
             initialized_at: self.initialized_at.internal_error("did not initialize")?,
             finalized_at: self.finalized_at.internal_error("did not finalize")?,
-            total_retained_bytes: self
-                .total_retained_bytes
-                .internal_error("did not visit heap")?,
+            total_retained_bytes,
             profile_data: self
                 .profile_data
                 .internal_error("profile_data not initialized")?,
@@ -81,27 +101,6 @@ impl StarlarkProfiler {
         if !self.profile_mode.requires_frozen_module() {
             self.profile_data = Some(eval.gen_profile()?);
         }
-        Ok(())
-    }
-
-    fn visit_frozen_module(&mut self, module: Option<&FrozenModule>) -> buck2_error::Result<()> {
-        if self.profile_mode.requires_frozen_module() {
-            let module = module.ok_or(StarlarkProfilerError::RetainedMemoryNotFrozen)?;
-            let profile = module
-                .heap_profile()
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-            self.profile_data = Some(profile);
-        }
-
-        let total_retained_bytes = module.map_or(0, |module| {
-            module
-                .frozen_heap()
-                .allocated_summary()
-                .total_allocated_bytes()
-        });
-
-        self.total_retained_bytes = Some(total_retained_bytes);
-
         Ok(())
     }
 }
@@ -132,17 +131,6 @@ impl<'p> StarlarkProfilerOpt<'p> {
         }
     }
 
-    pub fn visit_frozen_module(
-        &mut self,
-        module: Option<&FrozenModule>,
-    ) -> buck2_error::Result<()> {
-        if let StarlarkProfilerOptImpl::Profiler(profiler) = &mut self.0 {
-            profiler.visit_frozen_module(module)
-        } else {
-            Ok(())
-        }
-    }
-
     pub fn evaluation_complete(&mut self, eval: &mut Evaluator) -> buck2_error::Result<()> {
         if let StarlarkProfilerOptImpl::Profiler(profiler) = &mut self.0 {
             profiler.evaluation_complete(eval)
@@ -167,10 +155,13 @@ impl StarlarkProfilerOptVal {
         }
     }
 
-    pub fn finish(self) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
+    pub fn finish(
+        self,
+        frozen_module: Option<&FrozenModule>,
+    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
         match self {
             StarlarkProfilerOptVal::Disabled => Ok(None),
-            StarlarkProfilerOptVal::Profiler(profiler) => profiler.finish().map(Some),
+            StarlarkProfilerOptVal::Profiler(profiler) => profiler.finish(frozen_module).map(Some),
         }
     }
 }

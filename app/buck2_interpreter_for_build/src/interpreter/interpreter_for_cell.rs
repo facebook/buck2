@@ -528,9 +528,6 @@ impl InterpreterForCell {
                     eval_provider
                         .evaluation_complete(&mut eval)
                         .buck_error_context("Profiler finalization failed")?;
-                    eval_provider
-                        .visit_frozen_module(None)
-                        .buck_error_context("Profiler heap visitation failed")?;
 
                     cpu_instruction_count
                 }

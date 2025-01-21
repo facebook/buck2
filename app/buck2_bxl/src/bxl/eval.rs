@@ -52,6 +52,7 @@ use dice::DiceTransaction;
 use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::structs::AllocStruct;
@@ -149,7 +150,7 @@ impl BxlInnerEvaluator {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
-    ) -> buck2_error::Result<BxlResult> {
+    ) -> buck2_error::Result<(FrozenModule, BxlResult)> {
         let BxlInnerEvaluator {
             data,
             module,
@@ -261,11 +262,7 @@ impl BxlInnerEvaluator {
             recorded_values,
         );
 
-        provider
-            .visit_frozen_module(Some(&frozen_module))
-            .buck_error_context("Profiler heap visitation failed")?;
-
-        Ok(bxl_result)
+        Ok((frozen_module, bxl_result))
     }
 }
 
@@ -299,7 +296,7 @@ async fn eval_bxl_inner(
 
     let eval_kind = key.as_starlark_eval_kind();
     let mut profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-    let bxl_result = with_starlark_eval_provider(
+    let (frozen_module, bxl_result) = with_starlark_eval_provider(
         ctx,
         &mut profiler.as_mut(),
         &eval_kind,
@@ -307,7 +304,7 @@ async fn eval_bxl_inner(
     )
     .await?;
 
-    let profile_data = profiler.finish()?;
+    let profile_data = profiler.finish(Some(&frozen_module))?;
     Ok((bxl_result, profile_data))
 }
 

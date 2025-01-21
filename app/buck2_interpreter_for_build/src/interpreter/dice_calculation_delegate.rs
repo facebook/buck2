@@ -578,7 +578,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 },
             )
             .await?;
-            let profile_data = profiler.finish()?;
+            let profile_data = profiler.finish(None)?;
             if eval_result.starlark_profile.is_some() {
                 return (
                     now.unwrap().elapsed(),

@@ -332,12 +332,7 @@ async fn run_analysis_with_env_underlying(
     let frozen_env = env.freeze().map_err(from_freeze_error)?;
     let recorded_values = registry_finalizer(&frozen_env)?;
 
-    profiler
-        .as_mut()
-        .visit_frozen_module(Some(&frozen_env))
-        .buck_error_context("Profiler heap visitation failed")?;
-
-    let profile_data = profiler.finish()?.map(Arc::new);
+    let profile_data = profiler.finish(Some(&frozen_env))?.map(Arc::new);
 
     let validations = transitive_validations(
         validations_from_deps,
