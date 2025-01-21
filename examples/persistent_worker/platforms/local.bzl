@@ -20,7 +20,7 @@ def _platforms(ctx):
             remote_cache_enabled = False,
             allow_cache_uploads = False,
             use_persistent_workers = ctx.attrs.use_persistent_workers,
-            supports_bazel_remote_persistent_worker_protocol = False,
+            use_bazel_protocol_remote_persistent_workers = False,
         ),
     )
 

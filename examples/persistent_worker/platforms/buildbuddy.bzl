@@ -21,7 +21,7 @@ def _platforms(ctx):
             allow_cache_uploads = True,
             use_limited_hybrid = True,
             use_persistent_workers = ctx.attrs.use_persistent_workers,
-            supports_bazel_remote_persistent_worker_protocol = ctx.attrs.use_persistent_workers,
+            use_bazel_protocol_remote_persistent_workers = ctx.attrs.use_persistent_workers,
             remote_execution_properties = {
                 "OSFamily": "Linux",
                 "nonroot-workspace": True,
