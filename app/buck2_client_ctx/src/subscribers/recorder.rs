@@ -36,7 +36,6 @@ use buck2_data::SoftError;
 use buck2_data::SystemInfo;
 use buck2_data::TargetCfg;
 use buck2_error::buck2_error;
-use buck2_error::classify::best_error;
 use buck2_error::classify::source_area;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
@@ -449,8 +448,11 @@ impl<'a> InvocationRecorder<'a> {
             std::mem::take(&mut self.client_errors).into_map(|e| create_error_report(&e));
         let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
+        errors.sort_by_key(|e| e.error_rank());
 
-        let best_error = best_error(&errors).map(|error| process_error_report(error.clone()));
+        let best_error = errors
+            .first()
+            .map(|error| process_error_report(error.clone()));
         let (best_error_category_key, best_error_tag, error_category, best_error_source_area) =
             if let Some(best_error) = best_error {
                 (

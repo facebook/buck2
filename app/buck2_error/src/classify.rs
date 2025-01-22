@@ -283,8 +283,8 @@ mod tests {
     }
 
     #[test]
-    fn test_user_and_infra() {
-        let errors = vec![
+    fn test_first_error_best_error() {
+        let mut errors = vec![
             ErrorReport {
                 tags: vec![ErrorTag::Input as i32],
                 ..ErrorReport::default()
@@ -295,7 +295,12 @@ mod tests {
             },
         ];
 
-        assert_eq!(best_error(&errors).map(|e| e.category()), Some(Tier::Tier0));
+        let best_error = best_error(&errors).unwrap().clone();
+        assert_eq!(best_error.category(), Tier::Tier0);
+
+        // Test that first error in sorted list is equivalent to best_error.
+        errors.sort_by_key(|e| e.error_rank());
+        assert_eq!(errors.first(), Some(&best_error));
     }
 
     #[test]
