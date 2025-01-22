@@ -29,12 +29,12 @@ load(
     "@prelude//java/plugins:java_plugin.bzl",
     "PluginParams",  # @unused Used as a type
 )
-load("@prelude//java/utils:java_utils.bzl", "build_bootclasspath")
 load(
     "@prelude//jvm:cd_jar_creator_util.bzl",
     "BuildMode",
     "OutputPaths",
     "TargetType",
+    "add_java_7_8_bootclasspath",
     "base_qualified_name",
     "declare_prefixed_output",
     "define_output_paths",
@@ -82,7 +82,7 @@ def create_jar_artifact_javacd(
     actions = ctx.actions
     resources_map = get_resources_map(java_toolchain, label.package, resources, resources_root)
 
-    bootclasspath_entries = build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
+    bootclasspath_entries = add_java_7_8_bootclasspath(target_level, bootclasspath_entries, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
     should_create_class_abi = (
