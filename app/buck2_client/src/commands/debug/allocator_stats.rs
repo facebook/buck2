@@ -26,6 +26,9 @@ pub struct AllocatorStatsCommand {
     /// configuration prints minimal output, formatted as JSON.
     #[clap(short, long, default_value = "Jmdablxg", value_name = "OPTION")]
     options: String,
+
+    #[clap(flatten)]
+    common_event_opts: CommonEventLogOptions,
 }
 
 #[async_trait]
@@ -59,7 +62,7 @@ impl StreamingCommand for AllocatorStatsCommand {
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
-        CommonEventLogOptions::default_ref()
+        &self.common_event_opts
     }
 
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {
