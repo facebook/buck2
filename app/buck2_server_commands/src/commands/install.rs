@@ -55,6 +55,7 @@ use buck2_data::InstallEventInfoEnd;
 use buck2_data::InstallEventInfoStart;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
@@ -790,14 +791,31 @@ async fn send_file(
             .append(&mut response.device_metadata);
 
         if let Some(error_detail) = response.error_detail {
-            outcome = Err(InstallError::ProcessingFileReadyFailure {
+            let mut error: buck2_error::Error = InstallError::ProcessingFileReadyFailure {
                 install_id: install_id.to_owned(),
                 artifact: name.to_owned(),
                 path: path.to_owned(),
                 err: error_detail.message,
                 installer_log: install_log.to_owned(),
             }
-            .into());
+            .into();
+            if let Some(category) =
+                buck2_install_proto::ErrorCategory::from_i32(error_detail.category)
+            {
+                if let Some(category_tag) = match category {
+                    buck2_install_proto::ErrorCategory::Unspecified => None,
+                    buck2_install_proto::ErrorCategory::Tier0 => Some(ErrorTag::Tier0),
+                    buck2_install_proto::ErrorCategory::Input => Some(ErrorTag::Input),
+                    buck2_install_proto::ErrorCategory::Environment => Some(ErrorTag::Environment),
+                } {
+                    error = error.tag([category_tag]);
+                }
+            }
+
+            for tag in error_detail.tags {
+                error = error.context_for_key(&tag);
+            }
+            outcome = Err(error);
         }
         (outcome, end)
     })
