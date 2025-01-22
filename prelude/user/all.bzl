@@ -23,6 +23,7 @@ load("@prelude//apple/user:resource_group_map.bzl", _resource_group_map_spec = "
 load("@prelude//cxx/user:cxx_toolchain_override.bzl", _cxx_toolchain_override_spec = "cxx_toolchain_override_registration_spec")
 load("@prelude//cxx/user:link_group_map.bzl", _link_group_map_spec = "registration_spec")
 load("@prelude//http_archive:extract_archive.bzl", _extract_archive_spec = "registration_spec")
+load("@prelude//ide_integrations/xcode:xcode_files.bzl", _xcode_files_spec = "registration_spec")
 load(":cxx_headers_bundle.bzl", _cxx_headers_bundle_spec = "registration_spec")
 load(":write_file.bzl", _write_file_spec = "registration_spec")
 
@@ -47,6 +48,7 @@ _all_specs = [
     _apple_simulators_spec,
     _write_file_spec,
     _mockingbird_mock_spec,
+    _xcode_files_spec,
 ]
 
 rules = {
