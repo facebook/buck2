@@ -65,3 +65,9 @@ table.starlark_members_table td:nth-child(3) {
 .anchorWithStickyNavbar {
   scroll-margin-top: calc(var(--ifm-navbar-height) + 0.5rem);
 }
+
+.query-example-image {
+  width: 50%;
+  margin: 0 auto;
+  display: block;
+}

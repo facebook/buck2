@@ -193,22 +193,28 @@ async fn accept_target_set<Env: QueryEnvironment>(
 impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// Computes all dependency paths.
     ///
-    /// The `allpaths(from, to)` function evaluates to the graph formed by paths between the target expressions from and to, following the dependencies between nodes. For example, the value of
-    /// `buck query "allpaths('//foo:bar', '//foo/bar/lib:baz')"`
-    /// is the dependency graph rooted at the single target node `//foo:bar`, that includes all target nodes that depend (transitively) on `//foo/bar/lib:baz`.
+    /// The `allpaths(from, to)` function generates a graph of paths between the [target expressions](#target-expression) *from* and *to*, based on the dependencies between nodes.
     ///
-    /// The two arguments to `allpaths()` can themselves be expressions. For example, the command:
-    /// `buck query "allpaths(kind(java_library, '//...'), '//foo:bar')"`
-    /// shows all the paths between any java_library in the repository and the target `//foo:bar`.
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "allpaths('//foo:bar', '//foo/bar/lib:baz')"
+    /// ```
+    /// returns the dependency graph rooted at the target node `//foo:bar`, including all target nodes that transitively depend on `//foo/bar/lib:baz`.
     ///
-    /// We recommend using `allpaths()` with the `--output-format=dot` parameter to generate a graphviz file that can then be rendered as an image. For example:
+    /// Arguments *from* and *to* can themselves be expressions, for example:
+    /// ```text
+    /// $ buck2 uquery "allpaths(kind(java_library, '//...'), '//foo:bar')"
+    /// ```
+    /// shows all the paths between any target with rule type `java_library` in the repository and the target `//foo:bar`.
     ///
-    /// ```ignore
-    /// $ buck query "allpaths('//foo:bar', '//foo/bar/lib:baz')" --output-format=dot --output-file=result.dot
+    /// We recommend using it with the `--output-format=dot` parameter to generate a [Graphviz](https://graphviz.org/) [DOT](https://graphviz.org/doc/info/lang.html) file that can then be rendered as an image.
+    ///
+    /// ```text
+    /// $ buck2 uquery "allpaths(//buck2:buck2, //buck2/app/buck2_validation:buck2_validation)" --output-format=dot > result.dot
     /// $ dot -Tpng result.dot -o image.png
     /// ```
-    ///
-    /// Graphviz is an open-source graph-visualization software tool. Graphviz uses the dot language to describe graphs.
+    /// produces the following image:
+    /// <img src={useBaseUrl('/img/allpaths_example.png')} class='query-example-image'/>
     async fn allpaths(
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
