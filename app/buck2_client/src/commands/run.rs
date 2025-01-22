@@ -243,8 +243,6 @@ pub enum RunCommandError {
     NonBinaryRule(String),
     #[error("`--emit-shell` is not supported on Windows")]
     EmitShellNotSupportedOnWindows,
-    #[error(
-        "`buck2 run` only supports a single target, but multiple targets were requested. Only executing the first one built."
-    )]
+    #[error("`buck2 run` only supports a single target, but multiple targets were requested.")]
     MultipleTargets,
 }
