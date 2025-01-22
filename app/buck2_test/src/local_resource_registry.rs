@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
 use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -76,7 +77,7 @@ pub trait InitLocalResourceRegistry {
 }
 
 pub trait HasLocalResourceRegistry {
-    fn get_local_resource_registry(&self) -> Arc<LocalResourceRegistry>;
+    fn get_local_resource_registry(&self) -> anyhow::Result<Arc<LocalResourceRegistry>>;
 }
 
 impl InitLocalResourceRegistry for UserComputationData {
@@ -86,13 +87,13 @@ impl InitLocalResourceRegistry for UserComputationData {
 }
 
 impl HasLocalResourceRegistry for DiceComputations<'_> {
-    fn get_local_resource_registry(&self) -> Arc<LocalResourceRegistry> {
+    fn get_local_resource_registry(&self) -> anyhow::Result<Arc<LocalResourceRegistry>> {
         let data = self
             .per_transaction_data()
             .data
             .get::<Arc<LocalResourceRegistry>>()
-            .expect("LocalResourceRegistry should be set");
+            .context("LocalResourceRegistry should be set")?;
 
-        data.dupe()
+        Ok(data.dupe())
     }
 }

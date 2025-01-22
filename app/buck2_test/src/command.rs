@@ -344,7 +344,7 @@ async fn test(
     let build_opts = request
         .build_opts
         .as_ref()
-        .expect("should have build options");
+        .buck_error_context("should have build options")?;
 
     let timeout = request
         .timeout
@@ -607,7 +607,7 @@ async fn test_targets(
                     .await
                     .context("Failed to shutdown orchestrator")?;
 
-                let local_resource_registry = ctx.get_local_resource_registry();
+                let local_resource_registry = ctx.get_local_resource_registry()?;
 
                 local_resource_registry
                     .release_all_resources()

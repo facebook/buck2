@@ -1429,7 +1429,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         // For example, if different suites require different local resources and can execute in parallel, this code runs sequentially but should run in parallel.
         // An easy fix would be to introduce an RwLock instead of a mutex. In this case, suites that have the necessary resources and do not require write access
         // can be executed in parallel.
-        let local_resource_state_registry = dice.get_local_resource_registry();
+        let local_resource_state_registry = dice.get_local_resource_registry()?;
         let required_targets = setup_commands
             .iter()
             .map(|ctx| ctx.target.dupe())
