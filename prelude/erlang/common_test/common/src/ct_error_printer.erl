@@ -224,8 +224,8 @@ format_assert0(
                 io_lib:format("          got value: ~p~n", [Value]);
             #{unexpected_exception := {Class, Reason, StackTrace} = _Exception} ->
                 io_lib:format(
-                    "      got exception: ~s ~n",
-                    [erl_error:format_exception(Class, Reason, StackTrace)]
+                    "      got exception: ~p ~n",
+                    [{Class, Reason, StackTrace}]
                 );
             _ ->
                 unrecognized_error
