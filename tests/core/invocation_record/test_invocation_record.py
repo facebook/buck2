@@ -153,8 +153,9 @@ async def test_client_metadata_clean(buck: Buck, tmp_path: Path) -> None:
 @buck_test(skip_for_os=["windows"])
 async def test_client_metadata_debug(buck: Buck, tmp_path: Path) -> None:
     record = tmp_path / "record.json"
+    # buck.debug() doesn't start the daemon, so we need to start it with a build
+    await buck.build()
 
-    # Start the daemon
     await buck.debug(
         "allocator-stats",
         "--client-metadata=foo=bar",
