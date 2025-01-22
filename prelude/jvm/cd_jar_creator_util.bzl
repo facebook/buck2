@@ -22,12 +22,6 @@ load(
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:expect.bzl", "expect")
 
-def add_java_7_8_bootclasspath(target_level: int, bootclasspath_entries: list[Artifact], java_toolchain: JavaToolchainInfo) -> list[Artifact]:
-    # bootclasspath_7 is deprecated.
-    if target_level == 8:
-        return bootclasspath_entries + java_toolchain.bootclasspath_8
-    return bootclasspath_entries
-
 def declare_prefixed_output(actions: AnalysisActions, prefix: [str, None], output: str, dir: bool = False) -> Artifact:
     return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir)
 
