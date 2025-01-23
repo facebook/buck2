@@ -1906,24 +1906,18 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         );
 
         // If the artifact copies from other artifacts, we must materialize them first
-        let deps_tasks = match entry_and_method.as_ref() {
-            Some((_, m)) => match m.as_ref() {
-                ArtifactMaterializationMethod::CasDownload { .. }
-                | ArtifactMaterializationMethod::HttpDownload { .. }
-                | ArtifactMaterializationMethod::Write { .. } => Vec::new(),
-                ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => copied_artifacts
-                    .iter()
-                    .filter_map(|a| {
-                        self.materialize_artifact_recurse(
-                            MaterializeStack::Child(&stack, path),
-                            a.src.as_ref(),
-                            event_dispatcher.dupe(),
-                        )
-                    })
-                    .collect::<Vec<_>>(),
-                #[cfg(test)]
-                ArtifactMaterializationMethod::Test => Vec::new(),
-            },
+        let method = entry_and_method.as_ref().map(|(_, m)| m.as_ref());
+        let deps_tasks = match method {
+            Some(ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts)) => copied_artifacts
+                .iter()
+                .filter_map(|a| {
+                    self.materialize_artifact_recurse(
+                        MaterializeStack::Child(&stack, path),
+                        a.src.as_ref(),
+                        event_dispatcher.dupe(),
+                    )
+                })
+                .collect::<Vec<_>>(),
             _ => Vec::new(),
         };
 
