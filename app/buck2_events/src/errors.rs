@@ -16,7 +16,7 @@ pub fn create_error_report(err: &buck2_error::Error) -> buck2_data::ErrorReport 
         (format!("{:?}", err), None)
     };
 
-    let source_location = err.source_location().map(ToOwned::to_owned);
+    let source_location = Some(err.source_location().to_string());
     let category_key = err.category_key();
 
     let sub_error_categories = if let Some(error_diagnostics) = err

@@ -14,7 +14,7 @@ use std::fmt::Arguments;
 #[track_caller]
 pub fn buck2_error_impl(tag: crate::ErrorTag, args: Arguments) -> crate::Error {
     let line_number = std::panic::Location::caller().line().to_string();
-    let source_location = crate::source_location::from_file(
+    let source_location = crate::source_location::SourceLocation::new(
         std::panic::Location::caller().file(),
         Some(&line_number),
     );

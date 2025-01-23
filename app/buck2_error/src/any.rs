@@ -17,6 +17,7 @@ use buck2_data::error::ErrorTag;
 use ref_cast::RefCast;
 
 use crate::error::ErrorKind;
+use crate::source_location::SourceLocation;
 
 fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) -> crate::Error {
     if let Some(metadata) = request_value::<ProvidableMetadata>(context) {
@@ -31,7 +32,7 @@ fn maybe_add_context_from_metadata(mut e: crate::Error, context: &dyn StdError) 
 
 pub fn recover_crate_error(
     value: &'_ (dyn StdError + 'static),
-    source_location: Option<String>,
+    source_location: SourceLocation,
     error_tag: ErrorTag,
 ) -> crate::Error {
     // Instead of just turning this into an error root, we'll extract the whole context stack and
@@ -49,10 +50,8 @@ pub fn recover_crate_error(
         }
 
         if let Some(metadata) = request_value::<ProvidableMetadata>(cur) {
-            source_location = crate::source_location::from_file(
-                metadata.source_file,
-                metadata.source_location_extra,
-            );
+            source_location =
+                SourceLocation::new(metadata.source_file, metadata.source_location_extra);
             if metadata.action_error.is_some() {
                 action_error = metadata.action_error;
             }
@@ -144,7 +143,7 @@ mod tests {
         #[cold]
         fn from(value: TestError) -> Self {
             let error = anyhow::Error::from(value);
-            let source_location = Some(file!().to_owned());
+            let source_location = SourceLocation::new(file!(), None);
             crate::any::recover_crate_error(error.as_ref(), source_location, ErrorTag::Input)
         }
     }
@@ -204,7 +203,7 @@ mod tests {
         #[cold]
         fn from(value: FullMetadataError) -> Self {
             let error = anyhow::Error::from(value);
-            let source_location = Some(file!().to_owned());
+            let source_location = SourceLocation::new(file!(), None);
             crate::any::recover_crate_error(error.as_ref(), source_location, ErrorTag::Input)
         }
     }
@@ -232,8 +231,8 @@ mod tests {
         ] {
             assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
             assert_eq!(
-                e.source_location(),
-                Some("buck2_error/src/any.rs::FullMetadataError")
+                e.source_location().to_string(),
+                "buck2_error/src/any.rs::FullMetadataError"
             );
             assert_eq!(
                 &e.tags(),
@@ -277,8 +276,8 @@ mod tests {
         let e: crate::Error = FullMetadataContextWrapperError(FullMetadataError).into();
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
         assert_eq!(
-            e.source_location(),
-            Some("buck2_error/src/any.rs::FullMetadataError")
+            e.source_location().to_string(),
+            "buck2_error/src/any.rs::FullMetadataError"
         );
         assert!(format!("{:?}", e).contains("wrapper2"));
     }

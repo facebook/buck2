@@ -7,31 +7,51 @@
  * of this source tree.
  */
 
-/// Converts a file path returned by `file!` or `Location::file()` to a value suitable for use as a
-/// `source_location`.
-///
-/// The extra parameter, if present, will be appended to the end of the path.
-///
-/// May return `None` if the path is not in `buck2/app`.
-pub fn from_file(path: &str, extra: Option<&str>) -> Option<String> {
-    // The path is passed in as a host path, not a target path. So we need to manually standardize
-    // the path separators
-    let path: String = path
-        .chars()
-        .map(|c| if c == '\\' { '/' } else { c })
-        .collect();
-    // `buck2_error` should only be used within `buck2/app`, giving us a nice way to make sure we
-    // strip any leading parts of the path we don't want.
-    let (_, path) = path.split_once("app/")?;
+use allocative::Allocative;
 
-    let extra_delimiter = if extra.is_some() { "::" } else { "" };
+#[derive(Allocative, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SourceLocation {
+    /// The path to the file that this error occurred in.
+    path: String,
+    extra: Option<String>,
+}
 
-    Some(format!(
-        "{}{}{}",
-        path,
-        extra_delimiter,
-        extra.unwrap_or("")
-    ))
+impl SourceLocation {
+    /// Converts a file path returned by `file!` or `Location::file()` to a value suitable for use as a
+    /// `source_location`.
+    ///
+    /// The extra parameter, if present, will be appended to the end of the path.
+    pub fn new(path: &str, extra: Option<&str>) -> Self {
+        // The path is passed in as a host path, not a target path. So we need to manually normalize
+        // the path separators
+        let path: String = path
+            .chars()
+            .map(|c| if c == '\\' { '/' } else { c })
+            .collect();
+        // `buck2_error` should only be used within `buck2/app`, giving us a nice way to make sure we
+        // strip any leading parts of the path we don't want.
+        let path = if let Some((_, path)) = path.split_once("buck2/app/") {
+            path.to_owned()
+        } else {
+            // Shouldn't happen, but we still want to see the path if it does.
+            format!("external:{}", path)
+        };
+
+        Self {
+            path,
+            extra: extra.map(|s| s.to_owned()),
+        }
+    }
+}
+
+impl std::fmt::Display for SourceLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(extra) = &self.extra {
+            write!(f, "{}::{}", self.path, extra)
+        } else {
+            write!(f, "{}", self.path)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -44,25 +64,25 @@ mod tests {
     #[test]
     fn test_this_file() {
         assert_eq!(
-            from_file(file!(), None).as_deref(),
-            Some("buck2_error/src/source_location.rs"),
+            SourceLocation::new(file!(), None).to_string(),
+            "buck2_error/src/source_location.rs",
         );
 
         assert_eq!(
-            from_file(file!(), Some("Type::Variant")).as_deref(),
-            Some("buck2_error/src/source_location.rs::Type::Variant"),
+            SourceLocation::new(file!(), Some("Type::Variant")).to_string(),
+            "buck2_error/src/source_location.rs::Type::Variant",
         );
     }
 
     #[test]
     fn test_windows_path() {
         assert_eq!(
-            from_file(
+            SourceLocation::new(
                 r"C:\whatever\repo\buck2\app\buck2_error\src\source_location.rs",
                 None
             )
-            .as_deref(),
-            Some("buck2_error/src/source_location.rs"),
+            .to_string(),
+            "buck2_error/src/source_location.rs",
         );
     }
 
@@ -73,7 +93,7 @@ mod tests {
         assert_eq!(err.to_string(), err_msg);
         assert!(
             err.source_location()
-                .unwrap()
+                .to_string()
                 .contains("buck2_error/src/source_location.rs")
         );
     }
@@ -84,11 +104,14 @@ mod tests {
         let err: crate::Error = crate::Error::new(
             err_msg.to_owned(),
             crate::ErrorTag::Input,
-            Some("test_source_location".to_owned()),
+            SourceLocation::new("test_source_location", None),
             None,
         );
         assert_eq!(err.to_string(), err_msg);
-        assert_eq!(err.source_location(), Some("test_source_location"));
+        assert_eq!(
+            err.source_location().to_string(),
+            "external:test_source_location"
+        );
     }
 
     #[test]
@@ -96,8 +119,8 @@ mod tests {
         let err: anyhow::Error = anyhow::Error::new(MyError);
         let err: crate::Error = from_any_with_tag(err, crate::ErrorTag::Input);
         assert_eq!(
-            err.source_location(),
-            Some("buck2_error/src/source_location.rs"),
+            err.source_location().to_string(),
+            "buck2_error/src/source_location.rs",
         );
     }
 
@@ -110,8 +133,8 @@ mod tests {
 
         let e = foo().unwrap_err();
         assert_eq!(
-            e.source_location(),
-            Some("buck2_error/src/source_location.rs"),
+            e.source_location().to_string(),
+            "buck2_error/src/source_location.rs",
         );
     }
 
@@ -122,16 +145,16 @@ mod tests {
         let e: anyhow::Error = Err::<(), _>(MyError).context("foo").unwrap_err();
         let e: crate::Error = from_any_with_tag(e, crate::ErrorTag::Input);
         assert_eq!(
-            e.source_location(),
-            Some("buck2_error/src/source_location.rs"),
+            e.source_location().to_string(),
+            "buck2_error/src/source_location.rs",
         );
 
         let e: buck2_error::Error = from_any_with_tag(MyError, crate::ErrorTag::Input);
         let e: anyhow::Error = e.into();
         let e: crate::Error = from_any_with_tag(e, crate::ErrorTag::Input);
         assert_eq!(
-            e.source_location(),
-            Some("buck2_error/src/source_location.rs"),
+            e.source_location().to_string(),
+            "buck2_error/src/source_location.rs",
         );
     }
 
@@ -142,14 +165,14 @@ mod tests {
 
         let e: crate::Error = Error1.into();
         assert_eq!(
-            e.source_location(),
-            Some("buck2_error/src/derive_tests.rs::Error1")
+            e.source_location().to_string(),
+            "buck2_error/src/derive_tests.rs::Error1",
         );
 
         let e: crate::Error = Error3::VariantB.into();
         assert_eq!(
-            e.source_location(),
-            Some("buck2_error/src/derive_tests.rs::Error3::VariantB")
+            e.source_location().to_string(),
+            "buck2_error/src/derive_tests.rs::Error3::VariantB",
         );
     }
 
@@ -164,10 +187,9 @@ mod tests {
         }
 
         let e = bar().unwrap_err();
-        assert!(e.source_location().is_some());
         assert!(
             e.source_location()
-                .unwrap()
+                .to_string()
                 .contains("buck2_error/src/source_location.rs")
         );
     }

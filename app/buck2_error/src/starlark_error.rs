@@ -17,6 +17,7 @@ use crate::__for_macro::ContextValue;
 use crate::any::recover_crate_error;
 use crate::context_value::StarlarkContext;
 use crate::error::ErrorKind;
+use crate::source_location::SourceLocation;
 
 impl From<crate::Error> for starlark_syntax::Error {
     fn from(e: crate::Error) -> starlark_syntax::Error {
@@ -64,7 +65,7 @@ fn error_with_starlark_context(
     loop {
         match buck2_error.0.as_ref() {
             ErrorKind::Root(root) => {
-                let source_location = root.source_location().map(|s| s.to_owned());
+                let source_location = root.source_location().clone();
                 let action_error = root.action_error().cloned();
 
                 // We want to keep the metadata but want to change the error message
@@ -155,7 +156,7 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Native(_) => "StarlarkError::Native",
         _ => "StarlarkError",
     };
-    let source_location = crate::source_location::from_file(std::file!(), Some(variant_name));
+    let source_location = SourceLocation::new(std::file!(), Some(variant_name));
     let description = if skip_stacktrace {
         format!("{}", e.without_diagnostic())
     } else {
@@ -224,6 +225,7 @@ mod tests {
     use crate::any::ProvidableMetadata;
     use crate::buck2_error;
     use crate::context_value::StarlarkContext;
+    use crate::source_location::SourceLocation;
     use crate::starlark_error::error_with_starlark_context;
 
     #[derive(Debug, derive_more::Display)]
@@ -233,7 +235,7 @@ mod tests {
         #[cold]
         fn from(value: FullMetadataError) -> Self {
             let error = anyhow::Error::from(value);
-            let source_location = Some(file!().to_owned());
+            let source_location = SourceLocation::new(file!(), None);
             crate::any::recover_crate_error(error.as_ref(), source_location, crate::ErrorTag::Tier0)
         }
     }
@@ -273,8 +275,8 @@ mod tests {
         assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
         assert!(format!("{:?}", e).contains("test context 123"));
         assert_eq!(
-            e.source_location(),
-            Some("buck2_error/src/starlark_error.rs::FullMetadataError")
+            e.source_location().to_string(),
+            "buck2_error/src/starlark_error.rs::FullMetadataError",
         );
         assert_eq!(
             &e.tags(),

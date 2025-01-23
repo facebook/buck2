@@ -220,6 +220,7 @@ mod tests {
     use allocative::Allocative;
 
     use super::*;
+    use crate::source_location::SourceLocation;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;
@@ -232,7 +233,7 @@ mod tests {
             crate::Error::new(
                 "".to_owned(),
                 crate::ErrorTag::Input,
-                Some(file!().to_owned()),
+                SourceLocation::new(file!(), None),
                 None,
             )
         }

@@ -91,7 +91,7 @@ fn impl_struct(input: Struct) -> TokenStream {
             #field_pats
             #tags
 
-            let source_location = buck2_error::source_location::from_file(core::file!(), Some(#source_location_extra));
+            let source_location = buck2_error::source_location::SourceLocation::new(core::file!(), Some(#source_location_extra));
             let root_error = buck2_error::Error::new(format!("{}", #arg_token), tags[0], source_location, None);
             root_error.tag(tags)
         }
@@ -257,7 +257,7 @@ fn impl_enum(mut input: Enum) -> TokenStream {
             quote! {
                 #tags
 
-                let source_location = buck2_error::source_location::from_file(core::file!(), Some(#source_location_extra));
+                let source_location = buck2_error::source_location::SourceLocation::new(core::file!(), Some(#source_location_extra));
                 let root_error = buck2_error::Error::new(err_msg, tags[0], source_location, None);
                 root_error.tag(tags)
             }

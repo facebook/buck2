@@ -19,8 +19,10 @@ impl From<std::string::String> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::string::String) -> Self {
-        let source_location =
-            crate::source_location::from_file(std::panic::Location::caller().file(), None);
+        let source_location = crate::source_location::SourceLocation::new(
+            std::panic::Location::caller().file(),
+            None,
+        );
 
         crate::Error::new(value, crate::ErrorTag::Tier0, source_location, None)
     }

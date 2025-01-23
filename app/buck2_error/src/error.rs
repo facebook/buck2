@@ -21,10 +21,10 @@ use crate::context_value::StarlarkContext;
 use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
+use crate::source_location::SourceLocation;
 use crate::ErrorTag;
 use crate::Tier;
 use crate::UniqueRootId;
-
 pub type DynLateFormat = dyn Fn(&mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 /// The core error type provided by this crate.
@@ -63,7 +63,7 @@ impl Error {
     pub fn new(
         error_msg: String,
         error_tag: ErrorTag,
-        source_location: Option<String>,
+        source_location: SourceLocation,
         action_error: Option<ActionError>,
     ) -> Self {
         let error_root = ErrorRoot::new(error_msg, error_tag, source_location, action_error);
@@ -161,7 +161,8 @@ impl Error {
             _ => None,
         });
 
-        let mut values = vec![self.source_location().unwrap_or("unknown_location")]
+        let source_location = self.source_location().to_string();
+        let mut values = vec![source_location.as_str()]
             .into_iter()
             .chain(tags)
             .map(|s| s.to_owned())
@@ -170,7 +171,7 @@ impl Error {
         values.join(":").to_owned()
     }
 
-    pub fn source_location(&self) -> Option<&str> {
+    pub fn source_location(&self) -> &SourceLocation {
         self.root().source_location()
     }
 
@@ -358,12 +359,12 @@ mod tests {
     #[test]
     fn test_category_key() {
         let err: crate::Error = TestError.into();
-        assert_eq!(err.category_key(), err.source_location().unwrap());
+        assert_eq!(err.category_key(), err.source_location().to_string());
 
         let err = err.tag([crate::ErrorTag::Analysis]);
         assert_eq!(
             err.category_key(),
-            format!("{}:{}", err.source_location().unwrap(), "ANALYSIS")
+            format!("{}:{}", err.source_location(), "ANALYSIS")
         );
     }
 }
