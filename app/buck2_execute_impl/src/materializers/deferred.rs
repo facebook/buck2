@@ -1928,7 +1928,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         };
 
         // The artifact might have symlinks pointing to other artifacts. We must
-        // materialize them as well, to avoid dangling synlinks.
+        // materialize them as well, to avoid dangling symlinks.
         let link_deps_tasks = match deps.as_ref() {
             None => Vec::new(),
             Some(deps) => self
