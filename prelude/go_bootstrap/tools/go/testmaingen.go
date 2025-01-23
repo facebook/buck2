@@ -24,15 +24,12 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
-	"go/build"
 	"go/doc"
 	"go/parser"
-	"go/scanner"
 	"go/token"
 	"log"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"text/template"
@@ -105,10 +102,6 @@ func init() {
 	flag.StringVar(&testCoverMode, "cover-mode", "", "Cover mode (see `go tool cover`)")
 }
 
-var testCover bool
-var testCoverPaths []string
-var cwd, _ = os.Getwd()
-
 // Resolve argsfiles in args (e.g. `@file.txt`).
 func loadArgs(args []string) []string {
 	newArgs := make([]string, 0, 0)
@@ -132,6 +125,8 @@ func main() {
 	flag.Parse()
 
 	coverInfos := make([]coverInfo, 0, len(coverPkgs))
+	pkgs := make([]*Package, 0, len(coverPkgs))
+	testCoverPaths := make([]string, 0, len(coverPkgs))
 	for importPath, varToFileMap := range coverPkgs {
 		coverVarMap := make(map[string]*CoverVar, len(varToFileMap))
 		for varName, fileName := range varToFileMap {
@@ -141,21 +136,29 @@ func main() {
 			}
 		}
 
+		pkg := &Package{ImportPath: importPath}
 		cover := coverInfo{
-			Package: &Package{ImportPath: importPath},
+			Package: pkg,
 			Vars:    coverVarMap,
 		}
+		pkgs = append(pkgs, pkg)
 		coverInfos = append(coverInfos, cover)
 		testCoverPaths = append(testCoverPaths, importPath)
 	}
-
-	testCover = testCoverMode != ""
 
 	testFuncs, err := loadTestFuncsFromFiles(pkgImportPath, flag.Args())
 	if err != nil {
 		log.Fatalln("Could not read test files:", err)
 	}
-	testFuncs.Cover = append(testFuncs.Cover, coverInfos...)
+	// Coverage enabled
+	if testCoverMode != "" {
+		testFuncs.Cover = &TestCover{
+			Pkgs:  pkgs,
+			Vars:  coverInfos,
+			Paths: testCoverPaths,
+			Mode:  testCoverMode,
+		}
+	}
 
 	out := os.Stdout
 	if outputFile != "" {
@@ -187,11 +190,8 @@ func loadTestFuncsFromFiles(packageImportPath string, files []string) (*testFunc
 //
 //
 //
-// Most of the code below is a direct copy from the 'go test' command, but
-// adapted to support multiple versions of the go stdlib.  This was last
-// updated for the changes in go1.8. The source for the 'go test' generator
-// for go1.8 can be found here:
-//   https://github.com/golang/go/blob/release-branch.go1.8/src/cmd/go/test.go
+// Most of the code below is a direct copy from the 'go test' command:
+//   https://github.com/golang/go/blob/release-branch.go1.24/src/cmd/go/internal/load/test.go
 //
 //
 //
@@ -242,37 +242,15 @@ func isTest(name, prefix string) bool {
 	return !unicode.IsLower(rune)
 }
 
-// shortPath returns an absolute or relative name for path, whatever is shorter.
-func shortPath(path string) string {
-	if rel, err := filepath.Rel(cwd, path); err == nil && len(rel) < len(path) {
-		return rel
-	}
-	return path
+type TestCover struct {
+	Mode  string
+	Local bool
+	Pkgs  []*Package
+	Paths []string
+	Vars  []coverInfo
 }
 
-// expandScanner expands a scanner.List error into all the errors in the list.
-// The default Error method only shows the first error.
-func expandScanner(err error) error {
-	// Look for parser errors.
-	if err, ok := err.(scanner.ErrorList); ok {
-		// Prepare error with \n before each message.
-		// When printed in something like context: %v
-		// this will put the leading file positions each on
-		// its own line.  It will also show all the errors
-		// instead of just the first, as err.Error does.
-		var buf bytes.Buffer
-		for _, e := range err {
-			e.Pos.Filename = shortPath(e.Pos.Filename)
-			buf.WriteString("\n")
-			buf.WriteString(e.Error())
-		}
-		return errors.New(buf.String())
-	}
-	return err
-}
-
-// CoverVar holds the name of the generated coverage variables
-// targeting the named file.
+// CoverVar holds the name of the generated coverage variables targeting the named file.
 type CoverVar struct {
 	File string // local file name
 	Var  string // name of count struct
@@ -294,24 +272,7 @@ type testFuncs struct {
 	NeedTest    bool
 	ImportXtest bool
 	NeedXtest   bool
-	Cover       []coverInfo
-}
-
-func (t *testFuncs) CoverMode() string {
-	return testCoverMode
-}
-
-func (t *testFuncs) CoverEnabled() bool {
-	return testCover
-}
-
-func (t *testFuncs) ReleaseTag(want string) bool {
-	for _, r := range build.Default.ReleaseTags {
-		if want == r {
-			return true
-		}
-	}
-	return false
+	Cover       *TestCover
 }
 
 // ImportPath returns the import path of the package being tested, if it is within GOPATH.
@@ -332,10 +293,26 @@ func (t *testFuncs) ImportPath() string {
 // Otherwise it is a comma-separated human-readable list of packages beginning with
 // " in", ready for use in the coverage message.
 func (t *testFuncs) Covered() string {
-	if testCoverPaths == nil {
+	if t.Cover == nil || t.Cover.Paths == nil {
 		return ""
 	}
-	return " in " + strings.Join(testCoverPaths, ", ")
+	return " in " + strings.Join(t.Cover.Paths, ", ")
+}
+
+func (t *testFuncs) CoverSelectedPackages() string {
+	if t.Cover == nil || t.Cover.Paths == nil {
+		return `[]string{"` + t.Package.ImportPath + `"}`
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "[]string{")
+	for k, p := range t.Cover.Pkgs {
+		if k != 0 {
+			sb.WriteString(", ")
+		}
+		fmt.Fprintf(&sb, `"%s"`, p.ImportPath)
+	}
+	sb.WriteString("}")
+	return sb.String()
 }
 
 type testFunc struct {
@@ -348,9 +325,15 @@ type testFunc struct {
 var testFileSet = token.NewFileSet()
 
 func (t *testFuncs) load(filename, pkg string, doImport, seen *bool) error {
-	f, err := parser.ParseFile(testFileSet, filename, nil, parser.ParseComments)
+	// Pass in the overlaid source if we have an overlay for this file.
+	src, err := os.Open(filename)
 	if err != nil {
-		return expandScanner(err)
+		return err
+	}
+	defer src.Close()
+	f, err := parser.ParseFile(testFileSet, filename, src, parser.ParseComments|parser.SkipObjectResolution)
+	if err != nil {
+		return err
 	}
 	for _, d := range f.Decls {
 		n, ok := d.(*ast.FuncDecl)
@@ -362,13 +345,26 @@ func (t *testFuncs) load(filename, pkg string, doImport, seen *bool) error {
 		}
 		name := n.Name.String()
 		switch {
-		case name == "TestMain" && isTestFunc(n, "M"):
+		case name == "TestMain":
+			if isTestFunc(n, "T") {
+				t.Tests = append(t.Tests, testFunc{pkg, name, "", false})
+				*doImport, *seen = true, true
+				continue
+			}
+			err := checkTestFunc(n, "M")
+			if err != nil {
+				return err
+			}
 			if t.TestMain != nil {
 				return errors.New("multiple definitions of TestMain")
 			}
 			t.TestMain = &testFunc{pkg, name, "", false}
 			*doImport, *seen = true, true
-		case isTest(name, "Test") && isTestFunc(n, "T"):
+		case isTest(name, "Test"):
+			err := checkTestFunc(n, "T")
+			if err != nil {
+				return err
+			}
 			t.Tests = append(t.Tests, testFunc{pkg, name, "", false})
 			*doImport, *seen = true, true
 		case isTest(name, "Benchmark"):
@@ -388,63 +384,59 @@ func (t *testFuncs) load(filename, pkg string, doImport, seen *bool) error {
 		}
 	}
 	ex := doc.Examples(f)
-	sort.Sort(byOrder(ex))
+	sort.Slice(ex, func(i, j int) bool { return ex[i].Order < ex[j].Order })
 	for _, e := range ex {
 		*doImport = true // import test file whether executed or not
 		if e.Output == "" && !e.EmptyOutput {
 			// Don't run examples with no output.
 			continue
 		}
-
-		// Go 1.7 and beyond has support for unordered test output on examples.
-		// We can use reflection to see if the Unordered field is there. This
-		// can be removed when go 1.6 is not supported by buck.
-		unordered := false
-		v := reflect.Indirect(reflect.ValueOf(e))
-		if f := v.FieldByName("Unordered"); f.IsValid() {
-			unordered = f.Bool()
-		}
-
-		t.Examples = append(t.Examples, testFunc{pkg, "Example" + e.Name, e.Output, unordered})
+		t.Examples = append(t.Examples, testFunc{pkg, "Example" + e.Name, e.Output, e.Unordered})
 		*seen = true
 	}
 	return nil
 }
 
 func checkTestFunc(fn *ast.FuncDecl, arg string) error {
+	var why string
 	if !isTestFunc(fn, arg) {
-		name := fn.Name.String()
+		why = fmt.Sprintf("must be: func %s(%s *testing.%s)", fn.Name.String(), strings.ToLower(arg), arg)
+	}
+	if fn.Type.TypeParams.NumFields() > 0 {
+		why = "test functions cannot have type parameters"
+	}
+	if why != "" {
 		pos := testFileSet.Position(fn.Pos())
-		return fmt.Errorf("%s: wrong signature for %s, must be: func %s(%s *testing.%s)", pos, name, name, strings.ToLower(arg), arg)
+		return fmt.Errorf("%s: wrong signature for %s, %s", pos, fn.Name.String(), why)
 	}
 	return nil
 }
 
-type byOrder []*doc.Example
-
-func (x byOrder) Len() int           { return len(x) }
-func (x byOrder) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
-func (x byOrder) Less(i, j int) bool { return x[i].Order < x[j].Order }
-
 var testmainTmpl = template.Must(template.New("main").Parse(`
+// Code generated by 'go test'. DO NOT EDIT.
+
 package main
+
 import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"testing"
-{{if .ReleaseTag "go1.8"}}
-	internalTestDeps "testing/internal/testdeps"
+{{if .TestMain}}
+	"reflect"
 {{end}}
+	"testing"
+	"testing/internal/testdeps"
+
 {{if .ImportTest}}
 	{{if .NeedTest}}_test{{else}}_{{end}} {{.Package.ImportPath | printf "%q"}}
 {{end}}
 {{if .ImportXtest}}
 	{{if .NeedXtest}}_xtest{{else}}_{{end}} {{.Package.ImportPath | printf "%s_test" | printf "%q"}}
 {{end}}
-{{range $i, $p := .Cover}}
+{{if .Cover}}
+{{range $i, $p := .Cover.Vars}}
 	_cover{{$i}} {{$p.Package.ImportPath | printf "%q"}}
+{{end}}
 {{end}}
 )
 
@@ -453,51 +445,45 @@ var tests = []testing.InternalTest{
 	{"{{.Name}}", {{.Package}}.{{.Name}}},
 {{end}}
 }
+
 var benchmarks = []testing.InternalBenchmark{
 {{range .Benchmarks}}
 	{"{{.Name}}", {{.Package}}.{{.Name}}},
 {{end}}
 }
-{{if .ReleaseTag "go1.18"}}
+
 var fuzzTargets = []testing.InternalFuzzTarget{
 {{range .FuzzTargets}}
 	{"{{.Name}}", {{.Package}}.{{.Name}}},
 {{end}}
 }
-{{end}}
+
 var examples = []testing.InternalExample{
 {{range .Examples}}
-	{"{{.Name}}", {{.Package}}.{{.Name}}, {{.Output | printf "%q"}}{{if $.ReleaseTag "go1.7"}}, {{.Unordered}}{{end}}},
+	{"{{.Name}}", {{.Package}}.{{.Name}}, {{.Output | printf "%q"}}, {{.Unordered}}},
 {{end}}
 }
 
-var matchPat string
-var matchRe *regexp.Regexp
-
-func matchString(pat, str string) (result bool, err error) {
-	if matchRe == nil || matchPat != pat {
-		matchPat = pat
-		matchRe, err = regexp.Compile(matchPat)
-		if err != nil {
-			return
-		}
-	}
-	return matchRe.MatchString(str), nil
+func init() {
+	testdeps.ImportPath = {{.ImportPath | printf "%q"}}
 }
 
-{{if .CoverEnabled}}
+{{if .Cover}}
+
 // Only updated by init functions, so no need for atomicity.
 var (
 	coverCounters = make(map[string][]uint32)
 	coverBlocks = make(map[string][]testing.CoverBlock)
 )
+
 func init() {
-	{{range $i, $p := .Cover}}
+	{{range $i, $p := .Cover.Vars}}
 	{{range $file, $cover := $p.Vars}}
 	coverRegisterFile({{printf "%q" $cover.File}}, _cover{{$i}}.{{$cover.Var}}.Count[:], _cover{{$i}}.{{$cover.Var}}.Pos[:], _cover{{$i}}.{{$cover.Var}}.NumStmt[:])
 	{{end}}
 	{{end}}
 }
+
 func coverRegisterFile(fileName string, counter []uint32, pos []uint32, numStmts []uint16) {
 	if 3*len(counter) != len(pos) || len(counter) != len(numStmts) {
 		panic("coverage: mismatched sizes")
@@ -520,6 +506,7 @@ func coverRegisterFile(fileName string, counter []uint32, pos []uint32, numStmts
 	coverBlocks[fileName] = block
 }
 {{end}}
+
 func main() {
 	// Buck ensures that resources defined on the test targets live in the same
 	// directory as the binary. We change the working directory to this
@@ -537,25 +524,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to change directory to %s.", execDir)
 		os.Exit(1)
 	}
-{{if .CoverEnabled}}
+{{if .Cover}}
 	testing.RegisterCover(testing.Cover{
-		Mode: {{printf "%q" .CoverMode}},
+		Mode: {{printf "%q" .Cover.Mode}},
 		Counters: coverCounters,
 		Blocks: coverBlocks,
 		CoveredPackages: {{printf "%q" .Covered}},
 	})
 {{end}}
-{{if .ReleaseTag "go1.18"}}
-	m := testing.MainStart(internalTestDeps.TestDeps{}, tests, benchmarks, fuzzTargets, examples)
-{{else if .ReleaseTag "go1.8"}}
-	m := testing.MainStart(internalTestDeps.TestDeps{}, tests, benchmarks, examples)
-{{else}}
-	m := testing.MainStart(matchString, tests, benchmarks, examples)
-{{end}}
+	m := testing.MainStart(testdeps.TestDeps{}, tests, benchmarks, fuzzTargets, examples)
 {{with .TestMain}}
 	{{.Package}}.{{.Name}}(m)
+	os.Exit(int(reflect.ValueOf(m).Elem().FieldByName("exitCode").Int()))
 {{else}}
 	os.Exit(m.Run())
 {{end}}
 }
+
 `))
