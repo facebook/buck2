@@ -191,9 +191,9 @@ async fn accept_target_set<Env: QueryEnvironment>(
 /// Common query functions
 #[query_module(Env)]
 impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
-    /// Computes all dependency paths.
+    /// All dependency paths.
     ///
-    /// The `allpaths(from, to)` function generates a graph of paths between the [target expressions](#target-expression) *from* and *to*, based on the dependencies between nodes.
+    /// Generates a graph of paths between the [*target expressions*](#target-expression) *from* and *to*, based on the dependencies between nodes.
     ///
     /// For example:
     /// ```text
@@ -276,7 +276,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
 
     /// Rule attribute filtering.
     ///
-    /// The `attrfilter(attribute, value, targets)` operator evaluates the given target expression and filters the resulting build targets to those where the specified attribute contains the specified value.
+    /// Evaluates the given [*target expression*](#target-expression) and filters the resulting build targets to those where the specified attribute contains the specified value.
     /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
     ///
     /// - If the attribute is a single value, say `name`, it is compared to the specified value, and the target is returned if they match.
@@ -284,7 +284,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// - If the attribute is a dictionary, the target is returned if the value exists in either the keys or the values of the dictionary.
     ///
     /// For example:
-    /// `buck2 query "attrfilter(deps, '//foo:bar', '//...')"` returns the build targets in the repository that depend on `//foo:bar`, or more precisely: those build targets that include `//foo:bar` in their deps argument list.
+    /// ```text
+    /// $ buck2 uquery "attrfilter(deps, '//buck2/app/buck2_validation:buck2_validation', '//...')"
+    ///
+    /// //buck2/app/buck2:buck2-bin
+    /// //buck2/app/buck2_server:buck2_server
+    /// //buck2/app/buck2_server:buck2_server-unittest
+    /// ```
+    /// returns targets that contain `//buck2/app/buck2_validation:buck2_validation` target in their `deps` attribute.
     async fn attrfilter(
         &self,
         attr: String,
@@ -369,7 +376,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
 
     /// Target build file with transitive imports.
     ///
-    /// For each target in the provided *target expression*,
+    /// For each target in the provided [*target expression*](#target-expression),
     /// returns the build file where the target is defined,
     /// along with all transitive imports of that file.
     ///
