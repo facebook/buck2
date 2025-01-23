@@ -1905,21 +1905,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             "materialize artifact"
         );
 
-        // If the artifact copies from other artifacts, we must materialize them first
         let method = entry_and_method.as_ref().map(|(_, m)| m.as_ref());
-        let deps_tasks = match method {
-            Some(ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts)) => copied_artifacts
-                .iter()
-                .filter_map(|a| {
-                    self.materialize_artifact_recurse(
-                        MaterializeStack::Child(&stack, path),
-                        a.src.as_ref(),
-                        event_dispatcher.dupe(),
-                    )
-                })
-                .collect::<Vec<_>>(),
-            _ => Vec::new(),
-        };
+        // Those are special because if the artifact copies from other artifacts, we must materialize them first
+        let materialize_copy_source_tasks =
+            self.materialize_copy_source_tasks(&stack, &event_dispatcher, path, method);
 
         // The artifact might have symlinks pointing to other artifacts. We must
         // materialize them as well, to avoid dangling symlinks.
@@ -1964,7 +1953,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                     // In case this is a local copy, we first need to materialize the
                     // artifacts we are copying from, before we can copy them.
-                    for t in deps_tasks {
+                    for t in materialize_copy_source_tasks {
                         t.await?;
                     }
 
@@ -2026,6 +2015,28 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         };
 
         Ok(Some(task))
+    }
+
+    fn materialize_copy_source_tasks(
+        &mut self,
+        stack: &MaterializeStack,
+        event_dispatcher: &EventDispatcher,
+        path: &ProjectRelativePath,
+        method: Option<&ArtifactMaterializationMethod>,
+    ) -> Vec<MaterializingFuture> {
+        match method {
+            Some(ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts)) => copied_artifacts
+                .iter()
+                .filter_map(|a| {
+                    self.materialize_artifact_recurse(
+                        MaterializeStack::Child(&stack, path),
+                        a.src.as_ref(),
+                        event_dispatcher.dupe(),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        }
     }
 
     #[instrument(level = "debug", skip(self, result), fields(path = %artifact_path))]
