@@ -6,7 +6,4 @@
 # of this source tree.
 
 def roar_no_jit():
-    return select({
-        "DEFAULT": [],
-        "ovr_config//third-party/llvm-fb/constraints:roar": ["-fforce-no-jit"],
-    })
+    return []
