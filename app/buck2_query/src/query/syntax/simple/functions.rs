@@ -329,13 +329,17 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
 
     /// Rule attribute filtering with regex.
     ///
-    /// The `attrregexfilter(attribute, value, targets)` operator is identical to the `attrfilter(attribute, value, targets)` operator except that it takes a regular expression as the second argument.
-    /// It evaluates the given target expression and filters the resulting build targets to those where the specified attribute matches the specified pattern.
-    /// In this context, the term attribute refers to an argument in a build rule, such as name, headers, srcs, or deps.
+    /// Similar to the [`attrfilter`](#attrfilter) function except that it takes a regular expression as the second argument.
     ///
-    /// - If the attribute is a single value, say name, it is matched against the specified pattern, and the target is returned if they match.
-    /// - If the attribute is a list, the target is returned if that list contains a value that matches the specified pattern.
-    /// - If the attribute is a dictionary, the target is returned if the pattern match is found in either the keys or the values of the dictionary.
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "attrregexfilter(deps, '.+validation$', '//...')"
+    ///
+    /// //buck2/app/buck2:buck2-bin
+    /// //buck2/app/buck2_server:buck2_server
+    /// //buck2/app/buck2_server:buck2_server-unittest
+    /// ```
+    /// returns targets whose `deps` attribute contains at least one target suffixed with 'validation'.
     async fn attrregexfilter(
         &self,
         attr: String,
