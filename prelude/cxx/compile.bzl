@@ -407,9 +407,9 @@ def create_compile_cmds(
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
 
-def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args, pic: bool) -> Artifact | None:
+def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     if src_compile_cmd.index_store_factory:
-        return src_compile_cmd.index_store_factory(ctx, src_compile_cmd, toolchain, compile_cmd, pic)
+        return src_compile_cmd.index_store_factory(ctx, src_compile_cmd, toolchain, compile_cmd)
     return None
 
 COMMON_PREPROCESSOR_OUTPUT_ARGS = cmd_args("-E", "-dD")
@@ -554,7 +554,11 @@ def _compile_single_cxx(
         src_compile_cmd = src_compile_cmd,
         pic = pic,
     )
-    index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd, pic)
+
+    index_store = None
+
+    if pic:
+        index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd)
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
     if compiler_type in ["clang", "gcc"]:

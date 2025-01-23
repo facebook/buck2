@@ -182,17 +182,13 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     else:
         return get_apple_library_providers([])
 
-def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args, pic: bool) -> Artifact | None:
+def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     identifier = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
         identifier = identifier + "_" + str(src_compile_cmd.index)
     filename_base = identifier
     identifier += " (index_store)"
-
-    # We generate the index only for pic compilations
-    if not pic:
-        return None
 
     if src_compile_cmd.src.extension in AsmExtensions.values():
         return None
