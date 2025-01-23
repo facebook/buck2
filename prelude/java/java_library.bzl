@@ -33,7 +33,7 @@ load(
     "create_plugin_params",
 )
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "to_java_version")
+load("@prelude//java/utils:java_utils.bzl", "build_bootclasspath", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "to_java_version")
 load("@prelude//jvm:cd_jar_creator_util.bzl", "postprocess_jar")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
@@ -135,16 +135,6 @@ def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additiona
 
     return None
 
-def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo) -> list[Artifact]:
-    bootclasspath_list = []
-    if source_level in [8]:
-        if bootclasspath_entries:
-            bootclasspath_list = bootclasspath_entries
-        elif source_level == 8:
-            expect(java_toolchain.bootclasspath_8, "Must specify bootclasspath for source level 8")
-            bootclasspath_list = java_toolchain.bootclasspath_8
-    return bootclasspath_list
-
 def _append_javac_params(
         ctx: AnalysisContext,
         actions_identifier: [str, None],
@@ -186,7 +176,7 @@ def _append_javac_params(
     javac_args.add("-target")
     javac_args.add(str(target_level))
 
-    bootclasspath_list = _build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
+    bootclasspath_list = build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
     if bootclasspath_list:
         cmd.add(_process_classpath(
             ctx.actions,
