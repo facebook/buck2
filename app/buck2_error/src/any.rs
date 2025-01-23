@@ -50,8 +50,7 @@ pub fn recover_crate_error(
         }
 
         if let Some(metadata) = request_value::<ProvidableMetadata>(cur) {
-            source_location =
-                SourceLocation::new(metadata.source_file, metadata.source_location_extra);
+            source_location = metadata.source_location;
             if metadata.action_error.is_some() {
                 action_error = metadata.action_error;
             }
@@ -117,10 +116,7 @@ impl StdError for CrateAsStdError {
 #[derive(Clone)]
 pub struct ProvidableMetadata {
     pub tags: Vec<crate::ErrorTag>,
-    pub source_file: &'static str,
-    /// Extra information to add to the end of the source location - typically a type/variant name,
-    /// and the same thing as gets passed to `buck2_error::source_location::from_file`.
-    pub source_location_extra: Option<&'static str>,
+    pub source_location: SourceLocation,
     /// The protobuf ActionError, if the root was an action error
     pub action_error: Option<buck2_data::ActionError>,
 }
@@ -212,8 +208,7 @@ mod tests {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
             request.provide_value(ProvidableMetadata {
                 action_error: None,
-                source_file: file!(),
-                source_location_extra: Some("FullMetadataError"),
+                source_location: SourceLocation::new(file!(), Some("FullMetadataError")),
                 tags: vec![
                     crate::ErrorTag::WatchmanTimeout,
                     crate::ErrorTag::StarlarkFail,

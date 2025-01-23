@@ -244,8 +244,7 @@ mod tests {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
             request.provide_value(ProvidableMetadata {
                 action_error: None,
-                source_file: file!(),
-                source_location_extra: Some("FullMetadataError"),
+                source_location: SourceLocation::new(file!(), Some("FullMetadataError")),
                 tags: vec![
                     crate::ErrorTag::WatchmanTimeout,
                     crate::ErrorTag::StarlarkNativeInput,

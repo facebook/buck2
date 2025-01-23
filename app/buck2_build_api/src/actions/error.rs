@@ -11,6 +11,7 @@ use std::fmt;
 
 use buck2_error::ErrorTag;
 use buck2_error::__for_macro::AsDynError;
+use buck2_error::source_location::SourceLocation;
 use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
 
@@ -60,8 +61,7 @@ impl std::error::Error for ActionError {
         buck2_error::provide_metadata(
             request,
             tags,
-            std::file!(),
-            Some("ActionError"),
+            SourceLocation::new(std::file!(), Some("ActionError")),
             Some(self.as_proto_event()),
         );
     }

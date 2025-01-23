@@ -79,27 +79,23 @@ pub use buck2_data::error::ErrorTag;
 pub use buck2_error_derive::Error;
 
 use crate::any::ProvidableMetadata;
+use crate::source_location::SourceLocation;
 
 /// Provide metadata about an error.
 ///
 /// This is a manual alternative to deriving `buck2_error::Error`, which should be preferred if at
 /// all possible. This function has a pretty strict contract: You must call it within the `provide`
 /// implementation for an error type `E`, and must pass `E` as the type parameter.
-///
-/// The `source_file` should just be `std::file!()`; the `source_location_extra` should be the type
-/// - and possibly variant - name, formatted as either `Type` or `Type::Variant`.
 pub fn provide_metadata<'a, 'b>(
     request: &'b mut Request<'a>,
     tags: impl IntoIterator<Item = crate::ErrorTag>,
-    source_file: &'static str,
-    source_location_extra: Option<&'static str>,
+    source_location: SourceLocation,
     action_error: Option<buck2_data::ActionError>,
 ) {
     let metadata = ProvidableMetadata {
         action_error,
         tags: tags.into_iter().collect(),
-        source_file,
-        source_location_extra,
+        source_location,
     };
     Request::provide_value(request, metadata);
 }
