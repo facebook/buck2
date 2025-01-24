@@ -16,7 +16,6 @@ load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
 )
-load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:strings.bzl",
     "strip_prefix",
@@ -269,13 +268,17 @@ def _find_targets_in_mapping(
 
     def populate_matching_targets(node):  # Label -> bool:
         graph_node = graph_map[node]
-        if not mapping.filters or lazy.is_all(lambda filter: filter.matches(node, graph_node.labels), mapping.filters):
-            matching_targets[node] = None
-            if mapping.traversal == Traversal("tree"):
-                # We can stop traversing the tree at this point because we've added the
-                # build target to the list of all targets that will be traversed by the
-                # algorithm that applies the groups.
-                return False
+        if mapping.filters:
+            for filter in mapping.filters:
+                if not filter.matches(node, graph_node.labels):
+                    return True
+
+        matching_targets[node] = None
+        if mapping.traversal == Traversal("tree"):
+            # We can stop traversing the tree at this point because we've added the
+            # build target to the list of all targets that will be traversed by the
+            # algorithm that applies the groups.
+            return False
         return True
 
     def populate_matching_targets_bfs_wrapper(node):  # (Label) -> list
