@@ -280,13 +280,12 @@ def _convert_python_library_to_executable(
             for shared_lib in traverse_shared_library_info(library.shared_libraries)
         ]
 
-        if (not ctx.attrs.standalone_extensions) or ctx.attrs.link_style == "shared":
-            # darwin and windows expect self-contained dynamically linked
-            # python extensions without additional transitive shared libraries
-            shared_libs += [
-                ("", extension_shared_lib)
-                for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
-            ]
+        # darwin and windows expect self-contained dynamically linked
+        # python extensions without additional transitive shared libraries
+        shared_libs += [
+            ("", extension_shared_lib)
+            for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
+        ]
 
     if dbg_source_db:
         extra_artifacts["dbg-db.json"] = dbg_source_db
