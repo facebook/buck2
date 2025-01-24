@@ -37,7 +37,6 @@ async def test_build_transition_with_target_universe(buck: Buck) -> None:
     )
 
     lines = result.stdout.splitlines()
-    # TODO(ianc) We should only output a single target, not the same target and output twice
-    assert 2 == len(lines)
+    # Just a single target is built and output
+    assert 1 == len(lines)
     assert "root//:buck buck-out" in lines[0]
-    assert lines[0] == lines[1]

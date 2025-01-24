@@ -38,12 +38,13 @@ async def test_run_with_transition_without_target_universe(buck: Buck) -> None:
 
 @buck_test()
 async def test_run_with_transition_with_target_universe(buck: Buck) -> None:
-    # TODO(ianc) This shouldn't fail, we should get the same result as above
-    await expect_failure(
-        buck.run(
-            "root//:buck",
-            "--target-platforms=root//:p_cat",
-            "--target-universe",
-            "root//:buck",
-        )
+    result = await buck.run(
+        "root//:buck",
+        "--target-platforms=root//:p_cat",
+        "--target-universe",
+        "root//:buck",
     )
+
+    # The transition (deliberately) loses the configuration so that we get the
+    # DEFAULT 'hello buck' from the select in the target definition.
+    assert result.stdout.strip() == "hello buck"
