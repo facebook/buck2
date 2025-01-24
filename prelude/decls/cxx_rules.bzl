@@ -991,6 +991,7 @@ cxx_toolchain = prelude_rule(
                 omnibus link strategies).
                 """,
             ),
+            "bolt": attrs.source(),
             "c_compiler": attrs.source(),
             "c_compiler_flags": attrs.list(attrs.arg(), default = []),
             "c_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),

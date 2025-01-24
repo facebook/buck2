@@ -151,6 +151,7 @@ def cxx_toolchain_impl(ctx):
     )
 
     utilities_info = BinaryUtilitiesInfo(
+        bolt = ctx.attrs.bolt[RunInfo] if ctx.attrs.bolt else None,
         nm = ctx.attrs.nm[RunInfo],
         objcopy = ctx.attrs.objcopy_for_shared_library_interface[RunInfo],
         objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
@@ -218,6 +219,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "asm_preprocessor": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "assembler": dep_type(providers = [RunInfo]),
         "assembler_preprocessor": attrs.option(dep_type(providers = [RunInfo]), default = None),
+        "bolt": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "bolt_enabled": attrs.bool(default = False),
         "c_compiler": dep_type(providers = [RunInfo]),
         "clang_remarks": attrs.option(attrs.string(), default = None),
