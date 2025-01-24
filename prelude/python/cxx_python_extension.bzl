@@ -61,15 +61,15 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
+load(
+    "@prelude//python/linking:native_python_util.bzl",
+    "merge_cxx_extension_info",
+    "rewrite_static_symbols",
+)
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
-load(
-    ":native_python_util.bzl",
-    "merge_cxx_extension_info",
-    "rewrite_static_symbols",
-)
 load(":python.bzl", "PythonLibraryInfo")
 load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather_dep_libraries", "qualify_srcs")
 load(":versions.bzl", "gather_versioned_dependencies")

@@ -35,6 +35,10 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load(
+    "@prelude//python/linking:native_python_util.bzl",
+    "merge_cxx_extension_info",
+)
+load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_root",
     "prefix_from_label",
@@ -50,10 +54,6 @@ load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
     "create_manifest_for_source_map",
-)
-load(
-    ":native_python_util.bzl",
-    "merge_cxx_extension_info",
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
