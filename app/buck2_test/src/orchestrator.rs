@@ -54,6 +54,7 @@ use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -449,6 +450,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             required_resources,
             worker,
             test_executor.re_dynamic_image(),
+            test_executor.meta_internal_extra_params(),
         )
         .boxed()
         .await?;
@@ -823,6 +825,7 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
             vec![],
             worker,
             test_executor.re_dynamic_image(),
+            test_executor.meta_internal_extra_params(),
         )
         .await?;
 
@@ -1357,6 +1360,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         required_local_resources: Vec<LocalResourceState>,
         worker: Option<WorkerSpec>,
         re_dynamic_image: Option<RemoteExecutorCustomImage>,
+        meta_internal_extra_params: MetaInternalExtraParams,
     ) -> anyhow::Result<CommandExecutionRequest> {
         let mut inputs = Vec::with_capacity(cmd_inputs.len());
         for input in &cmd_inputs {
@@ -1387,6 +1391,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .with_disable_miniperf(true)
             .with_worker(worker)
             .with_remote_execution_custom_image(re_dynamic_image)
+            .with_meta_internal_extra_params(meta_internal_extra_params)
             .with_required_local_resources(required_local_resources)?;
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
@@ -2057,6 +2062,14 @@ impl TestExecutor {
             options.custom_image.clone()
         } else {
             None
+        }
+    }
+
+    pub fn meta_internal_extra_params(&self) -> MetaInternalExtraParams {
+        if let Executor::RemoteEnabled(options) = &self.executor_config.executor {
+            options.meta_internal_extra_params.clone()
+        } else {
+            MetaInternalExtraParams::default()
         }
     }
 }

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -153,6 +154,7 @@ impl ReExecutor {
         digest_config: DigestConfig,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
+        meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
@@ -174,6 +176,7 @@ impl ReExecutor {
                 self.re_max_queue_time_ms.map(Duration::from_millis),
                 self.re_resource_units,
                 &self.knobs,
+                meta_internal_extra_params,
             )
             .await;
 
@@ -341,6 +344,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 self.dependencies
                     .iter()
                     .chain(remote_execution_dependencies.iter()),
+                &command.request.meta_internal_extra_params(),
             )
             .await?;
 

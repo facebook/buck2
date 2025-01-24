@@ -20,6 +20,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::buck2_env;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -405,6 +406,7 @@ impl ManagedRemoteExecutionClient {
         re_max_queue_time: Option<Duration>,
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
+        meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
@@ -422,6 +424,7 @@ impl ManagedRemoteExecutionClient {
                 re_max_queue_time,
                 re_resource_units,
                 knobs,
+                meta_internal_extra_params,
             )
             .await
     }

@@ -49,6 +49,7 @@ pub struct RemoteEnabledExecutorOptions {
     pub remote_dep_file_cache_enabled: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
     pub custom_image: Option<RemoteExecutorCustomImage>,
+    pub meta_internal_extra_params: MetaInternalExtraParams,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -326,4 +327,21 @@ impl CommandExecutorConfig {
             Executor::RemoteEnabled(options) => options.remote_cache_enabled,
         }
     }
+}
+
+/// This struct is used to pass policy info about the action to RE, its data should
+/// match the TExecutionPolicy in the RE thrift API.
+/// affinity_keys is not defined here because it's already defined in ReActionIdentity
+/// duration_ms is not supported because we can't unpack i64 from starlark easily
+#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+pub struct RemoteExecutionPolicy {
+    pub priority: Option<i32>,
+    pub region_preference: Option<String>,
+    pub setup_preference_key: Option<String>,
+}
+
+/// This struct is used to pass meta internal params to RE
+#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+pub struct MetaInternalExtraParams {
+    pub remote_execution_policy: RemoteExecutionPolicy,
 }

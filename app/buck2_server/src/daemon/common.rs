@@ -22,6 +22,7 @@ use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
@@ -492,6 +493,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             remote_dep_file_cache_enabled: false,
             dependencies: vec![],
             custom_image: None,
+            meta_internal_extra_params: MetaInternalExtraParams::default(),
         })
     };
 

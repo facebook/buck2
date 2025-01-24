@@ -20,6 +20,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifact
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::command_executor_config::parse_custom_re_image;
+use buck2_build_api::interpreter::rule_defs::command_executor_config::parse_meta_internal_extra_params;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
@@ -35,6 +36,7 @@ use host_sharing::WeightPercentage;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::UnpackList;
 use starlark::values::none::NoneOr;
@@ -131,6 +133,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     * `drop_host_mount_globs`: list of strings containing file
     ///     globs. Any mounts globs specified will not be bind mounted
     ///     from the host.
+    ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
+    ///    * `remote_execution_policy`: refer to TExecutionPolicy.
     ///
     /// When actions execute, they'll do so from the root of the repository. As they execute,
     /// actions have exclusive access to their output directory.
@@ -193,6 +197,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default=UnpackList::default())]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] meta_internal_extra_params: NoneOr<
+            DictRef<'v>,
+        >,
     ) -> starlark::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -378,6 +385,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             remote_execution_dynamic_image,
         )?;
 
+        let extra_params =
+            parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
+
         let action = UnregisteredRunAction {
             executor_preference,
             always_print_stderr,
@@ -392,6 +402,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             unique_input_inodes,
             remote_execution_dependencies: re_dependencies,
             remote_execution_custom_image: re_custom_image,
+            meta_internal_extra_params: extra_params,
         };
         this.state()?.register_action(
             artifacts.inputs,

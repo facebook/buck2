@@ -17,10 +17,12 @@ use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_core::execution_types::executor_config::ImagePackageIdentifier;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
+use buck2_core::execution_types::executor_config::RemoteExecutionPolicy;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
@@ -54,6 +56,8 @@ enum CommandExecutorConfigErrors {
         "executor config must specify at least `local_enabled = True` or `remote_enabled = True`"
     )]
     NoExecutor,
+    #[error("expected a dict, got `{0}` (type `{1}`)")]
+    RePolicyNotADict(String, String),
 }
 
 #[derive(Debug, Display, NoSerialize, ProvidesStaticType, Allocative)]
@@ -94,6 +98,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `remote_execution_resource_units`: The resources (eg. GPUs) to use for remote execution
     /// * `remote_execution_dependencies`: Dependencies for remote execution for this platform
     /// * `remote_execution_custom_image`: Custom Tupperware image for remote execution for this platform
+    /// * `meta_internal_extra_params`: Json dict of extra params to pass to RE related to Meta internal infra.
     #[starlark(as_type = StarlarkCommandExecutorConfig)]
     fn CommandExecutorConfig<'v>(
         #[starlark(require = named)] local_enabled: bool,
@@ -124,9 +129,12 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default=UnpackList::default(), require = named)]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
+        #[starlark(default = NoneOr::None, require = named)] meta_internal_extra_params: NoneOr<
+            DictRef<'v>,
+        >,
     ) -> starlark::Result<StarlarkCommandExecutorConfig> {
         let command_executor_config = {
-            let remote_execution_max_input_files_mebibytes =
+            let remote_execution_max_input_files_mebibytes: Option<i32> =
                 remote_execution_max_input_files_mebibytes.into_option();
 
             let remote_execution_queue_time_threshold_s =
@@ -166,6 +174,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 "remote_execution_custom_image",
                 remote_execution_dynamic_image,
             )?;
+
+            let extra_params =
+                parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
 
             let re_use_case = if remote_execution_use_case.is_none() {
                 None
@@ -280,6 +291,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
                         custom_image: re_dynamic_image,
+                        meta_internal_extra_params: extra_params,
                     })
                 }
                 (Some(local), None, true) => {
@@ -296,6 +308,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
                         custom_image: re_dynamic_image,
+                        meta_internal_extra_params: extra_params,
                     })
                 }
                 // If remote cache is disabled, also disable the remote dep file cache as well
@@ -414,4 +427,48 @@ pub fn parse_custom_re_image(
         identifier,
         drop_host_mount_globs,
     }))
+}
+
+fn parse_remote_execution_policy(
+    policy: Option<Value>,
+) -> buck2_error::Result<RemoteExecutionPolicy> {
+    if policy.is_none() {
+        Ok(RemoteExecutionPolicy::default())
+    } else {
+        let re_policy_dict = DictRef::from_value(policy.unwrap().to_value()).ok_or_else(|| {
+            buck2_error::Error::from(CommandExecutorConfigErrors::RePolicyNotADict(
+                policy.unwrap().to_value().to_repr(),
+                policy.unwrap().to_value().get_type().to_owned(),
+            ))
+        })?;
+
+        Ok(RemoteExecutionPolicy {
+            setup_preference_key: re_policy_dict
+                .get_str("setup_preference_key")
+                .and_then(|v| v.unpack_str())
+                .map(|s| s.to_owned()),
+            region_preference: re_policy_dict
+                .get_str("region_preference")
+                .and_then(|v| v.unpack_str())
+                .map(|s| s.to_owned()),
+            priority: re_policy_dict
+                .get_str("priority")
+                .and_then(|v| v.unpack_i32())
+                .map(|i| i.to_owned()),
+        })
+    }
+}
+
+pub fn parse_meta_internal_extra_params<'v>(
+    params: Option<DictRef<'v>>,
+) -> buck2_error::Result<MetaInternalExtraParams> {
+    if let Some(params) = params {
+        Ok(MetaInternalExtraParams {
+            remote_execution_policy: parse_remote_execution_policy(
+                params.get_str("remote_execution_policy"),
+            )?,
+        })
+    } else {
+        Ok(MetaInternalExtraParams::default())
+    }
 }

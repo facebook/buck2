@@ -35,6 +35,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 use buck2_core::category::CategoryRef;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -171,6 +172,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) unique_input_inodes: bool,
     pub(crate) remote_execution_dependencies: Vec<RemoteExecutorDependency>,
     pub(crate) remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
+    pub(crate) meta_internal_extra_params: MetaInternalExtraParams,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
@@ -632,7 +634,8 @@ impl RunAction {
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_unique_input_inodes(self.inner.unique_input_inodes)
             .with_remote_execution_dependencies(self.inner.remote_execution_dependencies.clone())
-            .with_remote_execution_custom_image(self.inner.remote_execution_custom_image.clone());
+            .with_remote_execution_custom_image(self.inner.remote_execution_custom_image.clone())
+            .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone());
 
         let (dep_file_bundle, req) = if let Some(visitor) = dep_file_visitor {
             let bundle = make_dep_file_bundle(ctx, visitor, cmdline_digest, req.paths())?;

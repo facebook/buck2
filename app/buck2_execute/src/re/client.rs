@@ -13,6 +13,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::buck2_env;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project::ProjectRoot;
@@ -231,6 +232,7 @@ impl RemoteExecutionClient {
         re_max_queue_time: Option<Duration>,
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
+        meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
@@ -246,6 +248,7 @@ impl RemoteExecutionClient {
                 re_max_queue_time,
                 re_resource_units,
                 knobs,
+                meta_internal_extra_params,
             ))
             .await
     }
@@ -1068,6 +1071,7 @@ impl RemoteExecutionClientImpl {
         re_max_queue_time: Option<Duration>,
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
+        meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         let metadata = RemoteExecutionMetadata {
             platform: Some(re_platform(platform)),
@@ -1087,6 +1091,20 @@ impl RemoteExecutionClientImpl {
             skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
             execution_policy: Some(TExecutionPolicy {
                 affinity_keys: vec![identity.affinity_key.clone()],
+                priority: meta_internal_extra_params
+                    .remote_execution_policy
+                    .priority
+                    .unwrap_or_default(),
+                region_preference: meta_internal_extra_params
+                    .remote_execution_policy
+                    .region_preference
+                    .clone()
+                    .unwrap_or_default(),
+                setup_preference_key: meta_internal_extra_params
+                    .remote_execution_policy
+                    .setup_preference_key
+                    .clone()
+                    .unwrap_or_default(),
                 ..Default::default()
             }),
             action_digest: action_digest.to_re(),

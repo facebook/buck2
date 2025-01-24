@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -328,6 +329,8 @@ pub struct CommandExecutionRequest {
     remote_execution_dependencies: Vec<RemoteExecutorDependency>,
     /// RE custom tupperware image.
     remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
+    /// RE execution policy.
+    meta_internal_extra_params: MetaInternalExtraParams,
 }
 
 impl CommandExecutionRequest {
@@ -358,6 +361,7 @@ impl CommandExecutionRequest {
             remote_dep_file_key: None,
             remote_execution_dependencies: Vec::new(),
             remote_execution_custom_image: None,
+            meta_internal_extra_params: MetaInternalExtraParams::default(),
         }
     }
 
@@ -561,6 +565,18 @@ impl CommandExecutionRequest {
 
     pub fn remote_execution_custom_image(&self) -> &Option<RemoteExecutorCustomImage> {
         &self.remote_execution_custom_image
+    }
+
+    pub fn with_meta_internal_extra_params(
+        mut self,
+        meta_internal_extra_params: MetaInternalExtraParams,
+    ) -> Self {
+        self.meta_internal_extra_params = meta_internal_extra_params;
+        self
+    }
+
+    pub fn meta_internal_extra_params(&self) -> &MetaInternalExtraParams {
+        &self.meta_internal_extra_params
     }
 }
 
