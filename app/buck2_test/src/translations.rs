@@ -32,7 +32,11 @@ pub(crate) fn build_configured_target_handle(
     let label = target.target().unconfigured();
     let cell = label.pkg().cell_name().to_string();
     let package = label.pkg().cell_relative_path().to_string();
-    let target_name = label.name().to_string() + &target.name().to_string();
+    let target_name = if cfg!(fbcode_build) {
+        label.name().to_string()
+    } else {
+        label.name().to_string() + &target.name().to_string()
+    };
     let configuration = target.cfg().to_string();
     let package_project_relative_path = cell_resolver
         .resolve_path(label.pkg().as_cell_path())
