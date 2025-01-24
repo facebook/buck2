@@ -1,4 +1,4 @@
-load(":defs.bzl", "run_python")
+load(":defs.bzl", "run_python", "transitioned")
 
 run_python(
     name = "print_animal_hello",
@@ -34,4 +34,12 @@ platform(
 platform(
     name = "p_default",
     constraint_values = [],
+)
+
+transitioned(
+    name = "buck",
+    script = select({
+        ":cat": 'print("hello cat")',
+        "DEFAULT": 'print("hello buck")',
+    }),
 )
