@@ -84,7 +84,7 @@ fn error_with_starlark_context(
             }
             ErrorKind::WithContext(context_value, inner) => {
                 match context_value {
-                    ContextValue::Dyn(_) => {
+                    ContextValue::Dyn(_) | ContextValue::Typed(_) => {
                         let mut inner_err = inner.clone();
                         for context in context_stack.into_iter().rev() {
                             inner_err = inner_err.context(context);
@@ -97,7 +97,9 @@ fn error_with_starlark_context(
                     ContextValue::StarlarkError(_) => {
                         return buck2_error.context_for_starlark_backtrace(starlark_context);
                     }
-                    _ => context_stack.push(context_value.clone()),
+                    ContextValue::Tags(_) | ContextValue::Key(_) => {
+                        context_stack.push(context_value.clone())
+                    }
                 }
 
                 buck2_error = inner.clone();
@@ -362,7 +364,7 @@ mod tests {
 
         assert!(starlark_err_string.contains(starlark_call_stack));
         assert!(starlark_err_string.contains(starlark_error_msg));
-        // FIXME(minglunli): Root error shouldn't be lost
-        assert!(!starlark_err_string.contains(base_error));
+        // Root error shouldn't be lost
+        assert!(starlark_err_string.contains(base_error));
     }
 }
