@@ -138,8 +138,11 @@ PythonLibraryManifestsTSet = transitive_set(
 
 # Information about a python library and its dependencies.
 PythonLibraryInfo = provider(fields = {
+    # Shared libraries coming from cxx_python_extension targets
     "extension_shared_libraries": provider_field(SharedLibraryInfo),
+    # See the docs for PythonLibraryManifestsInterface
     "manifests": provider_field(PythonLibraryManifestsTSet),
+    # Shared libraries coming from python_library and others
     "shared_libraries": provider_field(SharedLibraryInfo),
 })
 
