@@ -30,7 +30,8 @@ impl SourceLocation {
             .collect();
         // `buck2_error` should only be used within `buck2/app`, giving us a nice way to make sure we
         // strip any leading parts of the path we don't want.
-        let path = if let Some((_, path)) = path.split_once("buck2/app/") {
+        // Splitting on app/ instead of buck2/app/ to avoid breaking OSS tests where root path is not buck2.
+        let path = if let Some((_, path)) = path.split_once("app/") {
             path.to_owned()
         } else {
             // Shouldn't happen, but we still want to see the path if it does.
