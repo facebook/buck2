@@ -61,10 +61,14 @@ load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo
 load(":typing.bzl", "create_per_target_type_check")
 load(":versions.bzl", "LibraryName", "LibraryVersion", "gather_versioned_dependencies", "resolve_versions")
 
-def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy:
-    if ctx.attrs.native_link_strategy != None:
-        return NativeLinkStrategy(ctx.attrs.native_link_strategy)
-    return NativeLinkStrategy(ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy)
+def _link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy | None:
+    if ctx.attrs._cxx_toolchain.get(CxxToolchainInfo) == None:
+        # cxx toolchain is required
+        return None
+
+    return NativeLinkStrategy(
+        ctx.attrs.native_link_strategy or ctx.attrs._python_toolchain[PythonToolchainInfo].native_link_strategy,
+    )
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
@@ -253,39 +257,39 @@ def _convert_python_library_to_executable(
     # Convert preloaded deps to a set of their names to be loaded by.
     preload_labels = {_linkable_graph(d).label: None for d in ctx.attrs.preload_deps if _linkable_graph(d)}
 
-    extensions = {}
     extra_artifacts = {}
     link_args = []
-    for manifest in library.manifests.traverse():
-        if manifest.extensions:
-            _merge_extensions(extensions, manifest.label, manifest.extensions)
+    link_strategy = _link_strategy(ctx)
 
-    if ctx.attrs._cxx_toolchain.get(CxxToolchainInfo) == None:
-        # In fat target platforms, there may not be a CXX toolchain available.
-        shared_libs = [
-            ("", shared_lib)
-            for shared_lib in traverse_shared_library_info(library.shared_libraries)
-        ] + [
-            ("", shared_lib)
-            for shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
-        ]
-    elif _link_strategy(ctx) == NativeLinkStrategy("merged"):
-        shared_libs, extensions = process_omnibus_linking(ctx, deps, extensions, python_toolchain, extra)
-
-    elif _link_strategy(ctx) == NativeLinkStrategy("native"):
-        shared_libs, extensions, link_args = process_native_linking(ctx, deps, python_toolchain, extra, package_style, allow_cache_upload, extra_artifacts)
+    if link_strategy == NativeLinkStrategy("native"):
+        shared_libs, extensions, link_args = process_native_linking(
+            ctx,
+            deps,
+            python_toolchain,
+            extra,
+            package_style,
+            allow_cache_upload,
+            extra_artifacts,
+        )
     else:
-        shared_libs = [
-            ("", shared_lib)
-            for shared_lib in traverse_shared_library_info(library.shared_libraries)
-        ]
+        extensions = {}
+        for manifest in library.manifests.traverse():
+            if manifest.extensions:
+                _merge_extensions(extensions, manifest.label, manifest.extensions)
+        if link_strategy == NativeLinkStrategy("merged"):
+            shared_libs, extensions = process_omnibus_linking(ctx, deps, extensions, python_toolchain, extra)
+        else:
+            shared_libs = [
+                ("", shared_lib)
+                for shared_lib in traverse_shared_library_info(library.shared_libraries)
+            ]
 
-        # darwin and windows expect self-contained dynamically linked
-        # python extensions without additional transitive shared libraries
-        shared_libs += [
-            ("", extension_shared_lib)
-            for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
-        ]
+            # darwin and windows expect self-contained dynamically linked
+            # python extensions without additional transitive shared libraries
+            shared_libs += [
+                ("", extension_shared_lib)
+                for extension_shared_lib in traverse_shared_library_info(library.extension_shared_libraries)
+            ]
 
     if dbg_source_db:
         extra_artifacts["dbg-db.json"] = dbg_source_db
