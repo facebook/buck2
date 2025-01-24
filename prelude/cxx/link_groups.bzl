@@ -510,6 +510,7 @@ def get_filtered_labels_to_links_map(
         executable_deps: list[Label] = [],
         is_executable_link: bool = False,
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
+        link_group_roots: dict[str, Label] | None = None,  # If none, derived from link_group_libs
         prefer_stripped: bool = False,
         force_static_follows_dependents: bool = True,
         prefer_optimized = False) -> FinalLabelsToLinks:
@@ -533,11 +534,12 @@ def get_filtered_labels_to_links_map(
 
     # An index of target to link group names, for all link group library nodes.
     # Provides fast lookup of a link group root lib via it's label.
-    link_group_roots = {
-        label: name
-        for name, (label, _) in link_group_libs.items()
-        if label != None
-    }
+    if link_group_roots == None:
+        link_group_roots = {
+            label: name
+            for name, (label, _) in link_group_libs.items()
+            if label != None
+        }
 
     # Transitively update preferred linkage to avoid runtime issues from
     # missing dependencies (e.g. for prebuilt shared libs).
@@ -891,6 +893,7 @@ def _create_link_group(
         link_group_mappings: dict[Label, str] = {},
         link_group_preferred_linkage: dict[Label, Linkage] = {},
         link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
+        link_group_roots: dict[str, Label] = {},
         prefer_stripped_objects: bool = False,
         category_suffix: [str, None] = None,
         anonymous: bool = False,
@@ -936,6 +939,7 @@ def _create_link_group(
         executable_label = executable_label,
         executable_deps = executable_deps,
         link_group_libs = link_group_libs,
+        link_group_roots = link_group_roots,
         link_strategy = link_strategy,
         roots = roots,
         linkables = linkables,
@@ -1141,6 +1145,10 @@ def create_link_groups(
             executable_deps,
         )
 
+    link_group_libs = {
+        name: (None, lib)
+        for name, lib in link_group_shared_links.items()
+    }
     for link_group_spec in specs:
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
@@ -1165,10 +1173,8 @@ def create_link_groups(
             link_group_preferred_linkage = link_group_preferred_linkage,
             # TODO(agallagher): Should we support alternate link strategies
             # (e.g. bottom-up with symbol errors)?
-            link_group_libs = {
-                name: (None, lib)
-                for name, lib in link_group_shared_links.items()
-            },
+            link_group_libs = link_group_libs,
+            link_group_roots = {},
             prefer_stripped_objects = prefer_stripped_objects,
             category_suffix = "link_group",
             anonymous = anonymous,
