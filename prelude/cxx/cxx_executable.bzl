@@ -681,7 +681,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         for node, group in link_group_mappings.items():
             soname = get_shared_library_name(linker_info, group, True)
             soname_to_group_mappings[soname] = group
-            readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]
+            node_desc = "{}//{}:{}".format(node.cell, node.package, node.name)
+            if readable_mappings.get(group):
+                readable_mappings[group].append(node_desc)
+            else:
+                readable_mappings[group] = [node_desc]
 
         sub_targets[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
             default_output = ctx.actions.write_json(
