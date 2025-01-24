@@ -221,6 +221,9 @@ impl std::error::Error for StarlarkErrorWrapper {}
 #[cfg(test)]
 mod tests {
     use std::error::Request;
+    use std::sync::Arc;
+
+    use allocative::Allocative;
 
     use crate::any::ProvidableMetadata;
     use crate::buck2_error;
@@ -228,7 +231,7 @@ mod tests {
     use crate::source_location::SourceLocation;
     use crate::starlark_error::error_with_starlark_context;
 
-    #[derive(Debug, derive_more::Display)]
+    #[derive(Debug, Allocative, derive_more::Display)]
     struct FullMetadataError;
 
     impl From<FullMetadataError> for crate::Error {
@@ -251,6 +254,12 @@ mod tests {
                     crate::ErrorTag::StarlarkFail,
                 ],
             });
+        }
+    }
+
+    impl crate::TypedContext for FullMetadataError {
+        fn eq(&self, _other: &dyn crate::TypedContext) -> bool {
+            true
         }
     }
 
@@ -329,5 +338,31 @@ mod tests {
         assert!(!base_replaced.to_string().contains(base_error));
         assert!(base_replaced.to_string().contains(starlark_call_stack));
         assert!(base_replaced.to_string().contains(starlark_error));
+    }
+
+    #[test]
+    fn test_conversion_with_typed_context() {
+        let base_error = "Some base error";
+        let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
+        let e = e.compute_context(
+            |_: Arc<FullMetadataError>| FullMetadataError,
+            || FullMetadataError,
+        );
+
+        let starlark_call_stack = "Some call stack";
+        let starlark_error_msg = "Starlark error message";
+        let starlark_context = StarlarkContext {
+            call_stack: starlark_call_stack.to_owned(),
+            error_msg: starlark_error_msg.to_owned(),
+            span: None,
+        };
+
+        let starlark_err = error_with_starlark_context(&e, starlark_context);
+        let starlark_err_string = format!("{:#}", starlark_err);
+
+        assert!(starlark_err_string.contains(starlark_call_stack));
+        assert!(starlark_err_string.contains(starlark_error_msg));
+        // FIXME(minglunli): Root error shouldn't be lost
+        assert!(!starlark_err_string.contains(base_error));
     }
 }
