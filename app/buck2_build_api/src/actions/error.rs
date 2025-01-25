@@ -36,11 +36,12 @@ impl std::error::Error for ActionError {
         });
 
         let mut tags = vec![ErrorTag::AnyActionExecution];
-
+        let mut source_location = SourceLocation::new(std::file!()).with_type_name("ActionError");
         match &self.execute_error {
             ExecuteError::CommandExecutionError { error } => {
                 if let Some(err) = error {
                     tags.extend(err.tags());
+                    source_location = err.source_location().clone();
                 }
 
                 if is_command_failure {
@@ -55,15 +56,11 @@ impl std::error::Error for ActionError {
             ExecuteError::WrongOutputType { .. } => tags.push(ErrorTag::ActionWrongOutputType),
             ExecuteError::Error { error } => {
                 tags.extend(error.tags());
+                source_location = error.source_location().clone();
             }
         };
 
-        buck2_error::provide_metadata(
-            request,
-            tags,
-            SourceLocation::new(std::file!()).with_type_name("ActionError"),
-            Some(self.as_proto_event()),
-        );
+        buck2_error::provide_metadata(request, tags, source_location, Some(self.as_proto_event()));
     }
 
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {

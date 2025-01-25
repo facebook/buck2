@@ -365,5 +365,5 @@ async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
     assert record["error_category"] == "USER"
     assert (
         record["best_error_category_key"]
-        == "buck2_build_api/src/actions/error.rs::ActionError:ANY_ACTION_EXECUTION"
+        == "buck2_execute/src/execute/request.rs::IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )
