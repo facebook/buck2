@@ -161,8 +161,13 @@ impl Error {
             _ => None,
         });
 
-        let source_location = self.source_location().to_string();
-        let mut values = vec![source_location.as_str()]
+        let source_location = if let Some(type_name) = self.source_location().type_name() {
+            type_name
+        } else {
+            &self.source_location().to_string()
+        };
+
+        let mut values = vec![source_location]
             .into_iter()
             .chain(tags)
             .map(|s| s.to_owned())
@@ -359,12 +364,16 @@ mod tests {
     #[test]
     fn test_category_key() {
         let err: crate::Error = TestError.into();
-        assert_eq!(err.category_key(), err.source_location().to_string());
+        assert_eq!(err.category_key(), "TestError");
 
         let err = err.tag([crate::ErrorTag::Analysis]);
         assert_eq!(
             err.category_key(),
-            format!("{}:{}", err.source_location(), "ANALYSIS")
+            format!(
+                "{}:{}",
+                err.source_location().type_name().unwrap(),
+                "ANALYSIS"
+            )
         );
     }
 }

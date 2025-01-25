@@ -338,7 +338,7 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
     category_key = record["best_error_category_key"]
     assert (
         category_key
-        == "buck2_execute/src/re/error.rs::RemoteExecutionError:MATERIALIZATION_ERROR:RE_NOT_FOUND:UNKNOWN"
+        == "RemoteExecutionError:MATERIALIZATION_ERROR:RE_NOT_FOUND:UNKNOWN"
     )
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
@@ -365,5 +365,5 @@ async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
     assert record["error_category"] == "USER"
     assert (
         record["best_error_category_key"]
-        == "buck2_execute/src/execute/request.rs::IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
+        == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )

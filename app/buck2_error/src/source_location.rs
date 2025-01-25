@@ -54,6 +54,10 @@ impl SourceLocation {
         self.type_name = Some(type_name.to_owned());
         self
     }
+
+    pub fn type_name(&self) -> Option<&str> {
+        self.type_name.as_deref()
+    }
 }
 
 impl std::fmt::Display for SourceLocation {
