@@ -233,7 +233,7 @@ mod tests {
             crate::Error::new(
                 "".to_owned(),
                 crate::ErrorTag::Input,
-                SourceLocation::new(file!(), None),
+                SourceLocation::new(file!()),
                 None,
             )
         }

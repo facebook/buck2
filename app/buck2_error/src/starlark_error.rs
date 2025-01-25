@@ -158,7 +158,7 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Native(_) => "StarlarkError::Native",
         _ => "StarlarkError",
     };
-    let source_location = SourceLocation::new(std::file!(), Some(variant_name));
+    let source_location = SourceLocation::new(std::file!()).with_type_name(variant_name);
     let description = if skip_stacktrace {
         format!("{}", e.without_diagnostic())
     } else {
@@ -240,7 +240,7 @@ mod tests {
         #[cold]
         fn from(value: FullMetadataError) -> Self {
             let error = anyhow::Error::from(value);
-            let source_location = SourceLocation::new(file!(), None);
+            let source_location = SourceLocation::new(file!());
             crate::any::recover_crate_error(error.as_ref(), source_location, crate::ErrorTag::Tier0)
         }
     }
@@ -249,7 +249,7 @@ mod tests {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
             request.provide_value(ProvidableMetadata {
                 action_error: None,
-                source_location: SourceLocation::new(file!(), Some("FullMetadataError")),
+                source_location: SourceLocation::new(file!()).with_type_name("FullMetadataError"),
                 tags: vec![
                     crate::ErrorTag::WatchmanTimeout,
                     crate::ErrorTag::StarlarkNativeInput,

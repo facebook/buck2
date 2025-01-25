@@ -47,6 +47,6 @@ where
 {
     let anyhow: anyhow::Error = e.into();
     let source_location =
-        crate::source_location::SourceLocation::new(std::panic::Location::caller().file(), None);
+        crate::source_location::SourceLocation::new(std::panic::Location::caller().file());
     recover_crate_error(anyhow.as_ref(), source_location, tag)
 }

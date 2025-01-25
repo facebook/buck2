@@ -13,15 +13,15 @@ use allocative::Allocative;
 pub struct SourceLocation {
     /// The path to the file that this error occurred in.
     path: String,
-    extra: Option<String>,
+    /// The type and possibly variant - name, formatted as either `Type` or `Type::Variant`.
+    type_name: Option<String>,
+    source_line: Option<u32>,
 }
 
 impl SourceLocation {
     /// Converts a file path returned by `file!` or `Location::file()` to a value suitable for use as a
     /// `source_location`.
-    ///
-    /// The extra parameter, if present, will be appended to the end of the path.
-    pub fn new(path: &str, extra: Option<&str>) -> Self {
+    pub fn new(path: &str) -> Self {
         // The path is passed in as a host path, not a target path. So we need to manually normalize
         // the path separators
         let path: String = path
@@ -40,18 +40,32 @@ impl SourceLocation {
 
         Self {
             path,
-            extra: extra.map(|s| s.to_owned()),
+            type_name: None,
+            source_line: None,
         }
+    }
+
+    pub(crate) fn with_source_line(mut self, line: u32) -> Self {
+        self.source_line = Some(line);
+        self
+    }
+
+    pub fn with_type_name(mut self, type_name: &str) -> Self {
+        self.type_name = Some(type_name.to_owned());
+        self
     }
 }
 
 impl std::fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(extra) = &self.extra {
-            write!(f, "{}::{}", self.path, extra)
-        } else {
-            write!(f, "{}", self.path)
+        write!(f, "{}", self.path)?;
+        if let Some(type_name) = &self.type_name {
+            write!(f, "::{}", type_name)?;
         }
+        if let Some(source_line) = self.source_line {
+            write!(f, "::{}", source_line)?;
+        }
+        Ok(())
     }
 }
 
@@ -65,12 +79,14 @@ mod tests {
     #[test]
     fn test_this_file() {
         assert_eq!(
-            SourceLocation::new(file!(), None).to_string(),
+            SourceLocation::new(file!()).to_string(),
             "buck2_error/src/source_location.rs",
         );
 
         assert_eq!(
-            SourceLocation::new(file!(), Some("Type::Variant")).to_string(),
+            SourceLocation::new(file!())
+                .with_type_name("Type::Variant")
+                .to_string(),
             "buck2_error/src/source_location.rs::Type::Variant",
         );
     }
@@ -78,11 +94,8 @@ mod tests {
     #[test]
     fn test_windows_path() {
         assert_eq!(
-            SourceLocation::new(
-                r"C:\whatever\repo\buck2\app\buck2_error\src\source_location.rs",
-                None
-            )
-            .to_string(),
+            SourceLocation::new(r"C:\whatever\repo\buck2\app\buck2_error\src\source_location.rs")
+                .to_string(),
             "buck2_error/src/source_location.rs",
         );
     }
@@ -105,7 +118,7 @@ mod tests {
         let err: crate::Error = crate::Error::new(
             err_msg.to_owned(),
             crate::ErrorTag::Input,
-            SourceLocation::new("test_source_location", None),
+            SourceLocation::new("test_source_location"),
             None,
         );
         assert_eq!(err.to_string(), err_msg);

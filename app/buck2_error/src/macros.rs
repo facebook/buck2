@@ -13,11 +13,10 @@ use std::fmt::Arguments;
 #[cold]
 #[track_caller]
 pub fn buck2_error_impl(tag: crate::ErrorTag, args: Arguments) -> crate::Error {
-    let line_number = std::panic::Location::caller().line().to_string();
-    let source_location = crate::source_location::SourceLocation::new(
-        std::panic::Location::caller().file(),
-        Some(&line_number),
-    );
+    let line_number = std::panic::Location::caller().line();
+    let source_location =
+        crate::source_location::SourceLocation::new(std::panic::Location::caller().file())
+            .with_source_line(line_number);
     crate::Error::new(format!("{}", args), tag, source_location, None)
 }
 

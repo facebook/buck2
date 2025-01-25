@@ -61,7 +61,7 @@ impl std::error::Error for ActionError {
         buck2_error::provide_metadata(
             request,
             tags,
-            SourceLocation::new(std::file!(), Some("ActionError")),
+            SourceLocation::new(std::file!()).with_type_name("ActionError"),
             Some(self.as_proto_event()),
         );
     }

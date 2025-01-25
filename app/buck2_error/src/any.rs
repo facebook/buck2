@@ -139,7 +139,7 @@ mod tests {
         #[cold]
         fn from(value: TestError) -> Self {
             let error = anyhow::Error::from(value);
-            let source_location = SourceLocation::new(file!(), None);
+            let source_location = SourceLocation::new(file!());
             crate::any::recover_crate_error(error.as_ref(), source_location, ErrorTag::Input)
         }
     }
@@ -199,7 +199,7 @@ mod tests {
         #[cold]
         fn from(value: FullMetadataError) -> Self {
             let error = anyhow::Error::from(value);
-            let source_location = SourceLocation::new(file!(), None);
+            let source_location = SourceLocation::new(file!());
             crate::any::recover_crate_error(error.as_ref(), source_location, ErrorTag::Input)
         }
     }
@@ -208,7 +208,7 @@ mod tests {
         fn provide<'a>(&'a self, request: &mut Request<'a>) {
             request.provide_value(ProvidableMetadata {
                 action_error: None,
-                source_location: SourceLocation::new(file!(), Some("FullMetadataError")),
+                source_location: SourceLocation::new(file!()).with_type_name("FullMetadataError"),
                 tags: vec![
                     crate::ErrorTag::WatchmanTimeout,
                     crate::ErrorTag::StarlarkFail,
