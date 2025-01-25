@@ -17,7 +17,6 @@ fancy-regex = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true }
-itertools = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 ref-cast = { workspace = true }

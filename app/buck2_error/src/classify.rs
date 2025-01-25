@@ -183,6 +183,41 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
     }
 }
 
+/// Errors can be categorized by tags only if they have any non-generic tags.
+pub fn tag_is_generic(tag: &ErrorTag) -> bool {
+    if tag_is_hidden(tag) {
+        return true;
+    }
+    match tag {
+        ErrorTag::MaterializationError => true,
+        ErrorTag::UnusedDefaultTag => true,
+        ErrorTag::UnexpectedNone => true,
+        ErrorTag::Http => true,
+        ErrorTag::IoBrokenPipe => true,
+        ErrorTag::IoSystem => true,
+        ErrorTag::IoSource => true,
+        ErrorTag::IoNotFound => true,
+        ErrorTag::IoPermissionDenied => true,
+        ErrorTag::IoTimeout => true,
+        ErrorTag::IoEden => true,
+        ErrorTag::StarlarkError => true,
+        ErrorTag::Analysis => true,
+        ErrorTag::AnyActionExecution => true,
+        ErrorTag::ClientGrpc => true,
+        _ => false,
+    }
+}
+
+/// Hidden tags only used internally, for categorization.
+pub fn tag_is_hidden(tag: &ErrorTag) -> bool {
+    match tag {
+        ErrorTag::Tier0 => true,
+        ErrorTag::Input => true,
+        ErrorTag::Environment => true,
+        _ => false,
+    }
+}
+
 pub trait ErrorLike {
     fn best_tag(&self) -> Option<ErrorTag>;
 

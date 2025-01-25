@@ -11,11 +11,12 @@ use std::fmt;
 use std::sync::Arc;
 
 use buck2_data::ActionError;
-use itertools::Itertools;
 use smallvec::SmallVec;
 
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
+use crate::classify::tag_is_generic;
+use crate::classify::tag_is_hidden;
 use crate::context_value::ContextValue;
 use crate::context_value::StarlarkContext;
 use crate::context_value::TypedContext;
@@ -146,32 +147,43 @@ impl Error {
     }
 
     /// Stable identifier for grouping errors.
+    ///
+    /// This tries to include the least information possible that can be used to uniquely identify an error type.
     pub fn category_key(&self) -> String {
-        let tags = self
-            .tags()
-            .into_iter()
-            .filter(|tag| match tag {
-                ErrorTag::Input | ErrorTag::Environment | ErrorTag::Tier0 => false,
-                _ => true,
-            })
-            .map(|tag| tag.as_str_name());
+        let tags = self.tags();
 
-        let key_values = self.iter_context().filter_map(|kind| match kind {
+        let non_generic_tags: Vec<ErrorTag> = tags
+            .clone()
+            .into_iter()
+            .filter(|tag| !tag_is_generic(tag))
+            .collect();
+
+        let source_location = if let Some(type_name) = self.source_location().type_name() {
+            // If type name available, include it and exclude source location.
+            Some(type_name.to_owned())
+        } else if !non_generic_tags.is_empty() {
+            // Exclude source location if there are non-generic tags.
+            None
+        } else {
+            // Only include source location if there are no non-generic tags.
+            Some(self.source_location().to_string())
+        };
+
+        let key_tags = tags
+            .into_iter()
+            .filter(|tag| !tag_is_hidden(tag))
+            .map(|tag| tag.as_str_name().to_owned());
+
+        let context_key_values = self.iter_context().filter_map(|kind| match kind {
             ContextValue::Key(val) => Some(val.to_string()),
             _ => None,
         });
 
-        let source_location = if let Some(type_name) = self.source_location().type_name() {
-            type_name
-        } else {
-            &self.source_location().to_string()
-        };
-
-        let mut values = vec![source_location]
+        let values: Vec<String> = source_location
             .into_iter()
-            .chain(tags)
-            .map(|s| s.to_owned())
-            .chain(key_values);
+            .chain(key_tags)
+            .chain(context_key_values)
+            .collect();
 
         values.join(":").to_owned()
     }
