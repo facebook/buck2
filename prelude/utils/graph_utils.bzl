@@ -237,7 +237,9 @@ def depth_first_traversal_by(
             fail("Expected node {} in graph nodes".format(node_formatter(node)))
         nodes_to_visit = get_nodes_to_traverse_func(node)
         if nodes_to_visit:
-            for node in nodes_to_visit[::stride]:
+            range_traversal = range(len(nodes_to_visit) - 1, -1, -1) if stride == -1 else range(len(nodes_to_visit))
+            for i in range_traversal:
+                node = nodes_to_visit[i]
                 if node not in visited:
                     visited[node] = None
                     stack.append(node)
