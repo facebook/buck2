@@ -36,6 +36,7 @@ INHERITED_ENV = [
     "PATH",
     "PWD",
     "HOME",
+    "RUSTUP_HOME",
     "TMPDIR",
     # Required on Windows
     "LOCALAPPDATA",
