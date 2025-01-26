@@ -104,6 +104,17 @@ use crate::session::TestSession;
 use crate::session::TestSessionOptions;
 use crate::translations::build_configured_target_handle;
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum TestError {
+    #[error("Test execution completed but the tests failed")]
+    TestFailed,
+    #[error("Test listing failed")]
+    ListingFailed,
+    #[error("Fatal error encountered during test execution")]
+    Fatal,
+}
+
 struct TestOutcome {
     errors: Vec<buck2_data::ErrorReport>,
     executor_report: ExecutorReport,
@@ -252,9 +263,16 @@ impl ServerCommandTemplate for TestServerCommand {
         &self,
         response: &Self::Response,
     ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
+        if let Some(test_status) = &response.test_statuses {
+            [
+                response.errors.clone(),
+                error_report_for_test_errors(test_status),
+            ]
+            .concat()
+        } else {
+            response.errors.clone()
+        }
     }
-
     async fn command(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
@@ -468,6 +486,36 @@ async fn test(
         serialized_build_report,
         target_rule_type_names,
     })
+}
+
+fn error_report_for_test_errors(
+    status: &buck2_cli_proto::test_response::TestStatuses,
+) -> Vec<buck2_data::ErrorReport> {
+    let mut errors = vec![];
+
+    if let Some(failed) = &status.failed {
+        if failed.count > 0 {
+            errors.push(create_error_report(&buck2_error::Error::from(
+                TestError::TestFailed,
+            )));
+        }
+    }
+    if let Some(fatal) = &status.fatals {
+        if fatal.count > 0 {
+            errors.push(create_error_report(&buck2_error::Error::from(
+                TestError::Fatal,
+            )));
+        }
+    }
+    if let Some(listing_failed) = &status.listing_failed {
+        if listing_failed.count > 0 {
+            errors.push(create_error_report(&buck2_error::Error::from(
+                TestError::ListingFailed,
+            )));
+        }
+    }
+
+    errors
 }
 
 async fn test_targets(
