@@ -30,11 +30,48 @@ from typing import Any, Dict, IO, List, NamedTuple, Optional, Tuple
 
 DEBUG = False
 
-NIX_ENV_VARS = [
+INHERITED_ENV = [
+    "RUSTC_LOG",
+    "RUST_BACKTRACE",
+    "PATH",
+    "PWD",
+    "HOME",
+    "TMPDIR",
+    # Required on Windows
+    "LOCALAPPDATA",
+    "PROGRAMDATA",
+    "TEMP",
+    "TMP",
+    # TODO(andirauter): Required by RE. Remove them when no longer required T119466023
+    "EXECUTION_ID",
+    "SESSION_ID",
+    "ACTION_DIGEST",
+    "RE_PLATFORM",
+    "CAS_DAEMON_PORT",
+    "CAS_DAEMON_ADDR",
+    # Required by Dotslash, which is how the Rust toolchain is shipped on Mac.
+    "USER",
+    "DOTSLASH_CACHE",
+    # Required to run Python on Windows (for linker wrapper).
+    "SYSTEMROOT",
+    # Our rustc wrapper. https://fburl.com/code/qcos5aho
+    "SYSROOT_MULTIPLEXER_DEBUG",
+    # Required on Windows for getpass.getuser() to work.
+    "USERNAME",
+    # Option to disable hg pre-fork client.
+    # We might pass it to avoid long-running process created inside a per-action cgroup.
+    # Such long-running process make it impossible to clean up systemd slices.
+    # Context https://fb.workplace.com/groups/mercurialusers/permalink/2901424916673036/
+    "CHGDISABLE",
+    # Nix
     "NIX_BINTOOLS",
     "NIX_BINTOOLS_FOR_TARGET",
+    "NIX_BINTOOLS_WRAPPER_TARGET_HOST_*",
+    "NIX_BINTOOLS_WRAPPER_TARGET_TARGET_*",
     "NIX_CC",
     "NIX_CC_FOR_TARGET",
+    "NIX_CC_WRAPPER_TARGET_HOST_*",
+    "NIX_CC_WRAPPER_TARGET_TARGET_*",
     "NIX_CFLAGS_COMPILE",
     "NIX_CFLAGS_COMPILE_FOR_TARGET",
     "NIX_COREFOUNDATION_RPATH",
@@ -47,21 +84,6 @@ NIX_ENV_VARS = [
     "NIX_LDFLAGS_FOR_TARGET",
     "NIX_NO_SELF_RPATH",
 ]
-NIX_ENV_VAR_PREFIXES = [
-    "NIX_BINTOOLS_WRAPPER_TARGET_HOST_",
-    "NIX_BINTOOLS_WRAPPER_TARGET_TARGET_",
-    "NIX_CC_WRAPPER_TARGET_HOST_",
-    "NIX_CC_WRAPPER_TARGET_TARGET_",
-]
-
-
-def nix_env(env: Dict[str, str]):
-    env.update({k: os.environ[k] for k in NIX_ENV_VARS if k in os.environ})
-    for prefix in NIX_ENV_VAR_PREFIXES:
-        vars_starting_with = dict(
-            filter(lambda pair: pair[0].startswith(prefix), os.environ.items())
-        )
-        env.update(vars_starting_with.items())
 
 
 def eprint(*args: Any, **kwargs: Any) -> None:
@@ -186,6 +208,18 @@ def arg_eval(arg: str) -> str:
         arg = rest
 
 
+def inherited_env() -> Dict[str, str]:
+    env = {}
+    for pattern in INHERITED_ENV:
+        if pattern.endswith("*"):
+            for k in os.environ:
+                if k.startswith(pattern[:-1]):
+                    env[k] = os.environ[k]
+        elif pattern in os.environ:
+            env[pattern] = os.environ[pattern]
+    return env
+
+
 async def handle_output(  # noqa: C901
     proc: asyncio.subprocess.Process,
     args: Args,
@@ -275,46 +309,7 @@ async def main() -> int:  # noqa: C901
         return 0
 
     # Inherit a very limited initial environment, then add the new things
-    env = {
-        k: os.environ[k]
-        for k in [
-            "RUSTC_LOG",
-            "RUST_BACKTRACE",
-            "PATH",
-            "PWD",
-            "HOME",
-            "TMPDIR",
-            # Required on Windows
-            "LOCALAPPDATA",
-            "PROGRAMDATA",
-            "TEMP",
-            "TMP",
-            # TODO(andirauter): Required by RE. Remove them when no longer required T119466023
-            "EXECUTION_ID",
-            "SESSION_ID",
-            "ACTION_DIGEST",
-            "RE_PLATFORM",
-            "CAS_DAEMON_PORT",
-            "CAS_DAEMON_ADDR",
-            # Required by Dotslash, which is how the Rust toolchain is shipped
-            # on Mac.
-            "USER",
-            "DOTSLASH_CACHE",
-            # Required to run Python on Windows (for linker wrapper).
-            "SYSTEMROOT",
-            # Our rustc wrapper. https://fburl.com/code/qcos5aho
-            "SYSROOT_MULTIPLEXER_DEBUG",
-            # Required on Windows for getpass.getuser() to work.
-            "USERNAME",
-            # Option to disable hg pre-fork client.
-            # We might pass it to avoid long-running process created inside a per-action cgroup.
-            # Such long-running process make it impossible to clean up systemd slices.
-            # Context https://fb.workplace.com/groups/mercurialusers/permalink/2901424916673036/
-            "CHGDISABLE",
-        ]
-        if k in os.environ
-    }
-    nix_env(env)
+    env = inherited_env()
     if args.env:
         # Unescape previously escaped newlines.
         # Example: \\\\n\\n -> \\\n\n -> \\n\n
