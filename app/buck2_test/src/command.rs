@@ -561,7 +561,7 @@ async fn test_targets(
 
     let res = tag_result!(
         "executor_launch_failed",
-        res.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0)),
+        res.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tpx)),
         quiet: true,
         daemon_in_memory_state_is_corrupted: true,
         task: false
