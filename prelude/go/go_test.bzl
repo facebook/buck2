@@ -31,7 +31,7 @@ def _gen_test_main(
         pkg_name: str,
         coverage_mode: [GoCoverageMode, None],
         coverage_vars: dict[str, cmd_args],
-        srcs: cmd_args) -> Artifact:
+        test_go_files: cmd_args) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
     """
@@ -47,7 +47,7 @@ def _gen_test_main(
         cmd.extend(["--cover-mode", coverage_mode.value])
     for _, vars in coverage_vars.items():
         cmd.append(vars)
-    cmd.append(srcs)
+    cmd.append(test_go_files)
     ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
     return output
 
@@ -109,7 +109,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Generate a main function which runs the tests and build that into another
     # package.
-    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.srcs_list)
+    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.test_go_files)
     main, _ = build_package(ctx, pkg_name + ".test", True, [gen_main], package_root = "", pkgs = pkgs, coverage_mode = coverage_mode, race = ctx.attrs._race, asan = ctx.attrs._asan, cgo_gen_dir_name = "cgo_gen_test_main")
 
     # Link the above into a Go binary.

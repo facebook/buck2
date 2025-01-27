@@ -49,9 +49,9 @@ def build_package(
 
     go_list_out = go_list(ctx, pkg_name, srcs, package_root, build_tags, cgo_enabled, with_tests = tests, asan = asan)
 
-    srcs_list_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_srcs_list.go_package_argsfile")
+    test_go_files_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile")
-    dynamic_outputs = [out, out_shared, srcs_list_argsfile, coverage_vars_argsfile, cgo_gen_dir]
+    dynamic_outputs = [out, out_shared, test_go_files_argsfile, coverage_vars_argsfile, cgo_gen_dir]
 
     all_pkgs = merge_pkgs([
         pkgs,
@@ -67,8 +67,7 @@ def build_package(
 
         all_test_go_files = go_list.test_go_files + go_list.x_test_go_files
 
-        src_list_for_argsfile = go_list.go_files + (all_test_go_files if tests else [])
-        ctx.actions.write(outputs[srcs_list_argsfile], cmd_args(src_list_for_argsfile, ""))
+        ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((all_test_go_files if tests else []), ""))
 
         go_files_to_cover = go_list.go_files + cgo_go_files + (all_test_go_files if tests else [])
         covered_go_files, coverage_vars_out = _cover(ctx, pkg_name, go_files_to_cover, coverage_mode)
@@ -114,7 +113,7 @@ def build_package(
         pkg = out,
         pkg_shared = out_shared,
         coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
-        srcs_list = cmd_args(srcs_list_argsfile, format = "@{}", hidden = srcs),
+        test_go_files = cmd_args(test_go_files_argsfile, format = "@{}", hidden = srcs),
     ), GoPackageInfo(
         build_out = out,
         cgo_gen_dir = cgo_gen_dir,

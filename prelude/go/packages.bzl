@@ -30,7 +30,7 @@ GoPkg = record(
     pkg = field(Artifact),
     pkg_shared = field(Artifact),
     coverage_vars = field(cmd_args),
-    srcs_list = field(cmd_args),
+    test_go_files = field(cmd_args),
 )
 
 GoStdlib = provider(
