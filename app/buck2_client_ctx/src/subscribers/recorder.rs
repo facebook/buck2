@@ -140,6 +140,7 @@ pub(crate) struct InvocationRecorder<'a> {
     time_to_load_first_build_file: Option<Duration>,
     time_to_first_command_execution_start: Option<Duration>,
     time_to_first_test_discovery: Option<Duration>,
+    time_to_first_test_run: Option<Duration>,
     system_info: SystemInfo,
     file_watcher_stats: Option<buck2_data::FileWatcherStats>,
     file_watcher_duration: Option<Duration>,
@@ -290,6 +291,7 @@ impl<'a> InvocationRecorder<'a> {
             time_to_load_first_build_file: None,
             time_to_first_command_execution_start: None,
             time_to_first_test_discovery: None,
+            time_to_first_test_run: None,
             system_info: SystemInfo::default(),
             file_watcher_stats: None,
             file_watcher_duration: None,
@@ -725,6 +727,9 @@ impl<'a> InvocationRecorder<'a> {
                 .and_then(|d| u64::try_from(d.as_millis()).ok()),
             time_to_first_test_discovery_ms: self
                 .time_to_first_test_discovery
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
+            time_to_first_test_run_ms: self
+                .time_to_first_test_run
                 .and_then(|d| u64::try_from(d.as_millis()).ok()),
             system_total_memory_bytes: self.system_info.system_total_memory_bytes,
             file_watcher_stats: self.file_watcher_stats.take(),
@@ -1194,6 +1199,16 @@ impl<'a> InvocationRecorder<'a> {
         Ok(())
     }
 
+    fn handle_test_run_start(
+        &mut self,
+        _test_run: &buck2_data::TestRunStart,
+        _event: &BuckEvent,
+    ) -> buck2_error::Result<()> {
+        self.time_to_first_test_run
+            .get_or_insert_with(|| self.start_time.elapsed());
+        Ok(())
+    }
+
     fn handle_build_graph_info(
         &mut self,
         info: &buck2_data::BuildGraphExecutionInfo,
@@ -1506,6 +1521,9 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::span_start_event::Data::TestDiscovery(test_discovery) => {
                         self.handle_test_discovery_start(test_discovery, event)
+                    }
+                    buck2_data::span_start_event::Data::TestStart(test_start) => {
+                        self.handle_test_run_start(test_start, event)
                     }
                     _ => Ok(()),
                 }
