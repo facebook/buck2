@@ -518,7 +518,8 @@ message CriticalPathEntry2 {
     optional CommandInvalidationInfo invalidation_info = 8;
   }
 
-  message Materialization {
+  // This is for materializing the final outputs at the end of the build
+  message FinalMaterialization {
     string path = 1;
 
     oneof owner {
@@ -571,7 +572,7 @@ message CriticalPathEntry2 {
   oneof entry {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;
-    Materialization materialization = 102;
+    FinalMaterialization final_materialization = 102;
     ComputeCriticalPath compute_critical_path = 103;
     Load load = 104;
     Listing listing = 105;

@@ -30,17 +30,17 @@ impl From<BaseDeferredKeyProto> for crate::critical_path_entry2::action_executio
     }
 }
 
-impl From<BaseDeferredKeyProto> for crate::critical_path_entry2::materialization::Owner {
+impl From<BaseDeferredKeyProto> for crate::critical_path_entry2::final_materialization::Owner {
     fn from(value: BaseDeferredKeyProto) -> Self {
         match value {
             BaseDeferredKeyProto::TargetLabel(t) => {
-                crate::critical_path_entry2::materialization::Owner::TargetLabel(t)
+                crate::critical_path_entry2::final_materialization::Owner::TargetLabel(t)
             }
             BaseDeferredKeyProto::BxlKey(b) => {
-                crate::critical_path_entry2::materialization::Owner::BxlKey(b)
+                crate::critical_path_entry2::final_materialization::Owner::BxlKey(b)
             }
             BaseDeferredKeyProto::AnonTarget(a) => {
-                crate::critical_path_entry2::materialization::Owner::AnonTarget(a)
+                crate::critical_path_entry2::final_materialization::Owner::AnonTarget(a)
             }
         }
     }

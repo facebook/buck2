@@ -197,8 +197,8 @@ fn log_critical_path(
                             .as_str_name(),
                     );
                 }
-                Some(Entry::Materialization(materialization)) => {
-                    use buck2_data::critical_path_entry2::materialization::Owner;
+                Some(Entry::FinalMaterialization(materialization)) => {
+                    use buck2_data::critical_path_entry2::final_materialization::Owner;
 
                     critical_path.kind = "materialization";
 

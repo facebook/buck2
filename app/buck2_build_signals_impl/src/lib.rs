@@ -81,7 +81,7 @@ enum NodeKey {
     PackageListingKey(PackageListingKey),
 
     // This one is not a DICE key.
-    Materialization(BuildArtifact),
+    FinalMaterialization(BuildArtifact),
 
     // Dynamically-typed.
     Dyn(&'static str, BuildSignalsNodeKey),
@@ -134,7 +134,7 @@ impl fmt::Display for NodeKey {
             }
             Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
             Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
-            Self::Materialization(k) => write!(f, "Materialization({})", k),
+            Self::FinalMaterialization(k) => write!(f, "FinalMaterialization({})", k),
             Self::Dyn(name, k) => write!(f, "{name}({k})"),
         }
     }
@@ -476,10 +476,10 @@ where
                             target: Some(key.0.as_proto().into()),
                         }
                         .into(),
-                        NodeKey::Materialization(key) => {
+                        NodeKey::FinalMaterialization(key) => {
                             let owner = key.key().owner().to_proto().into();
 
-                            buck2_data::critical_path_entry2::Materialization {
+                            buck2_data::critical_path_entry2::FinalMaterialization {
                                 owner: Some(owner),
                                 path: key.get_path().path().to_string(),
                             }
@@ -618,7 +618,7 @@ where
         let dep = NodeKey::BuildKey(BuildKey(materialization.artifact.key().dupe()));
 
         self.backend.process_node(
-            NodeKey::Materialization(materialization.artifact),
+            NodeKey::FinalMaterialization(materialization.artifact),
             None,
             materialization.duration,
             std::iter::once(dep),

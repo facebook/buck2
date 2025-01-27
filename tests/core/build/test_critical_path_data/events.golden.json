@@ -92,6 +92,6 @@
     "deps": [
       "BuildKey((target: `root//:check_dynamic_input (<unspecified>)_0`, id: `0`))"
     ],
-    "key": "Materialization(`(root//:check_dynamic_input (<unspecified>))/out`, action: (target: `root//:check_dynamic_input (<unspecified>)_0`, id: `0`))"
+    "key": "FinalMaterialization(`(root//:check_dynamic_input (<unspecified>))/out`, action: (target: `root//:check_dynamic_input (<unspecified>)_0`, id: `0`))"
   }
 ]
