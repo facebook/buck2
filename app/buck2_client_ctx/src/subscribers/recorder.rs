@@ -153,6 +153,7 @@ pub(crate) struct InvocationRecorder<'a> {
     concurrent_command_blocking_duration: Option<Duration>,
     metadata: HashMap<String, String>,
     analysis_count: u64,
+    load_count: u64,
     daemon_in_memory_state_is_corrupted: bool,
     daemon_materializer_state_is_corrupted: bool,
     enable_restarter: bool,
@@ -302,6 +303,7 @@ impl<'a> InvocationRecorder<'a> {
             concurrent_command_blocking_duration: None,
             metadata: buck2_events::metadata::collect(),
             analysis_count: 0,
+            load_count: 0,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
             enable_restarter: false,
@@ -745,6 +747,7 @@ impl<'a> InvocationRecorder<'a> {
                 .concurrent_command_blocking_duration
                 .and_then(|x| x.try_into().ok()),
             analysis_count: Some(self.analysis_count),
+            load_count: Some(self.load_count),
             restarted_trace_id: self.restarted_trace_id.as_ref().map(|t| t.to_string()),
             has_command_result: Some(self.has_command_result),
             has_end_of_stream: Some(self.has_end_of_stream),
@@ -1532,6 +1535,10 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::span_end_event::Data::Analysis(..) => {
                         self.analysis_count += 1;
+                        Ok(())
+                    }
+                    buck2_data::span_end_event::Data::Load(..) => {
+                        self.load_count += 1;
                         Ok(())
                     }
                     buck2_data::span_end_event::Data::DiceBlockConcurrentCommand(

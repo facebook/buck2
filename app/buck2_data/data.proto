@@ -2195,6 +2195,8 @@ message InvocationRecord {
 
   // Total number of files materialized.
   optional uint64 materialization_files = 240;
+  // How many loads were executed
+  optional uint64 load_count = 241;
 }
 
 // Record event sent directly to scribe.
