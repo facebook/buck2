@@ -182,7 +182,13 @@ def _compile(
 
     return (out, asmhdr)
 
-def _symabis(ctx: AnalysisContext, pkg_name: str, main: bool, s_files: list[Artifact], h_files: list[Artifact], assembler_flags: list[str]) -> Artifact | None:
+def _symabis(
+        ctx: AnalysisContext,
+        pkg_name: str,
+        main: bool,
+        s_files: list[Artifact],
+        h_files: list[Artifact],
+        assembler_flags: list[str]) -> Artifact | None:
     if len(s_files) == 0:
         return None
 
@@ -211,7 +217,16 @@ def _symabis(ctx: AnalysisContext, pkg_name: str, main: bool, s_files: list[Arti
 
     return symabis
 
-def _asssembly(ctx: AnalysisContext, pkg_name: str, main: bool, s_files: list[Artifact], h_files: list[Artifact], asmhdr: Artifact | None, assembler_flags: list[str], shared: bool, suffix: str) -> list[Artifact]:
+def _asssembly(
+        ctx: AnalysisContext,
+        pkg_name: str,
+        main: bool,
+        s_files: list[Artifact],
+        h_files: list[Artifact],
+        asmhdr: Artifact | None,
+        assembler_flags: list[str],
+        shared: bool,
+        suffix: str) -> list[Artifact]:
     if len(s_files) == 0:
         return []
 
