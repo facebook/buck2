@@ -51,6 +51,8 @@ rust_library(
         "//buck2/app/buck2_execute_impl:buck2_execute_impl",
         "//buck2/app/buck2_futures:buck2_futures",
         "//buck2/app/buck2_grpc:buck2_grpc",
+        "//buck2/app/buck2_interpreter:buck2_interpreter",
+        "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
         "//buck2/app/buck2_node:buck2_node",
         "//buck2/app/buck2_server_ctx:buck2_server_ctx",
         "//buck2/app/buck2_test_api:buck2_test_api",

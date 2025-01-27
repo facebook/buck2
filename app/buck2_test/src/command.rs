@@ -63,6 +63,8 @@ use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::errors::create_error_report;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_interpreter::extra::InterpreterHostPlatform;
+use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -323,8 +325,21 @@ async fn test(
             let test_executor = post_process_test_executor(config.as_ref())
                 .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-            let test_executor_args =
+            let mut test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
+            let platform = match (*ctx)
+                .get_interpreter_configuror()
+                .await?
+                .host_info()
+                .platform
+            {
+                InterpreterHostPlatform::Linux => "linux",
+                InterpreterHostPlatform::MacOS => "mac",
+                InterpreterHostPlatform::Windows => "windows",
+                _ => "",
+            };
+            test_executor_args.push("--config-entry".to_owned());
+            test_executor_args.push(format!("host={}", platform));
             (test_executor, test_executor_args)
         }
         None => {
