@@ -500,6 +500,9 @@ def _compile_swiftmodule(
             "-Xfrontend",
             "-compile-module-from-interface",
             output_swiftinterface,
+            # The new driver will fail with "error: no input files"
+            # so use the legacy driver until we add functionality for this.
+            "-disallow-use-new-driver",
             "-o",
             output_swiftmodule.as_output(),
         ])
