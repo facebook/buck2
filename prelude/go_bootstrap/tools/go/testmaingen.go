@@ -37,7 +37,7 @@ import (
 	"unicode/utf8"
 )
 
-// A map of: pkg -> [var name -> file name]
+// A map of: pkg -> [file name -> var name]
 type coverPkgFlag map[string]map[string]string
 
 func (c coverPkgFlag) String() string {
@@ -68,20 +68,20 @@ func (c coverPkgFlag) Set(value string) error {
 	for _, path := range strings.Split(value, ";") {
 		pkgAndFiles := strings.Split(path, ":")
 		if len(pkgAndFiles) != 2 {
-			return errors.New("bad format: expected path1:var1=file1,var2=file2;path2:var3=file3,var4=file4")
+			return errors.New("bad format: expected path1:file1=var1,file2=var2;path2:file3=var3,file4=var4")
 		}
 		pkg := pkgAndFiles[0]
-		for _, varAndFile := range strings.Split(pkgAndFiles[1], ",") {
-			varAndFile := strings.Split(varAndFile, "=")
-			if len(varAndFile) != 2 {
-				return errors.New("bad format: expected path1:var1=file1,var2=file2;path2:var3=file3,var4=file4")
+		for _, fileAndVar := range strings.Split(pkgAndFiles[1], ",") {
+			fileAndVar := strings.Split(fileAndVar, "=")
+			if len(fileAndVar) != 2 {
+				return errors.New("bad format: expected path1:file1=var1,file2=var2;path2:file3=var3,file4=var4")
 			}
 
 			if c[pkg] == nil {
 				c[pkg] = make(map[string]string)
 			}
 
-			c[pkg][varAndFile[0]] = varAndFile[1]
+			c[pkg][fileAndVar[0]] = fileAndVar[1]
 		}
 	}
 	return nil
@@ -98,7 +98,7 @@ var (
 func init() {
 	flag.StringVar(&pkgImportPath, "import-path", "test", "The import path in the test file")
 	flag.StringVar(&outputFile, "output", "", "The path to the output file. Default to stdout.")
-	flag.Var(coverPkgs, "cover-pkgs", "List of packages & coverage variables to gather coverage info on, in the form of IMPORT-PATH1:var1=file1,var2=file2,var3=file3;IMPORT-PATH2:...")
+	flag.Var(coverPkgs, "cover-pkgs", "List of packages & coverage variables to gather coverage info on, in the form of IMPORT-PATH1:file1=var1,file2=var2,file3=var3;IMPORT-PATH2:...")
 	flag.StringVar(&testCoverMode, "cover-mode", "", "Cover mode (see `go tool cover`)")
 }
 
@@ -127,9 +127,9 @@ func main() {
 	coverInfos := make([]coverInfo, 0, len(coverPkgs))
 	pkgs := make([]*Package, 0, len(coverPkgs))
 	testCoverPaths := make([]string, 0, len(coverPkgs))
-	for importPath, varToFileMap := range coverPkgs {
-		coverVarMap := make(map[string]*CoverVar, len(varToFileMap))
-		for varName, fileName := range varToFileMap {
+	for importPath, fileToVarMap := range coverPkgs {
+		coverVarMap := make(map[string]*CoverVar, len(fileToVarMap))
+		for fileName, varName := range fileToVarMap {
 			coverVarMap[fileName] = &CoverVar{
 				File: filepath.Join(importPath, fileName),
 				Var:  varName,

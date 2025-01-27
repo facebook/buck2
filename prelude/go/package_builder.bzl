@@ -294,13 +294,13 @@ def _cover(ctx: AnalysisContext, pkg_name: str, go_files: list[Artifact], covera
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
     covered_files = []
-    coverage_vars = {}
+    file_to_var = {}
     for go_file in go_files:
         covered_file = ctx.actions.declare_output("with_coverage", go_file.short_path)
         covered_files.append(covered_file)
 
         var = "Var_" + sha256(pkg_name + "::" + go_file.short_path)
-        coverage_vars[var] = go_file.short_path
+        file_to_var[go_file.short_path] = var
 
         cover_cmd = [
             go_toolchain.cover,
@@ -313,9 +313,9 @@ def _cover(ctx: AnalysisContext, pkg_name: str, go_files: list[Artifact], covera
         ctx.actions.run(cover_cmd, env = env, category = "go_cover", identifier = paths.basename(pkg_name) + "/" + go_file.short_path)
 
     coverage_vars_out = ""
-    if len(coverage_vars) > 0:
-        # convert coverage_vars to argsfile for compatibility with python implementation
-        cover_pkg = "{}:{}".format(pkg_name, ",".join(["{}={}".format(var, name) for var, name in coverage_vars.items()]))
+    if len(file_to_var) > 0:
+        # convert file_to_var to argsfile for compatibility with python implementation
+        cover_pkg = "{}:{}".format(pkg_name, ",".join(["{}={}".format(name, var) for name, var in file_to_var.items()]))
         coverage_vars_out = cmd_args("--cover-pkgs", cover_pkg)
 
     return covered_files, coverage_vars_out
