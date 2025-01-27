@@ -97,6 +97,14 @@ message TargetCfg {
   repeated string cli_modifiers = 2;
 }
 
+message RepresentativeConfigFlag {
+  oneof source {
+    string config_flag = 1;
+    string config_file = 2;
+    string mode_file = 3;
+  }
+}
+
 message ClientContext {
   reserved 5, 21;
   // `AbsNormPath`.
@@ -148,6 +156,8 @@ message ClientContext {
   // whether the new build will preempt (ie kill) the current build and take its
   // place.
   PreemptibleWhen preemptible = 22;
+  // Used for logging purposes; gives the config flags needed to repro the run
+  repeated RepresentativeConfigFlag representative_config_flags = 23;
 }
 
 message TargetsRequest {

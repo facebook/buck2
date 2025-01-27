@@ -29,7 +29,9 @@ pub mod ui;
 use std::path::Path;
 
 use buck2_cli_proto::config_override::ConfigType;
+use buck2_cli_proto::representative_config_flag::Source as RepresentativeConfigFlagSource;
 use buck2_cli_proto::ConfigOverride;
+use buck2_cli_proto::RepresentativeConfigFlag;
 use buck2_common::argv::ArgFileKind;
 use buck2_common::argv::ArgFilePath;
 use buck2_common::argv::ExpandedArgSource;
@@ -433,6 +435,25 @@ impl<'a> BuckArgMatches<'a> {
     /// it will be represented with the argfile rather than the raw config flag. This gives a compact, stable, and
     /// recognizable form of the flags.
     pub fn get_representative_config_flags(&self) -> buck2_error::Result<Vec<String>> {
+        self.get_representative_config_flags_by_source()
+            .map(|flags| {
+                flags
+                    .into_iter()
+                    .map(|flag| match flag.source {
+                        Some(RepresentativeConfigFlagSource::ConfigFlag(v)) => format!("-c {}", v),
+                        Some(RepresentativeConfigFlagSource::ConfigFile(v)) => {
+                            format!("--config-file {}", v)
+                        }
+                        Some(RepresentativeConfigFlagSource::ModeFile(v)) => v,
+                        None => unreachable!("impossible flag"),
+                    })
+                    .collect()
+            })
+    }
+
+    pub fn get_representative_config_flags_by_source(
+        &self,
+    ) -> buck2_error::Result<Vec<RepresentativeConfigFlag>> {
         fn get_flagfile_for_logging<'a>(
             flagfile: &'a FlagfileArgSource,
         ) -> Option<&'a FlagfileArgSource> {
@@ -474,37 +495,57 @@ impl<'a> BuckArgMatches<'a> {
                             None
                         }
                         v if v.starts_with("--config=") || v.starts_with("-c=") => {
-                            Some(("-c", v.split_once("=").unwrap().1))
+                            Some(RepresentativeConfigFlagSource::ConfigFlag(
+                                v.split_once("=").unwrap().1.to_owned(),
+                            ))
                         }
                         v if v.starts_with("--config-file=") => {
-                            Some(("--config-file", v.split_at("--config-file=".len()).1))
+                            Some(RepresentativeConfigFlagSource::ConfigFile(
+                                v.split_at("--config-file=".len()).1.to_owned(),
+                            ))
                         }
                         _ => None,
                     },
                     State::Matched(flag) => {
                         state = State::None;
-                        Some((flag, value))
+                        match flag {
+                            "-c" => {
+                                Some(RepresentativeConfigFlagSource::ConfigFlag(value.to_owned()))
+                            }
+                            "--config-file" => {
+                                Some(RepresentativeConfigFlagSource::ConfigFile(value.to_owned()))
+                            }
+                            _ => unreachable!("impossible flag"),
+                        }
                     }
                 }
-                .map(|(flag, value)| (flag, value, source))
+                .map(|flag_value| (flag_value, source))
             });
 
-        let mut args = Vec::new();
+        let mut args: Vec<RepresentativeConfigFlag> = Vec::new();
         let mut last_flagfile = None;
 
-        for (flag, value, source) in config_args {
+        for (flag_value, source) in config_args {
             let flagfile = match source {
                 ExpandedArgSource::Inline => None,
-                ExpandedArgSource::Flagfile(file) => get_flagfile_for_logging(file),
+                ExpandedArgSource::Flagfile(file) => get_flagfile_for_logging(&file),
             };
 
             match flagfile {
                 Some(flagfile) => {
                     if Some(flagfile) != last_flagfile {
-                        args.push(flagfile.kind.to_string());
+                        args.push(RepresentativeConfigFlag {
+                            source: Some(RepresentativeConfigFlagSource::ModeFile(
+                                flagfile.kind.to_string(),
+                            )),
+                        });
                     }
                 }
-                None => args.push(format!("{} {}", flag, value)),
+                None => {
+                    args.push(RepresentativeConfigFlag {
+                        source: Some(flag_value),
+                    });
+                }
             }
             last_flagfile = flagfile;
         }

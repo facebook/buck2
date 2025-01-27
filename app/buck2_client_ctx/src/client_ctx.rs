@@ -256,6 +256,7 @@ impl<'a> ClientCommandContext<'a> {
                 .map(|path| path.to_string())
                 .collect(),
             target_call_stacks: starlark_opts.target_call_stacks,
+            representative_config_flags: arg_matches.get_representative_config_flags_by_source()?,
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
@@ -297,6 +298,7 @@ impl<'a> ClientCommandContext<'a> {
                 .map(ClientMetadata::to_proto)
                 .collect(),
             preemptible: Default::default(),
+            representative_config_flags: Vec::new(),
         })
     }
 

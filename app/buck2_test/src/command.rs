@@ -29,6 +29,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
 use buck2_build_api::materialize::MaterializationContext;
+use buck2_cli_proto::representative_config_flag;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
 use buck2_cli_proto::TestResponse;
@@ -340,6 +341,25 @@ async fn test(
             };
             test_executor_args.push("--config-entry".to_owned());
             test_executor_args.push(format!("host={}", platform));
+
+            let config_flags = client_ctx
+                .representative_config_flags
+                .iter()
+                .filter_map(|s| {
+                    s.source.as_ref().and_then(|source| {
+                        if let representative_config_flag::Source::ConfigFlag(s) = source {
+                            Some(s)
+                        } else {
+                            None
+                        }
+                    })
+                })
+                .sorted()
+                .join(";");
+
+            test_executor_args.push("--config-entry".to_owned());
+            test_executor_args.push(format!("config={}", config_flags));
+
             (test_executor, test_executor_args)
         }
         None => {
