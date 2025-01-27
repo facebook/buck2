@@ -107,6 +107,8 @@ pub struct TestResult {
     // the duration of the test run
     // TODO(skcd) should this be optional? why doesn't everything have duration
     pub duration: Option<Duration>,
+    // the max memory used by the test
+    pub max_memory_used_bytes: Option<u64>,
     // the output of the test execution (combining stdout and stderr)
     pub details: String,
 }
@@ -391,6 +393,7 @@ pub struct ExecutionResult2 {
     pub outputs: HashMap<OutputName, Output>,
     pub start_time: SystemTime,
     pub execution_time: Duration,
+    pub max_memory_used_bytes: Option<u64>,
     /// We don't try to convert this field, mostly because it shares with buck2.data, and that
     /// seems to have very little value. We just validate it's sent.
     pub execution_details: ExecutionDetails,

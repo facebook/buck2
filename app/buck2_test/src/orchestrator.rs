@@ -349,6 +349,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             execution_details: ExecutionDetails {
                 execution_kind: execution_kind.map(|k| k.to_proto(false)),
             },
+            max_memory_used_bytes: timing.execution_stats.and_then(|s| s.memory_peak),
         })
     }
 
@@ -2147,6 +2148,7 @@ mod tests {
                     name: "First - test".to_owned(),
                     duration: Some(Duration::from_micros(1)),
                     details: "1".to_owned(),
+                    max_memory_used_bytes: None,
                 })
                 .await?;
 
@@ -2158,6 +2160,7 @@ mod tests {
                     name: "Second - test".to_owned(),
                     duration: Some(Duration::from_micros(2)),
                     details: "2".to_owned(),
+                    max_memory_used_bytes: None,
                 })
                 .await?;
 
@@ -2179,6 +2182,7 @@ mod tests {
                     name: "First - test".to_owned(),
                     duration: Some(Duration::from_micros(1)),
                     details: "1".to_owned(),
+                    max_memory_used_bytes: None,
                 }),
                 ExecutorMessage::TestResult(TestResult {
                     target,
@@ -2188,6 +2192,7 @@ mod tests {
                     name: "Second - test".to_owned(),
                     duration: Some(Duration::from_micros(2)),
                     details: "2".to_owned(),
+                    max_memory_used_bytes: None,
                 }),
                 ExecutorMessage::ExitCode(0),
             ]

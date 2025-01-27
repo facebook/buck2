@@ -218,6 +218,7 @@ fn get_test_result(
             "---- STDOUT ----\n{:?}\n---- STDERR ----\n{:?}\n",
             execution_result.stdout, execution_result.stderr
         ),
+        max_memory_used_bytes: None,
     }
 }
 

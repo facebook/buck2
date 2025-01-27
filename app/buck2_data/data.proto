@@ -821,6 +821,7 @@ message TestResult {
   google.protobuf.Duration duration = 7; // Optional
   string details = 8; // Required
   ConfiguredTargetLabel target_label = 9;
+  optional uint64 max_memory_used_bytes = 10;
 }
 
 // At the beginning of discovery, the test orchestrator will advertise

@@ -257,6 +257,7 @@ impl TryFrom<buck2_test_proto::TestResult> for TestResult {
             msg,
             duration,
             details,
+            max_memory_used_bytes,
         } = s;
 
         let duration = duration
@@ -273,6 +274,7 @@ impl TryFrom<buck2_test_proto::TestResult> for TestResult {
             status: status.try_into().context("Invalid `status`")?,
             msg: msg.map(|m| m.msg),
             duration,
+            max_memory_used_bytes,
             details,
         })
     }
@@ -291,6 +293,7 @@ impl TryInto<buck2_test_proto::TestResult> for TestResult {
             details: self.details,
             msg: self.msg.map(|msg| OptionalMsg { msg }),
             duration: self.duration.try_map(|d| d.try_into())?,
+            max_memory_used_bytes: self.max_memory_used_bytes,
         })
     }
 }
@@ -733,6 +736,7 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             ),
             execution_time: Some(self.execution_time.try_into()?),
             execution_details: Some(self.execution_details),
+            max_memory_used_bytes: self.max_memory_used_bytes,
         })
     }
 }
@@ -749,6 +753,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             start_time,
             execution_time,
             execution_details,
+            max_memory_used_bytes,
         } = s;
         let status = status
             .context("Missing `status`")?
@@ -800,6 +805,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             start_time,
             execution_time,
             execution_details,
+            max_memory_used_bytes,
         })
     }
 }
@@ -1140,6 +1146,7 @@ mod tests {
             start_time: SystemTime::UNIX_EPOCH + Duration::from_secs(123),
             execution_time: Duration::from_secs(456),
             execution_details: Default::default(),
+            max_memory_used_bytes: None,
         };
         assert_roundtrips::<buck2_test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }

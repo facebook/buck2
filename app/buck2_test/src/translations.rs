@@ -63,6 +63,7 @@ pub(crate) fn convert_test_result(
         duration,
         details,
         target: test_target,
+        max_memory_used_bytes,
     } = test_result;
 
     let test_target = session.get(test_target)?;
@@ -74,6 +75,7 @@ pub(crate) fn convert_test_result(
         duration: duration.and_then(|d| d.try_into().ok()),
         details,
         target_label: Some(test_target.target().as_proto()),
+        max_memory_used_bytes,
     })
 }
 
