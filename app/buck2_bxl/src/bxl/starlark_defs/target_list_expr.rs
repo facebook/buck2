@@ -392,14 +392,14 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                             Err(e) => Err(e),
                         }
                     }
-                    Err(e) => Err(e.into()),
+                    Err(e) => Err(e),
                 };
 
                 result.or_else(|e| {
                     if keep_going {
                         Ok(TargetListExpr::Iterable(Vec::new()))
                     } else {
-                        Err(e.into())
+                        Err(e)
                     }
                 })
             }
