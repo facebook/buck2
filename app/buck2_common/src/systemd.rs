@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cmp::PartialEq;
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
@@ -54,6 +55,15 @@ pub enum ParentSlice {
     Root(String),
 }
 
+/// Turns on delegation of further resource control partitioning to processes of the unit.
+/// Units where this is enabled may create and manage their own private subhierarchy
+/// of control groups below the control group of the unit itself.
+#[derive(PartialEq)]
+pub enum CgroupDelegation {
+    Enabled,
+    Disabled,
+}
+
 pub struct SystemdRunnerConfig {
     /// A config to determine if systemd is available.
     pub status: ResourceControlStatus,
@@ -61,6 +71,8 @@ pub struct SystemdRunnerConfig {
     pub memory_max: Option<String>,
     /// Parent slice behaviour
     pub parent_slice: ParentSlice,
+    /// Delegation of further resource control partitioning of cgroup unit
+    pub delegation: CgroupDelegation,
 }
 
 impl SystemdRunnerConfig {
@@ -69,6 +81,7 @@ impl SystemdRunnerConfig {
             status: config.status.clone(),
             memory_max: config.memory_max.clone(),
             parent_slice,
+            delegation: CgroupDelegation::Disabled,
         }
     }
 
@@ -77,6 +90,7 @@ impl SystemdRunnerConfig {
             status: config.status.clone(),
             memory_max: config.memory_max_per_action.clone(),
             parent_slice,
+            delegation: CgroupDelegation::Enabled,
         }
     }
 }
@@ -109,6 +123,10 @@ impl SystemdRunner {
             // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
             // some workers can keep alive even after buck2 daemon has gone due to OOM.
             args.push("--property=OOMPolicy=kill".to_owned());
+        }
+
+        if config.delegation == CgroupDelegation::Enabled {
+            args.push("--property=Delegate=yes".to_owned());
         }
 
         match &config.parent_slice {
