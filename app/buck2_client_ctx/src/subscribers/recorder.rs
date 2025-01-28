@@ -1376,8 +1376,10 @@ impl<'a> InvocationRecorder<'a> {
 
         self.peak_process_memory_bytes =
             max(self.peak_process_memory_bytes, process_memory(update));
-        self.peak_used_disk_space_bytes =
-            max(self.peak_process_memory_bytes, update.used_disk_space_bytes);
+        self.peak_used_disk_space_bytes = max(
+            self.peak_used_disk_space_bytes,
+            update.used_disk_space_bytes,
+        );
 
         for stat in update.network_interface_stats.values() {
             if stat.rx_bytes > 0 || stat.tx_bytes > 0 {
