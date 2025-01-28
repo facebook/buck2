@@ -41,6 +41,7 @@ load(
     "LinkableGraph",  # @unused Used as a type
     "LinkableNode",  # @unused Used as a type
     "LinkableRootInfo",  # @unused Used as a type
+    "ReducedLinkableGraph",
     "create_linkable_graph",
     "get_deps_for_link",
     "get_link_info",
@@ -1082,13 +1083,13 @@ def create_link_groups(
         public_nodes: set[Label],
         link_strategy: LinkStrategy,
         executable_label: Label | None,
+        linkable_graph: ReducedLinkableGraph,
         link_groups: dict[str, Group] = {},
         link_group_specs: list[LinkGroupLibSpec] = [],
         executable_deps: list[Label] = [],
         other_roots: list[Label] = [],
         linker_flags: list[typing.Any] = [],
         prefer_stripped_objects: bool = False,
-        linkable_graph_node_map: dict[Label, LinkableNode] = {},
         link_group_preferred_linkage: dict[Label, Linkage] = {},
         link_group_mappings: [dict[Label, str], None] = None,
         anonymous: bool = False,
@@ -1126,10 +1127,10 @@ def create_link_groups(
         link_group_mappings,
         executable_deps + other_roots,
         link_strategy,
-        linkable_graph_node_map,
+        linkable_graph.nodes,
     )
     linkables = _collect_all_linkables(
-        linkable_graph_node_map = linkable_graph_node_map,
+        linkable_graph_node_map = linkable_graph.nodes,
         is_executable_link = False,
         link_strategy = link_strategy,
         link_group_preferred_linkage = link_group_preferred_linkage,
@@ -1140,7 +1141,7 @@ def create_link_groups(
     if _should_fixup_link_order(link_strategy) and executable_label and executable_deps:
         linkables = _fixup_link_groups_link_order(
             linkables,
-            linkable_graph_node_map,
+            linkable_graph.nodes,
             executable_label,
             executable_deps,
         )
@@ -1161,7 +1162,7 @@ def create_link_groups(
             link_strategy = link_strategy,
             executable_label = executable_label,
             executable_deps = executable_deps,
-            linkable_graph_node_map = linkable_graph_node_map,
+            linkable_graph_node_map = linkable_graph.nodes,
             public_nodes = public_nodes,
             linker_flags = (
                 linker_flags +

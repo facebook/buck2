@@ -62,7 +62,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",
     "create_linkable_graph",
-    "get_linkable_graph_node_map_func",
+    "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -426,7 +426,8 @@ def inherited_rust_cxx_link_group_info(
         ctx,
         deps = link_graphs,
     )
-    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+    reduced_linkable_graph = reduce_linkable_graph(linkable_graph)
+    linkable_graph_node_map = reduced_linkable_graph.nodes
 
     executable_deps = []
     for g in link_graphs:
@@ -448,12 +449,12 @@ def inherited_rust_cxx_link_group_info(
         link_groups = link_groups,
         link_strategy = link_strategy,
         executable_label = ctx.label,
+        linkable_graph = reduced_linkable_graph,
         link_group_mappings = link_group_mappings,
         link_group_preferred_linkage = link_group_preferred_linkage,
         executable_deps = executable_deps,
         linker_flags = [],
         link_group_specs = auto_link_group_specs,
-        linkable_graph_node_map = linkable_graph_node_map,
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
         anonymous = ctx.attrs.anonymous_link_groups,

@@ -77,6 +77,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "create_linkable_graph",
     "get_linkable_graph_node_map_func",
+    "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -353,7 +354,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             swift_runtime_linkable = swift_runtime_linkable,
         )
     else:
-        linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+        reduced_linkable_graph = reduce_linkable_graph(linkable_graph)
+        linkable_graph_node_map = reduced_linkable_graph.nodes
 
         # Although these aren't really deps, we need to search from the
         # extra link group roots to make sure we find additional libs
@@ -379,12 +381,12 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 link_groups = link_groups,
                 link_strategy = link_strategy,
                 executable_label = ctx.label,
+                linkable_graph = reduced_linkable_graph,
                 link_group_mappings = link_group_mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
                 executable_deps = exec_dep_roots,
                 linker_flags = own_link_flags,
                 link_group_specs = impl_params.auto_link_group_specs,
-                linkable_graph_node_map = linkable_graph_node_map,
                 other_roots = link_group_extra_link_roots,
                 prefer_stripped_objects = impl_params.prefer_stripped_objects,
                 anonymous = ctx.attrs.anonymous_link_groups,

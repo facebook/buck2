@@ -122,7 +122,7 @@ load(
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
-    "get_linkable_graph_node_map_func",
+    "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:linkables.bzl",
@@ -980,7 +980,8 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         auto_link_groups = {}
         link_group_libs = {}
         link_deps = linkables(attr_deps(ctx))
-        linkable_graph_node_map = get_linkable_graph_node_map_func(link_group_info.graph)()
+        reduced_linkable_graph = reduce_linkable_graph(link_group_info.graph)
+        linkable_graph_node_map = reduced_linkable_graph.nodes
         link_group_preferred_linkage = get_link_group_preferred_linkage(link_group_info.groups.values())
 
         # If we're using auto-link-groups, where we generate the link group links
@@ -999,11 +1000,11 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 link_strategy = link_strategy,
                 executable_label = ctx.label,
+                linkable_graph = reduced_linkable_graph,
                 link_group_mappings = link_group_info.mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
                 executable_deps = executable_deps,
                 link_group_specs = auto_link_group_specs,
-                linkable_graph_node_map = linkable_graph_node_map,
                 public_nodes = public_nodes,
             )
             for name, linked_link_group in linked_link_groups.libs.items():
