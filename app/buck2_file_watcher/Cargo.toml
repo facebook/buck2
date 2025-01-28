@@ -13,6 +13,7 @@ notify = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }
 
 allocative = { workspace = true }
 blake3 = { workspace = true }
