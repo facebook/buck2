@@ -10,7 +10,10 @@
 
 import json
 
+import pytest
+
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import replace_hashes
 
@@ -129,3 +132,16 @@ async def test_build_report_package_project_relative_path(buck: Buck) -> None:
         results = json.load(file)["results"]
         assert results["root//:rule1"]["package_project_relative_path"] == ""
         assert results["root//subdir:rule"]["package_project_relative_path"] == "subdir"
+
+
+@buck_test()
+async def test_build_report_non_existent_directory(buck: Buck) -> None:
+    build_report = "non_existent_dir/report"
+
+    # FIXME(diegomontemayor): This should not fail
+    with pytest.raises(BuckException):
+        await buck.build(
+            "//:rule1",
+            "--build-report",
+            build_report,
+        )
