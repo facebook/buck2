@@ -445,21 +445,30 @@ impl WorkerClient {
 
                 let mut stream = stream.into_inner();
                 while let Some(response) = stream.next().await {
-                    let response = response.unwrap();
-                    match waiters.remove(&response.id) {
-                        Some(waiter) => {
-                            let id = response.id;
-                            if waiter.1.send(response).is_err() {
-                                tracing::warn!(
-                                    id = id,
-                                    "Error passing streaming worker response to waiter"
-                                );
-                            }
+                    match response {
+                        Ok(response) => {
+                            match waiters.remove(&response.id) {
+                                Some(waiter) => {
+                                    let id = response.id;
+                                    if waiter.1.send(response).is_err() {
+                                        tracing::warn!(
+                                            id = id,
+                                            "Error passing streaming worker response to waiter"
+                                        );
+                                    }
+                                }
+                                None => {
+                                    tracing::warn!(
+                                        id = response.id,
+                                        "Missing waiter for streaming worker response",
+                                    );
+                                }
+                            };
                         }
-                        None => {
+                        Err(e) => {
                             tracing::warn!(
-                                id = response.id,
-                                "Missing waiter for streaming worker response",
+                                error = e.to_string(),
+                                "Response error in worker stream"
                             );
                         }
                     };
