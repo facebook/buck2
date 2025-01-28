@@ -999,7 +999,6 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             linked_link_groups = create_link_groups(
                 ctx = ctx,
                 link_strategy = link_strategy,
-                executable_label = ctx.label,
                 linkable_graph = reduced_linkable_graph,
                 link_group_mappings = link_group_info.mappings,
                 link_group_preferred_linkage = link_group_preferred_linkage,
@@ -1057,9 +1056,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
                 for name, lib in link_group_libs.items()
             },
             link_strategy = link_strategy,
-            roots = roots,
             linkables = exec_linkables,
-            executable_label = ctx.label,
             is_executable_link = True,
             force_static_follows_dependents = True,
             pic_behavior = pic_behavior,

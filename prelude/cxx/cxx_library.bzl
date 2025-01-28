@@ -1509,10 +1509,8 @@ def _get_shared_library_links(
             for name, lib in link_group_libs.items()
         },
         link_strategy = link_strategy,
-        roots = roots,
         linkables = lib_linkables,
         pic_behavior = pic_behavior,
-        executable_label = None,
         prefer_stripped = prefer_stripped,
         force_static_follows_dependents = force_static_follows_dependents,
     )
