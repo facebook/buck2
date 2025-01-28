@@ -1038,7 +1038,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         is_executable_link = True
         pic_behavior = PicBehavior("supported")
         exec_linkables = collect_linkables(
-            linkable_graph_node_map,
+            reduced_linkable_graph,
             is_executable_link,
             link_strategy,
             link_group_preferred_linkage,

@@ -389,6 +389,10 @@ def _fixup_executable_link_order(
 
     return result_linkables
 
+# @unused TODO(patskovn): Remove this method
+def todo_cleanup_link_groups():
+    return _fixup_link_groups_link_order
+
 def _fixup_link_groups_link_order(
         linkables: dict[str, list[Label]],  # Linkables of all link groups
         linkable_graph_node_map: dict[Label, LinkableNode],
@@ -441,7 +445,7 @@ def _fixup_link_groups_link_order(
     return ordered_linkables
 
 def _collect_all_linkables(
-        linkable_graph_node_map: dict[Label, LinkableNode],
+        linkable_graph: ReducedLinkableGraph,
         is_executable_link: bool,
         link_strategy: LinkStrategy,
         link_group_preferred_linkage: dict[Label, Linkage],
@@ -455,7 +459,7 @@ def _collect_all_linkables(
 
     for (link_group, roots) in link_group_roots.items():
         linkables[link_group] = collect_linkables(
-            linkable_graph_node_map,
+            linkable_graph,
             is_executable_link,
             link_strategy,
             link_group_preferred_linkage,
@@ -466,14 +470,14 @@ def _collect_all_linkables(
     return linkables
 
 def collect_linkables(
-        linkable_graph_node_map: dict[Label, LinkableNode],
+        linkable_graph: ReducedLinkableGraph,
         is_executable_link: bool,
         link_strategy: LinkStrategy,
         link_group_preferred_linkage: dict[Label, Linkage],
         pic_behavior: PicBehavior,
         roots: set[Label]) -> list[Label]:
     def get_potential_linkables(node: Label) -> list[Label]:
-        linkable_node = linkable_graph_node_map[node]
+        linkable_node = linkable_graph.nodes[node]
         if not is_executable_link and node in roots:
             return linkable_node.all_deps
         return get_deps_for_link(
@@ -484,11 +488,26 @@ def collect_linkables(
         )
 
     # Get all potential linkable targets
-    return depth_first_traversal_by(
-        linkable_graph_node_map,
+    potential_linkables = depth_first_traversal_by(
+        linkable_graph.nodes,
         roots,
         get_potential_linkables,
     )
+
+    if _should_fixup_link_order(link_strategy):
+        # Link groups machinery may be used by something that does not
+        # store all information in dependency graph. E.g. python native dlopen
+        # So gathering link ordering starting from executable label may not collect all
+        # dependencies correctly. To account for that we add remaining pieces to
+        # final result. There is no particular reasoning behing putting remaining linkables first,
+        # but it is just more convenient to implement.
+        # To make it work we start with `1` instead of `0` when we collect link order dict and return default `0` for linkables
+        # that we did not put into linkable graph nodes.
+        # To my best knowledge at the moment, that is only related to python that does not currently fixes up link ordering
+        # and this is more implemented for future-proofing
+        potential_linkables = sorted(potential_linkables, key = lambda node: linkable_graph.link_order.get(node, 0))
+
+    return potential_linkables
 
 # TODO(patskovn): We should have proper DFS link order everywhere.
 #                 But now certain places fail in `opt` with fixed up link order
@@ -1130,21 +1149,13 @@ def create_link_groups(
         linkable_graph.nodes,
     )
     linkables = _collect_all_linkables(
-        linkable_graph_node_map = linkable_graph.nodes,
+        linkable_graph = linkable_graph,
         is_executable_link = False,
         link_strategy = link_strategy,
         link_group_preferred_linkage = link_group_preferred_linkage,
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
         link_group_roots = roots,
     )
-
-    if _should_fixup_link_order(link_strategy) and executable_label and executable_deps:
-        linkables = _fixup_link_groups_link_order(
-            linkables,
-            linkable_graph.nodes,
-            executable_label,
-            executable_deps,
-        )
 
     link_group_libs = {
         name: (None, lib)

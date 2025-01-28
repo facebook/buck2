@@ -473,7 +473,7 @@ def inherited_rust_cxx_link_group_info(
     pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported")
     is_executable_link = True
     exec_linkables = collect_linkables(
-        linkable_graph_node_map,
+        reduced_linkable_graph,
         is_executable_link,
         link_strategy,
         link_group_preferred_linkage,

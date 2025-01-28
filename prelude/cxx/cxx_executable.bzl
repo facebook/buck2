@@ -423,7 +423,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         )
         is_executable_link = True
         exec_linkables = collect_linkables(
-            linkable_graph_node_map,
+            reduced_linkable_graph,
             is_executable_link,
             link_strategy,
             link_group_preferred_linkage,

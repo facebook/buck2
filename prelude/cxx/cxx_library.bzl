@@ -93,11 +93,12 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "DlopenableLibraryInfo",
     "LinkableRootInfo",
+    "ReducedLinkableGraph",  # @unused used as a type
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
-    "get_linkable_graph_node_map_func",
     "linkable_deps",
+    "reduce_linkable_graph",
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "create_shared_libraries", "merge_shared_libraries")
 load("@prelude//linking:strip.bzl", "strip_debug_info")
@@ -528,7 +529,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     swift_runtime_linkable = create_swift_runtime_linkable(ctx)
     dep_infos, link_group_map, link_execution_preference, shared_interface_info = _get_shared_library_links(
         ctx,
-        get_linkable_graph_node_map_func(deps_linkable_graph),
+        partial(reduce_linkable_graph, deps_linkable_graph),
         link_group,
         link_group_mappings,
         link_group_preferred_linkage,
@@ -1421,7 +1422,7 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact]) -> list[Artifa
 
 def _get_shared_library_links(
         ctx: AnalysisContext,
-        linkable_graph_node_map_func,
+        reduce_linkable_graph_func: typing.Callable[[], ReducedLinkableGraph],
         link_group: [str, None],
         link_group_mappings: [dict[Label, str], None],
         link_group_preferred_linkage: dict[Label, Linkage],
@@ -1484,12 +1485,12 @@ def _get_shared_library_links(
     if link_strategy == LinkStrategy("static"):
         link_strategy = LinkStrategy("static_pic")
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, pic_behavior)
-    linkable_graph_label_to_node_map = linkable_graph_node_map_func()
+    reduced_linkable_graph = reduce_linkable_graph_func()
 
     roots = set(linkable_deps(non_exported_deps + exported_deps))
     is_executable_link = False
     lib_linkables = collect_linkables(
-        linkable_graph_label_to_node_map,
+        reduced_linkable_graph,
         is_executable_link,
         link_strategy,
         link_group_preferred_linkage,
@@ -1498,7 +1499,7 @@ def _get_shared_library_links(
     )
     filtered_labels_to_links = get_filtered_labels_to_links_map(
         None,
-        linkable_graph_label_to_node_map,
+        reduced_linkable_graph.nodes,
         link_group,
         {},
         link_group_mappings,
@@ -1532,7 +1533,7 @@ def _get_shared_library_links(
     shared_interface_infos = []
     if len(exported_symbol_outputs) > 0:
         for label in filtered_labels_to_links.map.keys():
-            linkable_node = linkable_graph_label_to_node_map[label]
+            linkable_node = reduced_linkable_graph.nodes[label]
             if linkable_node.shared_interface_info != None:
                 shared_interface_infos.append(linkable_node.shared_interface_info)
 
