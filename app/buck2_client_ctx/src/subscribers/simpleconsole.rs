@@ -26,7 +26,6 @@ use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_event_observer::pending_estimate::estimate_completion_percentage;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
@@ -46,8 +45,6 @@ use superconsole::SuperConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
-use crate::subscribers::system_warning::cache_misses_msg;
-use crate::subscribers::system_warning::check_cache_misses;
 use crate::subscribers::system_warning::check_memory_pressure_snapshot;
 use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::low_disk_space_msg;
@@ -661,29 +658,6 @@ where
                         echo_system_warning_exponential(
                             SystemWarningTypes::LowDiskSpace,
                             &low_disk_space_msg(&low_disk_space),
-                        )?;
-                    }
-
-                    let first_build_since_rebase = self
-                        .observer
-                        .cold_build_detector
-                        .as_ref()
-                        .and_then(|cbd| cbd.first_build_since_rebase())
-                        .unwrap_or(false);
-                    let estimated_completion_percent = estimate_completion_percentage(
-                        self.observer().spans().roots(),
-                        self.observer().dice_state(),
-                    );
-
-                    if check_cache_misses(
-                        self.observer().action_stats(),
-                        sysinfo,
-                        first_build_since_rebase,
-                        Some(estimated_completion_percent),
-                    ) {
-                        echo_system_warning_exponential(
-                            SystemWarningTypes::LowCacheHits,
-                            &cache_misses_msg(self.observer().action_stats()),
                         )?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();

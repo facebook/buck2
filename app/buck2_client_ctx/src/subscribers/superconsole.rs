@@ -23,7 +23,6 @@ use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::DebugEventObserverExtra;
-use buck2_event_observer::pending_estimate::estimate_completion_percentage;
 use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
@@ -197,28 +196,12 @@ impl<'s> Component for BuckRootComponent<'s> {
             .last
             .as_ref()
             .map(|s| &s.1);
-        let first_build_since_rebase = self
-            .state
-            .simple_console
-            .observer
-            .cold_build_detector
-            .as_ref()
-            .and_then(|cbd| cbd.first_build_since_rebase())
-            .unwrap_or(false);
-        let estimated_completion_percent = estimate_completion_percentage(
-            self.state.simple_console.observer().spans().roots(),
-            self.state.simple_console.observer().dice_state(),
-        );
         let system_info = self.state.simple_console.observer.system_info();
-        let action_stats = self.state.simple_console.observer.action_stats();
         {
             draw.draw(
                 &SystemWarningComponent {
                     last_snapshot,
                     system_info,
-                    action_stats,
-                    first_build_since_rebase,
-                    estimated_completion_percent,
                 },
                 mode,
             )?;

@@ -8,7 +8,6 @@
  */
 
 use buck2_error::conversion::from_any_with_tag;
-use buck2_event_observer::action_stats::ActionStats;
 use crossterm::style::Color;
 use crossterm::style::Stylize;
 use superconsole::Component;
@@ -18,8 +17,6 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 
-use crate::subscribers::system_warning::cache_misses_msg;
-use crate::subscribers::system_warning::check_cache_misses;
 use crate::subscribers::system_warning::check_memory_pressure_snapshot;
 use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::low_disk_space_msg;
@@ -29,9 +26,6 @@ use crate::subscribers::system_warning::system_memory_exceeded_msg;
 pub(crate) struct SystemWarningComponent<'a> {
     pub(crate) last_snapshot: Option<&'a buck2_data::Snapshot>,
     pub(crate) system_info: &'a buck2_data::SystemInfo,
-    pub(crate) action_stats: &'a ActionStats,
-    pub(crate) estimated_completion_percent: u8,
-    pub(crate) first_build_since_rebase: bool,
 }
 
 fn warning_styled(text: &str) -> buck2_error::Result<Line> {
@@ -66,14 +60,6 @@ impl<'a> Component for SystemWarningComponent<'a> {
             lines.push(warning_styled(&low_disk_space_msg(&low_disk_space))?);
         }
 
-        if check_cache_misses(
-            self.action_stats,
-            self.system_info,
-            self.first_build_since_rebase,
-            Some(self.estimated_completion_percent),
-        ) {
-            lines.push(warning_styled(&cache_misses_msg(self.action_stats))?);
-        }
         Ok(Lines(lines))
     }
 }

@@ -43,7 +43,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::Tier;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_event_observer::action_stats;
-use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
@@ -69,7 +68,6 @@ use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
-use crate::subscribers::system_warning::check_cache_misses;
 use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
@@ -639,20 +637,6 @@ impl<'a> InvocationRecorder<'a> {
             }
             if is_vpn_enabled() {
                 self.tags.push("vpn_enabled".to_owned());
-            }
-            if check_cache_misses(
-                &ActionStats {
-                    local_actions: self.run_local_count,
-                    remote_actions: self.run_remote_count,
-                    cached_actions: self.run_action_cache_count,
-                    fallback_actions: self.run_fallback_count,
-                    remote_dep_file_cached_actions: self.run_remote_dep_file_cache_count,
-                },
-                &self.system_info,
-                self.min_build_count_since_rebase < 2,
-                None,
-            ) {
-                self.tags.push("low_cache_hits".to_owned());
             }
         }
 

@@ -8,7 +8,6 @@
  */
 
 use buck2_core::is_open_source;
-use buck2_event_observer::action_stats::ActionStats;
 use buck2_event_observer::humanized::HumanizedBytes;
 
 use crate::subscribers::recorder::process_memory;
@@ -27,7 +26,6 @@ pub(crate) struct LowDiskSpace {
 
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
-pub const CACHE_MISS_LINK: &str = "https://fburl.com/buck2_cache_miss";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
@@ -53,19 +51,6 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
             DISK_REMEDIATION_LINK
         }
     )
-}
-
-pub(crate) fn cache_misses_msg(action_stats: &ActionStats) -> String {
-    let cache_hit_percent = action_stats.total_cache_hit_percentage();
-    let msg = format!(
-        "Low cache hits detected: {}%. This may significantly impact build speed",
-        cache_hit_percent
-    );
-    if !is_open_source() {
-        format!("{msg}: {CACHE_MISS_LINK}.")
-    } else {
-        format!("{msg}. Try rebasing to a stable revision with warmed caches.")
-    }
 }
 
 pub(crate) fn check_memory_pressure(
@@ -175,43 +160,4 @@ pub(crate) fn is_vpn_enabled() -> bool {
     // Brittle check based on Cisco client's current behaviour.
     // Small section copied from https://fburl.com/code/g7ttsdz3
     std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists()
-}
-
-pub(crate) fn check_cache_misses(
-    action_stats: &ActionStats,
-    system_info: &buck2_data::SystemInfo,
-    first_build_since_rebase: bool,
-    estimated_completion_percent: Option<u8>,
-) -> bool {
-    if !cache_warning_completion_threshold_crossed(
-        action_stats,
-        estimated_completion_percent,
-        system_info,
-    ) {
-        return false;
-    }
-    let cache_hit_percent = action_stats.total_cache_hit_percentage();
-    let threshold = system_info.min_cache_hit_threshold_percent.unwrap_or(0) as u8;
-    first_build_since_rebase && cache_hit_percent < threshold
-}
-
-fn cache_warning_completion_threshold_crossed(
-    action_stats: &ActionStats,
-    estimated_completion_percent: Option<u8>,
-    system_info: &buck2_data::SystemInfo,
-) -> bool {
-    if let Some(estimated_completion_percent) = estimated_completion_percent {
-        let percent_completion_threshold = system_info
-            .cache_warning_min_completion_threshold_percent
-            .unwrap_or(0) as u8;
-        if estimated_completion_percent > percent_completion_threshold {
-            return true;
-        }
-    }
-
-    // The completion_treshold is set to 10% typically.
-    // For large builds, 10% completion may be too late to warn about cache misses.
-    // Additionally check if we have crossed an action count threshold.
-    action_stats.total_executed_and_cached_actions()
-        > system_info.cache_warning_min_actions_count.unwrap_or(0)
 }
