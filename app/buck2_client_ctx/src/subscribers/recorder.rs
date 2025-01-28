@@ -62,8 +62,6 @@ use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
 
-use super::system_warning::check_memory_pressure;
-use super::system_warning::check_remaining_disk_space;
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
 use crate::common::CommonEventLogOptions;
@@ -73,6 +71,8 @@ use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::system_warning::check_cache_misses;
 use crate::subscribers::system_warning::check_download_speed;
+use crate::subscribers::system_warning::check_memory_pressure;
+use crate::subscribers::system_warning::check_remaining_disk_space;
 use crate::subscribers::system_warning::is_vpn_enabled;
 
 pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
@@ -619,11 +619,13 @@ impl<'a> InvocationRecorder<'a> {
 
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
             // Also, it suffices to only emit a single tag per invocation, not one tag each time memory pressure is exceeded.
-            // Each snapshot already keeps track of the peak memory/disk usage, so we can use that to check if we ever reported a warning.
-            if check_memory_pressure(Some(snapshot), &self.system_info).is_some() {
+            // We can't just rely on the last snapshot here instead we use the peak memory/disk usage to check if we ever reported a warning.
+            if check_memory_pressure(self.peak_process_memory_bytes?, &self.system_info).is_some() {
                 self.tags.push(MEMORY_PRESSURE_TAG.to_owned());
             }
-            if check_remaining_disk_space(Some(snapshot), &self.system_info).is_some() {
+            if check_remaining_disk_space(self.peak_used_disk_space_bytes?, &self.system_info)
+                .is_some()
+            {
                 self.tags.push("low_disk_space".to_owned());
             }
             if check_download_speed(

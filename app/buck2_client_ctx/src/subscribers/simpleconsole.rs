@@ -48,8 +48,8 @@ use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 use crate::subscribers::system_warning::cache_misses_msg;
 use crate::subscribers::system_warning::check_cache_misses;
-use crate::subscribers::system_warning::check_memory_pressure;
-use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::check_memory_pressure_snapshot;
+use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
@@ -647,13 +647,16 @@ where
 
                     let last_snapshot = self.observer().two_snapshots().last.as_ref().map(|s| &s.1);
                     let sysinfo = self.observer().system_info();
-                    if let Some(memory_pressure) = check_memory_pressure(last_snapshot, sysinfo) {
+                    if let Some(memory_pressure) =
+                        check_memory_pressure_snapshot(last_snapshot, sysinfo)
+                    {
                         echo_system_warning_exponential(
                             SystemWarningTypes::MemoryPressure,
                             &system_memory_exceeded_msg(&memory_pressure),
                         )?;
                     }
-                    if let Some(low_disk_space) = check_remaining_disk_space(last_snapshot, sysinfo)
+                    if let Some(low_disk_space) =
+                        check_remaining_disk_space_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
                             SystemWarningTypes::LowDiskSpace,

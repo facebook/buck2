@@ -69,10 +69,9 @@ pub(crate) fn cache_misses_msg(action_stats: &ActionStats) -> String {
 }
 
 pub(crate) fn check_memory_pressure(
-    last_snapshot: Option<&buck2_data::Snapshot>,
+    process_memory: u64,
     system_info: &buck2_data::SystemInfo,
 ) -> Option<MemoryPressureHigh> {
-    let process_memory = process_memory(last_snapshot?)?;
     let system_total_memory = system_info.system_total_memory_bytes?;
     let memory_pressure_threshold_percent = system_info.memory_pressure_threshold_percent?;
     // TODO (ezgi): one-shot commands don't record this. Prevent panick (division-by-zero) until it is fixed.
@@ -89,11 +88,18 @@ pub(crate) fn check_memory_pressure(
     }
 }
 
-pub(crate) fn check_remaining_disk_space(
+pub(crate) fn check_memory_pressure_snapshot(
     last_snapshot: Option<&buck2_data::Snapshot>,
     system_info: &buck2_data::SystemInfo,
+) -> Option<MemoryPressureHigh> {
+    let process_memory = process_memory(last_snapshot?)?;
+    check_memory_pressure(process_memory, system_info)
+}
+
+pub(crate) fn check_remaining_disk_space(
+    used_disk_space: u64,
+    system_info: &buck2_data::SystemInfo,
 ) -> Option<LowDiskSpace> {
-    let used_disk_space = last_snapshot?.used_disk_space_bytes?;
     let total_disk_space = system_info.total_disk_space_bytes?;
     let remaining_disk_space_threshold =
         system_info.remaining_disk_space_threshold_gb? * BYTES_PER_GIGABYTE;
@@ -106,6 +112,14 @@ pub(crate) fn check_remaining_disk_space(
     } else {
         None
     }
+}
+
+pub(crate) fn check_remaining_disk_space_snapshot(
+    last_snapshot: Option<&buck2_data::Snapshot>,
+    system_info: &buck2_data::SystemInfo,
+) -> Option<LowDiskSpace> {
+    let used_disk_space = last_snapshot?.used_disk_space_bytes?;
+    check_remaining_disk_space(used_disk_space, system_info)
 }
 
 // This check uses average RE download speed calculated as a number of bytes downloaded divided on time between two snapshots.

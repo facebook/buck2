@@ -20,8 +20,8 @@ use superconsole::Span;
 
 use crate::subscribers::system_warning::cache_misses_msg;
 use crate::subscribers::system_warning::check_cache_misses;
-use crate::subscribers::system_warning::check_memory_pressure;
-use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::check_memory_pressure_snapshot;
+use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
@@ -53,13 +53,15 @@ impl<'a> Component for SystemWarningComponent<'a> {
     fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
         let mut lines = Vec::new();
 
-        if let Some(memory_pressure) = check_memory_pressure(self.last_snapshot, self.system_info) {
+        if let Some(memory_pressure) =
+            check_memory_pressure_snapshot(self.last_snapshot, self.system_info)
+        {
             lines.push(warning_styled(&system_memory_exceeded_msg(
                 &memory_pressure,
             ))?);
         }
         if let Some(low_disk_space) =
-            check_remaining_disk_space(self.last_snapshot, self.system_info)
+            check_remaining_disk_space_snapshot(self.last_snapshot, self.system_info)
         {
             lines.push(warning_styled(&low_disk_space_msg(&low_disk_space))?);
         }
