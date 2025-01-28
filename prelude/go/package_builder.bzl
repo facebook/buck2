@@ -303,6 +303,9 @@ def _cover(ctx: AnalysisContext, pkg_name: str, pkg_import_path: str, go_files: 
     if coverage_mode == None:
         return go_files, "", None
 
+    if len(go_files) == 0:
+        return go_files, "", None
+
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
 
