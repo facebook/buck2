@@ -312,3 +312,17 @@ async def test_active_networks_kinds(buck: Buck, tmp_path: Path) -> None:
     record = read_invocation_record(record)
 
     assert "active_networks_kinds" in record
+
+
+@buck_test()
+async def test_peak_memory_and_disk(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    # Start the daemon
+    await buck.build("--unstable-write-invocation-record", str(record))
+
+    record = read_invocation_record(record)
+
+    assert (
+        "peak_used_disk_space_bytes" in record and "peak_process_memory_bytes" in record
+    )
