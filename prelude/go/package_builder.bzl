@@ -33,7 +33,7 @@ def build_package(
         cgo_enabled: bool = False,
         coverage_mode: GoCoverageMode | None = None,
         embedcfg: Artifact | None = None,
-        tests: bool = False,
+        with_tests: bool = False,
         cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo):
     if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
@@ -47,7 +47,7 @@ def build_package(
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
-    go_list_out = go_list(ctx, pkg_name, srcs, package_root, build_tags, cgo_enabled, with_tests = tests, asan = asan)
+    go_list_out = go_list(ctx, pkg_name, srcs, package_root, build_tags, cgo_enabled, with_tests = with_tests, asan = asan)
 
     test_go_files_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile")
     coverage_vars_argsfile = ctx.actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile")
@@ -67,10 +67,19 @@ def build_package(
 
         all_test_go_files = go_list.test_go_files + go_list.x_test_go_files
 
-        ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((all_test_go_files if tests else []), ""))
+        is_x_test_pkg = len(go_list.x_test_go_files) > 0
+        go_list_pkg_name = go_list.name
 
-        go_files_to_cover = go_list.go_files + cgo_go_files + (all_test_go_files if tests else [])
-        covered_go_files, coverage_vars_out = _cover(ctx, pkg_name, go_files_to_cover, coverage_mode)
+        # For external test packages, 'go list' will report the name of the package
+        # being tested, but not the external test package: https://fburl.com/qorledne
+        # So for XTest packages - we must use Buck pkg_name override.
+        if is_x_test_pkg:
+            go_list_pkg_name = pkg_name
+
+        ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((all_test_go_files if with_tests else []), ""))
+
+        go_files_to_cover = go_list.go_files + cgo_go_files + (all_test_go_files if with_tests else [])
+        covered_go_files, coverage_vars_out, coveragecfg = _cover(ctx, go_list_pkg_name, pkg_name, go_files_to_cover, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
         symabis = _symabis(ctx, pkg_name, main, go_list.s_files, go_list.h_files, assembler_flags)
@@ -94,6 +103,7 @@ def build_package(
                 asan = asan,
                 suffix = suffix,
                 complete = complete_flag,
+                coveragecfg = coveragecfg,
                 embedcfg = embedcfg,
                 embed_files = go_list.embed_files,
                 symabis = symabis,
@@ -134,6 +144,7 @@ def _compile(
         asan: bool,
         suffix: str,
         complete: bool,
+        coveragecfg: Artifact | None = None,
         embedcfg: Artifact | None = None,
         embed_files: list[Artifact] = [],
         symabis: Artifact | None = None,
@@ -168,6 +179,7 @@ def _compile(
             ["-race"] if race else [],
             ["-asan"] if asan else [],
             ["-shared"] if shared else [],
+            ["-coveragecfg", coveragecfg] if coveragecfg else [],
             ["-embedcfg", embedcfg] if embedcfg else [],
             ["-symabis", symabis] if symabis else [],
             ["-asmhdr", asmhdr.as_output()] if asmhdr else [],
@@ -287,35 +299,56 @@ def _asm_args(ctx: AnalysisContext, pkg_name: str, main: bool, shared: bool):
         ["-shared"] if shared else [],
     ]
 
-def _cover(ctx: AnalysisContext, pkg_name: str, go_files: list[Artifact], coverage_mode: GoCoverageMode | None) -> (list[Artifact], str | cmd_args):
+def _cover(ctx: AnalysisContext, pkg_name: str, pkg_import_path: str, go_files: list[Artifact], coverage_mode: GoCoverageMode | None) -> (list[Artifact], str | cmd_args, Artifact | None):
     if coverage_mode == None:
-        return go_files, ""
+        return go_files, "", None
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
-    covered_files = []
-    file_to_var = {}
-    for go_file in go_files:
-        covered_file = ctx.actions.declare_output("with_coverage", go_file.short_path)
-        covered_files.append(covered_file)
 
-        var = "Var_" + sha256(pkg_name + "::" + go_file.short_path)
-        file_to_var[go_file.short_path] = var
+    cover_meta_file = ctx.actions.declare_output("cover_meta.json")
+    out_config_file = ctx.actions.declare_output("out_config.json")
 
-        cover_cmd = [
-            go_toolchain.cover,
-            ["-mode", coverage_mode.value],
-            ["-var", var],
-            ["-o", covered_file.as_output()],
-            go_file,
-        ]
+    # Based on https://pkg.go.dev/cmd/internal/cov/covcmd#CoverPkgConfig
+    pkgcfg = {
+        "EmitMetaFile": cover_meta_file,
+        "Granularity": "perblock",
+        "Local": False,
+        "ModulePath": "",
+        "OutConfig": out_config_file,
+        "PkgName": pkg_name,
+        "PkgPath": pkg_import_path,
+    }
+    pkgcfg_file = ctx.actions.write_json("pkg.cfg", pkgcfg)
 
-        ctx.actions.run(cover_cmd, env = env, category = "go_cover", identifier = paths.basename(pkg_name) + "/" + go_file.short_path)
+    var = "Var_" + sha256(pkg_import_path)
+    instrum_vars_file = ctx.actions.declare_output("with_instrumentation", "instrum_vars.go")
+    instrum_go_files = [
+        ctx.actions.declare_output("with_instrumentation", go_file.short_path)
+        for go_file in go_files
+    ]
+    instrum_all_files = [instrum_vars_file] + instrum_go_files
+    file_to_var = {
+        go_file.short_path: var
+        for go_file in go_files
+    }
+    outfilelist = ctx.actions.write("outfilelist.txt", cmd_args(instrum_all_files, ""))
+
+    cover_cmd = [
+        go_toolchain.cover,
+        ["-mode", coverage_mode.value],
+        ["-var", var],
+        cmd_args(["-outfilelist", outfilelist], hidden = [f.as_output() for f in instrum_all_files]),
+        cmd_args(["-pkgcfg", pkgcfg_file], hidden = [cover_meta_file.as_output(), out_config_file.as_output()]),
+        go_files,
+    ]
+
+    ctx.actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path)
 
     coverage_vars_out = ""
     if len(file_to_var) > 0:
         # convert file_to_var to argsfile for compatibility with python implementation
-        cover_pkg = "{}:{}".format(pkg_name, ",".join(["{}={}".format(name, var) for name, var in file_to_var.items()]))
+        cover_pkg = "{}:{}".format(pkg_import_path, ",".join(["{}={}".format(name, var) for name, var in file_to_var.items()]))
         coverage_vars_out = cmd_args("--cover-pkgs", cover_pkg)
 
-    return covered_files, coverage_vars_out
+    return instrum_all_files, coverage_vars_out, out_config_file

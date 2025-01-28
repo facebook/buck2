@@ -37,8 +37,7 @@ GoToolchainInfo = provider(
 def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_args]:
     env = {
         "GOARCH": toolchain.env_go_arch,
-        # opt-out from Go1.20 coverage redesign
-        "GOEXPERIMENT": "nocoverageredesign",
+        "GOEXPERIMENT": "",
         "GOOS": toolchain.env_go_os,
     }
 

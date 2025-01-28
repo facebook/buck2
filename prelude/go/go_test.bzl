@@ -92,7 +92,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        tests = True,
+        with_tests = True,
         cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs.cgo_enabled),
     )
 
