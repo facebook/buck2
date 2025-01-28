@@ -68,6 +68,7 @@ _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
 def _apple_binary_extra_attrs():
     attribs = {
+        "application_extension": attrs.bool(default = False),
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),

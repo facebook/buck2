@@ -105,6 +105,16 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         swift_preprocessor = [swift_compile.pre] if swift_compile else []
         extra_link_flags = entitlements_link_flags(ctx)
 
+        # Extensions have custom entry points and API restrictions
+        extension_compiler_flags = []
+        if ctx.attrs.application_extension:
+            extra_link_flags += [
+                "-fapplication-extension",
+                "-e",
+                "_NSExtensionMain",
+            ]
+            extension_compiler_flags = ["-fapplication-extension"]
+
         framework_search_path_pre = CPreprocessor(
             args = CPreprocessorArgs(args = [framework_search_path_flags]),
         )
@@ -153,7 +163,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             # Some apple rules rely on `static` libs *not* following dependents.
             link_groups_force_static_follows_dependents = False,
             swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
-            compiler_flags = ctx.attrs.compiler_flags,
+            compiler_flags = ctx.attrs.compiler_flags + extension_compiler_flags,
             lang_compiler_flags = ctx.attrs.lang_compiler_flags,
             platform_compiler_flags = ctx.attrs.platform_compiler_flags,
             lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,

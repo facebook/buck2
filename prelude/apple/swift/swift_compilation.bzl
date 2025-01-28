@@ -863,6 +863,9 @@ def _get_shared_flags(
     if ctx.attrs._swift_enable_testing:
         cmd.add("-enable-testing")
 
+    if getattr(ctx.attrs, "application_extension", False):
+        cmd.add("-application-extension")
+
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
 
     # If Swift Explicit Modules are enabled, a few things must be provided to a compilation job:
