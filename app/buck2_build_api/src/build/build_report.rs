@@ -563,13 +563,15 @@ pub fn generate_build_report(
     let mut serialized_build_report = None;
 
     if !opts.unstable_build_report_filename.is_empty() {
-        let file = fs_util::create_file(
-            project_root
-                .resolve(cwd)
-                .as_abs_path()
-                .join(opts.unstable_build_report_filename),
-        )
-        .buck_error_context("Error writing build report")?;
+        let path = project_root
+            .resolve(cwd)
+            .as_abs_path()
+            .join(opts.unstable_build_report_filename);
+        if let Some(parent) = path.parent() {
+            fs_util::create_dir_all(parent)?;
+        }
+        let file =
+            fs_util::create_file(path.clone()).buck_error_context("Error writing build report")?;
         let mut file = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut file, &build_report)?
     } else {
