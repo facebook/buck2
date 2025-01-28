@@ -415,6 +415,7 @@ enum WorkerClient {
     Stream {
         ids: Arc<AtomicU64>,
         stream: UnboundedSender<ExecuteCommandStream>,
+        stream_closed_observer: Arc<dyn LivelinessObserver>,
         waiters: Arc<DashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>>,
     },
 }
@@ -438,6 +439,7 @@ impl WorkerClient {
             .await?;
         let waiters: Arc<DashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>> =
             Default::default();
+        let (stream_closed_observer, stream_closed_guard) = LivelinessGuard::create();
         {
             let waiters = waiters.dupe();
             tokio::spawn(async move {
@@ -473,11 +475,13 @@ impl WorkerClient {
                         }
                     };
                 }
+                drop(stream_closed_guard);
             });
         }
         Ok(Self::Stream {
             ids: Default::default(),
             stream: tx,
+            stream_closed_observer,
             waiters,
         })
     }
@@ -491,6 +495,7 @@ impl WorkerClient {
             Self::Stream {
                 ids,
                 stream,
+                stream_closed_observer,
                 waiters,
             } => {
                 let id = ids.fetch_add(1, Ordering::Acquire);
@@ -501,7 +506,12 @@ impl WorkerClient {
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 waiters.insert(id, tx);
                 stream.send(req)?;
-                Ok(rx.await.map(|response| response.response.unwrap())?)
+                tokio::select! {
+                    response = rx => Ok(response.map(|response| response.response.unwrap())?),
+                    _ = stream_closed_observer.while_alive() => {
+                        Err(anyhow::anyhow!("Stream closed while waiting for response"))
+                    },
+                }
             }
         }
     }
