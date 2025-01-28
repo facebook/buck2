@@ -211,7 +211,8 @@ impl TryFrom<Url> for LspUrl {
                 }
             }
             "starlark" => {
-                let path = PathBuf::from(url.path());
+                // Need to perform the replace to standardize on / instead of \ on windows.
+                let path = PathBuf::from(url.path().replace('\\', "/"));
                 // Use "starts with a /" because, while leading slashes are accepted on
                 // windows, they do not report "true" from `is_absolute()`.
                 if path.to_string_lossy().starts_with('/') {
