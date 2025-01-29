@@ -23,22 +23,15 @@ def run_dwp_action(
         category_suffix: [str, None],
         referenced_objects: [ArgLike, list[Artifact]],
         dwp_output: Artifact,
-        local_only: bool,
-        from_exe = True):
+        local_only: bool):
     dwp = toolchain.binary_utilities_info.dwp
 
-    if from_exe:
-        args = cmd_args(
-            [dwp, "-o", dwp_output.as_output(), "-e", obj],
-            # All object/dwo files referenced in the library/executable are implicitly
-            # processed by dwp.
-            hidden = referenced_objects,
-        )
-    else:
-        args = cmd_args(
-            [dwp, "-o", dwp_output.as_output()],
-        )
-        args.add(referenced_objects)
+    args = cmd_args(
+        [dwp, "-o", dwp_output.as_output(), "-e", obj],
+        # All object/dwo files referenced in the library/executable are implicitly
+        # processed by dwp.
+        hidden = referenced_objects,
+    )
 
     category = "dwp"
     if category_suffix != None:
@@ -67,8 +60,7 @@ def dwp(
         # link line and extract all inputs from that, which is a bit of an
         # overspecification.
         referenced_objects: [ArgLike, list[Artifact]],
-        name_suffix: str = "",
-        from_exe = True) -> Artifact:
+        name_suffix: str = "") -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp")
     run_dwp_action(
@@ -83,6 +75,5 @@ def dwp(
         # The files are a concatenation of input DWARF debug info.
         # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
         local_only = link_cxx_binary_locally(ctx),
-        from_exe = from_exe,
     )
     return output
