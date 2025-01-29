@@ -63,7 +63,7 @@ async def run_modify_file_test(
         and sys.platform == "win32"
     ):
         # The Windows support of notify does not "uniquely" support file modification events.
-        # Rather, it generates create/delete events for a file and directofy of the same name.
+        # Rather, it generates create/delete events for a file and directory of the same name.
         required = [
             FileWatcherEvent(
                 FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/abc"

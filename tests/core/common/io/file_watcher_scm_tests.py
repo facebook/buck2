@@ -59,7 +59,7 @@ async def setup_file_watcher_scm_test(buck: Buck) -> Tuple[str, str, str, str]:
     subprocess.run(["sl", "commit", "--addremove", "-m", "commit_d"], cwd=buck.cwd)
     commit_d = subprocess.check_output(["sl", "whereami"], cwd=buck.cwd).decode()
 
-    # clear log- run build twice
+    # clear log - run build twice
     await buck.targets("root//:")
     await buck.targets("root//:")
 
@@ -121,7 +121,7 @@ async def run_checkout_mergebase_changes_test(
         assert is_fresh_instance
 
 
-async def run_checkout_wtih_mergebase_test(
+async def run_checkout_with_mergebase_test(
     buck: Buck,
     file_system_type: FileSystemType,
     file_watcher_provider: FileWatcherProvider,
@@ -138,7 +138,7 @@ async def run_checkout_wtih_mergebase_test(
     assert not is_fresh_instance
 
 
-async def run_rebase_wtih_mergebase_test(
+async def run_rebase_with_mergebase_test(
     buck: Buck,
     file_system_type: FileSystemType,
     file_watcher_provider: FileWatcherProvider,
@@ -146,21 +146,21 @@ async def run_rebase_wtih_mergebase_test(
     await setup_file_watcher_test(buck)
     [_, commit_b, commit_c, _] = await setup_file_watcher_scm_test(buck)
 
-    # Rebaase C->D from A to B
+    # Rebase C->D from A to B
     subprocess.run(["sl", "rebase", "-s", commit_c, "-d", commit_b], cwd=buck.cwd)
 
     is_fresh_instance, results = await get_file_watcher_events(buck)
     print(results)
 
     if file_system_type == FileSystemType.NATIVE:
-        # Watchman is flakey on native file systems
+        # Watchman is flaky on native file systems
         if file_watcher_provider != FileWatcherProvider.WATCHMAN:
             assert not is_fresh_instance
     else:
         assert is_fresh_instance
 
 
-async def run_restack_wtih_mergebase_test(
+async def run_restack_with_mergebase_test(
     buck: Buck,
     file_system_type: FileSystemType,
     file_watcher_provider: FileWatcherProvider,
@@ -168,7 +168,7 @@ async def run_restack_wtih_mergebase_test(
     await setup_file_watcher_test(buck)
     [commit_a, _, _, commit_d] = await setup_file_watcher_scm_test(buck)
 
-    # Rebaase D from C to A
+    # Rebase D from C to A
     subprocess.run(["sl", "rebase", "-s", commit_d, "-d", commit_a], cwd=buck.cwd)
 
     is_fresh_instance, results = await get_file_watcher_events(buck)
