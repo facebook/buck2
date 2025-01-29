@@ -60,6 +60,7 @@ load(
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxToolchainInfo",  # @unused Used as type
+    "LinkerType",
 )
 load(
     "@prelude//cxx:cxx_types.bzl",
@@ -71,6 +72,7 @@ load(
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers", "cxx_attr_headers_list")
 load(
     "@prelude//cxx:linker.bzl",
+    "LINKERS",
     "SharedLibraryFlagOverrides",
 )
 load(
@@ -91,6 +93,7 @@ load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentV
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_library_types.bzl", "AppleLibraryInfo")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
+load(":apple_rpaths.bzl", "get_rpath_flags_for_library")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
 load(
@@ -151,10 +154,15 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             shared_library_flags_overrides = SharedLibraryFlagOverrides(
                 # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
                 shared_library_name_linker_flags_format = [],
-                shared_library_flags = ["-bundle"],
+                shared_library_flags = ["-bundle"] + get_rpath_flags_for_library(ctx),
             )
         elif shared_type == AppleSharedLibraryMachOFileType("dylib"):
-            shared_library_flags_overrides = None
+            # Copying the default value and appending from cxx/linker.bzl
+            linker = LINKERS[LinkerType("darwin")]
+            shared_library_flags_overrides = SharedLibraryFlagOverrides(
+                shared_library_name_linker_flags_format = linker.shared_library_name_linker_flags_format,
+                shared_library_flags = linker.shared_library_flags + get_rpath_flags_for_library(ctx),
+            )
         else:
             fail("Unsupported `shared_library_macho_file_type` attribute value: `{}`".format(shared_type))
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
