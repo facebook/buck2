@@ -120,7 +120,7 @@ impl Display for WhatRanOutputCommandHeader<'_, '_> {
             self.cmd.reason,
             self.cmd.identity,
             self.cmd.repro.executor(),
-            self.cmd.repro.as_human_readable(),
+            self.cmd.repro,
         )
     }
 }
@@ -287,11 +287,6 @@ impl<'a> CommandReproducer<'a> {
         }
     }
 
-    /// Human-readable representation of this repro instruction
-    pub fn as_human_readable(&self) -> HumanReadableCommandReproducer<'a> {
-        HumanReadableCommandReproducer { command: *self }
-    }
-
     pub fn from_buck_data(
         data: &'a buck2_data::buck_event::Data,
         options: &WhatRanOptions,
@@ -356,14 +351,9 @@ impl<'a> CommandReproducer<'a> {
     }
 }
 
-/// A wrapper type to output CommandReproducer as a human readable string.
-pub struct HumanReadableCommandReproducer<'a> {
-    command: CommandReproducer<'a>,
-}
-
-impl<'a> fmt::Display for HumanReadableCommandReproducer<'a> {
+impl<'a> fmt::Display for CommandReproducer<'a> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        match &self.command {
+        match &self {
             CommandReproducer::CacheQuery(cache_query) => {
                 write!(formatter, "{}", cache_query.action_digest)
             }
@@ -490,7 +480,7 @@ impl<'a, 'b> fmt::Display for WhatRanCommandConsoleFormat<'a, 'b> {
             self.identity,
             self.reason,
             self.repro.executor(),
-            self.repro.as_human_readable()
+            self.repro
         )
     }
 }

@@ -449,7 +449,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                         reason: command.reason,
                         identity: command.identity,
                         executor: command.repro.executor(),
-                        reproducer: command.repro.as_human_readable().to_string(),
+                        reproducer: command.repro.to_string(),
                         std_err: std_err_formatted,
                     })
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;

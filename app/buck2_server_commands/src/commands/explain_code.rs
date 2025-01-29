@@ -124,8 +124,7 @@ impl ActionEntry {
             let reproducer = CommandReproducer::from_buck_data(
                 repro.data.as_ref().expect("Checked above"),
                 options,
-            )
-            .map(|r| r.as_human_readable());
+            );
             if let Some(repro) = reproducer {
                 entry.repros.push(repro.to_string());
             }
