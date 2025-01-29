@@ -252,9 +252,12 @@ async fn get_watchman_eden_error_logs() -> Option<String> {
     let (watchman_cmd, eden_cmd) = tokio::join!(watchman_cmd, eden_cmd);
 
     match (watchman_cmd, eden_cmd) {
-        (Some(watchman_cmd), Some(eden_cmd)) => Some(format!("{}\n{}", watchman_cmd, eden_cmd)),
-        (Some(watchman_cmd), None) => Some(watchman_cmd),
-        (None, Some(eden_cmd)) => Some(eden_cmd),
+        (Some(watchman_cmd), Some(eden_cmd)) => Some(format!(
+            "Watchman and Eden rage logs:\n{}\n{}",
+            watchman_cmd, eden_cmd
+        )),
+        (Some(watchman_cmd), None) => Some(format!("Watchman rage logs:\n{}", watchman_cmd)),
+        (None, Some(eden_cmd)) => Some(format!("Eden rage logs:\n{}", eden_cmd)),
         (None, None) => None,
     }
 }
