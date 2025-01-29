@@ -17,7 +17,6 @@ use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_data::re_platform::Property;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::fmt_duration;
 use buck2_event_observer::what_ran;
@@ -165,36 +164,24 @@ impl WhatRanCommand {
 
 #[allow(clippy::vec_box)]
 struct WhatRanEntry {
-    /// Known to be a WhatRanRelevantAction.
-    event: Box<buck2_data::BuckEvent>,
-
-    /// Known to be a CommandReproducer.
-    reproducers: Vec<Box<buck2_data::BuckEvent>>,
+    action: WhatRanRelevantAction,
+    reproducers: Vec<CommandReproducer>,
 }
 
 impl WhatRanEntry {
     fn emit_what_ran_entry(
-        &self,
+        self,
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanCommandOptions,
         std_err: Option<&str>,
         duration: Option<std::time::Duration>,
     ) -> Result<(), ClientIoError> {
-        let action = WhatRanRelevantAction::from_buck_data(
-            self.event
-                .data
-                .as_ref()
-                .buck_error_context("Checked above")?,
-        );
+        let action = &self.action;
         let options_regex = what_ran::WhatRanOptionsRegex::from_options(&options.options)?;
-        for repro in self.reproducers.iter() {
+        for repro in self.reproducers.into_iter() {
             what_ran::emit_what_ran_entry(
-                action,
-                CommandReproducer::from_buck_data(
-                    repro.data.as_ref().buck_error_context("Checked above")?,
-                    options_regex.options,
-                )
-                .buck_error_context("Checked above")?,
+                Some(action),
+                repro,
                 output,
                 &options_regex,
                 std_err,
@@ -214,11 +201,8 @@ pub struct WhatRanCommandState {
 }
 
 impl WhatRanState for WhatRanCommandState {
-    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
-        self.known_actions
-            .get(&span_id)
-            .and_then(|e| e.event.data.as_ref())
-            .and_then(WhatRanRelevantAction::from_buck_data)
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction> {
+        self.known_actions.get(&span_id).map(|e| e.action.clone())
     }
 }
 
@@ -238,7 +222,16 @@ impl WhatRanCommandState {
         }
 
         // emit remaining
-        for (_, entry) in cmd.known_actions.iter() {
+        cmd.emit_remaining(output, options)?;
+        Ok(())
+    }
+
+    fn emit_remaining(
+        self,
+        output: &mut impl WhatRanOutputWriter,
+        options: &WhatRanCommandOptions,
+    ) -> buck2_error::Result<()> {
+        for (_, entry) in self.known_actions.into_iter() {
             if should_emit_unfinished_action(options) {
                 entry.emit_what_ran_entry(output, options, None, None)?;
             }
@@ -259,31 +252,29 @@ impl WhatRanCommandState {
         output: &mut impl WhatRanOutputWriter,
         options: &WhatRanCommandOptions,
     ) -> buck2_error::Result<()> {
-        if let Some(data) = &event.data {
+        if let Some(data) = event.data {
             // Create WhatRanRelevantAction on SpanStart to track CommandReproducers as they come
-            if WhatRanRelevantAction::from_buck_data(data).is_some() {
+            if let Some(action) = WhatRanRelevantAction::from_buck_data(&data) {
                 self.known_actions.insert(
                     SpanId::from_u64(event.span_id)?,
                     WhatRanEntry {
-                        event,
+                        action,
                         reproducers: Default::default(),
                     },
                 );
                 return Ok(());
             }
-
             // Create CommandReproducers on SpanStart an add them to corresponding WhatRanRelevantAction
-            if CommandReproducer::from_buck_data(data, &options.options).is_some() {
+            if let Some(repro) = CommandReproducer::from_buck_data(&data, &options.options) {
                 if let Some(parent_id) = SpanId::from_u64_opt(event.parent_id) {
                     if let Some(entry) = self.known_actions.get_mut(&parent_id) {
-                        entry.reproducers.push(event);
+                        entry.reproducers.push(repro);
                     }
                 }
                 return Ok(());
             }
-
             // Emit WhatRanRelevantAction when we see the corresponding SpanEnd
-            match data {
+            match &data {
                 buck2_data::buck_event::Data::SpanEnd(span) => {
                     if let Some(entry) =
                         self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
@@ -377,7 +368,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                 Ok(())
             }
             LogCommandOutputFormatWithWriter::Json(w) => {
-                let reproducer = match command.repro {
+                let reproducer = match &command.repro {
                     CommandReproducer::CacheQuery(cache_hit) => JsonReproducer::CacheQuery {
                         digest: &cache_hit.action_digest,
                     },
@@ -424,6 +415,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                             .map(|entry| (entry.key.as_ref(), entry.value.as_ref()))
                             .collect(),
                     },
+
                     // TODO(ctolliday): use the worker_id as the `identity`, and add it to worker execution events.
                     // Currently the identity is the first target that used the worker, which might be misleading.
                     CommandReproducer::WorkerInit(worker_init) => JsonReproducer::WorkerInit {

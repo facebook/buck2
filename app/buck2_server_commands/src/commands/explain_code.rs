@@ -16,7 +16,6 @@ use buck2_data::action_key;
 use buck2_data::CommandInvalidationInfo;
 use buck2_data::FileWatcherEvent;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::BuckErrorContext;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display::display_anon_target;
@@ -41,11 +40,8 @@ use futures::TryStreamExt;
 #[allow(clippy::vec_box)]
 #[cfg(fbcode_build)]
 struct ActionEntry {
-    /// Known to be a WhatRanRelevantAction.
-    event: Box<buck2_data::BuckEvent>,
-
-    /// Known to be a CommandReproducer.
-    reproducers: Vec<Box<buck2_data::BuckEvent>>,
+    action: WhatRanRelevantAction,
+    reproducers: Vec<CommandReproducer>,
 }
 
 #[cfg(fbcode_build)]
@@ -53,14 +49,8 @@ impl ActionEntry {
     fn format_action(
         &self,
         event: &buck2_data::SpanEndEvent,
-        options: &WhatRanOptions,
     ) -> buck2_error::Result<Option<(String, ActionEntryData)>> {
-        let action = WhatRanRelevantAction::from_buck_data(
-            self.event
-                .data
-                .as_ref()
-                .buck_error_context("Checked above")?,
-        );
+        let action = &self.action;
 
         let action_execution = match &event.data {
                 Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => Some(action_exec),
@@ -80,7 +70,7 @@ impl ActionEntry {
         };
 
         let (target, mut entry) = match action {
-            Some(WhatRanRelevantAction::ActionExecution(act)) => {
+            WhatRanRelevantAction::ActionExecution(act) => {
                 let category = act.name.as_ref().map(|n| n.category.clone());
                 let identifier = act.name.as_ref().map(|n| n.identifier.clone());
                 let owner = match act.key.as_ref() {
@@ -120,14 +110,8 @@ impl ActionEntry {
             _ => return Ok(None),
         };
 
-        for repro in self.reproducers.iter() {
-            let reproducer = CommandReproducer::from_buck_data(
-                repro.data.as_ref().expect("Checked above"),
-                options,
-            );
-            if let Some(repro) = reproducer {
-                entry.repros.push(repro.to_string());
-            }
+        for reproducer in self.reproducers.iter() {
+            entry.repros.push(reproducer.to_string());
         }
 
         Ok(Some((target, entry)))
@@ -156,20 +140,20 @@ pub(crate) async fn explain(
         match event {
             StreamValue::Event(event) => {
                 // TODO iguridi: deduplicate this from whatran code
-                if let Some(data) = &event.data {
-                    if WhatRanRelevantAction::from_buck_data(data).is_some() {
+                if let Some(data) = event.data {
+                    if let Some(action) = WhatRanRelevantAction::from_buck_data(&data) {
                         known_actions.insert(
                             SpanId::from_u64(event.span_id)?,
                             ActionEntry {
-                                event: event.clone(),
+                                action,
                                 reproducers: Default::default(),
                             },
                         );
                     }
-                    if CommandReproducer::from_buck_data(data, &options).is_some() {
+                    if let Some(repro) = CommandReproducer::from_buck_data(&data, &options) {
                         if let Some(parent_id) = SpanId::from_u64_opt(event.parent_id) {
                             if let Some(entry) = known_actions.get_mut(&parent_id) {
-                                entry.reproducers.push(event.clone());
+                                entry.reproducers.push(repro);
                             }
                         }
                     }
@@ -179,7 +163,7 @@ pub(crate) async fn explain(
                             if let Some(entry) =
                                 known_actions.remove(&SpanId::from_u64(event.span_id)?)
                             {
-                                if let Some(entry) = entry.format_action(&span, &options)? {
+                                if let Some(entry) = entry.format_action(&span)? {
                                     executed_actions.push(entry);
                                 }
                             }

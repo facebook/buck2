@@ -60,30 +60,30 @@ impl<'a> WhatRanOptionsRegex<'a> {
 }
 
 /// An action that makes sense to use to contextualize a command we ran.
-#[derive(Copy, Clone, Dupe)]
-pub enum WhatRanRelevantAction<'a> {
-    ActionExecution(&'a buck2_data::ActionExecutionStart),
-    TestDiscovery(&'a buck2_data::TestDiscoveryStart),
-    TestRun(&'a buck2_data::TestRunStart),
-    SetupLocalResources(&'a buck2_data::SetupLocalResourcesStart),
+#[derive(Clone)]
+pub enum WhatRanRelevantAction {
+    ActionExecution(buck2_data::ActionExecutionStart),
+    TestDiscovery(buck2_data::TestDiscoveryStart),
+    TestRun(buck2_data::TestRunStart),
+    SetupLocalResources(buck2_data::SetupLocalResourcesStart),
 }
 
-impl<'a> WhatRanRelevantAction<'a> {
+impl WhatRanRelevantAction {
     /// Extract a relevant action from an event's data, if we can find one.
-    pub fn from_buck_data(data: &'a buck2_data::buck_event::Data) -> Option<Self> {
+    pub fn from_buck_data(data: &buck2_data::buck_event::Data) -> Option<Self> {
         match data {
             buck2_data::buck_event::Data::SpanStart(span) => match &span.data {
                 Some(buck2_data::span_start_event::Data::ActionExecution(action)) => {
-                    Some(Self::ActionExecution(action))
+                    Some(Self::ActionExecution(action.clone()))
                 }
                 Some(buck2_data::span_start_event::Data::TestDiscovery(suite)) => {
-                    Some(Self::TestDiscovery(suite))
+                    Some(Self::TestDiscovery(suite.clone()))
                 }
                 Some(buck2_data::span_start_event::Data::TestStart(test)) => {
-                    Some(Self::TestRun(test))
+                    Some(Self::TestRun(test.clone()))
                 }
                 Some(buck2_data::span_start_event::Data::LocalResources(setup)) => {
-                    Some(Self::SetupLocalResources(setup))
+                    Some(Self::SetupLocalResources(setup.clone()))
                 }
                 _ => None,
             },
@@ -95,7 +95,7 @@ impl<'a> WhatRanRelevantAction<'a> {
 pub struct WhatRanOutputCommand<'a> {
     pub reason: &'a str,
     pub identity: &'a str,
-    pub repro: CommandReproducer<'a>,
+    pub repro: CommandReproducer,
     pub extra: Option<WhatRanOutputCommandExtra<'a>>,
     pub std_err: Option<&'a str>,
     pub duration: Option<std::time::Duration>,
@@ -136,10 +136,10 @@ pub trait WhatRanOutputWriter {
 /// Storage provided for events. The expectations is that any previously event that would qualify
 /// as a WhatRanRelevantAction was captured in this and will be returned.
 pub trait WhatRanState {
-    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>>;
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction>;
 }
 
-pub fn matches_category(action: Option<WhatRanRelevantAction<'_>>, pattern: &Regex) -> bool {
+pub fn matches_category(action: Option<&WhatRanRelevantAction>, pattern: &Regex) -> bool {
     match action {
         Some(WhatRanRelevantAction::ActionExecution(action)) => match action.name.as_ref() {
             Some(ActionName { category, .. }) => pattern.is_match(category),
@@ -150,8 +150,8 @@ pub fn matches_category(action: Option<WhatRanRelevantAction<'_>>, pattern: &Reg
 }
 
 pub fn emit_what_ran_entry(
-    action: Option<WhatRanRelevantAction<'_>>,
-    repro: CommandReproducer<'_>,
+    action: Option<&WhatRanRelevantAction>,
+    repro: CommandReproducer,
     output: &mut impl WhatRanOutputWriter,
     options: &WhatRanOptionsRegex,
     std_err: Option<&str>,
@@ -216,21 +216,22 @@ pub fn emit_what_ran_entry(
 }
 
 /// The reproduction details for this command.
-#[derive(Clone, Copy, Dupe)]
-pub enum CommandReproducer<'a> {
-    CacheQuery(&'a buck2_data::CacheQuery),
-    CacheHit(&'a buck2_data::CacheHit),
-    ReExecute(&'a buck2_data::ReExecute),
-    LocalExecute(&'a buck2_data::LocalExecute),
-    WorkerExecute(&'a buck2_data::WorkerExecute),
-    WorkerInit(&'a buck2_data::WorkerInit),
+#[derive(Clone)]
+pub enum CommandReproducer {
+    CacheQuery(buck2_data::CacheQuery),
+    CacheHit(buck2_data::CacheHit),
+    ReExecute(buck2_data::ReExecute),
+    LocalExecute(buck2_data::LocalExecute),
+    WorkerExecute(buck2_data::WorkerExecute),
+    WorkerInit(buck2_data::WorkerInit),
 }
 
-impl<'a> CommandReproducer<'a> {
+impl CommandReproducer {
     pub fn executor(&self) -> String {
         match self {
             Self::CacheQuery(..) => "cache_query".to_owned(),
-            Self::CacheHit(&buck2_data::CacheHit { cache_type, .. }) => {
+            Self::CacheHit(cache) => {
+                let cache_type = cache.cache_type;
                 match buck2_data::CacheHitType::from_i32(cache_type) {
                     Some(buck2_data::CacheHitType::RemoteDepFileCache) => {
                         "re_dep_file_cache".to_owned()
@@ -246,7 +247,7 @@ impl<'a> CommandReproducer<'a> {
     }
 
     pub fn from_buck_data(
-        data: &'a buck2_data::buck_event::Data,
+        data: &buck2_data::buck_event::Data,
         options: &WhatRanOptions,
     ) -> Option<Self> {
         match data {
@@ -256,19 +257,19 @@ impl<'a> CommandReproducer<'a> {
                         Some(buck2_data::executor_stage_start::Stage::CacheQuery(cache_hit))
                             if options.emit_cache_queries =>
                         {
-                            return Some(CommandReproducer::CacheQuery(cache_hit));
+                            return Some(CommandReproducer::CacheQuery(cache_hit.clone()));
                         }
                         Some(buck2_data::executor_stage_start::Stage::CacheHit(cache_hit))
                             if !options.skip_cache_hits =>
                         {
-                            return Some(CommandReproducer::CacheHit(cache_hit));
+                            return Some(CommandReproducer::CacheHit(cache_hit.clone()));
                         }
                         Some(buck2_data::executor_stage_start::Stage::Re(re_stage))
                             if !options.skip_remote_executions =>
                         {
                             match &re_stage.stage {
                                 Some(buck2_data::re_stage::Stage::Execute(execute)) => {
-                                    return Some(CommandReproducer::ReExecute(execute));
+                                    return Some(CommandReproducer::ReExecute(execute.clone()));
                                 }
                                 _ => {}
                             }
@@ -280,19 +281,23 @@ impl<'a> CommandReproducer<'a> {
                                         local_execute,
                                     )) => {
                                         return Some(CommandReproducer::LocalExecute(
-                                            local_execute,
+                                            local_execute.clone(),
                                         ));
                                     }
                                     Some(buck2_data::local_stage::Stage::WorkerExecute(
                                         worker_execute,
                                     )) => {
                                         return Some(CommandReproducer::WorkerExecute(
-                                            worker_execute,
+                                            worker_execute.clone(),
                                         ));
                                     }
                                     Some(buck2_data::local_stage::Stage::WorkerInit(
                                         worker_init,
-                                    )) => return Some(CommandReproducer::WorkerInit(worker_init)),
+                                    )) => {
+                                        return Some(CommandReproducer::WorkerInit(
+                                            worker_init.clone(),
+                                        ));
+                                    }
                                     _ => {}
                                 }
                             }
@@ -309,7 +314,7 @@ impl<'a> CommandReproducer<'a> {
     }
 }
 
-impl<'a> fmt::Display for CommandReproducer<'a> {
+impl fmt::Display for CommandReproducer {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match &self {
             CommandReproducer::CacheQuery(cache_query) => {
@@ -424,13 +429,13 @@ impl WhatRanOutputWriter for SuperConsole {
 }
 
 /// A consistent format for printing that we are about to run an action.
-pub struct WhatRanCommandConsoleFormat<'a, 'b> {
+pub struct WhatRanCommandConsoleFormat<'a> {
     pub reason: &'a str,
     pub identity: &'a str,
-    pub repro: CommandReproducer<'b>,
+    pub repro: CommandReproducer,
 }
 
-impl<'a, 'b> fmt::Display for WhatRanCommandConsoleFormat<'a, 'b> {
+impl<'a> fmt::Display for WhatRanCommandConsoleFormat<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

@@ -34,7 +34,7 @@ pub(crate) fn emit_event_if_relevant(
         // Find and format the parent span (if any), then emit the relevant command.
         let action = parent_span_id.0.and_then(|id| state.get(id));
 
-        emit_what_ran_entry(action, repro, output, &options_regex, None, None)?;
+        emit_what_ran_entry(action.as_ref(), repro, output, &options_regex, None, None)?;
     }
 
     Ok(())
