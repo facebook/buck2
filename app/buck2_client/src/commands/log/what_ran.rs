@@ -244,9 +244,13 @@ impl WhatRanCommandState {
         Ok(())
     }
 
-    /// Receive a new event. We store it if it's relevant and emmit them latter.
-    /// Note that in practice we don't expect the event to be *both* relevant to emit *and* a
-    /// WhatRanRelevantAction, but it doesn't hurt to always check both.
+    /// Receive a new event. We store it if it's relevant and emit them later.
+    ///
+    /// For each entry we emit we track 4 types of events.
+    /// - action start, to create WhatRanRelevantAction
+    /// - executor stage, to create CommandReproducer to add to WhatRanRelevantAction
+    /// - action end, to emit WhatRanRelevantAction if action finished. If not, action is considered
+    ///   unfinished. We check to emit all unfinished after all events are received
     fn event(
         &mut self,
         event: Box<buck2_data::BuckEvent>,
@@ -254,6 +258,7 @@ impl WhatRanCommandState {
         options: &WhatRanCommandOptions,
     ) -> buck2_error::Result<()> {
         if let Some(data) = &event.data {
+            // Create WhatRanRelevantAction on SpanStart to track CommandReproducers as they come
             if WhatRanRelevantAction::from_buck_data(data).is_some() {
                 self.known_actions.insert(
                     SpanId::from_u64(event.span_id)?,
@@ -265,6 +270,7 @@ impl WhatRanCommandState {
                 return Ok(());
             }
 
+            // Create CommandReproducers on SpanStart an add them to corresponding WhatRanRelevantAction
             if CommandReproducer::from_buck_data(data, &options.options).is_some() {
                 if let Some(parent_id) = SpanId::from_u64_opt(event.parent_id) {
                     if let Some(entry) = self.known_actions.get_mut(&parent_id) {
@@ -274,6 +280,7 @@ impl WhatRanCommandState {
                 return Ok(());
             }
 
+            // Emit WhatRanRelevantAction when we see the corresponding SpanEnd
             match data {
                 buck2_data::buck_event::Data::SpanEnd(span) => {
                     if let Some(entry) =
