@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(deprecated)] // whoami::hostname is deprecated
-
 use std::path::Path;
 use std::time::Duration;
 
@@ -82,7 +80,12 @@ fn new_sample(kind: &str) -> scuba::ScubaSampleBuilder {
     let mut sample = scuba::ScubaSampleBuilder::new(fb, "rust_project");
     sample.add("root_span", kind);
     sample.add("unixname", whoami::username());
-    sample.add("hostname", whoami::hostname());
+    sample.add(
+        "hostname",
+        whoami::fallible::hostname()
+            .unwrap_or("unknown hostname".to_owned())
+            .to_ascii_lowercase(),
+    );
 
     // RA_PROXY_SESSION_ID is an environment variable set by the VS Code extension when it starts
     // rust-analyzer-proxy. rust-analyzer-proxy then starts rust-analyzer with the same
