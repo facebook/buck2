@@ -25,8 +25,8 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     lib, pkg_info = build_package(
-        ctx,
-        go_attr_pkg_name(ctx),
+        ctx = ctx,
+        pkg_name = go_attr_pkg_name(ctx),
         main = True,
         srcs = ctx.attrs.srcs,
         package_root = ctx.attrs.package_root,
