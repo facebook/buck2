@@ -41,8 +41,6 @@ load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-
-    pkgs = {}
     pkg_name = go_attr_pkg_name(ctx)
 
     race = ctx.attrs._race
@@ -67,7 +65,9 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     default_output = pkg.pkg
-    pkgs[pkg_name] = pkg
+    pkgs = {
+        pkg_name: pkg,
+    }
 
     own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
 

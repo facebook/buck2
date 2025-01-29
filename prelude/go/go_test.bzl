@@ -56,10 +56,10 @@ def is_subpackage_of(other_pkg_name: str, pkg_name: str) -> bool:
 
 def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    pkg_name = go_attr_pkg_name(ctx)
 
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
-    pkg_name = go_attr_pkg_name(ctx)
 
     # Copy the srcs, deps and pkg_name from the target library when set. The
     # library code gets compiled together with the tests.
