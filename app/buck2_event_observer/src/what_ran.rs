@@ -152,9 +152,10 @@ pub fn matches_category(action: Option<WhatRanRelevantAction<'_>>, pattern: &Reg
 pub fn emit_what_ran_entry(
     action: Option<WhatRanRelevantAction<'_>>,
     repro: CommandReproducer<'_>,
-    data: &Option<buck2_data::span_end_event::Data>,
     output: &mut impl WhatRanOutputWriter,
     options: &WhatRanOptionsRegex,
+    std_err: Option<&str>,
+    duration: Option<std::time::Duration>,
 ) -> buck2_error::Result<()> {
     let should_emit = options
         .filter_category_regex
@@ -202,24 +203,6 @@ pub fn emit_what_ran_entry(
         None => ("unknown", Cow::Borrowed("unknown action"), None),
     };
 
-    let std_err = match data {
-        Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => action_exec
-            .commands
-            .iter()
-            .last()
-            .and_then(|cmd| cmd.details.as_ref().map(|d| d.stderr.as_ref())),
-        _ => None,
-    };
-    let duration = match data {
-        Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => action_exec
-            .wall_time
-            .as_ref()
-            .map(|prost_types::Duration { seconds, nanos }| {
-                std::time::Duration::new(*seconds as u64, *nanos as u32)
-            }),
-
-        _ => None,
-    };
     output.emit_command(WhatRanOutputCommand {
         reason,
         identity: &identity,

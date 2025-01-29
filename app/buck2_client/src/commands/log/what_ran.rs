@@ -176,8 +176,9 @@ impl WhatRanEntry {
     fn emit_what_ran_entry(
         &self,
         output: &mut impl WhatRanOutputWriter,
-        data: &Option<buck2_data::span_end_event::Data>,
         options: &WhatRanCommandOptions,
+        std_err: Option<&str>,
+        duration: Option<std::time::Duration>,
     ) -> Result<(), ClientIoError> {
         let action = WhatRanRelevantAction::from_buck_data(
             self.event
@@ -194,9 +195,10 @@ impl WhatRanEntry {
                     options_regex.options,
                 )
                 .buck_error_context("Checked above")?,
-                data,
                 output,
                 &options_regex,
+                std_err,
+                duration,
             )?;
         }
         Ok(())
@@ -238,7 +240,7 @@ impl WhatRanCommandState {
         // emit remaining
         for (_, entry) in cmd.known_actions.iter() {
             if should_emit_unfinished_action(options) {
-                entry.emit_what_ran_entry(output, &None, options)?;
+                entry.emit_what_ran_entry(output, options, None, None)?;
             }
         }
         Ok(())
@@ -287,7 +289,24 @@ impl WhatRanCommandState {
                         self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
                     {
                         if should_emit_finished_action(&span.data, options) {
-                            entry.emit_what_ran_entry(output, &span.data, options)?;
+                            // Get extra data out of SpanEnd event
+                            let (std_err, duration) = match &span.data {
+                                Some(buck2_data::span_end_event::Data::ActionExecution(
+                                    action_exec,
+                                )) => (
+                                    action_exec.commands.iter().last().and_then(|cmd| {
+                                        cmd.details.as_ref().map(|d| d.stderr.as_ref())
+                                    }),
+                                    action_exec.wall_time.as_ref().map(
+                                        |prost_types::Duration { seconds, nanos }| {
+                                            std::time::Duration::new(*seconds as u64, *nanos as u32)
+                                        },
+                                    ),
+                                ),
+                                _ => (None, None),
+                            };
+
+                            entry.emit_what_ran_entry(output, options, std_err, duration)?;
                         }
                     }
                 }
