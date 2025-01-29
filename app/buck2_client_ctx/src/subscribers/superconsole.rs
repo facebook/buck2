@@ -29,8 +29,6 @@ use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
-use buck2_event_observer::what_ran::WhatRanOptions;
-use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -479,14 +477,11 @@ impl StatefulSuperConsoleImpl {
             .with_buck_error_context(|| display::InvalidBuckEvent(event.clone()).to_string())?;
 
         if self.verbosity.print_all_commands() {
-            let options = WhatRanOptions::default();
-            let options_regex = WhatRanOptionsRegex::from_options(&options)?;
             emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.state.simple_console.observer().spans(),
                 &mut self.super_console,
-                &options_regex,
             )?;
         }
         Ok(())

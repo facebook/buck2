@@ -30,8 +30,6 @@ use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
-use buck2_event_observer::what_ran::WhatRanOptions;
-use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
@@ -315,14 +313,11 @@ where
         self.handle_event_inner(event).await?;
 
         if self.verbosity.print_all_commands() {
-            let options = WhatRanOptions::default();
-            let options_regex = WhatRanOptionsRegex::from_options(&options)?;
             emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.observer().spans(),
                 &mut PrintDebugCommandToStderr,
-                &options_regex,
             )?;
         }
 

@@ -11,6 +11,7 @@ use std::fmt;
 
 use buck2_event_observer::what_ran::emit_what_ran_entry;
 use buck2_event_observer::what_ran::CommandReproducer;
+use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::WhatRanState;
@@ -26,14 +27,14 @@ pub(crate) fn emit_event_if_relevant(
     data: &buck2_data::buck_event::Data,
     state: &impl WhatRanState,
     output: &mut impl WhatRanOutputWriter,
-    // TODO iguridi: remove this arg and just create default
-    options: &WhatRanOptionsRegex,
 ) -> buck2_error::Result<()> {
-    if let Some(repro) = CommandReproducer::from_buck_data(data, options.options) {
+    let options = WhatRanOptions::default();
+    let options_regex = WhatRanOptionsRegex::from_options(&options)?;
+    if let Some(repro) = CommandReproducer::from_buck_data(data, options_regex.options) {
         // Find and format the parent span (if any), then emit the relevant command.
         let action = parent_span_id.0.and_then(|id| state.get(id));
 
-        emit_what_ran_entry(action, repro, &None, output, options)?;
+        emit_what_ran_entry(action, repro, &None, output, &options_regex)?;
     }
 
     Ok(())
