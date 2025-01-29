@@ -23,7 +23,6 @@ use superconsole::SuperConsole;
 
 use crate::display;
 use crate::display::TargetDisplayOptions;
-use crate::span_tracker::OptionalSpanId;
 
 /// Options controlling what WhatRan produces.
 #[derive(Debug, Default, clap::Parser)]
@@ -148,25 +147,6 @@ pub fn matches_category(action: Option<WhatRanRelevantAction<'_>>, pattern: &Reg
         },
         _ => false,
     }
-}
-/// Presented with an event and its containing span, emit it to the output if it's relevant. The
-/// state is used to associate the parent with something meaningful. This does not take the parent
-/// directly because *most* events are *not* relevant so we save the lookup in that case.
-pub fn emit_event_if_relevant(
-    parent_span_id: OptionalSpanId,
-    data: &buck2_data::buck_event::Data,
-    state: &impl WhatRanState,
-    output: &mut impl WhatRanOutputWriter,
-    options: &WhatRanOptionsRegex,
-) -> buck2_error::Result<()> {
-    if let Some(repro) = CommandReproducer::from_buck_data(data, options.options) {
-        // Find and format the parent span (if any), then emit the relevant command.
-        let action = parent_span_id.0.and_then(|id| state.get(id));
-
-        emit_what_ran_entry(action, repro, &None, output, options)?;
-    }
-
-    Ok(())
 }
 
 pub fn emit_what_ran_entry(

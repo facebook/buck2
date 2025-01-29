@@ -29,7 +29,6 @@ use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOptions;
 use buck2_event_observer::what_ran::WhatRanOptionsRegex;
@@ -42,6 +41,7 @@ use once_cell::sync::Lazy;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
 
+use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
@@ -317,7 +317,7 @@ where
         if self.verbosity.print_all_commands() {
             let options = WhatRanOptions::default();
             let options_regex = WhatRanOptionsRegex::from_options(&options)?;
-            what_ran::emit_event_if_relevant(
+            emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.observer().spans(),

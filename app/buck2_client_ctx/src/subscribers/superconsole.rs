@@ -27,7 +27,6 @@ use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_event_observer::what_ran::WhatRanOptions;
@@ -52,6 +51,7 @@ use superconsole::Span;
 pub(crate) use superconsole::SuperConsole;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
@@ -481,7 +481,7 @@ impl StatefulSuperConsoleImpl {
         if self.verbosity.print_all_commands() {
             let options = WhatRanOptions::default();
             let options_regex = WhatRanOptionsRegex::from_options(&options)?;
-            what_ran::emit_event_if_relevant(
+            emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.state.simple_console.observer().spans(),
