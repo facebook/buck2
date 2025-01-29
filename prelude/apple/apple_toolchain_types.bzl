@@ -32,6 +32,7 @@ AppleToolchainInfo = provider(
         "momc": provider_field(RunInfo),
         "objdump": provider_field(RunInfo | None, default = None),
         "platform_path": provider_field(str | Artifact),
+        "prelude_rpaths": provider_field(bool, default = False),
         "sdk_build_version": provider_field(str | None, default = None),
         # SDK name to be passed to tools (e.g. actool), equivalent to ApplePlatform::getExternalName() in v1.
         "sdk_name": provider_field(str),
