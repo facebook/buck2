@@ -12,7 +12,7 @@ load(":compile.bzl", "get_inherited_compile_pkgs", "infer_package_root")
 load(
     ":coverage.bzl",
     "GoCoverageMode",  # @Unused used as type
-    "cover_srcs_v2",
+    "cover_srcs",
 )
 load(":go_list.bzl", "go_list", "parse_go_list_out")
 load(":packages.bzl", "GoPackageInfo", "GoPkg", "make_importcfg", "merge_pkgs")
@@ -80,7 +80,7 @@ def build_package(
         ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((all_test_go_files if with_tests else []), ""))
 
         go_files_to_cover = go_list.go_files + cgo_go_files + (all_test_go_files if with_tests else [])
-        covered_go_files, coverage_vars_out, coveragecfg = cover_srcs_v2(ctx, go_list_pkg_name, pkg_name, go_files_to_cover, coverage_mode)
+        covered_go_files, coverage_vars_out, coveragecfg = cover_srcs(ctx, go_list_pkg_name, pkg_name, go_files_to_cover, coverage_mode)
         ctx.actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
 
         symabis = _symabis(ctx, pkg_name, main, go_list.s_files, go_list.h_files, assembler_flags)

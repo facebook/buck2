@@ -13,47 +13,12 @@ GoCoverageMode = enum(
     "atomic",
 )
 
-# The result of running `go tool cover` on the input sources.
-GoCoverResult = record(
-    # All sources after annotating non-`_test.go` sources.  This will be a
-    # combination of the original `*_test.go` sources and the annotated non-
-    # `*_test.go` sources.
-    srcs = field(cmd_args),
-    # Coverage variables we used when annotating non-test sources.
-    variables = field(cmd_args),
-)
-
-def cover_srcs(ctx: AnalysisContext, pkg_name: str, mode: GoCoverageMode, srcs: cmd_args, shared: bool) -> GoCoverResult:
-    path = pkg_name + "_static_" + mode.value
-    if shared:
-        path = pkg_name + "shared_" + mode.value
-    out_covered_src_dir = ctx.actions.declare_output("__covered_" + path + "_srcs__", dir = True)
-    out_srcs_argsfile = ctx.actions.declare_output("covered_" + path + "_srcs.txt")
-    out_coverage_vars_argsfile = ctx.actions.declare_output("coverage_" + path + "_vars.txt")
-
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    cmd = cmd_args()
-    cmd.add(go_toolchain.cover_srcs)
-    cmd.add("--cover", go_toolchain.cover)
-    cmd.add("--coverage-mode", mode.value)
-    cmd.add("--coverage-var-argsfile", out_coverage_vars_argsfile.as_output())
-    cmd.add("--covered-srcs-dir", out_covered_src_dir.as_output())
-    cmd.add("--out-srcs-argsfile", out_srcs_argsfile.as_output())
-    cmd.add("--pkg-name", pkg_name)
-    cmd.add(srcs)
-    ctx.actions.run(cmd, category = "go_cover", identifier = path)
-
-    return GoCoverResult(
-        srcs = cmd_args(out_srcs_argsfile, format = "@{}", hidden = [out_covered_src_dir, srcs]),
-        variables = cmd_args(out_coverage_vars_argsfile, format = "@{}"),
-    )
-
-def cover_srcs_v2(
+def cover_srcs(
         ctx: AnalysisContext,
         pkg_name: str,
         pkg_import_path: str,
         go_files: list[Artifact],
-        coverage_mode: GoCoverageMode | None) -> (list[Artifact], str | cmd_args, Artifact | None):
+        coverage_mode: GoCoverageMode | None) -> (list[Artifact], cmd_args | str, Artifact | None):
     if coverage_mode == None:
         return go_files, "", None
 
