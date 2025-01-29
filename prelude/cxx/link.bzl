@@ -10,7 +10,6 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
     "project_artifacts",
-    "project_identified_artifacts",
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -67,7 +66,6 @@ load(
     "linker_map_args",
     "make_link_args",
 )
-load(":debug.bzl", "SplitDebugMode")
 load(":dwp.bzl", "dwp", "dwp_available")
 load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
 load(
@@ -340,11 +338,8 @@ def cxx_link_into(
     dwp_artifact = None
     if dwp_tool_available:
         dwp_inputs = cmd_args()
-        dwp_from_dwo = getattr(ctx.attrs, "separate_debug_info", False) and cxx_toolchain_info.split_debug_mode == SplitDebugMode("split")
         if use_bolt:
             dwp_inputs.add([split_debug_output])
-        elif dwp_from_dwo:
-            dwp_inputs.add(project_identified_artifacts(ctx.actions, [external_debug_info]))
         else:
             for link in opts.links:
                 dwp_inputs.add(unpack_link_args(link))
@@ -361,7 +356,6 @@ def cxx_link_into(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = [dwp_inputs],
-            from_exe = not dwp_from_dwo,
         )
 
     if is_result_executable:
