@@ -25,6 +25,9 @@ def get_swift_runtime_linker_flags(ctx: AnalysisContext, linkable: [SwiftRuntime
         return cmd_args()
 
     apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+    if apple_toolchain_info.prelude_rpaths:
+        return cmd_args()
+
     swift_toolchain_info = apple_toolchain_info.swift_toolchain_info
 
     args = cmd_args()

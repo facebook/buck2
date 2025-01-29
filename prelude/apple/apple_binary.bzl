@@ -69,6 +69,7 @@ load(":apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_error_handler.bzl", "apple_build_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
+load(":apple_rpaths.bzl", "get_rpath_flags_for_apple_binary")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback")
 load(":debug.bzl", "AppleDebuggableInfo")
@@ -103,7 +104,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         )
         swift_object_files = swift_compile.object_files if swift_compile else []
         swift_preprocessor = [swift_compile.pre] if swift_compile else []
-        extra_link_flags = entitlements_link_flags(ctx)
+        extra_link_flags = get_rpath_flags_for_apple_binary(ctx) + entitlements_link_flags(ctx)
 
         # Extensions have custom entry points and API restrictions
         extension_compiler_flags = []
