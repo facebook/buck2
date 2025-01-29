@@ -74,7 +74,7 @@ def build_package(
         # being tested, but not the external test package: https://fburl.com/qorledne
         # So for XTest packages - we must use Buck pkg_name override.
         if is_x_test_pkg:
-            go_list_pkg_name = pkg_name
+            go_list_pkg_name = go_list.name + "_test"
 
         ctx.actions.write(outputs[test_go_files_argsfile], cmd_args((all_test_go_files if with_tests else []), ""))
 
