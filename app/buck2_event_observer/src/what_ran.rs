@@ -160,15 +160,10 @@ pub fn emit_event_if_relevant(
     options: &WhatRanOptionsRegex,
 ) -> buck2_error::Result<()> {
     if let Some(repro) = CommandReproducer::from_buck_data(data, options.options) {
-        let data = match data {
-            buck2_data::buck_event::Data::SpanEnd(span) => &span.data,
-            _ => &None,
-        };
-
         // Find and format the parent span (if any), then emit the relevant command.
         let action = parent_span_id.0.and_then(|id| state.get(id));
 
-        emit_what_ran_entry(action, repro, data, output, options)?;
+        emit_what_ran_entry(action, repro, &None, output, options)?;
     }
 
     Ok(())
