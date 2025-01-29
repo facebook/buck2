@@ -71,7 +71,7 @@ def _serialize_link_info(info: LinkInfo):
         info.post_flags,
         [_serialize_linkable(linkable) for linkable in info.linkables],
         # TODO(agallagher): It appears anon-targets don't allow passing in `label`.
-        [(stringify_artifact_label(info.label), stringify_artifact_label(info.identity), info.artifacts) for info in external_debug_info],
+        [(stringify_artifact_label(info.label), info.artifacts) for info in external_debug_info],
         [m.version for m in info.metadata],
     )
 
@@ -145,8 +145,8 @@ def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> Link
         external_debug_info = make_artifact_tset(
             actions = actions,
             infos = [
-                ArtifactInfo(label = label, identity = identity, artifacts = artifacts, tags = [])
-                for _label, identity, artifacts in external_debug_info
+                ArtifactInfo(label = label, artifacts = artifacts, tags = [])
+                for _label, artifacts in external_debug_info
             ],
         ),
         metadata = [DepMetadata(version = v) for v in metadata],
@@ -242,7 +242,6 @@ ANON_ATTRS = {
                                 # TODO(agallagher): It appears anon-targets don't
                                 # allow passing in `label`.
                                 attrs.string(),  # label
-                                attrs.string(),  # identity
                                 attrs.list(attrs.source()),  # artifacts
                             ),
                         ),

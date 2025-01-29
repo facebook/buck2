@@ -35,7 +35,6 @@ load(
     "@prelude//apple/swift:swift_runtime.bzl",
     "create_swift_runtime_linkable",
 )
-load("@prelude//cxx:debug.bzl", "get_debug_info_identity")
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers")
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
@@ -553,7 +552,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         extra_static_linkables.append(swiftmodule_linkable)
     if swift_runtime_linkable:
         extra_static_linkables.append(swift_runtime_linkable)
-    debug_info_identity = get_debug_info_identity(ctx)
 
     library_outputs = _form_library_outputs(
         ctx = ctx,
@@ -565,7 +563,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         gnu_use_link_groups = cxx_is_gnu(ctx) and bool(link_group_mappings),
         link_execution_preference = link_execution_preference,
         shared_interface_info = shared_interface_info,
-        debug_info_identity = debug_info_identity,
     )
     solib_as_dict = {library_outputs.solib[0]: library_outputs.solib[1]} if library_outputs.solib else {}
     shared_libs = create_shared_libraries(ctx, solib_as_dict)
@@ -832,7 +829,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     external_debug_info = make_artifact_tset(
                         actions = ctx.actions,
                         label = ctx.label,
-                        identity = debug_info_identity,
                         artifacts = (
                             compiled_srcs.pic.external_debug_info +
                             (compiled_srcs.pic.objects if compiled_srcs.pic.objects_have_external_debug_info else [])
@@ -1189,8 +1185,7 @@ def _form_library_outputs(
         extra_static_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
         gnu_use_link_groups: bool,
         link_execution_preference: LinkExecutionPreference,
-        shared_interface_info: [SharedInterfaceInfo, None],
-        debug_info_identity: Label | str) -> _CxxAllLibraryOutputs:
+        shared_interface_info: [SharedInterfaceInfo, None]) -> _CxxAllLibraryOutputs:
     # Build static/shared libs and the link info we use to export them to dependents.
     outputs = {}
     solib = None
@@ -1237,7 +1232,6 @@ def _form_library_outputs(
                     external_debug_info = make_artifact_tset(
                         ctx.actions,
                         label = ctx.label,
-                        identity = debug_info_identity,
                         artifacts = compiled_srcs.pic_optimized.external_debug_info,
                         children = impl_params.additional.static_external_debug_info,
                     ),
@@ -1245,7 +1239,6 @@ def _form_library_outputs(
                     optimized = True,
                     stripped = False,
                     extra_linkables = extra_static_linkables,
-                    debug_info_identity = debug_info_identity,
                     bitcode_objects = compiled_srcs.pic_optimized.bitcode_objects,
                 )
 
@@ -1259,7 +1252,6 @@ def _form_library_outputs(
                     external_debug_info = make_artifact_tset(
                         ctx.actions,
                         label = ctx.label,
-                        identity = debug_info_identity,
                         artifacts = lib_compile_output.external_debug_info,
                         children = impl_params.additional.static_external_debug_info,
                     ),
@@ -1267,7 +1259,6 @@ def _form_library_outputs(
                     stripped = False,
                     optimized = False,
                     extra_linkables = extra_static_linkables,
-                    debug_info_identity = debug_info_identity,
                     bitcode_objects = lib_compile_output.bitcode_objects,
                 )
                 _, stripped = _static_library(
@@ -1278,7 +1269,6 @@ def _form_library_outputs(
                     stripped = True,
                     optimized = False,
                     extra_linkables = extra_static_linkables,
-                    debug_info_identity = debug_info_identity,
                     bitcode_objects = lib_compile_output.bitcode_objects,
                 )
             else:
@@ -1301,7 +1291,6 @@ def _form_library_outputs(
                 external_debug_info = make_artifact_tset(
                     actions = ctx.actions,
                     label = ctx.label,
-                    identity = debug_info_identity,
                     artifacts = external_debug_artifacts,
                     children = impl_params.additional.shared_external_debug_info,
                     tags = impl_params.additional.external_debug_info_tags,
@@ -1555,7 +1544,6 @@ def _static_library(
         optimized: bool,
         stripped: bool,
         extra_linkables: list[[FrameworksLinkable, SwiftmoduleLinkable, SwiftRuntimeLinkable]],
-        debug_info_identity: Label | str,
         objects_have_external_debug_info: bool = False,
         external_debug_info: ArtifactTSet = ArtifactTSet(),
         bitcode_objects: [list[Artifact], None] = None) -> (CxxLibraryOutput, LinkInfo):
@@ -1624,7 +1612,6 @@ def _static_library(
     all_external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
-        identity = debug_info_identity,
         artifacts = object_external_debug_info,
         children = [external_debug_info],
         tags = impl_params.additional.external_debug_info_tags,
