@@ -821,7 +821,7 @@ def _get_shared_flags(
         # Swift compiler defaults to 5 and therefore so do we
         # use the version 5 for upcoming features passed to tools
         # like the ide-tool for swift-interface generation below
-        # https://www.internalfb.com/code/osmeta-external-swift/[toolchain%2Fpika%2F16%3A5e394d813955f6d922cc853d011eeb3b6bead4c6]/include/swift/Basic/LangOptions.h?lines=175-176
+        # include/swift/Basic/LangOptions.h?lines=175-176
         swift_version = SwiftVersion[0]  # "5"
 
     if ctx.attrs.enable_cxx_interop:
