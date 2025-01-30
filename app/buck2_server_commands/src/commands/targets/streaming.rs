@@ -115,12 +115,14 @@ pub(crate) async fn targets_streaming(
                             };
                             match targets {
                                 Ok((eval_result, targets, err)) => {
-                                    if let Some(err) = err {
-                                        show_err(&err.into());
-                                        formatter.separator(&mut res.stdout);
+                                    if let Some(ref err) = err {
+                                        show_err(err.into());
                                     }
                                     res.stats.success += 1;
                                     if imports {
+                                        if err.is_some() {
+                                            formatter.separator(&mut res.stdout);
+                                        }
                                         let eval_imports = eval_result.imports();
                                         formatter.imports(
                                             &eval_result.buildfile_path().path(),
@@ -135,7 +137,7 @@ pub(crate) async fn targets_streaming(
                                     }
                                     for (i, node) in targets.iter().enumerate() {
                                         res.stats.targets += 1;
-                                        if imports || i != 0 {
+                                        if err.is_some() || imports || i != 0 {
                                             formatter.separator(&mut res.stdout);
                                         }
                                         formatter.target(
