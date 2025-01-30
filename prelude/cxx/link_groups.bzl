@@ -782,24 +782,28 @@ _CreatedLinkGroup = record(
     labels_to_links = field(FinalLabelsToLinks),
 )
 
+_CreateLinkGroupParams = record(
+    public_nodes = field(set[Label]),
+    link_strategy = field(LinkStrategy),
+    linkable_graph = field(ReducedLinkableGraph),
+    link_groups = field(dict[str, Group]),
+    link_group_mappings = field(dict[Label, str]),
+    link_group_libs = field(dict[str, (Label | None, LinkInfos)]),
+    link_group_preferred_linkage = field(dict[Label, Linkage]),
+    link_group_roots = field(dict[str, Label]),
+    category_suffix = field(str),
+    anonymous = field(bool),
+    allow_cache_upload = field(bool),
+    prefer_stripped_objects = field(bool),
+    error_handler = field([typing.Callable, None]),
+)
+
 def _create_link_group(
         ctx: AnalysisContext,
         spec: LinkGroupLibSpec,
         linkables: list[Label],
-        link_strategy: LinkStrategy,
-        public_nodes: set[Label],
-        linkable_graph_node_map: dict[Label, LinkableNode],
         linker_flags: list[typing.Any],
-        link_groups: dict[str, Group],
-        link_group_mappings: dict[Label, str],
-        link_group_preferred_linkage: dict[Label, Linkage],
-        link_group_libs: dict[str, (Label | None, LinkInfos)],
-        link_group_roots: dict[str, Label],
-        prefer_stripped_objects: bool,
-        category_suffix: str,
-        anonymous: bool,
-        allow_cache_upload: bool,
-        error_handler: [typing.Callable, None]) -> _CreatedLinkGroup | None:
+        params: _CreateLinkGroupParams) -> _CreatedLinkGroup | None:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
@@ -825,26 +829,26 @@ def _create_link_group(
         # might be required to link the given link group.
         inputs.append(get_link_info_from_link_infos(
             spec.root.link_infos,
-            prefer_stripped = prefer_stripped_objects,
+            prefer_stripped = params.prefer_stripped_objects,
         ))
 
     # Add roots...
     filtered_labels_to_links = get_filtered_labels_to_links_map(
-        public_nodes,
-        linkable_graph_node_map,
+        params.public_nodes,
+        params.linkable_graph.nodes,
         spec.group.name,
-        link_groups,
-        link_group_mappings,
-        link_group_preferred_linkage,
+        params.link_groups,
+        params.link_group_mappings,
+        params.link_group_preferred_linkage,
         pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
-        link_group_libs = link_group_libs,
-        link_group_roots = link_group_roots,
-        link_strategy = link_strategy,
+        link_group_libs = params.link_group_libs,
+        link_group_roots = params.link_group_roots,
+        link_strategy = params.link_strategy,
         linkables = linkables,
-        prefer_stripped = prefer_stripped_objects,
+        prefer_stripped = params.prefer_stripped_objects,
         prefer_optimized = spec.group.attrs.prefer_optimized_experimental,
     )
-    inputs.extend(get_filtered_links(filtered_labels_to_links.map, public_nodes))
+    inputs.extend(get_filtered_links(filtered_labels_to_links.map, params.public_nodes))
 
     if not filtered_labels_to_links.map and not spec.root:
         # don't create empty shared libraries
@@ -857,15 +861,15 @@ def _create_link_group(
         name = spec.name if spec.is_shared_lib else None,
         opts = link_options(
             links = [LinkArgs(infos = inputs)],
-            category_suffix = category_suffix,
+            category_suffix = params.category_suffix,
             identifier = spec.name,
             # TODO: anonymous targets cannot be used with dynamic output yet
-            enable_distributed_thinlto = False if anonymous else spec.group.attrs.enable_distributed_thinlto,
+            enable_distributed_thinlto = False if params.anonymous else spec.group.attrs.enable_distributed_thinlto,
             link_execution_preference = LinkExecutionPreference("any"),
-            allow_cache_upload = allow_cache_upload,
-            error_handler = error_handler,
+            allow_cache_upload = params.allow_cache_upload,
+            error_handler = params.error_handler,
         ),
-        anonymous = anonymous,
+        anonymous = params.anonymous,
     )
     return _CreatedLinkGroup(
         linked_object = link_result.linked_object,
@@ -1038,6 +1042,25 @@ def create_link_groups(
         name: (None, lib)
         for name, lib in link_group_shared_links.items()
     }
+
+    create_link_group_params = _CreateLinkGroupParams(
+        public_nodes = public_nodes,
+        link_strategy = link_strategy,
+        linkable_graph = linkable_graph,
+        link_groups = link_groups,
+        link_group_mappings = link_group_mappings,
+        # TODO(agallagher): Should we support alternate link strategies
+        # (e.g. bottom-up with symbol errors)?
+        link_group_libs = link_group_libs,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        link_group_roots = {},
+        category_suffix = "link_group",
+        anonymous = anonymous,
+        allow_cache_upload = allow_cache_upload,
+        prefer_stripped_objects = prefer_stripped_objects,
+        error_handler = error_handler,
+    )
+
     for link_group_spec in specs:
         # NOTE(agallagher): It might make sense to move this down to be
         # done when we generated the links for the executable, so we can
@@ -1046,26 +1069,12 @@ def create_link_groups(
             ctx = ctx,
             spec = link_group_spec,
             linkables = linkables[link_group_spec.group.name],
-            link_strategy = link_strategy,
-            linkable_graph_node_map = linkable_graph.nodes,
-            public_nodes = public_nodes,
             linker_flags = (
                 linker_flags +
                 link_group_spec.group.attrs.exported_linker_flags +
                 link_group_spec.group.attrs.linker_flags
             ),
-            link_groups = link_groups,
-            link_group_mappings = link_group_mappings,
-            link_group_preferred_linkage = link_group_preferred_linkage,
-            # TODO(agallagher): Should we support alternate link strategies
-            # (e.g. bottom-up with symbol errors)?
-            link_group_libs = link_group_libs,
-            link_group_roots = {},
-            prefer_stripped_objects = prefer_stripped_objects,
-            category_suffix = "link_group",
-            anonymous = anonymous,
-            allow_cache_upload = allow_cache_upload,
-            error_handler = error_handler,
+            params = create_link_group_params,
         )
 
         if created_link_group == None:
