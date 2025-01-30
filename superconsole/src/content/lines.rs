@@ -19,12 +19,14 @@ use crossterm::style::Attribute;
 use crossterm::style::Attributes;
 use crossterm::style::Color;
 use itertools::Itertools;
+use termwiz::cell::Hyperlink;
 use termwiz::cell::Intensity;
 use termwiz::color::ColorSpec;
 use termwiz::color::RgbColor;
 use termwiz::escape::csi::Sgr;
 use termwiz::escape::csi::CSI;
 use termwiz::escape::Action;
+use termwiz::escape::OperatingSystemCommand;
 
 use crate::style::ContentStyle;
 use crate::style::StyledContent;
@@ -43,6 +45,7 @@ struct ColoredStringParser {
     underline_color: Option<Color>,
     attributes: Attributes,
     line_buffer: String,
+    hyperlink: Option<Hyperlink>,
     spans: Vec<Span>,
 }
 
@@ -57,7 +60,11 @@ impl ColoredStringParser {
             },
             std::mem::take(&mut self.line_buffer),
         );
-        self.spans.push(Span::new_styled_lossy(sc));
+        let mut span = Span::new_styled_lossy(sc);
+        if self.hyperlink.is_some() {
+            span = span.with_hyperlink(self.hyperlink.clone());
+        }
+        self.spans.push(span);
     }
 
     fn spec_to_color(spec: ColorSpec) -> Option<Color> {
@@ -101,6 +108,13 @@ impl ColoredStringParser {
                 self.push_current();
                 self.background_color = Self::spec_to_color(spec);
             }
+            Action::OperatingSystemCommand(cmd) => match *cmd {
+                OperatingSystemCommand::SetHyperlink(hy) => {
+                    self.push_current();
+                    self.hyperlink = hy;
+                }
+                _ => {}
+            },
             _ => {}
         });
         self.push_current();
@@ -663,6 +677,26 @@ strips out {bs}invalid control sequences",
 
         let lines = Lines::from_colored_multiline_string(&test_string);
 
+        assert_eq!(expected, lines);
+    }
+
+    #[test]
+    fn test_hyperlink() {
+        let input = format!(
+            "This is a {link}https://example.com{endlink}hyper{link}{endlink}{link}https://example.com{endlink}link{link}{endlink}.",
+            link = "\x1b]8;;",
+            endlink = "\x1b\\"
+        );
+        let lines = Lines::from_colored_multiline_string(&input);
+        let expected: Lines = vec![Line::from_iter([
+            Span::new_unstyled("This is a ").unwrap(),
+            Span::new_unstyled("hyperlink")
+                .unwrap()
+                .with_hyperlink(Some(Hyperlink::new("https://example.com"))),
+            Span::new_unstyled(".").unwrap(),
+        ])]
+        .into_iter()
+        .collect();
         assert_eq!(expected, lines);
     }
 

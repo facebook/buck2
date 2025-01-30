@@ -22,6 +22,7 @@ use crossterm::style::SetForegroundColor;
 use crossterm::style::StyledContent;
 use crossterm::Command;
 use termwiz::cell;
+use termwiz::cell::Hyperlink;
 use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -38,6 +39,7 @@ enum SpanError {
 pub struct Span {
     pub(crate) content: Cow<'static, str>,
     pub style: ContentStyle,
+    pub hyperlink: Option<Hyperlink>,
 }
 
 /// Test whether a char is permissable to be inside a Span.
@@ -60,6 +62,7 @@ impl Span {
         Span {
             content: Cow::Borrowed("-"),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
     }
 
@@ -74,6 +77,7 @@ impl Span {
         Span {
             content: Cow::Owned(content),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
     }
 
@@ -86,6 +90,7 @@ impl Span {
         Self {
             content: Cow::Owned(format!("{:<width$}", "", width = amount)),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
     }
 
@@ -97,6 +102,7 @@ impl Span {
             Ok(Self {
                 content: Cow::Owned(owned),
                 style: ContentStyle::default(),
+                hyperlink: None,
             })
         } else {
             Err(SpanError::InvalidWhitespace(owned).into())
@@ -108,6 +114,7 @@ impl Span {
         Self {
             content: Cow::Owned(content),
             style: ContentStyle::default(),
+            hyperlink: None,
         }
     }
 
@@ -118,6 +125,7 @@ impl Span {
             Ok(Self {
                 content: Cow::Owned(content.content().clone()),
                 style: *content.style(),
+                hyperlink: None,
             })
         } else {
             Err(SpanError::InvalidWhitespace(content.content().to_owned()).into())
@@ -130,6 +138,7 @@ impl Span {
         Self {
             content: Cow::Owned(content),
             style: *span.style(),
+            hyperlink: None,
         }
     }
 
@@ -153,6 +162,10 @@ impl Span {
         ))
     }
 
+    pub fn with_hyperlink(self, hyperlink: Option<Hyperlink>) -> Self {
+        Self { hyperlink, ..self }
+    }
+
     /// Returns the number of graphemes in the span.
     pub fn len(&self) -> usize {
         // Pulled this dep from another FB employee's project - better unicode support for terminal column widths.
@@ -168,7 +181,7 @@ impl Span {
     /// Because a `Grapheme` is represented as another string, the sub-`Span` is represented as a `Span`.
     /// This `panics` if it encounters unicode that it doesn't know how to deal with.
     pub fn iter(&self) -> impl Iterator<Item = Span> + '_ {
-        SpanIterator(&self.style, self.content.graphemes(true))
+        SpanIterator(&self.style, self.content.graphemes(true), &self.hyperlink)
     }
 
     pub(crate) fn render(&self, f: &mut impl fmt::Write) -> fmt::Result {
@@ -178,6 +191,7 @@ impl Span {
 
         let mut reset_background = false;
         let mut reset_foreground = false;
+        let mut reset_hyperlink = false;
         let mut reset = false;
 
         if let Some(bg) = self.style.background_color {
@@ -192,8 +206,18 @@ impl Span {
             SetAttributes(self.style.attributes).write_ansi(f)?;
             reset = true;
         }
+        if let Some(hy) = &self.hyperlink {
+            // TODO: IDs aren't supported here. This is a very naive implementation
+            // ideally this should be supported by crossterm
+            write!(f, "\x1B]8;;{}\x1B\\", hy.uri())?;
+            reset_hyperlink = true;
+        }
 
         write!(f, "{}", self.content)?;
+
+        if reset_hyperlink {
+            write!(f, "\x1B]8;;\x1B\\")?;
+        }
 
         if reset {
             ResetColor.write_ansi(f)?;
@@ -321,16 +345,19 @@ impl TryFrom<StyledContent<String>> for Span {
     }
 }
 
-pub(crate) struct SpanIterator<'a>(&'a ContentStyle, Graphemes<'a>);
+pub(crate) struct SpanIterator<'a>(&'a ContentStyle, Graphemes<'a>, &'a Option<Hyperlink>);
 
 impl<'a> Iterator for SpanIterator<'a> {
     type Item = Span;
 
     fn next(&mut self) -> Option<Self::Item> {
         let content = self.1.next();
+        let style = self.0;
+        let hyperlink = self.2;
         content.map(|content| Span {
-            style: *self.0,
+            style: *style,
             content: Cow::Owned(content.to_owned()),
+            hyperlink: hyperlink.clone(),
         })
     }
 }
