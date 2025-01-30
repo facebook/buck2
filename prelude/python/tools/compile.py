@@ -27,6 +27,7 @@ import os
 import re
 import sys
 import traceback
+from functools import partial
 from py_compile import compile, PycInvalidationMode, PyCompileError
 from types import TracebackType
 from typing import List, Type
@@ -71,8 +72,18 @@ def _stderr_print(msg: str) -> None:
     print(msg, file=sys.stderr, end="")
 
 
+def _hyperlink(file: str, line: int, text: str) -> str:
+    from urllib.parse import urlencode
+
+    OSC = "\033]"
+    ST = "\033\\"
+    params = urlencode({"project": "fbsource", "paths[0]": file, "lines[0]": line})
+    uri = f"https://www.internalfb.com/intern/nuclide/open/arc/?{params}"
+    return f"{OSC}8;;{uri}{ST}{text}{OSC}8;;{ST}"
+
+
 def pretty_exception(
-    typ: Type[BaseException], exc: BaseException, tb: TracebackType
+    typ: Type[BaseException], exc: BaseException, tb: TracebackType, src: str
 ) -> None:
     try:
         from colorama import Fore, just_fix_windows_console, Style
@@ -80,6 +91,11 @@ def pretty_exception(
         just_fix_windows_console()
 
         trace = traceback.format_exception(typ, exc, tb)
+        line_number = None
+        if isinstance(exc, PyCompileError) and isinstance(exc.exc_value, SyntaxError):
+            line_number = exc.exc_value.lineno
+        if line_number is None:
+            line_number = 1
         prev_line = ""
         for line in trace:
             if line.startswith(
@@ -94,13 +110,17 @@ def pretty_exception(
                 if prev_line.startswith("  File"):
                     # Magenta for last listed filename and line number
                     s = re.sub(
-                        r'"(.*?)"',
-                        lambda match: Fore.MAGENTA + f'"{match.group(1)}"' + Fore.RESET,
+                        r"\b\d+$",
+                        lambda match: f"{Fore.MAGENTA}{match.group()}{Fore.RESET}",
                         prev_line,
                     )
                     s = re.sub(
-                        r"\b\d+$",
-                        lambda match: Fore.MAGENTA + f"{match.group()}" + Fore.RESET,
+                        r'"(.*?)"',
+                        lambda match: _hyperlink(
+                            src,
+                            line_number,
+                            f'{Fore.MAGENTA}"{match.group(1)}"{Fore.RESET}',
+                        ),
                         s,
                     )
                     _stderr_print(s)
@@ -168,7 +188,7 @@ def main(argv: List[str]) -> None:
                 )
             except PyCompileError:
                 if not args.debug:
-                    sys.excepthook = pretty_exception
+                    sys.excepthook = partial(pretty_exception, src=src)
                 raise
             bytecode_manifest.append((dest_pyc, pyc, src))
     json.dump(bytecode_manifest, args.bytecode_manifest, indent=2)
