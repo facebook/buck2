@@ -24,6 +24,7 @@ load(
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link_groups.bzl",
+    "BuildLinkGroupsContext",
     "LinkGroupLinkInfo",  # @unused Used as a type
     "collect_linkables",
     "create_link_groups",
@@ -479,22 +480,26 @@ def inherited_rust_cxx_link_group_info(
         pic_behavior,
         roots,
     )
-    labels_to_links = get_filtered_labels_to_links_map(
-        public_link_group_nodes,
-        linkable_graph_node_map,
-        link_group,
-        link_groups,
-        link_group_mappings,
-        link_group_preferred_linkage,
+    build_context = BuildLinkGroupsContext(
+        public_nodes = public_link_group_nodes,
+        linkable_graph = reduced_linkable_graph,
+        link_groups = link_groups,
+        link_group_mappings = link_group_mappings,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        link_strategy = link_strategy,
         pic_behavior = pic_behavior,
         link_group_libs = {
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
-        link_strategy = link_strategy,
+        prefer_stripped = False,
+        prefer_optimized = False,
+    )
+    labels_to_links = get_filtered_labels_to_links_map(
+        link_group = link_group,
         linkables = exec_linkables,
         is_executable_link = is_executable_link,
-        prefer_stripped = False,
+        build_context = build_context,
         force_static_follows_dependents = True,
     )
 

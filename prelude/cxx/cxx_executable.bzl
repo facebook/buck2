@@ -144,6 +144,7 @@ load(
 )
 load(
     ":link_groups.bzl",
+    "BuildLinkGroupsContext",
     "FinalLabelsToLinks",
     "LINK_GROUP_MAPPINGS_FILENAME_SUFFIX",
     "LINK_GROUP_MAPPINGS_SUB_TARGET",
@@ -430,25 +431,30 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             roots,
         )
 
-        # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
-        # scenarios for which we need to propagate up link info and simplify this logic. For now
-        # base which links to use based on whether link groups are defined.
-        labels_to_links = get_filtered_labels_to_links_map(
-            public_link_group_nodes,
-            linkable_graph_node_map,
-            link_group,
-            link_groups,
-            link_group_mappings,
-            link_group_preferred_linkage,
+        build_context = BuildLinkGroupsContext(
+            public_nodes = public_link_group_nodes,
+            linkable_graph = reduced_linkable_graph,
+            link_groups = link_groups,
+            link_group_mappings = link_group_mappings,
+            link_group_preferred_linkage = link_group_preferred_linkage,
+            link_strategy = link_strategy,
             pic_behavior = pic_behavior,
             link_group_libs = {
                 name: (lib.label, lib.shared_link_infos)
                 for name, lib in link_group_libs.items()
             },
-            link_strategy = link_strategy,
+            prefer_stripped = impl_params.prefer_stripped_objects,
+            prefer_optimized = False,
+        )
+
+        # TODO(T110378098): Similar to shared libraries, we need to identify all the possible
+        # scenarios for which we need to propagate up link info and simplify this logic. For now
+        # base which links to use based on whether link groups are defined.
+        labels_to_links = get_filtered_labels_to_links_map(
+            link_group,
             linkables = exec_linkables,
             is_executable_link = is_executable_link,
-            prefer_stripped = impl_params.prefer_stripped_objects,
+            build_context = build_context,
             force_static_follows_dependents = impl_params.link_groups_force_static_follows_dependents,
         )
 
@@ -498,16 +504,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 roots,
             )
             labels_to_links_to_merge = get_filtered_labels_to_links_map(
-                public_link_group_nodes,
-                linkable_graph_node_map,
-                None,
-                link_groups,
-                link_group_mappings,
-                link_group_preferred_linkage,
-                link_strategy,
-                pic_behavior = pic_behavior,
+                link_group = None,
                 linkables = exec_linkables,
-                prefer_stripped = impl_params.prefer_stripped_objects,
+                is_executable_link = False,
+                build_context = build_context,
             )
             labels_to_links.map |= labels_to_links_to_merge.map
 

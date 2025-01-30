@@ -26,6 +26,7 @@ load(
 load("@prelude//cxx:groups.bzl", "get_dedupped_roots_from_groups")
 load(
     "@prelude//cxx:link_groups.bzl",
+    "BuildLinkGroupsContext",
     "LinkGroupContext",
     "collect_linkables",
     "create_link_groups",
@@ -1044,22 +1045,27 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             pic_behavior,
             roots,
         )
-        labels_to_links = get_filtered_labels_to_links_map(
+        build_context = BuildLinkGroupsContext(
             public_nodes = public_nodes,
-            linkable_graph_node_map = linkable_graph_node_map,
-            link_group = None,
+            linkable_graph = reduced_linkable_graph,
             link_groups = link_group_info.groups,
             link_group_mappings = link_group_info.mappings,
             link_group_preferred_linkage = link_group_preferred_linkage,
+            link_strategy = link_strategy,
+            pic_behavior = pic_behavior,
             link_group_libs = {
                 name: (lib.label, lib.shared_link_infos)
                 for name, lib in link_group_libs.items()
             },
-            link_strategy = link_strategy,
+            prefer_stripped = False,
+            prefer_optimized = False,
+        )
+        labels_to_links = get_filtered_labels_to_links_map(
+            link_group = None,
             linkables = exec_linkables,
             is_executable_link = True,
+            build_context = build_context,
             force_static_follows_dependents = True,
-            pic_behavior = pic_behavior,
         )
 
         # NOTE: Our Haskell DLL support impl currently links transitive haskell

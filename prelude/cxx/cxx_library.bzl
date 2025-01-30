@@ -184,6 +184,7 @@ load(
 )
 load(
     ":link_groups.bzl",
+    "BuildLinkGroupsContext",
     "LINK_GROUP_MAP_DATABASE_SUB_TARGET",
     "collect_linkables",
     "get_filtered_labels_to_links_map",
@@ -1486,21 +1487,28 @@ def _get_shared_library_links(
         pic_behavior,
         roots,
     )
-    filtered_labels_to_links = get_filtered_labels_to_links_map(
-        None,
-        reduced_linkable_graph.nodes,
-        link_group,
-        {},
-        link_group_mappings,
-        link_group_preferred_linkage,
+
+    build_context = BuildLinkGroupsContext(
+        public_nodes = set(),
+        linkable_graph = reduced_linkable_graph,
+        link_groups = {},
+        link_group_mappings = link_group_mappings,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        link_strategy = link_strategy,
+        pic_behavior = pic_behavior,
         link_group_libs = {
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
-        link_strategy = link_strategy,
-        linkables = lib_linkables,
-        pic_behavior = pic_behavior,
         prefer_stripped = prefer_stripped,
+        prefer_optimized = False,
+    )
+
+    filtered_labels_to_links = get_filtered_labels_to_links_map(
+        link_group = link_group,
+        linkables = lib_linkables,
+        is_executable_link = False,
+        build_context = build_context,
         force_static_follows_dependents = force_static_follows_dependents,
     )
     filtered_links = get_filtered_links(filtered_labels_to_links.map)

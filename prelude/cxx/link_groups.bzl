@@ -413,20 +413,25 @@ def collect_linkables(
 def _should_fixup_link_order(link_strategy: LinkStrategy) -> bool:
     return link_strategy == LinkStrategy("shared")
 
+BuildLinkGroupsContext = record(
+    public_nodes = field(set[Label] | None),
+    linkable_graph = field(ReducedLinkableGraph),
+    link_groups = field(dict[str, Group]),
+    link_group_mappings = field(dict[Label, str] | None),
+    link_group_preferred_linkage = field(dict[Label, Linkage]),
+    link_strategy = field(LinkStrategy),
+    pic_behavior = field(PicBehavior),
+    link_group_libs = field(dict[str, ([Label, None], LinkInfos)]),
+    link_group_roots = field(dict[str, Label] | None, None),  # If none, derived from link_group_libs
+    prefer_stripped = field(bool, False),
+    prefer_optimized = field(bool, False),
+)
+
 def get_filtered_labels_to_links_map(
-        public_nodes: [set[Label], None],
-        linkable_graph_node_map: dict[Label, LinkableNode],
-        link_group: [str, None],
-        link_groups: dict[str, Group],
-        link_group_mappings: [dict[Label, str], None],
-        link_group_preferred_linkage: dict[Label, Linkage],
-        link_strategy: LinkStrategy,
+        link_group: str | None,
         linkables: list[Label],
-        pic_behavior: PicBehavior,
-        is_executable_link: bool = False,
-        link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
-        link_group_roots: dict[str, Label] | None = None,  # If none, derived from link_group_libs
-        prefer_stripped: bool = False,
+        is_executable_link: bool,
+        build_context: BuildLinkGroupsContext,
         force_static_follows_dependents: bool = True,
         prefer_optimized = False) -> FinalLabelsToLinks:
     """
@@ -438,23 +443,24 @@ def get_filtered_labels_to_links_map(
 
     # An index of target to link group names, for all link group library nodes.
     # Provides fast lookup of a link group root lib via it's label.
+    link_group_roots = build_context.link_group_roots
     if link_group_roots == None:
         link_group_roots = {
             label: name
-            for name, (label, _) in link_group_libs.items()
+            for name, (label, _) in build_context.link_group_libs.items()
             if label != None
         }
 
     # Transitively update preferred linkage to avoid runtime issues from
     # missing dependencies (e.g. for prebuilt shared libs).
     _transitively_update_shared_linkage(
-        linkable_graph_node_map,
+        build_context.linkable_graph.nodes,
         link_group,
-        link_strategy,
-        link_group_preferred_linkage,
+        build_context.link_strategy,
+        build_context.link_group_preferred_linkage,
         link_group_roots,
-        pic_behavior,
-        link_group_mappings,
+        build_context.pic_behavior,
+        build_context.link_group_mappings,
     )
 
     linkable_map = {}
@@ -467,7 +473,7 @@ def get_filtered_labels_to_links_map(
 
     def add_link(target: Label, output_style: LibOutputStyle):
         linkable_map[target] = LinkGroupLinkInfo(
-            link_info = get_link_info(linkable_graph_node_map[target], output_style, prefer_stripped, prefer_optimized),
+            link_info = get_link_info(build_context.linkable_graph.nodes[target], output_style, build_context.prefer_stripped, prefer_optimized),
             output_style = output_style,
             link_name = target,
         )
@@ -475,12 +481,12 @@ def get_filtered_labels_to_links_map(
     def add_link_group(target: Label, target_group: str):
         # If we've already added this link group to the link line, we're done.
 
-        link_group_spec = link_groups.get(target_group, None)
-        if link_group_spec and link_group_spec.attrs.prohibit_file_duplicates and public_nodes and target in public_nodes:
+        link_group_spec = build_context.link_groups.get(target_group, None)
+        if link_group_spec and link_group_spec.attrs.prohibit_file_duplicates and build_context.public_nodes and target in build_context.public_nodes:
             if target_group not in group_srcs:
                 group_srcs[target_group] = {}
             target_group_srcs = group_srcs[target_group]
-            for src in linkable_graph_node_map[target].srcs:
+            for src in build_context.linkable_graph.nodes[target].srcs:
                 if not isinstance(src, Artifact):
                     # "src" is either source file or source file with list of compilation flags.
                     # We do not handle the case where we have compilation flags attached to source files
@@ -501,7 +507,7 @@ def get_filtered_labels_to_links_map(
         # in this case.
         # NOTE(agallagher): This case seems broken, as we're not going to set
         # DT_NEEDED tag correctly, or detect missing syms at link time.
-        link_group_lib = link_group_libs.get(target_group)
+        link_group_lib = build_context.link_group_libs.get(target_group)
         if link_group_lib == None:
             return
         _, shared_link_infos = link_group_lib
@@ -517,11 +523,11 @@ def get_filtered_labels_to_links_map(
     filtered_groups = [None, NO_MATCH_LABEL, MATCH_ALL_LABEL]
 
     for target in linkables:
-        node = linkable_graph_node_map[target]
-        target_link_group = link_group_mappings.get(target)
+        node = build_context.linkable_graph.nodes[target]
+        target_link_group = build_context.link_group_mappings.get(target)
 
-        output_style = get_lib_output_style(link_strategy, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
-        output_style_for_static_strategy = get_lib_output_style(LinkStrategy("static_pic"), link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
+        output_style = get_lib_output_style(build_context.link_strategy, build_context.link_group_preferred_linkage.get(target, node.preferred_linkage), build_context.pic_behavior)
+        output_style_for_static_strategy = get_lib_output_style(LinkStrategy("static_pic"), build_context.link_group_preferred_linkage.get(target, node.preferred_linkage), build_context.pic_behavior)
         is_forced_shared_linkage = output_style_for_static_strategy == LibOutputStyle("shared_lib")
 
         # We should always add force-static libs to the link.
@@ -532,7 +538,7 @@ def get_filtered_labels_to_links_map(
 
         if is_forced_shared_linkage:
             # filter out any dependencies to be discarded
-            if should_discard_group(link_groups.get(target_link_group)):
+            if should_discard_group(build_context.link_groups.get(target_link_group)):
                 continue
 
             # If this target is a link group root library, we
@@ -547,13 +553,13 @@ def get_filtered_labels_to_links_map(
         else:
             # Shared vs static linkage branches are similar, but separated for
             # clarity and ease of debugging.
-            if link_strategy == LinkStrategy("shared"):
+            if build_context.link_strategy == LinkStrategy("shared"):
                 if (target_link_group and matches_current_link_group) or is_force_static_lib:
                     # Target linked statically if:
                     # 1. It belongs to current link group (unique symbols across graph)
                     # 2. It matches all link groups (can duplicate symbols across graph)
                     # 3. It forces static linkage (can duplicate symbols across graph)
-                    if not should_discard_group(link_groups.get(target_link_group)):
+                    if not should_discard_group(build_context.link_groups.get(target_link_group)):
                         add_link(target, output_style_for_static_strategy)
 
                 elif not target_link_group or target_link_group == NO_MATCH_LABEL:
@@ -570,7 +576,7 @@ def get_filtered_labels_to_links_map(
             else:  # static or static_pic
                 # Always add force-static libs to the link.
                 if is_force_static_lib:
-                    if not should_discard_group(link_groups.get(target_link_group)):
+                    if not should_discard_group(build_context.link_groups.get(target_link_group)):
                         add_link(target, output_style)
                 elif not target_link_group and not link_group:
                     # Ungrouped linkable targets belong to the unlabeled executable
@@ -783,19 +789,11 @@ _CreatedLinkGroup = record(
 )
 
 _CreateLinkGroupParams = record(
-    public_nodes = field(set[Label]),
-    link_strategy = field(LinkStrategy),
-    linkable_graph = field(ReducedLinkableGraph),
-    link_groups = field(dict[str, Group]),
-    link_group_mappings = field(dict[Label, str]),
-    link_group_libs = field(dict[str, (Label | None, LinkInfos)]),
-    link_group_preferred_linkage = field(dict[Label, Linkage]),
-    link_group_roots = field(dict[str, Label]),
     category_suffix = field(str),
     anonymous = field(bool),
     allow_cache_upload = field(bool),
-    prefer_stripped_objects = field(bool),
     error_handler = field([typing.Callable, None]),
+    build_groups_context = field(BuildLinkGroupsContext),
 )
 
 def _create_link_group(
@@ -829,26 +827,18 @@ def _create_link_group(
         # might be required to link the given link group.
         inputs.append(get_link_info_from_link_infos(
             spec.root.link_infos,
-            prefer_stripped = params.prefer_stripped_objects,
+            prefer_stripped = params.build_groups_context.prefer_stripped,
         ))
 
     # Add roots...
     filtered_labels_to_links = get_filtered_labels_to_links_map(
-        params.public_nodes,
-        params.linkable_graph.nodes,
-        spec.group.name,
-        params.link_groups,
-        params.link_group_mappings,
-        params.link_group_preferred_linkage,
-        pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
-        link_group_libs = params.link_group_libs,
-        link_group_roots = params.link_group_roots,
-        link_strategy = params.link_strategy,
+        link_group = spec.group.name,
         linkables = linkables,
-        prefer_stripped = params.prefer_stripped_objects,
+        is_executable_link = False,
+        build_context = params.build_groups_context,
         prefer_optimized = spec.group.attrs.prefer_optimized_experimental,
     )
-    inputs.extend(get_filtered_links(filtered_labels_to_links.map, params.public_nodes))
+    inputs.extend(get_filtered_links(filtered_labels_to_links.map, params.build_groups_context.public_nodes))
 
     if not filtered_labels_to_links.map and not spec.root:
         # don't create empty shared libraries
@@ -1043,22 +1033,27 @@ def create_link_groups(
         for name, lib in link_group_shared_links.items()
     }
 
-    create_link_group_params = _CreateLinkGroupParams(
+    build_groups_context = BuildLinkGroupsContext(
         public_nodes = public_nodes,
-        link_strategy = link_strategy,
         linkable_graph = linkable_graph,
         link_groups = link_groups,
         link_group_mappings = link_group_mappings,
+        link_strategy = link_strategy,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
+        link_group_libs = link_group_libs,
         # TODO(agallagher): Should we support alternate link strategies
         # (e.g. bottom-up with symbol errors)?
-        link_group_libs = link_group_libs,
-        link_group_preferred_linkage = link_group_preferred_linkage,
         link_group_roots = {},
+        prefer_stripped = prefer_stripped_objects,
+    )
+
+    create_link_group_params = _CreateLinkGroupParams(
         category_suffix = "link_group",
         anonymous = anonymous,
         allow_cache_upload = allow_cache_upload,
-        prefer_stripped_objects = prefer_stripped_objects,
         error_handler = error_handler,
+        build_groups_context = build_groups_context,
     )
 
     for link_group_spec in specs:
