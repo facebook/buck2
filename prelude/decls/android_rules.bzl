@@ -10,6 +10,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:attrs_validators.bzl", "ATTRS_VALIDATORS_NAME", "ATTRS_VALIDATORS_TYPE")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
@@ -783,6 +784,7 @@ android_library = prelude_rule(
             "runtime_deps": attrs.list(attrs.dep(), default = []),
             "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
+            ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         }
     ) | jvm_common.plugins(),
 )

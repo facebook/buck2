@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//:attrs_validators.bzl", "get_attrs_validators_info")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load(
     "@prelude//android:android_providers.bzl",
@@ -54,7 +55,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             manifest = ctx.attrs.manifest,
         ),
         merge_exported_android_resource_info(ctx.attrs.exported_deps),
-    ] + android_providers
+    ] + android_providers + get_attrs_validators_info(ctx)
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
     return ctx.attrs.android_optional_jars or []
