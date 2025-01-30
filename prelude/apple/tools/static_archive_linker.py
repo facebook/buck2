@@ -11,13 +11,25 @@ import sys
 
 
 def _filter_files(args):
-    # Filter out any arg that starts with '-'. Assumes that other args are
-    # files that should be passed to libtool.
+    # Filter out any arg that starts with '-'.  Also filter out passed arg
+    # pairs like '-framework Cocoa'. Assumes that other args are files that
+    # should be passed to libtool.
     # Rationale: There's no way of checking if an arg is intended to be a file.
-    # Having a filter that looks checks if a file with a given path exists will
+    # Having a filter that checks if a file with a given path exists will
     # silently remove the arg in the event of an error where arg is a file and
     # the file does not exist.
-    return [arg for arg in args if not arg.startswith("-")]
+    filtered_args = []
+    skip_next = False
+    for arg in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg.startswith("-"):
+            if arg == "-framework":
+                skip_next = True
+            continue
+        filtered_args.append(arg)
+    return filtered_args
 
 
 def _main() -> None:
