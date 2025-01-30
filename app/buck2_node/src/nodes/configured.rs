@@ -343,9 +343,11 @@ impl ConfiguredTargetNode {
         &self.0.execution_platform_resolution
     }
 
-    /// Returns all deps for this node that we know about after processing the build file
-    /// (it may be missing things like toolchain deps or other things that are determined
-    /// later in the build process).
+    /// Returns all deps for this node:
+    /// - target ("normal") deps
+    /// - execution deps
+    /// - toolchain deps
+    /// - configuration deps
     // TODO(cjhopman): Should this include configuration deps? Should it include the configuration deps that were inspected resolving selects?
     pub fn deps(&self) -> impl Iterator<Item = &ConfiguredTargetNode> {
         self.0.all_deps.all_deps.iter()
