@@ -26,6 +26,7 @@ use std::alloc::Layout;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
@@ -43,18 +44,35 @@ struct ThinBoxSliceLayout<T> {
 }
 
 impl<T> ThinBoxSliceLayout<T> {
-    fn offset_of_data() -> usize {
-        mem::offset_of!(ThinBoxSliceLayout::<T>, data)
+    const fn offset_of_data() -> isize {
+        // SAFETY: rust guarantees no allocated object can be larger than isize::MAX bytes.
+        mem::offset_of!(ThinBoxSliceLayout::<T>, data) as isize
     }
 }
 
-/// `Box<[T]>` but thin pointer.
+/// `Box<[T]>` but thin pointer to FrozenValue(s)
 ///
-/// Statically allocated for empty slice.
+/// Similar to `ThinBoxSlice`, but it ignores the lowest bit, allowing
+/// PackedImpl to use that to store a single FrozenValue in place of this
+/// object. Like `ThinBoxSlice`, the remaining unused pointer bits are used to
+/// store an embedded length. If these bits are zero, the `ptr` points to the
+/// `.data` of a ThinBoxSliceLayout, which stores the `.len`. Otherwise, ptr
+/// points at the T[].
+///
+///
+/// The current implementation returns what amounts to a null pointer for an
+/// empty list. An alternative would be to return a valid pointer to a
+/// statically allocated "long"-lengthed object with a length of 0. This would
+/// reduce the number of representations, but testing at the time of this
+/// writing shows that empty lists are common, and the pointer dereference in
+/// reading the length causes a small performance hit. Changes in the future may
+/// make this the preferred implementation.
+//
 // We don't really need `'static` here, but we hit type checker limitations.
 pub(super) struct AllocatedThinBoxSlice<T: 'static> {
     /// Pointer to the first element, `ThinBoxSliceLayout.data`.
-    ptr: NonNull<T>,
+    ptr: usize,
+    phantom: PhantomData<T>,
 }
 
 unsafe impl<T: Sync> Sync for AllocatedThinBoxSlice<T> {}
@@ -63,45 +81,86 @@ unsafe impl<T: Send> Send for AllocatedThinBoxSlice<T> {}
 impl<T: 'static> AllocatedThinBoxSlice<T> {
     #[inline]
     pub(super) const fn empty() -> AllocatedThinBoxSlice<T> {
-        const fn instance<T>() -> &'static ThinBoxSliceLayout<T> {
-            assert!(mem::size_of::<ThinBoxSliceLayout<T>>() <= mem::size_of::<u128>());
-            assert!(mem::align_of::<ThinBoxSliceLayout<T>>() <= mem::align_of::<u128>());
-            // Instead of just statically allocating a `ThinBoxSliceLayout<T>` we allocate a
-            // `0_u128`. The reason for this is a rustc bug around const UB checks that otherwise
-            // incorrectly fires: https://github.com/rust-lang/rust/issues/133523
-            //
-            // SAFETY: We just checked that the layout is small enough to fit in a u128.
-            unsafe { &*ptr::from_ref(&0u128).cast::<ThinBoxSliceLayout<T>>() }
+        AllocatedThinBoxSlice {
+            ptr: 0,
+            phantom: PhantomData,
         }
+    }
 
-        unsafe {
-            AllocatedThinBoxSlice {
-                ptr: NonNull::new_unchecked(instance::<T>().data.as_ptr() as *mut T),
-            }
-        }
+    const fn get_reserved_tag_bit_count() -> usize {
+        // The lower bit is reserved for use by PackedImpl.
+        1
+    }
+
+    const fn get_unshifted_tag_bit_mask() -> usize {
+        let align: usize = std::mem::align_of::<T>();
+        assert!(align.is_power_of_two());
+        align - 1
+    }
+
+    const fn get_tag_bit_mask() -> usize {
+        let mask = Self::get_unshifted_tag_bit_mask()
+            >> AllocatedThinBoxSlice::<T>::get_reserved_tag_bit_count();
+        assert!(mask != 0);
+        mask
+    }
+
+    const fn get_max_short_len() -> usize {
+        Self::get_tag_bit_mask() + 1
     }
 
     /// Allocation layout for a slice of length `len`.
     #[inline]
-    fn layout_for_len(len: usize) -> Layout {
-        let (layout, _offset_of_data) = Layout::new::<ThinBoxSliceLayout<T>>()
-            .extend(Layout::array::<T>(len).unwrap())
-            .unwrap();
-        layout
+    fn layout_for_len(len: usize) -> (bool, Layout) {
+        if len != 0 && len != 1 && len <= Self::get_max_short_len() {
+            (true, Layout::array::<T>(len).unwrap())
+        } else {
+            let (layout, _offset_of_data) = Layout::new::<ThinBoxSliceLayout<T>>()
+                .extend(Layout::array::<T>(len).unwrap())
+                .unwrap();
+            (false, layout)
+        }
+    }
+
+    #[inline]
+    fn get_tag_bits(&self) -> usize {
+        (self.ptr & Self::get_unshifted_tag_bit_mask()) >> Self::get_reserved_tag_bit_count()
+    }
+
+    #[inline]
+    fn as_ptr(&self) -> *mut T {
+        (self.ptr & !Self::get_unshifted_tag_bit_mask()) as *mut T
+    }
+
+    #[inline]
+    fn as_nonnull_ptr(&self) -> *mut T {
+        let ptr = self.as_ptr();
+        if ptr.is_null() {
+            NonNull::<T>::dangling().as_ptr()
+        } else {
+            ptr
+        }
     }
 
     /// Length of the slice.
     // Not called `len` to avoid overload with `Deref::len`.
     #[inline]
     fn read_len(&self) -> usize {
-        unsafe {
-            (*self
-                .ptr
-                .as_ptr()
-                .cast::<u8>()
-                .sub(ThinBoxSliceLayout::<T>::offset_of_data())
-                .cast::<ThinBoxSliceLayout<T>>())
-            .len
+        if self.as_ptr().is_null() {
+            return 0;
+        }
+
+        let bits = self.get_tag_bits();
+        if bits != 0 {
+            bits + 1
+        } else {
+            unsafe {
+                (*self
+                    .as_ptr()
+                    .byte_offset(-ThinBoxSliceLayout::<T>::offset_of_data())
+                    .cast::<ThinBoxSliceLayout<T>>())
+                .len
+            }
         }
     }
 
@@ -111,26 +170,41 @@ impl<T: 'static> AllocatedThinBoxSlice<T> {
         if len == 0 {
             AllocatedThinBoxSlice::empty()
         } else {
-            let layout = Self::layout_for_len(len);
+            let (is_short, layout) = Self::layout_for_len(len);
             unsafe {
                 let alloc = alloc::alloc(layout);
                 if alloc.is_null() {
                     alloc::handle_alloc_error(layout);
                 }
-                ptr::write(alloc as *mut usize, len);
-                let ptr = alloc.add(mem::size_of::<usize>()) as *mut MaybeUninit<T>;
-                let ptr = NonNull::new_unchecked(ptr);
-                AllocatedThinBoxSlice { ptr }
+                if is_short {
+                    assert!((alloc as usize) & Self::get_unshifted_tag_bit_mask() == 0);
+                    AllocatedThinBoxSlice {
+                        // Embed the length in the lower bits of ptr
+                        ptr: (alloc as usize) | ((len - 1) << Self::get_reserved_tag_bit_count()),
+                        phantom: PhantomData,
+                    }
+                } else {
+                    let alloc = alloc as *mut ThinBoxSliceLayout<T>;
+                    (*alloc).len = len;
+                    let data_ptr = alloc.byte_offset(ThinBoxSliceLayout::<T>::offset_of_data());
+                    AllocatedThinBoxSlice {
+                        ptr: data_ptr as usize,
+                        phantom: PhantomData,
+                    }
+                }
             }
         }
     }
 
-    pub const unsafe fn into_inner(self) -> NonNull<T> {
+    pub const unsafe fn into_inner(self) -> usize {
         self.ptr
     }
 
-    pub const unsafe fn from_inner(ptr: NonNull<T>) -> Self {
-        Self { ptr }
+    pub unsafe fn from_inner(ptr: usize) -> Self {
+        Self {
+            ptr,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -139,14 +213,14 @@ impl<T: 'static> Deref for AllocatedThinBoxSlice<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.read_len()) }
+        unsafe { slice::from_raw_parts(self.as_nonnull_ptr(), self.read_len()) }
     }
 }
 
 impl<T: 'static> DerefMut for AllocatedThinBoxSlice<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.read_len()) }
+        unsafe { slice::from_raw_parts_mut(self.as_nonnull_ptr(), self.read_len()) }
     }
 }
 
@@ -154,7 +228,8 @@ impl<T> AllocatedThinBoxSlice<MaybeUninit<T>> {
     #[inline]
     unsafe fn assume_init(self) -> AllocatedThinBoxSlice<T> {
         AllocatedThinBoxSlice {
-            ptr: self.ptr.cast::<T>(),
+            ptr: self.ptr,
+            phantom: PhantomData,
         }
     }
 }
@@ -165,10 +240,14 @@ impl<T: 'static> AllocatedThinBoxSlice<T> {
         unsafe {
             let len = self.read_len();
             if len != 0 {
-                let slice = ptr::slice_from_raw_parts_mut(self.ptr.as_ptr(), len);
+                let slice = ptr::slice_from_raw_parts_mut(self.as_nonnull_ptr(), len);
                 ptr::drop_in_place(slice);
-                let alloc = self.ptr.cast::<usize>().as_ptr().sub(1);
-                alloc::dealloc(alloc as *mut u8, Self::layout_for_len(len));
+                let mut alloc = self.as_ptr().cast::<u8>();
+                let (is_short, layout) = Self::layout_for_len(len);
+                if !is_short {
+                    alloc = alloc.byte_offset(-ThinBoxSliceLayout::<T>::offset_of_data());
+                }
+                alloc::dealloc(alloc, layout);
             }
         }
     }
@@ -246,11 +325,12 @@ impl<T: Allocative> Allocative for AllocatedThinBoxSlice<T> {
                 let mut visitor =
                     visitor.enter_unique(allocative::Key::new("ptr"), mem::size_of_val(&self.ptr));
                 {
-                    let mut visitor = visitor.enter(
-                        allocative::Key::new("alloc"),
-                        Self::layout_for_len(self.len()).size(),
-                    );
-                    visitor.visit_simple(allocative::Key::new("len"), mem::size_of::<usize>());
+                    let (is_short, layout) = Self::layout_for_len(self.len());
+                    let mut visitor = visitor.enter(allocative::Key::new("alloc"), layout.size());
+
+                    if !is_short {
+                        visitor.visit_simple(allocative::Key::new("len"), mem::size_of::<usize>());
+                    }
                     {
                         let mut visitor = visitor
                             .enter(allocative::Key::new("data"), mem::size_of_val::<[_]>(self));

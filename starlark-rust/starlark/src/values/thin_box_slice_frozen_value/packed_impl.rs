@@ -21,6 +21,7 @@ use std::ops::Deref;
 use std::ptr::NonNull;
 
 use either::Either;
+use static_assertions::const_assert;
 
 use crate::values::thin_box_slice_frozen_value::thin_box::AllocatedThinBoxSlice;
 use crate::values::FrozenValue;
@@ -35,8 +36,10 @@ struct PackedImpl(NonNull<()>);
 
 impl PackedImpl {
     const fn new_allocated(allocated: AllocatedThinBoxSlice<FrozenValue>) -> Self {
-        let allocated = unsafe { allocated.into_inner().byte_add(1) };
-        Self(allocated.cast::<()>())
+        // ensure that there is space for the lower, extra bit
+        const_assert!(std::mem::align_of::<AllocatedThinBoxSlice<FrozenValue>>() > 1);
+        let allocated = unsafe { NonNull::new_unchecked((allocated.into_inner() + 1) as *mut ()) };
+        Self(allocated)
     }
 
     fn new(iter: impl IntoIterator<Item = FrozenValue>) -> Self {
@@ -56,11 +59,8 @@ impl PackedImpl {
         let ptr = self.0.as_ptr();
         if (ptr as usize) & 1 == 1 {
             let allocated = (ptr as usize & !1) as *mut FrozenValue;
-            let allocated = unsafe {
-                AllocatedThinBoxSlice::<FrozenValue>::from_inner(
-                    NonNull::<FrozenValue>::new_unchecked(allocated),
-                )
-            };
+            let allocated =
+                unsafe { AllocatedThinBoxSlice::<FrozenValue>::from_inner(allocated as usize) };
             Either::Right(allocated)
         } else {
             let val = unsafe { &*(self as *const PackedImpl as *const FrozenValue) };
@@ -172,6 +172,10 @@ impl<'v> Eq for ThinBoxSliceFrozenValue<'v> {}
 
 #[cfg(test)]
 mod tests {
+    use std::mem;
+
+    use super::AllocatedThinBoxSlice;
+    use super::PackedImpl;
     use super::ThinBoxSliceFrozenValue;
     use crate::values::int::inline_int::InlineInt;
     use crate::values::FrozenHeap;
@@ -222,5 +226,25 @@ mod tests {
     fn test_default() {
         let val = ThinBoxSliceFrozenValue::default();
         assert_eq!(val.len(), 0);
+    }
+
+    #[test]
+    fn test_empty() {
+        let val_a = ThinBoxSliceFrozenValue::empty();
+        let val_b = ThinBoxSliceFrozenValue::empty();
+        // Check that the empty value is the same for all empty values so that we're not doing extra allocations
+        assert_eq!(val_a.0.0.as_ptr(), val_b.0.0.as_ptr());
+
+        // Since this and PackedImpl are closely tied together, provide some
+        // low-level checks that the representations are what we expect.
+        let val_c = PackedImpl::new([].into_iter());
+        let val_d = AllocatedThinBoxSlice::<FrozenValue>::empty();
+        assert_eq!(val_a.0.0.as_ptr(), val_c.0.as_ptr());
+        assert_eq!(mem::size_of_val(&val_c), std::mem::size_of_val(&val_d));
+        assert_eq!(mem::size_of_val(&val_c), std::mem::size_of::<usize>());
+        assert_eq!(1, val_c.0.as_ptr() as usize);
+        assert_eq!(0, unsafe {
+            std::mem::transmute::<AllocatedThinBoxSlice<FrozenValue>, usize>(val_d)
+        });
     }
 }
