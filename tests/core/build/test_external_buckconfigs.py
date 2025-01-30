@@ -35,11 +35,26 @@ async def test_external_buckconfigs(buck: Buck) -> None:
             "--config-file",
             f.name,
         )
+        # Make a spurious file change to trigger DICE updater state comparison
+        with open(buck.cwd / "src", "w") as src:
+            src.write("test")
 
-    external_configs = await filter_events(
+        await buck.build(
+            "@root//mode/my_mode",
+            "//:test",
+            "-c",
+            "my_section.my_key=my_value",
+            "--config-file",
+            f.name,
+        )
+
+    buckconfig_input_values = await filter_events(
         buck, "Event", "data", "Instant", "data", "BuckconfigInputValues", "components"
     )
-    external_configs = external_configs[0]
+    # Currently, when there are file changes in between, we end up having two BuckconfigInputValues events.
+    # Will be fixed in the next diff.
+    assert len(buckconfig_input_values) == 2
+    external_configs = buckconfig_input_values[0]
 
     assert len(external_configs) == 4
     external_index = 0
