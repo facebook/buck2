@@ -123,6 +123,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     ///     * If it is true, the result will be a pair of the `artifact` containing content and a
     ///       list of artifact values that were written by macros, which should be used in hidden
     ///       fields or similar
+    /// * `with_inputs` (optional): if set, add artifacts in `content` as associated artifacts of the return `artifact`.
     /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared
