@@ -787,19 +787,19 @@ def _create_link_group(
         spec: LinkGroupLibSpec,
         linkables: list[Label],
         link_strategy: LinkStrategy,
-        public_nodes: set[Label] = set(),
-        linkable_graph_node_map: dict[Label, LinkableNode] = {},
-        linker_flags: list[typing.Any] = [],
-        link_groups: dict[str, Group] = {},
-        link_group_mappings: dict[Label, str] = {},
-        link_group_preferred_linkage: dict[Label, Linkage] = {},
-        link_group_libs: dict[str, ([Label, None], LinkInfos)] = {},
-        link_group_roots: dict[str, Label] = {},
-        prefer_stripped_objects: bool = False,
-        category_suffix: [str, None] = None,
-        anonymous: bool = False,
-        allow_cache_upload = False,
-        error_handler = None) -> _CreatedLinkGroup | None:
+        public_nodes: set[Label],
+        linkable_graph_node_map: dict[Label, LinkableNode],
+        linker_flags: list[typing.Any],
+        link_groups: dict[str, Group],
+        link_group_mappings: dict[Label, str],
+        link_group_preferred_linkage: dict[Label, Linkage],
+        link_group_libs: dict[str, (Label | None, LinkInfos)],
+        link_group_roots: dict[str, Label],
+        prefer_stripped_objects: bool,
+        category_suffix: str,
+        anonymous: bool,
+        allow_cache_upload: bool,
+        error_handler: [typing.Callable, None]) -> _CreatedLinkGroup | None:
     """
     Link a link group library, described by a `LinkGroupLibSpec`.  This is
     intended to handle regular shared libs and e.g. Python extensions.
