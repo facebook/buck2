@@ -42,6 +42,7 @@ load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "get_apple_dsym")
 load(":apple_entitlements.bzl", "entitlements_link_flags")
+load(":apple_rpaths.bzl", "get_rpath_flags_for_tests")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":apple_sdk_metadata.bzl",
@@ -72,7 +73,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         # Embedding entitlements (if present) means that we can skip adhoc codesigning
         # any xctests altogether, provided the test dylib is adhoc signed
-        shared_library_flags += entitlements_link_flags(ctx)
+        shared_library_flags += entitlements_link_flags(ctx) + get_rpath_flags_for_tests(ctx)
 
         # The linker will include adhoc signature for ARM64 by default, lets
         # ensure we always have an adhoc signature regardless of arch/linker logic.

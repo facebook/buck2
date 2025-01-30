@@ -28,6 +28,13 @@ _MACOS_LIBRARY_RPATHS = _rpath_flags_for_paths([
     "@loader_path/Frameworks",
 ])
 
+_MACOS_TEST_RPATHS = _rpath_flags_for_paths([
+    # loader_path = MyApp.app/Contents/PlugIns/TestBundle.xctest/Contents/MacOS
+    "@loader_path/../Frameworks",
+    # executable_path = MyApp.app/Contents/MacOS
+    "@executable_path/../Frameworks",
+])
+
 _IOS_BINARY_RPATHS = _rpath_flags_for_paths([
     # @executable_path = MyApp.app
     "@executable_path/Frameworks",
@@ -43,6 +50,13 @@ _IOS_LIBRARY_RPATHS = _rpath_flags_for_paths([
     "@executable_path/Frameworks",
     # @loader_path = MyApp.app/Frameworks/MyFramework.framework
     "@loader_path/Frameworks",
+])
+
+_IOS_TEST_RPATHS = _rpath_flags_for_paths([
+    # loader_path = MyApp.app/PlugIns/TestBundle.xctest
+    "@loader_path/Frameworks",
+    # executable_path = MyApp.app
+    "@executable_path/Frameworks",
 ])
 
 def _is_mac_binary(ctx: AnalysisContext) -> bool:
@@ -70,3 +84,12 @@ def get_rpath_flags_for_library(ctx: AnalysisContext) -> list[str]:
         return _MACOS_LIBRARY_RPATHS
     else:
         return _IOS_LIBRARY_RPATHS
+
+def get_rpath_flags_for_tests(ctx: AnalysisContext) -> list[str]:
+    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].prelude_rpaths:
+        return []
+
+    if _is_mac_binary(ctx):
+        return _MACOS_TEST_RPATHS
+    else:
+        return _IOS_TEST_RPATHS
