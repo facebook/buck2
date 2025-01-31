@@ -210,8 +210,6 @@ def make_py_package(
 
     # lets make a shell
     if ctx.attrs.repl_main:
-        # no more
-        # kjdfhgskjh
         repl_deps, _ = gather_dep_libraries(ctx.attrs.repl_only_deps)
         repl_manifests = manifests_to_interface(repl_deps[0].manifests)
 
