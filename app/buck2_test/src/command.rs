@@ -108,7 +108,7 @@ use crate::session::TestSessionOptions;
 use crate::translations::build_configured_target_handle;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
+#[buck2(tag = TestExecutor)]
 enum TestError {
     #[error("Test execution completed but the tests failed")]
     TestFailed,
@@ -269,7 +269,7 @@ impl ServerCommandTemplate for TestServerCommand {
         if let Some(test_status) = &response.test_statuses {
             [
                 response.errors.clone(),
-                error_report_for_test_errors(test_status),
+                error_report_for_test_errors(response.exit_code, test_status),
             ]
             .concat()
         } else {
@@ -540,6 +540,7 @@ async fn test(
 }
 
 fn error_report_for_test_errors(
+    exit_code: Option<i32>,
     status: &buck2_cli_proto::test_response::TestStatuses,
 ) -> Vec<buck2_data::ErrorReport> {
     let mut errors = vec![];
@@ -563,6 +564,15 @@ fn error_report_for_test_errors(
             errors.push(create_error_report(&buck2_error::Error::from(
                 TestError::ListingFailed,
             )));
+        }
+    }
+
+    if let Some(code) = exit_code {
+        if errors.is_empty() && code != 0 {
+            errors.push(create_error_report(&buck2_error::buck2_error!(
+                buck2_error::ErrorTag::TestExecutor,
+                "Test Executor Failed with exit code {code}"
+            )))
         }
     }
 
