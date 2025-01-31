@@ -543,6 +543,9 @@ def _compile_swiftmodule(
                 swift_framework_output.swiftinterface.as_output(),
                 "-emit-private-module-interface-path",
                 swift_framework_output.private_swiftinterface.as_output(),
+                # Module verification fails here as the clang modules
+                # are not loaded correctly.
+                "-no-verify-emitted-module-interface",
             ])
 
             # There is no driver flag to specify the swiftdoc output path
