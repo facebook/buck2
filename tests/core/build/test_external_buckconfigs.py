@@ -51,9 +51,7 @@ async def test_external_buckconfigs(buck: Buck) -> None:
     buckconfig_input_values = await filter_events(
         buck, "Event", "data", "Instant", "data", "BuckconfigInputValues", "components"
     )
-    # Currently, when there are file changes in between, we end up having two BuckconfigInputValues events.
-    # Will be fixed in the next diff.
-    assert len(buckconfig_input_values) == 2
+    assert len(buckconfig_input_values) == 1
     external_configs = buckconfig_input_values[0]
 
     assert len(external_configs) == 4

@@ -21,6 +21,7 @@ use allocative::Allocative;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_cli_proto::client_context::PreemptibleWhen;
+use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_core::soft_error;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
@@ -57,6 +58,8 @@ use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::RecvError;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
+
+use crate::experiment_util::get_experiment_tags;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -439,7 +442,7 @@ impl ConcurrencyHandler {
             preempt: Some(preempt_sender),
         };
 
-        let (transaction, tainted) = loop {
+        let (mut transaction, tainted) = loop {
             match &data.dice_status {
                 DiceStatus::Cleanup { future, epoch } => {
                     tracing::debug!("ActiveDice is in cleanup");
@@ -587,6 +590,17 @@ impl ConcurrencyHandler {
             data.previously_tainted = true;
         }
 
+        if transaction
+            .is_injected_external_buckconfig_data_key_set()
+            .await?
+        {
+            let external_configs = transaction.get_injected_external_buckconfig_data().await?;
+            let components = external_configs.get_buckconfig_components();
+            event_dispatcher.instant_event(buck2_data::TagEvent {
+                tags: get_experiment_tags(&components),
+            });
+            event_dispatcher.instant_event(buck2_data::BuckconfigInputValues { components });
+        }
         // create the on exit drop handler, which will take care of notifying tasks.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
         // This adds the task to the list of all tasks (see ::new impl)
@@ -787,15 +801,21 @@ mod tests {
         }
     }
 
+    async fn make_default_dice() -> Arc<Dice> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let mut updater = dice.updater();
+        drop(buck2_common::legacy_configs::dice::inject_external_config_for_test(&mut updater));
+        updater.commit().await;
+        dice
+    }
+
     #[tokio::test]
     async fn nested_invocation_same_transaction() {
         // FIXME: This times out on open source, and we don't know why
         if is_open_source() {
             return;
         }
-
-        let dice = Dice::builder().build(DetectCycles::Enabled);
-
+        let dice = make_default_dice().await;
         let concurrency = ConcurrencyHandler::new(dice);
 
         let traces1 = TraceId::new();
@@ -861,7 +881,7 @@ mod tests {
 
     #[tokio::test]
     async fn nested_invocation_should_error() {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice);
 
@@ -914,7 +934,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_same_transaction() {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice);
 
@@ -981,7 +1001,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_different_traceid_blocks() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1098,7 +1118,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1220,7 +1240,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_preemptible() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1377,7 +1397,7 @@ mod tests {
 
         let key = &key;
 
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1527,7 +1547,7 @@ mod tests {
 
     #[tokio::test]
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
         let concurrency = ConcurrencyHandler::new(dice.dupe());
         let (mut source, sink) = create_source_sink_pair();
         let dispatcher = EventDispatcher::new(TraceId::new(), sink);
@@ -1612,7 +1632,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_thundering_herd() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1653,7 +1673,7 @@ mod tests {
             }
         }
 
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 

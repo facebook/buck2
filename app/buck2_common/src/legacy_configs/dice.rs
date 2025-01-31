@@ -295,6 +295,13 @@ pub fn inject_legacy_config_for_test(
     Ok(())
 }
 
+pub fn inject_external_config_for_test(
+    dice: &mut DiceTransactionUpdater,
+) -> buck2_error::Result<()> {
+    dice.changed_to([(LegacyExternalBuckConfigDataKey, None)])?;
+    Ok(())
+}
+
 #[async_trait]
 impl HasLegacyConfigs for DiceComputations<'_> {
     async fn get_legacy_config_on_dice(

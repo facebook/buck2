@@ -97,7 +97,6 @@ use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
-use buck2_server_ctx::experiment_util::get_experiment_tags;
 use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
 use buck2_server_ctx::stderr_output_guard::StderrOutputWriter;
 use buck2_server_starlark_debug::create_debugger_handle;
@@ -441,14 +440,6 @@ impl ServerCommandContext<'_> {
         .await?;
 
         self.report_traced_config_paths(&new_configs.config_paths)?;
-        // Normally, this code should execute only once (hence we should fire only one BuckconfigInputValues event) but there might be an additional call once concurrent command is detected.
-        // Even if there is no concurrent command, we sometimes end up having two events due to a bug where concurrency manager treats many more commands as being concurrent than it's supposed to.
-        let components = new_configs.external_data.get_buckconfig_components();
-        let tags = get_experiment_tags(&components);
-        self.events().instant_event(buck2_data::TagEvent { tags });
-        self.events()
-            .instant_event(buck2_data::BuckconfigInputValues { components });
-
         if self.reuse_current_config {
             if dice_ctx
                 .is_injected_external_buckconfig_data_key_set()
