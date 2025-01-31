@@ -48,6 +48,7 @@ use crate::nodes::attributes::CONFIGURATION_DEPS;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::ONCALL;
 use crate::nodes::attributes::PACKAGE;
+use crate::nodes::attributes::PACKAGE_CFG_MODIFIERS;
 use crate::nodes::attributes::TYPE;
 use crate::package::Package;
 use crate::rule::Rule;
@@ -147,6 +148,10 @@ impl TargetNodeData {
 
     pub fn root_location(&self) -> Option<StarlarkTargetCallStackRoot> {
         self.call_stack.as_ref().and_then(|s| s.root_location())
+    }
+
+    pub fn package_cfg_modifiers(&self) -> Option<&PackageCfgModifiersValue> {
+        self.package_cfg_modifiers.as_ref()
     }
 }
 
@@ -493,6 +498,15 @@ impl<'a> TargetNodeRef<'a> {
                 match self.oncall() {
                     None => CoercedAttr::None,
                     Some(x) => CoercedAttr::String(StringLiteral(ArcStr::from(x))),
+                },
+            ),
+            (
+                PACKAGE_CFG_MODIFIERS,
+                match self.package_cfg_modifiers() {
+                    Some(x) => {
+                        CoercedAttr::TargetModifiers(TargetModifiersValue::new(x.to_value()))
+                    }
+                    None => CoercedAttr::None,
                 },
             ),
         ]

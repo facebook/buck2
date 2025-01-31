@@ -20,4 +20,8 @@ impl PackageCfgModifiersValue {
     pub fn new(v: serde_json::Value) -> Self {
         Self(Arc::new(v))
     }
+
+    pub fn to_value(&self) -> serde_json::Value {
+        (*self.0).clone()
+    }
 }

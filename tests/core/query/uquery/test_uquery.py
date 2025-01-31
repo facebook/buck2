@@ -19,7 +19,6 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
 
-
 """
 If you need to add a directory that's isolated in buck2/test/targets
 (ex. some test of form @buck_test( data_dir=some_new_directory)),
@@ -287,6 +286,7 @@ async def test_attributes(buck: Buck) -> None:
                 "root//:bin",
             ],
             "buck.package": "root//bin:TARGETS.fixture",
+            "buck.tree_modifiers": ["cfg//os:linux"],
             "buck.type": "_foo_binary",
             "buck.configuration_deps": ["root//bin:my_config"],
             "buck.oncall": None,
@@ -296,6 +296,7 @@ async def test_attributes(buck: Buck) -> None:
         "root//lib:file1": {
             "buck.deps": [],
             "buck.package": "root//lib:TARGETS.fixture",
+            "buck.tree_modifiers": ["cfg//os:linux"],
             "buck.type": "_foo_genrule",
             "buck.configuration_deps": [],
             "buck.oncall": None,
