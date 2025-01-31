@@ -111,8 +111,13 @@ use crate::translations::build_configured_target_handle;
 #[buck2(tag = TestExecutor)]
 enum TestError {
     #[error("Test execution completed but the tests failed")]
+    #[buck2(tag = Input)]
     TestFailed,
+    #[error("Test execution completed but tests were skipped")]
+    #[buck2(tag = Input)]
+    TestSkipped,
     #[error("Test listing failed")]
+    #[buck2(tag = Input)]
     ListingFailed,
     #[error("Fatal error encountered during test execution")]
     Fatal,
@@ -563,6 +568,15 @@ fn error_report_for_test_errors(
         if listing_failed.count > 0 {
             errors.push(create_error_report(&buck2_error::Error::from(
                 TestError::ListingFailed,
+            )));
+        }
+    }
+    // If a test was skipped due to condition not being met a non-zero exit code will be returned,
+    // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
+    if let Some(skipped) = &status.skipped {
+        if skipped.count > 0 && exit_code.is_none_or(|code| code != 0) {
+            errors.push(create_error_report(&buck2_error::Error::from(
+                TestError::TestSkipped,
             )));
         }
     }
