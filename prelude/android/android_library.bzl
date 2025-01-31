@@ -47,7 +47,12 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     android_providers = [android_library_intellij_info] if android_library_intellij_info else []
 
-    validations = get_attrs_validation_specs(ctx)
+    validations = get_attrs_validation_specs(ctx) or []
+    validations.extend([
+        ValidationSpec(name = name, validation_result = result)
+        for name, result in ctx.attrs.validation_specs.items()
+    ])
+
     validation_providers = [ValidationInfo(validations = validations)] if validations else []
 
     return to_list(java_providers) + [

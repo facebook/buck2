@@ -33,6 +33,25 @@ def _attrs_validators_arg():
         ),
     }
 
+def _validation_specs_arg():
+    return {
+        "validation_specs": attrs.dict(
+            attrs.string(),
+            attrs.source(doc = """
+                An artifact pointing to a JSON file that will be used in ValidationSpec.
+                {
+                  "version": 1,
+                  "data": {
+                    "message": "What goes in stderr",
+                    "status": "success" | "failure",
+                  }
+                } 
+            """),
+            default = {},
+        ),
+    }
+
 validation_common = struct(
     attrs_validators_arg = _attrs_validators_arg,
+    validation_specs_arg = _validation_specs_arg,
 )
