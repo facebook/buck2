@@ -43,6 +43,7 @@ use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
+use crate::modifiers::PackageCfgModifiersValue;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::ONCALL;
@@ -122,6 +123,9 @@ pub struct TargetNodeData {
 
     /// Call stack for the target.
     call_stack: Option<StarlarkCallStack>,
+
+    /// Config modifiers set in the package this target belongs to
+    package_cfg_modifiers: Option<PackageCfgModifiersValue>,
 }
 
 impl TargetNodeData {
@@ -154,6 +158,7 @@ impl TargetNode {
         attributes: AttrValues,
         deps_cache: CoercedDeps,
         call_stack: Option<StarlarkCallStack>,
+        package_cfg_modifiers: Option<PackageCfgModifiersValue>,
     ) -> TargetNode {
         TargetNode(triomphe::Arc::new(TargetNodeData {
             rule,
@@ -162,6 +167,7 @@ impl TargetNode {
             attributes,
             deps_cache,
             call_stack,
+            package_cfg_modifiers,
         }))
     }
 
@@ -629,7 +635,6 @@ impl<'a> TargetNodeRef<'a> {
 }
 
 pub mod testing {
-
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use buck2_core::package::PackageLabel;
     use serde_json::map::Map;
@@ -709,6 +714,7 @@ pub mod testing {
                 attributes,
                 CoercedDeps::from(deps_cache),
                 call_stack,
+                None,
             )
         }
     }

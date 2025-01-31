@@ -18,6 +18,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::package::Package;
 use buck2_node::rule::Rule;
 use dupe::Dupe;
+use dupe::OptionDupedExt;
 use starlark::eval::CallStack;
 use starlark::eval::ParametersParser;
 use starlark::values::Value;
@@ -61,6 +62,7 @@ impl TargetNodeExt for TargetNode {
             param_parser.next_opt::<Value>()?;
         }
 
+        let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
         let label = TargetLabel::new(internals.buildfile_path().package().dupe(), name);
         Ok(TargetNode::new(
             rule.dupe(),
@@ -69,6 +71,7 @@ impl TargetNodeExt for TargetNode {
             attr_values,
             CoercedDeps::default(),
             None,
+            package_cfg_modifiers,
         ))
     }
 
@@ -104,6 +107,8 @@ impl TargetNodeExt for TargetNode {
             a.traverse(label.pkg(), &mut deps_cache)?;
         }
 
+        let package_cfg_modifiers = internals.super_package.cfg_modifiers().duped();
+
         Ok(TargetNode::new(
             rule,
             package,
@@ -113,6 +118,7 @@ impl TargetNodeExt for TargetNode {
             call_stack
                 .map(StarlarkCallStackWrapper)
                 .map(StarlarkCallStack::new),
+            package_cfg_modifiers,
         ))
     }
 }
