@@ -23,12 +23,12 @@ load(
 
 # Debug constraints to add for build modes used by other rule platforms (ex: rust).
 _DEBUG_CONSTRAINTS = [
-    # @oss-disable: "ovr_config//build_mode/constraints:debug", 
+    # @oss-disable[end= ]: "ovr_config//build_mode/constraints:debug",
 ]
 
 # Release constraints to add for build modes used by other rule platforms (ex: rust).
 _RELEASE_CONSTRAINTS = [
-    # @oss-disable: "ovr_config//build_mode/constraints:release", 
+    # @oss-disable[end= ]: "ovr_config//build_mode/constraints:release",
 ]
 
 BUILD_MODE_TO_CONSTRAINTS_MAP = {

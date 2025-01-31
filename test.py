@@ -32,7 +32,7 @@ lint_levels = importlib.machinery.SourceFileLoader(
 
 
 def is_opensource() -> bool:
-    # @oss-disable: return False 
+    # @oss-disable[end= ]: return False
     return True # @oss-enable
 
 
@@ -201,7 +201,7 @@ def rustfmt(buck2_dir: Path, ci: bool, git: bool) -> None:
     Mixing and matching cargo-fmt and rust-fmt doesn't work on Windows,
     so skip formatting for now.
     """
-    # @oss-disable: internal = True 
+    # @oss-disable[end= ]: internal = True
     internal = False # @oss-enable
     if not internal:
         return

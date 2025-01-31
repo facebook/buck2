@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils") 
+# @oss-disable[end= ]: load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load(":rules.bzl", "BANNED_DEP_PATHS", "LATE_BINDING_ONLY_CRATES")
 
 platform_utils = None # @oss-enable

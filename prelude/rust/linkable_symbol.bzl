@@ -50,7 +50,7 @@ applies to all of the following situations:
 
 load("@prelude//rust:link_info.bzl", "RustLinkInfo") # @oss-enable
 load("@prelude//prelude.bzl", prelude = "native") # @oss-enable
-# @oss-disable: load("@fbcode//buck2/facebook:autodeps_hacks.bzl", "RustLinkInfo", "prelude") 
+# @oss-disable[end= ]: load("@fbcode//buck2/facebook:autodeps_hacks.bzl", "RustLinkInfo", "prelude")
 
 def _remove_rust_link_info_impl(ctx: AnalysisContext) -> list[Provider]:
     out = []

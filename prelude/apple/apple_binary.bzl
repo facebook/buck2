@@ -10,7 +10,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_utility.bzl", "get_module_name")
-# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs") 
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "compile_swift",
@@ -252,12 +252,12 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
 def _get_extra_linker_outputs(ctx: AnalysisContext) -> ExtraLinkerOutputs:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable: return get_extra_linker_outputs(ctx) 
+    # @oss-disable[end= ]: return get_extra_linker_outputs(ctx)
     return ExtraLinkerOutputs() # @oss-enable
 
 def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact]) -> list[ArgLike]:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable: return get_extra_linker_output_flags(ctx, outputs) 
+    # @oss-disable[end= ]: return get_extra_linker_output_flags(ctx, outputs)
     return [] # @oss-enable
 
 def _filter_swift_srcs(ctx: AnalysisContext) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):

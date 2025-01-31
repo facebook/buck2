@@ -8,7 +8,7 @@ rust_library(
         ["src/**/*.rs"],
     ),
     named_deps = {
-        # @oss-disable: "edenfs_clients": "//eden/fs/service:thrift-rust-clients", 
+        # @oss-disable[end= ]: "edenfs_clients": "//eden/fs/service:thrift-rust-clients",
     },
     os_deps = [
         (

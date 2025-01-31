@@ -5,10 +5,10 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable: load("@prelude//apple/meta_only:xcode_argsfiles.bzl", "get_meta_specific_xcode_arg_substitutions") 
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:xcode_argsfiles.bzl", "get_meta_specific_xcode_arg_substitutions")
 
 def _get_meta_specific_xcode_arg_substitutions():
-    # @oss-disable: return get_meta_specific_xcode_arg_substitutions() 
+    # @oss-disable[end= ]: return get_meta_specific_xcode_arg_substitutions()
     return [] # @oss-enable
 
 XCODE_ARGSFILES_SUB_TARGET = "xcode-argsfiles"
