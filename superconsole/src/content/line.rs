@@ -192,7 +192,7 @@ impl Line {
             return;
         }
         if let Some(last) = self.0.last_mut() {
-            if last.style == span.style && last.hyperlink == span.hyperlink {
+            if last.is_mergeable_with(&span) {
                 last.content.to_mut().push_str(&span.content);
                 return;
             }

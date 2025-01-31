@@ -94,6 +94,12 @@ impl Span {
         }
     }
 
+    /// Determine if this span is mergeable with another span, i.e. if they
+    /// are equal except for content.
+    pub fn is_mergeable_with(&self, other: &Span) -> bool {
+        self.style == other.style && self.hyperlink == other.hyperlink
+    }
+
     /// Attempt to create a new, unstyled span equivalent to the underlying stringlike.
     /// This will fail if the input string is not [`valid`](Span::valid).
     pub fn new_unstyled<S: std::fmt::Display>(stringlike: S) -> anyhow::Result<Self> {
