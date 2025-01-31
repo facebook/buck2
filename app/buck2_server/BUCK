@@ -58,7 +58,7 @@ rust_library(
         "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
-        # @oss-disable: "//blake3:blake3-constants-rust-nothrift", 
+        # @oss-disable[end= ]: "//blake3:blake3-constants-rust-nothrift",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_analysis:buck2_analysis",
         "//buck2/app/buck2_build_api:buck2_build_api",
@@ -97,7 +97,7 @@ rust_library(
         "//buck2/host_sharing:host_sharing",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_lsp:starlark_lsp",
-        # @oss-disable: "//common/rust/shed/detect_eden:detect_eden", 
+        # @oss-disable[end= ]: "//common/rust/shed/detect_eden:detect_eden",
         "//common/rust/shed/fbinit:fbinit",
     ],
 )

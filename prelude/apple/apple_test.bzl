@@ -12,8 +12,8 @@ load(
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
-# @oss-disable: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities", "macos_test_re_capabilities") 
-# @oss-disable: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case") 
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "ios_test_re_capabilities", "macos_test_re_capabilities")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case")
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets", "uses_explicit_modules")
 load(
     "@prelude//cxx:argsfiles.bzl",
@@ -235,15 +235,15 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         remote_execution_properties = ctx.attrs.test_re_capabilities
 
     elif sdk_name == MacOSXSdkMetadata.name:
-        # @oss-disable: remote_execution_properties = macos_test_re_capabilities() 
+        # @oss-disable[end= ]: remote_execution_properties = macos_test_re_capabilities()
         remote_execution_properties = None # @oss-enable
 
     else:
-        # @oss-disable: requires_ios_booted_simulator = ctx.attrs.test_host_app != None or ctx.attrs.ui_test_target_app != None 
-        # @oss-disable: remote_execution_properties = ios_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator) 
+        # @oss-disable[end= ]: requires_ios_booted_simulator = ctx.attrs.test_host_app != None or ctx.attrs.ui_test_target_app != None
+        # @oss-disable[end= ]: remote_execution_properties = ios_test_re_capabilities(use_unbooted_simulator = not requires_ios_booted_simulator)
         remote_execution_properties = None # @oss-enable
 
-    # @oss-disable: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(macos_test = sdk_name == MacOSXSdkMetadata.name) 
+    # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(macos_test = sdk_name == MacOSXSdkMetadata.name)
 
     remote_execution_use_case = None # @oss-enable
     local_enabled = remote_execution_use_case == None

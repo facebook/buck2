@@ -140,7 +140,7 @@ SwiftDebugInfo = record(
 
 _IS_USER_BUILD = True # @oss-enable
 # @oss-disable: # To determine whether we're running on CI or not, we expect user.sandcastle_alias to be set.
-# @oss-disable: _IS_USER_BUILD = (read_root_config("user", "sandcastle_alias", None) == None) 
+# @oss-disable[end= ]: _IS_USER_BUILD = (read_root_config("user", "sandcastle_alias", None) == None)
 
 _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
 

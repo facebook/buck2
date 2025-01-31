@@ -16,7 +16,7 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 load("@prelude//apple:debug.bzl", "AppleSelectiveDebuggableMetadata")
-# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs") 
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs")
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
 load("@prelude//apple/validation:debug_artifacts.bzl", "get_debug_artifacts_validators")
@@ -426,8 +426,8 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Collect extra bundle outputs
     extra_output_provider = _extra_output_provider(ctx)
-    # @oss-disable: extra_output_subtargets = subtargets_for_apple_bundle_extra_outputs(ctx, extra_output_provider) 
-    # @oss-disable: sub_targets.update(extra_output_subtargets) 
+    # @oss-disable[end= ]: extra_output_subtargets = subtargets_for_apple_bundle_extra_outputs(ctx, extra_output_provider)
+    # @oss-disable[end= ]: sub_targets.update(extra_output_subtargets)
 
     # index store
     index_store_subtargets, index_store_info = _index_store_data(ctx)

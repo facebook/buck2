@@ -7,6 +7,6 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     deps = [
         "//buck2/app/buck2_util:buck2_util",
-        # @oss-disable: "//common/rust/build_info:build_info", 
+        # @oss-disable[end= ]: "//common/rust/build_info:build_info",
     ],
 )
