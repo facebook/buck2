@@ -272,7 +272,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         match proj_rel_path.parent() {
             None => {
                 // We are in the project root, there's no parent.
-                Ok(SuperPackage::empty::<SuperPackageValuesImpl>())
+                Ok(SuperPackage::empty::<SuperPackageValuesImpl>()?)
             }
             Some(parent) => {
                 let parent_cell = cell_resolver.get_cell_path(parent)?;

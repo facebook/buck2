@@ -126,7 +126,7 @@ async fn test_get_node() -> anyhow::Result<()> {
             FileNameBuf::unchecked_new("BUCK"),
         )),
         Vec::new(),
-        SuperPackage::empty::<SuperPackageValuesImpl>(),
+        SuperPackage::empty::<SuperPackageValuesImpl>()?,
         TargetsMap::from_iter([node1.dupe(), node2.dupe()]),
     );
 

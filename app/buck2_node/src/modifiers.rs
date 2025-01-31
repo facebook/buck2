@@ -7,4 +7,17 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
+use allocative::Allocative;
+use dupe::Dupe;
+
 pub const MODIFIER_METADATA_KEY: &str = "buck.cfg_modifiers";
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+pub struct PackageCfgModifiersValue(Arc<serde_json::Value>);
+
+impl PackageCfgModifiersValue {
+    pub fn new(v: serde_json::Value) -> Self {
+        Self(Arc::new(v))
+    }
+}
