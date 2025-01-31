@@ -174,6 +174,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::MaterializationError => rank!(unspecified),
         ErrorTag::CleanInterrupt => rank!(unspecified),
         ErrorTag::Tpx => rank!(unspecified),
+        ErrorTag::TestExecutor => rank!(unspecified),
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::DownloadFileHeadRequest => rank!(unspecified),
         ErrorTag::Install => rank!(unspecified),
@@ -277,6 +278,7 @@ pub enum ErrorSourceArea {
     Re,
     Watchman,
     Starlark,
+    TestExecutor,
 }
 
 pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
@@ -289,6 +291,8 @@ pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
         ErrorSourceArea::Watchman
     } else if tag_name.starts_with("STARLARK") {
         ErrorSourceArea::Starlark
+    } else if tag == crate::ErrorTag::Tpx || tag == crate::ErrorTag::TestExecutor {
+        ErrorSourceArea::TestExecutor
     } else {
         ErrorSourceArea::Buck2
     }
@@ -398,6 +402,10 @@ mod tests {
         assert_eq!(
             source_area(ErrorTag::IoEdenArgumentError),
             ErrorSourceArea::Eden
+        );
+        assert_eq!(
+            source_area(ErrorTag::TestExecutor),
+            ErrorSourceArea::TestExecutor
         );
     }
 }

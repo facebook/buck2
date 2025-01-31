@@ -226,8 +226,9 @@ enum ErrorTag {
   // Tests
   TEST_DEADLINE_EXPIRED = 5001;
 
-  // Error from TPX binary
+  // Error from TestExecutor
   TPX = 5500;
+  TestExecutor = 5501;
 
   // None turned into an error. This carries no useful information whatsoever.
   UNEXPECTED_NONE = 6001;
