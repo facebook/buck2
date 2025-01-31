@@ -14,7 +14,7 @@ AttrsValidatorsInfo = provider(
 ATTRS_VALIDATORS_NAME = "attrs_validators"
 ATTRS_VALIDATORS_TYPE = attrs.option(attrs.list(attrs.dep(providers = [AttrsValidatorsInfo])), default = None)
 
-def get_attrs_validators_info(ctx: AnalysisContext) -> list[Provider]:
+def get_attrs_validation_specs(ctx: AnalysisContext) -> list[ValidationSpec]:
     validators = getattr(ctx.attrs, ATTRS_VALIDATORS_NAME, [])
     if not validators:
         return []
@@ -24,4 +24,4 @@ def get_attrs_validators_info(ctx: AnalysisContext) -> list[Provider]:
         for name, output in validator[AttrsValidatorsInfo].func(ctx.actions, ctx.label, ctx.attrs).items():
             specs.append(ValidationSpec(name = name, validation_result = output))
 
-    return [ValidationInfo(validations = specs)] if specs else []
+    return specs

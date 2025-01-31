@@ -10,7 +10,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_info")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
@@ -428,7 +428,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
         providers.append(swift_dependency_info)
         providers.append(xctest_swift_support_provider)
-        providers.extend(get_attrs_validators_info(ctx))
+
+        attr_validation_specs = get_attrs_validation_specs(ctx)
+        if attr_validation_specs:
+            providers.append(ValidationInfo(validations = attr_validation_specs))
 
         return providers
 

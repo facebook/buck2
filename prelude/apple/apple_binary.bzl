@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_info")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -230,6 +230,9 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, non_exported_deps + exported_deps)
         cxx_output.sub_targets.update(index_store_subtargets)
 
+        validation_specs = get_attrs_validation_specs(ctx)
+        validation_providers = [ValidationInfo(validations = validation_specs)] if validation_specs else []
+
         return [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
             RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
@@ -240,7 +243,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             merge_bundle_linker_maps_info(bundle_infos),
             UnstrippedLinkOutputInfo(artifact = unstripped_binary),
             index_store_info,
-        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + get_attrs_validators_info(ctx)
+        ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + validation_providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)

@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_info")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load(
     "@prelude//android:android_providers.bzl",
@@ -47,6 +47,9 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     android_providers = [android_library_intellij_info] if android_library_intellij_info else []
 
+    validations = get_attrs_validation_specs(ctx)
+    validation_providers = [ValidationInfo(validations = validations)] if validations else []
+
     return to_list(java_providers) + [
         merge_android_packageable_info(
             ctx.label,
@@ -55,7 +58,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             manifest = ctx.attrs.manifest,
         ),
         merge_exported_android_resource_info(ctx.attrs.exported_deps),
-    ] + android_providers + get_attrs_validators_info(ctx)
+    ] + android_providers + validation_providers
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
     return ctx.attrs.android_optional_jars or []
