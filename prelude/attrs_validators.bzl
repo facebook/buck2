@@ -5,17 +5,16 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+_ATTRS_VALIDATORS_NAME = "attrs_validators"
+
 AttrsValidatorsInfo = provider(
     fields = {
         "func": typing.Callable[[AnalysisActions, Label, struct], dict[str, Artifact]],
     },
 )
 
-ATTRS_VALIDATORS_NAME = "attrs_validators"
-ATTRS_VALIDATORS_TYPE = attrs.option(attrs.list(attrs.dep(providers = [AttrsValidatorsInfo])), default = None)
-
 def get_attrs_validation_specs(ctx: AnalysisContext) -> list[ValidationSpec]:
-    validators = getattr(ctx.attrs, ATTRS_VALIDATORS_NAME, [])
+    validators = getattr(ctx.attrs, _ATTRS_VALIDATORS_NAME, [])
     if not validators:
         return []
 
@@ -25,3 +24,15 @@ def get_attrs_validation_specs(ctx: AnalysisContext) -> list[ValidationSpec]:
             specs.append(ValidationSpec(name = name, validation_result = output))
 
     return specs
+
+def _attrs_validators_arg():
+    return {
+        _ATTRS_VALIDATORS_NAME: attrs.option(
+            attrs.list(attrs.dep(providers = [AttrsValidatorsInfo])),
+            default = None,
+        ),
+    }
+
+validation_common = struct(
+    attrs_validators_arg = _attrs_validators_arg,
+)

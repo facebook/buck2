@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attrs_validators.bzl", "ATTRS_VALIDATORS_NAME", "ATTRS_VALIDATORS_TYPE")
+load("@prelude//:attrs_validators.bzl", "validation_common")
 load(
     "@prelude//:validation_deps.bzl",
     "VALIDATION_DEPS_ATTR_NAME",
@@ -92,8 +92,7 @@ def _apple_binary_extra_attrs():
         "_stripped_default": attrs.bool(default = False),
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-        ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
-    }
+    } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     attribs.update(constraint_overrides.attributes)
@@ -130,9 +129,8 @@ def _apple_library_extra_attrs():
             "config//features/apple:swift_enable_testing_enabled": True,
         })),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
-        ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-    }
+    } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     return attribs
