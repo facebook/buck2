@@ -350,6 +350,7 @@ fn re_create_action(
             id: Some(RE::CafFbpkgIdentifier {
                 name: custom_image.identifier.name.clone(),
                 uuid: custom_image.identifier.uuid.clone(),
+                ..Default::default()
             }),
             drop_host_mount_globs: custom_image.drop_host_mount_globs.clone(),
             ..Default::default()
