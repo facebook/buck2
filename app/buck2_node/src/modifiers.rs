@@ -7,8 +7,4 @@
  * of this source tree.
  */
 
-pub(crate) mod defs;
-pub(crate) mod eval_ctx;
-mod modifiers;
-pub(crate) mod package;
-pub mod package_value;
+pub const MODIFIER_METADATA_KEY: &str = "buck.cfg_modifiers";

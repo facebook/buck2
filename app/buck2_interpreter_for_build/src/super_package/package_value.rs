@@ -170,7 +170,7 @@ impl OwnedFrozenStarlarkPackageValue {
     }
 }
 
-fn write_package_value_impl<'v>(
+pub(crate) fn write_package_value_impl<'v>(
     key: &str,
     value: Value<'v>,
     overwrite: bool,
@@ -228,7 +228,7 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
     }
 }
 
-fn read_parent_package_value_impl<'v>(
+pub(crate) fn read_parent_package_value_impl<'v>(
     key: &str,
     eval: &mut Evaluator<'v, '_, '_>,
     fn_name: &str,
