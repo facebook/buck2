@@ -170,6 +170,47 @@ impl OwnedFrozenStarlarkPackageValue {
     }
 }
 
+fn write_package_value_impl<'v>(
+    key: &str,
+    value: Value<'v>,
+    overwrite: bool,
+    eval: &mut Evaluator<'v, '_, '_>,
+    fn_name: &str,
+) -> starlark::Result<NoneType> {
+    let key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
+
+    let package_ctx = BuildContext::from_context(eval)?
+        .additional
+        .require_package_file(fn_name)?;
+
+    let package_file_extra = PackageFileExtra::get_or_init(eval)?;
+
+    if package_file_extra.package_values.borrow().contains_key(key) {
+        return Err(
+            buck2_error::Error::from(PackageValueError::KeyAlreadySetInThisFile(key.to_owned()))
+                .into(),
+        );
+    }
+
+    if !overwrite {
+        if package_ctx.parent.package_values().contains_key(key) {
+            return Err(
+                buck2_error::Error::from(PackageValueError::KeySetInParentFile(key.to_owned()))
+                    .into(),
+            );
+        }
+    }
+
+    let value = StarlarkPackageValue::new(value)?;
+
+    package_file_extra
+        .package_values
+        .borrow_mut()
+        .insert(key.to_owned(), value);
+
+    Ok(NoneType)
+}
+
 #[starlark_module]
 pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
     /// Set the value to be accessible in the nested `PACKAGE` files.
@@ -183,40 +224,27 @@ pub(crate) fn register_write_package_value(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = false)] overwrite: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        let key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
+        write_package_value_impl(key, value, overwrite, eval, "write_package_value")
+    }
+}
 
-        let package_ctx = BuildContext::from_context(eval)?
-            .additional
-            .require_package_file("write_package_value")?;
+fn read_parent_package_value_impl<'v>(
+    key: &str,
+    eval: &mut Evaluator<'v, '_, '_>,
+    fn_name: &str,
+) -> starlark::Result<Value<'v>> {
+    let key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
 
-        let package_file_extra = PackageFileExtra::get_or_init(eval)?;
+    let package_ctx = BuildContext::from_context(eval)?
+        .additional
+        .require_package_file(fn_name)?;
 
-        if package_file_extra.package_values.borrow().contains_key(key) {
-            return Err(
-                buck2_error::Error::from(PackageValueError::KeyAlreadySetInThisFile(
-                    key.to_owned(),
-                ))
-                .into(),
-            );
-        }
-
-        if !overwrite {
-            if package_ctx.parent.package_values().contains_key(key) {
-                return Err(
-                    buck2_error::Error::from(PackageValueError::KeySetInParentFile(key.to_owned()))
-                        .into(),
-                );
-            }
-        }
-
-        let value = StarlarkPackageValue::new(value)?;
-
-        package_file_extra
-            .package_values
-            .borrow_mut()
-            .insert(key.to_owned(), value);
-
-        Ok(NoneType)
+    match SuperPackageValuesImpl::get(&**package_ctx.parent.package_values())?
+        .values
+        .get(key)
+    {
+        Some(value) => Ok(value.owned_frozen_value().owned_value(eval.frozen_heap())),
+        None => Ok(Value::new_none()),
     }
 }
 
@@ -265,18 +293,6 @@ pub(crate) fn register_read_package_value(globals: &mut GlobalsBuilder) {
         #[starlark(require = pos)] key: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
-
-        let package_ctx = BuildContext::from_context(eval)?
-            .additional
-            .require_package_file("read_parent_package_value")?;
-
-        match SuperPackageValuesImpl::get(&**package_ctx.parent.package_values())?
-            .values
-            .get(key)
-        {
-            Some(value) => Ok(value.owned_frozen_value().owned_value(eval.frozen_heap())),
-            None => Ok(Value::new_none()),
-        }
+        read_parent_package_value_impl(key, eval, "read_parent_package_value")
     }
 }
