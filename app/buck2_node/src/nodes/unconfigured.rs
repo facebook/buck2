@@ -390,6 +390,7 @@ impl TargetNode {
     pub fn target_hash<H: Hasher>(&self, state: &mut H) {
         self.label().hash(state);
         self.rule_type().hash(state);
+        self.package_cfg_modifiers().hash(state);
         self.attrs(AttrInspectOptions::All).for_each(|x| {
             // We deliberately don't hash the attribute, as if the value being passed to analysis
             // stays the same, we don't care if the attribute that generated it changed.

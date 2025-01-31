@@ -75,8 +75,8 @@ async def test_cfg_modifiers_change_target_hash(buck: Buck) -> None:
     output = json.loads(result.stdout)
     modified_output = json.loads(modified_result.stdout)
 
-    # current behaviour is modifiers don't change target hash
-    assert output[0]["buck.target_hash"] == modified_output[0]["buck.target_hash"]
+    # modifiers should change target hash
+    assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]
 
 
 @buck_test()
@@ -100,6 +100,6 @@ async def test_parent_cfg_modifiers_change_target_hash(buck: Buck) -> None:
     output = json.loads(result.stdout)
     modified_output = json.loads(modified_result.stdout)
 
-    # parent set_modifiers value doesn't change target hash
+    # parent set_modifiers value should change target hash
     # note that we merge parent modifiers and current package modifiers
-    assert output[0]["buck.target_hash"] == modified_output[0]["buck.target_hash"]
+    assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]
