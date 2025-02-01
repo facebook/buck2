@@ -650,6 +650,7 @@ def _compile_index_store(
         index_store_output.as_output(),
         "-c",
         "-disable-batch-mode",
+        "-disallow-use-new-driver",
     ])
 
     _compile_with_argsfile(
