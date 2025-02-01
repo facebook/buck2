@@ -62,7 +62,6 @@ def main():
         "-o",
         "--output",
         nargs="?",
-        default="explain.html",
         help="Path to the output '.html' file.",
     )
     parser.add_argument(
@@ -107,7 +106,7 @@ def main():
         )
         src = tmp_src_path
 
-    src_join = functools.partial(os.path.join, src, "js")
+    src_join = functools.partial(os.path.join, src)
 
     if args.yarn_offline_mirror:
         env = {"YARN_YARN_OFFLINE_MIRROR": os.path.realpath(args.yarn_offline_mirror)}
