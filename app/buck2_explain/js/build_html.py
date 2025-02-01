@@ -41,10 +41,6 @@ def run(command: List[str], cwd=None, env=None):
     subprocess.run(command, shell=(os.name == "nt"), check=True, cwd=cwd, env=env)
 
 
-def realpath_args(args: List[str]) -> List[str]:
-    return [os.path.realpath(arg) if os.path.exists(arg) else arg for arg in args]
-
-
 def copy_writable(src, dst, *, follow_symlinks=True):
     """shutil.copy, but ensure that yarn.lock is writable
     - RE might make src/ read-only with its "restrictive mode".
@@ -88,9 +84,7 @@ def main():
     args = parser.parse_args()
 
     # posix=False prevents shlex.split from treating \\ as escape character, breaking Windows.
-    yarn = realpath_args(
-        shlex.split(args.yarn or os.getenv("YARN") or "yarn", posix=False)
-    )
+    yarn = shlex.split(args.yarn or os.getenv("YARN") or "yarn", posix=False)
 
     src = args.src or "."
     out = args.output
