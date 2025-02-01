@@ -91,14 +91,12 @@ def main():
         args.src, tmp_src_path, dirs_exist_ok=True, copy_function=copy_writable
     )
 
-    src_join = functools.partial(os.path.join, tmp_src_path)
-
     env = {"YARN_YARN_OFFLINE_MIRROR": os.path.realpath(args.yarn_offline_mirror)}
     run(
         yarn
         + [
             "--cwd",
-            src_join(),
+            tmp_src_path,
             "install",
             "--offline",
             "--frozen-lockfile",
@@ -108,17 +106,17 @@ def main():
         env=env,
     )
 
-    rm_rf(src_join("dist"))
+    rm_rf(os.path.join(tmp_src_path, "dist"))
 
     # build
-    run(yarn + ["--cwd", src_join(), "run", "build"], env={"CI": "false"})
+    run(yarn + ["--cwd", tmp_src_path, "run", "build"], env={"CI": "false"})
 
     # inline js and css into html file
-    with open(src_join("dist/App.js"), "r") as f:
+    with open(os.path.join(tmp_src_path, "dist/App.js"), "r") as f:
         js_content = f.read()
-    with open(src_join("dist/App.css"), "r") as f:
+    with open(os.path.join(tmp_src_path, "dist/App.css"), "r") as f:
         css_content = f.read()
-    with open(src_join("index.html"), "r") as f:
+    with open(os.path.join(tmp_src_path, "index.html"), "r") as f:
         html_content = f.read()
 
     assert JS_SCRIPT in html_content
