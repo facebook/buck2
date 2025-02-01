@@ -20,6 +20,10 @@ enum DisplayType {
   hidden,
   highlighted,
   actionsRan,
+  // For this node, 1st order deps will be shown
+  expanded,
+  // Node that is there because the parent was expanded via click
+  clickDep,
 }
 
 const displayTypeColors: {[key in DisplayType]: string} = {
@@ -28,6 +32,8 @@ const displayTypeColors: {[key in DisplayType]: string} = {
   [DisplayType.passesFilters]: '#1c77c3',
   [DisplayType.changedFiles]: '#00C49A',
   [DisplayType.highlighted]: '#e9724c',
+  [DisplayType.expanded]: 'red',
+  [DisplayType.clickDep]: 'yellow',
   [DisplayType.actionsRan]: '#9C528B',
   [DisplayType.hidden]: 'gray', // doesn't matter
 }
@@ -64,6 +70,7 @@ export function GraphImpl2(props: {
   const [includeContaining, setIncludeContaining] = useState<string>('')
   const [excludeContaining, setExcludeContaining] = useState<string>('')
   const [highlighted, setHighlighted] = useState<string | null>(null)
+  const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set())
 
   let nodeCounter = 0
   const includeRegex = new RegExp(includeContaining)
@@ -91,7 +98,19 @@ export function GraphImpl2(props: {
       node.displayType = DisplayType.hidden
     }
 
-    // Prevent graph from having too many nodes
+    // Click deps
+    if (expandedNodes.has(k)) {
+      node.displayType = DisplayType.expanded
+    }
+    for (const r of node.rdeps) {
+      if (expandedNodes.has(r)) {
+        if (node.displayType === DisplayType.hidden) {
+          node.displayType = DisplayType.clickDep
+        }
+      }
+    }
+
+    // Prevent graph from having too many nodes and slowing everything down
     if (node.displayType != DisplayType.hidden) {
       nodeCounter += 1
     }
@@ -110,11 +129,18 @@ export function GraphImpl2(props: {
     }
   }
 
+  let displayNodes: Map<number, DisplayNode> = new Map()
+  for (const [k, node] of nodeMap) {
+    if (showNode(node)) {
+      displayNodes.set(k, node)
+    }
+  }
+
   // For each node A that goes, traverse the graph bottom up BFS
   // until another node that goes is found, then add node A as allowedDep
   // Also stores shortest path length from last allowed to later add as edge label
 
-  for (const [k, _] of filteredNodes) {
+  for (const [k, _] of displayNodes) {
     let visited: Map<number, number> = new Map()
     visited.set(k, 0)
     let stack = [k]
@@ -138,7 +164,7 @@ export function GraphImpl2(props: {
   }
 
   if (transitiveReduction) {
-    for (const [k, node] of filteredNodes) {
+    for (const [k, node] of displayNodes) {
       let queue = [...node.allowedDeps.keys()]
       let visited = new Set()
       // for each dep we check all its transitive deps
@@ -148,7 +174,7 @@ export function GraphImpl2(props: {
           continue
         } else {
           visited.add(curr)
-          let n = filteredNodes.get(curr)!
+          let n = displayNodes.get(curr)!
           for (const [k, _] of n.allowedDeps) {
             // reachable, delete link from node in question
             node.allowedDeps.delete(k)
@@ -163,7 +189,7 @@ export function GraphImpl2(props: {
   const data: NodeObject[] = []
   const edges: LinkObject[] = []
 
-  for (const [k, node] of filteredNodes) {
+  for (const [k, node] of displayNodes) {
     const target = build.targets(k)!
 
     // Add nodes to graph
@@ -176,10 +202,10 @@ export function GraphImpl2(props: {
     })
   }
 
-  for (const [k, node] of filteredNodes) {
+  for (const [k, node] of displayNodes) {
     // Add edges
     for (const [d, counter] of node.allowedDeps) {
-      if (!filteredNodes.has(d)) {
+      if (!displayNodes.has(d)) {
         throw Error("this shouldn't be possible")
       }
       edges.push({
@@ -201,6 +227,16 @@ export function GraphImpl2(props: {
 
     // Highlight by label
     setHighlighted(inputValue('highlightNode'))
+  }
+
+  function toggleNodeExpand(n: number) {
+    let newExpanded = new Set(expandedNodes)
+    if (newExpanded.has(n)) {
+      newExpanded.delete(n)
+    } else {
+      newExpanded.add(n)
+    }
+    setExpandedNodes(newExpanded)
   }
 
   return (
@@ -279,7 +315,13 @@ export function GraphImpl2(props: {
         </div>
       </div>
       <h3 className="title is-3">Showing targets with executed actions</h3>
-      <GraphViz2 nodes={data} colorByCfg={colorByCfg} showLabels={showLabels} links={edges} />
+      <GraphViz2
+        toggleNodeExpand={toggleNodeExpand}
+        nodes={data}
+        colorByCfg={colorByCfg}
+        showLabels={showLabels}
+        links={edges}
+      />
     </>
   )
 }

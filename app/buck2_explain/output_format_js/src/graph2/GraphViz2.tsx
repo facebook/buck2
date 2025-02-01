@@ -15,8 +15,9 @@ export function GraphViz2(props: {
   links: LinkObject[]
   colorByCfg: boolean
   showLabels: boolean
+  toggleNodeExpand: (name: number) => void
 }) {
-  const {nodes, links, showLabels} = props
+  const {nodes, links, showLabels, toggleNodeExpand} = props
   const graphRef = useRef<any>(null)
 
   const [firstLoad, setFirstLoad] = useState(true)
@@ -59,6 +60,9 @@ export function GraphViz2(props: {
       graphData={{nodes, links}}
       nodeCanvasObjectMode={paintMode}
       nodeCanvasObject={paintLabels}
+      onNodeClick={(node, _event) => {
+        props.toggleNodeExpand(node.id! as number)
+      }}
       // cooldown + warmup ticks make the graph render already in its final form
       cooldownTicks={1}
       enableNodeDrag={true}
