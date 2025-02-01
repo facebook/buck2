@@ -62,63 +62,51 @@ def main():
     )
     parser.add_argument(
         "--yarn",
-        default="",
         help="Path to yarn executable.",
     )
     parser.add_argument(
         "--yarn-offline-mirror",
-        default=None,
         help="Path to the yarn offline mirror.",
     )
     parser.add_argument(
         "--src",
-        default=None,
         help="Directory that contains the source code.",
     )
     parser.add_argument(
         "--tmp",
-        default=None,
         help="Temporary directory to run build. Do not modify src in-place.",
     )
 
     args = parser.parse_args()
 
     # posix=False prevents shlex.split from treating \\ as escape character, breaking Windows.
-    yarn = shlex.split(args.yarn or os.getenv("YARN") or "yarn", posix=False)
+    yarn = shlex.split(args.yarn, posix=False)
 
-    src = args.src or "."
-    out = args.output
+    # copy source to a temporary directory
+    # used by buck genrule, which does not guarantee src is writable
+    tmp_src_path = tempfile.mkdtemp(prefix="explain_src", dir=args.tmp)
+    atexit.register(lambda: rm_rf(tmp_src_path))
+    print_err(f"copying source {args.src} to {tmp_src_path}")
+    shutil.copytree(
+        args.src, tmp_src_path, dirs_exist_ok=True, copy_function=copy_writable
+    )
 
-    if args.tmp:
-        # copy source to a temporary directory
-        # used by buck genrule, which does not guarantee src is writable
-        tmp_src_path = tempfile.mkdtemp(prefix="explain_src", dir=args.tmp)
-        atexit.register(lambda: rm_rf(tmp_src_path))
-        print_err(f"copying source {src} to {tmp_src_path}")
-        shutil.copytree(
-            src, tmp_src_path, dirs_exist_ok=True, copy_function=copy_writable
-        )
-        src = tmp_src_path
+    src_join = functools.partial(os.path.join, tmp_src_path)
 
-    src_join = functools.partial(os.path.join, src)
-
-    if args.yarn_offline_mirror:
-        env = {"YARN_YARN_OFFLINE_MIRROR": os.path.realpath(args.yarn_offline_mirror)}
-        run(
-            yarn
-            + [
-                "--cwd",
-                src_join(),
-                "install",
-                "--offline",
-                "--frozen-lockfile",
-                "--ignore-scripts",
-                "--check-files",
-            ],
-            env=env,
-        )
-    else:
-        run(yarn + ["--cwd", src_join(), "install", "--prefer-offline"])
+    env = {"YARN_YARN_OFFLINE_MIRROR": os.path.realpath(args.yarn_offline_mirror)}
+    run(
+        yarn
+        + [
+            "--cwd",
+            src_join(),
+            "install",
+            "--offline",
+            "--frozen-lockfile",
+            "--ignore-scripts",
+            "--check-files",
+        ],
+        env=env,
+    )
 
     rm_rf(src_join("dist"))
 
@@ -138,7 +126,7 @@ def main():
     html_content = html_content.replace(CSS_LINK, f"<style>{css_content}</style>")
     html_content = html_content.replace(JS_SCRIPT, f"<script>{js_content}</script>")
 
-    with open(out, "w") as out_file:
+    with open(args.output, "w") as out_file:
         out_file.write(html_content)
 
 
