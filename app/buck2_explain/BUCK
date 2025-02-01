@@ -24,6 +24,7 @@ rust_library(
         "fbsource//third-party/rust:flatbuffers",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_node:buck2_node",
         "//buck2/app/buck2_query:buck2_query",
     ],

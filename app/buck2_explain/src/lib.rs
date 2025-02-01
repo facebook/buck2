@@ -53,21 +53,8 @@ pub async fn main(
     let fbs = flatbuffers::gen_fbs(data, executed_actions, changed_files)?;
 
     let fbs = fbs.finished_data();
-    let base64 = STANDARD.encode(&fbs);
 
-    // For dev purposes, dump the base64 encoded flatbuffer to a file
-    if let Some(fbs_dump) = fbs_dump {
-        fs::write(fbs_dump, &base64)?;
-    }
-
-    let html_out = {
-        let html_in = include_str!("explain.html");
-        if !html_in.contains(HTML_PLACEHOLDER) {
-            return Err(anyhow::anyhow!("HTML template is not valid"));
-        }
-
-        html_in.replace(HTML_PLACEHOLDER, &base64)
-    };
+    let html_out = inline_fbs(fbs, fbs_dump, include_str!("explain.html"))?;
 
     let mut cursor = &mut Cursor::new(html_out.as_bytes());
 
@@ -86,4 +73,26 @@ pub async fn main(
     }
 
     Ok(())
+}
+
+pub fn inline_fbs(
+    fbs: &[u8],
+    fbs_dump: Option<&AbsPathBuf>,
+    html_in: &str,
+) -> buck2_error::Result<String> {
+    let base64 = STANDARD.encode(&fbs);
+
+    // For dev purposes, dump the base64 encoded flatbuffer to a file
+    if let Some(fbs_dump) = fbs_dump {
+        fs::write(fbs_dump, &base64)?;
+    }
+
+    if !html_in.contains(HTML_PLACEHOLDER) {
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "HTML template is not valid"
+        ));
+    }
+
+    Ok(html_in.replace(HTML_PLACEHOLDER, &base64))
 }
