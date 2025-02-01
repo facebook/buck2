@@ -357,6 +357,15 @@ async def test_dot_compact(buck: Buck) -> None:
     )
 
 
+@buck_test(data_dir="bxl_simple")
+async def test_html(buck: Buck) -> None:
+    out = await buck.uquery(
+        "--output-format=html", "deps(root//bin:the_binary, 100, target_deps())"
+    )
+    out = "\n".join(filter(lambda x: "let blobBase64 =" in x, out.stdout.split("\n")))
+    golden(output=out, rel_path="bxl_simple/expected/html.golden")
+
+
 # Tests for "%Ss" uses
 @buck_test(data_dir="bxl_simple")
 async def test_args_as_set(buck: Buck) -> None:

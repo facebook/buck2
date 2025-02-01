@@ -46,6 +46,7 @@ use crate::commands::query::QueryCommandError;
 use crate::dot::targets::DotTargetGraph;
 use crate::dot::Dot;
 use crate::dot::DotCompact;
+use crate::html::Html;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
 pub(crate) enum ShouldPrintProviders<'a, T> {
@@ -401,6 +402,7 @@ impl<'a> QueryResultPrinter<'a> {
                         &mut output,
                     )?;
                 }
+                QueryOutputFormat::Html => Html::render(targets, &mut output)?,
                 QueryOutputFormat::DotCompact => {
                     DotCompact::render(
                         &DotTargetGraph {
@@ -446,6 +448,12 @@ impl<'a> QueryResultPrinter<'a> {
                         return Err(buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Unimplemented,
                             "dot_compact output for files not implemented yet"
+                        ));
+                    }
+                    QueryOutputFormat::Html => {
+                        return Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Unimplemented,
+                            "html output for files not implemented yet"
                         ));
                     }
                 }

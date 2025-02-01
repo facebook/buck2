@@ -7,11 +7,14 @@
  * of this source tree.
  */
 
+#![feature(used_with_arg)]
+
 use std::fs;
 use std::io::Cursor;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use buck2_core::buck2_env;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 
 #[allow(unused_imports)]
@@ -19,9 +22,16 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 #[allow(clippy::extra_unused_lifetimes)]
 mod explain_generated;
 mod flatbuffers;
+mod output_format_flatbuffers;
+#[allow(unused_imports)]
+#[allow(unused_extern_crates)]
+#[allow(clippy::extra_unused_lifetimes)]
+mod output_format_generated;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_query::query::environment::QueryTarget;
+use buck2_query::query::syntax::simple::eval::set::TargetSet;
 
 const HTML_PLACEHOLDER: &str = "XXDATAXX";
 
@@ -75,18 +85,27 @@ pub async fn main(
     Ok(())
 }
 
+pub fn output_format<T: QueryTarget>(data: TargetSet<T>) -> buck2_error::Result<String> {
+    let fbs = output_format_flatbuffers::gen_fbs(data)?;
+    let fbs = fbs.finished_data();
+    let html_out = inline_fbs(fbs, None, include_str!("output_format.html"))?;
+    Ok(html_out)
+}
+
 pub fn inline_fbs(
     fbs: &[u8],
     fbs_dump: Option<&AbsPathBuf>,
     html_in: &str,
 ) -> buck2_error::Result<String> {
     let base64 = STANDARD.encode(&fbs);
-
     // For dev purposes, dump the base64 encoded flatbuffer to a file
     if let Some(fbs_dump) = fbs_dump {
         fs::write(fbs_dump, &base64)?;
     }
-
+    let env = buck2_env!("BUCK2_DUMP_FBS", applicability = testing)?;
+    if let Some(fbs_dump) = env {
+        fs::write(fbs_dump, &base64)?;
+    }
     if !html_in.contains(HTML_PLACEHOLDER) {
         return Err(buck2_error::buck2_error!(
             buck2_error::ErrorTag::Tier0,

@@ -10,6 +10,8 @@ rust_library(
     ),
     mapped_srcs = {
         "//buck2/app/buck2_explain/js:html": "src/explain.html",
+        "//buck2/app/buck2_explain/output_format_js:html": "src/output_format.html",
+        ":output_format_schema_rust[output_format_generated.rs]": "src/output_format_generated.rs",
         ":schema_rust[explain_generated.rs]": "src/explain_generated.rs",
     },
     test_deps = [
@@ -28,6 +30,18 @@ rust_library(
         "//buck2/app/buck2_node:buck2_node",
         "//buck2/app/buck2_query:buck2_query",
     ],
+)
+
+buck_genrule(
+    name = "output_format_schema_rust",
+    srcs = [
+        "output_format_js/output_format.fbs",
+    ],
+    outs = {
+        "output_format_generated.rs": ["output_format_generated.rs"],
+    },
+    cmd = "$(exe fbsource//third-party/flatbuffers-23.5.26:flatc) --rust -o ${OUT} ${SRCS}",
+    default_outs = ["."],
 )
 
 buck_genrule(

@@ -1,0 +1,22 @@
+{
+  "name": "buck2_explain",
+  "version": "0.0.1",
+  "license": "MIT OR Apache-2.0",
+  "dependencies": {
+    "flatbuffers": "23.5.26",
+    "flexsearch-ts": "^0.7.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-force-graph-2d": "^1.25.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "esbuild": "0.20.2"
+  },
+  "scripts": {
+    "build": "esbuild src/App.tsx --bundle --outdir=dist",
+    "watch": "esbuild src/App.tsx --bundle --outdir=dist --watch",
+    "check": "tsc -noEmit -p tsconfig.json"
+  }
+}

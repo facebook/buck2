@@ -257,6 +257,7 @@ enum QueryOutputFormat {
   DOT = 2;
   DOT_COMPACT = 3;
   STARLARK = 4;
+  HTML = 5;
 }
 
 message AqueryRequest {

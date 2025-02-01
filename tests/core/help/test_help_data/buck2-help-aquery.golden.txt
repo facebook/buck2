@@ -67,7 +67,7 @@ Options:
       --dot-compact
           Output in a more compact format than Graphviz Dot
 
-      --output-format <dot|dot_compact|json|starlark>
+      --output-format <dot|dot_compact|json|starlark|html>
           Output format (default: list).
 
                      dot -  dot graph format.
@@ -77,9 +77,10 @@ Options:
                      json - JSON format.
 
                      starlark - targets are printed like starlark code that would produce them.
+                     html - html file containing interactive target graph.
 
 
-          [possible values: dot, json, dot_compact, starlark]
+          [possible values: dot, json, dot_compact, starlark, html]
 
   -h, --help
           Print help (see a summary with '-h')
