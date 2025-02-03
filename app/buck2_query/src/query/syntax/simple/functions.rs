@@ -352,15 +352,27 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
-    /// Finds the build file where given target is defined.
+    /// Target build file.
     ///
-    /// The `targets` parameter is a specific target or target pattern. It specifies the targets to find build file dependencies for.
+    /// For each target in the provided [*target expression*](#target-expression), returns the build file where the target is defined.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery 'buildfile(//buck2:buck2)'
+    ///
+    /// buck2/BUCK
+    /// ```
+    ///
     /// In order to find the build file associated with a source file, combine the owner operator with buildfile.
     /// Examples:
-    /// `buck2 uquery "buildfile(//buck2/app/buck2_action_impl_tests:buck2_action_impl_tests)"`
-    /// `buck2 uquery "buildfile(owner(context.rs))"`
-    /// Both return the build file location:
-    /// `fbcode/buck2/app/buck2_action_impl_tests/TARGETS`
+    /// ```text
+    /// $ buck2 uquery "buildfile(//buck2/app/buck2_action_impl_tests:buck2_action_impl_tests)"`
+    /// ```
+    /// and
+    /// ```text
+    /// $ buck2 uquery "buildfile(owner(app/buck2_action_impl_tests/src/context.rs))"
+    /// ```
+    /// both return `buck2/app/buck2_action_impl_tests/TARGETS`.
     async fn buildfile(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(self.implementation.buildfile(&targets).into())
     }
