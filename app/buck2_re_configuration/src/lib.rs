@@ -232,13 +232,11 @@ mod fbcode {
                     .unwrap_or(RolloutPercentage::never())
                     .roll(),
                 execute_over_thrift: legacy_config
-                    .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                    .parse(BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
                         property: "execute_over_thrift",
                     })?
-                    // TODO: Change to always (T203734691)
-                    .unwrap_or(RolloutPercentage::never())
-                    .roll(),
+                    .unwrap_or(true),
                 execution_concurrency_limit: legacy_config
                     .parse(BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,
