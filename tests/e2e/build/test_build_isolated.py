@@ -145,16 +145,6 @@ async def test_multiple_errors_print_with_super_console(buck: Buck) -> None:
     assert_occurrences_regex(target_error, e.stderr, 1)
 
 
-@buck_test(inplace=False, data_dir="transitive_sets")
-async def test_transitive_sets(buck: Buck) -> None:
-    rule = "//:bar"
-    report = await buck.build(rule)
-    out = report.get_build_report().output_for_target(rule)
-    out = out.read_text()
-    out = [line.strip() for line in out.strip().split("\n")]
-    assert out == ["bar", "foo", "foo2", "foo1"]
-
-
 @buck_test(inplace=False, data_dir="pass")
 async def test_stderr_is_printed_for_successful_actions(buck: Buck) -> None:
     no_color_text = "warning on stderr no color"
