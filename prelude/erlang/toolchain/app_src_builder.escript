@@ -72,7 +72,7 @@ do(AppInfoFile) ->
         mod := Mod,
         env := Env,
         metadata := Metadata
-    } = AppInfo = do_parse_app_info_file(AppInfoFile),
+    } = do_parse_app_info_file(AppInfoFile),
     VerifiedTerms = check_and_normalize_template(
         Name,
         Version,
