@@ -29,7 +29,6 @@ load(
     "extract_undefined_syms",
 )
 load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
-load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")  # @unused
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
@@ -230,20 +229,7 @@ def get_android_binary_native_library_info(
     if has_native_merging and ctx.attrs.native_library_merge_code_generator:
         mergemap_gencode_jar = ctx.actions.declare_output("MergedLibraryMapping.jar")
         dynamic_outputs.append(mergemap_gencode_jar)
-        library_output = JavaClasspathEntry(
-            full_library = mergemap_gencode_jar,
-            abi = mergemap_gencode_jar,
-            abi_as_dir = None,
-            required_for_source_only_abi = False,
-            abi_jar_snapshot = None,
-        )
-        generated_java_code.append(
-            JavaLibraryInfo(
-                compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
-                library_output = library_output,
-                output_for_classpath_macro = library_output.full_library,
-            ),
-        )
+        generated_java_code.append(mergemap_gencode_jar)
 
     def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, outputs):
         get_module_from_target = all_targets_in_root_module
