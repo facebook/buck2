@@ -8,8 +8,7 @@
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RDotJavaInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
-load("@prelude//java:java_providers.bzl", "ClasspathSnapshotGranularity", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps", "generate_java_classpath_snapshot")
-load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "derive_compiling_deps")
 load("@prelude//utils:argfile.bzl", "argfile")
 
 RDotJavaSourceCode = record(
@@ -189,7 +188,7 @@ def _generate_and_compile_r_dot_java(
         remove_classes: list[str] = []) -> RDotJavaInfo:
     r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier))
 
-    compile_to_jar(
+    outputs = compile_to_jar(
         ctx,
         output = r_dot_java_out,
         actions_identifier = identifier,
@@ -198,15 +197,7 @@ def _generate_and_compile_r_dot_java(
         remove_classes = remove_classes,
     )
 
-    # Extracting an abi is unnecessary as there's not really anything to strip.
-    jar_snapshot = generate_java_classpath_snapshot(ctx.actions, ctx.attrs._java_toolchain[JavaToolchainInfo].cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), r_dot_java_out, identifier)
-    library_output = JavaClasspathEntry(
-        full_library = r_dot_java_out,
-        abi = r_dot_java_out,
-        abi_as_dir = None,
-        required_for_source_only_abi = False,
-        abi_jar_snapshot = jar_snapshot,
-    )
+    library_output = outputs.classpath_entry
 
     return RDotJavaInfo(
         identifier = identifier,
