@@ -274,6 +274,13 @@ impl BuckdServer {
         let daemon_state = Arc::new(
             DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await,
         );
+        if buck2_env!("BUCK2_TEST_DAEMON_RUN_ERROR", bool, applicability = testing)? {
+            // TODO(ctolliday): Remove and only use BUCK2_TEST_INIT_DAEMON_ERROR once DaemonState::new returns an error.
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Injected init daemon error"
+            ));
+        }
 
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {

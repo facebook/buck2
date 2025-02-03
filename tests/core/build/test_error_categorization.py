@@ -361,3 +361,20 @@ async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
         record["best_error_category_key"]
         == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )
+
+
+@buck_test()
+@env("BUCK2_TEST_DAEMON_RUN_ERROR", "true")
+async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    res = await expect_failure(
+        buck.targets(":", "--unstable-write-invocation-record", str(record_path))
+    )
+    assert "Injected init daemon error" in res.stderr
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    assert len(errors) == 1
+    [error] = errors
+
+    assert "DAEMON_CONNECT" in error["tags"]

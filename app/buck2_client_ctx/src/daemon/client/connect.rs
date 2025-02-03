@@ -21,6 +21,8 @@ use buck2_common::buckd_connection::ConnectionType;
 use buck2_common::buckd_connection::BUCK_AUTH_TOKEN_HEADER;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::client_utils::get_channel_uds;
+use buck2_common::client_utils::retrying;
+use buck2_common::client_utils::RetryError;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -32,6 +34,7 @@ use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::source_location::SourceLocation;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_util::process::async_background_command;
@@ -41,6 +44,7 @@ use buck2_wrapper_common::pid::Pid;
 use dupe::Dupe;
 use futures::future::try_join3;
 use futures::FutureExt;
+use serde::Deserialize;
 use tokio::io::AsyncReadExt;
 use tokio::time::timeout;
 use tonic::codegen::InterceptedService;
@@ -561,27 +565,22 @@ impl BootstrapBuckdClient {
         buck2_core::fs::fs_util::create_dir_all(&daemon_dir.path)
             .with_buck_error_context(|| format!("Error creating daemon dir: {}", daemon_dir))?;
 
-        let delete_commad = if cfg!(windows) {
-            "rmdir /s /q %USERPROFILE%\\.buck\\buckd"
-        } else {
-            "rm -rf ~/.buck/buckd"
-        };
-        let error_message = format!(
-            "Failed to connect to buck daemon.
-        Try running `buck2 kill` and your command afterwards.
-        Alternatively, try running `{}` and your command afterwards",
-            delete_commad
-        );
-
-        match constraints {
+        let res = match constraints {
             BuckdConnectConstraints::ExistingOnly => {
                 establish_connection_existing(&daemon_dir).await
             }
             BuckdConnectConstraints::Constraints(constraints) => {
                 establish_connection(paths, constraints, event_subscribers).await
             }
+        };
+
+        if let Err(e) = res {
+            Err(daemon_connect_error(e, paths)
+                .await
+                .tag([ErrorTag::DaemonConnect]))
+        } else {
+            res
         }
-        .map_err(|e| daemon_connect_error(e, paths).context(error_message))
     }
 
     pub fn with_subscribers<'a>(
@@ -1094,23 +1093,69 @@ enum BuckdConnectError {
     NestedConstraintMismatch { reason: ConstraintUnsatisfiedReason },
 }
 
-fn daemon_connect_error(error: buck2_error::Error, paths: &InvocationPaths) -> buck2_error::Error {
-    let stderr = paths
-        .daemon_dir()
-        .and_then(|dir| {
-            let stderr = std::fs::read(dir.buckd_stderr())?;
-            Ok(String::from_utf8_lossy(&stderr).into_owned())
-        })
-        .unwrap_or_else(|_| "<none>".to_owned());
+async fn daemon_connect_error(
+    error: buck2_error::Error,
+    paths: &InvocationPaths,
+) -> buck2_error::Error {
+    let error_report: Result<buck2_data::ErrorReport, RetryError<buck2_error::Error>> = retrying(
+        Duration::from_millis(50),
+        Duration::from_millis(100),
+        Duration::from_millis(500),
+        || async {
+            let daemon_dir = paths.daemon_dir()?;
+            let error_log = std::fs::read(daemon_dir.buckd_error_log())?;
 
-    let stderr = truncate(&stderr, 64000);
-    let error = error
-        .context(format!(
-            "Error connecting to the daemon, daemon stderr follows:\n{}",
-            stderr
-        ))
-        .tag([ErrorTag::DaemonConnect]);
-    classify_server_stderr(error, &stderr)
+            let error_report = buck2_data::ErrorReport::deserialize(
+                &mut serde_json::Deserializer::from_slice(&error_log),
+            )?;
+            Ok(error_report)
+        },
+    )
+    .await;
+
+    let error = if let Ok(error_report) = error_report {
+        // Daemon wrote an error and most likely quit.
+        let tags: Vec<ErrorTag> = error_report.tags().collect();
+        buck2_error::Error::new(
+            error_report.message.clone(),
+            *tags.first().unwrap_or(&ErrorTag::Tier0),
+            SourceLocation::new(file!()),
+            None,
+        )
+        .tag(tags)
+    } else {
+        // Daemon crashed or panicked, or is still running but can't be connected to.
+        let stderr = paths
+            .daemon_dir()
+            .and_then(|dir| {
+                let stderr = std::fs::read(dir.buckd_stderr())?;
+                Ok(String::from_utf8_lossy(&stderr).into_owned())
+            })
+            .unwrap_or_else(|_| "<none>".to_owned());
+
+        let stderr = truncate(&stderr, 64000);
+        let error = error
+            .context(format!(
+                "Error connecting to the daemon, daemon stderr follows:\n{}",
+                stderr
+            ))
+            .tag([ErrorTag::DaemonConnect]);
+
+        classify_server_stderr(error, &stderr)
+    };
+    let delete_commad = if cfg!(windows) {
+        "rmdir /s /q %USERPROFILE%\\.buck\\buckd"
+    } else {
+        "rm -rf ~/.buck/buckd"
+    };
+    // FIXME(ctolliday) we should check if the pid at daemon_dir.buckd_pid is still running before suggesting buck2 kill.
+    let error_message = format!(
+        "Failed to connect to buck daemon.
+    Try running `buck2 kill` and your command afterwards.
+    Alternatively, try running `{}` and your command afterwards",
+        delete_commad
+    );
+    error.context(error_message)
 }
 
 fn is_nested_invocation(

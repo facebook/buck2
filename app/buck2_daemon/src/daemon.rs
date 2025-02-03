@@ -28,6 +28,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_events::errors::create_error_report;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -179,6 +180,14 @@ impl DaemonCommand {
     ) -> buck2_error::Result<()> {
         // NOTE: Do not create any threads before this point.
         //   Daemonize does not preserve threads.
+
+        daemon_lower_priority(self.skip_macos_qos)?;
+
+        // TODO(nga): this breaks relative paths in `--no-buckd`.
+        //   `--no-buckd` should capture correct directories earlier.
+        //   Or even better, client should set current directory to project root,
+        //   and resolve all paths relative to original cwd.
+        fs_util::set_current_dir(paths.project_root().root())?;
 
         let server_init_ctx = BuckdServerInitPreferences {
             detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
@@ -435,23 +444,19 @@ impl DaemonCommand {
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> buck2_error::Result<()> {
-        daemon_lower_priority(self.skip_macos_qos)?;
-
-        let project_root = paths.project_root();
         let daemon_dir = paths.daemon_dir()?;
-
         if !daemon_dir.path.is_dir() {
             fs_util::create_dir_all(&daemon_dir.path)?;
         }
 
-        // TODO(nga): this breaks relative paths in `--no-buckd`.
-        //   `--no-buckd` should capture correct directories earlier.
-        //   Or even better, client should set current directory to project root,
-        //   and resolve all paths relative to original cwd.
-        fs_util::set_current_dir(project_root.root())?;
-
-        self.run(log_reload_handle, paths, in_process, listener_created)?;
-        Ok(())
+        let res = self.run(log_reload_handle, paths, in_process, listener_created);
+        if let Err(err) = res.as_ref() {
+            fs_util::write(
+                daemon_dir.buckd_error_log(),
+                serde_json::to_string(&create_error_report(err))?,
+            )?;
+        }
+        res
     }
 
     #[cfg(unix)]
