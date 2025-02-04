@@ -5,39 +5,61 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# NOTE: Currently, constraints can't be propagated via rule attrs and so need to be
-#       hard-coded here. We use a read_config to avoid hard-coding these repo-specific
-#       constraints into the prelude.
-#       The following configs must be set to use constraint_overrides.bzl:
-#         - buck2.platforms
-#         - buck2.constraints
-#         - buck2.passthrough_constraints
+# NOTE: At the moment, target platforms and constraint values can't be propagated via build rule
+#       attributes all the way to configuration transitions. The reason is that the transition
+#       function is invoked before the rule, so any PlatformInfo and ConstraintValueInfo providers
+#       present in the rule attributes aren't resolved at this time.
+#
+#       Because of this, the list of possible target platforms and constraint values is encoded
+#       here in the form of config settings with lists of comma-separated elements. Specifically,
+#       the configuration transition relies on the following config settings:
+#
+#           * buck2.platforms
+#           * buck2.constraints
+#           * buck2.passthrough_constraints
+#
+#       buck2.platforms and buck2.constraints list all possible target platforms and constraint
+#       values, and buck2.passthrough_constraints lists constraint settings to preserve when
+#       applying the configuration transition. The use of read_config avoids hard-coding these
+#       repo-specific configuration rules into the prelude.
 
-_platforms_val = read_root_config("buck2", "platforms", "")
-_constraints_val = read_root_config("buck2", "constraints", "")
-_passthrough_constraints_val = read_root_config("buck2", "passthrough_constraints", "")
+_config = struct(
+    platforms = read_root_config("buck2", "platforms", ""),
+    constraints = read_root_config("buck2", "constraints", ""),
+    passthrough_constraints = read_root_config("buck2", "passthrough_constraints", ""),
+    split = lambda values: [value.strip() for value in values.split(",") if value.strip()],
+)
 
 def _platforms() -> list[str]:
-    return [platform.strip() for platform in _platforms_val.split(",") if platform.strip()]
+    return _config.split(_config.platforms)
 
 def _constraints() -> list[str]:
-    return [constraint.strip() for constraint in _constraints_val.split(",") if constraint.strip()]
+    return _config.split(_config.constraints)
 
 def _passthrough_constraints() -> list[str]:
-    return [constraint.strip() for constraint in _passthrough_constraints_val.split(",") if constraint.strip()]
+    return _config.split(_config.passthrough_constraints)
 
 def _resolve(
         refs: struct,
         attrs: struct) -> dict[str, PlatformInfo | list[ConstraintValueInfo] | None]:
     """
-    Validates and prepares arguments for the _apply business logic for the constraint_overrides transition.
+    Validates and prepares arguments for business logic in constraint_overrides.apply, which
+    implements the transition function.
 
-    Constraints and platforms specified in attrs that are not in refs are caught here and fail the build.
+    All target platforms and constraint values present in attrs must also be present in refs, which
+    contains the list of all possible target platforms and constraint values. If they're not, the
+    configuration transition fails with an error message saying the override is not supported.
 
-    Arguments:
-    - refs: Refs struct containing allowed constraint values and platforms as keys and values.
-    - attrs: Struct containing the user's rule arguments "constraint_overrides" and
-      "platform_override" to validate and resolve.
+    Args:
+
+        refs   struct containing the list of all possible target platforms and constraint values,
+               stored as a mapping from build targets to configured target labels with PlatformInfo
+               and ConstraintValueInfo providers.
+        attrs  Struct containing the platform_override and constraint_overrides arguments to the
+               build rule to which the configuration transition is being applied.
+
+    Returns:
+        dict containing key-value arguments to passy to constraint_overrides.apply.
     """
     args = {}
 
@@ -75,17 +97,33 @@ def _apply(
         platform: PlatformInfo | None = None,
         constraints: list[ConstraintValueInfo] = []) -> PlatformInfo:
     """
-    Business logic to implement the constraint_overrides transition. Summarized:
+    Applies the business logic to implement the constraint_overrides configuration transition.
 
-    1. Initialize the result from 'old_platform', or 'platform' if provided.
-    2. Apply the settings in '_passthrough_constraints()' from 'old_platform' to the result.
-    3. Apply the constraint values in 'constraints' to the result.
-    4. Return the result as the new platform info.
+    The outgoing target platform is constructed by:
 
-    Arguments:
-    - old_platform: Original platform passed to the transition implementation
-    - platform: Optional new platform to use as a base for the result
-    - constraints: List of constraints to apply in the transition
+        1. Initializing it from old_platform, if platform is None, or from platform if not None;
+        2. Applying the constraint values in old_platform whose constraint settings match any of
+           those listed in buck2.passthrough_constraints; and
+        3. Applying the constraint values present in constraints.
+
+    If platform is None the constraint values in old_platform are preserved unless overridden by
+    constraint values in constraints. If platform is not None the constraint values in old_platform
+    are discarded unless:
+
+        * Their constraint settings are listed in buck2.passthrough_constraints; and
+        * They're not overridden by a constraint value in constraints.
+
+    Args:
+
+        old_platform  Incoming target platform. This is the target platform prior to the
+                      configuration transition.
+        platform      Target platform to use as a basis for the outgoing target platform. If None,
+                      old_platform is used instead.
+        constraints   List of constraint values to apply to the target platform. These constraint
+                      values are applied on top of either old_platform or platform.
+
+    Returns:
+        Outgoing target platform.
     """
 
     # Store passthrough constraint values.
