@@ -12,6 +12,7 @@ load(
     "VALIDATION_DEPS_ATTR_TYPE",
 )
 load("@prelude//apple:apple_common.bzl", "apple_common")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rule_attributes", "meta_only_apple_rule_implementations")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
@@ -62,7 +63,8 @@ implemented_rules = {
     "prebuilt_apple_framework": prebuilt_apple_framework_impl,
     "scene_kit_assets": scene_kit_assets_impl,
     "swift_toolchain": swift_toolchain_impl,
-}
+# @oss-disable[end= ]: } | meta_only_apple_rule_implementations()
+} # @oss-enable
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
@@ -263,4 +265,5 @@ extra_attributes = {
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
         "_swiftc_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
     },
-}
+# @oss-disable[end= ]: } | meta_only_apple_rule_attributes()
+} # @oss-enable
