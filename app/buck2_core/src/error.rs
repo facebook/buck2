@@ -41,7 +41,7 @@ static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
 /// Throw a "soft_error" ie. a non-fatal error logged to logview.
-/// Errors will also be logged to stderr as warnings to the user, unless `quiet=true` is passed.
+/// Errors will not be logged to stderr as warnings to the user, unless `quiet=false` is passed.
 /// Logview will generate tasks for each error category, unless `task=false` is passed.
 /// If `deprecation=true` this error should ideally become a hard error in the future.
 ///
@@ -157,7 +157,7 @@ pub struct StructuredErrorOptions {
 impl Default for StructuredErrorOptions {
     fn default() -> Self {
         Self {
-            quiet: false,
+            quiet: true,
             task: true,
             deprecation: false,
             daemon_in_memory_state_is_corrupted: false,

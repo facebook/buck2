@@ -58,11 +58,11 @@ fn test_soft_error() {
     let before_error_line = line!();
     let _ignore_hard_error = soft_error!(
         "test_logged_soft_error",
-        buck2_error!(buck2_error::ErrorTag::Input, "Should be logged").into()
+        buck2_error!(buck2_error::ErrorTag::Input, "Should be logged").into(),
     );
     assert_eq!(
         Some(&format!(
-            "({:?}, {}, 30), : Should be logged : test_logged_soft_error : false",
+            "({:?}, {}, 30), : Should be logged : test_logged_soft_error : true",
             file!(),
             before_error_line + 1,
         )),
