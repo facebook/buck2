@@ -182,12 +182,6 @@ message CommandOptions {
   uint64 concurrency = 1;
 }
 
-message BuckConfigs {
-  reserved 1, 2, 3;
-  // config diff by cell name
-  map<string, CellConfigDiff> cell_diff = 4;
-}
-
 message CellConfigDiff {
   // config diff by section name
   map<string, SectionConfigDiff> section_diff = 1;
