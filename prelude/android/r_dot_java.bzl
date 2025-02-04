@@ -195,6 +195,7 @@ def _generate_and_compile_r_dot_java(
         javac_tool = None,
         srcs = [r_dot_java_source_code_zipped],
         remove_classes = remove_classes,
+        required_for_source_only_abi = True,
     )
 
     library_output = outputs.classpath_entry
