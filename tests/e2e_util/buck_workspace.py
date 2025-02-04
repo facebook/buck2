@@ -63,6 +63,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # This is necessary for static linking on Linux.
     if platform.system() != "Windows":
         env["BUCKD_STARTUP_TIMEOUT"] = "120"
+        env["BUCKD_STARTUP_INIT_TIMEOUT"] = "120"
 
     # allow_soft_errors will override any existing environment variable behavior
     if marker.allow_soft_errors or marker.inplace:

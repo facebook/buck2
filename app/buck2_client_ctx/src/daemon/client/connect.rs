@@ -223,10 +223,6 @@ pub enum BuckdConnectConstraints {
     Constraints(DaemonConstraintsRequest),
 }
 
-fn buckd_startup_timeout_var() -> buck2_error::Result<Option<u64>> {
-    buck2_env!("BUCKD_STARTUP_TIMEOUT", type=u64)
-}
-
 async fn get_channel(
     endpoint: ConnectionType,
     change_to_parent_dir: bool,
@@ -272,7 +268,13 @@ pub async fn new_daemon_api_client(
 
 pub fn buckd_startup_timeout() -> buck2_error::Result<Duration> {
     Ok(Duration::from_secs(
-        buckd_startup_timeout_var()?.unwrap_or(10),
+        buck2_env!("BUCKD_STARTUP_TIMEOUT", type=u64)?.unwrap_or(10),
+    ))
+}
+
+pub fn buckd_startup_init_timeout() -> buck2_error::Result<Duration> {
+    Ok(Duration::from_secs(
+        buck2_env!("BUCKD_STARTUP_INIT_TIMEOUT", type=u64)?.unwrap_or(90),
     ))
 }
 
@@ -380,10 +382,7 @@ impl<'a> BuckdLifecycle<'a> {
         daemon_startup_config: &DaemonStartupConfig,
     ) -> buck2_error::Result<()> {
         let project_dir = self.paths.project_root();
-        let timeout_secs = Duration::from_secs(env::var("BUCKD_STARTUP_TIMEOUT").map_or(10, |t| {
-            t.parse::<u64>()
-                .unwrap_or_else(|_| panic!("Cannot convert {} to int", t))
-        }));
+        let timeout_secs = buckd_startup_timeout()?;
 
         let daemon_exe = get_daemon_exe()?;
         let slice_name = format!(
@@ -680,7 +679,7 @@ async fn establish_connection(
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
-    let timeout = buckd_startup_timeout()? * 9;
+    let timeout = buckd_startup_init_timeout()?;
     let deadline = StartupDeadline::duration_from_now(timeout)?;
     deadline
         .down(

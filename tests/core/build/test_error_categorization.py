@@ -232,6 +232,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
 
 @buck_test()
 @env("BUCKD_STARTUP_TIMEOUT", "0")
+@env("BUCKD_STARTUP_INIT_TIMEOUT", "0")
 async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     record_path = tmp_path / "record.json"
     res = await expect_failure(
