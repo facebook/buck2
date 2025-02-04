@@ -744,6 +744,7 @@ mod tests {
     use allocative::Allocative;
     use assert_matches::assert_matches;
     use async_trait::async_trait;
+    use buck2_common::legacy_configs::dice::SetLegacyConfigs;
     use buck2_core::is_open_source;
     use buck2_events::create_source_sink_pair;
     use buck2_events::source::ChannelEventSource;
@@ -804,7 +805,7 @@ mod tests {
     async fn make_default_dice() -> Arc<Dice> {
         let dice = Dice::builder().build(DetectCycles::Enabled);
         let mut updater = dice.updater();
-        drop(buck2_common::legacy_configs::dice::inject_external_config_for_test(&mut updater));
+        drop(updater.set_none_legacy_config_external_data());
         updater.commit().await;
         dice
     }
