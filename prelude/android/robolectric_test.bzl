@@ -71,19 +71,19 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(jar_cmd, category = "test_config_properties_jar_cmd")
     extra_cmds.append(cmd_args(hidden = [resources_info.primary_resources_apk, resources_info.manifest]))
 
-    r_dot_javas = [r_dot_java.library_info.library_output.full_library for r_dot_java in resources_info.r_dot_java_infos if r_dot_java.library_info.library_output]
+    r_dot_javas = [r_dot_java.library_info.library_output for r_dot_java in resources_info.r_dot_java_infos if r_dot_java.library_info.library_output]
     expect(len(r_dot_javas) <= 1, "android_library only works with single R.java")
 
     extra_sub_targets = {}
     if r_dot_javas:
         r_dot_java = r_dot_javas[0]
-        extra_sub_targets["r_dot_java"] = [DefaultInfo(default_output = r_dot_java)]
+        extra_sub_targets["r_dot_java"] = [DefaultInfo(default_output = r_dot_java.full_library)]
     else:
         r_dot_java = None
     java_providers, _ = build_android_library(ctx, r_dot_java = r_dot_java, extra_sub_targets = extra_sub_targets)
 
     extra_classpath_entries = [test_config_properties_jar] + ctx.attrs._android_toolchain[AndroidToolchainInfo].android_bootclasspath + optional_jars(ctx)
-    extra_classpath_entries.extend(r_dot_javas)
+    extra_classpath_entries.extend([r_dot_java.full_library for r_dot_java in r_dot_javas])
     external_runner_test_info = build_junit_test(
         ctx,
         java_providers.java_library_info,

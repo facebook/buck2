@@ -19,6 +19,7 @@ load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
 load("@prelude//java:java_library.bzl", "build_java_library")
 load(
     "@prelude//java:java_providers.bzl",
+    "JavaClasspathEntry",  # @unused Used as type
     "JavaProviders",  # @unused Used as type
     "create_native_providers",
     "to_list",
@@ -70,7 +71,7 @@ def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
 
 def build_android_library(
         ctx: AnalysisContext,
-        r_dot_java: Artifact | None = None,
+        r_dot_java: JavaClasspathEntry | None = None,
         extra_sub_targets = {},
         validation_deps_outputs: [list[Artifact], None] = None,
         classpath_entries: [list[Artifact], None] = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
@@ -81,7 +82,7 @@ def build_android_library(
     extra_sub_targets = dict(extra_sub_targets)
 
     if r_dot_java:
-        additional_classpath_entries.append(r_dot_java)
+        additional_classpath_entries.append(r_dot_java.full_library)
     elif dummy_r_dot_java:
         additional_classpath_entries.append(dummy_r_dot_java)
         extra_sub_targets["dummy_r_dot_java"] = [DefaultInfo(default_output = dummy_r_dot_java)]
