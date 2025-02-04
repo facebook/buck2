@@ -67,7 +67,7 @@ def _create_kotlin_sources(
         "--kotlinc_output",
         kotlinc_output.as_output(),
     ]
-    compile_kotlin_cmd_hidden = []
+    compile_kotlin_cmd_hidden = cmd_args()
 
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     zip_scrubber_args = ["--zip_scrubber", cmd_args(java_toolchain.zip_scrubber, delimiter = " ")]
@@ -75,19 +75,18 @@ def _create_kotlin_sources(
 
     kotlinc_cmd_args = cmd_args([kotlinc])
 
-    compiling_classpath = [] + additional_classpath_entries
+    compiling_classpath = cmd_args()
+    compiling_classpath.add(additional_classpath_entries)
     compiling_deps_tset = derive_compiling_deps(ctx.actions, None, deps + [kotlin_toolchain.kotlin_stdlib])
     if compiling_deps_tset:
-        compiling_classpath.extend(
-            [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse())],
-        )
+        compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
 
     classpath_args = cmd_args(
         compiling_classpath,
         delimiter = get_path_separator_for_exec_os(ctx),
     )
 
-    compile_kotlin_cmd_hidden.append([compiling_classpath])
+    compile_kotlin_cmd_hidden.add(compiling_classpath)
 
     kotlinc_cmd_args.add(["-classpath"])
     kotlinc_cmd_args.add(at_argfile(
@@ -130,7 +129,7 @@ def _create_kotlin_sources(
         ).project_as_args("full_jar_args")
         kapt_classpath_file = ctx.actions.write("kapt_classpath_file", annotation_processor_classpath)
         compile_kotlin_cmd_args.extend(["--kapt_classpath_file", kapt_classpath_file])
-        compile_kotlin_cmd_hidden.append(annotation_processor_classpath)
+        compile_kotlin_cmd_hidden.add(annotation_processor_classpath)
 
         sources_output = ctx.actions.declare_output("kapt_sources_output")
         compile_kotlin_cmd_args.append(["--kapt_sources_output", sources_output.as_output()])
@@ -209,7 +208,7 @@ def _create_kotlin_sources(
     if zipped_sources:
         zipped_sources_file = ctx.actions.write("kotlinc_zipped_source_args", zipped_sources)
         compile_kotlin_cmd_args.append(["--zipped_sources_file", zipped_sources_file])
-        compile_kotlin_cmd_hidden.append(zipped_sources)
+        compile_kotlin_cmd_hidden.add(zipped_sources)
 
     args_file, _ = ctx.actions.write(
         "kotlinc_cmd",
@@ -217,11 +216,11 @@ def _create_kotlin_sources(
         allow_args = True,
     )
 
-    compile_kotlin_cmd_hidden.append(plain_sources)
+    compile_kotlin_cmd_hidden.add(plain_sources)
 
     compile_kotlin_cmd_args.append("--kotlinc_cmd_file")
     compile_kotlin_cmd_args.append(args_file)
-    compile_kotlin_cmd_hidden.append(kotlinc_cmd_args)
+    compile_kotlin_cmd_hidden.add(kotlinc_cmd_args)
 
     ctx.actions.run(
         cmd_args(compile_kotlin_cmd_args, hidden = compile_kotlin_cmd_hidden),
