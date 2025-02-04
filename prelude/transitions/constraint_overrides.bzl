@@ -39,6 +39,34 @@ def _constraints() -> list[str]:
 def _passthrough_constraints() -> list[str]:
     return _config.split(_config.passthrough_constraints)
 
+def _check(target: str) -> str:
+    """
+    Checks that a build target is fully qualified.
+
+    Because of the context in which the transition function is invoked, it can't make use of
+    certain functions that are only available in a build file context. These functions include
+    package_name and get_cell_name. For this reason all build targets must be fully qualified, in
+    the format cell//package:name, so that they may be used for look-up in refs.
+
+    Args:
+        target  Build  target.
+
+    Returns:
+        Fully qualified build target.
+    """
+    message = "Build target must be fully qualified, expected format cell//package:name but received: {target}".format(
+        target = target,
+    )
+    if target.count("//") != 1:
+        fail(message)
+    cell, path = target.split("//")
+    if len(cell) == 0:
+        fail(message)
+    if path.count(":") != 1:
+        fail(message)
+    package, name = path.split(":")
+    return "{cell}//{package}:{name}".format(cell = cell, package = package, name = name)
+
 def _resolve(
         refs: struct,
         attrs: struct) -> dict[str, PlatformInfo | list[ConstraintValueInfo] | None]:
@@ -65,8 +93,8 @@ def _resolve(
 
     # Resolve target platform override.
     override = None
-    if hasattr(attrs, "platform_override"):
-        override = getattr(attrs, "platform_override")
+    if hasattr(attrs, "platform_override") and attrs.platform_override != None:
+        override = _check(attrs.platform_override)
     args["platform"] = None
     if override:
         if not hasattr(refs, override):
@@ -78,8 +106,8 @@ def _resolve(
 
     # Resolve constraint value overrides.
     overrides = []
-    if hasattr(attrs, "constraint_overrides"):
-        overrides = getattr(attrs, "constraint_overrides", [])
+    if hasattr(attrs, "constraint_overrides") and attrs.constraint_overrides != None:
+        overrides = [_check(override) for override in attrs.constraint_overrides]
     args["constraints"] = []
     for override in overrides:
         if not hasattr(refs, override):
