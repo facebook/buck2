@@ -63,6 +63,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ServerStderrEmpty => rank!(environment),
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
+        ErrorTag::InstallerEnvironment => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -123,6 +124,8 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::DiceCancelled => rank!(tier0),
         ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
         ErrorTag::DiceDuplicateActivationData => rank!(tier0),
+        ErrorTag::InstallerUnknown => rank!(tier0),
+        ErrorTag::InstallerTier0 => rank!(tier0),
 
         ErrorTag::Environment => rank!(environment),
         ErrorTag::Tier0 => rank!(tier0),
@@ -158,6 +161,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::Analysis => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
         ErrorTag::Unimplemented => rank!(input),
+        ErrorTag::InstallerInput => rank!(input),
 
         ErrorTag::Input => rank!(input),
 
@@ -216,6 +220,9 @@ pub fn tag_is_hidden(tag: &ErrorTag) -> bool {
         ErrorTag::Tier0 => true,
         ErrorTag::Input => true,
         ErrorTag::Environment => true,
+        ErrorTag::InstallerTier0 => true,
+        ErrorTag::InstallerInput => true,
+        ErrorTag::InstallerEnvironment => true,
         _ => false,
     }
 }
@@ -279,6 +286,7 @@ pub enum ErrorSourceArea {
     Watchman,
     Starlark,
     TestExecutor,
+    Installer,
 }
 
 pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
@@ -293,6 +301,8 @@ pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
         ErrorSourceArea::Starlark
     } else if tag == crate::ErrorTag::Tpx || tag == crate::ErrorTag::TestExecutor {
         ErrorSourceArea::TestExecutor
+    } else if tag_name.starts_with("INSTALLER") {
+        ErrorSourceArea::Installer
     } else {
         ErrorSourceArea::Buck2
     }

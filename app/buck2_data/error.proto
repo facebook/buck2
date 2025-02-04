@@ -138,6 +138,10 @@ enum ErrorTag {
 
   // Errors during buck2 install.
   INSTALL = 200;
+  INSTALLER_UNKNOWN = 2101;
+  INSTALLER_TIER0 = 2102;
+  INSTALLER_ENVIRONMENT = 2103;
+  INSTALLER_INPUT = 2104;
 
   //// High level descriptions of the "phase" of the build during which the
   // error occurred

@@ -799,18 +799,21 @@ async fn send_file(
                 installer_log: install_log.to_owned(),
             }
             .into();
-            if let Some(category) =
+            let category_tag = if let Some(category) =
                 buck2_install_proto::ErrorCategory::from_i32(error_detail.category)
             {
-                if let Some(category_tag) = match category {
-                    buck2_install_proto::ErrorCategory::Unspecified => None,
-                    buck2_install_proto::ErrorCategory::Tier0 => Some(ErrorTag::Tier0),
-                    buck2_install_proto::ErrorCategory::Input => Some(ErrorTag::Input),
-                    buck2_install_proto::ErrorCategory::Environment => Some(ErrorTag::Environment),
-                } {
-                    error = error.tag([category_tag]);
+                match category {
+                    buck2_install_proto::ErrorCategory::Unspecified => ErrorTag::InstallerUnknown,
+                    buck2_install_proto::ErrorCategory::Tier0 => ErrorTag::InstallerTier0,
+                    buck2_install_proto::ErrorCategory::Input => ErrorTag::InstallerInput,
+                    buck2_install_proto::ErrorCategory::Environment => {
+                        ErrorTag::InstallerEnvironment
+                    }
                 }
-            }
+            } else {
+                ErrorTag::InstallerUnknown
+            };
+            error = error.tag([category_tag]);
 
             for tag in error_detail.tags {
                 error = error.context_for_key(&tag);
