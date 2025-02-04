@@ -446,14 +446,11 @@ def _create_java_compiling_deps_tset_for_global_code(
         global_code_library: [JavaCompilingDepsTSet, None],
         name: str,
         global_code_infos: list[JavaGlobalCodeInfo]) -> [JavaCompilingDepsTSet, None]:
-    global_code_jars_kwargs = {}
     global_code_jars_children = filter(None, [info.global_code_map.get(name, None) for info in global_code_infos])
     if global_code_library:
         global_code_jars_children.append(global_code_library)
-    if global_code_jars_children:
-        global_code_jars_kwargs["children"] = global_code_jars_children
 
-    return actions.tset(JavaCompilingDepsTSet, **global_code_jars_kwargs) if global_code_jars_kwargs else None
+    return actions.tset(JavaCompilingDepsTSet, children = global_code_jars_children) if global_code_jars_children else None
 
 # This function identifies and collects necessary dependencies that meet criteria defined in `GLOBAL_CODE_CONFIG` for global code generation across frameworks.
 # It maps framework names to their corresponding Java compiling dependency sets.
