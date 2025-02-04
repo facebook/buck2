@@ -1115,13 +1115,19 @@ async fn daemon_connect_error(
     let error = if let Ok(error_report) = error_report {
         // Daemon wrote an error and most likely quit.
         let tags: Vec<ErrorTag> = error_report.tags().collect();
-        buck2_error::Error::new(
+        let daemon_error = buck2_error::Error::new(
             error_report.message.clone(),
             *tags.first().unwrap_or(&ErrorTag::Tier0),
             SourceLocation::new(file!()),
             None,
         )
-        .tag(tags)
+        .tag(tags);
+        if daemon_error.has_tag(ErrorTag::DaemonStateInitFailed) {
+            // If error is in this stage of daemon init, exclude connection error details/workaround message.
+            // TODO(ctolliday) always hide connection error details/workaround message if there is a structured error from daemon.
+            return daemon_error;
+        }
+        daemon_error
     } else {
         // Daemon crashed or panicked, or is still running but can't be connected to.
         let stderr = paths

@@ -272,15 +272,8 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let daemon_state = Arc::new(
-            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await,
+            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await?,
         );
-        if buck2_env!("BUCK2_TEST_DAEMON_RUN_ERROR", bool, applicability = testing)? {
-            // TODO(ctolliday): Remove and only use BUCK2_TEST_INIT_DAEMON_ERROR once DaemonState::new returns an error.
-            return Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
-                "Injected init daemon error"
-            ));
-        }
 
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
@@ -409,7 +402,7 @@ impl BuckdServer {
             daemon_shutdown_channel,
             state,
         } = ActiveCommand::new(&dispatch, client_ctx.sanitized_argv.clone());
-        let data = daemon_state.data()?;
+        let data = daemon_state.data();
 
         // Fire off a system-wide event to record the memory usage of this process.
         // TODO(ezgi): add it to oneshot command too
@@ -855,10 +848,9 @@ impl DaemonApi for BuckdServer {
 
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let snapshot = if req.snapshot {
-                let data = daemon_state.data()?;
                 Some(
                     snapshot::SnapshotCollector::new(
-                        data.dupe(),
+                        daemon_state.data(),
                         daemon_state.paths.buck_out_path(),
                     )
                     .create_snapshot(),
@@ -867,27 +859,22 @@ impl DaemonApi for BuckdServer {
                 None
             };
 
-            let extra_constraints = daemon_state.data().as_ref().ok().map(|state| {
-                buck2_cli_proto::ExtraDaemonConstraints {
-                    trace_io_enabled: TracingIoProvider::from_io(&*state.io).is_some(),
-                    materializer_state_identity: state
-                        .materializer_state_identity
-                        .as_ref()
-                        .map(|i| i.to_string()),
-                }
-            });
+            let extra_constraints = buck2_cli_proto::ExtraDaemonConstraints {
+                trace_io_enabled: TracingIoProvider::from_io(&*daemon_state.data().io).is_some(),
+                materializer_state_identity: daemon_state
+                    .data()
+                    .materializer_state_identity
+                    .as_ref()
+                    .map(|i| i.to_string()),
+            };
 
             let mut daemon_constraints = self.0.base_daemon_constraints.clone();
-            daemon_constraints.extra = extra_constraints;
+            daemon_constraints.extra = Some(extra_constraints);
 
             let valid_working_directory = daemon_state.validate_cwd().is_ok();
             let valid_buck_out_mount = daemon_state.validate_buck_out_mount().is_ok();
 
-            let io_provider = daemon_state
-                .data()
-                .as_ref()
-                .ok()
-                .map(|state| state.io.name().to_owned());
+            let io_provider = daemon_state.data().io.name().to_owned();
 
             let uptime = self.0.start_instant.elapsed();
             let base = StatusResponse {
@@ -898,24 +885,12 @@ impl DaemonApi for BuckdServer {
                 daemon_constraints: Some(daemon_constraints),
                 project_root: daemon_state.paths.project_root().to_string(),
                 isolation_dir: daemon_state.paths.isolation.to_string(),
-                forkserver_pid: daemon_state
-                    .data
-                    .as_ref()
-                    .ok()
-                    .and_then(|state| state.forkserver.as_ref().map(|f| f.pid())),
-                supports_vpnless: daemon_state
-                    .data()
-                    .as_ref()
-                    .ok()
-                    .map(|state| state.http_client.supports_vpnless()),
-                http2: daemon_state
-                    .data()
-                    .as_ref()
-                    .ok()
-                    .map(|state| state.http_client.http2()),
+                forkserver_pid: daemon_state.data.forkserver.as_ref().map(|f| f.pid()),
+                supports_vpnless: Some(daemon_state.data().http_client.supports_vpnless()),
+                http2: Some(daemon_state.data().http_client.http2()),
                 valid_working_directory: Some(valid_working_directory),
                 valid_buck_out_mount: Some(valid_buck_out_mount),
-                io_provider,
+                io_provider: Some(io_provider),
                 ..Default::default()
             };
             Ok(base)
@@ -1255,7 +1230,7 @@ impl DaemonApi for BuckdServer {
 
             self.0
                 .daemon_state
-                .data()?
+                .data()
                 .spawn_dice_dump(path, format_proto)
                 .await
                 .with_buck_error_context(|| {
@@ -1466,14 +1441,13 @@ impl DaemonApi for BuckdServer {
         }
 
         if req.forkserver {
-            if let Ok(data) = self.0.daemon_state.data() {
-                if let Some(forkserver) = data.forkserver.as_ref() {
-                    forkserver
-                        .set_log_filter(req.log_filter)
-                        .await
-                        .buck_error_context("Error forwarding daemon log filter to forkserver")
-                        .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
-                }
+            let data = self.0.daemon_state.data();
+            if let Some(forkserver) = data.forkserver.as_ref() {
+                forkserver
+                    .set_log_filter(req.log_filter)
+                    .await
+                    .buck_error_context("Error forwarding daemon log filter to forkserver")
+                    .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
             }
         }
 

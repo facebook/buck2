@@ -42,6 +42,7 @@ use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
@@ -98,7 +99,7 @@ pub struct DaemonState {
     pub paths: InvocationPaths,
 
     /// This holds the main data shared across different commands.
-    pub(crate) data: buck2_error::Result<Arc<DaemonStateData>>,
+    pub(crate) data: Arc<DaemonStateData>,
 
     #[allocative(skip)]
     rt: Handle,
@@ -220,26 +221,26 @@ impl DaemonState {
         rt: Handle,
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
-    ) -> Self {
+    ) -> Result<Self, buck2_error::Error> {
         let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), materializations)
             .await
-            .buck_error_context("Error initializing DaemonStateData");
+            .map_err(|e| {
+                e.context("Error initializing DaemonStateData")
+                    .tag([ErrorTag::DaemonStateInitFailed])
+            })?;
 
-        if let Ok(data) = &data {
-            crate::daemon::panic::initialize(data.dupe());
-        }
+        crate::daemon::panic::initialize(data.dupe());
 
         tracing::info!("Daemon state is ready.");
 
-        let data = data.map_err(buck2_error::Error::from);
-
-        DaemonState {
+        let state = DaemonState {
             fb,
             paths,
             data,
             rt,
             working_directory,
-        }
+        };
+        Ok(state)
     }
 
     // Creates the initial DaemonStateData.
@@ -745,7 +746,7 @@ impl DaemonState {
         // facebook only: logging events to Scribe.
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();
-        let data = self.data()?;
+        let data = self.data();
         let dispatcher = if let Some(scribe_sink) = data.scribe_sink.dupe() {
             EventDispatcher::new(trace_id, TeeSink::new(scribe_sink.to_event_sync(), sink))
         } else {
@@ -765,7 +766,7 @@ impl DaemonState {
         let data = self.data();
 
         dispatcher.instant_event(buck2_data::RestartConfiguration {
-            enable_restarter: data.as_ref().map_or(false, |d| d.enable_restarter),
+            enable_restarter: data.enable_restarter,
         });
 
         tag_result!(
@@ -782,7 +783,6 @@ impl DaemonState {
         self.validate_buck_out_mount()
             .buck_error_context("Error validating buck-out mount")?;
 
-        let data = data?;
         dispatcher.instant_event(buck2_data::TagEvent {
             tags: data.tags.clone(),
         });
@@ -804,7 +804,7 @@ impl DaemonState {
         })
     }
 
-    pub fn data(&self) -> buck2_error::Result<Arc<DaemonStateData>> {
+    pub fn data(&self) -> Arc<DaemonStateData> {
         self.data.dupe()
     }
 

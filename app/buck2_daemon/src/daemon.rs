@@ -544,7 +544,7 @@ mod tests {
     use tokio::runtime::Handle;
 
     // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_daemon_smoke() {
         // TODO(nga): this should be `fbinit::perform_init`, but it is not on crates yet.
         let fbinit = unsafe { fbinit::assume_init() };
@@ -565,6 +565,12 @@ mod tests {
             },
             isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),
         };
+
+        let buckconfig = ProjectRelativePath::unchecked_new(".buckconfig");
+        project_root
+            .path()
+            .write_file(buckconfig, "[cells]\nroot = .", false)
+            .unwrap();
 
         #[derive(Allocative)]
         struct Delegate;

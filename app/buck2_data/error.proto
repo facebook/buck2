@@ -89,6 +89,8 @@ enum ErrorTag {
   DAEMON_IS_BUSY = 501;
   // Daemon was preempted during preemptible command by another command.
   DAEMON_PREEMPTED = 502;
+  // Daemon start up failed while initializing DaemonStateData.
+  DAEMON_STATE_INIT_FAILED = 503;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.

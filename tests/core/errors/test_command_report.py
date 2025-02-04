@@ -78,7 +78,7 @@ async def test_command_report_init_daemon_error(buck: Buck, tmp_path: Path) -> N
     with open(report) as f:
         report = json.loads(f.read())
 
-    assert report["exit_code"] == InfraError
+    assert report["exit_code"] == ConnectError
     assert "Injected init daemon error" in report["error_messages"][0]
 
 
