@@ -172,16 +172,9 @@ async def test_config_diff_tracker_modfile_change(buck: Buck, tmp_path: Path) ->
         str(record_file),
     )
     cell_config_diffs = await filter_events(
-        buck, "Event", "data", "Instant", "data", "CellConfigDiff"
+        buck, "Event", "data", "Instant", "data", "CellHasNewConfigs"
     )
-    cell_config_diff = cell_config_diffs[0]
-    assert cell_config_diff["new_config_indicator_only"]
-    # Config diff count/size tracking is broken as can be seen below.
-    # This will be removed and replaced with external config diffing next.
-    assert (
-        cell_config_diff["config_diff_count"] == 0
-        and cell_config_diff["config_diff_size"] == 0
-    )
+    assert len(cell_config_diffs) == 1 and cell_config_diffs[0]["cell"] == "prelude"
 
     assert read_invocation_record(record_file)["new_configs_used"] == 1
 
@@ -202,7 +195,7 @@ async def test_config_diff_tracker_no_change(buck: Buck, tmp_path: Path) -> None
         str(record_file),
     )
     cell_config_diffs = await filter_events(
-        buck, "Event", "data", "Instant", "data", "CellConfigDiff"
+        buck, "Event", "data", "Instant", "data", "CellHasNewConfigs"
     )
     assert len(cell_config_diffs) == 0
     assert read_invocation_record(record_file)["new_configs_used"] == 0

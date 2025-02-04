@@ -28,7 +28,6 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:indoc",
-        "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:tempfile",
         "fbsource//third-party/rust:test-case",
         "fbsource//third-party/rust:triomphe",

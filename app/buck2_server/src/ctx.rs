@@ -50,7 +50,6 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::diffs::ConfigDiffTracker;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
@@ -578,11 +577,6 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
             .await?;
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
-        ConfigDiffTracker::promote_into(
-            existing_state,
-            &mut user_data,
-            &cells_and_configs.root_config,
-        );
         user_data.set_mergebase(mergebase);
 
         Ok((ctx, user_data))

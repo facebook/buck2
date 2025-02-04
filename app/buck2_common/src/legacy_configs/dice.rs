@@ -17,6 +17,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use buck2_error::BuckErrorContext;
+use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -32,7 +33,6 @@ use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::cells::ExternalBuckconfigData;
 use crate::legacy_configs::configs::LegacyBuckConfig;
-use crate::legacy_configs::diffs::ConfigDiffTracker;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
@@ -197,7 +197,10 @@ impl Key for LegacyBuckConfigForCellKey {
             })?;
         let config = config.filter_values(should_keep_config_change);
 
-        ConfigDiffTracker::report_computed_config(ctx, self.cell_name, &config);
+        let event = buck2_data::CellHasNewConfigs {
+            cell: self.cell_name.as_str().to_owned(),
+        };
+        get_dispatcher().instant_event(event);
 
         Ok(config)
     }

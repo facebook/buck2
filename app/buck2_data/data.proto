@@ -182,34 +182,14 @@ message CommandOptions {
   uint64 concurrency = 1;
 }
 
-message CellConfigDiff {
-  // config diff by section name
-  map<string, SectionConfigDiff> section_diff = 1;
-  uint64 config_diff_count = 2;
-  // key + old value + new value
-  uint64 config_diff_size = 3;
-  // If this is set, then this event indicates that buck has loaded configs for
-  // a new cell for which configs had not previously been loaded. In this case,
-  // the other fields are left empty
-  bool new_config_indicator_only = 4;
+message CellHasNewConfigs {
+  // We fire this event whenever configs are changed or loaded for a new cell
+  // for which configs had not previously been loaded.
+  string cell = 1;
 }
-
-message SectionConfigDiff {
-  // config diff by config name
-  map<string, ConfigDiff> config_diff = 1;
-}
-
-message ConfigDiff {
-  // both fields set means config was updated
-  // old_value set and new_value empty means config was removed
-  // new_value set and old_value empty means config was added
-  optional string old_value = 1;
-  optional string new_value = 2;
-}
-
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 2, 8, 9, 12, 13, 22, 24, 38;
+  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -289,9 +269,6 @@ message InstantEvent {
     MaterializerCommand materializer_command = 36;
 
     CleanStaleResult clean_stale_result = 37;
-
-    CellConfigDiff cell_config_diff = 41;
-
     InstallFinished install_finished = 39;
 
     SystemInfo system_info = 40;
@@ -313,6 +290,8 @@ message InstantEvent {
 
     // Tracks values of external buckconfigs
     BuckconfigInputValues buckconfig_input_values = 47;
+
+    CellHasNewConfigs cell_has_new_configs = 48;
   }
 }
 
@@ -1966,7 +1945,7 @@ enum DaemonWasStartedReason {
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 88, 89;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -2119,10 +2098,6 @@ message InvocationRecord {
   google.protobuf.Duration install_duration = 86;
   // Peak process memory which is max of RSS and malloc-active bytes
   optional uint64 peak_process_memory_bytes = 87;
-  // How many buck configs changed, set only after config change
-  optional uint64 buckconfig_diff_count = 88;
-  // Approximate config change size in bytes: key + old value + new value
-  optional uint64 buckconfig_diff_size = 89;
   optional uint64 event_log_manifold_ttl_s = 90;
   optional uint64 peak_used_disk_space_bytes = 92;
   optional uint64 total_disk_space_bytes = 93;

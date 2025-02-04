@@ -32,38 +32,30 @@ async def check_dice_equality(buck: Buck) -> None:
 
 async def check_config_is_the_same(buck: Buck) -> None:
     # We only fire this event where there are config invalidations.
-    diff_count = await filter_events(
+    has_new_configs = await filter_events(
         buck,
         "Event",
         "data",
         "Instant",
         "data",
-        "CellConfigDiff",
+        "CellHasNewConfigs",
     )
-    assert len(diff_count) == 0
+    assert len(has_new_configs) == 0
 
 
 async def check_config_is_different(buck: Buck) -> None:
     # We only fire this event where there are config invalidations.
-    cell_config_diffs = await filter_events(
+    has_new_configs = await filter_events(
         buck,
         "Event",
         "data",
         "Instant",
         "data",
-        "CellConfigDiff",
+        "CellHasNewConfigs",
     )
-    assert len(cell_config_diffs) == 1
-    cell_config_diff = cell_config_diffs[0]
+    assert len(has_new_configs) == 1
 
-    diff_count = cell_config_diff["config_diff_count"]
-    new_config = cell_config_diff["new_config_indicator_only"]
-
-    assert new_config == 1
-    # When new_config_indicator_only is set, config_diff_count is never set
-    # https://fburl.com/code/ybq6l3vh
-    # In fact, this whole ConfigDiffTracker is broken for diff count/size tracking.
-    assert diff_count == 0
+    assert has_new_configs[0]["cell"] == "root"
 
 
 @buck_test()

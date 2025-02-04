@@ -199,8 +199,6 @@ pub(crate) struct InvocationRecorder<'a> {
     re_avg_upload_speed: NetworkSpeedAverage,
     peak_process_memory_bytes: Option<u64>,
     has_new_buckconfigs: bool,
-    buckconfig_diff_count: Option<u64>,
-    buckconfig_diff_size: Option<u64>,
     peak_used_disk_space_bytes: Option<u64>,
     active_networks_kinds: HashSet<i32>,
     target_cfg: Option<TargetCfg>,
@@ -356,8 +354,6 @@ impl<'a> InvocationRecorder<'a> {
             re_avg_upload_speed: NetworkSpeedAverage::default(),
             peak_process_memory_bytes: None,
             has_new_buckconfigs: false,
-            buckconfig_diff_count: None,
-            buckconfig_diff_size: None,
             peak_used_disk_space_bytes: None,
             active_networks_kinds: HashSet::new(),
             target_cfg: None,
@@ -766,9 +762,7 @@ impl<'a> InvocationRecorder<'a> {
             best_error_source_area: errors_report.best_error_source_area,
             error_category: errors_report.error_category,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
-            new_configs_used: Some(
-                self.has_new_buckconfigs || self.buckconfig_diff_size.map_or(false, |s| s > 0),
-            ),
+            new_configs_used: Some(self.has_new_buckconfigs),
             re_max_download_speed: self
                 .re_max_download_speeds
                 .iter()
@@ -784,8 +778,6 @@ impl<'a> InvocationRecorder<'a> {
             install_duration: self.install_duration.take(),
             install_device_metadata: self.install_device_metadata.drain(..).collect(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
-            buckconfig_diff_count: self.buckconfig_diff_count.take(),
-            buckconfig_diff_size: self.buckconfig_diff_size.take(),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
             peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
@@ -1594,17 +1586,8 @@ impl<'a> InvocationRecorder<'a> {
                     buck2_data::instant_event::Data::ConcurrentCommands(concurrent_commands) => {
                         self.handle_concurrent_commands(concurrent_commands)
                     }
-                    buck2_data::instant_event::Data::CellConfigDiff(conf) => {
-                        if conf.new_config_indicator_only {
-                            self.has_new_buckconfigs = true;
-                            return Ok(());
-                        }
-                        self.buckconfig_diff_count = Some(
-                            self.buckconfig_diff_count.unwrap_or_default() + conf.config_diff_count,
-                        );
-                        self.buckconfig_diff_size = Some(
-                            self.buckconfig_diff_size.unwrap_or_default() + conf.config_diff_size,
-                        );
+                    buck2_data::instant_event::Data::CellHasNewConfigs(_) => {
+                        self.has_new_buckconfigs = true;
                         Ok(())
                     }
                     buck2_data::instant_event::Data::InstallFinished(install_finished) => {
