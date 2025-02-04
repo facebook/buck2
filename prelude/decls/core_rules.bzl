@@ -470,6 +470,9 @@ filegroup = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "out": attrs.option(attrs.string(), default = None, doc = """
+                The name of the output directory. Defaults to the rule's name.
+            """),
         }
     ),
 )
