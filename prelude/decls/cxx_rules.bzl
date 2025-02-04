@@ -1197,6 +1197,7 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.exported_platform_deps_arg() |
         cxx_common.supports_merged_linking() |
         cxx_common.local_linker_flags_arg() |
+        cxx_common.local_linker_script_flags_arg() |
         cxx_common.version_arg() |
         {
             "can_be_asset": attrs.bool(default = False),
