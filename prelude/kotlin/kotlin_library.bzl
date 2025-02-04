@@ -52,7 +52,8 @@ def _create_kotlin_sources(
         deps: list[Dependency],
         annotation_processor_properties: AnnotationProcessorProperties,
         ksp_annotation_processor_properties: AnnotationProcessorProperties,
-        additional_classpath_entries: list[Artifact]) -> (Artifact, Artifact | None, Artifact | None):
+        additional_classpath_entries: list[Artifact],
+        bootclasspath_entries: list[Artifact]) -> (Artifact, Artifact | None, Artifact | None):
     """
     Runs kotlinc on the provided kotlin sources.
     """
@@ -77,6 +78,10 @@ def _create_kotlin_sources(
 
     compiling_classpath = cmd_args()
     compiling_classpath.add(additional_classpath_entries)
+
+    # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
+    compiling_classpath.add(bootclasspath_entries)
+
     compiling_deps_tset = derive_compiling_deps(ctx.actions, None, deps + [kotlin_toolchain.kotlin_stdlib])
     if compiling_deps_tset:
         compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
@@ -352,8 +357,8 @@ def build_kotlin_library(
                 deps,
                 annotation_processor_properties,
                 ksp_annotation_processor_properties,
-                # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
-                additional_classpath_entries + bootclasspath_entries,
+                additional_classpath_entries,
+                bootclasspath_entries,
             )
             srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
             if kapt_generated_sources:
