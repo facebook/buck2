@@ -8,7 +8,7 @@
 load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "RDotJavaInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
-load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "derive_compiling_deps")
+load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "single_library_compiling_deps")
 load("@prelude//utils:argfile.bzl", "argfile")
 
 RDotJavaSourceCode = record(
@@ -202,7 +202,7 @@ def _generate_and_compile_r_dot_java(
     return RDotJavaInfo(
         identifier = identifier,
         library_info = JavaLibraryInfo(
-            compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
+            compiling_deps = single_library_compiling_deps(ctx.actions, library_output),
             library_output = library_output,
             output_for_classpath_macro = library_output.full_library,
         ),
