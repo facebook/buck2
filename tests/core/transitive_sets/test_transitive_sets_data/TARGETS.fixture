@@ -1,4 +1,4 @@
-load(":defs.bzl", "test")
+load(":defs.bzl", "test", "test_duplication")
 
 test(name = "foo1")
 
@@ -18,4 +18,8 @@ test(
         ":foo",
         ":foo1",
     ],
+)
+
+test_duplication(
+    name = "test_duplication",
 )

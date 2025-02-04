@@ -46,3 +46,31 @@ test = rule(
         "deps": attrs.list(attrs.dep(providers = [NameInfo]), default = []),
     },
 )
+
+def _test_duplication_impl(ctx):
+    out = ctx.actions.write("out.txt", "hello world")
+
+    tset1 = ctx.actions.tset(NameSet, value = out)
+    tset2 = ctx.actions.tset(NameSet, value = out)
+
+    combined_tset = ctx.actions.tset(NameSet, children = [tset1, tset2])
+
+    combined_tset_traversal = list(combined_tset.traverse())
+
+    if len(combined_tset_traversal) != 2:
+        fail(
+            "Expected traversal to be deduplicated by TSet identity, not value identity! Traversal is: {}".format(
+                combined_tset_traversal,
+            ),
+        )
+
+    return [
+        DefaultInfo(default_output = out),
+    ]
+
+test_duplication = rule(
+    impl = _test_duplication_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(providers = [NameInfo]), default = []),
+    },
+)

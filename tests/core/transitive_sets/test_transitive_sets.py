@@ -19,3 +19,8 @@ async def test_transitive_sets(buck: Buck) -> None:
     out = out.read_text()
     out = [line.strip() for line in out.strip().split("\n")]
     assert out == ["bar", "foo", "foo2", "foo1"]
+
+
+@buck_test()
+async def test_transitive_set_deduplication(buck: Buck) -> None:
+    await buck.build("//:test_duplication")
