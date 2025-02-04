@@ -175,7 +175,9 @@ provide_output_file(
                 collect_results_broken_run(
                     Tests, Suite, "internal crash", ResultExec, OutLog
                 );
-            Other when Other =:= passed orelse Other =:= timeout ->
+            timeout ->
+                collect_results_broken_run(Tests, Suite, "", ResultExec, StdOut);
+            passed ->
                 % Here we either passed or timeout.
                 case file:read_file(ResultsFile) of
                     {ok, JsonFile} ->
@@ -197,31 +199,12 @@ provide_output_file(
                                     Tests, Suite, ErrorMsg, ResultExec, OutLog
                                 );
                             _ ->
-                                case Status of
-                                    timeout ->
-                                        % The ct node crashed after having produced results:
-                                        % some post-processing functionalities might be missing.
-                                        % We create a .timeout file at the root of the exec dir
-                                        % To alert tpx on the situation.
-                                        {ok, FileHandle} = file:open(
-                                            filename:join(OutputDir, ".timeout"), [write]
-                                        ),
-                                        io:format(FileHandle, "~p", [Suite]);
-                                    _ ->
-                                        ok
-                                end,
                                 collect_results_fine_run(TreeResults, Tests)
                         end;
                     {error, _Reason} ->
-                        ErrorMsg =
-                            case Status of
-                                timeout ->
-                                    undefined;
-                                _ ->
-                                    io_lib:format("ct failed to produced results file ~p", [
-                                        ResultsFile
-                                    ])
-                            end,
+                        ErrorMsg = io_lib:format("ct failed to produced results file ~p", [
+                            ResultsFile
+                        ]),
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, OutLog)
                 end
         end,
@@ -256,7 +239,7 @@ trimmed_content_file(File) ->
     end.
 
 %% @doc Provide tpx with a result when CT failed to provide results for tests.
--spec collect_results_broken_run([atom()], atom(), string() | undefined, term(), binary()) ->
+-spec collect_results_broken_run([#ct_test{}], atom(), string() | undefined, term(), binary()) ->
     [cth_tpx_test_tree:case_result()].
 
 collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, StdOut) ->

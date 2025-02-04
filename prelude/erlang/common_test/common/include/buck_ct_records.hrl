@@ -19,9 +19,11 @@
     artifact_annotation_mfa :: artifact_annotations:annotation_function()
 }).
 
+-record(ct_test, {suite, groups, test_name, canonical_name}).
+
 -record(test_env, {
     suite :: module(),
-    tests :: [function()],
+    tests :: [#ct_test{}],
     suite_path :: file:filename_all(),
     output_dir :: file:filename_all(),
     dependencies :: [file:filename_all()],
@@ -44,5 +46,3 @@
 }).
 
 -record(init_provider_state, {output_dir :: file:filename(), suite :: module()}).
-
--record(ct_test, {suite, groups, test_name, canonical_name}).
