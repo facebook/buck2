@@ -878,7 +878,8 @@ impl DaemonState {
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
                 )
-                .into()
+                .into(),
+                quiet:false
             )?;
         }
 
