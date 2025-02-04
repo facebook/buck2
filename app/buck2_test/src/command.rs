@@ -330,7 +330,7 @@ async fn test(
         Some(config) => {
             let test_executor = post_process_test_executor(config.as_ref())
                 .with_context(|| format!("Invalid `test.v2_test_executor`: {}", config))
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
             let mut test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
             let platform = match (*ctx)
@@ -407,7 +407,7 @@ async fn test(
         .session_options
         .as_ref()
         .context("Missing `options`")
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
 
     let session = TestSession::new(TestSessionOptions {
         allow_re: options.allow_re,
@@ -426,7 +426,7 @@ async fn test(
         .map(|t| t.clone().try_into())
         .transpose()
         .context("Invalid `duration`")
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
 
     let test_outcome = test_targets(
         ctx.dupe(),
@@ -449,7 +449,7 @@ async fn test(
         request.ignore_tests_attribute,
     )
     .await
-    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
 
     send_target_cfg_event(
         server_ctx.events(),
@@ -461,7 +461,7 @@ async fn test(
     let exit_code = test_outcome
         .exit_code()
         .context("No exit code available")
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
 
     let test_statuses = buck2_cli_proto::test_response::TestStatuses {
         passed: Some(
@@ -1144,7 +1144,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 return ControlFlow::Break(vec![BuildEvent::new_configured(
                     label,
                     ConfiguredBuildEventVariant::Error {
-                        err: from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
+                        err: from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor),
                     },
                 )]);
             }
