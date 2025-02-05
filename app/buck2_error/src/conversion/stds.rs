@@ -9,7 +9,7 @@
 
 mod array;
 mod convert;
-mod io;
+pub(crate) mod io;
 mod num;
 mod path;
 mod str;

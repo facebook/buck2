@@ -32,6 +32,7 @@ rust_library(
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:http",
         "fbsource//third-party/rust:hyper",
+        "fbsource//third-party/rust:libc",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:ref-cast",
