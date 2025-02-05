@@ -14,3 +14,10 @@ async def test_catch_resolve_lazy_dict(buck: Buck) -> None:
     await buck.bxl(
         "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_catch_resolve_lazy_dict",
     )
+
+
+@buck_test(inplace=True)
+async def test_batch_apply_lazy(buck: Buck) -> None:
+    await buck.bxl(
+        "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_batch_apply_lazy",
+    )

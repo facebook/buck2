@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:asserts.bzl", "asserts")
-load("@prelude//bxl:lazy.bxl", "catch_resolve_lazy_dict")
+load("@prelude//bxl:lazy.bxl", "batch_apply_lazy", "catch_resolve_lazy_dict")
 
 def _test_catch_resolve_lazy_dict(ctx: bxl.Context):
     targets = [
@@ -29,5 +29,22 @@ def _test_catch_resolve_lazy_dict(ctx: bxl.Context):
 
 test_catch_resolve_lazy_dict = bxl_main(
     impl = _test_catch_resolve_lazy_dict,
+    cli_args = {},
+)
+
+def _test_batch_apply_lazy(ctx: bxl.Context):
+    targets = [
+        "fbcode//buck2:buck2",
+        "fbcode//buck2:buck2_bundle",
+        "fbcode//buck2/app/buck2:buck2",
+        "fbcode//buck2/app/buck2_bxl:buck2_bxl",
+    ]
+    nodes = batch_apply_lazy(ctx, ctx.lazy.configured_target_node, targets)
+
+    for node in nodes:
+        asserts.true(isinstance(node, bxl.ConfiguredTargetNode))
+
+test_batch_apply_lazy = bxl_main(
+    impl = _test_batch_apply_lazy,
     cli_args = {},
 )
