@@ -29,8 +29,8 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
-use buck2_build_api::materialize::materialize_artifact_group;
-use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::materialize::materialize_and_upload_artifact_group;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
 use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
@@ -559,10 +559,10 @@ async fn build_launch_installer<'a>(
         // returns IndexMap<ArtifactGroup,ArtifactGroupValues>;
         ctx.try_compute_join(inputs, |ctx, input| {
             async move {
-                materialize_artifact_group(
+                materialize_and_upload_artifact_group(
                     ctx,
                     &input,
-                    &MaterializationContext::Materialize { force: true },
+                    &MaterializationAndUploadContext::materialize(),
                 )
                 .await
                 .map(|value| (input, value))
@@ -637,10 +637,10 @@ async fn build_files(
                         },
                         |ctx| {
                             async move {
-                                materialize_artifact_group(
+                                materialize_and_upload_artifact_group(
                                     ctx,
                                     &artifact,
-                                    &MaterializationContext::Materialize { force: true },
+                                    &MaterializationAndUploadContext::materialize(),
                                 )
                                 .await
                             }

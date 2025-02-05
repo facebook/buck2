@@ -449,6 +449,13 @@ message BuildRequest {
   }
   // Materialize final artifacts?
   Materializations final_artifact_materializations = 7;
+
+  enum Uploads {
+    ALWAYS = 0;
+    NEVER = 1;
+  }
+  // Upload final artifacts?
+  Uploads final_artifact_uploads = 11;
 }
 
 message TestSessionOptions {
@@ -512,6 +519,8 @@ message BxlRequest {
   BuildRequest.Materializations final_artifact_materializations = 6;
 
   bool print_stacktrace = 7;
+
+  BuildRequest.Uploads final_artifact_uploads = 8;
 }
 
 message BxlResponse {

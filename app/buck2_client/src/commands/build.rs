@@ -62,6 +62,14 @@ pub struct BuildCommand {
     )]
     materializations: Option<FinalArtifactMaterializations>,
 
+    #[clap(
+        long = "upload",
+        help = "Upload (or skip) the final artifacts.",
+        ignore_case = true,
+        value_enum
+    )]
+    uploads: Option<FinalArtifactUploads>,
+
     #[allow(unused)]
     #[clap(
         long,
@@ -171,7 +179,6 @@ pub enum FinalArtifactMaterializations {
     All,
     None,
 }
-
 pub trait MaterializationsToProto {
     fn to_proto(&self) -> buck2_cli_proto::build_request::Materializations;
 }
@@ -185,6 +192,25 @@ impl MaterializationsToProto for Option<FinalArtifactMaterializations> {
                 buck2_cli_proto::build_request::Materializations::Skip
             }
             None => buck2_cli_proto::build_request::Materializations::Default,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Dupe, clap::ValueEnum)]
+#[clap(rename_all = "snake_case")]
+pub enum FinalArtifactUploads {
+    Always,
+    Never,
+}
+pub trait UploadsToProto {
+    fn to_proto(&self) -> buck2_cli_proto::build_request::Uploads;
+}
+impl UploadsToProto for Option<FinalArtifactUploads> {
+    fn to_proto(&self) -> buck2_cli_proto::build_request::Uploads {
+        match self {
+            Some(FinalArtifactUploads::Always) => buck2_cli_proto::build_request::Uploads::Always,
+            Some(FinalArtifactUploads::Never) => buck2_cli_proto::build_request::Uploads::Never,
+            None => buck2_cli_proto::build_request::Uploads::Never,
         }
     }
 }
@@ -231,6 +257,7 @@ impl StreamingCommand for BuildCommand {
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
+                    final_artifact_uploads: self.uploads.to_proto() as i32,
                     target_universe: self.target_cfg.target_universe,
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

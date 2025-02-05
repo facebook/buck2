@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::build_request::build_providers;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::BuildRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
@@ -116,6 +117,7 @@ impl StreamingCommand for RunCommand {
                     response_options: None,
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: Materializations::Materialize as i32,
+                    final_artifact_uploads: Uploads::Never as i32,
                     target_universe: self.target_cfg.target_universe,
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

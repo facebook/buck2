@@ -28,7 +28,7 @@ use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
-use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::representative_config_flag;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TestRequest;
@@ -1177,9 +1177,10 @@ async fn build_target_result(
             if skip_build_based_on_labels(test_info, label_filtering) {
                 return Ok((BuildTargetResult::new(), providers));
             }
+            let materialization_and_upload = MaterializationAndUploadContext::skip();
             let stream = build_configured_label(
                 &ctx,
-                &MaterializationContext::Skip,
+                &materialization_and_upload,
                 label,
                 &ProvidersToBuild {
                     default: false,

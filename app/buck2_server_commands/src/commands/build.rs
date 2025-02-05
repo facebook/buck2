@@ -19,10 +19,11 @@ use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProvidersToBuild;
-use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -163,6 +164,9 @@ async fn build(
         Materializations::from_i32(request.final_artifact_materializations)
             .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
+    let final_artifact_uploads = Uploads::from_i32(request.final_artifact_uploads)
+        .with_buck_error_context(|| "Invalid final_artifact_uploads")
+        .unwrap();
 
     let want_configured_graph_size = ctx
         .parse_legacy_config_property(
@@ -182,7 +186,7 @@ async fn build(
                 resolved_pattern,
                 target_resolution_config,
                 build_providers,
-                &final_artifact_materializations.into(),
+                &(final_artifact_materializations, final_artifact_uploads).into(),
                 build_opts.fail_fast,
                 MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
                 build_opts.skip_incompatible_targets,
@@ -317,7 +321,7 @@ async fn build_targets(
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
-    materialization: &MaterializationContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     fail_fast: bool,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
@@ -333,7 +337,7 @@ async fn build_targets(
                 spec,
                 global_cfg_options,
                 build_providers,
-                materialization,
+                materialization_and_upload,
                 missing_target_behavior,
                 skip_incompatible_targets,
                 want_configured_graph_size,
@@ -345,7 +349,7 @@ async fn build_targets(
             spec,
             universe,
             build_providers,
-            materialization,
+            materialization_and_upload,
             want_configured_graph_size,
         )
         .map(BuildEvent::Configured)
@@ -360,7 +364,7 @@ fn build_targets_in_universe<'a>(
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     want_configured_graph_size: bool,
 ) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
@@ -372,7 +376,7 @@ fn build_targets_in_universe<'a>(
             async move {
                 build::build_configured_label(
                     ctx,
-                    materialization,
+                    materialization_and_upload,
                     p,
                     &providers_to_build,
                     build::BuildConfiguredLabelOptions {
@@ -392,7 +396,7 @@ fn build_targets_with_global_target_platform<'a>(
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
@@ -404,7 +408,7 @@ fn build_targets_with_global_target_platform<'a>(
             package,
             global_cfg_options.dupe(),
             build_providers.dupe(),
-            materialization,
+            materialization_and_upload,
             missing_target_behavior,
             skip_incompatible_targets,
             want_configured_graph_size,
@@ -451,7 +455,7 @@ async fn build_targets_for_spec<'a>(
     package: PackageLabel,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
@@ -529,7 +533,15 @@ async fn build_targets_for_spec<'a>(
         .into_iter()
         .map(|build_spec| {
             let providers_to_build = providers_to_build.clone();
-            async move { build_target(ctx, build_spec, &providers_to_build, materialization).await }
+            async move {
+                build_target(
+                    ctx,
+                    build_spec,
+                    &providers_to_build,
+                    materialization_and_upload,
+                )
+                .await
+            }
         })
         .collect::<FuturesUnordered<_>>()
         .flatten_unordered(None)
@@ -541,7 +553,7 @@ async fn build_target<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
@@ -561,7 +573,7 @@ async fn build_target<'a>(
 
     build::build_configured_label(
         ctx,
-        materialization,
+        materialization_and_upload,
         providers_label,
         providers_to_build,
         build::BuildConfiguredLabelOptions {

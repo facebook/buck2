@@ -32,6 +32,11 @@ Options:
 
           [possible values: all, none]
 
+      --upload <UPLOADS>
+          Upload (or skip) the final artifacts.
+
+          [possible values: always, never]
+
       --build-default-info
           Build default info (this is the default)
 

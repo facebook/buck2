@@ -29,7 +29,9 @@ use buck2_client_ctx::streaming::StreamingCommand;
 
 use crate::commands::build::print_build_result;
 use crate::commands::build::FinalArtifactMaterializations;
+use crate::commands::build::FinalArtifactUploads;
 use crate::commands::build::MaterializationsToProto;
+use crate::commands::build::UploadsToProto;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "bxl", about = "Run BXL scripts")]
@@ -54,6 +56,14 @@ pub struct BxlCommandOptions {
         value_enum
     )]
     materializations: Option<FinalArtifactMaterializations>,
+
+    #[clap(
+        long = "upload",
+        help = "Upload (or skip) the final artifacts.",
+        ignore_case = true,
+        value_enum
+    )]
+    uploads: Option<FinalArtifactUploads>,
 
     #[clap(
         name = "BXL label",
@@ -102,6 +112,7 @@ impl StreamingCommand for BxlCommand {
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     final_artifact_materializations: self.bxl_opts.materializations.to_proto()
                         as i32,
+                    final_artifact_uploads: self.bxl_opts.uploads.to_proto() as i32,
                     print_stacktrace: ctx.verbosity.print_success_stderr(),
                 },
                 ctx.console_interaction_stream(&self.common_ops.console_opts),

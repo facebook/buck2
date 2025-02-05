@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
@@ -652,6 +653,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                     materializations
                 )
             })?,
+            Uploads::Never,
             eval,
         )?)
     }

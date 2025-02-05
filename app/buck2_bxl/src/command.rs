@@ -21,9 +21,10 @@ use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::materialize::materialize_artifact_group;
-use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::materialize::materialize_and_upload_artifact_group;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -272,6 +273,9 @@ impl BxlServerCommand {
             Materializations::from_i32(self.req.final_artifact_materializations)
                 .with_buck_error_context(|| "Invalid final_artifact_materializations")
                 .unwrap();
+        let final_artifact_uploads = Uploads::from_i32(self.req.final_artifact_uploads)
+            .with_buck_error_context(|| "Invalid final_artifact_uploads")
+            .unwrap();
 
         let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
         let labeled_configured_build_results = filter_bxl_build_results(build_results);
@@ -279,7 +283,7 @@ impl BxlServerCommand {
         let configured_build_results = labeled_configured_build_results.values();
         let build_result = ensure_artifacts(
             dice_ctx,
-            &final_artifact_materializations.into(),
+            &(final_artifact_materializations, final_artifact_uploads).into(),
             configured_build_results,
             bxl_result.get_artifacts_opt(),
         )
@@ -431,7 +435,7 @@ async fn copy_output<W: Write>(
 
 async fn ensure_artifacts(
     ctx: &mut DiceComputations<'_>,
-    materialization_ctx: &MaterializationContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: Option<&Vec<ArtifactGroup>>,
 ) -> Result<(), Vec<buck2_error::Error>> {
@@ -440,8 +444,13 @@ async fn ensure_artifacts(
             get_dispatcher()
                 .span_async(BxlEnsureArtifactsStart {}, async move {
                     (
-                        ensure_artifacts_inner(ctx, materialization_ctx, target_results, artifacts)
-                            .await,
+                        ensure_artifacts_inner(
+                            ctx,
+                            materialization_and_upload,
+                            target_results,
+                            artifacts,
+                        )
+                        .await,
                         BxlEnsureArtifactsEnd {},
                     )
                 })
@@ -453,7 +462,7 @@ async fn ensure_artifacts(
 
 async fn ensure_artifacts_inner(
     ctx: &mut DiceComputations<'_>,
-    materialization_ctx: &MaterializationContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
     artifacts: &[ArtifactGroup],
 ) -> Result<(), Vec<buck2_error::Error>> {
@@ -476,7 +485,8 @@ async fn ensure_artifacts_inner(
     let materialize_errors = ctx
         .compute_join(artifacts_to_materialize, |ctx, artifact| {
             async move {
-                materialize_artifact_group(ctx, &artifact, materialization_ctx).await?;
+                materialize_and_upload_artifact_group(ctx, &artifact, materialization_and_upload)
+                    .await?;
                 Ok(())
             }
             .boxed()

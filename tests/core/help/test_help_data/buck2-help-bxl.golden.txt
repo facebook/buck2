@@ -18,6 +18,11 @@ Options:
 
           [possible values: all, none]
 
+      --upload <UPLOADS>
+          Upload (or skip) the final artifacts.
+
+          [possible values: always, never]
+
       --user-event-log <PATH>
           Write user events to this log file. Both user and internal events are written to main
           event log. If this flag is specified, user events are additionally written to user event
