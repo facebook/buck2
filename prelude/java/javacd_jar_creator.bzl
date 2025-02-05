@@ -69,7 +69,7 @@ def create_jar_artifact_javacd(
         required_for_source_only_abi: bool,
         source_only_abi_deps: list[Dependency],
         extra_arguments: cmd_args,
-        additional_classpath_entries: list[Artifact],
+        additional_classpath_entries: JavaCompilingDepsTSet | None,
         additional_compiled_srcs: Artifact | None,
         bootclasspath_entries: list[Artifact],
         is_building_android_binary: bool,

@@ -158,19 +158,13 @@ def command_abi_generation_mode(target_type: TargetType, abi_generation_mode: [A
 def get_compiling_deps_tset(
         actions: AnalysisActions,
         deps: list[Dependency],
-        additional_classpath_entries: list[Artifact]) -> [JavaCompilingDepsTSet, None]:
+        additional_classpath_entries: JavaCompilingDepsTSet | None) -> [JavaCompilingDepsTSet, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
     if additional_classpath_entries:
-        children = [compiling_deps_tset] if compiling_deps_tset else []
-        for entry in additional_classpath_entries:
-            children.append(actions.tset(JavaCompilingDepsTSet, value = JavaClasspathEntry(
-                full_library = entry,
-                abi = entry,
-                abi_as_dir = None,
-                required_for_source_only_abi = True,
-                abi_jar_snapshot = None,
-            )))
-        compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = children)
+        if compiling_deps_tset == None:
+            compiling_deps_tset = additional_classpath_entries
+        else:
+            compiling_deps_tset = actions.tset(JavaCompilingDepsTSet, children = [compiling_deps_tset, additional_classpath_entries])
 
     return compiling_deps_tset
 

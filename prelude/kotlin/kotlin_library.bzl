@@ -14,6 +14,8 @@ load(
 )
 load(
     "@prelude//java:java_providers.bzl",
+    "JavaClasspathEntry",
+    "JavaCompilingDepsTSet",
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaPackagingInfo",
@@ -21,6 +23,7 @@ load(
     "create_java_library_providers",
     "create_native_providers",
     "derive_compiling_deps",
+    "single_library_compiling_deps",
     "to_list",
 )
 load(
@@ -52,7 +55,7 @@ def _create_kotlin_sources(
         deps: list[Dependency],
         annotation_processor_properties: AnnotationProcessorProperties,
         ksp_annotation_processor_properties: AnnotationProcessorProperties,
-        additional_classpath_entries: list[Artifact],
+        additional_classpath_entries: JavaCompilingDepsTSet | None,
         bootclasspath_entries: list[Artifact]) -> (Artifact, Artifact | None, Artifact | None):
     """
     Runs kotlinc on the provided kotlin sources.
@@ -77,7 +80,8 @@ def _create_kotlin_sources(
     kotlinc_cmd_args = cmd_args([kotlinc])
 
     compiling_classpath = cmd_args()
-    compiling_classpath.add(additional_classpath_entries)
+    if additional_classpath_entries:
+        compiling_classpath.add(additional_classpath_entries.project_as_args("args_for_compiling"))
 
     # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
     compiling_classpath.add(bootclasspath_entries)
@@ -303,7 +307,7 @@ def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
 
 def build_kotlin_library(
         ctx: AnalysisContext,
-        additional_classpath_entries: list[Artifact] = [],
+        additional_classpath_entries: JavaCompilingDepsTSet | None = None,
         bootclasspath_entries: list[Artifact] = [],
         extra_sub_targets: dict = {},
         validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
@@ -365,12 +369,24 @@ def build_kotlin_library(
                 srcs.append(kapt_generated_sources)
             if ksp_generated_sources:
                 srcs.append(ksp_generated_sources)
+            kotlinc_classes_classpath = [single_library_compiling_deps(
+                ctx.actions,
+                JavaClasspathEntry(
+                    full_library = kotlinc_classes,
+                    abi = kotlinc_classes,
+                    abi_as_dir = None,
+                    required_for_source_only_abi = True,
+                    abi_jar_snapshot = None,
+                ),
+            )]
+            children = kotlinc_classes_classpath + ([additional_classpath_entries] if additional_classpath_entries else [])
+            all_additional_classpath_entries = ctx.actions.tset(JavaCompilingDepsTSet, children = children)
             java_lib = build_java_library(
                 ctx,
                 srcs,
                 run_annotation_processors = False,
                 bootclasspath_entries = bootclasspath_entries,
-                additional_classpath_entries = [kotlinc_classes] + additional_classpath_entries,
+                additional_classpath_entries = all_additional_classpath_entries,
                 additional_compiled_srcs = kotlinc_classes,
                 generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
                 extra_sub_targets = extra_sub_targets,
