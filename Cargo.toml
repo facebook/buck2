@@ -40,6 +40,7 @@ members = [
     "app/buck2_external_cells",
     "app/buck2_external_cells_bundled",
     "app/buck2_grpc",
+    "app/buck2_health_check",
     "app/buck2_http",
     "app/buck2_install_proto",
     "app/buck2_interpreter",
