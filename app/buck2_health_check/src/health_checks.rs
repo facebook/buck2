@@ -7,5 +7,4 @@
  * of this source tree.
  */
 
-pub mod health_checks;
-pub mod report;
+// @oss-disable: pub mod facebook;
