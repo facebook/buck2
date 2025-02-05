@@ -454,12 +454,18 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         }
     }
 
-    /// Returns all inputs non-transitively
-    /// Returns the files that are inputs to the `targets` expression, ignoring all dependencies.
-    /// Returns only the files which are an immediate input to the rule function and thus are needed to go through analysis phase (i.e. produce providers).
-    /// You could consider the `inputs()` and `owner()` operators to be inverses of each other.
+    /// Non-transitive inputs.
     ///
-    /// `buck2 cquery "inputs(fbcode//buck2/dice/...)"` returns the input files for the `fbcode//buck2/dice/...` targets.
+    /// For each target in the provided [*target expression*](#target-expression),
+    /// returns the files which are an immediate input to the rule function and thus are needed to go through analysis phase (i.e. produce providers).
+    ///
+    /// You could consider the `inputs()` and `owner()` functions to be inverses of each other.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "inputs(//buck2/dice/...)"
+    /// ```
+    /// returns the direct inputs for the `//buck2/dice/...` targets.
     async fn inputs(&self, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(self.implementation.inputs(&targets)?.into())
     }
