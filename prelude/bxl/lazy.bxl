@@ -116,3 +116,46 @@ def batch_apply_lazy_catch_each(
     """
     lazies = [lazy_func(arg).catch() for arg in args]  # Catch per item
     return bxl_ctx.lazy.join_all(lazies).resolve()
+
+def batch_apply_lazy_catch_all(
+        bxl_ctx: bxl.Context,
+        lazy_func: typing.Callable[[typing.Any], bxl.Lazy],
+        args: list[typing.Any]) -> bxl.Result:
+    """
+    Applies a lazy function to a list of arguments, joins them into a single batch operation, and resolves
+    with a global error catch. Returns either all successes or the first error encountered.
+
+    Parameters:
+    - `bxl_ctx` (`bxl.Context`): The BXL context object.
+    - `lazy_func` (`typing.Callable[[typing.Any], bxl.Lazy]`): A function that returns a `bxl.Lazy`
+      (e.g., `ctx.lazy.analysis`, `ctx.lazy.configured_target_node`, or any other functon/lambda you defined)..
+    - `args` (`list[typing.Any]`): List of arguments to apply to `lazy_func`.
+
+    Returns:
+    - `bxl.Result`:
+      - `Ok(list)`: If all operations succeed, returns the list of resolved values.
+      - `Err(error)`: If any operation fails, returns the first error encountered.
+
+    Example:
+    ```python
+    def _impl(ctx):
+        targets = [
+            "cell//:valid_target1",
+            "cell//:valid_target2"
+            "cell//:invalid_target1",
+        ]
+
+        # Resolve as a single batch with global error handling
+        batch_result = batch_apply_lazy_catch_all(ctx, ctx.lazy.configured_target_node, targets)
+
+        if batch_result.is_ok():
+            res = batch_result.unwrap()
+            ctx.output.print(f"All succeeded: {len(res)}")
+        else:
+            error = batch_result.unwrap_err()
+            ctx.output.print(f"Batch failed: {error}")
+    ```
+    """
+    lazies = [lazy_func(arg) for arg in args]
+    joined = bxl_ctx.lazy.join_all(lazies)
+    return joined.catch().resolve()  # Catch at batch level

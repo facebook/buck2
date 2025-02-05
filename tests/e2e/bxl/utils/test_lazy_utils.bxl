@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//:asserts.bzl", "asserts")
-load("@prelude//bxl:lazy.bxl", "batch_apply_lazy", "batch_apply_lazy_catch_each", "catch_resolve_lazy_dict")
+load("@prelude//bxl:lazy.bxl", "batch_apply_lazy", "batch_apply_lazy_catch_all", "batch_apply_lazy_catch_each", "catch_resolve_lazy_dict")
 
 def _test_catch_resolve_lazy_dict(ctx: bxl.Context):
     targets = [
@@ -70,5 +70,26 @@ def _test_batch_apply_lazy_catch_each(ctx: bxl.Context):
 
 test_batch_apply_lazy_catch_each = bxl_main(
     impl = _test_batch_apply_lazy_catch_each,
+    cli_args = {},
+)
+
+def _test_batch_apply_lazy_catch_all(ctx: bxl.Context):
+    targets = [
+        "fbcode//buck2:buck2",
+        "fbcode//buck2:buck2_bundle",
+        "fbcode//buck2/app/buck2:buck2",
+        "fbcode//buck2/app/buck2_bxl:buck2_bxl",
+    ]
+    result = batch_apply_lazy_catch_all(ctx, ctx.lazy.configured_target_node, targets)
+
+    asserts.true(result.is_ok())
+    for res in result.unwrap():
+        asserts.true(isinstance(res, bxl.ConfiguredTargetNode))
+
+    result = batch_apply_lazy_catch_all(ctx, ctx.lazy.configured_target_node, targets + ["fbcode//buck2:not_exist"])
+    asserts.false(result.is_ok())
+
+test_batch_apply_lazy_catch_all = bxl_main(
+    impl = _test_batch_apply_lazy_catch_all,
     cli_args = {},
 )
