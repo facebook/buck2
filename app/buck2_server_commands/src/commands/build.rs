@@ -169,30 +169,30 @@ fn dump_artifacts_to_file(
             DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
                 let cas_digest = metadata.digest.data();
                 ArtifactInfo::File(FileInfo {
-                    digest: cas_digest,
+                    digest: *cas_digest,
                     digest_kind: cas_digest.raw_digest().algorithm(),
                     is_exec: metadata.is_executable,
                 })
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink_target)) => {
                 ArtifactInfo::Symlink(SymlinkInfo {
-                    symlink_rel_path: symlink_target.target(),
+                    symlink_rel_path: symlink_target.target().into(),
                 })
             }
             DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
                 ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
-                    target: external_symlink.target(),
+                    target: external_symlink.target().into(),
                     remaining_path: if external_symlink.remaining_path().is_empty() {
                         None
                     } else {
-                        Some(external_symlink.remaining_path())
+                        Some(external_symlink.remaining_path().to_owned())
                     },
                 })
             }
         };
 
         let artifact_meta_json = ArtifactMetadataJson {
-            path: &entry_path,
+            path: entry_path.clone(),
             info,
         };
         seq.serialize_element(&artifact_meta_json)
