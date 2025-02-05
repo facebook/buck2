@@ -132,6 +132,34 @@ async def test_build_report_package_project_relative_path(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_build_report_include_artifact_hash_information(buck: Buck) -> None:
+    await buck.build(
+        "//:rule1",
+        "--build-report",
+        "report",
+    )
+
+    with open(buck.cwd / "report") as file:
+        results = json.load(file)["results"]
+        assert "artifact_info" not in results["root//:rule1"]["configured"]
+
+    await buck.build(
+        "//:rule1",
+        "--build-report",
+        "report",
+        "--build-report-options",
+        "include-artifact-hash-information",
+    )
+
+    with open(buck.cwd / "report") as file:
+        results = json.load(file)["results"]
+        rule1 = results["root//:rule1"]
+        artifact_info = rule1["configured"]["<unspecified>"]["artifact_info"]["DEFAULT"]
+        assert artifact_info["kind"] == "file"
+        assert artifact_info["digest"] == "da39a3ee5e6b4b0d3255bfef95601890afd80709:0"
+
+
+@buck_test()
 async def test_build_report_non_existent_directory(buck: Buck) -> None:
     build_report = "non_existent_dir/report"
 

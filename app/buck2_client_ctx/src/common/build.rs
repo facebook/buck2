@@ -24,6 +24,9 @@ pub struct BuildReportOption {
 
     /// Include package relative paths in the output.
     include_package_project_relative_paths: bool,
+
+    /// Include artifact hash information in the output.
+    include_artifact_hash_information: bool,
 }
 
 impl FromStr for BuildReportOption {
@@ -31,11 +34,14 @@ impl FromStr for BuildReportOption {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fill_out_failures = false;
         let mut include_package_project_relative_paths = false;
+        let mut include_artifact_hash_information = false;
 
         if s.to_lowercase() == "fill-out-failures" {
             fill_out_failures = true;
         } else if s.to_lowercase() == "package-project-relative-paths" {
             include_package_project_relative_paths = true;
+        } else if s.to_lowercase() == "include-artifact-hash-information" {
+            include_artifact_hash_information = true;
         } else {
             warn!(
                 "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths`",
@@ -45,6 +51,7 @@ impl FromStr for BuildReportOption {
         Ok(BuildReportOption {
             fill_out_failures,
             include_package_project_relative_paths,
+            include_artifact_hash_information,
         })
     }
 }
@@ -191,6 +198,10 @@ impl CommonBuildOptions {
             .build_report_options
             .iter()
             .any(|option| option.include_package_project_relative_paths);
+        let unstable_include_artifact_hash_information = self
+            .build_report_options
+            .iter()
+            .any(|option| option.include_artifact_hash_information);
         let concurrency = self
             .num_threads
             .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
@@ -229,6 +240,7 @@ impl CommonBuildOptions {
             enable_optional_validations,
             unstable_include_failures_build_report,
             unstable_include_package_project_relative_paths,
+            unstable_include_artifact_hash_information,
         }
     }
 }

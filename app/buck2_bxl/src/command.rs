@@ -332,6 +332,7 @@ impl BxlServerCommand {
                 print_unconfigured_section: false,
                 unstable_include_failures_build_report: false,
                 unstable_include_package_project_relative_paths: false,
+                unstable_include_artifact_hash_information: false,
                 unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
             };
 

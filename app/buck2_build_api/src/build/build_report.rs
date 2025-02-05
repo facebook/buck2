@@ -18,6 +18,10 @@ use std::hash::Hasher;
 use std::io::BufWriter;
 use std::sync::Arc;
 
+use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
+use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
+use buck2_artifact::artifact::artifact_dump::FileInfo;
+use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -35,10 +39,13 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::UniqueRootId;
 use buck2_events::errors::create_error_report;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ActionDirectoryMember;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice::DiceComputations;
@@ -108,6 +115,9 @@ struct MaybeConfiguredBuildReportEntry {
 pub(crate) struct ConfiguredBuildReportEntry {
     /// A list of errors that occurred while building this target
     errors: Vec<BuildReportError>,
+    /// Remote artifact information, including hashes, etc.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    artifact_info: HashMap<Arc<str>, ArtifactInfo>,
     #[serde(flatten)]
     inner: MaybeConfiguredBuildReportEntry,
 }
@@ -163,6 +173,7 @@ pub struct BuildReportOpts {
     pub print_unconfigured_section: bool,
     pub unstable_include_failures_build_report: bool,
     pub unstable_include_package_project_relative_paths: bool,
+    pub unstable_include_artifact_hash_information: bool,
     pub unstable_build_report_filename: String,
 }
 
@@ -177,6 +188,7 @@ pub struct BuildReportCollector<'a> {
     failures: HashMap<EntryLabel, String>,
     include_failures: bool,
     include_package_project_relative_paths: bool,
+    include_artifact_hash_information: bool,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -188,6 +200,7 @@ impl<'a> BuildReportCollector<'a> {
         include_unconfigured_section: bool,
         include_failures: bool,
         include_package_project_relative_paths: bool,
+        include_artifact_hash_information: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     ) -> BuildReport {
@@ -202,6 +215,7 @@ impl<'a> BuildReportCollector<'a> {
             failures: HashMap::default(),
             include_failures,
             include_package_project_relative_paths,
+            include_artifact_hash_information,
         };
         let mut entries = HashMap::new();
 
@@ -356,11 +370,18 @@ impl<'a> BuildReportCollector<'a> {
             result.outputs.iter().for_each(|res| match res {
                 Ok(artifacts) => {
                     if artifacts.provider_type == BuildProviderType::Default {
-                        for (artifact, _value) in artifacts.values.iter() {
+                        for (artifact, value) in artifacts.values.iter() {
+                            if self.include_artifact_hash_information {
+                                update_artifact_info(
+                                    &mut configured_report.artifact_info,
+                                    provider_name.dupe(),
+                                    &value.entry(),
+                                );
+                            }
                             configured_report
                                 .inner
                                 .outputs
-                                .entry(provider_name.clone())
+                                .entry(provider_name.dupe())
                                 .or_default()
                                 .insert(artifact.resolve_path(self.artifact_fs).unwrap());
                         }
@@ -500,6 +521,50 @@ impl<'a> BuildReportCollector<'a> {
     }
 }
 
+fn update_artifact_info<D>(
+    artifact_info: &mut HashMap<Arc<str>, ArtifactInfo>,
+    provider_name: Arc<str>,
+    entry: &ActionDirectoryEntry<D>,
+) {
+    match entry {
+        // Non-leaves are not useful in the build report. Materializing leaves will also materialize
+        // directories.
+        DirectoryEntry::Dir(_) => {}
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
+            let cas_digest = metadata.digest.data();
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::File(FileInfo {
+                    digest: *cas_digest,
+                    digest_kind: cas_digest.raw_digest().algorithm(),
+                    is_exec: metadata.is_executable,
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink_target)) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::Symlink(SymlinkInfo {
+                    symlink_rel_path: symlink_target.target().into(),
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
+                    target: external_symlink.target().into(),
+                    remaining_path: if external_symlink.remaining_path().is_empty() {
+                        None
+                    } else {
+                        Some(external_symlink.remaining_path().to_owned())
+                    },
+                }),
+            );
+        }
+    }
+}
+
 fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
     match label.name() {
         ProvidersName::Default => "DEFAULT".to_owned(),
@@ -532,6 +597,8 @@ pub async fn build_report_opts<'a>(
         unstable_include_failures_build_report: build_opts.unstable_include_failures_build_report,
         unstable_include_package_project_relative_paths: build_opts
             .unstable_include_package_project_relative_paths,
+        unstable_include_artifact_hash_information: build_opts
+            .unstable_include_artifact_hash_information,
         unstable_build_report_filename: esto.clone(),
     };
 
@@ -556,6 +623,7 @@ pub fn generate_build_report(
         opts.print_unconfigured_section,
         opts.unstable_include_failures_build_report,
         opts.unstable_include_package_project_relative_paths,
+        opts.unstable_include_artifact_hash_information,
         configured,
         other_errors,
     );
