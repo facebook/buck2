@@ -55,7 +55,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
-use buck2_events::dispatch::span_async_simple;
+use buck2_events::dispatch::span_simple;
 use buck2_events::errors::create_error_report;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
@@ -146,7 +146,7 @@ fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions
     req.build_opts.as_ref().expect("should have build options")
 }
 
-async fn dump_artifacts_to_file(
+fn dump_artifacts_to_file(
     path: &str,
     provider_artifacts: &[ProviderArtifacts],
     artifact_fs: &ArtifactFs,
@@ -335,18 +335,16 @@ async fn process_build_result(
     }
 
     if let Some(output_hashes_file) = &request.output_hashes_file {
-        span_async_simple(
+        span_simple(
             buck2_data::CreateOutputHashesFileStart {},
-            async {
+            || {
                 dump_artifacts_to_file(output_hashes_file, &provider_artifacts, &artifact_fs)
-                    .await
                     .with_buck_error_context(|| {
                         format!("Failed to write output hashes file to {output_hashes_file}",)
                     })
             },
             buck2_data::CreateOutputHashesFileEnd {},
-        )
-        .await?;
+        )?;
     }
 
     let should_create_unhashed_links = ctx
