@@ -1804,7 +1804,7 @@ message BuildArtifact {
 }
 
 // A target pattern, representing a set of targets. See
-// `<https://buck.build/concept/build_target_pattern.html#content>` for Buck's
+// `<https://buck2.build/docs/concepts/target_pattern>` for Buck's
 // documentation on target patterns.
 message TargetPattern {
   string value = 1;
