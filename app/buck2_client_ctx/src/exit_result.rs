@@ -263,7 +263,7 @@ impl ExitResult {
     ) -> buck2_error::Result<()> {
         let dir = buck_log_dir.join(ForwardRelativePath::new(&trace_id.to_string())?);
         fs_util::create_dir_all(&dir)?;
-
+        // this path is used by the buck wrapper, don't change without updating the wrapper.
         let path = dir.join(ForwardRelativePath::new("command_report.json")?);
         let file = fs_util::create_file(&path)?;
         let mut file = std::io::BufWriter::new(file);
@@ -284,6 +284,7 @@ impl ExitResult {
                     if let Some(parent) = report_path.parent() {
                         fs_util::create_dir_all(parent)?;
                     }
+                    // buck wrapper depends on command report being written.
                     file.flush()?;
                     fs_util::copy(path, report_path)?;
                 }
