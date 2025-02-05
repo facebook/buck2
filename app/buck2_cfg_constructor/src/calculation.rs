@@ -143,8 +143,8 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         };
         let modifier_key = cfg_constructor.key();
         let package_cfg_modifiers = super_package
-            .package_values()
-            .get_package_value_json(modifier_key)?
+            .cfg_modifiers()
+            .map(|m| m.to_value())
             .map(MetadataValue::new);
 
         let metadata_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key));
