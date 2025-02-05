@@ -61,6 +61,24 @@ pub struct DocModule {
     pub members: SmallMap<String, DocItem>,
 }
 
+impl DocModule {
+    pub fn filter<P>(self, mut predicate: P) -> Self
+    where
+        P: FnMut(&(String, DocItem)) -> bool,
+    {
+        let members = self
+            .members
+            .into_iter()
+            .filter(|member| predicate(member))
+            .collect();
+
+        Self {
+            docs: self.docs,
+            members,
+        }
+    }
+}
+
 /// Documents a single function.
 #[derive(Debug, Clone, PartialEq, Default, Allocative)]
 pub struct DocFunction {

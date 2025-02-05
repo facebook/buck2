@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 
-use buck2_core::bzl::ImportPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
@@ -19,6 +18,8 @@ use starlark::docs::markdown::render_doc_item;
 use starlark::docs::DocItem;
 use starlark::docs::DocModule;
 use starlark::typing::TypeRenderConfig;
+
+use crate::starlark_::StarlarkFilePath;
 
 fn add_md(mut p: AbsPathBuf) -> AbsPathBuf {
     let mut file = p.file_name().unwrap().to_owned();
@@ -30,7 +31,7 @@ fn add_md(mut p: AbsPathBuf) -> AbsPathBuf {
 
 pub(crate) fn generate_markdown_files(
     output_dir: &AbsPath,
-    docs: Vec<(ImportPath, DocModule)>,
+    docs: Vec<(StarlarkFilePath, DocModule)>,
 ) -> buck2_error::Result<()> {
     let mut outputs = HashMap::new();
 
