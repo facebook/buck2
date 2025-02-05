@@ -35,3 +35,17 @@ async def test_batch_apply_lazy_catch_all(buck: Buck) -> None:
     await buck.bxl(
         "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_batch_apply_lazy_catch_all",
     )
+
+
+@buck_test(inplace=True)
+async def test_partition_results(buck: Buck) -> None:
+    await buck.bxl(
+        "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_partition_results",
+    )
+
+
+@buck_test(inplace=True)
+async def test_partition_results_dict(buck: Buck) -> None:
+    await buck.bxl(
+        "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_partition_results_dict",
+    )

@@ -159,3 +159,57 @@ def batch_apply_lazy_catch_all(
     lazies = [lazy_func(arg) for arg in args]
     joined = bxl_ctx.lazy.join_all(lazies)
     return joined.catch().resolve()  # Catch at batch level
+
+def partition_results(results: list[bxl.Result]) -> (list[typing.Any], list[bxl.Error]):
+    """
+    Splits Results into successful values and errors.
+
+    Parameters:
+    - `results`: List of `bxl.Result` objects
+
+    Returns:
+    A tuple of two lists: `(successes, errors)`
+
+    Example:
+    ```python
+    successes, errors = partition_results(results)
+    ctx.output.print(f"Successes: {len(successes)}, Errors: {len(errors)}")
+    ```
+    """
+    oks, errs = [], []
+    for res in results:
+        if res.is_ok():
+            oks.append(res.unwrap())
+        else:
+            errs.append(res.unwrap_err())
+    return oks, errs
+
+def partition_results_dict(
+        results_dict: dict[typing.Any, bxl.Result]) -> (dict[typing.Any, typing.Any], dict[typing.Any, bxl.Error]):
+    """
+    Splits a dictionary of `bxl.Result` into two dictionaries:
+    - Successful key-value pairs (unwrapped values)
+    - Errored key-value pairs (error objects)
+
+    Parameters:
+    - `results_dict`: Dictionary with values of type `bxl.Result`
+
+    Returns:
+    Tuple of `(success_dict, error_dict)` where:
+    - `success_dict`: Original keys mapped to unwrapped `Ok` values
+    - `error_dict`: Original keys mapped to `bxl.Error` objects
+
+    Example:
+    ```python
+    results = {"app": res1, "lib": res2, "test": res3}
+    successes, errors = split_results_dict_by_status(results)
+    ```
+    """
+    success_dict = {}
+    error_dict = {}
+    for key, res in results_dict.items():
+        if res.is_ok():
+            success_dict[key] = res.unwrap()
+        else:
+            error_dict[key] = res.unwrap_err()
+    return success_dict, error_dict
