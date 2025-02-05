@@ -692,6 +692,7 @@ transitions = {
 
 toolchain_rule_names = [
     "apple_toolchain",
+    "swift_macro_toolchain",
     "swift_toolchain",
     "toolchain_alias",
 ]
