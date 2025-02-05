@@ -32,43 +32,6 @@ use crate::fs::paths::abs_path::AbsPath;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 
-// https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
-// "The process cannot access the file because it is being used by another process."
-pub const ERROR_SHARING_VIOLATION: i32 = 32;
-
-fn io_error_kind_tag(e: &io::Error) -> ErrorTag {
-    'from_kind: {
-        let from_kind = match e.kind() {
-            io::ErrorKind::NotFound => ErrorTag::IoNotFound,
-            io::ErrorKind::PermissionDenied => ErrorTag::IoPermissionDenied,
-            io::ErrorKind::TimedOut => ErrorTag::IoTimeout,
-            io::ErrorKind::ExecutableFileBusy => ErrorTag::IoExecutableFileBusy,
-            io::ErrorKind::BrokenPipe => ErrorTag::IoBrokenPipe,
-            io::ErrorKind::StorageFull => ErrorTag::IoStorageFull,
-            io::ErrorKind::ConnectionAborted => ErrorTag::IoConnectionAborted,
-            _ => break 'from_kind,
-        };
-        return from_kind;
-    }
-
-    if let Some(os_error_code) = e.raw_os_error() {
-        'from_os: {
-            let from_os = match os_error_code {
-                libc::ENOTCONN => ErrorTag::IoNotConnected,
-                libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
-                _ => break 'from_os,
-            };
-            return from_os;
-        }
-
-        if cfg!(windows) && os_error_code == ERROR_SHARING_VIOLATION {
-            return ErrorTag::IoWindowsSharingViolation;
-        }
-    }
-
-    ErrorTag::IoSystem
-}
-
 impl IoError {
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
         if self.e.kind() == io::ErrorKind::NotFound {
@@ -81,7 +44,6 @@ impl IoError {
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = IoSystem)]
-#[buck2(tag = io_error_kind_tag(&e))]
 #[error("{op}")]
 pub struct IoError {
     op: String,
@@ -811,6 +773,7 @@ mod tests {
     use std::path::PathBuf;
 
     use assert_matches::assert_matches;
+    use buck2_error::ErrorTag;
     use relative_path::RelativePath;
 
     use crate::fs::fs_util;
@@ -1395,6 +1358,25 @@ mod tests {
             assert_eq!(attempts, 1);
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_io_error_tag() -> buck2_error::Result<()> {
+        let fail_fn = || -> io::Result<File> {
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "test error, always fails",
+            ))
+        };
+
+        let file = make_error_with_retry!(fail_fn(), format!("should fail"));
+        let buck2_error = buck2_error::Error::from(file.err().unwrap());
+
+        assert_eq!(
+            buck2_error.tags(),
+            &[ErrorTag::IoPermissionDenied, ErrorTag::IoSystem]
+        );
         Ok(())
     }
 }
