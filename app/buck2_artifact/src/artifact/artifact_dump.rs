@@ -28,10 +28,10 @@ where
     serializer.collect_str(value)
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct DirectoryInfo {}
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct FileInfo {
     #[serde(serialize_with = "stringify")]
     pub digest: CasDigest<FileDigestKind>,
@@ -40,19 +40,19 @@ pub struct FileInfo {
     pub is_exec: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SymlinkInfo {
     #[serde(serialize_with = "stringify")]
     pub symlink_rel_path: RelativePathBuf,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ExternalSymlinkInfo {
     pub target: PathBuf,
     pub remaining_path: Option<ForwardRelativePathBuf>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(tag = "kind")]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactInfo {
@@ -62,7 +62,7 @@ pub enum ArtifactInfo {
     ExternalSymlink(ExternalSymlinkInfo),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct ArtifactMetadataJson {
     pub path: ForwardRelativePathBuf,
     #[serde(flatten)]
