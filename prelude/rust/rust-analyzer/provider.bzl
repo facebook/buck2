@@ -15,6 +15,7 @@ load("@prelude//rust:link_info.bzl", "get_available_proc_macros", "resolve_rust_
 
 RustAnalyzerInfo = provider(
     fields = {
+        "available_proc_macros": list[Dependency],
         # The root source for the rust target (typically lib.rs, main.rs), relative to the buck target file.
         "crate_root": str,
         # The processed env as produced by the buck build prelude. Some env vars like `OUT_DIR` and `CARGO_MANIFEST_DIR`
@@ -72,6 +73,7 @@ def rust_analyzer_provider(
         default_roots: list[str]) -> RustAnalyzerInfo:
     rust_deps = _compute_rust_deps(ctx, compile_ctx.dep_ctx)
     return RustAnalyzerInfo(
+        available_proc_macros = get_available_proc_macros(ctx).values(),
         crate_root = crate_root(ctx, default_roots),
         env = _compute_env(ctx, compile_ctx),
         rust_deps = rust_deps,
