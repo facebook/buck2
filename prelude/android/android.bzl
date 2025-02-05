@@ -78,6 +78,12 @@ _RE_CAPS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.dict(key 
 #     }
 _RE_USE_CASE = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None)
 
+# Format is {"ovveride_name": {"param_name": param_value}}; for example:
+#    {
+#        "remote_execution_policy": {"setup_preference_key": "some_json_string"},
+#    }
+_META_INTERNAL_EXTRA_PARAMS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.any()), default = None)
+
 extra_attributes = {
     "android_aar": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -182,6 +188,7 @@ extra_attributes = {
         "instrumentation_test_listener": attrs.option(attrs.exec_dep(), default = None),
         "instrumentation_test_listener_class": attrs.option(attrs.string(), default = None),
         "is_self_instrumenting": attrs.bool(default = False),
+        "meta_internal_extra_params": _META_INTERNAL_EXTRA_PARAMS,
         "re_caps": _RE_CAPS,
         "re_use_case": _RE_USE_CASE,
         "_android_toolchain": toolchains_common.android(),
