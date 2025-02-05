@@ -37,6 +37,7 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
         enable_profiling = False,
         suffix = "-haddock",
         pkgname = pkgname,
+        for_haddock = True,
     )
 
     cmd = cmd_args(haskell_toolchain.haddock)

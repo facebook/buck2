@@ -128,11 +128,15 @@ def compile_args(
         link_style: LinkStyle,
         enable_profiling: bool,
         pkgname = None,
-        suffix: str = "") -> CompileArgsInfo:
+        suffix: str = "",
+        for_haddock: bool = False) -> CompileArgsInfo:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
     compile_cmd = cmd_args()
-    compile_cmd.add(haskell_toolchain.compiler_flags)
+    if for_haddock and haskell_toolchain.compiler_flags_for_haddock != None:
+        compile_cmd.add(haskell_toolchain.compiler_flags_for_haddock)
+    else:
+        compile_cmd.add(haskell_toolchain.compiler_flags)
 
     # Some rules pass in RTS (e.g. `+RTS ... -RTS`) options for GHC, which can't
     # be parsed when inside an argsfile.
