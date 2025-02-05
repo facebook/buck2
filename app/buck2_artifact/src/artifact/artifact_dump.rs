@@ -13,7 +13,6 @@ use std::fmt::Display;
 use std::path::PathBuf;
 
 use buck2_common::cas_digest::CasDigest;
-use buck2_common::cas_digest::DigestAlgorithmFamily;
 use buck2_common::file_ops::FileDigestKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -35,8 +34,6 @@ pub struct DirectoryInfo {}
 pub struct FileInfo {
     #[serde(serialize_with = "stringify")]
     pub digest: CasDigest<FileDigestKind>,
-    #[serde(serialize_with = "stringify")]
-    pub digest_kind: DigestAlgorithmFamily,
     pub is_exec: bool,
 }
 
@@ -99,14 +96,13 @@ mod tests {
             path,
             info: ArtifactInfo::File(FileInfo {
                 digest,
-                digest_kind: DigestAlgorithmFamily::Sha1,
                 is_exec: false,
             }),
         };
         let json = serde_json::to_string(&metadata).expect("failed to serialize");
         assert_eq!(
             json,
-            r#"{"path":"test.txt","kind":"file","digest":"fb19d5b1546753df5f7741efbabd0d24dcaacd65:20","digest_kind":"SHA1","is_exec":false}"#,
+            r#"{"path":"test.txt","kind":"file","digest":"fb19d5b1546753df5f7741efbabd0d24dcaacd65:20","is_exec":false}"#,
         );
     }
 

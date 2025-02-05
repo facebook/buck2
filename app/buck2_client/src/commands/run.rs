@@ -117,7 +117,6 @@ impl StreamingCommand for RunCommand {
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: Materializations::Materialize as i32,
                     target_universe: self.target_cfg.target_universe,
-                    output_hashes_file: None,
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,

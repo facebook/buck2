@@ -408,7 +408,7 @@ message CommonBuildOptions {
 }
 
 message BuildRequest {
-  reserved 2, 5, 4242001;
+  reserved 2, 5, 9, 4242001;
 
   ClientContext context = 1;
   repeated string target_patterns = 10;
@@ -449,9 +449,6 @@ message BuildRequest {
   }
   // Materialize final artifacts?
   Materializations final_artifact_materializations = 7;
-
-  // File name where built artifact hash information should be saved
-  optional string output_hashes_file = 9;
 }
 
 message TestSessionOptions {

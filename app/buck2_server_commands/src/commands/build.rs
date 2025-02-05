@@ -7,17 +7,9 @@
  * of this source tree.
  */
 
-use std::io::BufWriter;
-use std::io::Write;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
-use buck2_artifact::artifact::artifact_dump::ArtifactMetadataJson;
-use buck2_artifact::artifact::artifact_dump::DirectoryInfo;
-use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
-use buck2_artifact::artifact::artifact_dump::FileInfo;
-use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
 use buck2_build_api::build::build_report::build_report_opts;
@@ -26,7 +18,6 @@ use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
-use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::materialize::MaterializationContext;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
@@ -39,7 +30,6 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
@@ -49,16 +39,10 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_directory::directory::directory::Directory;
-use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
-use buck2_events::dispatch::span_simple;
 use buck2_events::errors::create_error_report;
-use buck2_execute::directory::ActionDirectoryBuilder;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -80,8 +64,6 @@ use futures::stream::Stream;
 use futures::stream::StreamExt;
 use itertools::Either;
 use itertools::Itertools;
-use serde::ser::SerializeSeq;
-use serde::ser::Serializer;
 
 use crate::commands::build::result_report::ResultReporter;
 use crate::commands::build::result_report::ResultReporterOptions;
@@ -144,67 +126,6 @@ impl ServerCommandTemplate for BuildServerCommand {
 
 fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions {
     req.build_opts.as_ref().expect("should have build options")
-}
-
-fn dump_artifacts_to_file(
-    path: &str,
-    provider_artifacts: &[ProviderArtifacts],
-    artifact_fs: &ArtifactFs,
-) -> buck2_error::Result<()> {
-    let file =
-        std::fs::File::create(path).buck_error_context("Failed to create output hash file")?;
-    let writer = BufWriter::new(file);
-    let mut ser = serde_json::Serializer::new(writer);
-    let mut seq = ser
-        .serialize_seq(None)
-        .buck_error_context("Failed to write vec to output hash file")?;
-
-    let mut dir = ActionDirectoryBuilder::empty();
-    for artifact in provider_artifacts {
-        artifact.values.add_to_directory(&mut dir, artifact_fs)?;
-    }
-    for (entry_path, entry) in dir.unordered_walk().with_paths() {
-        let info = match entry {
-            DirectoryEntry::Dir(_) => ArtifactInfo::Directory(DirectoryInfo {}),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
-                let cas_digest = metadata.digest.data();
-                ArtifactInfo::File(FileInfo {
-                    digest: *cas_digest,
-                    digest_kind: cas_digest.raw_digest().algorithm(),
-                    is_exec: metadata.is_executable,
-                })
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink_target)) => {
-                ArtifactInfo::Symlink(SymlinkInfo {
-                    symlink_rel_path: symlink_target.target().into(),
-                })
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
-                ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
-                    target: external_symlink.target().into(),
-                    remaining_path: if external_symlink.remaining_path().is_empty() {
-                        None
-                    } else {
-                        Some(external_symlink.remaining_path().to_owned())
-                    },
-                })
-            }
-        };
-
-        let artifact_meta_json = ArtifactMetadataJson {
-            path: entry_path.clone(),
-            info,
-        };
-        seq.serialize_element(&artifact_meta_json)
-            .buck_error_context("Failed to write data to output hash file")?;
-    }
-
-    seq.end()
-        .buck_error_context("Failed to write vec end to output hash file")?;
-    ser.into_inner()
-        .flush()
-        .buck_error_context("Failed to flush output hash file")?;
-    Ok(())
 }
 
 async fn build(
@@ -332,19 +253,6 @@ async fn process_build_result(
             _ => None,
         });
         provider_artifacts.extend(&mut outputs);
-    }
-
-    if let Some(output_hashes_file) = &request.output_hashes_file {
-        span_simple(
-            buck2_data::CreateOutputHashesFileStart {},
-            || {
-                dump_artifacts_to_file(output_hashes_file, &provider_artifacts, &artifact_fs)
-                    .with_buck_error_context(|| {
-                        format!("Failed to write output hashes file to {output_hashes_file}",)
-                    })
-            },
-            buck2_data::CreateOutputHashesFileEnd {},
-        )?;
     }
 
     let should_create_unhashed_links = ctx

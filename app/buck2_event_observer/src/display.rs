@@ -381,7 +381,6 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
             Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
             Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
-            Data::CreateOutputHashesFile(..) => Ok("Creating output hashes file".to_owned()),
             Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::ActionErrorHandlerExecution(..) => {
                 Ok("Running error handler on action failure".to_owned())

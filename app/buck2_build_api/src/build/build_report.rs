@@ -536,7 +536,6 @@ fn update_artifact_info<D>(
                 provider_name,
                 ArtifactInfo::File(FileInfo {
                     digest: *cas_digest,
-                    digest_kind: cas_digest.raw_digest().algorithm(),
                     is_exec: metadata.is_executable,
                 }),
             );

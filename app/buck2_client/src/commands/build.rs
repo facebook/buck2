@@ -36,7 +36,6 @@ use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
-use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::buck2_env;
 use buck2_error::buck2_error;
@@ -116,12 +115,6 @@ pub struct BuildCommand {
 
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
     patterns: Vec<String>,
-
-    #[clap(
-        long,
-        help = "Experimental: Path to a file where the Buck2 daemon should write a list of produced artifacts in json format"
-    )]
-    output_hashes_file: Option<PathArg>,
 
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[clap(long = "deep", hide = true)]
@@ -239,19 +232,6 @@ impl StreamingCommand for BuildCommand {
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
                     target_universe: self.target_cfg.target_universe,
-                    output_hashes_file: self
-                        .output_hashes_file
-                        .map(|p| {
-                            p.resolve(&ctx.working_dir)
-                                .into_string()
-                                .with_buck_error_context(|| {
-                                    format!(
-                                        "Failed to convert output hashes file path ({}) to string",
-                                        p.display()
-                                    )
-                                })
-                        })
-                        .transpose()?,
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,

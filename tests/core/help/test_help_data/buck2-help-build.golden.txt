@@ -53,10 +53,6 @@ Options:
       --out <OUTPUT_PATH>
           Copy the output of the built target to this path (`-` to stdout)
 
-      --output-hashes-file <OUTPUT_HASHES_FILE>
-          Experimental: Path to a file where the Buck2 daemon should write a list of produced
-          artifacts in json format
-
       --build-report <PATH>
           Print a build report
 
