@@ -146,19 +146,6 @@ pub struct SystemWarningConfig {
     /// If None, we don't warn the user.
     /// The corresponding buckconfig is `buck2_system_warning.avg_re_download_bytes_per_sec_threshold`.
     pub avg_re_download_bytes_per_sec_threshold: Option<u64>,
-    /// A threshold that is used to determine if cache hit rate is too low and display a warning.
-    /// If None, we don't warn the user.
-    /// The corresponding buckconfig is `buck2_system_warning.min_cache_hit_threshold_percent`.
-    /// The value is in the range of [0, 100].
-    pub min_cache_hit_threshold_percent: Option<u64>,
-    /// Minimum % completion of the command before we start to warn the user about low cache hit rate.
-    /// If None, we warn the user immediately after the command starts based on cache misses.
-    /// The corresponding buckconfig is `buck2_system_warning.cache_warning_min_completion_threshold_percent`.
-    pub cache_warning_min_completion_threshold_percent: Option<u64>,
-    /// Minimum number of actions to run before we start to warn the user about low cache hit rate.
-    /// If None, we warn the user immediately after the command stats based on cache misses.
-    /// The corresponding buckconfig is `buck2_system_warning.cache_warning_min_actions_count`.
-    pub cache_warning_min_actions_count: Option<u64>,
 }
 
 impl SystemWarningConfig {
@@ -179,26 +166,11 @@ impl SystemWarningConfig {
             section: "buck2_system_warning",
             property: "avg_re_download_bytes_per_sec_threshold",
         })?;
-        let min_cache_hit_threshold_percent = config.parse(BuckconfigKeyRef {
-            section: "buck2_system_warning",
-            property: "min_cache_hit_threshold_percent",
-        })?;
-        let cache_warning_min_completion_threshold_percent = config.parse(BuckconfigKeyRef {
-            section: "buck2_system_warning",
-            property: "cache_warning_min_completion_threshold_percent",
-        })?;
-        let cache_warning_min_actions_count = config.parse(BuckconfigKeyRef {
-            section: "buck2_system_warning",
-            property: "cache_warning_min_actions_count",
-        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
             min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold,
-            min_cache_hit_threshold_percent,
-            cache_warning_min_completion_threshold_percent,
-            cache_warning_min_actions_count,
         })
     }
 
