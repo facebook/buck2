@@ -484,12 +484,12 @@ def get_global_code_info(
 
     declared_deps_raw_targets = [declared_dep.label.raw_target() for declared_dep in declared_deps]
 
-    def declared_deps_contains_trigger(deps_triggers: set[TargetLabel]) -> bool:
+    def declared_deps_contains_trigger(deps_triggers: set[TargetLabel]) -> TargetLabel | None:
         for declared_deps_raw_target in declared_deps_raw_targets:
             if declared_deps_raw_target in deps_triggers:
-                return True
+                return declared_deps_raw_target
 
-        return False
+        return None
 
     global_code_map = {}
     for name, (config) in global_code_config.items():
@@ -504,6 +504,13 @@ def get_global_code_info(
         elif target_is_global_code_dep:
             global_code_library_compiling_deps = [library_compiling_deps]
         elif contains_trigger:
+            if single_library_dep == None:
+                fail("Target {} contains dep {} which is a 'trigger' for the global code rule {}, but the target does not produce any output. ".format(
+                         ctx.label.raw_target(),
+                         contains_trigger,
+                         name,
+                     ) +
+                     "If the target does not export anything, it can be removed completely, or otherwise just remove all of the deps.")
             global_code_library_compiling_deps = [single_library_dep]
         else:
             global_code_library_compiling_deps = []
