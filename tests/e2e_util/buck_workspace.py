@@ -31,7 +31,6 @@ from typing import (
 )
 
 import __manifest__
-
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.executable import WindowsCmdOption
@@ -309,6 +308,22 @@ def _setup_eden(
         env=env,
     )
 
+    # Use .eden-redirections to force redirection to be setup at mount time
+    # The number of concurrent APFS volumes we can create on macOS
+    # is limited. Furthermore, cleaning up disk image redirections is non-trivial.
+    # Let's use symlink redirections to avoid these issues.
+    redirection_type = "symlink" if sys.platform == "darwin" else "bind"
+    with open(temp_repo / ".eden-redirections", "w") as f:
+        f.write(f'[redirections]\n"buck-out" = "{redirection_type}"\n')
+
+    subprocess.check_call(
+        ["hg", "commit", "--addremove", "-m", "init"],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        env=env,
+        cwd=temp_repo,
+    )
+
     # Mount the hg repo we created
     project_dir.mkdir(exist_ok=True)
     cmd = _eden_base_cmd(eden_dir) + [
@@ -327,20 +342,6 @@ def _setup_eden(
         stdout=sys.stdout,
         stderr=sys.stderr,
         env=env,
-    )
-
-    subprocess.check_call(
-        _eden_base_cmd(eden_dir)
-        + [
-            "redirect",
-            "add",
-            "buck-out",
-            "bind",
-        ],
-        stdout=sys.stdout,
-        stderr=sys.stderr,
-        env=env,
-        cwd=project_dir,
     )
 
 
