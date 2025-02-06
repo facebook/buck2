@@ -268,6 +268,10 @@ def _find_targets_in_mapping(
 
     def populate_matching_targets(node):  # Label -> bool:
         graph_node = graph_map[node]
+
+        # This callsite was migrated away from `lazy.is_any()`
+        # because we saw a non-trivial increase in retained bytes
+        # associated with the lambda required by the function.
         if mapping.filters:
             for filter in mapping.filters:
                 if not filter.matches(node, graph_node.labels):
