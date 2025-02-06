@@ -25,6 +25,8 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::soft_error;
+use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -190,6 +192,7 @@ impl EdenConnectionManager {
 
         let mut connection = (*self.connection.lock()).clone();
         let mut attempts = 0;
+        let mut retries = 0;
 
         let _permit = self
             .semaphore
@@ -214,7 +217,18 @@ impl EdenConnectionManager {
             .await;
 
             let err = match res {
-                Ok(res) => break Ok(res),
+                Ok(res) => {
+                    // Attempts may be > 1 if we had to reconnect. We only want to log a soft error
+                    // on retry. Solely for logging purposes, don't panic if value wasn't "thrown"
+                    if retries > 0 {
+                        soft_error!(
+                            "eden_io_succeeded_after_retry",
+                            buck2_error!(buck2_error::ErrorTag::Input, "Eden IO retried {} times", retries),
+                            quiet: true
+                        ).ok();
+                    }
+                    break Ok(res);
+                }
                 Err(e) => e,
             };
 
@@ -232,6 +246,7 @@ impl EdenConnectionManager {
                 }
                 ErrorHandlingStrategy::Retry => {
                     // Our request failed but needs retrying.
+                    retries += 1;
                     tracing::info!("Retrying Eden request after: {:#}", err);
                 }
                 ErrorHandlingStrategy::Abort => {
