@@ -53,6 +53,19 @@ use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 use crate::utils::find_first_valid_parent;
 
+#[derive(Debug, buck2_error::Error)]
+pub(crate) enum EdenFsWatcherError {
+    #[buck2(tag = IoNotConnected)]
+    #[error("Failed to connect to EdenFS")]
+    NoEden,
+    #[buck2(tag = Input)]
+    #[error("Eden mount point is not UTF-8")]
+    Utf8,
+    #[buck2(tag = Environment)]
+    #[error("Failed to get BUCK2_EDEN_SEMAPHORE")]
+    EdenSemaphoreEnv,
+}
+
 #[derive(Allocative)]
 pub(crate) struct EdenFsFileWatcher {
     manager: EdenConnectionManager,
@@ -74,15 +87,17 @@ impl EdenFsFileWatcher {
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
-    ) -> buck2_error::Result<Self> {
+    ) -> Result<Self, EdenFsWatcherError> {
         let eden_semaphore =
-            buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)?;
+            buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)
+                .map_err(|_| EdenFsWatcherError::EdenSemaphoreEnv)?;
 
-        let manager = EdenConnectionManager::new(fb, project_root, Semaphore::new(eden_semaphore))?
-            .expect("Failed to connect to EdenFS");
+        let manager = EdenConnectionManager::new(fb, project_root, Semaphore::new(eden_semaphore))
+            .map_err(|_| EdenFsWatcherError::NoEden)?
+            .ok_or(EdenFsWatcherError::NoEden)?;
+
         let mount_point = manager.get_mount_point();
-        let root = String::from_utf8(mount_point.clone())
-            .buck_error_context("Failed to convert mount point to string.")?;
+        let root = String::from_utf8(mount_point.clone()).map_err(|_| EdenFsWatcherError::Utf8)?;
 
         let mergebase_with = root_config
             .get(BuckconfigKeyRef {

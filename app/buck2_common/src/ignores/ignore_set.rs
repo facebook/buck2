@@ -15,7 +15,7 @@ use globset::GlobSetBuilder;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Clone, Allocative)]
 pub struct IgnoreSet {
     #[allocative(skip)]
     globset: globset::GlobSet,
