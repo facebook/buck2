@@ -13,6 +13,9 @@ use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_cli_proto::build_request::Materializations;
 use buck2_cli_proto::build_request::Uploads;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
@@ -110,6 +113,19 @@ async fn ensure_uploaded(
         buck2_execute::directory::insert_artifact(&mut dir, &path, &value)?;
     }
     let dir = dir.fingerprint(digest_config.as_directory_serializer());
+    let re_use_case = ctx
+        .get_legacy_root_config_on_dice()
+        .await
+        .and_then(|cfg| {
+            cfg.view(ctx).get(BuckconfigKeyRef {
+                section: "build",
+                property: "default_remote_execution_use_case",
+            })
+        })
+        .ok()
+        .flatten()
+        .map(|v| RemoteExecutorUseCase::new((*v).to_owned()))
+        .unwrap_or_else(RemoteExecutorUseCase::buck2_default);
     ctx.per_transaction_data()
         .get_re_client()
         .upload(
@@ -118,7 +134,7 @@ async fn ensure_uploaded(
             &ActionBlobs::new(digest_config),
             ProjectRelativePath::empty(),
             &dir,
-            RemoteExecutorUseCase::buck2_default(),
+            re_use_case,
             None,
             digest_config,
         )
