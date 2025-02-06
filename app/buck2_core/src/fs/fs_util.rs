@@ -20,6 +20,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use relative_path::RelativePath;
@@ -31,6 +32,7 @@ use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::abs_path::AbsPath;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
+use crate::soft_error;
 
 impl IoError {
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
@@ -57,11 +59,24 @@ fn is_retryable(err: &io::Error) -> bool {
 
 fn with_retries<T>(mut func: impl FnMut() -> io::Result<T>) -> io::Result<T> {
     let mut attempts = 0;
+    let mut last_error_kind: Option<std::io::ErrorKind> = None;
 
     loop {
         match func() {
-            Ok(v) => return Ok(v),
+            Ok(v) => {
+                if let Some(err) = last_error_kind {
+                    // Solely for logging, we don't want to error if the value wasn't "thrown"
+                    soft_error!(
+                        "fs_io_succeeded_after_retry",
+                        buck2_error!(buck2_error::ErrorTag::Input, "{}", err.to_string()),
+                        quiet: true
+                    )
+                    .ok();
+                }
+                return Ok(v);
+            }
             Err(e) if is_retryable(&e) => {
+                last_error_kind = Some(e.kind());
                 attempts += 1;
                 if attempts >= 3 {
                     return Err(e);
