@@ -24,6 +24,7 @@ pub(crate) fn io_error_kind_to_error_tag(kind: io::ErrorKind) -> ErrorTag {
         io::ErrorKind::BrokenPipe => ErrorTag::IoBrokenPipe,
         io::ErrorKind::StorageFull => ErrorTag::IoStorageFull,
         io::ErrorKind::ConnectionAborted => ErrorTag::IoConnectionAborted,
+        io::ErrorKind::ReadOnlyFilesystem => ErrorTag::IoReadOnlyFilesystem,
         _ => ErrorTag::IoSystem,
     }
 }
