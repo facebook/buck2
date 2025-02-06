@@ -482,11 +482,10 @@ def get_global_code_info(
         global_code_config: dict) -> JavaGlobalCodeInfo:
     global_code_infos = filter(None, [x.get(JavaGlobalCodeInfo) for x in packaging_deps])
 
-    def declared_deps_contains_trigger(deps_triggers: list[TargetLabel]):
-        for deps_trigger in deps_triggers:
-            for declared_dep in declared_deps:
-                if declared_dep.label.raw_target() == deps_trigger:
-                    return True
+    def declared_deps_contains_trigger(deps_triggers: set[TargetLabel]):
+        for declared_dep in declared_deps:
+            if declared_dep.label.raw_target() in deps_triggers:
+                return True
 
         return False
 
