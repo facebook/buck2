@@ -14,6 +14,7 @@ from typing import List, Tuple
 
 def parse_arguments() -> Tuple[argparse.Namespace, List[str]]:
     parser = argparse.ArgumentParser(
+        add_help=False,  # This allows us to pass --help to the inner command
         description="Builds buck2 locally and then runs it.",
         formatter_class=argparse.RawTextHelpFormatter,
     )

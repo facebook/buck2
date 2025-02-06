@@ -51,7 +51,7 @@ def buck_command(args: argparse.Namespace) -> str:
     elif args.cargo:
         return "cargo run --bin=buck2 --"
     else:
-        return "./buck2.sh"
+        return "./buck2.py"
 
 
 def copy_starlark_docs() -> None:
