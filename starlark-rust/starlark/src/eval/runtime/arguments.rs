@@ -346,7 +346,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     }
 
     /// Unpack all positional parameters into an iterator.
-    pub(crate) fn positions<'b>(
+    pub fn positions<'b>(
         &'b self,
         heap: &'v Heap,
     ) -> crate::Result<impl Iterator<Item = Value<'v>> + 'b> {

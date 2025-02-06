@@ -34,6 +34,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Arguments;
 use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
@@ -644,6 +645,18 @@ impl<'v> StarlarkCommandLineData<'v> {
         Ok(())
     }
 
+    fn add_from_iterator(
+        &mut self,
+        values: impl Iterator<Item = Value<'v>>,
+    ) -> buck2_error::Result<()> {
+        let (lower, upper) = values.size_hint();
+        self.items.reserve(upper.unwrap_or(lower));
+        values
+            .into_iter()
+            .try_for_each(|value| self.add_value(value))?;
+        Ok(())
+    }
+
     /// Add values to the artifact that don't show up on the command line, but do for dependency
     fn add_hidden(&mut self, value: StarlarkCommandLineValueUnpack<'v>) -> buck2_error::Result<()> {
         match value {
@@ -713,9 +726,12 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// Note that this operation mutates the input `cmd_args`.
     fn add<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(args)] args: UnpackTuple<Value<'v>>,
+        heap: &'v Heap,
+        args: &Arguments<'v, '_>,
     ) -> starlark::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.add_values(&args.items)?;
+        args.no_named_args()?;
+        let values = args.positions(heap)?;
+        this.borrow.add_from_iterator(values)?;
         Ok(this)
     }
 
