@@ -19,7 +19,6 @@ SwiftObjectFormat = enum(
 SwiftToolchainInfo = provider(
     fields = {
         "architecture": provider_field(typing.Any, default = None),
-        "can_toolchain_emit_obj_c_header_textually": provider_field(typing.Any, default = None),  # bool
         "compiler": provider_field(typing.Any, default = None),
         "compiler_flags": provider_field(typing.Any, default = None),
         "library_interface_uses_swiftinterface": provider_field(bool),
