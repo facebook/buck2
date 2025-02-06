@@ -62,6 +62,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:toolchain.bzl", "PackageStyle")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 load(":native_python_util.bzl", "merge_cxx_extension_info", "reduce_cxx_extension_info")
 
 def _get_root_link_group_specs(
@@ -234,11 +235,17 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
 
     # Generate an additional C file as input
     static_extension_info_out = ctx.actions.declare_output("static_extension_info.cpp")
-    cmd = cmd_args(python_toolchain.generate_static_extension_info[RunInfo])
-    cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
-    cmd.add(
-        extension_info.set.project_as_args("python_module_names"),
+    argfile = at_argfile(
+        actions = ctx.actions,
+        name = "generate_static_extension_info.argsfile",
+        args = cmd_args(
+            extension_info.set.project_as_args("python_module_names"),
+        ),
     )
+    cmd = cmd_args()
+    cmd.add(cmd_args(python_toolchain.generate_static_extension_info[RunInfo]))
+    cmd.add(cmd_args(argfile))
+    cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
 
     # TODO we don't need to do this ...
     ctx.actions.run(cmd, category = "generate_static_extension_info")
