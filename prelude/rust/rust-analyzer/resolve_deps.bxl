@@ -129,8 +129,9 @@ def gather_deps(
 
     for target in outputs:
         attrs = target.attrs_lazy()
+        label = target.label.with_sub_target()
 
-        in_workspace = target.label.raw_target() in target_analysis
+        in_workspace = label in target_analysis
         candidate_workspaces = attrs.get("_workspaces")
         if candidate_workspaces:
             for candidate_workspace in candidate_workspaces.value():
