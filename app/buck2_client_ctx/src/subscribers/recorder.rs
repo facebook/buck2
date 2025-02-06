@@ -11,7 +11,6 @@ use std::cmp::max;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::future::Future;
 use std::io::Write;
 use std::ops::Sub;
 use std::sync::atomic::AtomicU64;
@@ -474,7 +473,7 @@ impl<'a> InvocationRecorder<'a> {
         }
     }
 
-    fn send_it(&mut self) -> Option<impl Future<Output = ()> + 'static + Send> {
+    fn create_record_event(&mut self) -> BuckEvent {
         let mut sink_success_count = None;
         let mut sink_failure_count = None;
         let mut sink_dropped_count = None;
@@ -614,11 +613,13 @@ impl<'a> InvocationRecorder<'a> {
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
             // Also, it suffices to only emit a single tag per invocation, not one tag each time memory pressure is exceeded.
             // We can't just rely on the last snapshot here instead we use the peak memory/disk usage to check if we ever reported a warning.
-            if check_memory_pressure(self.peak_process_memory_bytes?, &self.system_info).is_some() {
+            if let Some(mem) = self.peak_process_memory_bytes
+                && check_memory_pressure(mem, &self.system_info).is_some()
+            {
                 self.tags.push(MEMORY_PRESSURE_TAG.to_owned());
             }
-            if check_remaining_disk_space(self.peak_used_disk_space_bytes?, &self.system_info)
-                .is_some()
+            if let Some(bytes) = self.peak_used_disk_space_bytes
+                && check_remaining_disk_space(bytes, &self.system_info).is_some()
             {
                 self.tags.push("low_disk_space".to_owned());
             }
@@ -838,19 +839,7 @@ impl<'a> InvocationRecorder<'a> {
                 );
             }
         }
-
-        #[allow(unreachable_patterns)]
-        if let Ok(Some(scribe_sink)) =
-            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
-        {
-            tracing::info!("Recording invocation to Scribe: {:?}", &event);
-            Some(async move {
-                scribe_sink.send_now(event).await;
-            })
-        } else {
-            tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
-            None
-        }
+        event
     }
 
     // Collects client-side state and data, suitable for telemetry.
@@ -1655,9 +1644,17 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
 
 impl<'a> Drop for InvocationRecorder<'a> {
     fn drop(&mut self) {
-        if let Some(fut) = self.send_it() {
+        let event = self.create_record_event();
+        #[allow(unreachable_patterns)]
+        if let Ok(Some(scribe_sink)) =
+            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
+        {
+            tracing::info!("Recording invocation to Scribe: {:?}", &event);
+            let fut = async move { scribe_sink.send_now(event).await };
             self.async_cleanup_context
                 .register("sending invocation to Scribe", fut.boxed());
+        } else {
+            tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
         }
     }
 }
