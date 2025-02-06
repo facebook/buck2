@@ -7,6 +7,7 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
         "fbsource//third-party/rust:async-trait",
         "//buck2/app/buck2_error:buck2_error",

@@ -9,3 +9,4 @@ version = "0.1.0"
 async-trait = { workspace = true }
 buck2_error = { workspace = true }
 buck2_util = { workspace = true }
+tokio = { workspace = true }
