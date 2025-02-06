@@ -113,11 +113,6 @@ async def _generic_managed_simulators_list_command(
     return managed_simulators_list_from_stdout(stdout)
 
 
-async def _generic_managed_simulator_command(name: str, cmd: List[str]) -> IdbTarget:
-    stdout = await execute_generic_text_producing_command(name=name, cmd=cmd)
-    return managed_simulator_from_stdout(stdout)
-
-
 async def _list_managed_simulators(simulator_manager: str) -> List[IdbTarget]:
     list_cmd = _list_managed_simulators_command(simulator_manager=simulator_manager)
     return await _generic_managed_simulators_list_command(
@@ -162,14 +157,14 @@ async def _create_simulator(
     simulator_manager: str,
     os_version: Optional[str] = None,
     device: Optional[str] = None,
-) -> IdbTarget:
+) -> None:
     runtimes = await list_ios_runtimes()
     spec = _select_simulator_spec(runtimes, os_version, device)
     spec_str = f"{spec.device},{spec.os_version}"
     create_cmd = _create_simulator_command(
         simulator_manager=simulator_manager, sim_spec=spec_str
     )
-    return await _generic_managed_simulator_command(
+    await execute_generic_text_producing_command(
         name="create simulators", cmd=create_cmd
     )
 
@@ -179,22 +174,35 @@ async def _get_managed_simulators_create_if_needed(
     os_version: Optional[str] = None,
     device: Optional[str] = None,
 ) -> List[IdbTarget]:
-    managed_simulators = await _list_managed_simulators(
-        simulator_manager=simulator_manager
+    managed_simulators = await _get_managed_simulators(
+        simulator_manager=simulator_manager, os_version=os_version, device=device
     )
-    managed_simulators = choose_simulators(managed_simulators, os_version, device)
     if managed_simulators:
         return managed_simulators
 
-    managed_simulator = await _create_simulator(
+    await _create_simulator(
         simulator_manager=simulator_manager, os_version=os_version, device=device
     )
-    if managed_simulator:
-        return [managed_simulator]
+    managed_simulators = await _get_managed_simulators(
+        simulator_manager=simulator_manager, os_version=os_version, device=device
+    )
+    if managed_simulators:
+        return managed_simulators
 
     raise RuntimeError(
         "Failed to create an iOS simulator. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
     )
+
+
+async def _get_managed_simulators(
+    simulator_manager: str,
+    os_version: Optional[str] = None,
+    device: Optional[str] = None,
+) -> List[IdbTarget]:
+    managed_simulators = await _list_managed_simulators(
+        simulator_manager=simulator_manager
+    )
+    return choose_simulators(managed_simulators, os_version, device)
 
 
 def _select_simulator(
