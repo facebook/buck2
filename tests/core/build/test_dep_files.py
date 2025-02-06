@@ -157,7 +157,12 @@ async def check_cache_query(buck: Buck) -> None:
 
 
 # Skipping on windows due to gcc dependency
-@buck_test(setup_eden=True, data_dir="dep_files", skip_for_os=["windows"])
+@buck_test(
+    # test uses symlinks that mess up with eden symlink redirection on MacOS
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+)
 async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     # For actions that have dep files, buck will query the local dep file cache to see
     # if an identical action is stored there. Otherwise, it will fall back to an action cache
