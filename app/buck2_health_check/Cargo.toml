@@ -4,3 +4,8 @@ license = { workspace = true }
 name = "buck2_health_check"
 repository = { workspace = true }
 version = "0.1.0"
+
+[dependencies]
+async-trait = { workspace = true }
+buck2_error = { workspace = true }
+buck2_util = { workspace = true }
