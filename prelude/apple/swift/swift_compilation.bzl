@@ -343,13 +343,10 @@ def compile_swift(
 
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
 
-    if ctx.attrs.serialize_debugging_options:
-        if exported_headers:
-            # TODO(T99100029): We cannot use VFS overlays with Buck2, so we have to disable
-            # serializing debugging options for mixed libraries to debug successfully
-            warning("Mixed libraries cannot serialize debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
-        elif not toolchain.prefix_serialized_debugging_options:
-            warning("The current toolchain does not support prefixing serialized debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
+    if ctx.attrs.serialize_debugging_options and exported_headers:
+        # We cannot use VFS overlays with Buck2, so we have to disable
+        # serializing debugging options for mixed libraries to debug successfully
+        warning("Mixed libraries cannot serialize debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
 
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
@@ -831,7 +828,7 @@ def _get_shared_flags(
     if ctx.attrs.enable_cxx_interop:
         cmd.add(["-cxx-interoperability-mode=default"])
 
-    serialize_debugging_options = _get_serialize_debugging_options_attr_value(ctx) and (not explicit_modules_enabled) and (not objc_headers) and toolchain.prefix_serialized_debugging_options
+    serialize_debugging_options = _get_serialize_debugging_options_attr_value(ctx) and (not explicit_modules_enabled) and (not objc_headers)
     if serialize_debugging_options:
         cmd.add([
             "-Xfrontend",

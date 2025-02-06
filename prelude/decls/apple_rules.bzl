@@ -1021,7 +1021,6 @@ swift_toolchain = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "platform_path": attrs.source(),
-            "prefix_serialized_debug_info": attrs.bool(default = False),
             "resource_dir": attrs.option(attrs.source(), default = None),
             "runtime_paths_for_bundling": attrs.list(attrs.string(), default = []),
             "runtime_paths_for_linking": attrs.list(attrs.string(), default = []),

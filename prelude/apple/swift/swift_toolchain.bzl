@@ -61,7 +61,6 @@ def swift_toolchain_impl(ctx):
             mk_swift_comp_db = ctx.attrs.make_swift_comp_db,
             mk_swift_interface = cmd_args(ctx.attrs._swiftc_wrapper[RunInfo]).add(ctx.attrs.make_swift_interface[RunInfo]),
             object_format = SwiftObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format else SwiftObjectFormat("object"),
-            prefix_serialized_debugging_options = ctx.attrs.prefix_serialized_debug_info,
             resource_dir = ctx.attrs.resource_dir,
             runtime_run_paths = ctx.attrs.runtime_run_paths,
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
