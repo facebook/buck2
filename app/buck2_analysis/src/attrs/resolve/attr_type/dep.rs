@@ -26,7 +26,10 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
 enum ResolutionError {
-    #[error("required provider `{0}` was not found on `{1}`. Found these providers: {}", .2.join(", "))]
+    #[error(
+        "Attribute requires a dep that provides `{0}`, but it was not found on `{1}`. Found these providers: {}",
+        .2.join(", "),
+)]
     MissingRequiredProvider(String, ConfiguredProvidersLabel, Vec<String>),
 }
 

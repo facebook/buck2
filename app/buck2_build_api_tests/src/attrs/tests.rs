@@ -528,10 +528,9 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let err = configured
         .resolve_single(PackageLabel::testing(), &resolution_ctx)
         .expect_err("Should have failed");
-    assert_eq!(
-        true,
+    assert!(
         err.to_string()
-            .contains("required provider `BarInfo` was not found")
+            .contains("Attribute requires a dep that provides `BarInfo`")
     );
 
     let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");
