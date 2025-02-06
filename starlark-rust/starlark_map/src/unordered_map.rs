@@ -24,8 +24,8 @@ use std::mem;
 use std::ops::Index;
 
 use allocative::Allocative;
-use hashbrown::raw::Bucket;
-use hashbrown::raw::RawTable;
+use hashbrown::hash_table;
+use hashbrown::HashTable;
 
 use crate::Equivalent;
 use crate::Hashed;
@@ -35,7 +35,7 @@ use crate::StarlarkHasher;
 /// Hash map which does not expose any insertion order-specific behavior
 /// (except `Debug`).
 #[derive(Clone, Allocative)]
-pub struct UnorderedMap<K, V>(RawTable<(K, V)>);
+pub struct UnorderedMap<K, V>(HashTable<(K, V)>);
 
 impl<K, V> Default for UnorderedMap<K, V> {
     #[inline]
@@ -48,13 +48,13 @@ impl<K, V> UnorderedMap<K, V> {
     /// Create a new empty map.
     #[inline]
     pub const fn new() -> UnorderedMap<K, V> {
-        UnorderedMap(RawTable::new())
+        UnorderedMap(HashTable::new())
     }
 
     /// Create a new empty map with the specified capacity.
     #[inline]
     pub fn with_capacity(n: usize) -> UnorderedMap<K, V> {
-        UnorderedMap(RawTable::with_capacity(n))
+        UnorderedMap(HashTable::with_capacity(n))
     }
 
     /// Get the number of elements in the map.
@@ -87,7 +87,7 @@ impl<K, V> UnorderedMap<K, V> {
     {
         let hash = key.hash().promote();
         self.0
-            .get(hash, |(next_k, _v)| key.key().equivalent(next_k))
+            .find(hash, |(next_k, _v)| key.key().equivalent(next_k))
             .map(|(_, v)| v)
     }
 
@@ -99,7 +99,7 @@ impl<K, V> UnorderedMap<K, V> {
     {
         let hash = StarlarkHashValue::new(k).promote();
         self.0
-            .get_mut(hash, |(next_k, _v)| k.equivalent(next_k))
+            .find_mut(hash, |(next_k, _v)| k.equivalent(next_k))
             .map(|(_, v)| v)
     }
 
@@ -157,19 +157,7 @@ impl<K, V> UnorderedMap<K, V> {
     where
         F: FnMut(&K, &mut V) -> bool,
     {
-        // TODO(nga): update hashbrown and use safe `HashTable` instead of this heavily unsafe code:
-        //   https://docs.rs/hashbrown/latest/hashbrown/struct.HashTable.html
-
-        // Unsafe code is copy-paste from `hashbrown` crate:
-        // https://github.com/rust-lang/hashbrown/blob/f2e62124cd947b5e2309dd6a24c7e422932aae97/src/map.rs#L923
-        unsafe {
-            for item in self.0.iter() {
-                let (k, v) = item.as_mut();
-                if !f(k, v) {
-                    self.0.erase(item);
-                }
-            }
-        }
+        self.0.retain(move |(k, v)| f(k, v));
     }
 
     /// Get an entry in the map for in-place manipulation.
@@ -179,14 +167,13 @@ impl<K, V> UnorderedMap<K, V> {
         K: Hash + Eq,
     {
         let hash = StarlarkHashValue::new(&k).promote();
-        if let Some(bucket) = self.0.find(hash, |(next_k, _v)| k.equivalent(next_k)) {
-            Entry::Occupied(OccupiedEntry { _map: self, bucket })
-        } else {
-            Entry::Vacant(VacantEntry {
-                map: self,
-                key: k,
-                hash,
-            })
+        match self.0.entry(
+            hash,
+            |(next_k, _v)| k.equivalent(next_k),
+            |(k, _v)| StarlarkHashValue::new(k).promote(),
+        ) {
+            hash_table::Entry::Occupied(entry) => Entry::Occupied(OccupiedEntry { entry }),
+            hash_table::Entry::Vacant(entry) => Entry::Vacant(VacantEntry { entry, key: k }),
         }
     }
 
@@ -205,13 +192,13 @@ impl<K, V> UnorderedMap<K, V> {
     /// Entries in the map, in arbitrary order.
     #[inline]
     pub fn entries_unordered(&self) -> impl ExactSizeIterator<Item = (&K, &V)> {
-        unsafe { self.0.iter().map(|e| (&e.as_ref().0, &e.as_ref().1)) }
+        self.0.iter().map(|e| (&e.0, &e.1))
     }
 
     /// Entries in the map, in arbitrary order.
     #[inline]
     pub fn entries_unordered_mut(&mut self) -> impl ExactSizeIterator<Item = (&K, &mut V)> {
-        unsafe { self.0.iter().map(|e| (&e.as_ref().0, &mut e.as_mut().1)) }
+        self.0.iter_mut().map(|e| (&e.0, &mut e.1))
     }
 
     /// Keys in the map, in arbitrary order.
@@ -322,14 +309,12 @@ impl<K: Eq + Hash, V> FromIterator<(K, V)> for UnorderedMap<K, V> {
 
 /// Reference to an occupied entry in a [`UnorderedMap`].
 pub struct OccupiedEntry<'a, K, V> {
-    _map: &'a mut UnorderedMap<K, V>,
-    bucket: Bucket<(K, V)>,
+    entry: hash_table::OccupiedEntry<'a, (K, V)>,
 }
 
 /// Reference to a vacant entry in a [`UnorderedMap`].
 pub struct VacantEntry<'a, K, V> {
-    map: &'a mut UnorderedMap<K, V>,
-    hash: u64,
+    entry: hash_table::VacantEntry<'a, (K, V)>,
     key: K,
 }
 
@@ -345,9 +330,7 @@ impl<'a, K: Eq + Hash, V> VacantEntry<'a, K, V> {
     /// Insert a value into the map.
     #[inline]
     pub fn insert(self, value: V) {
-        self.map.0.insert(self.hash, (self.key, value), |(k, _v)| {
-            StarlarkHashValue::new(k).promote()
-        });
+        self.entry.insert((self.key, value));
     }
 }
 
@@ -355,13 +338,13 @@ impl<'a, K, V> OccupiedEntry<'a, K, V> {
     /// Remove the entry from the map.
     #[inline]
     pub fn get(&self) -> &V {
-        unsafe { &self.bucket.as_ref().1 }
+        &self.entry.get().1
     }
 
     /// Get a reference to the value associated with the entry.
     #[inline]
     pub fn get_mut(&mut self) -> &mut V {
-        unsafe { &mut self.bucket.as_mut().1 }
+        &mut self.entry.get_mut().1
     }
 
     /// Replace the value associated with the entry.
@@ -403,26 +386,23 @@ impl<'a, K, V> RawEntryBuilderMut<'a, K, V> {
         F: for<'b> FnMut(&'b K) -> bool,
     {
         let hash = hash.promote();
-        if let Some(bucket) = self.map.0.find(hash, |(next_k, _v)| is_match(next_k)) {
-            RawEntryMut::Occupied(RawOccupiedEntryMut {
-                map: self.map,
-                bucket,
-            })
-        } else {
-            RawEntryMut::Vacant(RawVacantEntryMut { map: self.map })
+        match self.map.0.find_entry(hash, |(next_k, _v)| is_match(next_k)) {
+            Ok(entry) => RawEntryMut::Occupied(RawOccupiedEntryMut { entry }),
+            Err(entry) => RawEntryMut::Vacant(RawVacantEntryMut {
+                table: entry.into_table(),
+            }),
         }
     }
 }
 
 /// Occupied entry.
 pub struct RawOccupiedEntryMut<'a, K, V> {
-    map: &'a mut UnorderedMap<K, V>,
-    bucket: Bucket<(K, V)>,
+    entry: hash_table::OccupiedEntry<'a, (K, V)>,
 }
 
 /// Vacant entry.
 pub struct RawVacantEntryMut<'a, K, V> {
-    map: &'a mut UnorderedMap<K, V>,
+    table: &'a mut HashTable<(K, V)>,
 }
 
 /// Raw entry.
@@ -449,19 +429,19 @@ impl<'a, K, V> RawOccupiedEntryMut<'a, K, V> {
     /// Get a reference to the value associated with the entry.
     #[inline]
     pub fn get(&self) -> &V {
-        unsafe { &self.bucket.as_ref().1 }
+        &self.entry.get().1
     }
 
     /// Get a reference to the value associated with the entry.
     #[inline]
     pub fn get_mut(&mut self) -> &mut V {
-        unsafe { &mut self.bucket.as_mut().1 }
+        &mut self.entry.get_mut().1
     }
 
     /// Get a reference to the key associated with the entry.
     #[inline]
     pub fn key_mut(&mut self) -> &mut K {
-        unsafe { &mut self.bucket.as_mut().0 }
+        &mut self.entry.get_mut().0
     }
 
     /// Remove the entry, return the value.
@@ -473,7 +453,7 @@ impl<'a, K, V> RawOccupiedEntryMut<'a, K, V> {
     /// Remove the entry, return the key and value.
     #[inline]
     pub fn remove_entry(self) -> (K, V) {
-        unsafe { self.map.0.remove(self.bucket).0 }
+        self.entry.remove().0
     }
 }
 
@@ -496,12 +476,12 @@ impl<'a, K, V> RawVacantEntryMut<'a, K, V> {
     where
         K: Hash,
     {
-        let (k, v) =
-            self.map
-                .0
-                .insert_entry(key.hash().promote(), (key.into_key(), value), |(k, _v)| {
-                    StarlarkHashValue::new(k).promote()
-                });
+        let (k, v) = self
+            .table
+            .insert_unique(key.hash().promote(), (key.into_key(), value), |(k, _v)| {
+                StarlarkHashValue::new(k).promote()
+            })
+            .into_mut();
         (k, v)
     }
 }

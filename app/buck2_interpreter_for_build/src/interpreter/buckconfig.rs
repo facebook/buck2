@@ -17,7 +17,7 @@ use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::soft_error;
 use dice::DiceComputations;
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 use starlark::collections::Hashed;
 use starlark::environment::Module;
 use starlark::values::FrozenStringValue;
@@ -46,8 +46,8 @@ struct BuckConfigsInner<'a> {
     /// Hash map by `(section, key)` pair, so we do one table lookup per request.
     /// So we hash the `key` even if the section does not exist,
     /// but this is practically not an issue, because keys usually come with cached hash.
-    current_cell_cache: RawTable<BuckConfigEntry>,
-    root_cell_cache: RawTable<BuckConfigEntry>,
+    current_cell_cache: HashTable<BuckConfigEntry>,
+    root_cell_cache: HashTable<BuckConfigEntry>,
 }
 
 /// Version of cell buckconfig optimized for fast query from `read_config` Starlark function.
@@ -89,8 +89,8 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
             module,
             inner: RefCell::new(BuckConfigsInner {
                 configs_view,
-                current_cell_cache: RawTable::new(),
-                root_cell_cache: RawTable::new(),
+                current_cell_cache: HashTable::new(),
+                root_cell_cache: HashTable::new(),
             }),
         }
     }
@@ -115,7 +115,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         } else {
             current_cell_cache
         };
-        if let Some(e) = cache.get(hash, |e| {
+        if let Some(e) = cache.find(hash, |e| {
             e.section.key() == section.key() && e.key.as_str() == *key.key()
         }) {
             return Ok(e.value);
@@ -134,7 +134,7 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
         }
         .map(|v| self.module.frozen_heap().alloc_str(&v));
 
-        cache.insert(
+        cache.insert_unique(
             hash,
             BuckConfigEntry {
                 section: Hashed::new_unchecked(section.hash(), (*section.key()).to_owned()),

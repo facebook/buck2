@@ -35,7 +35,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use either::Either;
-use hashbrown::raw::RawTable;
 use hashbrown::HashTable;
 use starlark_map::small_set::SmallSet;
 use starlark_map::Hashed;
@@ -78,14 +77,6 @@ unsafe impl<'v, T: Trace<'v>> Trace<'v> for Vec<T> {
 unsafe impl<'v, T: Trace<'v>> Trace<'v> for [T] {
     fn trace(&mut self, tracer: &Tracer<'v>) {
         self.iter_mut().for_each(|x| x.trace(tracer));
-    }
-}
-
-unsafe impl<'v, T: Trace<'v>> Trace<'v> for RawTable<T> {
-    fn trace(&mut self, tracer: &Tracer<'v>) {
-        unsafe {
-            self.iter().for_each(|e| e.as_mut().trace(tracer));
-        }
     }
 }
 

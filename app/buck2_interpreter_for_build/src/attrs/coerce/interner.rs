@@ -18,24 +18,21 @@ use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
-use hashbrown::raw::RawTable;
+use hashbrown::HashTable;
 
 /// An interner specific to our AttrCoercionContext used for interning different kinds of attributes.
 /// Things specific about this interner:
 /// - Requires interned values to be Dupe, so that you can intern both Arc<...> and specific Arc types like ArcStr.
 /// - Interner is not static, so it's not required to take up memory for the entire duration of the program.
 pub(crate) struct AttrCoercionInterner<T: Dupe + Hash + Eq, H = BuckHasher> {
-    /// We use `RawTable` where because `HashMap` API
-    /// requires either computing hash twice (for get, then for insert) or
-    /// allocating a key to perform a query using `entry` API.
-    cache: RefCell<RawTable<(u64, T)>>,
+    cache: RefCell<HashTable<(u64, T)>>,
     _marker: marker::PhantomData<H>,
 }
 
 impl<T: Dupe + Hash + Eq, H: Hasher + Default> AttrCoercionInterner<T, H> {
     pub(crate) fn new() -> Self {
         Self {
-            cache: RefCell::new(RawTable::new()),
+            cache: RefCell::new(HashTable::new()),
             _marker: marker::PhantomData,
         }
     }
@@ -49,12 +46,12 @@ impl<T: Dupe + Hash + Eq, H: Hasher + Default> AttrCoercionInterner<T, H> {
         let hash = compute_hash(&internable, H::default());
         let mut cache = self.cache.borrow_mut();
 
-        if let Some((_h, v)) = cache.get(hash, |(_h, v)| internable.equivalent(v)) {
+        if let Some((_h, v)) = cache.find(hash, |(_h, v)| internable.equivalent(v)) {
             return v.dupe();
         }
 
         let value: T = internable.into();
-        cache.insert(hash, (hash, value.dupe()), |(h, _v)| *h);
+        cache.insert_unique(hash, (hash, value.dupe()), |(h, _v)| *h);
         value
     }
 }
