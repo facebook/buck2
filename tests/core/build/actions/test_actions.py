@@ -20,7 +20,6 @@ from aiohttp import web
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 
@@ -68,7 +67,13 @@ async def test_copies_files(buck: Buck) -> None:
     )
 
 
-@buck_test(data_dir="actions")
+@buck_test(
+    data_dir="actions",
+    # Because we use eden symlink redirection on MacOS
+    # this test resolves both links and points to nonexistent files,
+    # hence disabling eden
+    setup_eden=False,
+)
 async def test_symlink_dir(buck: Buck) -> None:
     result = await buck.build("//symlinked_dir:")
     build_report = result.get_build_report()
