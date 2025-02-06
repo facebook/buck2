@@ -56,9 +56,9 @@ pub struct EdenConnectionManager {
     connection: Mutex<EdenConnection>,
     /// Eden has limits on concurrency and will return server overloaded (or timeout) errors if we
     /// send too many. Experimentally, even for large builds (see details in D36136516), we don't
-    /// much performance improvement beyond 2K concurrent requests, regardless of whether Eden has
-    /// a fast or slow connectin to source control, a warm cache or not, and a lot of CPU available
-    /// to run or not.
+    /// get much performance improvement beyond 2K concurrent requests, regardless of whether Eden
+    /// has a fast or slow connection to source control, a warm cache or not, and a lot of CPU
+    /// available to run or not.
     #[allocative(skip)]
     semaphore: Semaphore,
     /// The project root, relative to the eden mount point
@@ -253,7 +253,7 @@ type EdenClientFuture =
 /// An Eden client and an epoch to keep track of reconnections.
 #[derive(Clone, Allocative)]
 struct EdenConnection {
-    /// This stats at zero and increments every time we reconnect. We use this to keep track of
+    /// This starts at zero and increments every time we reconnect. We use this to keep track of
     /// whether another client already recycled the connection when we need to reconnect.
     epoch: usize,
     #[allocative(skip)]
