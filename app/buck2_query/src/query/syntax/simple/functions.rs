@@ -515,6 +515,20 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self.implementation.owner(env, &files).await?.into())
     }
 
+    /// Targets in build file.
+    ///
+    /// For each file in the provided [*file expression*](#file-expression), returns a list of all targets defined there.
+    ///
+    /// `targets_in_buildfile()` and `buildfile()` functions are inverses of each other.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery 'targets_in_buildfile(buildfile(//buck2:buck2))'
+    ///
+    /// //buck2:buck2
+    /// //buck2:buck2_bundle
+    /// //buck2:symlinked_buck2_and_tpx
+    /// ```
     async fn targets_in_buildfile(&self, env: &Env, files: FileSet) -> QueryFuncResult<Env> {
         Ok(self
             .implementation
