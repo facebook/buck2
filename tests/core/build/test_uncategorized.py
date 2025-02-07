@@ -9,6 +9,7 @@
 
 
 import json
+
 import os
 import platform
 import random
@@ -19,7 +20,6 @@ from pathlib import Path
 from typing import List, Tuple
 
 import pytest
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -173,9 +173,9 @@ async def test_cell_deletion(buck: Buck) -> None:
 @buck_test(
     data_dir="invalid_file_invalidation",
     skip_for_os=["windows"],
+    setup_eden=True,
     # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
-    # watchman file watcher here.
-    extra_buck_config={"buck2": {"file_watcher": "watchman"}},
+    extra_buck_config={"buck2": {"file_watcher": "edenfs"}},
 )
 async def test_invalid_file_invalidation(buck: Buck) -> None:
     """
