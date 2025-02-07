@@ -38,7 +38,7 @@ SchemeActionType = ["build", "launch", "test", "profile", "analyze", "archive"]
 
 WatchInterface = ["main", "complication", "dynamic_notification", "static_notification"]
 
-_swift_version_feature_map = {
+SWIFT_VERSION_FEATURE_MAP = {
     "5": [],
     "6": [],
 }
@@ -1031,8 +1031,8 @@ swift_toolchain = prelude_rule(
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
             "swiftc": attrs.source(),
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
-            "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
-            "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
+            "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
+            "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
             "_library_interface_uses_swiftinterface": attrs.bool(default = select({
                 "DEFAULT": False,
                 "config//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
