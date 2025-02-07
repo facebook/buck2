@@ -25,6 +25,14 @@ enum CompatibilityErrors {
     #[error("{0:#}")]
     #[buck2(input)]
     TargetIncompatible(IncompatiblePlatformReason),
+    // We just need this so that the soft error doesn't print a wall of text to stderr
+    // TODO(scottcao): Delete this once we are done with migration and made this a hard error
+    // everywhere
+    #[error(
+        "{0:#} does not pass compatibility check (will be error in future) because its transitive dep {1:#}"
+    )]
+    #[buck2(input)]
+    DepOnlyIncompatibleSoftError(ConfiguredTargetLabel, IncompatiblePlatformReason),
 }
 
 /// MaybeCompatible is used to gracefully deal with things that are incompatible
@@ -78,7 +86,7 @@ pub enum IncompatiblePlatformReasonCause {
     Dependency(Arc<IncompatiblePlatformReason>),
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
 pub struct IncompatiblePlatformReason {
     pub target: ConfiguredTargetLabel,
     pub cause: IncompatiblePlatformReasonCause,
@@ -87,6 +95,28 @@ pub struct IncompatiblePlatformReason {
 impl IncompatiblePlatformReason {
     pub fn to_err(&self) -> buck2_error::Error {
         CompatibilityErrors::TargetIncompatible(self.clone()).into()
+    }
+
+    pub fn to_soft_err(&self) -> buck2_error::Error {
+        match &self.cause {
+            IncompatiblePlatformReasonCause::UnsatisfiedConfig(_) => self.to_err(),
+            IncompatiblePlatformReasonCause::Dependency(reason) => {
+                let root_cause = reason.get_root_cause();
+                CompatibilityErrors::DepOnlyIncompatibleSoftError(
+                    self.target.dupe(),
+                    root_cause.dupe(),
+                )
+                .into()
+            }
+        }
+    }
+
+    fn get_root_cause(&self) -> &IncompatiblePlatformReason {
+        // Recurse until we find the root UnsatisfiedConfig error that caused incompatibility errors
+        match &self.cause {
+            IncompatiblePlatformReasonCause::UnsatisfiedConfig(_) => self,
+            IncompatiblePlatformReasonCause::Dependency(reason) => reason.get_root_cause(),
+        }
     }
 
     pub fn skipping_message(&self, target: &ConfiguredTargetLabel) -> String {

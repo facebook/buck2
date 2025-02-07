@@ -139,5 +139,9 @@ async def check_dep_only_incompatible_soft_err(buck: Buck, args: list[str]) -> N
     # prefixing each line which makes this regex, which works elsewhere,
     # fail here. The regex could try to match with the timestamp instead,
     # but this is easier
-    assert re.search("root//:incompatible", result.stderr, re.DOTALL | re.IGNORECASE)
+    assert re.search(
+        "does not pass compatibility check \\(will be error in future\\) because its transitive dep root//:incompatible",
+        result.stderr,
+        re.DOTALL | re.IGNORECASE,
+    )
     assert re.search("is incompatible with", result.stderr, re.DOTALL | re.IGNORECASE)
