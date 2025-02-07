@@ -87,7 +87,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     for key, val in ctx.attrs.extra_metadata.items():
         cmd.extend(["--metadata", key, val])
 
-    cmd.extend(["--metadata", "Requires-Python", "=={}.*".format(ctx.attrs.python[2:])])
+    version_matcher = ">=" if ctx.attrs.support_future_python_versions else "=="
+    cmd.extend(["--metadata", "Requires-Python", "{}{}.*".format(version_matcher, ctx.attrs.python[2:])])
 
     for requires in ctx.attrs.requires:
         cmd.extend(["--metadata", "Requires-Dist", requires])
@@ -225,6 +226,7 @@ python_wheel = rule(
         scripts = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         libraries_query = attrs.option(attrs.query(), default = None),
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
+        support_future_python_versions = attrs.bool(default = False),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _cxx_toolchain = toolchains_common.cxx(),
         _python_toolchain = toolchains_common.python(),
