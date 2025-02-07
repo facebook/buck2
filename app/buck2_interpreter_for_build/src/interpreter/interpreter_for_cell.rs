@@ -69,6 +69,8 @@ use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
+const DEFAULT_STARLARK_MEMORY_USAGE_LIMIT: u64 = 2 * (1 << 30);
+
 #[derive(Debug, buck2_error::Error)]
 #[error("Tabs are not allowed in Buck files: `{0}`")]
 #[buck2(input)]
@@ -670,11 +672,11 @@ impl InterpreterForCell {
                     .as_deref(),
             )?
             .unwrap_or(false);
-        let default_limit = 2 * (1 << 30);
         let starlark_mem_limit = eval_result
             .starlark_peak_allocated_byte_limit
             .get()
-            .map_or(default_limit, |opt| opt.unwrap_or(default_limit));
+            .and_then(|limit| *limit)
+            .unwrap_or(DEFAULT_STARLARK_MEMORY_USAGE_LIMIT);
 
         if starlark_peak_mem_check_enabled && starlark_peak_allocated_bytes > starlark_mem_limit {
             Err(StarlarkPeakMemoryError::ExceedsThreshold(
