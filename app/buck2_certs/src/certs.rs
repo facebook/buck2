@@ -22,8 +22,18 @@ use rustls::RootCertStore;
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
 async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
-    let native_certs = rustls_native_certs::load_native_certs()
-        .buck_error_context("Error loading system root certificates native frameworks");
+    let native_certs =
+        rustls_native_certs::load_native_certs().tag(buck2_error::ErrorTag::Environment);
+    let native_certs = if cfg!(fbcode_build) {
+        native_certs.buck_error_context(
+            "Error loading system root certificates native frameworks.
+            This is usually due to Chef not installed or working properly.
+            Please try `getchef -reason 'chef broken'`, `Fix My <OS>` via the f-menu, then `buck2 killall`.
+            If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state.",
+        )
+    } else {
+        native_certs.buck_error_context("Error loading system root certificates native frameworks.")
+    };
 
     let root_certs =
           // Load the system root certificates using native frameworks.
