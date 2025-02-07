@@ -362,8 +362,12 @@ def _link_info_stripped_excluding_filelist_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
 
-def link_info_to_metadata_args(info: LinkInfo) -> ArgLike:
-    return cmd_args(["version:" + meta.version for meta in info.metadata])
+def link_info_to_metadata_args(info: LinkInfo, args: cmd_args | None = None) -> ArgLike:
+    if args == None:
+        args = cmd_args()
+    for meta in info.metadata:
+        args.add("version:" + meta.version)
+    return args
 
 def _link_info_metadata_args(infos: LinkInfos):
     info = infos.stripped or infos.default
@@ -673,9 +677,11 @@ def get_link_info(
 def unpack_link_args_metadata(args: LinkArgs) -> ArgLike:
     if args.tset != None:
         return args.tset.infos.project_as_args("metadata")
+    ret = cmd_args()
     if args.infos != None:
-        return cmd_args([link_info_to_metadata_args(info) for info in args.infos])
-    return cmd_args()
+        for info in args.infos:
+            link_info_to_metadata_args(info, ret)
+    return ret
 
 def dedupe_dep_metadata(metadatas: list[DepMetadata]) -> list[DepMetadata]:
     versions = set([m.version for m in metadatas])
