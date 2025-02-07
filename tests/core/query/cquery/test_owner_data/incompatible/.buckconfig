@@ -7,9 +7,6 @@ buck = buck
 nano_prelude = nano_prelude
 config = config
 
-[buck2]
-file_watcher = fs_hash_crawler
-
 [cell_aliases]
 prelude = nano_prelude
 
