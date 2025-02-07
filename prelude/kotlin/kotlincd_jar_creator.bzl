@@ -287,6 +287,9 @@ def _encode_kotlin_extra_params(
     if kotlin_toolchain.kosabi_jvm_abi_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_jvm_abi_gen_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_plugin
 
+    # kotlin compiler expects relase version of format 1.6, 1.7, etc. Don't include patch version
+    current_kotlin_release_version = ".".join(kotlin_toolchain.kotlin_version.split(".")[:2])
+
     current_language_version = None
     for arg in extra_kotlinc_arguments:
         # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
@@ -295,10 +298,16 @@ def _encode_kotlin_extra_params(
 
     if k2 == True and kotlin_toolchain.allow_k2_usage:
         if not current_language_version or current_language_version < "2.0":
-            extra_kotlinc_arguments.append("-language-version=2.0")
+            if current_kotlin_release_version < "2.0":
+                extra_kotlinc_arguments.append("-language-version=2.0")
+            else:
+                extra_kotlinc_arguments.append("-language-version=" + current_kotlin_release_version)
     else:  # use K1
         if not current_language_version or current_language_version >= "2.0":
-            extra_kotlinc_arguments.append("-language-version=1.9")
+            if current_kotlin_release_version >= "2.0":
+                extra_kotlinc_arguments.append("-language-version=1.9")
+            else:
+                extra_kotlinc_arguments.append("-language-version=" + current_kotlin_release_version)
 
     return struct(
         extraClassPaths = bootclasspath_entries,
