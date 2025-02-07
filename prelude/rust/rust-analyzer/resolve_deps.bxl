@@ -219,7 +219,8 @@ def expand_targets(
                 # FIXME: Add a test for this. It's currently a bit hard to test because proc macros
                 # in the prelude are a bit hard in general
                 expanded_targets.pop(d, None)
-    target_analysis = ctx.analysis(expanded_targets.keys() + active_workspaces.keys())
+    target_set = ctx.target_universe(expanded_targets.keys() + active_workspaces.keys()).target_set()
+    target_analysis = ctx.analysis(target_set)
     return target_analysis, sorted(possible_workspaces.keys())
 
 def resolve_targets_impl(ctx: bxl.Context) -> None:
