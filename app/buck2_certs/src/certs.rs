@@ -49,10 +49,7 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
                   .await
                   .with_buck_error_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
           } else {
-              if let Err(e) = native_certs {
-                  return Err(e.into());
-              }
-
+              native_certs?;
               return Err(buck2_error!(buck2_error::ErrorTag::Environment, "Unable to load system root certificates"));
           };
 
