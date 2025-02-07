@@ -145,6 +145,11 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
             entries,
         ],
     )
+    if ctx.attrs.proguard_config:
+        create_aar_cmd.add([
+            "--proguard_config_file",
+            ctx.attrs.proguard_config,
+        ])
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 
