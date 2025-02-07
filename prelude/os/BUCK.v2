@@ -115,9 +115,33 @@ config_setting(
 )
 
 config_setting(
+    name = "ps4",
+    constraint_values = [
+        "//os/constraints:ps4",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "ps5",
+    constraint_values = [
+        "//os/constraints:ps5",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
     name = "wasi",
     constraint_values = [
         "//os/constraints:wasi",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+config_setting(
+    name = "xbox",
+    constraint_values = [
+        "//os/constraints:xbox",
     ],
     visibility = ["PUBLIC"],
 )

@@ -78,7 +78,25 @@ constraint_value(
 )
 
 constraint_value(
+    name = "ps4",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "ps5",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
     name = "wasi",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "xbox",
     constraint_setting = ":os",
     visibility = ["PUBLIC"],
 )
