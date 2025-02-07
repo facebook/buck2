@@ -174,8 +174,6 @@ async def test_cell_deletion(buck: Buck) -> None:
     data_dir="invalid_file_invalidation",
     skip_for_os=["windows"],
     setup_eden=True,
-    # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
-    extra_buck_config={"buck2": {"file_watcher": "edenfs"}},
 )
 async def test_invalid_file_invalidation(buck: Buck) -> None:
     """
