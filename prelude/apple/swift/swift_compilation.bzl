@@ -1154,7 +1154,7 @@ def _create_compilation_database(
     module_name = get_module_name(ctx)
 
     swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
-    mk_comp_db = swift_toolchain.mk_swift_comp_db[RunInfo]
+    mk_comp_db = swift_toolchain.mk_swift_comp_db
 
     identifier = module_name + ".swift_comp_db.json"
     cdb_artifact = ctx.actions.declare_output(identifier)

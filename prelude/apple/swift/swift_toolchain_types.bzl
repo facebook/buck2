@@ -24,7 +24,7 @@ SwiftToolchainInfo = provider(
         "compiler": provider_field(cmd_args),
         "compiler_flags": provider_field(list[ArgLike]),
         "library_interface_uses_swiftinterface": provider_field(bool),
-        "mk_swift_comp_db": provider_field(Dependency),
+        "mk_swift_comp_db": provider_field(RunInfo),
         "mk_swift_interface": provider_field(cmd_args),
         "object_format": provider_field(SwiftObjectFormat),
         "resource_dir": provider_field([Artifact, None]),
