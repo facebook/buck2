@@ -417,7 +417,7 @@ impl CacheUploader {
                 .report
                 .std_streams
                 .clone()
-                .into_re(&self.re_client, self.re_use_case)
+                .into_re(&self.re_client, self.re_use_case, digest_config)
                 .await
                 .buck_error_context("Error accessing std_streams")
         };

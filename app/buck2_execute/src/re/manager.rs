@@ -471,7 +471,7 @@ impl ManagedRemoteExecutionClient {
 
     pub async fn upload_blob(
         &self,
-        blob: Vec<u8>,
+        blob: InlinedBlobWithDigest,
         use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<TDigest> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
