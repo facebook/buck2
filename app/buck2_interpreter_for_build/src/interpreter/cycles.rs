@@ -27,12 +27,11 @@ pub enum LoadCycleKey {
     Module(OwnedStarlarkModulePath),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub struct LoadCycleError {
     cycle: Arc<Vec<OwnedStarlarkModulePath>>,
 }
-
-impl std::error::Error for LoadCycleError {}
 
 impl Display for LoadCycleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -25,7 +25,6 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span;
@@ -64,7 +63,7 @@ use crate::interpreter::interpreter_for_cell::ParseResult;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = Input)]
 enum DiceCalculationDelegateError {
     #[error("Error evaluating build file: `{0}`")]
     EvalBuildFileError(BuildFilePath),
@@ -200,8 +199,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             .guard_this(Self::eval_deps(self.ctx, &imports))
             .await
             .into_result(self.ctx)
-            .await?
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))??;
+            .await???;
         Ok((ast, deps))
     }
 
