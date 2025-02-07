@@ -24,7 +24,6 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::soft_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::humanized::HumanizedBytes;
@@ -82,15 +81,6 @@ enum StarlarkPeakMemoryError {
     )]
     #[buck2(input)]
     ExceedsThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
-}
-
-#[derive(Debug, buck2_error::Error)]
-#[buck2(input)]
-enum StarlarkPeakMemorySoftError {
-    #[error(
-        "Starlark peak memory usage for {0} is {1} which is over 50% of the limit {2}! Consider investigating what takes too much memory: {3}."
-    )]
-    CloseToThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
 }
 
 /// A ParseData includes the parsed AST and a list of the imported files.
@@ -694,24 +684,6 @@ impl InterpreterForCell {
                 get_starlark_warning_link().to_owned(),
             )
             .into())
-        } else if starlark_peak_mem_check_enabled
-            && starlark_peak_allocated_bytes > starlark_mem_limit / 2
-        {
-            soft_error!(
-                "starlark_memory_usage_over_soft_limit",
-                StarlarkPeakMemorySoftError::CloseToThreshold(
-                    build_file.clone(),
-                    HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
-                    HumanizedBytes::fixed_width(starlark_mem_limit),
-                    get_starlark_warning_link().to_owned()
-                ).into(), quiet: true
-            )?;
-
-            Ok(EvaluationResultWithStats {
-                result: EvaluationResult::from(internals),
-                starlark_peak_allocated_bytes,
-                cpu_instruction_count: eval_result.cpu_instruction_count,
-            })
         } else {
             Ok(EvaluationResultWithStats {
                 result: EvaluationResult::from(internals),
