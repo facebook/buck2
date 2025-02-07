@@ -173,9 +173,12 @@ async def buck_fixture(  # noqa C901 : "too complex"
                     )
 
             # `edenfs` watcher requires eden to be setup which is too slow to enable on all tests
-            # so use `fs_hash_crawler` file watcher in tests
+            # use edenfs watcher whenever possible in test, otherwise use `fs_hash_crawler`
             # FYI: if you remove this, make sure to remove it from external_buckconfig tests too
-            extra_config_lines.append("[buck2]\nfile_watcher = fs_hash_crawler\n")
+            if marker.setup_eden:
+                extra_config_lines.append("[buck2]\nfile_watcher = edenfs\n")
+            else:
+                extra_config_lines.append("[buck2]\nfile_watcher = fs_hash_crawler\n")
 
             buck_cwd = project_dir
 
