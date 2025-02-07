@@ -81,6 +81,9 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: Ar
             ]),
             category = "bolt_strip_stapsdt",
             identifier = identifier,
+            # This can execute in RE, but is cheaper to do locally especially for large binaries that
+            # are already locally materialized
+            prefer_local = True,
         )
         output = stripped_postbolt_output
 
