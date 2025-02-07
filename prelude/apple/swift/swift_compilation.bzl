@@ -64,6 +64,7 @@ load(
 )
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 load(
     ":swift_toolchain_types.bzl",
     "SwiftCompiledModuleInfo",
@@ -152,7 +153,7 @@ def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: t
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.sdk_modules,
         _REQUIRED_SDK_MODULES,
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+        get_swift_toolchain_info(ctx),
     )
 
     # Recursively compiling headers of direct and transitive deps as PCM modules,
@@ -188,7 +189,7 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.sdk_modules,
         _REQUIRED_SDK_CXX_MODULES if ctx.attrs.enable_cxx_interop else _REQUIRED_SDK_MODULES,
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+        get_swift_toolchain_info(ctx),
     )
 
     # Recursively compiling headers of direct and transitive deps as PCM modules,
@@ -270,7 +271,7 @@ def _get_compiled_underlying_pcm(
     )
 
 def _should_compile_with_swift_interface(ctx):
-    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.library_interface_uses_swiftinterface:
+    if not get_swift_toolchain_info(ctx).library_interface_uses_swiftinterface:
         return False
 
     if ctx.attrs._swift_enable_testing:
@@ -341,7 +342,7 @@ def compile_swift(
     if not srcs:
         return (None, swift_interface_info)
 
-    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    toolchain = get_swift_toolchain_info(ctx)
 
     if ctx.attrs.serialize_debugging_options and exported_headers:
         # We cannot use VFS overlays with Buck2, so we have to disable
@@ -750,7 +751,7 @@ def _get_shared_flags(
         private_modulemap_pp_info: CPreprocessor | None,
         public_modulemap_pp_info: CPreprocessor | None,
         extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
-    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args()
 
     if not toolchain.supports_relative_resource_dir:
@@ -1012,7 +1013,7 @@ def get_swift_pcm_uncompile_info(
         ctx: AnalysisContext,
         propagated_exported_preprocessor_info: [CPreprocessorInfo, None],
         exported_pre: [CPreprocessor, None]) -> [SwiftPCMUncompiledInfo, None]:
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
 
     if is_sdk_modules_provided(swift_toolchain):
         propagated_pp_args_cmd = cmd_args(propagated_exported_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc") if propagated_exported_preprocessor_info else None
@@ -1083,7 +1084,7 @@ def get_swift_dependency_info(
     )
 
 def uses_explicit_modules(ctx: AnalysisContext) -> bool:
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
 
 def get_swiftmodule_linkable(swift_compile_output: [SwiftCompilationOutput, None]) -> [SwiftmoduleLinkable, None]:
@@ -1153,7 +1154,7 @@ def _create_compilation_database(
         argfile: CompileArgsfile) -> SwiftCompilationDatabase:
     module_name = get_module_name(ctx)
 
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
     mk_comp_db = swift_toolchain.mk_swift_comp_db
 
     identifier = module_name + ".swift_comp_db.json"
@@ -1175,7 +1176,7 @@ def _create_compilation_database(
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
 
 def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module_name: str) -> DefaultInfo:
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
     swift_ide_test_tool = swift_toolchain.swift_ide_test_tool
     if not swift_ide_test_tool:
         return DefaultInfo()

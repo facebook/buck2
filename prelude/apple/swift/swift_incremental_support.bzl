@@ -5,13 +5,13 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftCompilationModes")
 load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
+load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 
 _WriteOutputFileMapOutput = record(
     artifacts = field(list[Artifact]),
@@ -41,7 +41,7 @@ _MAX_NUM_THREADS = 4
 _SRCS_PER_THREAD = 50
 
 def should_build_swift_incrementally(ctx: AnalysisContext, srcs_count: int) -> bool:
-    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    toolchain = get_swift_toolchain_info(ctx)
 
     # Incremental builds are only supported when object files are generated.
     if toolchain.object_format != SwiftObjectFormat("object"):

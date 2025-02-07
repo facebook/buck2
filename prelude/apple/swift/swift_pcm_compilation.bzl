@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(
     ":apple_sdk_modules_utility.bzl",
@@ -18,6 +17,7 @@ load(
 )
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
@@ -68,7 +68,7 @@ def _compile_with_argsfile(
     shell_quoted_cmd = cmd_args(args, quote = "shell")
     argfile, _ = ctx.actions.write(module_name + ".swift_pcm_argsfile", shell_quoted_cmd, allow_args = True)
 
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args(
         swift_toolchain.compiler,
         cmd_args(["@", argfile], delimiter = ""),
@@ -202,7 +202,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.dep[SwiftPCMUncompiledInfo].uncompiled_sdk_modules,
         required_sdk_modules,
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+        get_swift_toolchain_info(ctx),
     )
 
     # Recursively compiling SDK's Clang dependencies
@@ -316,7 +316,7 @@ def _get_base_pcm_flags(
         sdk_deps_tset: SwiftCompiledModuleTset,
         pcm_deps_tset: SwiftCompiledModuleTset,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
     modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
     pcm_output = ctx.actions.declare_output(module_name + ".pcm")
 
