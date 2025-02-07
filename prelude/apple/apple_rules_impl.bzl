@@ -243,7 +243,7 @@ extra_attributes = {
         "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
     },
     "swift_toolchain": {
-        "architecture": attrs.option(attrs.string(), default = None),  # TODO(T115173356): Make field non-optional
+        "architecture": attrs.string(),
         "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
         "make_swift_interface": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
         "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
