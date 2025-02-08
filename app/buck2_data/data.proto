@@ -1376,6 +1376,9 @@ message ActionExecutionEnd {
   optional uint64 input_files_bytes = 39;
 
   optional CommandInvalidationInfo invalidation_info = 40;
+
+  // Name of the rule type that was executed by this action
+  optional string target_rule_type_name = 41;
 }
 
 message CommandInvalidationInfo {

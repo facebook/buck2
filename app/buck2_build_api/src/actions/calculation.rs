@@ -348,7 +348,7 @@ async fn build_action_inner(
             queue_duration,
             extra_data: ActionExtraData {
                 execution_kind,
-                target_rule_type_name,
+                target_rule_type_name: target_rule_type_name.clone(),
                 action_digest,
                 invalidation_info: invalidation_info.clone(),
             },
@@ -379,6 +379,7 @@ async fn build_action_inner(
             error_diagnostics,
             input_files_bytes,
             invalidation_info,
+            target_rule_type_name,
         }),
     )
 }

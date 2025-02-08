@@ -464,3 +464,40 @@ async def test_action_invalidation_tracking(buck: Buck) -> None:
 
     assert invalidation_info
     assert invalidation_info[0]["changed_file"] == {}
+
+
+@buck_test(data_dir="actions")
+async def test_target_rule_type_name(buck: Buck) -> None:
+    await buck.build("//run:runs_simple_script", "//copy:file_uses_declared_output")
+
+    target_rule_type_name = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "target_rule_type_name",
+    )
+
+    assert len(target_rule_type_name) == 2
+    assert "copy_file" in target_rule_type_name
+    assert "run_command" in target_rule_type_name
+
+    await expect_failure(
+        buck.build("//run_bad:run_odd_exit_code"),
+        stderr_regex="non-zero exit code 45",
+    )
+
+    target_rule_type_name = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "target_rule_type_name",
+    )
+
+    assert len(target_rule_type_name) == 1
+    assert "run_odd_exit_code" in target_rule_type_name
