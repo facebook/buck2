@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
-// We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
-// Various bugs have been raised - if they all get fixed we can migrate.
+/// Buck2 having full control over how FS IO works is beneficial for implementing
+/// IO counters and retry policies that are optimized for Buck2 and the EdenFS
+/// virtualized file system.
 use std::borrow::Cow;
 use std::env;
 use std::fs;
