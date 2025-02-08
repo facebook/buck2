@@ -70,7 +70,7 @@ pub struct RunCommand {
     #[clap(long, group = "exec_options")]
     emit_shell: bool,
 
-    #[clap(name = "TARGET", help = "Target to build and run")]
+    #[clap(name = "TARGET", help = "Target to build and run", value_hint = clap::ValueHint::Other)]
     target: String,
 
     #[clap(

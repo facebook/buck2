@@ -130,7 +130,7 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long = "overall-timeout")]
     timeout: Option<humantime::Duration>,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to test")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to test", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     /// Writes the test executor stdout to the provided path

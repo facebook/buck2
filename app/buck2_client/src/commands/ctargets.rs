@@ -34,7 +34,7 @@ pub struct ConfiguredTargetsCommand {
     skip_missing_targets: bool,
 
     /// Patterns to interpret.
-    #[clap(name = "TARGET_PATTERNS")]
+    #[clap(name = "TARGET_PATTERNS", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     #[clap(flatten)]

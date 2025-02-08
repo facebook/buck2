@@ -224,7 +224,7 @@ pub struct TargetsCommand {
     compression: Compression,
 
     /// Patterns to interpret
-    #[clap(name = "TARGET_PATTERNS")]
+    #[clap(name = "TARGET_PATTERNS", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     /// Number of threads to use during execution (default is # cores)

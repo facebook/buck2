@@ -121,7 +121,7 @@ pub struct BuildCommand {
     )]
     output_path: Option<OutputDestinationArg>,
 
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to build")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to build", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci

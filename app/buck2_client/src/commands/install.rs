@@ -37,7 +37,7 @@ pub struct InstallCommand {
     #[clap(flatten)]
     android_install_opts: AndroidInstallOptions,
 
-    #[clap(name = "TARGET", help = "Target to build and install")]
+    #[clap(name = "TARGET", help = "Target to build and install", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     #[clap(
