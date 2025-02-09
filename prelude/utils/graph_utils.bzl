@@ -221,13 +221,10 @@ def depth_first_traversal_by(
     must make use of a for loop.
     """
 
-    # Dictify for O(1) lookup
-    visited = {k: None for k in roots}
+    # Note, this relies on the Starlark guarantee that set() returns values in the order they were first added.
+    visited = set(roots)
     stride = -1 if traversal == GraphTraversal("preorder-left-to-right") else 1
-
-    stack = []
-    for node in visited.keys()[::stride]:
-        stack.append(node)
+    stack = reversed(visited) if stride < 0 else list(visited)
 
     for _ in range(len(graph_nodes) if graph_nodes else 2000000000):
         if not stack:
@@ -246,12 +243,12 @@ def depth_first_traversal_by(
             for i in range_traversal:
                 node = nodes_to_visit[i]
                 if node not in visited:
-                    visited[node] = None
+                    visited.add(node)
                     stack.append(node)
 
     expect(not stack, "Expected to be done with graph traversal stack.")
 
-    return visited.keys()
+    return list(visited)
 
 # To support migration from a tset-based link strategy, we are trying to match buck's internal tset
 # traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
