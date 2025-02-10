@@ -1609,15 +1609,8 @@ def _static_library(
     # object files instead of the originating objects.
     object_external_debug_info = []
     if linker_type == LinkerType("darwin"):
-        if archive.external_objects:
-            # On Darwin, when using virtual archives, object files are passed
-            # to the linker directly between --start-lib --end-lib flags to
-            # achieve archive semantics without creating the archive. Providing
-            # the archive artifact as an input here is unnecessary.
-            object_external_debug_info.extend(archive.external_objects)
-        else:
-            # For normal archives, we just need to provide the archive artifact
-            object_external_debug_info.append(archive.artifact)
+        object_external_debug_info.append(archive.artifact)
+        object_external_debug_info.extend(archive.external_objects)
     elif objects_have_external_debug_info:
         object_external_debug_info.extend(objects)
 
