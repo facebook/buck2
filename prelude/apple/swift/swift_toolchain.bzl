@@ -9,7 +9,10 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftObjectFormat", "SwiftToolchainInfo")
 
 def get_swift_toolchain_info(ctx: AnalysisContext) -> SwiftToolchainInfo:
-    return ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    if hasattr(ctx.attrs, "_apple_toolchain"):
+        return ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    else:
+        return ctx.attrs._swift_macro_toolchain[SwiftToolchainInfo]
 
 def traverse_sdk_modules_graph(
         swift_sdk_module_name_to_deps: dict[str, Dependency],
