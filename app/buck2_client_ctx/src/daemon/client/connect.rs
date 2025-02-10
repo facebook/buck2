@@ -26,7 +26,7 @@ use buck2_common::client_utils::RetryError;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_common::systemd::replace_slice_delimiter;
+use buck2_common::systemd::replace_unit_delimiter;
 use buck2_common::systemd::ParentSlice;
 use buck2_common::systemd::SystemdRunner;
 use buck2_common::systemd::SystemdRunnerConfig;
@@ -387,8 +387,8 @@ impl<'a> BuckdLifecycle<'a> {
         let daemon_exe = get_daemon_exe()?;
         let slice_name = format!(
             "buck2-daemon.{}.{}",
-            replace_slice_delimiter(project_dir.name().unwrap_or("unknown_project")),
-            replace_slice_delimiter(self.paths.isolation.as_str())
+            replace_unit_delimiter(project_dir.name().unwrap_or("unknown_project")),
+            replace_unit_delimiter(self.paths.isolation.as_str())
         );
         let systemd_runner =
             SystemdRunner::create_if_enabled(&SystemdRunnerConfig::daemon_runner_config(
@@ -996,7 +996,7 @@ impl<'a> BuckdProcessInfo<'a> {
             }
         };
         let reader = BufReader::new(file);
-        let info =serde_json::from_reader(reader).with_buck_error_context(|| {
+        let info = serde_json::from_reader(reader).with_buck_error_context(|| {
             format!(
                 "Error parsing daemon info in `{}`. \
                 Try deleting that file and running `buck2 killall` before running your command again",

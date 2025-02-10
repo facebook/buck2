@@ -221,10 +221,9 @@ impl SystemdRunner {
     }
 }
 
-// Helper function to replace a delimiter in slice name,
-// so systemd won't split the name on nested slices
-pub fn replace_slice_delimiter(slice: &str) -> String {
-    slice.replace("-", ".")
+// Helper function to replace a special characters in a cgroup unit name
+pub fn replace_unit_delimiter(unit: &str) -> String {
+    unit.replace("-", "_").replace(":", "_")
 }
 
 fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {

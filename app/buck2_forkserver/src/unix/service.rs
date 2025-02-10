@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::init::ResourceControlConfig;
+use buck2_common::systemd::replace_unit_delimiter;
 use buck2_common::systemd::ParentSlice;
 use buck2_common::systemd::SystemdRunner;
 use buck2_common::systemd::SystemdRunnerConfig;
@@ -158,7 +159,7 @@ impl Forkserver for UnixForkserverService {
                     (_, Some(miniperf), Some((runner, action_digest))) => {
                         let mut cmd = runner.background_command_linux(
                             miniperf.miniperf.as_path(),
-                            &action_digest,
+                            &replace_unit_delimiter(&action_digest),
                             &AbsNormPath::new(cwd)?,
                         );
                         let output_path = miniperf.allocate_output_path();
