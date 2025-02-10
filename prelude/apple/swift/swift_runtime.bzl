@@ -13,6 +13,7 @@ load(
     "LinkInfo",  # @unused Used as a type
     "SwiftRuntimeLinkable",
 )
+load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 
 def create_swift_runtime_linkable(ctx: AnalysisContext) -> [SwiftRuntimeLinkable, None]:
     for s in get_srcs_with_flags(ctx):
@@ -24,14 +25,13 @@ def get_swift_runtime_linker_flags(ctx: AnalysisContext, linkable: [SwiftRuntime
     if not linkable or not linkable.runtime_required:
         return cmd_args()
 
-    apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    if apple_toolchain_info.prelude_rpaths:
-        return cmd_args()
-
-    swift_toolchain_info = apple_toolchain_info.swift_toolchain_info
+    if hasattr(ctx.attrs, "_apple_toolchain"):
+        apple_toolchain_info = ctx.attrs._apple_toolchain[AppleToolchainInfo]
+        if apple_toolchain_info.prelude_rpaths:
+            return cmd_args()
 
     args = cmd_args()
-    for run_path in swift_toolchain_info.runtime_run_paths:
+    for run_path in get_swift_toolchain_info(ctx).runtime_run_paths:
         args.add(["-Xlinker", "-rpath", "-Xlinker", run_path])
 
     return args
