@@ -60,6 +60,8 @@ impl ProfileCommand {
 #[derive(clap::ValueEnum, Dupe, Clone, Copy, Debug)]
 pub(crate) enum BuckProfileMode {
     TimeFlame,
+    HeapAllocated,
+    HeapRetained,
     HeapFlameAllocated,
     HeapFlameRetained,
     HeapSummaryAllocated,
@@ -150,6 +152,8 @@ struct ProfileSubcommand {
 pub(crate) fn profile_mode_to_profile(mode: BuckProfileMode) -> buck2_cli_proto::ProfileMode {
     match mode {
         BuckProfileMode::TimeFlame => buck2_cli_proto::ProfileMode::TimeFlame,
+        BuckProfileMode::HeapAllocated => buck2_cli_proto::ProfileMode::HeapAllocated,
+        BuckProfileMode::HeapRetained => buck2_cli_proto::ProfileMode::HeapRetained,
         BuckProfileMode::HeapFlameAllocated => buck2_cli_proto::ProfileMode::HeapFlameAllocated,
         BuckProfileMode::HeapFlameRetained => buck2_cli_proto::ProfileMode::HeapFlameRetained,
         BuckProfileMode::HeapSummaryAllocated => buck2_cli_proto::ProfileMode::HeapSummaryAllocated,

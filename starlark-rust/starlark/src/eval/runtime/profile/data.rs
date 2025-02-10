@@ -20,8 +20,10 @@ use crate::eval::runtime::profile::bc::BcPairsProfilerType;
 use crate::eval::runtime::profile::bc::BcProfileData;
 use crate::eval::runtime::profile::bc::BcProfilerType;
 use crate::eval::runtime::profile::flamegraph::FlameGraphData;
+use crate::eval::runtime::profile::heap::HeapAllocatedProfilerType;
 use crate::eval::runtime::profile::heap::HeapFlameAllocatedProfilerType;
 use crate::eval::runtime::profile::heap::HeapFlameRetainedProfilerType;
+use crate::eval::runtime::profile::heap::HeapRetainedProfilerType;
 use crate::eval::runtime::profile::heap::HeapSummaryAllocatedProfilerType;
 use crate::eval::runtime::profile::heap::HeapSummaryRetainedProfilerType;
 use crate::eval::runtime::profile::mode::ProfileMode;
@@ -46,6 +48,8 @@ enum ProfileDataError {
 pub(crate) enum ProfileDataImpl {
     Bc(Box<BcProfileData>),
     BcPairs(BcPairsProfileData),
+    HeapRetained(Box<AggregateHeapProfileInfo>),
+    HeapAllocated(Box<AggregateHeapProfileInfo>),
     HeapFlameRetained(Box<AggregateHeapProfileInfo>),
     HeapFlameAllocated(Box<AggregateHeapProfileInfo>),
     HeapSummaryRetained(Box<AggregateHeapProfileInfo>),
@@ -63,6 +67,8 @@ impl ProfileDataImpl {
         match self {
             ProfileDataImpl::Bc(_) => ProfileMode::Bytecode,
             ProfileDataImpl::BcPairs(_) => ProfileMode::BytecodePairs,
+            ProfileDataImpl::HeapRetained(_) => ProfileMode::HeapRetained,
+            ProfileDataImpl::HeapAllocated(_) => ProfileMode::HeapAllocated,
             ProfileDataImpl::HeapFlameRetained(_) => ProfileMode::HeapFlameRetained,
             ProfileDataImpl::HeapFlameAllocated(_) => ProfileMode::HeapFlameAllocated,
             ProfileDataImpl::HeapSummaryRetained(_) => ProfileMode::HeapSummaryRetained,
@@ -97,7 +103,9 @@ impl ProfileData {
     pub fn gen_flame_data(&self) -> crate::Result<String> {
         match &self.profile {
             ProfileDataImpl::TimeFlameProfile(profile) => Ok(profile.write()),
-            ProfileDataImpl::HeapFlameRetained(profile)
+            ProfileDataImpl::HeapRetained(profile)
+            | ProfileDataImpl::HeapAllocated(profile)
+            | ProfileDataImpl::HeapFlameRetained(profile)
             | ProfileDataImpl::HeapFlameAllocated(profile) => Ok(profile.gen_flame_graph_data()),
             _ => Ok("".to_owned()),
         }
@@ -108,6 +116,9 @@ impl ProfileData {
         match &self.profile {
             ProfileDataImpl::Bc(bc) => Ok(bc.gen_csv()),
             ProfileDataImpl::BcPairs(bc_pairs) => Ok(bc_pairs.gen_csv()),
+            ProfileDataImpl::HeapRetained(profile) | ProfileDataImpl::HeapAllocated(profile) => {
+                Ok(profile.gen_summary_csv())
+            }
             ProfileDataImpl::HeapSummaryRetained(profile)
             | ProfileDataImpl::HeapSummaryAllocated(profile) => Ok(profile.gen_summary_csv()),
             ProfileDataImpl::TimeFlameProfile(data) => Ok(data.write()),
@@ -145,6 +156,12 @@ impl ProfileData {
         let profile = match &profile_mode {
             ProfileMode::Bytecode => BcProfilerType::merge_profiles(&profiles)?.profile,
             ProfileMode::BytecodePairs => BcPairsProfilerType::merge_profiles(&profiles)?.profile,
+            ProfileMode::HeapAllocated => {
+                HeapAllocatedProfilerType::merge_profiles(&profiles)?.profile
+            }
+            ProfileMode::HeapRetained => {
+                HeapRetainedProfilerType::merge_profiles(&profiles)?.profile
+            }
             ProfileMode::HeapSummaryAllocated => {
                 HeapSummaryAllocatedProfilerType::merge_profiles(&profiles)?.profile
             }

@@ -28,10 +28,34 @@ use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::Heap;
 use crate::values::Value;
 
+pub(crate) struct HeapAllocatedProfilerType;
+pub(crate) struct HeapRetainedProfilerType;
 pub(crate) struct HeapSummaryAllocatedProfilerType;
 pub(crate) struct HeapFlameAllocatedProfilerType;
 pub(crate) struct HeapSummaryRetainedProfilerType;
 pub(crate) struct HeapFlameRetainedProfilerType;
+
+impl ProfilerType for HeapAllocatedProfilerType {
+    type Data = Box<AggregateHeapProfileInfo>;
+    const PROFILE_MODE: ProfileMode = ProfileMode::HeapAllocated;
+
+    fn data_from_generic(profile_data: &ProfileDataImpl) -> Option<&Self::Data> {
+        match profile_data {
+            ProfileDataImpl::HeapAllocated(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
+        ProfileDataImpl::HeapAllocated(data)
+    }
+
+    fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
+        Ok(Box::new(AggregateHeapProfileInfo::merge(
+            profiles.iter().map(|x| &***x),
+        )))
+    }
+}
 
 impl ProfilerType for HeapSummaryAllocatedProfilerType {
     type Data = Box<AggregateHeapProfileInfo>;
@@ -68,6 +92,28 @@ impl ProfilerType for HeapFlameAllocatedProfilerType {
 
     fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
         ProfileDataImpl::HeapFlameAllocated(data)
+    }
+
+    fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
+        Ok(Box::new(AggregateHeapProfileInfo::merge(
+            profiles.iter().map(|x| &***x),
+        )))
+    }
+}
+
+impl ProfilerType for HeapRetainedProfilerType {
+    type Data = Box<AggregateHeapProfileInfo>;
+    const PROFILE_MODE: ProfileMode = ProfileMode::HeapRetained;
+
+    fn data_from_generic(profile_data: &ProfileDataImpl) -> Option<&Self::Data> {
+        match profile_data {
+            ProfileDataImpl::HeapRetained(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    fn data_to_generic(data: Self::Data) -> ProfileDataImpl {
+        ProfileDataImpl::HeapRetained(data)
     }
 
     fn merge_profiles_impl(profiles: &[&Self::Data]) -> starlark_syntax::Result<Self::Data> {
@@ -125,6 +171,7 @@ impl ProfilerType for HeapFlameRetainedProfilerType {
 pub(crate) enum RetainedHeapProfileMode {
     Flame,
     Summary,
+    FlameAndSummary,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -135,8 +182,9 @@ enum HeapProfileError {
 
 #[derive(Copy, Clone, Dupe, Debug)]
 pub(crate) enum HeapProfileFormat {
-    Summary,
     FlameGraph,
+    Summary,
+    FlameGraphAndSummary,
 }
 
 pub(crate) struct HeapProfile {
@@ -178,6 +226,9 @@ impl HeapProfile {
 
     pub(crate) fn gen_enabled(heap: &Heap, format: HeapProfileFormat) -> ProfileData {
         match format {
+            HeapProfileFormat::FlameGraphAndSummary => {
+                Self::write_flame_and_summarized_heap_profile(heap)
+            }
             HeapProfileFormat::Summary => Self::write_summarized_heap_profile(heap),
             HeapProfileFormat::FlameGraph => Self::write_flame_heap_profile(heap),
         }
@@ -194,6 +245,13 @@ impl HeapProfile {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
         ProfileData {
             profile: ProfileDataImpl::HeapSummaryAllocated(Box::new(stacks)),
+        }
+    }
+
+    fn write_flame_and_summarized_heap_profile(heap: &Heap) -> ProfileData {
+        let stacks = AggregateHeapProfileInfo::collect(heap, None);
+        ProfileData {
+            profile: ProfileDataImpl::HeapAllocated(Box::new(stacks)),
         }
     }
 }

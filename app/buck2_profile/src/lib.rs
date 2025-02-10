@@ -28,6 +28,8 @@ use starlark::eval::ProfileMode;
 
 pub fn proto_to_profile_mode(proto: buck2_cli_proto::ProfileMode) -> ProfileMode {
     match proto {
+        buck2_cli_proto::ProfileMode::HeapAllocated => ProfileMode::HeapAllocated,
+        buck2_cli_proto::ProfileMode::HeapRetained => ProfileMode::HeapRetained,
         buck2_cli_proto::ProfileMode::HeapFlameAllocated => ProfileMode::HeapFlameAllocated,
         buck2_cli_proto::ProfileMode::HeapFlameRetained => ProfileMode::HeapFlameRetained,
         buck2_cli_proto::ProfileMode::HeapSummaryAllocated => ProfileMode::HeapSummaryAllocated,
@@ -115,7 +117,9 @@ pub fn write_starlark_profile(
     .buck_error_context("Failed to write targets")?;
 
     match profile_data.profile_data.profile_mode() {
-        ProfileMode::HeapFlameAllocated
+        ProfileMode::HeapAllocated
+        | ProfileMode::HeapRetained
+        | ProfileMode::HeapFlameAllocated
         | ProfileMode::HeapFlameRetained
         | ProfileMode::TimeFlame => {
             let mut profile = profile_data.profile_data.gen_flame_data()?;
@@ -146,6 +150,11 @@ pub fn write_starlark_profile(
             fs_util::write(output.join("flame.svg"), &svg)
                 .buck_error_context("Failed to write flame.svg")?;
         }
+        _ => {}
+    };
+
+    match profile_data.profile_data.profile_mode() {
+        ProfileMode::HeapFlameAllocated | ProfileMode::HeapFlameRetained => {}
         _ => {
             let profile = profile_data.profile_data.gen_csv()?;
             fs_util::write(output.join("profile.csv"), profile)

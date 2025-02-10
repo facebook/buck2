@@ -29,9 +29,9 @@ Options:
 
           `-allocated` means allocated memory, including memory which is later garbage collected.
 
-          [possible values: time-flame, heap-flame-allocated, heap-flame-retained,
-          heap-summary-allocated, heap-summary-retained, statement, bytecode, bytecode-pairs,
-          typecheck, coverage, none]
+          [possible values: time-flame, heap-allocated, heap-retained, heap-flame-allocated,
+          heap-flame-retained, heap-summary-allocated, heap-summary-retained, statement, bytecode,
+          bytecode-pairs, typecheck, coverage, none]
 
   -h, --help
           Print help (see a summary with '-h')

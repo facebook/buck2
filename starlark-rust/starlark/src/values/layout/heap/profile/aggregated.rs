@@ -387,6 +387,9 @@ impl RetainedHeapProfile {
     pub(crate) fn to_profile(&self) -> ProfileData {
         ProfileData {
             profile: match self.mode {
+                RetainedHeapProfileMode::FlameAndSummary => {
+                    ProfileDataImpl::HeapRetained(Box::new(self.info.clone()))
+                }
                 RetainedHeapProfileMode::Flame => {
                     ProfileDataImpl::HeapFlameRetained(Box::new(self.info.clone()))
                 }
