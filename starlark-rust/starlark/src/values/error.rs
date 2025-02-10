@@ -54,7 +54,7 @@ pub enum ValueError {
     KeyNotFound(String),
     #[error("Immutable")]
     CannotMutateImmutableValue,
-    #[error("This operation mutate an iterable for an iterator while iterating.")]
+    #[error("This operation mutates an iterable for an iterator while iterating.")]
     MutationDuringIteration,
     #[error("Object of type `{0}` has no attribute `{1}`")]
     NoAttr(String, String),
