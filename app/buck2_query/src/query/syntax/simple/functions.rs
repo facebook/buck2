@@ -369,7 +369,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// In order to find the build file associated with a source file, combine the owner operator with buildfile.
     /// Examples:
     /// ```text
-    /// $ buck2 uquery "buildfile(//buck2/app/buck2_action_impl_tests:buck2_action_impl_tests)"`
+    /// $ buck2 uquery "buildfile(//buck2/app/buck2_action_impl_tests:buck2_action_impl_tests)"
     /// ```
     /// and
     /// ```text
@@ -380,6 +380,17 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         Ok(self.implementation.buildfile(&targets).into())
     }
 
+    /// Build file reverse dependencies.
+    ///
+    /// Returns all build files in the provided `universe` that have a transitive dependency on any of the specified build files.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "rbuildfiles(//buck2/BUCK, //buck2/defs.bzl)"
+    ///
+    /// buck2/defs.bzl
+    /// buck2/BUCK
+    /// ```
     async fn rbuildfiles(
         &self,
         env: &Env,
