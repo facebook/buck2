@@ -31,7 +31,7 @@ pub enum ProfileMode {
     HeapSummaryAllocated,
     /// Like heap summary, but information about retained memory after module is frozen.
     HeapSummaryRetained,
-    /// Like heap profile, but writes output comparible with
+    /// Like heap profile, but writes output comparable with
     /// [flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl).
     HeapFlameAllocated,
     /// Like heap flame, but information about retained memory after module is frozen.
