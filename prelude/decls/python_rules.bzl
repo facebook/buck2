@@ -285,7 +285,6 @@ python_binary = prelude_rule(
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
@@ -358,7 +357,6 @@ python_library = prelude_rule(
         python_common.exclude_deps_from_merged_linking_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -464,7 +462,6 @@ python_test = prelude_rule(
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
