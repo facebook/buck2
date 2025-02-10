@@ -236,7 +236,7 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
     artifacts = actions.write_json(
         artifact,
         ExpandedAndResolved(
-            expanded_targets = [t.raw_target() for t in target_analysis.keys()],
+            expanded_targets = sorted([t.raw_target() for t in target_analysis.keys()]),
             queried_proc_macros = queried_proc_macros,
             resolved_deps = resolved_deps,
         ),
