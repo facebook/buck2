@@ -118,7 +118,7 @@ pub fn write_starlark_profile(
         ProfileMode::HeapFlameAllocated
         | ProfileMode::HeapFlameRetained
         | ProfileMode::TimeFlame => {
-            let mut profile = profile_data.profile_data.gen()?;
+            let mut profile = profile_data.profile_data.gen_flame_data()?;
             if profile.is_empty() {
                 // inferno does not like empty flamegraphs.
                 profile = "empty 1\n".to_owned();
@@ -147,7 +147,7 @@ pub fn write_starlark_profile(
                 .buck_error_context("Failed to write flame.svg")?;
         }
         _ => {
-            let profile = profile_data.profile_data.gen()?;
+            let profile = profile_data.profile_data.gen_csv()?;
             fs_util::write(output.join("profile.csv"), profile)
                 .buck_error_context("Failed to write profile")?;
         }

@@ -87,7 +87,12 @@ R = test()
             "src/eval/runtime/profile/golden/{}.golden",
             mode.name().replace('-', "_")
         ),
-        &profile_data.gen().unwrap(),
+        &match mode {
+            ProfileMode::HeapFlameAllocated | ProfileMode::HeapFlameRetained => {
+                profile_data.gen_flame_data().unwrap()
+            }
+            _ => profile_data.gen_csv().unwrap(),
+        },
     );
 
     // Smoke test for profile merging.

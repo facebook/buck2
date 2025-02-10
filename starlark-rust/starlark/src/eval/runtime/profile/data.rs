@@ -93,20 +93,28 @@ impl ProfileData {
         self.profile.profile_mode()
     }
 
-    /// Generate a string with profile data (e.g. CSV or flamegraph, depending on profile type).
-    pub fn gen(&self) -> crate::Result<String> {
+    /// Generate a string with flamegraph profile data, depending on profile type.
+    pub fn gen_flame_data(&self) -> crate::Result<String> {
+        match &self.profile {
+            ProfileDataImpl::TimeFlameProfile(profile) => Ok(profile.write()),
+            ProfileDataImpl::HeapFlameRetained(profile)
+            | ProfileDataImpl::HeapFlameAllocated(profile) => Ok(profile.gen_flame_graph_data()),
+            _ => Ok("".to_owned()),
+        }
+    }
+
+    /// Generate a string with csv profile data, depending on profile type.
+    pub fn gen_csv(&self) -> crate::Result<String> {
         match &self.profile {
             ProfileDataImpl::Bc(bc) => Ok(bc.gen_csv()),
             ProfileDataImpl::BcPairs(bc_pairs) => Ok(bc_pairs.gen_csv()),
-            ProfileDataImpl::HeapFlameRetained(profile)
-            | ProfileDataImpl::HeapFlameAllocated(profile) => Ok(profile.gen_flame_graph()),
             ProfileDataImpl::HeapSummaryRetained(profile)
             | ProfileDataImpl::HeapSummaryAllocated(profile) => Ok(profile.gen_summary_csv()),
             ProfileDataImpl::TimeFlameProfile(data) => Ok(data.write()),
             ProfileDataImpl::Statement(data) => Ok(data.write_to_string()),
             ProfileDataImpl::Coverage(data) => Ok(data.write_coverage()),
             ProfileDataImpl::Typecheck(data) => Ok(data.gen_csv()),
-            ProfileDataImpl::None => Ok("".to_owned()),
+            _ => Ok("".to_owned()),
         }
     }
 

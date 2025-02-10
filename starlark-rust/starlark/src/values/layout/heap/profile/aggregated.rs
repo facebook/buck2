@@ -286,15 +286,15 @@ impl<'c> StackFrameWithContext<'c> {
         })
     }
 
-    /// Write this stack frame's data to a file in flamegraph.pl format.
-    fn write_flame_graph(&self, node: &mut FlameGraphNode) {
+    /// Accumulate this stack frame's data into the given FlameGraphNode
+    fn gen_flame_graph_data(&self, node: &mut FlameGraphNode) {
         for (k, v) in &self.frame.allocs.summary {
             node.child((*k).into()).add(v.bytes as u64);
         }
 
         for (id, frame) in self.callees() {
             let child_node = node.child(id.dupe());
-            frame.write_flame_graph(child_node);
+            frame.gen_flame_graph_data(child_node);
         }
     }
 }
@@ -359,14 +359,14 @@ impl AggregateHeapProfileInfo {
         AggregateHeapProfileInfo { strings, root }
     }
 
-    /// Write this out recursively to a file.
-    pub fn gen_flame_graph(&self) -> String {
+    /// Generate the flame graph data and return it as a string.
+    pub fn gen_flame_graph_data(&self) -> String {
         let mut data = FlameGraphData::default();
-        self.root().write_flame_graph(data.root());
+        self.root().gen_flame_graph_data(data.root());
         data.write()
     }
 
-    /// Write per-function summary in CSV format.
+    /// Generate per-function summary in CSV format.
     pub fn gen_summary_csv(&self) -> String {
         HeapSummaryByFunction::init(self).gen_csv()
     }
