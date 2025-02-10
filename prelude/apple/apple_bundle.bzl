@@ -489,6 +489,7 @@ def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_r
         XcodeDataInfoKeys.INFO_PLIST_RELATIVE_PATH: info_plist_relative_path,
         XcodeDataInfoKeys.PRODUCT_NAME: get_product_name(ctx),
         XcodeDataInfoKeys.SDK: get_apple_sdk_name(ctx),
+        XcodeDataInfoKeys.APP_EXTENSION_DEPENDENCIES: _app_extension_deps(ctx),
     }
 
     apple_xcode_data_add_xctoolchain(ctx, data)
@@ -572,6 +573,14 @@ def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo:
             extra_outputs.extend(dep[AppleBundleExtraOutputsInfo].extra_outputs)
 
     return AppleBundleExtraOutputsInfo(extra_outputs = extra_outputs)
+
+def _app_extension_deps(ctx: AnalysisContext) -> list[str]:
+    app_extension_deps = []
+    for dep in ctx.attrs.deps:
+        apple_bundle_info = dep.get(AppleBundleInfo)
+        if apple_bundle_info and paths.split_extension(apple_bundle_info.bundle.short_path)[1] == ".appex":
+            app_extension_deps.append(str(dep.label.raw_target()))
+    return app_extension_deps
 
 def generate_install_data(
         ctx: AnalysisContext,
