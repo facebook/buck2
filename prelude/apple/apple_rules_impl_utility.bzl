@@ -70,6 +70,13 @@ def _skip_adhoc_resigning_scrubbed_frameworks_default_attr():
         "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_enabled": True,
     }))
 
+def _versioned_macos_bundle_default_value():
+    return select({
+        "DEFAULT": False,
+        "config//features/apple/constraints:versioned_macos_bundle_false": False,
+        "config//features/apple/constraints:versioned_macos_bundle_true": True,
+    })
+
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -102,7 +109,7 @@ def _apple_bundle_like_common_attrs():
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "skip_adhoc_resigning_scrubbed_frameworks": attrs.option(attrs.bool(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
-        "versioned_macos_bundle": attrs.bool(default = False),
+        "versioned_macos_bundle": attrs.bool(default = _versioned_macos_bundle_default_value()),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_bundling_cache_buster": attrs.option(attrs.string(), default = None),
