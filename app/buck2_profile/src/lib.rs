@@ -99,6 +99,7 @@ pub fn starlark_profiler_configuration_from_request(
 #[allow(clippy::format_collect)]
 pub fn write_starlark_profile(
     profile_data: &StarlarkProfileDataAndStats,
+    targets: &[String],
     output: &AbsPath,
 ) -> buck2_error::Result<()> {
     fs_util::create_dir_if_not_exists(output)?;
@@ -123,18 +124,27 @@ pub fn write_starlark_profile(
                 profile = "empty 1\n".to_owned();
             }
             let mut svg = Vec::new();
-            inferno::flamegraph::from_reader(
-                &mut inferno::flamegraph::Options::default(),
-                profile.as_bytes(),
-                &mut svg,
-            )
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-            .buck_error_context("writing SVG from profile data")?;
+            let mut options = inferno::flamegraph::Options::default();
+            let title = format!(
+                "Flame Graph - {}",
+                &profile_data.profile_data.profile_mode().to_string()
+            );
+            options.title = if targets.len() == 1 {
+                format!("{} on {}", title, targets[0])
+            } else if targets.len() > 1 {
+                format!("{} on {} and {} more", title, targets[0], targets.len() - 1)
+            } else {
+                title
+            };
+
+            inferno::flamegraph::from_reader(&mut options, profile.as_bytes(), &mut svg)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                .buck_error_context("writing SVG from profile data")?;
 
             fs_util::write(output.join("flame.src"), &profile)
-                .buck_error_context("Failed to write profile")?;
+                .buck_error_context("Failed to write flame.src")?;
             fs_util::write(output.join("flame.svg"), &svg)
-                .buck_error_context("Failed to write profile")?;
+                .buck_error_context("Failed to write flame.svg")?;
         }
         _ => {
             let profile = profile_data.profile_data.gen()?;
@@ -147,9 +157,10 @@ pub fn write_starlark_profile(
 
 pub fn get_profile_response(
     profile_data: Arc<StarlarkProfileDataAndStats>,
+    targets: &[String],
     output: &AbsPath,
 ) -> buck2_error::Result<buck2_cli_proto::ProfileResponse> {
-    write_starlark_profile(profile_data.as_ref(), output)?;
+    write_starlark_profile(profile_data.as_ref(), targets, output)?;
 
     Ok(buck2_cli_proto::ProfileResponse {
         elapsed: Some(profile_data.elapsed().try_into()?),

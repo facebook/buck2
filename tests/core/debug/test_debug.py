@@ -42,13 +42,13 @@ async def test_debug_allocative(buck: Buck, tmp_path: Path) -> None:
     file_path = tmp_path / "profile"
 
     output = await buck.debug("allocative", "--output", str(file_path))
-    assert os.path.exists(f"{file_path}/flamegraph.src")
-    assert os.path.exists(f"{file_path}/flamegraph.svg")
-    assert "Profile written" in output.stderr
+    assert os.path.exists(f"{file_path}/flame.src")
+    assert os.path.exists(f"{file_path}/flame.svg")
+    assert "Allocative profile written to" in output.stderr
 
     await buck.debug("allocative")
-    assert os.path.exists(buck.cwd / "allocative-out" / "flamegraph.src")
-    assert os.path.exists(buck.cwd / "allocative-out" / "flamegraph.svg")
+    assert os.path.exists(buck.cwd / "allocative-out" / "flame.src")
+    assert os.path.exists(buck.cwd / "allocative-out" / "flame.svg")
 
 
 @buck_test()

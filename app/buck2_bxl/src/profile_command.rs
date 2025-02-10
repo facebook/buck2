@@ -137,7 +137,11 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             })
             .await?;
 
-        Ok(get_profile_response(profile_data, output)?)
+        Ok(get_profile_response(
+            profile_data,
+            &[bxl_label.to_string()],
+            output,
+        )?)
     }
 
     fn is_success(&self, _response: &Self::Response) -> bool {

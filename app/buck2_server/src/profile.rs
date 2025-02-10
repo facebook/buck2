@@ -159,7 +159,11 @@ impl ServerCommandTemplate for ProfileServerCommand {
                 )
                 .await?;
 
-                Ok(get_profile_response(profile_data, output)?)
+                Ok(get_profile_response(
+                    profile_data,
+                    &opts.target_patterns,
+                    output,
+                )?)
             }
             _ => {
                 return Err(buck2_error::buck2_error!(
