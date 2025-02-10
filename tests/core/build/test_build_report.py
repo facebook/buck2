@@ -145,6 +145,7 @@ async def test_build_report_include_artifact_hash_information(buck: Buck) -> Non
 
     await buck.build(
         "//:rule1",
+        "//:dir1",
         "--build-report",
         "report",
         "--build-report-options",
@@ -157,6 +158,14 @@ async def test_build_report_include_artifact_hash_information(buck: Buck) -> Non
         artifact_info = rule1["configured"]["<unspecified>"]["artifact_info"]["DEFAULT"]
         assert artifact_info["kind"] == "file"
         assert artifact_info["digest"] == "da39a3ee5e6b4b0d3255bfef95601890afd80709:0"
+
+        dir1 = results["root//:dir1"]
+        artifact_info = dir1["configured"]["<unspecified>"]["artifact_info"]["DEFAULT"]
+        assert artifact_info["kind"] == "directory"
+        assert artifact_info["digest"] in [
+            "b6ab192957f7876a3e8a02bb140ad221c0c087bd:55",  # unix
+            "4b24c991c1b6f0461cab9da9410ece56bd129ed6:57",  # windows
+        ]
 
 
 @buck_test()

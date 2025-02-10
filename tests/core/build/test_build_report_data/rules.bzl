@@ -27,6 +27,19 @@ def _touch_file_impl(ctx):
     )]
     return providers
 
+def _mkdir_impl(ctx):
+    out = ctx.actions.declare_output("out", dir = True)
+    ctx.actions.run(cmd_args("python3", "-c", """
+import sys
+import os
+
+f = sys.argv[1]
+os.mkdir(f)
+with open(f + "/hello", "w") as f:
+    f.write("hello")
+""", out.as_output()), category = "create_dir")
+    return [DefaultInfo(out)]
+
 touch_file = rule(
     impl = _touch_file_impl,
     attrs = {
@@ -36,3 +49,5 @@ touch_file = rule(
         "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),
     },
 )
+
+mkdir = rule(impl = _mkdir_impl, attrs = {})

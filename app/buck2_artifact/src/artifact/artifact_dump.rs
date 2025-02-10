@@ -13,6 +13,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 
 use buck2_common::cas_digest::CasDigest;
+use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::FileDigestKind;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::paths::RelativePathBuf;
@@ -28,7 +29,10 @@ where
 }
 
 #[derive(Serialize, Debug)]
-pub struct DirectoryInfo {}
+pub struct DirectoryInfo {
+    #[serde(serialize_with = "stringify")]
+    pub digest: TrackedCasDigest<FileDigestKind>,
+}
 
 #[derive(Serialize, Debug)]
 pub struct FileInfo {
@@ -75,12 +79,23 @@ mod tests {
     #[test]
     fn test_dir_json() {
         let path = ForwardRelativePathBuf::unchecked_new("test".into());
+        let digest = CasDigest::parse_digest(
+            "fb19d5b1546753df5f7741efbabd0d24dcaacd65:20",
+            CasDigestConfig::testing_default(),
+        )
+        .expect("failed to create digest")
+        .0;
         let metadata = ArtifactMetadataJson {
             path,
-            info: ArtifactInfo::Directory(DirectoryInfo {}),
+            info: ArtifactInfo::Directory(DirectoryInfo {
+                digest: TrackedCasDigest::new(digest, CasDigestConfig::testing_default()),
+            }),
         };
         let json = serde_json::to_string(&metadata).expect("failed to serialize");
-        assert_eq!(json, r#"{"path":"test","kind":"directory"}"#,);
+        assert_eq!(
+            json,
+            r#"{"path":"test","kind":"directory","digest":"fb19d5b1546753df5f7741efbabd0d24dcaacd65:20"}"#,
+        );
     }
 
     #[test]

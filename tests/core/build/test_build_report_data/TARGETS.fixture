@@ -1,4 +1,4 @@
-load(":rules.bzl", "touch_file")
+load(":rules.bzl", "mkdir", "touch_file")
 
 touch_file(
     name = "rule0",
@@ -20,3 +20,5 @@ touch_file(
     default_outs = ["out1.txt"],
     deps = [":rule0", ":rule1"],
 )
+
+mkdir(name = "dir1")

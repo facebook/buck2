@@ -19,6 +19,7 @@ use std::io::BufWriter;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
+use buck2_artifact::artifact::artifact_dump::DirectoryInfo;
 use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
 use buck2_artifact::artifact::artifact_dump::FileInfo;
 use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
@@ -46,6 +47,7 @@ use buck2_events::errors::create_error_report;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice::DiceComputations;
@@ -521,15 +523,20 @@ impl<'a> BuildReportCollector<'a> {
     }
 }
 
-fn update_artifact_info<D>(
+fn update_artifact_info(
     artifact_info: &mut HashMap<Arc<str>, ArtifactInfo>,
     provider_name: Arc<str>,
-    entry: &ActionDirectoryEntry<D>,
+    entry: &ActionDirectoryEntry<ActionSharedDirectory>,
 ) {
     match entry {
-        // Non-leaves are not useful in the build report. Materializing leaves will also materialize
-        // directories.
-        DirectoryEntry::Dir(_) => {}
+        DirectoryEntry::Dir(dir) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::Directory(DirectoryInfo {
+                    digest: dir.fingerprint().clone(),
+                }),
+            );
+        }
         DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
             let cas_digest = metadata.digest.data();
             artifact_info.insert(
