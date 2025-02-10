@@ -112,7 +112,7 @@ def _create_kotlin_sources(
             module_name,
             "-no-stdlib",
             "-no-reflect",
-        ] + ctx.attrs.extra_kotlinc_arguments,
+        ] + ctx.attrs.extra_kotlinc_arguments + get_language_version(ctx),
     )
 
     jvm_target = get_kotlinc_compatible_target(ctx.attrs.target) if ctx.attrs.target else None
@@ -271,6 +271,34 @@ def _add_plugins(
 
     return _PluginCmdArgs(kotlinc_cmd_args = kotlinc_cmd_args, compile_kotlin_cmd = compile_kotlin_cmd)
 
+def get_language_version(ctx: AnalysisContext) -> list:
+    kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
+    language_version_kotlinc_arguments = []
+
+    # kotlin compiler expects relase version of format 1.6, 1.7, etc. Don't include patch version
+    current_kotlin_release_version = ".".join(kotlin_toolchain.kotlin_version.split(".")[:2])
+
+    current_language_version = None
+    for arg in ctx.attrs.extra_kotlinc_arguments:
+        # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
+        if isinstance(arg, str) and "-language-version" in arg:
+            current_language_version = arg.split("=")[1].strip()
+
+    if ctx.attrs.k2 == True and kotlin_toolchain.allow_k2_usage:
+        if not current_language_version or current_language_version < "2.0":
+            if current_kotlin_release_version < "2.0":
+                language_version_kotlinc_arguments.append("-language-version=2.0")
+            else:
+                language_version_kotlinc_arguments.append("-language-version=" + current_kotlin_release_version)
+    else:  # use K1
+        if not current_language_version or current_language_version >= "2.0":
+            if current_kotlin_release_version >= "2.0":
+                language_version_kotlinc_arguments.append("-language-version=1.9")
+            else:
+                language_version_kotlinc_arguments.append("-language-version=" + current_kotlin_release_version)
+
+    return language_version_kotlinc_arguments
+
 def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
 
@@ -414,13 +442,12 @@ def build_kotlin_library(
                 "debug_port": getattr(ctx.attrs, "debug_port", None),
                 "deps": deps + [kotlin_toolchain.kotlin_stdlib],
                 "enable_used_classes": ctx.attrs.enable_used_classes,
-                "extra_kotlinc_arguments": ctx.attrs.extra_kotlinc_arguments,
+                "extra_kotlinc_arguments": (ctx.attrs.extra_kotlinc_arguments or []) + get_language_version(ctx),
                 "friend_paths": ctx.attrs.friend_paths,
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
                 "jar_postprocessor": ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None,
                 "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],
                 "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
-                "k2": ctx.attrs.k2,
                 "kotlin_compiler_plugins": ctx.attrs.kotlin_compiler_plugins,
                 "kotlin_toolchain": kotlin_toolchain,
                 "label": ctx.label,
