@@ -241,8 +241,24 @@ def wrap_link_info(
         metadata = inner.metadata,
     )
 
-def _is_linkable_comprised_of_lazy_object_files(linkable: LinkableTypes) -> bool:
-    return isinstance(linkable, ArchiveLinkable) and not linkable.link_whole
+# Returns true if the command line argument representation of this linkable,
+# could be passed within a filelist.
+def _is_linkable_included_in_filelist(linkable: LinkableTypes) -> bool:
+    if isinstance(linkable, ArchiveLinkable):
+        # Link whole archives don't appear in the filelist, but are passed directly to the linker
+        # with a -force-load (MachO) or -whole-archive (ELF) flag. Regular archives do appear in the filelist.
+        return not linkable.link_whole
+    elif isinstance(linkable, SharedLibLinkable) or \
+         isinstance(linkable, FrameworksLinkable) or \
+         isinstance(linkable, SwiftRuntimeLinkable) or \
+         isinstance(linkable, SwiftmoduleLinkable):
+        # These are all passed directly via various command line flags, not via a filelist.
+        return False
+    elif isinstance(linkable, ObjectsLinkable):
+        # Object files always appear in the filelist.
+        return True
+    else:
+        fail("Encountered unhandled filelist-like linkable {}".format(str(linkable)))
 
 # Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
@@ -284,25 +300,23 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
 
 LinkInfoArgumentFilter = enum(
     "all",
-    "lazy_object_files_only",
-    "exclude_lazy_object_files",
+    "filelist_only",
+    "excluding_filelist",
 )
 
 def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFilter = LinkInfoArgumentFilter("all")) -> cmd_args:
     result = cmd_args()
 
-    do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("exclude_lazy_object_files")
+    do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("excluding_filelist")
     if do_pre_post_flags:
         result.add(value.pre_flags)
 
     for linkable in value.linkables:
-        if argument_type_filter == LinkInfoArgumentFilter("all"):
-            append_linkable_args(result, linkable)
-
-        elif argument_type_filter == LinkInfoArgumentFilter("lazy_object_files_only") and _is_linkable_comprised_of_lazy_object_files(linkable):
-            append_linkable_args(result, linkable)
-
-        elif argument_type_filter == LinkInfoArgumentFilter("exclude_lazy_object_files") and not _is_linkable_comprised_of_lazy_object_files(linkable):
+        if (argument_type_filter == LinkInfoArgumentFilter("all")) or (
+            argument_type_filter == LinkInfoArgumentFilter("filelist_only") and _is_linkable_included_in_filelist(linkable)
+        ) or (
+            argument_type_filter == LinkInfoArgumentFilter("excluding_filelist") and not _is_linkable_included_in_filelist(linkable)
+        ):
             append_linkable_args(result, linkable)
 
     if do_pre_post_flags:
@@ -332,11 +346,21 @@ def _link_info_stripped_link_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("all"))
 
-def _link_info_lazy_object_files_args(infos: LinkInfos):
-    return link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("lazy_object_files_only"))
+def _link_info_default_filelist(infos: LinkInfos):
+    info = infos.default
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only"))
 
-def _link_info_excluding_lazy_object_files_args(infos: LinkInfos):
-    return link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("exclude_lazy_object_files"))
+def _link_info_stripped_filelist(infos: LinkInfos):
+    info = infos.stripped or infos.default
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only"))
+
+def _link_info_default_excluding_filelist_args(infos: LinkInfos):
+    info = infos.default
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
+
+def _link_info_stripped_excluding_filelist_args(infos: LinkInfos):
+    info = infos.stripped or infos.default
+    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
 
 def link_info_to_metadata_args(info: LinkInfo, args: cmd_args | None = None) -> ArgLike:
     if args == None:
@@ -349,24 +373,34 @@ def _link_info_metadata_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_metadata_args(info)
 
-def _link_info_has_lazy_object_files(children: list[bool], infos: [LinkInfos, None]) -> bool:
+def _link_info_has_default_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
     if infos:
-        if len(link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("lazy_object_files_only")).inputs):
+        info = infos.default
+        if len(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")).inputs):
             return True
+    return any(children)
 
+def _link_info_has_stripped_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
+    if infos:
+        info = infos.stripped or infos.default
+        if len(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")).inputs):
+            return True
     return any(children)
 
 # TransitiveSet of LinkInfos.
 LinkInfosTSet = transitive_set(
     args_projections = {
         "default": _link_info_default_args,
-        "exclude_lazy_object_files": _link_info_excluding_lazy_object_files_args,
-        "lazy_object_files": _link_info_lazy_object_files_args,
+        "default_excluding_filelist": _link_info_default_excluding_filelist_args,
+        "default_filelist": _link_info_default_filelist,
         "metadata": _link_info_metadata_args,
         "stripped": _link_info_stripped_link_args,
+        "stripped_excluding_filelist": _link_info_stripped_excluding_filelist_args,
+        "stripped_filelist": _link_info_stripped_filelist,
     },
     reductions = {
-        "has_lazy_object_files": _link_info_has_lazy_object_files,
+        "has_default_filelist": _link_info_has_default_filelist,
+        "has_stripped_filelist": _link_info_has_stripped_filelist,
     },
 )
 
@@ -413,6 +447,11 @@ LinkedObject = record(
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field(Artifact | None, None),
+    # The filelist is generated in the `cxx_link` step and contains a list of
+    # object files (static libs or plain object files) passed to the linker.
+    # It is being exposed for debugging purposes. Only present when a Darwin
+    # linker is used.
+    linker_filelist = field(Artifact | None, None),
     # The linker command as generated by `cxx_link`. Exposed for debugging purposes only.
     # Not present for DistLTO scenarios.
     linker_command = field([cmd_args, None], None),
@@ -693,42 +732,51 @@ def unpack_link_args(
 
     fail("Unpacked invalid empty link args")
 
-def unpack_link_args_excluding_lazy_object_files(args: LinkArgs) -> [ArgLike, None]:
+def unpack_link_args_filelist(args: LinkArgs) -> [ArgLike, None]:
     if args.tset != None:
-        if args.tset.prefer_stripped:
-            fail("Preferring stripped link infos is not supported by this function.")
-
-        return args.tset.infos.project_as_args("exclude_lazy_object_files")
+        tset = args.tset.infos
+        stripped = args.tset.prefer_stripped
+        if not tset.reduce("has_stripped_filelist" if stripped else "has_default_filelist"):
+            return None
+        return tset.project_as_args("stripped_filelist" if stripped else "default_filelist")
 
     if args.infos != None:
         result_args = cmd_args()
         for info in args.infos:
-            result_args.add(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("exclude_lazy_object_files")))
-        return result_args
+            result_args.add(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")))
 
-    if args.flags != None:
-        return args.flags
-
-    fail("Unpacked invalid empty link args")
-
-def unpack_link_args_lazy_object_files_only(args: LinkArgs) -> [ArgLike, None]:
-    if args.tset != None:
-        if args.tset.prefer_stripped:
-            fail("Preferring stripped link infos is not supported by this function.")
-
-        if not args.tset.infos.reduce("has_lazy_object_files"):
+        if not len(result_args.inputs):
             return None
 
-        return args.tset.infos.project_as_args("lazy_object_files")
-
-    if args.infos != None:
-        result_args = cmd_args()
-        for info in args.infos:
-            result_args.add(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("lazy_object_files_only")))
         return result_args
 
     if args.flags != None:
         return None
+
+    fail("Unpacked invalid empty link args")
+
+def unpack_link_args_excluding_filelist(
+        args: LinkArgs,
+        link_ordering: [LinkOrdering, None] = None,
+        link_metadata_flag: str | None = None) -> ArgLike:
+    cmd = link_args_metadata_with_flag(args, link_metadata_flag)
+    if args.tset != None:
+        ordering = link_ordering.value if link_ordering else "preorder"
+
+        tset = args.tset.infos
+        if args.tset.prefer_stripped:
+            cmd.add(tset.project_as_args("stripped_excluding_filelist", ordering = ordering))
+        else:
+            cmd.add(tset.project_as_args("default_excluding_filelist", ordering = ordering))
+        return cmd
+
+    if args.infos != None:
+        cmd.add([link_info_to_args(info, LinkInfoArgumentFilter("excluding_filelist")) for info in args.infos])
+        return cmd
+
+    if args.flags != None:
+        cmd.add(args.flags)
+        return cmd
 
     fail("Unpacked invalid empty link args")
 
@@ -967,6 +1015,7 @@ LinkCommandDebugOutput = record(
     filename = str,
     command = ArgLike,
     argsfile = Artifact,
+    filelist = Artifact | None,
     dist_thin_lto_codegen_argsfile = Artifact | None,
     dist_thin_lto_index_argsfile = Artifact | None,
 )
@@ -991,6 +1040,7 @@ def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandD
         filename = linked_object.output.short_path,
         command = linked_object.linker_command,
         argsfile = linked_object.linker_argsfile,
+        filelist = linked_object.linker_filelist,
         dist_thin_lto_index_argsfile = linked_object.dist_thin_lto_index_argsfile,
         dist_thin_lto_codegen_argsfile = linked_object.dist_thin_lto_codegen_argsfile,
     )
@@ -1001,6 +1051,7 @@ def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandD
 #
 # For local thin-LTO:
 # - linker argfile
+# - linker filelist (if present - only applicable to Darwin linkers)
 #
 # For distributed thin-LTO:
 # - thin-link argsfile (without inputs just flags)
@@ -1025,8 +1076,8 @@ def make_link_command_debug_output_json_info(ctx: AnalysisContext, debug_outputs
                 "filename": debug_output.filename,
             })
 
-            # Ensure all argsfile get materialized, as those are needed for debugging
-            associated_artifacts.extend(filter(None, [debug_output.argsfile]))
+            # Ensure all argsfile and filelists get materialized, as those are needed for debugging
+            associated_artifacts.extend(filter(None, [debug_output.argsfile, debug_output.filelist]))
 
     # Explicitly drop all inputs by using `with_inputs = False`, we don't want
     # to materialize all inputs to the link actions (which includes all object files

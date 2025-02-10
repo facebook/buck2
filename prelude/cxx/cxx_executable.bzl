@@ -784,6 +784,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     sub_targets["linker.argsfile"] = [DefaultInfo(
         default_output = binary.linker_argsfile,
     )]
+    sub_targets["linker.filelist"] = [DefaultInfo(
+        default_outputs = filter(None, [binary.linker_filelist]),
+    )]
 
     link_cmd_debug_output = make_link_command_debug_output(binary)
     if link_cmd_debug_output != None:
