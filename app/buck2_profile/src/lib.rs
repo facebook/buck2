@@ -148,7 +148,7 @@ pub fn write_starlark_profile(
         }
         _ => {
             let profile = profile_data.profile_data.gen()?;
-            fs_util::write(output.join("profile.txt"), profile)
+            fs_util::write(output.join("profile.csv"), profile)
                 .buck_error_context("Failed to write profile")?;
         }
     };
