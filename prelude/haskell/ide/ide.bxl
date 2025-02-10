@@ -101,6 +101,8 @@ def _find_target_in_universe(ctx, target, project_universe):
             p,
             modifiers = configuration_modifiers,
         )
+        if cfg_p == None:
+            continue
         members = cfg_p.resolved_attrs_eager(ctx).include_projects
         for member in members:
             if target.label.raw_target() == member.label.raw_target():
