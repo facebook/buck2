@@ -12,15 +12,32 @@ buck2_e2e_test(
 
 buck2_e2e_test(
     name = "test_test_coverage",
-    srcs = glob([
-        "test_test_coverage/**/*.py",
-    ]),
+    srcs = glob(
+        [
+            "test_test_coverage/**/*.py",
+        ],
+        exclude = ["test_test_coverage/test_test_coverage_network_sandboxing.py"],
+    ),
     compatible_with = ["ovr_config//os:linux"],
     skip_for_os = [
         "darwin",
         "windows",
     ],
     test_with_deployed_buck2 = True,
+    use_compiled_buck2_client_and_tpx = True,
+)
+
+buck2_e2e_test(
+    name = "test_test_coverage_network_sandboxing",
+    srcs = ["test_test_coverage/test_test_coverage_network_sandboxing.py"],
+    compatible_with = ["ovr_config//os:linux"],
+    skip_for_os = [
+        "darwin",
+        "windows",
+    ],
+    # TODO(andryak): unify this with the test_test_coverage target once deployed
+    # Buck has the changes to the test runner that are required by this test.
+    test_with_deployed_buck2 = False,
     use_compiled_buck2_client_and_tpx = True,
 )
 
