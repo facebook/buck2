@@ -1336,9 +1336,6 @@ def _form_library_outputs(
                         "linker.command": [DefaultInfo(
                             default_outputs = filter(None, [link_cmd_debug_output_file]),
                         )],
-                        "linker.filelist": [DefaultInfo(
-                            default_outputs = filter(None, [shlib.linker_filelist]),
-                        )],
                         "unstripped": [DefaultInfo(
                             default_output = unstripped,
                         )],

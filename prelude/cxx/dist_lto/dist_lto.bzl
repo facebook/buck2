@@ -679,7 +679,6 @@ def cxx_gnu_dist_link(
         dwp = dwp_output,
         external_debug_info = external_debug_info,
         linker_argsfile = linker_argsfile_out,
-        linker_filelist = None,  # DistLTO doesn't use filelists
         linker_command = None,  # There is no notion of a single linker command for DistLTO
         index_argsfile = index_argsfile_out,
         dist_thin_lto_codegen_argsfile = None,  # Only Darwin builds provide is argsfile
