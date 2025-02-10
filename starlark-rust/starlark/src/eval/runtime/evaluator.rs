@@ -18,7 +18,6 @@
 use std::collections::HashSet;
 use std::mem;
 use std::mem::MaybeUninit;
-use std::path::Path;
 
 use dupe::Dupe;
 use starlark_syntax::eval_exception::EvalException;
@@ -268,7 +267,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.loader = Some(loader);
     }
 
-    /// Enable profiling, allowing [`Evaluator::write_profile`] to be used.
+    /// Enable profiling, allowing [`Evaluator::gen_profile`] to be used.
     /// Profilers add overhead, and while some profilers can be used together,
     /// it's better to run at most one profiler at a time.
     pub fn enable_profile(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
@@ -325,12 +324,6 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             ProfileMode::None => {}
         }
         Ok(())
-    }
-
-    /// Write a profile to a file.
-    /// Only valid if corresponding profiler was enabled.
-    pub fn write_profile<P: AsRef<Path>>(&mut self, filename: P) -> crate::Result<()> {
-        self.gen_profile()?.write(filename.as_ref())
     }
 
     /// Generate profile for a given mode.

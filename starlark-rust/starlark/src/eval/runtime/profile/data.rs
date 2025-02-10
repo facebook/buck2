@@ -15,9 +15,6 @@
  * limitations under the License.
  */
 
-use std::fs;
-use std::path::Path;
-
 use crate::eval::runtime::profile::bc::BcPairsProfileData;
 use crate::eval::runtime::profile::bc::BcPairsProfilerType;
 use crate::eval::runtime::profile::bc::BcProfileData;
@@ -111,19 +108,6 @@ impl ProfileData {
             ProfileDataImpl::Typecheck(data) => Ok(data.gen_csv()),
             ProfileDataImpl::None => Ok("".to_owned()),
         }
-    }
-
-    /// Write to a file.
-    pub fn write(&self, path: &Path) -> crate::Result<()> {
-        fs::write(path, self.gen()?).map_err(|e| {
-            anyhow::anyhow!(
-                "Could not write profile `{}` data to `{}`: {}",
-                self.profile.profile_mode(),
-                path.display(),
-                e,
-            )
-        })?;
-        Ok(())
     }
 
     /// Merge profiles (aggregate).
