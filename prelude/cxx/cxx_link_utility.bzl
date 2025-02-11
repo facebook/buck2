@@ -20,8 +20,8 @@ load(
     "LinkArgs",
     "LinkOrdering",  # @unused Used as a type
     "unpack_link_args",
-    "unpack_link_args_excluding_filelist",
-    "unpack_link_args_filelist",
+    "unpack_link_args_excluding_lazy_object_files",
+    "unpack_link_args_lazy_object_files_only",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
 load(
@@ -69,12 +69,6 @@ LinkArgsOutput = record(
     link_args = ArgLike,
     hidden = list[typing.Any],
     pdb_artifact = Artifact | None,
-    # The filelist artifact which contains the list of all object files.
-    # Only present for Darwin linkers. Note that object files referenced
-    # _inside_ the filelist are _not_ part of the `hidden` field above.
-    # That's by design - we do not want to materialise _all_ object files
-    # to inspect the filelist. Intended to be used for debugging.
-    filelist = Artifact | None,
 )
 
 def get_extra_darwin_linker_flags() -> cmd_args:
@@ -88,7 +82,6 @@ def make_link_args(
         actions: AnalysisActions,
         cxx_toolchain_info: CxxToolchainInfo,
         links: list[LinkArgs],
-        suffix = None,
         output_short_path: [str, None] = None,
         link_ordering: [LinkOrdering, None] = None) -> LinkArgsOutput:
     """
@@ -96,7 +89,6 @@ def make_link_args(
     args to work when passed to a linker, and optionally an artifact where DWO
     outputs will be written to.
     """
-    suffix = "" if suffix == None else "-" + suffix
     args = cmd_args()
     hidden = []
 
@@ -136,44 +128,24 @@ def make_link_args(
         pdb_artifact = actions.declare_output(pdb_filename)
         hidden.append(pdb_artifact.as_output())
 
-    filelists = None
     if linker_type == LinkerType("darwin"):
-        filelists = filter(None, [unpack_link_args_filelist(link) for link in links])
-        hidden.extend(filelists)
-
-    for link in links:
-        if filelists:
-            # If we are using a filelist, only add argument that aren't already in the
-            # filelist. This is to avoid duplicate inputs in the link command.
-            args.add(
-                unpack_link_args_excluding_filelist(
-                    link,
-                    link_ordering = link_ordering,
-                    link_metadata_flag = linker_info.link_metadata_flag,
-                ),
-            )
-        else:
-            args.add(
-                unpack_link_args(
-                    link,
-                    link_ordering = link_ordering,
-                    link_metadata_flag = linker_info.link_metadata_flag,
-                ),
-            )
-
-    # On Darwin, filelist args _must_ come last as the order can affect symbol
-    # resolution and result in binary size increases.
-    filelist_file = None
-    if filelists:
-        path = actions.write("filelist%s.txt" % suffix, filelists)
-        args.add(cmd_args(["-Xlinker", "-filelist", "-Xlinker", path]))
-        filelist_file = path
+        # We order inputs to minimize binary size. The binary size savings come
+        # from using as many symbols from shared libraries as possible, and
+        # avoiding loading unnecessary object files. Since they are listed last,
+        # lazy object files will only be loaded if they resolve some symbol reference
+        # that could not be satisfied by any of the eager object files or shared
+        # libraries included in the link. Note link_ordering configuration is
+        # not respected. The link_metadata_flag is also ignored as that is a
+        # flag to the GNU linker wrapper, which does not apply to Darwin.
+        args.add(filter(None, [unpack_link_args_excluding_lazy_object_files(link) for link in links]))
+        args.add(filter(None, [unpack_link_args_lazy_object_files_only(link) for link in links]))
+    else:
+        args.add(filter(None, [unpack_link_args(link, link_ordering = link_ordering, link_metadata_flag = linker_info.link_metadata_flag) for link in links]))
 
     return LinkArgsOutput(
         link_args = args,
         hidden = [args] + hidden,
         pdb_artifact = pdb_artifact,
-        filelist = filelist_file,
     )
 
 def shared_libs_symlink_tree_name(output: Artifact) -> str:
