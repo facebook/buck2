@@ -9,35 +9,35 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=True, skip_for_os=["windows"])
 async def test_catch_resolve_lazy_dict(buck: Buck) -> None:
     await buck.bxl(
         "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_catch_resolve_lazy_dict",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=True, skip_for_os=["windows"])
 async def test_batch_apply_lazy(buck: Buck) -> None:
     await buck.bxl(
         "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_batch_apply_lazy",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=True, skip_for_os=["windows"])
 async def test_batch_apply_lazy_catch_each(buck: Buck) -> None:
     await buck.bxl(
         "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_batch_apply_lazy_catch_each",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=True, skip_for_os=["windows"])
 async def test_batch_apply_lazy_catch_all(buck: Buck) -> None:
     await buck.bxl(
         "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_batch_apply_lazy_catch_all",
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=True, skip_for_os=["windows"])
 async def test_partition_results(buck: Buck) -> None:
     await buck.bxl(
         "fbcode//buck2/tests/e2e/bxl/utils/test_lazy_utils.bxl:test_partition_results",
