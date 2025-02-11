@@ -128,8 +128,18 @@ In order to find the build file associated with a source file, combine the
 `owner` operator with `buildfile`. For example,
 
 ```sh
-buck2 cquery "buildfile(owner('foo/bar/main.cpp'))"
+buck2 uquery "buildfile(owner('foo/bar/main.cpp'))"
 ```
 
-first finds the targets that _own_ `foo/bar/main.cpp` and then returns the build
-files, such as `foo/bar/BUCK`, that define those targets.
+or alternatively
+
+```
+buck2 cquery "buildfile(owner('foo/bar/main.cpp'))" --target-universe 'foo:baz'
+```
+
+These two commands first find the targets that _own_ `foo/bar/main.cpp` and then
+return the build files, such as `foo/bar/BUCK`, that define those targets.
+
+`cquery` requires a `--target-universe` to be passed when the query has no
+target literals. See more in
+[target universe glossary entry](../concepts/glossary.md#target-universe)
