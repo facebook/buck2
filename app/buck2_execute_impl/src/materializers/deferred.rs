@@ -2001,10 +2001,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                 res
             })
-            .map(|r| match r {
-                Ok(r) => r,
-                Err(e) => Err(SharedMaterializingError::Error(e.into())), // Turn the JoinError into a buck2_error::Error.
-            })
+            .map(|r| r.unwrap_or_else(|e| Err(SharedMaterializingError::Error(e.into()))))
             .boxed()
             .shared();
 
