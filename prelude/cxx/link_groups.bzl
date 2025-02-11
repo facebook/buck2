@@ -478,7 +478,7 @@ def get_filtered_labels_to_links_map(
     # Keep track of whether we've already added a link group to the link line
     # already.  This avoids use adding the same link group lib multiple times,
     # for each of the possible multiple nodes that maps to it.
-    link_group_added = {}
+    link_group_added = set()
     group_srcs = {}
 
     def add_link(target: Label, output_style: LibOutputStyle):
@@ -523,7 +523,7 @@ def get_filtered_labels_to_links_map(
         _, shared_link_infos = link_group_lib
 
         expect(target_group != link_group)
-        link_group_added[target_group] = None
+        link_group_added.add(target_group)
         linkable_map[target] = LinkGroupLinkInfo(
             link_info = get_link_info_from_link_infos(shared_link_infos),
             output_style = LibOutputStyle("shared_lib"),
