@@ -86,6 +86,7 @@ use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::future;
 use futures::future::BoxFuture;
+use futures::future::Either;
 use futures::future::FutureExt;
 use futures::future::Shared;
 use futures::future::TryFutureExt;
@@ -1944,8 +1945,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         t.await?;
                     }
 
-                    if let Some((entry, method)) = entry_and_method {
-                        let materialize = || {
+                    let materialize = if let Some((entry, method)) = entry_and_method {
+                        Either::Left(async move {
                             io.materialize_entry(
                                 path_buf.clone(),
                                 method,
@@ -1953,23 +1954,22 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 event_dispatcher.dupe(),
                                 cancellations,
                             )
-                        };
-
-                        // Windows symlinks need to be specified whether it is to a file or target. We rely on the
-                        // target file existing to determine this. Ensure symlink targets exist before the entry
-                        // is materialized for Windows. For non-Windows, do everything concurrently.
-                        if cfg!(windows) {
-                            for t in materialize_symlink_destination_tasks {
-                                t.await?;
-                            }
-                            materialize().await?;
-                        } else {
-                            materialize().await?;
-                            for t in materialize_symlink_destination_tasks {
-                                t.await?;
-                            }
-                        }
+                            .await
+                        })
                     } else {
+                        Either::Right(future::ready(Ok(())))
+                    };
+
+                    // Windows symlinks need to be specified whether it is to a file or target. We rely on the
+                    // target file existing to determine this. Ensure symlink targets exist before the entry
+                    // is materialized for Windows. For non-Windows, do everything concurrently.
+                    if cfg!(windows) {
+                        for t in materialize_symlink_destination_tasks {
+                            t.await?;
+                        }
+                        materialize.await?;
+                    } else {
+                        materialize.await?;
                         for t in materialize_symlink_destination_tasks {
                             t.await?;
                         }
