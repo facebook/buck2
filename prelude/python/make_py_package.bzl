@@ -383,7 +383,6 @@ def _make_py_package_impl(
         if ctx.attrs.runtime_env:
             for k, v in ctx.attrs.runtime_env.items():
                 cmd.add(cmd_args(["--passthrough", "--runtime_env={}={}".format(k, v)]))
-        cmd.add(cmd_args("--no-sitecustomize"))
         identifier_prefix = "standalone{}" if standalone else "inplace{}"
         ctx.actions.run(
             cmd,
