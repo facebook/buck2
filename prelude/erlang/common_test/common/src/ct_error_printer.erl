@@ -14,6 +14,8 @@
 
 -module(ct_error_printer).
 
+-eqwalizer(ignore).
+
 %% Public API
 -export([format_error/2, format_error/3, format_reason/1]).
 -spec format_error(term(), boolean()) -> [unicode:chardata()].
