@@ -1912,21 +1912,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         // The artifact might have symlinks pointing to other artifacts. We must
         // materialize them as well, to avoid dangling symlinks.
-        let link_deps_tasks = match deps.as_ref() {
-            None => Vec::new(),
-            Some(deps) => self
-                .tree
-                .find_artifacts(deps)
-                .into_iter()
-                .filter_map(|p| {
-                    self.materialize_artifact_recurse(
-                        MaterializeStack::Child(&stack, path),
-                        p.as_ref(),
-                        event_dispatcher.dupe(),
-                    )
-                })
-                .collect::<Vec<_>>(),
-        };
+        let materialize_symlink_destination_tasks =
+            self.materialize_symlink_destination_tasks(&stack, &event_dispatcher, path, deps);
 
         // Create a task to await deps and materialize ourselves
         let path_buf = path.to_buf();
@@ -1972,18 +1959,18 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         // target file existing to determine this. Ensure symlink targets exist before the entry
                         // is materialized for Windows. For non-Windows, do everything concurrently.
                         if cfg!(windows) {
-                            for t in link_deps_tasks {
+                            for t in materialize_symlink_destination_tasks {
                                 t.await?;
                             }
                             materialize().await?;
                         } else {
                             materialize().await?;
-                            for t in link_deps_tasks {
+                            for t in materialize_symlink_destination_tasks {
                                 t.await?;
                             }
                         }
                     } else {
-                        for t in link_deps_tasks {
+                        for t in materialize_symlink_destination_tasks {
                             t.await?;
                         }
                     }
@@ -2012,6 +1999,30 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         };
 
         Ok(Some(task))
+    }
+
+    fn materialize_symlink_destination_tasks(
+        &mut self,
+        stack: &MaterializeStack,
+        event_dispatcher: &EventDispatcher,
+        path: &ProjectRelativePath,
+        deps: Option<ActionSharedDirectory>,
+    ) -> Vec<MaterializingFuture> {
+        if let Some(deps) = deps.as_ref() {
+            self.tree
+                .find_artifacts(deps)
+                .into_iter()
+                .filter_map(|p| {
+                    self.materialize_artifact_recurse(
+                        MaterializeStack::Child(&stack, path),
+                        p.as_ref(),
+                        event_dispatcher.dupe(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        }
     }
 
     fn materialize_copy_source_tasks(
