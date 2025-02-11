@@ -26,6 +26,7 @@ futures = { workspace = true }
 gazebo = { workspace = true }
 hex = { workspace = true }
 httparse = { workspace = true }
+humantime = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 memmap2 = { workspace = true }

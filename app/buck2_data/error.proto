@@ -239,4 +239,7 @@ enum ErrorTag {
 
   // None turned into an error. This carries no useful information whatsoever.
   UNEXPECTED_NONE = 6001;
+
+  // Build errors.
+  BUILD_DEADLINE_EXPIRED = 7001;
 }

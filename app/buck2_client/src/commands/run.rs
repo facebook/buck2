@@ -119,6 +119,7 @@ impl StreamingCommand for RunCommand {
                     final_artifact_materializations: Materializations::Materialize as i32,
                     final_artifact_uploads: Uploads::Never as i32,
                     target_universe: self.target_cfg.target_universe,
+                    timeout: None, // TODO: maybe it shouild be supported here?
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,

@@ -1192,6 +1192,7 @@ async fn build_target_result(
                     skippable: false,
                     want_configured_graph_size: false,
                 },
+                None, // TODO: is this right?
             )
             .await
             .map(BuildEvent::Configured);

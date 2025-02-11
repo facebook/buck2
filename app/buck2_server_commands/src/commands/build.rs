@@ -28,6 +28,8 @@ use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
@@ -138,6 +140,17 @@ async fn build(
 
     let build_opts = expect_build_opts(request);
 
+    let timeout = request
+        .timeout
+        .as_ref()
+        .map(|t| t.clone().try_into())
+        .transpose()
+        .with_buck_error_context(|| "Invalid `duration`")?;
+
+    let timeout_observer = timeout.map(|timeout| {
+        Arc::new(TimeoutLivelinessObserver::new(timeout)) as Arc<dyn LivelinessObserver>
+    });
+
     let cell_resolver = ctx.get_cell_resolver().await?;
 
     let parsed_patterns: Vec<ParsedPattern<ConfiguredProvidersPatternExtra>> =
@@ -191,6 +204,7 @@ async fn build(
                 MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
                 build_opts.skip_incompatible_targets,
                 want_configured_graph_size,
+                timeout_observer.as_ref(),
             )
             .await
         })
@@ -326,6 +340,7 @@ async fn build_targets(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<BuildTargetResult> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
@@ -341,6 +356,7 @@ async fn build_targets(
                 missing_target_behavior,
                 skip_incompatible_targets,
                 want_configured_graph_size,
+                timeout_observer,
             )
             .left_stream()
         }
@@ -351,6 +367,7 @@ async fn build_targets(
             build_providers,
             materialization_and_upload,
             want_configured_graph_size,
+            timeout_observer,
         )
         .map(BuildEvent::Configured)
         .right_stream(),
@@ -366,6 +383,7 @@ fn build_targets_in_universe<'a>(
     build_providers: Arc<BuildProviders>,
     materialization_and_upload: &'a MaterializationAndUploadContext,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
@@ -383,6 +401,7 @@ fn build_targets_in_universe<'a>(
                         skippable: false,
                         want_configured_graph_size,
                     },
+                    timeout_observer,
                 )
                 .await
             }
@@ -400,6 +419,7 @@ fn build_targets_with_global_target_platform<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
     futures::stream::iter(spec.specs.into_iter().map(move |(package, spec)| {
         build_targets_for_spec(
@@ -412,6 +432,7 @@ fn build_targets_with_global_target_platform<'a>(
             missing_target_behavior,
             skip_incompatible_targets,
             want_configured_graph_size,
+            timeout_observer,
         )
         .boxed()
         .flatten_stream()
@@ -459,6 +480,7 @@ async fn build_targets_for_spec<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let skippable = match spec {
         PackageSpec::Targets(..) => skip_incompatible_targets,
@@ -539,6 +561,7 @@ async fn build_targets_for_spec<'a>(
                     build_spec,
                     &providers_to_build,
                     materialization_and_upload,
+                    timeout_observer,
                 )
                 .await
             }
@@ -554,6 +577,7 @@ async fn build_target<'a>(
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_and_upload: &'a MaterializationAndUploadContext,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
@@ -580,6 +604,7 @@ async fn build_target<'a>(
             skippable: spec.skippable,
             want_configured_graph_size: spec.want_configured_graph_size,
         },
+        timeout_observer,
     )
     .await
     .map(BuildEvent::Configured)

@@ -14,6 +14,7 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -181,6 +182,14 @@ impl BuildTargetResult {
                          .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphSize for a skipped target: `{}`", label))?
                          .configured_graph_size = Some(configured_graph_size);
                 }
+                ConfiguredBuildEventVariant::Timeout => {
+                    res.get_mut(label.as_ref())
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                         .as_mut()
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{}`", label))?
+                         .errors.push(buck2_error::Error::from(BuildDeadlineExpired));
+                    build_failed = true;
+                }
                 ConfiguredBuildEventVariant::Error { err } => {
                     build_failed = true;
                     res.entry((*label).dupe())
@@ -273,6 +282,8 @@ pub enum ConfiguredBuildEventVariant {
         /// An error that can't be associated with a single artifact.
         err: buck2_error::Error,
     },
+    // This target did not build within the allocated time.
+    Timeout,
 }
 
 /// Events to be accumulated using BuildTargetResult::collect_stream.
@@ -302,6 +313,11 @@ impl BuildEvent {
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = BuildDeadlineExpired)]
+#[error("Build timed out")]
+struct BuildDeadlineExpired;
+
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct BuildConfiguredLabelOptions {
     pub skippable: bool,
@@ -314,6 +330,7 @@ pub async fn build_configured_label<'a>(
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> BoxStream<'a, ConfiguredBuildEvent> {
     let providers_label = Arc::new(providers_label);
     build_configured_label_inner(
@@ -322,6 +339,7 @@ pub async fn build_configured_label<'a>(
         providers_label.dupe(),
         providers_to_build,
         opts,
+        timeout_observer,
     )
     .await
     .unwrap_or_else(|e| {
@@ -339,6 +357,7 @@ async fn build_configured_label_inner<'a>(
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<BoxStream<'a, ConfiguredBuildEvent>> {
     let artifact_fs = ctx.get().get_artifact_fs().await?;
 
@@ -469,7 +488,7 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
-    let outputs = outputs
+    let mut outputs = outputs
         .into_iter()
         .enumerate()
         .map({
@@ -493,7 +512,7 @@ async fn build_configured_label_inner<'a>(
                 })
             }
         })
-        .collect::<FuturesUnordered<_>>();
+        .collect::<Vec<_>>();
 
     let validation_result = {
         let validation_impl = VALIDATION_IMPL.get()?;
@@ -509,13 +528,34 @@ async fn build_configured_label_inner<'a>(
 
     outputs.push(validation_result);
 
-    let outputs = outputs.map({
-        let providers_label = providers_label.dupe();
-        move |result| ConfiguredBuildEvent {
-            label: providers_label.dupe(),
-            variant: ConfiguredBuildEventVariant::Execution(result),
-        }
-    });
+    let outputs = outputs
+        .into_iter()
+        .map(|build| {
+            let providers_label = providers_label.dupe();
+            async move {
+                let build = build.map(ConfiguredBuildEventVariant::Execution);
+
+                let variant = match timeout_observer {
+                    Some(timeout_observer) => {
+                        let alive = timeout_observer
+                            .while_alive()
+                            .map(|()| ConfiguredBuildEventVariant::Timeout);
+                        futures::pin_mut!(alive);
+                        futures::pin_mut!(build);
+                        futures::future::select(alive, build)
+                            .map(|r| r.factor_first().0)
+                            .await
+                    }
+                    None => build.await,
+                };
+
+                ConfiguredBuildEvent {
+                    label: providers_label.dupe(),
+                    variant,
+                }
+            }
+        })
+        .collect::<FuturesUnordered<_>>();
 
     let stream = futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
         label: providers_label.dupe(),

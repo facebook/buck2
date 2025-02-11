@@ -14,6 +14,7 @@ use buck2_cli_proto::TestSessionOptions;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::build::CommonBuildOptions;
 use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::timeout::CommonTimeoutOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -111,25 +112,6 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long, group = "re_options", alias = "unstable-force-tests-on-re")]
     unstable_allow_all_tests_on_re: bool,
 
-    // NOTE: the field below is given a different name from the test runner's `timeout` to avoid
-    // confusion between the two parameters.
-    /// How long to execute tests for. If the timeout is exceeded, Buck2 will exit
-    /// as quickly as possible and not run further tests. In-flight tests will be
-    /// cancelled. The test orchestrator will be allowed to shut down gracefully.
-    ///
-    /// The exit code is controlled by the test orchestrator (which normally should report zero for
-    /// this).
-    ///
-    /// The format is a concatenation of time spans (separated by spaces). Each time span is an
-    /// integer number and a suffix.
-    ///
-    /// Relevant supported suffixes: seconds, second, sec, s, minutes, minute, min, m, hours, hour,
-    /// hr, h
-    ///
-    /// For example: `5m 10s`, `500s`.
-    #[clap(long = "overall-timeout")]
-    timeout: Option<humantime::Duration>,
-
     #[clap(name = "TARGET_PATTERNS", help = "Patterns to test", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
@@ -184,6 +166,9 @@ If include patterns are present, regardless of whether exclude patterns are pres
     target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
+    timeout_options: CommonTimeoutOptions,
+
+    #[clap(flatten)]
     common_opts: CommonCommandOptions,
 }
 
@@ -219,14 +204,7 @@ impl StreamingCommand for TestCommand {
                         force_use_project_relative_paths: self.unstable_allow_all_tests_on_re,
                         force_run_from_project_root: self.unstable_allow_all_tests_on_re,
                     }),
-                    timeout: self
-                        .timeout
-                        .map(|t| {
-                            let t: std::time::Duration = t.into();
-                            t.try_into()
-                        })
-                        .transpose()
-                        .buck_error_context("Invalid `timeout`")?,
+                    timeout: self.timeout_options.overall_timeout()?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

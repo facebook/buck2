@@ -24,6 +24,7 @@
 
 pub mod build;
 pub mod target_cfg;
+pub mod timeout;
 pub mod ui;
 
 use std::path::Path;

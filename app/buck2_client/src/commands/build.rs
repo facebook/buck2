@@ -23,6 +23,7 @@ use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
 use buck2_client_ctx::common::build::CommonOutputOptions;
 use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
+use buck2_client_ctx::common::timeout::CommonTimeoutOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -133,6 +134,9 @@ pub struct BuildCommand {
 
     #[clap(flatten)]
     target_cfg: TargetCfgWithUniverseOptions,
+
+    #[clap(flatten)]
+    timeout_options: CommonTimeoutOptions,
 
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
@@ -259,6 +263,7 @@ impl StreamingCommand for BuildCommand {
                     final_artifact_materializations: self.materializations.to_proto() as i32,
                     final_artifact_uploads: self.uploads.to_proto() as i32,
                     target_universe: self.target_cfg.target_universe,
+                    timeout: self.timeout_options.overall_timeout()?,
                 },
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,

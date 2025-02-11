@@ -164,6 +164,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::TestDeadlineExpired => rank!(input),
         ErrorTag::Unimplemented => rank!(input),
         ErrorTag::InstallerInput => rank!(input),
+        ErrorTag::BuildDeadlineExpired => rank!(input),
 
         ErrorTag::Input => rank!(input),
 
