@@ -13,6 +13,7 @@ load(
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",
+    "LinkGroupInfoGenerator",
     "LinkGroupsDebugLinkableEntry",
     "LinkGroupsDebugLinkableItem",
 )
@@ -209,9 +210,18 @@ def get_link_group_info(
 
     # If specified as a dep that provides the `LinkGroupInfo`, use that.
     if isinstance(link_group_map, Dependency):
+        if LinkGroupInfoGenerator in link_group_map:
+            generator = link_group_map[LinkGroupInfoGenerator]
+            return generator.generator(ctx, executable_deps, generator.link_group_map)
         return link_group_map[LinkGroupInfo]
 
     # Otherwise build one from our graph.
+    return get_link_group_info_from_linkable_graph(ctx, executable_deps, ctx.attrs.link_group_map)
+
+def get_link_group_info_from_linkable_graph(
+        ctx: AnalysisContext,
+        executable_deps: [list[LinkableGraph], None] = None,
+        link_group_map: list = []) -> [LinkGroupInfo, None]:
     expect(executable_deps != None)
     link_groups = parse_groups_definitions(link_group_map)
     linkable_graph = create_linkable_graph(

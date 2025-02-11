@@ -45,6 +45,13 @@ LinkGroupInfo = provider(
     },
 )
 
+LinkGroupInfoGenerator = provider(
+    fields = {
+        "generator": provider_field(typing.Any),
+        "link_group_map": provider_field(list[typing.Any]),
+    },
+)
+
 _FILTER_ATTR = attrs.one_of(attrs.dep(providers = [GroupFilterInfo]), attrs.string())
 
 def link_group_inlined_map_attr(root_attr):
@@ -76,7 +83,7 @@ def link_group_inlined_map_attr(root_attr):
 
 LINK_GROUP_MAP_ATTR = attrs.option(
     attrs.one_of(
-        attrs.dep(providers = [LinkGroupInfo]),
+        attrs.dep(),  # LinkGroupInfo or LinkGroupInfoGenerator
         link_group_inlined_map_attr(
             # Inlined `link_group_map` will parse roots as `label`s, to avoid
             # bloating deps w/ unrelated mappings (e.g. it's common to use
