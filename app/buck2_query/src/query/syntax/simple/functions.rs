@@ -450,9 +450,19 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
-    /// Filter using regex partial match.
-    /// Target are matched against their fully qualified name.
-    /// Files are matched against their repo path like `repo//foo/bar/baz.py`.
+    /// Filter targets or files by regex.
+    ///
+    /// Use regex partial match to filter either a [*target expression*](#target-expression) or [*file expression*](#file-expression).
+    /// * Targets are matched against their fully-qualified name, such as `cell//foo/bar:baz`.
+    /// * Files are matched against a repo path, such as `cell//foo/bar/baz.py`.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "filter(validation$, //buck2/app/...)"
+    ///
+    /// //buck2/app/buck2_validation:buck2_validation
+    /// ```
+    /// returns all targets within `//buck2/app` that have a label with a `validation` suffix.
     async fn filter(&self, regex: String, set: QueryValueSet<Env::Target>) -> QueryFuncResult<Env> {
         match set {
             QueryValueSet::TargetSet(targets) => Ok(self
