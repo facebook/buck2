@@ -57,7 +57,6 @@ enum SystemWarningTypes {
     MemoryPressure,
     LowDiskSpace,
     SlowDownloadSpeed,
-    LowCacheHits,
 }
 
 static ELAPSED_SYSTEM_WARNING_MAP: Lazy<Mutex<HashMap<SystemWarningTypes, (Instant, u64)>>> =
@@ -139,10 +138,6 @@ fn init_remaining_system_warning_count() {
         .lock()
         .unwrap()
         .insert(SystemWarningTypes::SlowDownloadSpeed, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
-        .lock()
-        .unwrap()
-        .insert(SystemWarningTypes::LowCacheHits, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.
