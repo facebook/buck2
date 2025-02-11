@@ -36,12 +36,12 @@ pub(crate) enum SysrootConfig {
 /// `sysroot_src` is the directory that contains the source to std crates:
 /// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
 #[instrument(ret)]
-pub(crate) fn resolve_buckconfig_sysroot(project_root: &Path) -> Result<Sysroot, anyhow::Error> {
-    let buck = Buck::default();
-
-    if cfg!(target_os = "linux") {
-        let sysroot_src = project_root.join(buck.resolve_sysroot_src()?);
-
+pub(crate) fn resolve_buckconfig_sysroot(
+    buck: &Buck,
+    project_root: &Path,
+) -> Result<Sysroot, anyhow::Error> {
+    let sysroot_src = project_root.join(buck.resolve_sysroot_src()?);
+    let sysroot: PathBuf = {
         // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with something
         // derived from buck, e.g.
         //
@@ -51,32 +51,23 @@ pub(crate) fn resolve_buckconfig_sysroot(project_root: &Path) -> Result<Sysroot,
         // $ buck cquery -u fbcode//buck2/integrations/rust-project:rust-project -a exe fbcode//tools/build/buck/wrappers:rust-platform010-clang-17-nosan-compiler
         // ...
         //     "exe": "fbcode//third-party-buck/platform010/build/rust/llvm-fb-17:bin/rustc (fbcode//buck2/platform/execution:linux-x86_64#54c5d1cbad5316cb)",
-        let sysroot = Sysroot {
-            sysroot: project_root.join("fbcode/third-party-buck/platform010/build/rust/llvm-fb-17"),
-            sysroot_src: Some(sysroot_src),
-        };
+        let fbsource_rustc = project_root.join("xplat/rust/toolchain/current/basic/bin/rustc");
+        let mut sysroot_cmd = Command::new(fbsource_rustc);
+        sysroot_cmd
+            .arg("--print=sysroot")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let sysroot_child = sysroot_cmd.spawn()?;
 
-        return Ok(sysroot);
-    }
-    // Spawn both `rustc` and `buck audit config` in parallel without blocking.
-    let fbsource_rustc = project_root.join("xplat/rust/toolchain/current/basic/bin/rustc");
-    let mut sysroot_cmd = Command::new(fbsource_rustc);
-    sysroot_cmd
-        .arg("--print=sysroot")
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    let sysroot_child = sysroot_cmd.spawn()?;
-
-    let sysroot_src = project_root.join(buck.resolve_sysroot_src()?);
-
-    // Now block while we wait for both processes.
-    let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
-        .context("error asking rustc for sysroot")?;
-    truncate_line_ending(&mut sysroot);
+        let mut sysroot = utf8_output(sysroot_child.wait_with_output(), &sysroot_cmd)
+            .context("error asking rustc for sysroot")?;
+        truncate_line_ending(&mut sysroot);
+        sysroot.into()
+    };
 
     Ok(Sysroot {
-        sysroot: sysroot.into(),
+        sysroot,
         sysroot_src: Some(sysroot_src),
     })
 }

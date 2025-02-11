@@ -249,7 +249,7 @@ impl Develop {
                 sysroot: safe_canonicalize(&expand_tilde(path)?),
                 sysroot_src: None,
             },
-            SysrootConfig::BuckConfig => resolve_buckconfig_sysroot(&project_root)?,
+            SysrootConfig::BuckConfig => resolve_buckconfig_sysroot(&buck, &project_root)?,
             SysrootConfig::Rustup => resolve_rustup_sysroot()?,
         };
         info!("converting buck info to rust-project.json");
