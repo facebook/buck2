@@ -79,6 +79,8 @@ PythonToolchainInfo = provider(
         # The fully qualified name of a function that handles invoking the
         # executable's entry point
         "main_runner": provider_field(str, default = "__par__.bootstrap.run_as_main"),
+        # Prefix to use when running a Python test/executable.
+        "run_prefix": provider_field(list[typing.Any], default = []),
     },
 )
 

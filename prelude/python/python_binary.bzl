@@ -210,7 +210,7 @@ def python_executable(
         other_outputs_prefix = exe.other_outputs_prefix,
         hidden_resources = exe.hidden_resources,
         sub_targets = exe.sub_targets,
-        run_cmd = exe.run_cmd,
+        run_cmd = cmd_args(python_toolchain.run_prefix, exe.run_cmd),
         dbg_source_db = dbg_source_db_output,
     )
 
