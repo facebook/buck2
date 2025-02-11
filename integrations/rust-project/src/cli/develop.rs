@@ -19,7 +19,6 @@ use tracing::info;
 
 use super::Input;
 use crate::buck;
-use crate::buck::relative_to;
 use crate::buck::select_mode;
 use crate::buck::to_json_project;
 use crate::json_project::JsonProject;
@@ -34,7 +33,6 @@ use crate::Command;
 #[derive(Debug)]
 pub(crate) struct Develop {
     pub(crate) sysroot: SysrootConfig,
-    pub(crate) relative_paths: bool,
     pub(crate) buck: buck::Buck,
     pub(crate) check_cycles: bool,
     pub(crate) invoked_by_ra: bool,
@@ -62,7 +60,6 @@ impl Develop {
             prefer_rustup_managed_toolchain,
             sysroot,
             pretty,
-            relative_paths,
             mode,
             check_cycles,
             include_all_buildfiles,
@@ -88,7 +85,6 @@ impl Develop {
 
             let develop = Develop {
                 sysroot,
-                relative_paths,
                 buck,
                 check_cycles,
                 invoked_by_ra: false,
@@ -130,7 +126,6 @@ impl Develop {
 
             let develop = Develop {
                 sysroot,
-                relative_paths: false,
                 buck,
                 check_cycles: false,
                 invoked_by_ra: true,
@@ -231,7 +226,6 @@ impl Develop {
     pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
         let Develop {
             sysroot,
-            relative_paths,
             buck,
             check_cycles,
             include_all_buildfiles,
@@ -251,20 +245,11 @@ impl Develop {
 
         info!("fetching sysroot");
         let sysroot = match &sysroot {
-            SysrootConfig::Sysroot(path) => {
-                let mut sysroot_path = safe_canonicalize(&expand_tilde(path)?);
-                if *relative_paths {
-                    sysroot_path = relative_to(&sysroot_path, &project_root);
-                }
-
-                Sysroot {
-                    sysroot: sysroot_path,
-                    sysroot_src: None,
-                }
-            }
-            SysrootConfig::BuckConfig => {
-                resolve_buckconfig_sysroot(&project_root, *relative_paths)?
-            }
+            SysrootConfig::Sysroot(path) => Sysroot {
+                sysroot: safe_canonicalize(&expand_tilde(path)?),
+                sysroot_src: None,
+            },
+            SysrootConfig::BuckConfig => resolve_buckconfig_sysroot(&project_root)?,
             SysrootConfig::Rustup => resolve_rustup_sysroot()?,
         };
         info!("converting buck info to rust-project.json");
@@ -272,7 +257,6 @@ impl Develop {
             sysroot,
             expanded_and_resolved,
             aliased_libraries,
-            *relative_paths,
             *check_cycles,
             *include_all_buildfiles,
         )?;

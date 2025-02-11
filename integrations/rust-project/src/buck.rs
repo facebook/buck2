@@ -49,7 +49,6 @@ pub(crate) fn to_json_project(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
-    relative_paths: bool,
     check_cycles: bool,
     include_all_buildfiles: bool,
 ) -> Result<JsonProject, anyhow::Error> {
@@ -109,7 +108,7 @@ pub(crate) fn to_json_project(
         // the mapping here is inverted, which means we need to search through the keys for the Target.
         // thankfully, most projects don't have to many proc macros, which means the size of this list
         // remains in the two digit space.
-        let mut proc_macro_dylib_path = proc_macros
+        let proc_macro_dylib_path = proc_macros
             .values()
             .find(|macro_output| macro_output.actual == *target)
             .map(|macro_output| macro_output.dylib.clone());
@@ -118,19 +117,11 @@ pub(crate) fn to_json_project(
         }
 
         // corresponds to the BUCK/TARGETS file of a target.
-        let mut build_file = info.project_relative_buildfile.clone();
+        let build_file = project_root.join(info.project_relative_buildfile.clone());
 
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
-        let mut root_module = info.root_module(&project_root);
-
-        if relative_paths {
-            proc_macro_dylib_path = proc_macro_dylib_path.map(|p| relative_to(&p, &project_root));
-            root_module = relative_to(&root_module, &project_root);
-        } else {
-            let path = project_root.join(build_file);
-            build_file = path;
-        }
+        let root_module = info.root_module(&project_root);
 
         let mut env = FxHashMap::default();
 
@@ -303,15 +294,6 @@ fn format_route(route: &[usize], crates: &[Crate]) -> String {
     }
 
     formatted_crates.join(" -> ")
-}
-
-/// If `path` starts with `base`, drop the prefix.
-pub(crate) fn relative_to(path: &Path, base: &Path) -> PathBuf {
-    match path.strip_prefix(base) {
-        Ok(rel_path) => rel_path,
-        Err(_) => path,
-    }
-    .to_owned()
 }
 
 /// If any target in `targets` is an alias, resolve it to the actual target.

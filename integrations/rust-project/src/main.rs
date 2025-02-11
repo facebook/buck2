@@ -100,10 +100,6 @@ enum Command {
         #[clap(long)]
         check_cycles: bool,
 
-        /// Use paths relative to the project root in `rust-project.json`.
-        #[clap(long, hide = true)]
-        relative_paths: bool,
-
         /// The name of the client invoking rust-project, such as 'vscode'.
         #[clap(long)]
         client: Option<String>,
