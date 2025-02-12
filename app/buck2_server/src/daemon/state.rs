@@ -71,6 +71,7 @@ use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
+use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
@@ -189,6 +190,9 @@ pub struct DaemonStateData {
 
     /// Tracks memory usage. Used to make scheduling decisions.
     pub memory_tracker: Option<Arc<MemoryTracker>>,
+
+    /// Tracks data about previous command (e.g. configs)
+    pub previous_command_data: Arc<LockedPreviousCommandData>,
 }
 
 impl DaemonStateData {
@@ -644,6 +648,7 @@ impl DaemonState {
                 tags,
                 system_warning_config,
                 memory_tracker,
+                previous_command_data: LockedPreviousCommandData::new(),
             }))
         })
         .await?

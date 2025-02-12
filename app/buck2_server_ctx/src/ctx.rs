@@ -10,8 +10,10 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Instant;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_signals::env::BuildSignalsContext;
 use buck2_build_signals::env::DeferredBuildSignals;
@@ -32,6 +34,7 @@ use buck2_data::DiceCriticalSectionStart;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -41,6 +44,30 @@ use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
 
 const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "synchronizing-and-waiting";
+
+#[derive(Allocative, Debug)]
+pub struct PreviousCommandDataInternal {
+    pub external_configs: Vec<buck2_data::BuckconfigComponent>,
+    pub sanitized_argv: Vec<String>,
+    pub trace_id: TraceId,
+}
+
+#[derive(Allocative, Debug)]
+pub struct PreviousCommandData {
+    pub data: Option<PreviousCommandDataInternal>,
+}
+
+#[derive(Allocative, Debug)]
+pub struct LockedPreviousCommandData {
+    pub data: Mutex<PreviousCommandData>,
+}
+impl LockedPreviousCommandData {
+    pub fn new() -> Arc<Self> {
+        Arc::new(LockedPreviousCommandData {
+            data: Mutex::new(PreviousCommandData { data: None }),
+        })
+    }
+}
 
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync {
