@@ -212,11 +212,20 @@ def cxx_link_into(
         split_debug_output = split_debug_lto_info.output
     expect(not generates_split_debug(cxx_toolchain_info) or split_debug_output != None)
 
+    link_args_suffix = None
+    if opts.identifier:
+        link_args_suffix = opts.identifier
+    if opts.category_suffix:
+        if link_args_suffix:
+            link_args_suffix += "-" + opts.category_suffix
+        else:
+            link_args_suffix = opts.category_suffix
     link_args_output = make_link_args(
         ctx,
         ctx.actions,
         cxx_toolchain_info,
         links_with_linker_map,
+        suffix = link_args_suffix,
         output_short_path = output.short_path,
         link_ordering = value_or(
             opts.link_ordering,
@@ -361,6 +370,7 @@ def cxx_link_into(
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
+        linker_filelist = link_args_output.filelist,
         linker_command = command,
         import_library = opts.import_library,
         pdb = link_args_output.pdb_artifact,
