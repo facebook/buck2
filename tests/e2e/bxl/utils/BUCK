@@ -5,4 +5,8 @@ oncall("build_infra")
 buck2_e2e_test(
     name = "test_lazy_utils",
     srcs = ["test_lazy_utils.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    env = {
+        "PRELUDE": "$(location prelude//:prelude)",
+    },
 )
