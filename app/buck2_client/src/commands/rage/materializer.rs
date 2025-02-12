@@ -93,7 +93,7 @@ impl PartialResultHandler for CaptureStdout {
 
     async fn handle_partial_result(
         &mut self,
-        _ctx: PartialResultCtx<'_, '_>,
+        _ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> buck2_error::Result<()> {
         self.buf.extend(partial_res.data);

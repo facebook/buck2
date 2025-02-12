@@ -16,6 +16,7 @@
 #![feature(used_with_arg)]
 #![feature(round_char_boundary)]
 #![feature(extract_if)]
+#![feature(async_closure)]
 
 pub mod argfiles;
 pub mod client_cpu_tracker;

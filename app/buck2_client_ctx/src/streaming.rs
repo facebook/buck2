@@ -39,11 +39,11 @@ use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscribers::EventSubscribers;
 
-fn default_subscribers<'a, T: StreamingCommand>(
+fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
     matches: BuckArgMatches<'_>,
-    ctx: &ClientCommandContext<'a>,
-) -> buck2_error::Result<EventSubscribers<'a>> {
+    ctx: &ClientCommandContext,
+) -> buck2_error::Result<EventSubscribers> {
     let console_opts = cmd.console_opts();
     let mut subscribers = vec![];
     let expect_spans = cmd.should_expect_spans();
@@ -236,6 +236,9 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         let result = with_simple_sigint_handler(work)
             .await
             .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt));
+
+        // Run registered async clean up functions (finalize event logs, write to scribe)
+        ctx.async_cleanup_context().cleanup().await;
 
         result.write_command_report(ctx.trace_id, buck_log_dir, command_report_path)?;
         result

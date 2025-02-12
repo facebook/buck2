@@ -87,17 +87,17 @@ pub trait PartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        ctx: PartialResultCtx<'_, '_>,
+        ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> buck2_error::Result<()>;
 }
 
 /// Exposes restricted access to EventsCtx from PartialResultHandler instances.
-pub struct PartialResultCtx<'a, 'b> {
-    inner: &'a mut EventsCtx<'b>,
+pub struct PartialResultCtx<'a> {
+    inner: &'a mut EventsCtx,
 }
 
-impl<'a, 'b> PartialResultCtx<'a, 'b> {
+impl<'a> PartialResultCtx<'a> {
     pub async fn stdout(&mut self, bytes: &[u8]) -> buck2_error::Result<()> {
         self.inner
             .subscribers
@@ -108,8 +108,8 @@ impl<'a, 'b> PartialResultCtx<'a, 'b> {
 
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// forwards them to the appropriate subscribers registered on this struct
-pub struct EventsCtx<'a> {
-    pub(crate) subscribers: EventSubscribers<'a>,
+pub struct EventsCtx {
+    pub(crate) subscribers: EventSubscribers,
     ticker: Ticker,
     client_cpu_tracker: ClientCpuTracker,
 }
@@ -120,8 +120,8 @@ pub enum FileTailerEvent {
     Stderr(Vec<u8>),
 }
 
-impl<'a> EventsCtx<'a> {
-    pub fn new(subscribers: EventSubscribers<'a>) -> Self {
+impl EventsCtx {
+    pub fn new(subscribers: EventSubscribers) -> Self {
         Self {
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
@@ -381,7 +381,7 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
     }
 }
 
-impl<'a> EventsCtx<'a> {
+impl EventsCtx {
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> buck2_error::Result<()> {
         let stderr = String::from_utf8_lossy(stderr);
         let stderr = stderr.trim_end();

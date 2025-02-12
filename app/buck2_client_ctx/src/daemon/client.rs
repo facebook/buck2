@@ -58,12 +58,12 @@ enum LifecycleError {
 
 /// We need to make sure that all calls to the daemon in buckd flush the tailers after completion.
 /// The connector wraps all buckd calls with flushing.
-pub struct BuckdClientConnector<'a> {
-    client: BuckdClient<'a>,
+pub struct BuckdClientConnector {
+    client: BuckdClient,
 }
 
-impl<'a> BuckdClientConnector<'a> {
-    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_, 'a> {
+impl BuckdClientConnector {
+    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_> {
         FlushingBuckdClient {
             inner: &mut self.client,
         }
@@ -144,13 +144,13 @@ impl Drop for BuckdLifecycleLock {
 /// some of the complexity/verbosity of making calls with that. For example, the user
 /// doesn't need to deal with tonic::Response/Request and this may provide functions
 /// that take more primitive types than the protobuf structure itself.
-pub struct BuckdClient<'a> {
+pub struct BuckdClient {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     constraints: buck2_cli_proto::DaemonConstraints,
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,
-    pub(crate) events_ctx: EventsCtx<'a>,
+    pub(crate) events_ctx: EventsCtx,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -217,7 +217,7 @@ fn grpc_to_stream(
     .right_stream()
 }
 
-impl<'a> BuckdClient<'a> {
+impl BuckdClient {
     fn open_tailers(&mut self) -> buck2_error::Result<()> {
         let tailers = FileTailers::new(&self.daemon_dir)?;
         self.tailers = Some(tailers);
@@ -292,11 +292,11 @@ impl<'a> BuckdClient<'a> {
     }
 }
 
-pub struct FlushingBuckdClient<'a, 'b> {
-    inner: &'a mut BuckdClient<'b>,
+pub struct FlushingBuckdClient<'a> {
+    inner: &'a mut BuckdClient,
 }
 
-impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
+impl<'a> FlushingBuckdClient<'a> {
     fn enter(&mut self) -> buck2_error::Result<()> {
         self.inner.open_tailers()?;
         Ok(())
@@ -330,7 +330,7 @@ impl PartialResultHandler for NoPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        _ctx: PartialResultCtx<'_, '_>,
+        _ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> buck2_error::Result<()> {
         match partial_res {}
@@ -346,7 +346,7 @@ impl PartialResultHandler for StdoutPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        mut ctx: PartialResultCtx<'_, '_>,
+        mut ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> buck2_error::Result<()> {
         ctx.stdout(&partial_res.data).await
@@ -468,7 +468,7 @@ macro_rules! wrap_method {
      };
  }
 
-impl<'a, 'b> FlushingBuckdClient<'a, 'b> {
+impl<'a> FlushingBuckdClient<'a> {
     stream_method!(
         aquery,
         AqueryRequest,

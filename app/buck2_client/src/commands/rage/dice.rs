@@ -58,7 +58,7 @@ impl DiceDump {
 
     async fn upload(
         &self,
-        mut buckd: BuckdClientConnector<'_>,
+        mut buckd: BuckdClientConnector,
         manifold: &ManifoldClient,
         manifold_bucket: Bucket,
         manifold_filename: &str,

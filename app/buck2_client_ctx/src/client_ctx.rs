@@ -57,7 +57,7 @@ pub struct ClientCommandContext<'a> {
         Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
     pub(crate) argv: Argv,
     pub trace_id: TraceId,
-    async_cleanup: AsyncCleanupContext<'a>,
+    async_cleanup: AsyncCleanupContext,
     stdin: &'a mut Stdin,
     pub(crate) restarter: &'a mut Restarter,
     pub(crate) restarted_trace_id: Option<TraceId>,
@@ -77,7 +77,6 @@ impl<'a> ClientCommandContext<'a> {
         start_in_process_daemon: Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
         argv: Argv,
         trace_id: TraceId,
-        async_cleanup: AsyncCleanupContext<'a>,
         stdin: &'a mut Stdin,
         restarter: &'a mut Restarter,
         restarted_trace_id: Option<TraceId>,
@@ -95,7 +94,7 @@ impl<'a> ClientCommandContext<'a> {
             start_in_process_daemon,
             argv,
             trace_id,
-            async_cleanup,
+            async_cleanup: AsyncCleanupContext::new(),
             stdin,
             restarter,
             restarted_trace_id,
@@ -143,7 +142,7 @@ impl<'a> ClientCommandContext<'a> {
     ) -> buck2_error::Result<()>
     where
         Fut: Future<Output = buck2_error::Result<()>> + 'a,
-        F: FnOnce(ClientCommandContext<'a>) -> Fut,
+        F: FnOnce(ClientCommandContext<'a>) -> Fut + 'a,
     {
         let mut recorder = try_get_invocation_recorder(
             &self,
@@ -156,9 +155,13 @@ impl<'a> ClientCommandContext<'a> {
 
         recorder.update_metadata_from_client_metadata(&self.client_metadata);
 
-        let result = self.with_runtime(func);
-
-        recorder.instant_command_outcome(result.is_ok());
+        let cleanup_ctx = self.async_cleanup.dupe();
+        let result = self.with_runtime(async move |ctx| {
+            let result = func(ctx).await;
+            recorder.instant_command_outcome(result.is_ok());
+            cleanup_ctx.cleanup().await;
+            result
+        });
         result.into()
     }
 
@@ -171,7 +174,7 @@ impl<'a> ClientCommandContext<'a> {
     ) -> buck2_error::Result<()>
     where
         Fut: Future<Output = buck2_error::Result<()>> + 'a,
-        F: FnOnce(ClientCommandContext<'a>) -> Fut,
+        F: FnOnce(ClientCommandContext<'a>) -> Fut + 'a,
     {
         self.instant_command(
             command_name,
@@ -201,8 +204,8 @@ impl<'a> ClientCommandContext<'a> {
 
     pub async fn connect_buckd(
         &self,
-        options: BuckdConnectOptions<'a>,
-    ) -> buck2_error::Result<BuckdClientConnector<'a>> {
+        options: BuckdConnectOptions,
+    ) -> buck2_error::Result<BuckdClientConnector> {
         BuckdConnectOptions { ..options }
             .connect(self.paths()?)
             .await
@@ -303,7 +306,7 @@ impl<'a> ClientCommandContext<'a> {
         })
     }
 
-    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext<'a> {
+    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
         &self.async_cleanup
     }
 

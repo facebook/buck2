@@ -16,12 +16,12 @@ use crate::subscribers::observer::ErrorObserver;
 use crate::subscribers::subscriber::EventSubscriber;
 
 #[derive(Default)]
-pub struct EventSubscribers<'a> {
-    subscribers: Vec<Box<dyn EventSubscriber + 'a>>,
+pub struct EventSubscribers {
+    subscribers: Vec<Box<dyn EventSubscriber>>,
 }
 
-impl<'a> EventSubscribers<'a> {
-    pub fn new(subscribers: Vec<Box<dyn EventSubscriber + 'a>>) -> EventSubscribers<'a> {
+impl EventSubscribers {
+    pub fn new(subscribers: Vec<Box<dyn EventSubscriber>>) -> EventSubscribers {
         EventSubscribers { subscribers }
     }
 
@@ -29,7 +29,7 @@ impl<'a> EventSubscribers<'a> {
     /// Quits on the first error encountered.
     pub(crate) async fn for_each_subscriber<'b, Fut>(
         &'b mut self,
-        f: impl FnMut(&'b mut Box<dyn EventSubscriber + 'a>) -> Fut,
+        f: impl FnMut(&'b mut Box<dyn EventSubscriber>) -> Fut,
     ) -> buck2_error::Result<()>
     where
         Fut: Future<Output = buck2_error::Result<()>> + 'b,

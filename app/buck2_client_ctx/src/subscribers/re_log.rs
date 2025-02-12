@@ -25,16 +25,16 @@ use futures::FutureExt;
 
 use crate::subscribers::subscriber::EventSubscriber;
 
-pub(crate) struct ReLog<'a> {
+pub(crate) struct ReLog {
     re_session_id: Option<String>,
     isolation_dir: FileNameBuf,
-    async_cleanup_context: AsyncCleanupContext<'a>,
+    async_cleanup_context: AsyncCleanupContext,
 }
 
-impl<'a> ReLog<'a> {
+impl ReLog {
     pub(crate) fn new(
         isolation_dir: FileNameBuf,
-        async_cleanup_context: AsyncCleanupContext<'a>,
+        async_cleanup_context: AsyncCleanupContext,
     ) -> Self {
         Self {
             re_session_id: None,
@@ -60,7 +60,7 @@ impl<'a> ReLog<'a> {
 }
 
 #[async_trait]
-impl<'a> EventSubscriber for ReLog<'a> {
+impl EventSubscriber for ReLog {
     async fn exit(&mut self) -> buck2_error::Result<()> {
         self.log_upload().await
     }
@@ -82,7 +82,7 @@ impl<'a> EventSubscriber for ReLog<'a> {
     }
 }
 
-impl<'a> Drop for ReLog<'a> {
+impl Drop for ReLog {
     fn drop(&mut self) {
         let upload = self.log_upload();
         self.async_cleanup_context.register(

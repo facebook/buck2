@@ -398,7 +398,7 @@ impl StreamingCommand for TargetsCommand {
 
 async fn targets_show_outputs(
     console_interaction: Option<ConsoleInteractionStream<'_>>,
-    buckd: &mut BuckdClientConnector<'_>,
+    buckd: &mut BuckdClientConnector,
     target_request: TargetsRequest,
     root_path: Option<&AbsNormPath>,
     format: PrintOutputsFormat,
@@ -428,7 +428,7 @@ async fn targets_show_outputs(
 
 async fn targets(
     console_interaction: Option<ConsoleInteractionStream<'_>>,
-    buckd: &mut BuckdClientConnector<'_>,
+    buckd: &mut BuckdClientConnector,
     target_request: TargetsRequest,
 ) -> ExitResult {
     let response = buckd

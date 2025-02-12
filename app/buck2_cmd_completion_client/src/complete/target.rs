@@ -165,13 +165,13 @@ impl<'a> TargetCompleter<'a> {
     }
 }
 
-struct DaemonTargetResolver<'a, 'b> {
-    buckd_client: FlushingBuckdClient<'a, 'b>,
+struct DaemonTargetResolver<'a> {
+    buckd_client: FlushingBuckdClient<'a>,
     context: ClientContext,
     target_cfg: TargetCfgOptions,
 }
 
-impl<'a, 'b> TargetResolver for DaemonTargetResolver<'a, 'b> {
+impl<'a> TargetResolver for DaemonTargetResolver<'a> {
     fn resolve(&mut self, partial_target: String) -> BoxFuture<CommandOutcome<Vec<String>>> {
         let request = NewGenericRequest::Complete(CompleteRequest {
             target_cfg: self.target_cfg.target_cfg(),

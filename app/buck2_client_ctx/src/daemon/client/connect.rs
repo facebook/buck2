@@ -557,7 +557,7 @@ impl BootstrapBuckdClient {
     pub async fn connect(
         paths: &InvocationPaths,
         constraints: BuckdConnectConstraints,
-        event_subscribers: &mut EventSubscribers<'_>,
+        event_subscribers: &mut EventSubscribers,
     ) -> buck2_error::Result<Self> {
         let daemon_dir = paths.daemon_dir()?;
 
@@ -582,10 +582,7 @@ impl BootstrapBuckdClient {
         }
     }
 
-    pub fn with_subscribers<'a>(
-        self,
-        subscribers: EventSubscribers<'a>,
-    ) -> BuckdClientConnector<'a> {
+    pub fn with_subscribers(self, subscribers: EventSubscribers) -> BuckdClientConnector {
         BuckdClientConnector {
             client: BuckdClient {
                 daemon_dir: self.daemon_dir,
@@ -620,15 +617,15 @@ impl BootstrapBuckdClient {
 /// If the `existing_only` method is called, then any existing buck daemon (regardless of constraint) is accepted.
 ///
 /// The default set of subscribers is *not* empty, but rather forwards stdout and stderr, which captures panics, for example.
-pub struct BuckdConnectOptions<'a> {
+pub struct BuckdConnectOptions {
     /// Subscribers manage the way that incoming events from the server are handled.
     /// The client will forward events and stderr/stdout output from the server to each subscriber.
     /// By default, this list is set to a single subscriber that notifies the user of basic output from the server.
-    pub(crate) subscribers: EventSubscribers<'a>,
+    pub(crate) subscribers: EventSubscribers,
     pub constraints: BuckdConnectConstraints,
 }
 
-impl<'a> BuckdConnectOptions<'a> {
+impl BuckdConnectOptions {
     pub fn existing_only_no_console() -> Self {
         Self {
             constraints: BuckdConnectConstraints::ExistingOnly,
@@ -639,7 +636,7 @@ impl<'a> BuckdConnectOptions<'a> {
     pub async fn connect(
         mut self,
         paths: &InvocationPaths,
-    ) -> buck2_error::Result<BuckdClientConnector<'a>> {
+    ) -> buck2_error::Result<BuckdClientConnector> {
         match BootstrapBuckdClient::connect(paths, self.constraints, &mut self.subscribers)
             .await
             .map_err(buck2_error::Error::from)
@@ -675,7 +672,7 @@ pub async fn establish_connection_existing(
 async fn establish_connection(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
-    event_subscribers: &mut EventSubscribers<'_>,
+    event_subscribers: &mut EventSubscribers,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
@@ -718,7 +715,7 @@ async fn establish_connection_inner(
     paths: &InvocationPaths,
     constraints: DaemonConstraintsRequest,
     deadline: StartupDeadline,
-    event_subscribers: &mut EventSubscribers<'_>,
+    event_subscribers: &mut EventSubscribers,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     let daemon_dir = paths.daemon_dir()?;
 
@@ -852,7 +849,7 @@ async fn start_new_buckd_and_connect(
     lifecycle_lock: &BuckdLifecycle<'_>,
     paths: &InvocationPaths,
     constraints: &DaemonConstraintsRequest,
-    event_subscribers: &mut EventSubscribers<'_>,
+    event_subscribers: &mut EventSubscribers,
     daemon_was_started_reason: buck2_data::DaemonWasStartedReason,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
     // Daemon dir may be corrupted. Safer to delete it.

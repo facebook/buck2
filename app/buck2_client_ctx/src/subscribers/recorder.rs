@@ -85,7 +85,7 @@ pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
 
 const MEMORY_PRESSURE_TAG: &str = "memory_pressure_warning";
 
-pub(crate) struct InvocationRecorder<'a> {
+pub(crate) struct InvocationRecorder {
     fb: FacebookInit,
     write_to_path: Option<AbsPathBuf>,
     command_name: &'static str,
@@ -93,7 +93,7 @@ pub(crate) struct InvocationRecorder<'a> {
     representative_config_flags: Vec<String>,
     isolation_dir: String,
     start_time: Instant,
-    async_cleanup_context: AsyncCleanupContext<'a>,
+    async_cleanup_context: AsyncCleanupContext,
     build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
     command_end: Option<buck2_data::CommandEnd>,
@@ -219,10 +219,10 @@ struct ErrorsReport {
     error_category: Option<String>,
 }
 
-impl<'a> InvocationRecorder<'a> {
+impl InvocationRecorder {
     pub fn new(
         fb: FacebookInit,
-        async_cleanup_context: AsyncCleanupContext<'a>,
+        async_cleanup_context: AsyncCleanupContext,
         write_to_path: Option<AbsPathBuf>,
         command_name: &'static str,
         sanitized_argv: Vec<String>,
@@ -1651,7 +1651,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
     }
 }
 
-impl<'a> Drop for InvocationRecorder<'a> {
+impl Drop for InvocationRecorder {
     fn drop(&mut self) {
         let event = self.create_record_event();
         #[allow(unreachable_patterns)]
@@ -1675,7 +1675,7 @@ fn unique_and_sorted<T: Iterator<Item = String>>(input: T) -> Vec<String> {
 }
 
 #[async_trait]
-impl<'a> EventSubscriber for InvocationRecorder<'a> {
+impl EventSubscriber for InvocationRecorder {
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for event in events {
             self.handle_event(event).await?;
@@ -1762,7 +1762,7 @@ impl<'a> EventSubscriber for InvocationRecorder<'a> {
     }
 }
 
-impl<'a> ErrorObserver for InvocationRecorder<'a> {
+impl ErrorObserver for InvocationRecorder {
     fn daemon_in_memory_state_is_corrupted(&self) -> bool {
         self.daemon_in_memory_state_is_corrupted
     }
@@ -1811,14 +1811,14 @@ fn merge_file_watcher_stats(
     Some(a)
 }
 
-pub(crate) fn try_get_invocation_recorder<'a>(
-    ctx: &ClientCommandContext<'a>,
+pub(crate) fn try_get_invocation_recorder(
+    ctx: &ClientCommandContext<'_>,
     opts: &CommonEventLogOptions,
     command_name: &'static str,
     sanitized_argv: Vec<String>,
     representative_config_flags: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-) -> buck2_error::Result<Box<InvocationRecorder<'a>>> {
+) -> buck2_error::Result<Box<InvocationRecorder>> {
     let write_to_path = opts
         .unstable_write_invocation_record
         .as_ref()

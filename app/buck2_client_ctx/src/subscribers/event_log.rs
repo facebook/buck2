@@ -25,22 +25,22 @@ use crate::subscribers::subscriber::Tick;
 
 /// This EventLog lets us to events emitted by Buck and log them to a file. The events are
 /// serialized as JSON and logged one per line.
-pub(crate) struct EventLog<'a> {
-    async_cleanup_context: Option<AsyncCleanupContext<'a>>,
+pub(crate) struct EventLog {
+    async_cleanup_context: Option<AsyncCleanupContext>,
     writer: WriteEventLog,
 }
 
-impl<'a> EventLog<'a> {
+impl EventLog {
     pub(crate) fn new(
         logdir: AbsNormPathBuf,
         working_dir: AbsWorkingDir,
         extra_path: Option<AbsPathBuf>,
         extra_user_event_log_path: Option<AbsPathBuf>,
         sanitized_argv: SanitizedArgv,
-        async_cleanup_context: AsyncCleanupContext<'a>,
+        async_cleanup_context: AsyncCleanupContext,
         command_name: String,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    ) -> buck2_error::Result<EventLog<'a>> {
+    ) -> buck2_error::Result<EventLog> {
         Ok(Self {
             async_cleanup_context: Some(async_cleanup_context),
             writer: WriteEventLog::new(
@@ -57,7 +57,7 @@ impl<'a> EventLog<'a> {
 }
 
 #[async_trait]
-impl<'a> EventSubscriber for EventLog<'a> {
+impl EventSubscriber for EventLog {
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         Ok(self.writer.write_events(events).await?)
     }
@@ -95,7 +95,7 @@ impl<'a> EventSubscriber for EventLog<'a> {
     }
 }
 
-impl<'a> Drop for EventLog<'a> {
+impl Drop for EventLog {
     fn drop(&mut self) {
         let exit = self.writer.exit();
         match self.async_cleanup_context.as_ref() {

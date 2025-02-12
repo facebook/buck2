@@ -58,7 +58,6 @@ use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_util::threads::thread_spawn_scoped;
 use clap::CommandFactory;
 use clap::FromArgMatches;
@@ -379,7 +378,6 @@ impl CommandKind {
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
 
         let runtime = client_tokio_runtime()?;
-        let async_cleanup = AsyncCleanupContextGuard::new(&runtime);
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
@@ -405,7 +403,6 @@ impl CommandKind {
             start_in_process_daemon,
             argv,
             process.trace_id.dupe(),
-            async_cleanup.ctx().dupe(),
             process.stdin,
             process.restarter,
             process.restarted_trace_id.dupe(),

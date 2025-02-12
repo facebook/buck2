@@ -100,11 +100,11 @@ pub fn get_console_with_root(
 }
 
 /// Given the command arguments, conditionally create an event log.
-pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
+pub(crate) fn try_get_event_log_subscriber<T: StreamingCommand>(
     cmd: &T,
-    ctx: &ClientCommandContext<'a>,
+    ctx: &ClientCommandContext,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
     let event_log_opts = cmd.event_log_opts();
     let sanitized_argv = cmd.sanitize_argv(ctx.argv.clone());
     let user_event_log = cmd.user_event_log();
@@ -129,9 +129,9 @@ pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
     Ok(Some(Box::new(log)))
 }
 
-pub(crate) fn try_get_re_log_subscriber<'a>(
-    ctx: &ClientCommandContext<'a>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+pub(crate) fn try_get_re_log_subscriber(
+    ctx: &ClientCommandContext,
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
     let log = ReLog::new(
         ctx.paths()?.isolation.clone(),
         ctx.async_cleanup_context().dupe(),
@@ -139,10 +139,10 @@ pub(crate) fn try_get_re_log_subscriber<'a>(
     Ok(Some(Box::new(log)))
 }
 
-pub(crate) fn try_get_build_id_writer<'a>(
+pub(crate) fn try_get_build_id_writer(
     opts: &CommonEventLogOptions,
-    ctx: &ClientCommandContext<'a>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+    ctx: &ClientCommandContext,
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
     if let Some(file_loc) = opts.write_build_id.as_ref() {
         Ok(Some(Box::new(BuildIdWriter::new(
             file_loc.resolve(&ctx.working_dir),
@@ -152,10 +152,10 @@ pub(crate) fn try_get_build_id_writer<'a>(
     }
 }
 
-pub(crate) fn try_get_build_graph_stats<'a, T: StreamingCommand>(
+pub(crate) fn try_get_build_graph_stats<T: StreamingCommand>(
     cmd: &T,
-    ctx: &ClientCommandContext<'a>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+    ctx: &ClientCommandContext,
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
     if should_handle_build_graph_stats(cmd) {
         Ok(Some(Box::new(BuildGraphStats::new(
             ctx.fbinit(),
