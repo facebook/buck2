@@ -52,12 +52,42 @@ pub struct PreviousCommandDataInternal {
     pub trace_id: TraceId,
 }
 
-#[derive(Allocative, Debug)]
+#[derive(Allocative, Debug, Default)]
 pub struct PreviousCommandData {
     pub data: Option<PreviousCommandDataInternal>,
 }
 
-#[derive(Allocative, Debug)]
+impl PreviousCommandData {
+    pub fn process_current_command(
+        &mut self,
+        event_dispatcher: EventDispatcher,
+        current_external_configs: Vec<buck2_data::BuckconfigComponent>,
+        current_sanitized_argv: Vec<String>,
+        current_trace: TraceId,
+    ) {
+        if let Some(PreviousCommandDataInternal {
+            external_configs,
+            sanitized_argv,
+            trace_id,
+        }) = self.data.as_ref()
+        {
+            if *current_external_configs != *external_configs {
+                event_dispatcher.instant_event(buck2_data::PreviousCommandWithMismatchedConfig {
+                    sanitized_argv: sanitized_argv.clone(),
+                    trace_id: trace_id.to_string(),
+                });
+            }
+        }
+
+        self.data = Some(PreviousCommandDataInternal {
+            external_configs: current_external_configs,
+            sanitized_argv: current_sanitized_argv,
+            trace_id: current_trace,
+        });
+    }
+}
+
+#[derive(Allocative, Debug, Default)]
 pub struct LockedPreviousCommandData {
     pub data: Mutex<PreviousCommandData>,
 }
@@ -92,6 +122,8 @@ pub trait ServerCommandContextTrait: Send + Sync {
     ) -> buck2_error::Result<DiceAccessor<'a>>;
 
     fn events(&self) -> &EventDispatcher;
+
+    fn previous_command_data(&self) -> Arc<LockedPreviousCommandData>;
 
     fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>>;
 
@@ -246,6 +278,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             exit_when_different_state,
                             self.cancellation_context(),
                             preemptible,
+                            self.previous_command_data().into(),
                         )
                         .await,
                     DiceCriticalSectionEnd {},

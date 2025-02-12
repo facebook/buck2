@@ -290,7 +290,16 @@ message InstantEvent {
     BuckconfigInputValues buckconfig_input_values = 47;
 
     CellHasNewConfigs cell_has_new_configs = 48;
+
+    // Previous command, but only logged if external configs changed
+    PreviousCommandWithMismatchedConfig
+        previous_command_with_mismatched_config = 49;
   }
+}
+
+message PreviousCommandWithMismatchedConfig {
+  repeated string sanitized_argv = 1;
+  string trace_id = 2;
 }
 
 message ConfigurationCreated {

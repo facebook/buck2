@@ -94,6 +94,7 @@ use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
+use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
@@ -833,6 +834,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
     fn events(&self) -> &EventDispatcher {
         &self.base_context.events
+    }
+
+    fn previous_command_data(&self) -> Arc<LockedPreviousCommandData> {
+        self.base_context.daemon.previous_command_data.clone()
     }
 
     fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>> {

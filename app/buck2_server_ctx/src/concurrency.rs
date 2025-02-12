@@ -59,6 +59,7 @@ use tokio::sync::oneshot::error::RecvError;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
+use crate::ctx::LockedPreviousCommandData;
 use crate::experiment_util::get_experiment_tags;
 
 #[derive(buck2_error::Error, Debug)]
@@ -345,6 +346,7 @@ impl ConcurrencyHandler {
         exit_when_different_state: bool,
         cancellations: &CancellationContext,
         preemptible: PreemptibleWhen,
+        previous_command_data: Arc<LockedPreviousCommandData>,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -381,6 +383,7 @@ impl ConcurrencyHandler {
                                 sanitized_argv,
                                 exit_when_different_state,
                                 preemptible,
+                                previous_command_data,
                             )
                         })
                         .await,
@@ -413,6 +416,7 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
         exit_when_different_state: bool,
         preemptible: PreemptibleWhen,
+        previous_command_data: Arc<LockedPreviousCommandData>,
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
@@ -422,6 +426,7 @@ impl ConcurrencyHandler {
         #![allow(clippy::await_holding_invalid_type)]
 
         let trace = event_dispatcher.trace_id().dupe();
+        let current_sanitized_argv = sanitized_argv.clone();
 
         let span = tracing::span!(tracing::Level::DEBUG, "wait_for_others", trace = %trace);
         // FIXME(JakobDegen): Clippy points out that tracing won't know when this future gets
@@ -595,11 +600,24 @@ impl ConcurrencyHandler {
             .await?
         {
             let external_configs = transaction.get_injected_external_buckconfig_data().await?;
-            let components = external_configs.get_buckconfig_components();
+            let current_external_configs: Vec<buck2_data::BuckconfigComponent> =
+                external_configs.get_buckconfig_components();
+
+            let mut previous_command_data = previous_command_data.data.lock().unwrap();
+
+            previous_command_data.process_current_command(
+                event_dispatcher.dupe(),
+                current_external_configs.clone(),
+                current_sanitized_argv,
+                trace,
+            );
+
             event_dispatcher.instant_event(buck2_data::TagEvent {
-                tags: get_experiment_tags(&components),
+                tags: get_experiment_tags(&current_external_configs),
             });
-            event_dispatcher.instant_event(buck2_data::BuckconfigInputValues { components });
+            event_dispatcher.instant_event(buck2_data::BuckconfigInputValues {
+                components: current_external_configs,
+            });
         }
         // create the on exit drop handler, which will take care of notifying tasks.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
@@ -764,6 +782,7 @@ mod tests {
     use tokio::sync::RwLock;
 
     use super::*;
+    use crate::ctx::LockedPreviousCommandData;
 
     struct NoChanges;
 
@@ -840,6 +859,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -856,6 +876,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -872,6 +893,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -906,6 +928,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
 
         let fut2 = concurrency.enter(
@@ -923,6 +946,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -960,6 +984,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -976,6 +1001,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -992,6 +1018,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -1041,6 +1068,7 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1066,6 +1094,7 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1093,6 +1122,7 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1158,6 +1188,7 @@ mod tests {
                         true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1183,6 +1214,7 @@ mod tests {
                         true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1210,6 +1242,7 @@ mod tests {
                         true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1280,6 +1313,7 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Always,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1305,6 +1339,7 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1332,6 +1367,7 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
                     )
                     .await
             }
@@ -1435,6 +1471,7 @@ mod tests {
                 false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
             )
             .await?;
 
@@ -1454,6 +1491,7 @@ mod tests {
                 false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
             )
             .await?;
 
@@ -1472,6 +1510,7 @@ mod tests {
                 false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
             )
             .await?;
 
@@ -1580,6 +1619,7 @@ mod tests {
                             false,
                             CancellationContext::testing(),
                             PreemptibleWhen::Never,
+                            LockedPreviousCommandData::default().into(),
                         )
                         .await
                 }
@@ -1655,6 +1695,7 @@ mod tests {
                     false,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
                 )
                 .await
         });
@@ -1712,6 +1753,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
         pin_mut!(fut1);
 
@@ -1733,6 +1775,7 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
         );
         pin_mut!(fut2);
 
