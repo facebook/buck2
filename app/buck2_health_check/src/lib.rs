@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
+pub(crate) mod health_check_context;
 pub mod health_checks;
 pub mod report;
