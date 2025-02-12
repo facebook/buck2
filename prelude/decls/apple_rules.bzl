@@ -976,38 +976,6 @@ scene_kit_assets = prelude_rule(
     ),
 )
 
-swift_library = prelude_rule(
-    name = "swift_library",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        apple_common.serialize_debugging_options_arg() |
-        {
-            "bridging_header": attrs.option(attrs.source(), default = None),
-            "compiler_flags": attrs.list(attrs.arg(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "enable_cxx_interop": attrs.bool(default = False),
-            "frameworks": attrs.list(attrs.string(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "module_name": attrs.option(attrs.string(), default = None),
-            "preferred_linkage": attrs.option(attrs.enum(Linkage.values()), default = None),
-            "sdk_modules": attrs.list(attrs.string(), default = []),
-            "soname": attrs.option(attrs.string(), default = None),
-            "srcs": attrs.list(attrs.source(), default = []),
-            "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
-            "target_sdk_version": attrs.option(attrs.string(), default = None),
-            "version": attrs.option(attrs.string(), default = None),
-        } |
-        apple_common.uses_explicit_modules_arg()
-    ),
-)
-
 swift_toolchain = prelude_rule(
     name = "swift_toolchain",
     docs = "",
@@ -1164,6 +1132,5 @@ ios_rules = struct(
     cxx_universal_executable = cxx_universal_executable,
     prebuilt_apple_framework = prebuilt_apple_framework,
     scene_kit_assets = scene_kit_assets,
-    swift_library = swift_library,
     swift_toolchain = swift_toolchain,
 )

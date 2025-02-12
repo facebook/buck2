@@ -239,9 +239,6 @@ extra_attributes = {
     "scene_kit_assets": {
         "path": attrs.source(allow_directory = True),
     },
-    "swift_library": {
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
-    },
     "swift_toolchain": {
         "architecture": attrs.string(),
         "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
