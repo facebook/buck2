@@ -58,12 +58,12 @@ pub struct BxlCommandOptions {
     materializations: Option<FinalArtifactMaterializations>,
 
     #[clap(
-        long = "upload",
+        long = "upload-final-artifacts",
         help = "Upload (or skip) the final artifacts.",
         ignore_case = true,
         value_enum
     )]
-    uploads: Option<FinalArtifactUploads>,
+    upload_final_artifacts: Option<FinalArtifactUploads>,
 
     #[clap(
         name = "BXL label",
@@ -112,7 +112,7 @@ impl StreamingCommand for BxlCommand {
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     final_artifact_materializations: self.bxl_opts.materializations.to_proto()
                         as i32,
-                    final_artifact_uploads: self.bxl_opts.uploads.to_proto() as i32,
+                    final_artifact_uploads: self.bxl_opts.upload_final_artifacts.to_proto() as i32,
                     print_stacktrace: ctx.verbosity.print_success_stderr(),
                 },
                 ctx.console_interaction_stream(&self.common_ops.console_opts),

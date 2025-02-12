@@ -32,7 +32,7 @@ Options:
 
           [possible values: all, none]
 
-      --upload <UPLOADS>
+      --upload-final-artifacts <UPLOAD_FINAL_ARTIFACTS>
           Upload (or skip) the final artifacts.
 
           [possible values: always, never]

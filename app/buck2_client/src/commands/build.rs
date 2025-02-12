@@ -64,12 +64,12 @@ pub struct BuildCommand {
     materializations: Option<FinalArtifactMaterializations>,
 
     #[clap(
-        long = "upload",
+        long = "upload-final-artifacts",
         help = "Upload (or skip) the final artifacts.",
         ignore_case = true,
         value_enum
     )]
-    uploads: Option<FinalArtifactUploads>,
+    upload_final_artifacts: Option<FinalArtifactUploads>,
 
     #[allow(unused)]
     #[clap(
@@ -261,7 +261,7 @@ impl StreamingCommand for BuildCommand {
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
-                    final_artifact_uploads: self.uploads.to_proto() as i32,
+                    final_artifact_uploads: self.upload_final_artifacts.to_proto() as i32,
                     target_universe: self.target_cfg.target_universe,
                     timeout: self.timeout_options.overall_timeout()?,
                 },
