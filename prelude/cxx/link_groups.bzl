@@ -543,7 +543,7 @@ def get_filtered_labels_to_links_map(
         is_force_static_lib = force_static_follows_dependents and node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents
 
         # If this belongs to the match all link group or the group currently being evaluated
-        matches_current_link_group = target_link_group == link_group or target_link_group == MATCH_ALL_LABEL
+        matches_current_link_group = target_link_group == MATCH_ALL_LABEL or target_link_group == link_group
 
         if link_group_preferred_linkage == Linkage("shared"):
             # filter out any dependencies to be discarded
