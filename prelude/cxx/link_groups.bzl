@@ -489,6 +489,8 @@ def get_filtered_labels_to_links_map(
         )
 
     def add_link_group(target: Label, target_group: str):
+        # If we've already added this link group to the link line, we're done.
+
         link_group_spec = build_context.link_groups.get(target_group, None)
         if link_group_spec and link_group_spec.attrs.prohibit_file_duplicates and build_context.public_nodes and target in build_context.public_nodes:
             if target_group not in group_srcs:
@@ -507,7 +509,6 @@ def get_filtered_labels_to_links_map(
                 else:
                     target_group_srcs[src] = target
 
-        # If we've already added this link group to the link line, we're done.
         if target_group in link_group_added:
             return
 
