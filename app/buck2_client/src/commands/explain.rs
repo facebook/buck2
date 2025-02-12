@@ -25,10 +25,8 @@ use tonic::async_trait;
 
 use crate::commands::build::BuildCommand;
 
-/// Buck2 Explain
-///
-/// This command is to allow users to dive in and understand
-/// builds, without requiring a solid grasp of Buck2 concepts
+/// Generates web browser view that shows actions that ran in the last build
+/// mapped to the target graph
 #[derive(Debug, clap::Parser)]
 #[clap(name = "explain")]
 pub struct ExplainCommand {

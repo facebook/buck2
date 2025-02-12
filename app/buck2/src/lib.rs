@@ -279,7 +279,6 @@ pub(crate) enum CommandKind {
     Test(TestCommand),
     Cquery(CqueryCommand),
     Init(InitCommand),
-    #[clap(hide = true)] // TODO iguridi: remove
     Explain(ExplainCommand),
     ExpandExternalCell(ExpandExternalCellsCommand),
     Install(InstallCommand),

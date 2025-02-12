@@ -15,6 +15,8 @@ Commands:
   test                  Build and test the specified targets
   cquery                Perform queries on the configured target graph
   init                  Initialize a buck2 project
+  explain               Generates web browser view that shows actions that ran in the last build
+                        mapped to the target graph
   expand-external-cell  Expand the contents of an external cell into the repo
   install               Build and install an application
   kill                  Kill the buck daemon
