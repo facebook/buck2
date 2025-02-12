@@ -104,6 +104,9 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args(["set ", k, "=", v], delimiter = ""))
 
+    # Required for delayed expansion of !ERRORLEVEL!
+    trampoline_args.add("setlocal enabledelayedexpansion")
+
     # Handle args
     # We shell quote the args but not the base. This is due to the same limitation detailed below with T111687922
     cmd = cmd_args([base.args], delimiter = " ")
@@ -113,7 +116,13 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
     # Add on %* to handle any other args passed through the command
     cmd.add("%*")
 
+    # Suppress "Terminate batch job (Y/N)?": store the return code and use call to reset error level to 0.
+    cmd.add(" & set SAVEDRC=!ERRORLEVEL! & call;")
+
     trampoline_args.add(cmd)
+
+    # Exit with the actual return code
+    trampoline_args.add("exit /b %SAVEDRC%")
 
     trampoline = _relativize_path(
         ctx,
