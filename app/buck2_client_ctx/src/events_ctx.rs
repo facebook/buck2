@@ -363,6 +363,10 @@ impl EventsCtx {
 
         Ok(())
     }
+
+    pub async fn finalize(&mut self) -> buck2_error::Result<()> {
+        self.subscribers.finalize().await
+    }
 }
 
 /// Convert a CommandResult into a CommandOutcome after the CommandResult has been printed by `handle_command_result`.

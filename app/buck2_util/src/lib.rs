@@ -14,7 +14,6 @@
 pub mod arc_str;
 #[cfg(unix)]
 pub mod cgroup_info;
-pub mod cleanup_ctx;
 pub mod commas;
 pub mod cycle_detector;
 pub mod future;

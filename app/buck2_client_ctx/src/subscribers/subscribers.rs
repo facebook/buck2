@@ -8,6 +8,8 @@
  */
 
 use std::future::Future;
+use std::time::Duration;
+use std::time::Instant;
 
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
@@ -78,5 +80,19 @@ impl EventSubscribers {
             s.handle_tailer_stderr(message)
         })
         .await
+    }
+
+    pub(crate) async fn finalize(&mut self) -> buck2_error::Result<()> {
+        for subscriber in &mut self.subscribers {
+            let start = Instant::now();
+            let _unused = subscriber.finalize().await;
+            let elapsed = start.elapsed();
+            if elapsed > Duration::from_millis(1000) {
+                tracing::warn!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+            } else {
+                tracing::info!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+            };
+        }
+        Ok(())
     }
 }

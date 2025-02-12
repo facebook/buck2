@@ -48,13 +48,11 @@ use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_events::errors::create_error_report;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::BuckEvent;
-use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
-use futures::FutureExt;
 use gazebo::prelude::VecExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
@@ -93,7 +91,6 @@ pub(crate) struct InvocationRecorder {
     representative_config_flags: Vec<String>,
     isolation_dir: String,
     start_time: Instant,
-    async_cleanup_context: AsyncCleanupContext,
     build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
     command_end: Option<buck2_data::CommandEnd>,
@@ -222,7 +219,6 @@ struct ErrorsReport {
 impl InvocationRecorder {
     pub fn new(
         fb: FacebookInit,
-        async_cleanup_context: AsyncCleanupContext,
         write_to_path: Option<AbsPathBuf>,
         command_name: &'static str,
         sanitized_argv: Vec<String>,
@@ -243,7 +239,6 @@ impl InvocationRecorder {
             representative_config_flags,
             isolation_dir,
             start_time: Instant::now(),
-            async_cleanup_context,
             build_count_manager,
             trace_id,
             command_end: None,
@@ -1651,23 +1646,6 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
     }
 }
 
-impl Drop for InvocationRecorder {
-    fn drop(&mut self) {
-        let event = self.create_record_event();
-        #[allow(unreachable_patterns)]
-        if let Ok(Some(scribe_sink)) =
-            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
-        {
-            tracing::info!("Recording invocation to Scribe: {:?}", &event);
-            let fut = async move { scribe_sink.send_now(event).await };
-            self.async_cleanup_context
-                .register("sending invocation to Scribe", fut.boxed());
-        } else {
-            tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
-        }
-    }
-}
-
 fn unique_and_sorted<T: Iterator<Item = String>>(input: T) -> Vec<String> {
     let mut unique: Vec<String> = input.unique_by(|x| x.clone()).collect();
     unique.sort();
@@ -1676,6 +1654,10 @@ fn unique_and_sorted<T: Iterator<Item = String>>(input: T) -> Vec<String> {
 
 #[async_trait]
 impl EventSubscriber for InvocationRecorder {
+    fn name(&self) -> &'static str {
+        "invocation recorder"
+    }
+
     async fn handle_events(&mut self, events: &[Arc<BuckEvent>]) -> buck2_error::Result<()> {
         for event in events {
             self.handle_event(event).await?;
@@ -1745,6 +1727,20 @@ impl EventSubscriber for InvocationRecorder {
 
     async fn exit(&mut self) -> buck2_error::Result<()> {
         self.has_end_of_stream = true;
+        Ok(())
+    }
+
+    async fn finalize(&mut self) -> buck2_error::Result<()> {
+        let event = self.create_record_event();
+        #[allow(unreachable_patterns)]
+        if let Ok(Some(scribe_sink)) =
+            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
+        {
+            tracing::info!("Recording invocation to Scribe: {:?}", &event);
+            scribe_sink.send_now(event).await;
+        } else {
+            tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
+        }
         Ok(())
     }
 
@@ -1848,7 +1844,6 @@ pub(crate) fn try_get_invocation_recorder(
 
     let recorder = InvocationRecorder::new(
         ctx.fbinit(),
-        ctx.async_cleanup_context().dupe(),
         write_to_path,
         command_name,
         sanitized_argv,

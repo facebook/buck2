@@ -9,11 +9,13 @@
 
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use dupe::Dupe;
+use tokio::sync::Mutex;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::common::ui::CommonConsoleOptions;
@@ -192,6 +194,11 @@ impl<T: StreamingCommand> BuckSubcommand for T {
             .as_ref()
             .map(|path| path.resolve(&ctx.working_dir));
 
+        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(default_subscribers(
+            &self, matches, &ctx,
+        )?)));
+        let exec_events_ctx = events_ctx.dupe();
+
         let work = async {
             let mut constraints = if T::existing_only() {
                 BuckdConnectConstraints::ExistingOnly
@@ -201,9 +208,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 ctx.restarter.apply_to_constraints(&mut req);
                 BuckdConnectConstraints::Constraints(req)
             };
-
-            let mut events_ctx = EventsCtx::new(default_subscribers(&self, matches, &ctx)?);
-
+            let mut events_ctx = exec_events_ctx.lock().await;
             let buckd = match ctx.start_in_process_daemon.take() {
                 None => connect_buckd(constraints, &mut events_ctx, ctx.paths()?).await,
                 Some(start_in_process_daemon) => {
@@ -238,8 +243,17 @@ impl<T: StreamingCommand> BuckSubcommand for T {
             .await
             .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt));
 
-        // Run registered async clean up functions (finalize event logs, write to scribe)
-        ctx.async_cleanup_context().cleanup().await;
+        let finalize_events = async {
+            let mut events_ctx = events_ctx.lock().await;
+            let _res = events_ctx.finalize().await;
+        };
+
+        if tokio::time::timeout(Duration::from_secs(30), finalize_events)
+            .await
+            .is_err()
+        {
+            tracing::warn!("Timeout waiting for logging cleanup");
+        }
 
         result.write_command_report(ctx.trace_id, buck_log_dir, command_report_path)?;
         result

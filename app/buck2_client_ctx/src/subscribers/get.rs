@@ -122,7 +122,6 @@ pub(crate) fn try_get_event_log_subscriber<T: StreamingCommand>(
             .map(|p| p.resolve(&ctx.working_dir)),
         user_event_log.as_ref().map(|p| p.resolve(&ctx.working_dir)),
         sanitized_argv,
-        ctx.async_cleanup_context().dupe(),
         T::COMMAND_NAME.to_owned(),
         log_size_counter_bytes,
     )?;
@@ -132,10 +131,7 @@ pub(crate) fn try_get_event_log_subscriber<T: StreamingCommand>(
 pub(crate) fn try_get_re_log_subscriber(
     ctx: &ClientCommandContext,
 ) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
-    let log = ReLog::new(
-        ctx.paths()?.isolation.clone(),
-        ctx.async_cleanup_context().dupe(),
-    );
+    let log = ReLog::new(ctx.paths()?.isolation.clone());
     Ok(Some(Box::new(log)))
 }
 

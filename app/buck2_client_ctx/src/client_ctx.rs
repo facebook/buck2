@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::time::Duration;
 
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
@@ -22,7 +23,6 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Runtime;
@@ -41,6 +41,7 @@ use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::try_get_invocation_recorder;
+use crate::subscribers::subscriber::EventSubscriber;
 
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
@@ -55,7 +56,6 @@ pub struct ClientCommandContext<'a> {
         Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
     pub(crate) argv: Argv,
     pub trace_id: TraceId,
-    async_cleanup: AsyncCleanupContext,
     stdin: &'a mut Stdin,
     pub(crate) restarter: &'a mut Restarter,
     pub(crate) restarted_trace_id: Option<TraceId>,
@@ -92,7 +92,6 @@ impl<'a> ClientCommandContext<'a> {
             start_in_process_daemon,
             argv,
             trace_id,
-            async_cleanup: AsyncCleanupContext::new(),
             stdin,
             restarter,
             restarted_trace_id,
@@ -153,11 +152,16 @@ impl<'a> ClientCommandContext<'a> {
 
         recorder.update_metadata_from_client_metadata(&self.client_metadata);
 
-        let cleanup_ctx = self.async_cleanup.dupe();
         let result = self.with_runtime(async move |ctx| {
             let result = func(ctx).await;
             recorder.instant_command_outcome(result.is_ok());
-            cleanup_ctx.cleanup().await;
+            // TODO(ctolliday) reuse finalization from streaming commands
+            if tokio::time::timeout(Duration::from_secs(30), recorder.finalize())
+                .await
+                .is_err()
+            {
+                tracing::warn!("Timeout waiting for logging cleanup");
+            }
             result
         });
         result.into()
@@ -293,10 +297,6 @@ impl<'a> ClientCommandContext<'a> {
             preemptible: Default::default(),
             representative_config_flags: Vec::new(),
         })
-    }
-
-    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext {
-        &self.async_cleanup
     }
 
     pub fn log_download_method(&self) -> LogDownloadMethod {
