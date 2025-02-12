@@ -31,6 +31,7 @@ pub struct ActionStats {
     pub cached_actions: u64,
     pub fallback_actions: u64,
     pub remote_dep_file_cached_actions: u64,
+    pub excess_cache_misses: u64,
 }
 
 impl ActionStats {
@@ -95,6 +96,11 @@ impl ActionStats {
             }
             LastCommandExecutionKind::NoCommand => {}
         }
+        if let Some(v) = &action.invalidation_info {
+            if v.changed_file.is_none() {
+                self.excess_cache_misses += 1;
+            }
+        }
     }
 
     pub fn log_stats(&self) -> bool {
@@ -136,4 +142,50 @@ pub fn was_fallback_action(action: &buck2_data::ActionExecutionEnd) -> bool {
         .filter(|c| !matches!(c.status, Some(Status::Cancelled(..))))
         .count()
         > 1
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_data::ActionExecutionEnd;
+    use buck2_data::ActionKind;
+
+    use super::*;
+
+    #[test]
+    fn test_file_change_invalidation_source() {
+        let mut action_stats = ActionStats::default();
+
+        let action_execution_end = ActionExecutionEnd {
+            kind: ActionKind::Run as i32,
+            invalidation_info: Some(buck2_data::CommandInvalidationInfo {
+                changed_file: Some(buck2_data::command_invalidation_info::InvalidationSource {}),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        action_stats.update(&action_execution_end);
+
+        assert_eq!(action_stats.excess_cache_misses, 0);
+    }
+
+    #[test]
+    fn test_excess_cache_miss_with_no_invalidation_source() {
+        let mut action_stats = ActionStats::default();
+
+        let action_execution_end = ActionExecutionEnd {
+            kind: ActionKind::Run as i32,
+            invalidation_info: Some(buck2_data::CommandInvalidationInfo {
+                changed_file: None,
+                changed_any: None,
+            }),
+            ..Default::default()
+        };
+
+        action_stats.update(&action_execution_end);
+        assert_eq!(action_stats.excess_cache_misses, 1);
+
+        action_stats.update(&action_execution_end);
+        assert_eq!(action_stats.excess_cache_misses, 2);
+    }
 }
