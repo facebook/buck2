@@ -7,11 +7,13 @@
 
 # pyre-strict
 
+import json
 import tempfile
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import filter_events
+from buck2.tests.e2e_util.helper.utils import filter_events, read_invocation_record
 
 
 @buck_test(
@@ -107,3 +109,90 @@ async def test_external_buckconfigs(buck: Buck) -> None:
     assert (
         f.name in config_file["origin_path"]
     ), f"Origin path should contain config-file name: {f.name}"
+
+
+@buck_test(
+    extra_buck_config={
+        "external_path_configs_section": {
+            "external_path_configs_key": "external_path_configs_value",
+        }
+    },
+)
+async def test_previous_command_with_mismatched_config(
+    buck: Buck, tmp_path: Path
+) -> None:
+    await buck.build(
+        "@root//mode/my_mode",
+        "//:test",
+        "-c",
+        "my_section.my_key=my_value",
+    )
+    previous_invalidating_command = await filter_events(
+        buck, "Event", "data", "Instant", "data", "PreviousCommandWithMismatchedConfig"
+    )
+    # No previous command, no PreviousCommandWithMismatchedConfig fired
+    assert len(previous_invalidating_command) == 0
+
+    # Rerun without any changes
+    res = await buck.build(
+        "@root//mode/my_mode",
+        "//:test",
+        "-c",
+        "my_section.my_key=my_value",
+    )
+    trace_id = json.loads(res.stdout)["trace_id"]
+    previous_invalidating_command = await filter_events(
+        buck, "Event", "data", "Instant", "data", "PreviousCommandWithMismatchedConfig"
+    )
+    # No invalidation, no PreviousInvalidatingCommand fired
+    assert len(previous_invalidating_command) == 0
+
+    # Rerun with changes to commandline config
+    await buck.build(
+        "@root//mode/my_mode",
+        "//:test",
+        "-c",
+        "my_section.my_key=my_new_value",
+    )
+
+    previous_invalidating_command = await filter_events(
+        buck, "Event", "data", "Instant", "data", "PreviousCommandWithMismatchedConfig"
+    )
+    assert len(previous_invalidating_command) == 1
+    assert previous_invalidating_command[0]["trace_id"] == trace_id
+    sanitized_argv = previous_invalidating_command[0]["sanitized_argv"]
+    assert (
+        # sanitized_argv[0] contains the path to the buck executable which is different on every machine
+        sanitized_argv[1] == "build"
+        and sanitized_argv[2] == "@root//mode/my_mode"
+        and sanitized_argv[3] == "//:test"
+        and sanitized_argv[4] == "-c"
+        and sanitized_argv[5] == "my_section.my_key=my_value"
+    )
+    # Make a change to .buckconfig
+    with open(buck.cwd / ".buckconfig", "a") as buckconfig:
+        buckconfig.write("\n[test_section]\ntest_key = test_value\n")
+        await buck.build(
+            "@root//mode/my_mode",
+            "//:test",
+            "-c",
+            "my_section.my_key=my_new_value",
+        )
+
+    # Previous command didn't change any external configs but still has new_configs_used = 1 due to changes to project-relative configs.
+    # We don't capture that by design at the moment.
+    record_file = tmp_path / "record.json"
+    await buck.build(
+        "@root//mode/my_mode",
+        "//:test",
+        "-c",
+        "my_section.my_key=my_new_value",
+        "--unstable-write-invocation-record",
+        str(record_file),
+    )
+
+    previous_invalidating_command = await filter_events(
+        buck, "Event", "data", "Instant", "data", "PreviousCommandWithMismatchedConfig"
+    )
+    assert len(previous_invalidating_command) == 0
+    assert read_invocation_record(record_file)["new_configs_used"] == 1
