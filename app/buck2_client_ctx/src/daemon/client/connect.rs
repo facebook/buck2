@@ -1111,7 +1111,12 @@ async fn daemon_connect_error(
 
     let error = if let Ok(error_report) = error_report {
         // Daemon wrote an error and most likely quit.
-        let tags: Vec<ErrorTag> = error_report.tags().collect();
+        // (note: not using tags() as a workaround for likely false positive ASAN failure)
+        let tags: Vec<ErrorTag> = error_report
+            .tags
+            .into_iter()
+            .filter_map(buck2_error::ErrorTag::from_i32)
+            .collect();
         let daemon_error = buck2_error::Error::new(
             error_report.message.clone(),
             *tags.first().unwrap_or(&ErrorTag::Tier0),
