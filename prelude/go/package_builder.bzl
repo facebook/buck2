@@ -214,7 +214,9 @@ def _symabis(
     fake_asmhdr = ctx.actions.write("__fake_asmhdr__/go_asm.h", "")
     symabis = ctx.actions.declare_output("symabis")
     asm_cmd = [
-        go_toolchain.assembler,
+        go_toolchain.go_wrapper,
+        ["--go", go_toolchain.assembler],
+        "--",
         go_toolchain.assembler_flags,
         assembler_flags,
         _asm_args(ctx, pkg_name, main, False),  # flag -shared doesn't matter for symabis
@@ -222,6 +224,7 @@ def _symabis(
         ["-o", symabis.as_output()],
         ["-I", cmd_args(fake_asmhdr, parent = 1)],
         ["-I", cmd_args(h_files, parent = 1)] if h_files else [],
+        ["-trimpath", "%cwd%"],
         s_files,
     ]
 
@@ -253,13 +256,16 @@ def _asssembly(
         o_files.append(o_file)
 
         asm_cmd = [
-            go_toolchain.assembler,
+            go_toolchain.go_wrapper,
+            ["--go", go_toolchain.assembler],
+            "--",
             go_toolchain.assembler_flags,
             assembler_flags,
             _asm_args(ctx, pkg_name, main, shared),
             ["-o", o_file.as_output()],
             ["-I", cmd_args(asmhdr, parent = 1)] if asmhdr else [],  # can it actually be None?
             ["-I", cmd_args(h_files, parent = 1)] if h_files else [],
+            ["-trimpath", "%cwd%"],
             s_file,
         ]
 
