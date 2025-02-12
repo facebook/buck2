@@ -2179,6 +2179,9 @@ message InvocationRecord {
   optional uint64 load_count = 241;
   // Time elapsed from a build's start until first test run begins.
   optional uint64 time_to_first_test_run_ms = 242;
+
+  // UUID of the previous command stored only if external configs are different
+  optional string previous_uuid_with_mismatched_config = 243;
 }
 
 // Record event sent directly to scribe.

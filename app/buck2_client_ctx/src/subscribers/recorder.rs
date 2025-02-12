@@ -208,6 +208,7 @@ pub(crate) struct InvocationRecorder<'a> {
     initial_local_cache_misses_files: Option<i64>,
     initial_local_cache_misses_bytes: Option<i64>,
     materialization_files: u64,
+    previous_uuid_with_mismatched_config: Option<String>,
 }
 
 struct ErrorsReport {
@@ -363,6 +364,7 @@ impl<'a> InvocationRecorder<'a> {
             initial_local_cache_misses_files: None,
             initial_local_cache_misses_bytes: None,
             materialization_files: 0,
+            previous_uuid_with_mismatched_config: None,
         }
     }
 
@@ -808,6 +810,7 @@ impl<'a> InvocationRecorder<'a> {
             local_cache_misses_files,
             local_cache_misses_bytes,
             materialization_files: Some(self.materialization_files),
+            previous_uuid_with_mismatched_config: self.previous_uuid_with_mismatched_config.take(),
         };
 
         let event = BuckEvent::new(
@@ -1591,6 +1594,12 @@ impl<'a> InvocationRecorder<'a> {
                     }
                     buck2_data::instant_event::Data::VersionControlRevision(revision) => {
                         self.version_control_revision = Some(revision.clone());
+                        Ok(())
+                    }
+                    buck2_data::instant_event::Data::PreviousCommandWithMismatchedConfig(
+                        command,
+                    ) => {
+                        self.previous_uuid_with_mismatched_config = Some(command.trace_id.clone());
                         Ok(())
                     }
                     _ => Ok(()),
