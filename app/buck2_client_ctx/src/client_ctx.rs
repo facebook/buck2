@@ -35,8 +35,6 @@ use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::common::PreemptibleWhen;
 use crate::console_interaction_stream::ConsoleInteractionStream;
-use crate::daemon::client::connect::BuckdConnectOptions;
-use crate::daemon::client::BuckdClientConnector;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
@@ -200,15 +198,6 @@ impl<'a> ClientCommandContext<'a> {
         }
 
         ConsoleInteractionStream::new(self.stdin)
-    }
-
-    pub async fn connect_buckd(
-        &self,
-        options: BuckdConnectOptions,
-    ) -> buck2_error::Result<BuckdClientConnector> {
-        BuckdConnectOptions { ..options }
-            .connect(self.paths()?)
-            .await
     }
 
     pub fn client_context<T: StreamingCommand>(

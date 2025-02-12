@@ -609,43 +609,24 @@ impl BootstrapBuckdClient {
     }
 }
 
-/// The settings prior to connecting to the Buck daemon.
-/// By default, attempts to connect to a daemon that can satisfy specified constraints.
+/// Attempt to connect to a daemon that can satisfy specified constraints.
 /// If the daemon does not match constraints (different version or does not enable I/O tracing),
 /// it will kill it and restart it with the correct constraints.
-/// This behavior can be overridden by calling the `existing_only` method.
-/// If the `existing_only` method is called, then any existing buck daemon (regardless of constraint) is accepted.
-///
-/// The default set of subscribers is *not* empty, but rather forwards stdout and stderr, which captures panics, for example.
-pub struct BuckdConnectOptions {
-    /// Subscribers manage the way that incoming events from the server are handled.
-    /// The client will forward events and stderr/stdout output from the server to each subscriber.
-    /// By default, this list is set to a single subscriber that notifies the user of basic output from the server.
-    pub(crate) subscribers: EventSubscribers,
-    pub constraints: BuckdConnectConstraints,
-}
-
-impl BuckdConnectOptions {
-    pub fn existing_only_no_console() -> Self {
-        Self {
-            constraints: BuckdConnectConstraints::ExistingOnly,
-            subscribers: EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]),
-        }
-    }
-
-    pub async fn connect(
-        mut self,
-        paths: &InvocationPaths,
-    ) -> buck2_error::Result<BuckdClientConnector> {
-        match BootstrapBuckdClient::connect(paths, self.constraints, &mut self.subscribers)
-            .await
-            .map_err(buck2_error::Error::from)
-        {
-            Ok(client) => Ok(client.with_subscribers(self.subscribers)),
-            Err(e) => {
-                self.subscribers.handle_daemon_connection_failure(&e);
-                Err(e.into())
-            }
+/// This behavior can be overridden by passing `BuckdConnectConstraints::ExistingOnly`.
+/// In that case, then any existing buck daemon (regardless of constraint) is accepted.
+pub async fn connect_buckd(
+    constraints: BuckdConnectConstraints,
+    mut subscribers: EventSubscribers,
+    paths: &InvocationPaths,
+) -> buck2_error::Result<BuckdClientConnector> {
+    match BootstrapBuckdClient::connect(paths, constraints, &mut subscribers)
+        .await
+        .map_err(buck2_error::Error::from)
+    {
+        Ok(client) => Ok(client.with_subscribers(subscribers)),
+        Err(e) => {
+            subscribers.handle_daemon_connection_failure(&e);
+            Err(e.into())
         }
     }
 }

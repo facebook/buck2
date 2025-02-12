@@ -12,8 +12,9 @@ use std::time::Duration;
 use buck2_cli_proto::StatusResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::daemon::client::connect::connect_buckd;
 use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
+use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
 use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::argv::Argv;
@@ -83,9 +84,12 @@ impl StatusCommand {
 
                 buck2_client_ctx::println!("{}", serde_json::to_string_pretty(&statuses)?)?;
             } else {
-                match ctx
-                    .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-                    .await
+                match connect_buckd(
+                    BuckdConnectConstraints::ExistingOnly,
+                    EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]),
+                    ctx.paths()?,
+                )
+                .await
                 {
                     Err(_) => {
                         buck2_client_ctx::eprintln!("no buckd running")?;

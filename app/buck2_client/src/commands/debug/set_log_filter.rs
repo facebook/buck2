@@ -10,8 +10,11 @@
 use buck2_cli_proto::SetLogFilterRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
+use buck2_client_ctx::daemon::client::connect::connect_buckd;
+use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
+use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 
 /// Change the log filter that's currently applied by the Buck2 daemon.
 #[derive(Debug, clap::Parser)]
@@ -33,9 +36,12 @@ pub struct SetLogFilterCommand {
 impl SetLogFilterCommand {
     pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.with_runtime(|ctx| async move {
-            let mut buckd = ctx
-                .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-                .await?;
+            let mut buckd = connect_buckd(
+                BuckdConnectConstraints::ExistingOnly,
+                EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]),
+                ctx.paths()?,
+            )
+            .await?;
 
             buckd
                 .with_flushing()
