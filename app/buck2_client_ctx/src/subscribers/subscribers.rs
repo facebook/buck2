@@ -82,17 +82,25 @@ impl EventSubscribers {
         .await
     }
 
-    pub(crate) async fn finalize(&mut self) -> buck2_error::Result<()> {
+    pub(crate) async fn finalize(&mut self) -> Vec<String> {
+        let mut errors = Vec::new();
         for subscriber in &mut self.subscribers {
             let start = Instant::now();
-            let _unused = subscriber.finalize().await;
+            let res = subscriber.finalize().await;
             let elapsed = start.elapsed();
             if elapsed > Duration::from_millis(1000) {
                 tracing::warn!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
             } else {
                 tracing::info!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
             };
+
+            if let Err(e) = res {
+                errors.push(format!(
+                    "{:?}",
+                    e.context(format!("\'{}\' failed to finalize", subscriber.name()))
+                ));
+            }
         }
-        Ok(())
+        errors
     }
 }

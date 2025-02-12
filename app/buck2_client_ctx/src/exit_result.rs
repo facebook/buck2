@@ -260,6 +260,7 @@ impl ExitResult {
         trace_id: TraceId,
         buck_log_dir: &AbsNormPathBuf,
         command_report_path: &Option<AbsPathBuf>,
+        finalizing_error_messages: Vec<String>,
     ) -> buck2_error::Result<()> {
         let dir = buck_log_dir.join(ForwardRelativePath::new(&trace_id.to_string())?);
         fs_util::create_dir_all(&dir)?;
@@ -277,6 +278,7 @@ impl ExitResult {
                         trace_id: trace_id.to_string(),
                         exit_code: exit_code.exit_code(),
                         error_messages: self.error_messages.clone(),
+                        finalizing_error_messages,
                     },
                 )?;
 

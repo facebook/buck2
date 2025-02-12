@@ -2405,6 +2405,8 @@ message CommandReport {
   uint32 exit_code = 2;
   // List of error messages seen during the command execution
   repeated string error_messages = 3;
+  // Error messages produced while finalizing event logging.
+  repeated string finalizing_error_messages = 4;
 }
 
 message MaterializerStateInfo {

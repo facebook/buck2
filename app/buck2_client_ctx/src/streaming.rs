@@ -245,17 +245,25 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 
         let finalize_events = async {
             let mut events_ctx = events_ctx.lock().await;
-            let _res = events_ctx.finalize().await;
+            events_ctx.finalize().await
         };
 
-        if tokio::time::timeout(Duration::from_secs(30), finalize_events)
+        let logging_timeout = Duration::from_secs(30);
+        let finalizing_errors = tokio::time::timeout(logging_timeout, finalize_events)
             .await
-            .is_err()
-        {
-            tracing::warn!("Timeout waiting for logging cleanup");
-        }
+            .unwrap_or_else(|_| {
+                vec![format!(
+                    "Timeout after {:?} waiting for logging cleanup",
+                    logging_timeout
+                )]
+            });
 
-        result.write_command_report(ctx.trace_id, buck_log_dir, command_report_path)?;
+        result.write_command_report(
+            ctx.trace_id,
+            buck_log_dir,
+            command_report_path,
+            finalizing_errors,
+        )?;
         result
     }
 

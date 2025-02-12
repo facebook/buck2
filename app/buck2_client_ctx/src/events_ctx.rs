@@ -364,7 +364,7 @@ impl EventsCtx {
         Ok(())
     }
 
-    pub async fn finalize(&mut self) -> buck2_error::Result<()> {
+    pub async fn finalize(&mut self) -> Vec<String> {
         self.subscribers.finalize().await
     }
 }
