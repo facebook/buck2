@@ -23,6 +23,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::FlushingBuckdClient;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::invocation_roots::InvocationRoots;
@@ -77,6 +78,7 @@ impl StreamingCommand for CompleteTargetCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let buckd_client = buckd.with_flushing();
         let context = ctx.client_context(matches, &self)?;
@@ -84,6 +86,7 @@ impl StreamingCommand for CompleteTargetCommand {
             buckd_client,
             context,
             target_cfg: self.target_cfg,
+            events_ctx,
         };
 
         let completer = TargetCompleter::new(&self.cwd, &ctx.paths()?.roots, &mut target_resolver)
@@ -169,6 +172,7 @@ struct DaemonTargetResolver<'a> {
     buckd_client: FlushingBuckdClient<'a>,
     context: ClientContext,
     target_cfg: TargetCfgOptions,
+    events_ctx: &'a mut EventsCtx,
 }
 
 impl<'a> TargetResolver for DaemonTargetResolver<'a> {
@@ -178,7 +182,7 @@ impl<'a> TargetResolver for DaemonTargetResolver<'a> {
             partial_target,
         });
         self.buckd_client
-            .new_generic(self.context.clone(), request, None)
+            .new_generic(self.context.clone(), request, self.events_ctx, None)
             .then(|res| async move {
                 match res {
                     Ok(CommandOutcome::Success(NewGenericResponse::Complete(res))) => {

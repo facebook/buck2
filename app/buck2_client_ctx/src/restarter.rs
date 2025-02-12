@@ -9,6 +9,7 @@
 
 use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::BuckdClientConnector;
+use crate::events_ctx::EventsCtx;
 
 /// Monitor the state of our execution and decide whether we should restart the command we just
 /// attempted to execute.
@@ -29,8 +30,8 @@ impl Restarter {
 
     /// Observe our BuckdClientConnector after execution to decide whether we should be
     /// restarting.
-    pub fn observe(&mut self, client: &BuckdClientConnector) {
-        for obs in client.error_observers() {
+    pub fn observe(&mut self, client: &BuckdClientConnector, events_ctx: &EventsCtx) {
+        for obs in events_ctx.subscribers.error_observers() {
             if obs.daemon_in_memory_state_is_corrupted() {
                 self.reject_daemon = Some(client.daemon_constraints().daemon_id.clone());
             }

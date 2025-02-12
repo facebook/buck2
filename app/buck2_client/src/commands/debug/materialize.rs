@@ -18,6 +18,7 @@ use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -44,6 +45,7 @@ impl StreamingCommand for MaterializeCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         buckd
@@ -51,6 +53,7 @@ impl StreamingCommand for MaterializeCommand {
             .new_generic(
                 context,
                 NewGenericRequest::Materialize(MaterializeRequest { paths: self.paths }),
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
             )
             .await??;

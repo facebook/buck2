@@ -18,6 +18,7 @@ use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -45,6 +46,7 @@ impl StreamingCommand for EvalCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         if self.paths.is_empty() {
             let console = self.common_opts.console_opts.final_console();
@@ -62,6 +64,7 @@ impl StreamingCommand for EvalCommand {
                         buck2_error::Ok(p.resolve(&ctx.working_dir).to_str()?.to_owned())
                     })?,
                 }),
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
             )
             .await??;

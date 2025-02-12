@@ -16,6 +16,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -44,12 +45,16 @@ impl StreamingCommand for AllocatorStatsCommand {
         buckd: &mut BuckdClientConnector,
         _matches: BuckArgMatches<'_>,
         _ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let res = buckd
             .with_flushing()
-            .unstable_allocator_stats(UnstableAllocatorStatsRequest {
-                options: self.options,
-            })
+            .unstable_allocator_stats(
+                UnstableAllocatorStatsRequest {
+                    options: self.options,
+                },
+                events_ctx,
+            )
             .await?;
 
         buck2_client_ctx::println!("{}", res.response)?;

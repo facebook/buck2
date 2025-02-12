@@ -26,6 +26,7 @@ use crate::daemon::client::connect::BuckdConnectConstraints;
 use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::BuckdClientConnector;
+use crate::events_ctx::EventsCtx;
 use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;
 use crate::path_arg::PathArg;
@@ -116,6 +117,7 @@ pub trait StreamingCommand: Sized + Send + Sync {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult;
 
     /// Should we only connect to existing servers (`true`), or spawn a new server if required (`false`).
@@ -200,10 +202,10 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 BuckdConnectConstraints::Constraints(req)
             };
 
-            let subscribers = default_subscribers(&self, matches, &ctx)?;
+            let mut events_ctx = EventsCtx::new(default_subscribers(&self, matches, &ctx)?);
 
             let buckd = match ctx.start_in_process_daemon.take() {
-                None => connect_buckd(constraints, subscribers, ctx.paths()?).await,
+                None => connect_buckd(constraints, &mut events_ctx, ctx.paths()?).await,
                 Some(start_in_process_daemon) => {
                     // Start in-process daemon, wait until it is ready to accept connections.
                     start_in_process_daemon()?;
@@ -212,7 +214,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     // Connect should not fail.
                     constraints = BuckdConnectConstraints::ExistingOnly;
 
-                    connect_buckd(constraints, subscribers, ctx.paths()?).await
+                    connect_buckd(constraints, &mut events_ctx, ctx.paths()?).await
                 }
             };
 
@@ -223,9 +225,11 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 }
             };
 
-            let command_result = self.exec_impl(&mut buckd, matches, &mut ctx).await;
+            let command_result = self
+                .exec_impl(&mut buckd, matches, &mut ctx, &mut events_ctx)
+                .await;
 
-            ctx.restarter.observe(&buckd);
+            ctx.restarter.observe(&buckd, &events_ctx);
 
             command_result
         };

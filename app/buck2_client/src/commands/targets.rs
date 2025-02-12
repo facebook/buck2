@@ -25,6 +25,7 @@ use buck2_client_ctx::console_interaction_stream::ConsoleInteractionStream;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
@@ -289,6 +290,7 @@ impl StreamingCommand for TargetsCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let target_hash_use_fast_hash = match self.target_hash_function {
             TargetHashFunction::Sha1 | TargetHashFunction::Sha256 => {
@@ -364,6 +366,7 @@ impl StreamingCommand for TargetsCommand {
             targets_show_outputs(
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 buckd,
+                events_ctx,
                 target_request,
                 self.show_output.is_full().then(|| project_root.root()),
                 format,
@@ -373,6 +376,7 @@ impl StreamingCommand for TargetsCommand {
             targets(
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 buckd,
+                events_ctx,
                 target_request,
             )
             .await
@@ -399,6 +403,7 @@ impl StreamingCommand for TargetsCommand {
 async fn targets_show_outputs(
     console_interaction: Option<ConsoleInteractionStream<'_>>,
     buckd: &mut BuckdClientConnector,
+    events_ctx: &mut EventsCtx,
     target_request: TargetsRequest,
     root_path: Option<&AbsNormPath>,
     format: PrintOutputsFormat,
@@ -407,6 +412,7 @@ async fn targets_show_outputs(
         .with_flushing()
         .targets_show_outputs(
             target_request,
+            events_ctx,
             console_interaction,
             &mut NoPartialResultHandler,
         )
@@ -429,12 +435,14 @@ async fn targets_show_outputs(
 async fn targets(
     console_interaction: Option<ConsoleInteractionStream<'_>>,
     buckd: &mut BuckdClientConnector,
+    events_ctx: &mut EventsCtx,
     target_request: TargetsRequest,
 ) -> ExitResult {
     let response = buckd
         .with_flushing()
         .targets(
             target_request,
+            events_ctx,
             console_interaction,
             &mut StdoutPartialResultHandler,
         )

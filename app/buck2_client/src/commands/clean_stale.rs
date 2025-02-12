@@ -19,6 +19,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_error::conversion::from_any_with_tag;
@@ -102,6 +103,7 @@ impl StreamingCommand for CleanStaleCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let keep_since_time = match self.keep_since_arg {
             KeepSinceArg::Duration(duration) => {
@@ -137,6 +139,7 @@ impl StreamingCommand for CleanStaleCommand {
                     dry_run: self.dry_run,
                     tracked_only: self.tracked_only,
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )

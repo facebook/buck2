@@ -29,6 +29,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -98,6 +99,7 @@ impl StreamingCommand for RunCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
@@ -121,6 +123,7 @@ impl StreamingCommand for RunCommand {
                     target_universe: self.target_cfg.target_universe,
                     timeout: None, // TODO: maybe it shouild be supported here?
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )

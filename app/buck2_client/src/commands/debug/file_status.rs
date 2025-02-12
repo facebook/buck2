@@ -18,6 +18,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -49,6 +50,7 @@ impl StreamingCommand for FileStatusCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         buckd
@@ -61,6 +63,7 @@ impl StreamingCommand for FileStatusCommand {
                         .try_map(|x| x.resolve(&ctx.working_dir).into_string())?,
                     show_matches: self.show_matches,
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut StdoutPartialResultHandler,
             )

@@ -20,6 +20,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::if_else_opensource;
@@ -98,6 +99,7 @@ impl StreamingCommand for UqueryCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let (query, query_args) = self.query_common.get_query();
         let unstable_output_format = self.query_common.output_format() as i32;
@@ -114,6 +116,7 @@ impl StreamingCommand for UqueryCommand {
                     output_attributes,
                     unstable_output_format,
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut StdoutPartialResultHandler,
             )

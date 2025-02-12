@@ -12,6 +12,7 @@ use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::connect::connect_buckd;
 use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
@@ -36,20 +37,26 @@ pub struct SetLogFilterCommand {
 impl SetLogFilterCommand {
     pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         ctx.with_runtime(|ctx| async move {
+            let mut events_ctx =
+                EventsCtx::new(EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]));
+
             let mut buckd = connect_buckd(
                 BuckdConnectConstraints::ExistingOnly,
-                EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]),
+                &mut events_ctx,
                 ctx.paths()?,
             )
             .await?;
 
             buckd
                 .with_flushing()
-                .set_log_filter(SetLogFilterRequest {
-                    log_filter: self.log_filter,
-                    daemon: !self.no_daemon,
-                    forkserver: !self.no_forkserver,
-                })
+                .set_log_filter(
+                    &mut events_ctx,
+                    SetLogFilterRequest {
+                        log_filter: self.log_filter,
+                        daemon: !self.no_daemon,
+                        forkserver: !self.no_forkserver,
+                    },
+                )
                 .await?;
 
             ExitResult::success()

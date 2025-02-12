@@ -42,7 +42,6 @@ use crate::events_ctx::EventsCtx;
 use crate::events_ctx::PartialResultCtx;
 use crate::events_ctx::PartialResultHandler;
 use crate::file_tailers::tailers::FileTailers;
-use crate::subscribers::observer::ErrorObserver;
 
 pub mod connect;
 pub mod kill;
@@ -63,7 +62,7 @@ pub struct BuckdClientConnector {
 }
 
 impl BuckdClientConnector {
-    pub fn with_flushing(&mut self) -> FlushingBuckdClient<'_> {
+    pub fn with_flushing(&mut self) -> FlushingBuckdClient {
         FlushingBuckdClient {
             inner: &mut self.client,
         }
@@ -71,10 +70,6 @@ impl BuckdClientConnector {
 
     pub fn daemon_constraints(&self) -> &buck2_cli_proto::DaemonConstraints {
         &self.client.constraints
-    }
-
-    pub fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
-        self.client.events_ctx.subscribers.error_observers()
     }
 }
 
@@ -150,7 +145,6 @@ pub struct BuckdClient {
     daemon_dir: DaemonDir,
     // TODO(brasselsprouts): events_ctx should own tailers
     tailers: Option<FileTailers>,
-    pub(crate) events_ctx: EventsCtx,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -231,6 +225,7 @@ impl BuckdClient {
         &mut self,
         command: Command,
         request: T,
+        events_ctx: &mut EventsCtx,
         partial_result_handler: &mut Handler,
         console_interaction: Option<ConsoleInteractionStream<'i>>,
     ) -> buck2_error::Result<CommandOutcome<Res>>
@@ -245,9 +240,7 @@ impl BuckdClient {
         Res: TryFrom<command_result::Result, Error = command_result::Result>,
         Handler: PartialResultHandler,
     {
-        let Self {
-            client, events_ctx, ..
-        } = self;
+        let Self { client, .. } = self;
 
         let response = command(client, Request::new(request))
             .await
@@ -265,9 +258,12 @@ impl BuckdClient {
             .await
     }
 
-    pub async fn status(&mut self, snapshot: bool) -> buck2_error::Result<StatusResponse> {
-        let outcome = self
-            .events_ctx
+    pub async fn status(
+        &mut self,
+        events_ctx: &mut EventsCtx,
+        snapshot: bool,
+    ) -> buck2_error::Result<StatusResponse> {
+        let outcome = events_ctx
             // Safe to unwrap tailers here because they are instantiated prior to a command being called.
             .unpack_oneshot(mem::take(&mut self.tailers), {
                 self.client.status(Request::new(StatusRequest { snapshot }))
@@ -285,7 +281,11 @@ impl BuckdClient {
         }
     }
 
-    pub async fn set_log_filter(&mut self, req: SetLogFilterRequest) -> buck2_error::Result<()> {
+    pub async fn set_log_filter(
+        &mut self,
+        _events_ctx: &mut EventsCtx,
+        req: SetLogFilterRequest,
+    ) -> buck2_error::Result<()> {
         self.client.set_log_filter(Request::new(req)).await?;
 
         Ok(())
@@ -302,11 +302,8 @@ impl<'a> FlushingBuckdClient<'a> {
         Ok(())
     }
 
-    async fn exit(&mut self) -> buck2_error::Result<()> {
-        self.inner
-            .events_ctx
-            .flush(mem::take(&mut self.inner.tailers))
-            .await?;
+    async fn exit(&mut self, events_ctx: &mut EventsCtx) -> buck2_error::Result<()> {
+        events_ctx.flush(mem::take(&mut self.inner.tailers)).await?;
 
         Ok(())
     }
@@ -360,10 +357,11 @@ macro_rules! stream_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty, $message: ty) => {
-        pub async fn $method(
+        pub async fn $method<'i, 'j: 'i>(
             &mut self,
             req: $req,
-            console_interaction: Option<ConsoleInteractionStream<'_>>,
+            events_ctx: &mut EventsCtx,
+            console_interaction: Option<ConsoleInteractionStream<'j>>,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
         ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
@@ -372,6 +370,7 @@ macro_rules! stream_method {
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$grpc_method(d, r)),
                     req,
+                    events_ctx,
                     // For now we only support handlers that can be constructed like so, and we
                     // don't let anything go out. Eventually if we wanted to stream structured
                     // data, that could change.
@@ -379,7 +378,7 @@ macro_rules! stream_method {
                     console_interaction,
                 )
                 .await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             res
         }
     };
@@ -396,6 +395,7 @@ macro_rules! bidirectional_stream_method {
             &mut self,
             context: ClientContext,
             requests: impl Stream<Item = $req> + Send + Sync + 'static,
+            events_ctx: &mut EventsCtx,
             handler: &mut impl PartialResultHandler<PartialResult = $message>,
         ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
@@ -405,11 +405,12 @@ macro_rules! bidirectional_stream_method {
                 .stream(
                     |d, r| Box::pin(DaemonApiClient::$method(d, r)),
                     req,
+                    events_ctx,
                     handler,
                     None,
                 )
                 .await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             res
         }
     };
@@ -422,16 +423,18 @@ macro_rules! oneshot_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
-        pub async fn $method(&mut self, req: $req) -> buck2_error::Result<CommandOutcome<$res>> {
+        pub async fn $method(
+            &mut self,
+            req: $req,
+            events_ctx: &mut EventsCtx,
+        ) -> buck2_error::Result<CommandOutcome<$res>> {
             self.enter()?;
-            let res = self
-                .inner
-                .events_ctx
+            let res = events_ctx
                 .unpack_oneshot(mem::take(&mut self.inner.tailers), {
                     self.inner.client.$method(Request::new(req))
                 })
                 .await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             res
         }
     };
@@ -444,10 +447,14 @@ macro_rules! debug_method {
     };
 
     ($method: ident, $grpc_method: ident, $req: ty, $res: ty) => {
-        pub async fn $method(&mut self, req: $req) -> buck2_error::Result<$res> {
+        pub async fn $method(
+            &mut self,
+            req: $req,
+            events_ctx: &mut EventsCtx,
+        ) -> buck2_error::Result<$res> {
             self.enter()?;
             let out = self.inner.client.$method(Request::new(req)).await;
-            self.exit().await?;
+            self.exit(events_ctx).await?;
             Ok(out?.into_inner())
         }
     };
@@ -456,13 +463,13 @@ macro_rules! debug_method {
 /// Wrap a method that exists on the BuckdClient, with flushing.
 macro_rules! wrap_method {
      ($method: ident ($($param: ident : $param_type: ty),*), $res: ty) => {
-         pub async fn $method(&mut self, $($param: $param_type)*) -> buck2_error::Result<$res> {
+         pub async fn $method(&mut self, events_ctx: &mut EventsCtx, $($param: $param_type)*) -> buck2_error::Result<$res> {
              self.enter()?;
              let out = self
                  .inner
-                 .$method($($param)*)
+                 .$method(events_ctx, $($param)*)
                  .await;
-             self.exit().await?;
+             self.exit(events_ctx).await?;
              out
          }
      };
@@ -589,6 +596,7 @@ impl<'a> FlushingBuckdClient<'a> {
         &mut self,
         context: buck2_cli_proto::ClientContext,
         req: NewGenericRequest,
+        events_ctx: &mut EventsCtx,
         stdin: Option<ConsoleInteractionStream<'_>>,
     ) -> buck2_error::Result<CommandOutcome<NewGenericResponse>> {
         let req = serde_json::to_string(&req)
@@ -598,7 +606,7 @@ impl<'a> FlushingBuckdClient<'a> {
             new_generic_request: req,
         };
         let command_outcome: CommandOutcome<buck2_cli_proto::NewGenericResponseMessage> = self
-            .new_generic_impl(req, stdin, &mut NoPartialResultHandler)
+            .new_generic_impl(req, events_ctx, stdin, &mut NoPartialResultHandler)
             .await?;
         match command_outcome {
             CommandOutcome::Success(resp) => {

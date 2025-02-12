@@ -582,13 +582,12 @@ impl BootstrapBuckdClient {
         }
     }
 
-    pub fn with_subscribers(self, subscribers: EventSubscribers) -> BuckdClientConnector {
+    pub fn to_connector(self) -> BuckdClientConnector {
         BuckdClientConnector {
             client: BuckdClient {
                 daemon_dir: self.daemon_dir,
                 client: self.client,
                 constraints: self.constraints,
-                events_ctx: EventsCtx::new(subscribers),
                 tailers: None,
             },
         }
@@ -616,16 +615,16 @@ impl BootstrapBuckdClient {
 /// In that case, then any existing buck daemon (regardless of constraint) is accepted.
 pub async fn connect_buckd(
     constraints: BuckdConnectConstraints,
-    mut subscribers: EventSubscribers,
+    events_ctx: &mut EventsCtx,
     paths: &InvocationPaths,
 ) -> buck2_error::Result<BuckdClientConnector> {
-    match BootstrapBuckdClient::connect(paths, constraints, &mut subscribers)
+    match BootstrapBuckdClient::connect(paths, constraints, &mut events_ctx.subscribers)
         .await
         .map_err(buck2_error::Error::from)
     {
-        Ok(client) => Ok(client.with_subscribers(subscribers)),
+        Ok(client) => Ok(client.to_connector()),
         Err(e) => {
-            subscribers.handle_daemon_connection_failure(&e);
+            events_ctx.subscribers.handle_daemon_connection_failure(&e);
             Err(e.into())
         }
     }

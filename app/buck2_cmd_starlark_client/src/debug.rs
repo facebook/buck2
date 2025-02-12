@@ -19,6 +19,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -74,6 +75,7 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let client_context = ctx.client_context(matches, &self)?;
 
@@ -101,7 +103,12 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
             |stream| async move {
                 buckd
                     .with_flushing()
-                    .dap(client_context, stream, &mut partial_result_handler)
+                    .dap(
+                        client_context,
+                        stream,
+                        events_ctx,
+                        &mut partial_result_handler,
+                    )
                     .await
             },
             // The DAP server side does not handle hangups. So, until it does... we never hang up:

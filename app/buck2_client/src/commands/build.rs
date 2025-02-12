@@ -33,6 +33,7 @@ use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::common::PrintOutputsFormat;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
@@ -238,6 +239,7 @@ impl StreamingCommand for BuildCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let show_default_other_outputs = false;
         let context = ctx.client_context(matches, &self)?;
@@ -265,6 +267,7 @@ impl StreamingCommand for BuildCommand {
                     target_universe: self.target_cfg.target_universe,
                     timeout: self.timeout_options.overall_timeout()?,
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )

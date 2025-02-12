@@ -16,6 +16,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -57,6 +58,7 @@ impl StreamingCommand for ExplainCommand {
         buckd: &mut BuckdClientConnector,
         _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         if cfg!(windows) {
             return ExitResult::bail("Not implemented for windows");
@@ -141,6 +143,7 @@ impl StreamingCommand for ExplainCommand {
                     target_cfg,
                     log_path: build_log.path().to_owned(),
                 }),
+                events_ctx,
                 None,
             )
             .await??;
