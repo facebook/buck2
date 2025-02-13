@@ -1819,6 +1819,17 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
+    /// For a given `path` (which could point inside the artifact) returns the path and data for the artifact which contains it.
+    fn find_artifact_containing_path<'a, 'b>(
+        tree: &'a mut ArtifactTree,
+        path: &'b ProjectRelativePath,
+    ) -> Option<(&'b ProjectRelativePath, &'a mut ArtifactMaterializationData)> {
+        let mut path_iter = path.iter();
+        let data = tree.prefix_get_mut(&mut path_iter)?;
+        let path = path.strip_suffix(path_iter.as_path()).unwrap();
+        Some((path, data))
+    }
+
     fn materialize_artifact_inner(
         &mut self,
         stack: MaterializeStack<'_>,
@@ -1829,17 +1840,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         check_stack_overflow().tag(ErrorTag::ServerStackOverflow)?;
 
         // Get the data about the artifact, or return early if materializing/materialized
-        let mut path_iter = path.iter();
-        let data = match self.tree.prefix_get_mut(&mut path_iter) {
-            // Never declared, nothing to do
+        let (path, data) = match Self::find_artifact_containing_path(&mut self.tree, path) {
             None => {
+                // Never declared, nothing to do
                 tracing::debug!("not known");
                 return Ok(None);
             }
-            Some(data) => data,
+            Some(x) => x,
         };
-
-        let path = path.strip_suffix(path_iter.as_path()).unwrap();
 
         let cleaning_fut = match &data.processing {
             Processing::Active {
