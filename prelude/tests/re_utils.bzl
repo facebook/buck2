@@ -15,7 +15,13 @@ ReArg = record(
 )
 
 def _get_re_arg(ctx: AnalysisContext) -> ReArg:
-    if not hasattr(ctx.attrs, "remote_execution"):
+    force_local = read_config("fbcode", "disable_re_tests", default = False)
+    if force_local or not hasattr(ctx.attrs, "remote_execution"):
+        # NOTE: this is kinda weird, we take this path if the attr is missing completely
+        # Even if the value is None we still follow. Adding force.local to give users
+        # some means of bypassing.
+        # Example usecase: SGW wants to run kotlin_test targets on MBP/OSX locally
+        # eg: buck2 test --local-only -c fbcode.disable_re_tests=True //signals/cloudbridge/v2/libs/cb-meters:test
         return ReArg(re_props = None, default_run_as_bundle = False)
 
     if ctx.attrs.remote_execution != None:
