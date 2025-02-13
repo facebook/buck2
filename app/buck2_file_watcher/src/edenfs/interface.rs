@@ -18,7 +18,6 @@ use buck2_common::dice::file_ops::FileChangeTracker;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
@@ -27,6 +26,7 @@ use buck2_core::soft_error;
 use buck2_data::FileWatcherEventType as Type;
 use buck2_data::FileWatcherKind as Kind;
 use buck2_eden::connection::EdenConnectionManager;
+use buck2_eden::semaphore;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use dice::DiceTransactionUpdater;
@@ -38,7 +38,6 @@ use edenfs::LargeChangeNotification;
 use edenfs::SmallChangeNotification;
 use fbinit::FacebookInit;
 use tokio::sync::RwLock;
-use tokio::sync::Semaphore;
 use tracing::info;
 use tracing::warn;
 
@@ -61,9 +60,6 @@ pub(crate) enum EdenFsWatcherError {
     #[buck2(tag = Input)]
     #[error("Eden mount point is not UTF-8")]
     Utf8,
-    #[buck2(tag = Environment)]
-    #[error("Failed to get BUCK2_EDEN_SEMAPHORE")]
-    EdenSemaphoreEnv,
 }
 
 #[derive(Allocative)]
@@ -88,13 +84,10 @@ impl EdenFsFileWatcher {
         cells: CellResolver,
         ignore_specs: HashMap<CellName, IgnoreSet>,
     ) -> Result<Self, EdenFsWatcherError> {
-        let eden_semaphore =
-            buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)
-                .map_err(|_| EdenFsWatcherError::EdenSemaphoreEnv)?;
-
-        let manager = EdenConnectionManager::new(fb, project_root, Semaphore::new(eden_semaphore))
-            .map_err(|_| EdenFsWatcherError::NoEden)?
-            .ok_or(EdenFsWatcherError::NoEden)?;
+        let manager =
+            EdenConnectionManager::new(fb, project_root, Some(semaphore::buck2_default()))
+                .map_err(|_| EdenFsWatcherError::NoEden)?
+                .ok_or(EdenFsWatcherError::NoEden)?;
 
         let mount_point = manager.get_mount_point();
         let root = String::from_utf8(mount_point.clone()).map_err(|_| EdenFsWatcherError::Utf8)?;

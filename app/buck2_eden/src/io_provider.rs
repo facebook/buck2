@@ -23,7 +23,6 @@ use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
 use buck2_common::io::IoProvider;
 use buck2_core;
-use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::io_counters::IoCounterKey;
@@ -38,11 +37,11 @@ use edenfs::SourceControlType;
 use edenfs::SyncBehavior;
 use edenfs::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
-use tokio::sync::Semaphore;
 
 use crate::connection::EdenConnectionManager;
 use crate::connection::EdenDataIntoResult;
 use crate::connection::EdenError;
+use crate::semaphore::buck2_default;
 
 #[derive(Allocative)]
 pub struct EdenIoProvider {
@@ -80,10 +79,9 @@ impl EdenIoProvider {
             return Ok(None);
         };
 
-        let eden_semaphore =
-            buck2_env!("BUCK2_EDEN_SEMAPHORE", type=usize, default=2048, applicability=internal)?;
+        let eden_semaphore = buck2_default();
 
-        let manager = match EdenConnectionManager::new(fb, fs, Semaphore::new(eden_semaphore))? {
+        let manager = match EdenConnectionManager::new(fb, fs, Some(eden_semaphore))? {
             Some(manager) => manager,
             None => return Ok(None),
         };

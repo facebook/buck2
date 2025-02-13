@@ -52,6 +52,8 @@ use serde::Deserialize;
 use sorted_vector_map::SortedVectorMap;
 use tokio::sync::Semaphore;
 
+use crate::semaphore;
+
 #[derive(Allocative)]
 pub struct EdenConnectionManager {
     connector: EdenConnector,
@@ -86,7 +88,7 @@ impl EdenConnectionManager {
     pub fn new(
         fb: FacebookInit,
         project_root: &ProjectRoot,
-        semaphore: Semaphore,
+        semaphore: Option<Semaphore>,
     ) -> buck2_error::Result<Option<Self>> {
         let dot_eden_dir = project_root.root().as_abs_path().join(".eden");
         if !dot_eden_dir.exists() {
@@ -110,6 +112,8 @@ impl EdenConnectionManager {
             epoch: 0,
             client: connector.connect(),
         });
+
+        let semaphore = semaphore.unwrap_or(semaphore::default());
 
         Ok(Some(Self {
             connector,
