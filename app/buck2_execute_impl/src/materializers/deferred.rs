@@ -642,7 +642,7 @@ impl ArtifactMetadata {
 enum ArtifactMaterializationStage {
     /// The artifact was declared, but the materialization hasn't started yet.
     /// If it did start but end with an error, it returns to this stage.
-    /// When the the artifact was declared, we spawn a deletion future to delete
+    /// When the artifact is declared, we spawn a deletion future to delete
     /// all existing paths that conflict with the output paths.
     Declared {
         /// Taken from `entry` of `ArtifactValue`. Used to materialize the actual artifact.
