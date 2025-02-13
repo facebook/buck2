@@ -2182,6 +2182,7 @@ message InvocationRecord {
 
   // UUID of the previous command stored only if external configs are different
   optional string previous_uuid_with_mismatched_config = 243;
+  optional string file_watcher = 244;
 }
 
 // Record event sent directly to scribe.

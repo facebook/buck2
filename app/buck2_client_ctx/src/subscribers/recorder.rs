@@ -30,6 +30,8 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_data::error::ErrorTag;
 use buck2_data::ErrorReport;
+use buck2_data::FileWatcherProvider;
+use buck2_data::FileWatcherStart;
 use buck2_data::ProcessedErrorReport;
 use buck2_data::SoftError;
 use buck2_data::SystemInfo;
@@ -206,6 +208,7 @@ pub(crate) struct InvocationRecorder {
     initial_local_cache_misses_bytes: Option<i64>,
     materialization_files: u64,
     previous_uuid_with_mismatched_config: Option<String>,
+    file_watcher: Option<String>,
 }
 
 struct ErrorsReport {
@@ -360,6 +363,7 @@ impl InvocationRecorder {
             initial_local_cache_misses_bytes: None,
             materialization_files: 0,
             previous_uuid_with_mismatched_config: None,
+            file_watcher: None,
         }
     }
 
@@ -806,6 +810,7 @@ impl InvocationRecorder {
             local_cache_misses_bytes,
             materialization_files: Some(self.materialization_files),
             previous_uuid_with_mismatched_config: self.previous_uuid_with_mismatched_config.take(),
+            file_watcher: self.file_watcher.take(),
         };
 
         let event = BuckEvent::new(
@@ -1374,6 +1379,15 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    fn handle_file_watcher_start(
+        &mut self,
+        file_watcher: &FileWatcherStart,
+    ) -> buck2_error::Result<()> {
+        self.file_watcher = FileWatcherProvider::from_i32(file_watcher.provider)
+            .map(|p| p.as_str_name().to_owned());
+        Ok(())
+    }
+
     fn handle_parsed_target_patterns(
         &mut self,
         patterns: &buck2_data::ParsedTargetPatterns,
@@ -1491,6 +1505,9 @@ impl InvocationRecorder {
                     }
                     buck2_data::span_start_event::Data::TestStart(test_start) => {
                         self.handle_test_run_start(test_start, event)
+                    }
+                    buck2_data::span_start_event::Data::FileWatcher(file_watcher) => {
+                        self.handle_file_watcher_start(file_watcher)
                     }
                     _ => Ok(()),
                 }
