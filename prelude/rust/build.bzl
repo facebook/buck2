@@ -367,7 +367,6 @@ def generate_rustdoc_test(
                 params.dep_link_strategy,
             ),
         ],
-        "{}-{}".format(common_args.subdir, common_args.tempfile),
     )
 
     link_args_output.link_args.add(ctx.attrs.doc_linker_flags or [])
@@ -604,7 +603,6 @@ def rust_compile(
                 LinkArgs(flags = extra_link_args),
                 inherited_link_args,
             ],
-            "{}-{}".format(subdir, tempfile),
             output_short_path = emit_op.output.short_path,
         )
         linker_argsfile, _ = ctx.actions.write(
