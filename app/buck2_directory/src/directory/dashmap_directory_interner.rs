@@ -58,7 +58,7 @@ where
             .map(|inner| SharedDirectory { inner })
     }
 
-    /// Insert a new entry into the interner. This may insert this data, or return anexisitng
+    /// Insert a new entry into the interner. This may insert this data, or return an existing
     /// entry.
     pub fn intern(&self, data: SharedDirectoryData<L, H>) -> SharedDirectory<L, H> {
         let new_inner = match self.inner.entry(data.fingerprint.dupe()) {
