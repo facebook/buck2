@@ -160,6 +160,14 @@ async def test_multi_query(buck: Buck) -> None:
     )
 
 
+@buck_test(data_dir="unsorted")
+async def test_query_attrfilter(buck: Buck) -> None:
+    out = await buck.uquery(
+        "attrfilter(buck.package, 'root//bin:TARGETS.fixture',root//bin:the_binary)"
+    )
+    assert out.stdout.strip() == "root//bin:the_binary"
+
+
 @buck_test(data_dir="multi_query_universe")
 async def test_multi_query_universe(buck: Buck) -> None:
     out = await buck.cquery(

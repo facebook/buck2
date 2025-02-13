@@ -459,6 +459,11 @@ impl ConfiguredTargetNode {
     }
 
     #[inline]
+    pub fn special_attr_or_none(&self, key: &str) -> Option<ConfiguredAttr> {
+        self.as_ref().special_attr_or_none(key)
+    }
+
+    #[inline]
     pub fn special_attrs(&self) -> impl Iterator<Item = (&str, ConfiguredAttr)> {
         self.as_ref().special_attrs()
     }
@@ -679,47 +684,60 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
         self.0.get().target_node.oncall()
     }
 
+    pub fn special_attr_or_none(&self, key: &str) -> Option<ConfiguredAttr> {
+        match key {
+            TYPE => Some(ConfiguredAttr::String(StringLiteral(
+                self.rule_type().name().into(),
+            ))),
+            DEPS => Some(ConfiguredAttr::List(
+                self.deps()
+                    .map(|t| {
+                        ConfiguredAttr::Label(ConfiguredProvidersLabel::new(
+                            t.label().dupe(),
+                            ProvidersName::Default,
+                        ))
+                    })
+                    .collect(),
+            )),
+            PACKAGE => Some(ConfiguredAttr::String(StringLiteral(ArcStr::from(
+                self.buildfile_path().to_string(),
+            )))),
+            ONCALL => Some(match self.oncall() {
+                None => ConfiguredAttr::None,
+                Some(x) => ConfiguredAttr::String(StringLiteral(ArcStr::from(x))),
+            }),
+            TARGET_CONFIGURATION => Some(ConfiguredAttr::String(StringLiteral(ArcStr::from(
+                self.0.label.cfg().to_string(),
+            )))),
+            EXECUTION_PLATFORM => Some(ConfiguredAttr::String(StringLiteral(
+                self.0
+                    .execution_platform_resolution
+                    .platform()
+                    .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
+            ))),
+            PLUGINS => Some(self.plugins_as_attr()),
+            _ => None,
+        }
+    }
+
     pub fn special_attrs(self) -> impl Iterator<Item = (&'a str, ConfiguredAttr)> {
-        let typ_attr = ConfiguredAttr::String(StringLiteral(self.rule_type().name().into()));
-        let deps_attr = ConfiguredAttr::List(
-            self.deps()
-                .map(|t| {
-                    ConfiguredAttr::Label(ConfiguredProvidersLabel::new(
-                        t.label().dupe(),
-                        ProvidersName::Default,
-                    ))
-                })
-                .collect(),
-        );
-        let package_attr = ConfiguredAttr::String(StringLiteral(ArcStr::from(
-            self.buildfile_path().to_string(),
-        )));
-        vec![
-            (TYPE, typ_attr),
-            (DEPS, deps_attr),
-            (PACKAGE, package_attr),
-            (
-                ONCALL,
-                match self.oncall() {
-                    None => ConfiguredAttr::None,
-                    Some(x) => ConfiguredAttr::String(StringLiteral(ArcStr::from(x))),
-                },
-            ),
-            (
-                TARGET_CONFIGURATION,
-                ConfiguredAttr::String(StringLiteral(ArcStr::from(self.0.label.cfg().to_string()))),
-            ),
-            (
-                EXECUTION_PLATFORM,
-                ConfiguredAttr::String(StringLiteral(
-                    self.0
-                        .execution_platform_resolution
-                        .platform()
-                        .map_or_else(|_| ArcStr::from("<NONE>"), |v| ArcStr::from(v.id())),
-                )),
-            ),
-            (PLUGINS, self.plugins_as_attr()),
+        [
+            TYPE,
+            DEPS,
+            PACKAGE,
+            ONCALL,
+            TARGET_CONFIGURATION,
+            EXECUTION_PLATFORM,
+            PLUGINS,
         ]
+        .into_iter()
+        .map(move |key| {
+            (
+                key,
+                // use unwrap here, if fail here it means we iter over a key not in the match list from `special_attr_or_none`
+                self.special_attr_or_none(key).unwrap(),
+            )
+        })
         .into_iter()
     }
 
