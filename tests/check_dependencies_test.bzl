@@ -14,6 +14,7 @@ def check_dependencies_test(
         name,
         target,
         contacts,
+        mode = None,
         allowlist_patterns = None,
         blocklist_patterns = None,
         expect_failure_msg = None,
@@ -24,20 +25,58 @@ def check_dependencies_test(
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
     point.
 
-    Parameters:
-        name: Name of the test target.
-        contacts: List of oncalls for the test.
-        target: The target to check dependencies for
-        allowlist_patterns: a regex of patterns that should be allowed in transitive deps of the target
-        blocklist_patterns: a regex of patterns that should be blocked in transitive deps of the target
-        expect_failure_msg: the test is expected to fail with this message regex
-        env: additional environment variables to pass to the checking script
+
+    There are two modes: "allowlist" mode, "blocklist" mode
+
+    "allowlist" mode:
+
+        Only deps matching patterns in "allowlist_patterns' will pass the check.
+        If at least one target in a transitive closure of all dependencies doesn't
+        match anything in "allowlist_patterns" the test will fail.
+
+        In this mode "blocklist_patterns" is used to allow for additional restriction
+        to be applied. If a specific target from transitive closure of all dependencies
+        matches at least one pattern from "blocklist_patterns", the test will fail
+        regardless if that target matches anything in "allowlist_patterns".
+
+        In other words, for test to pass each target must match at least one
+        pattern from "allowlist_patterns", and must not match anything from the
+        "blocklist_patterns".
+
+
+    "blocklist" mode"
+
+        If at least one target from a transitive closure of dependnecies matches
+        at least one pattern from "blocklist_patterns" the test will fail.
+
+
+        In this mode "allowlist_patterns" modifies how "blocklist_patterns" are
+        applied. Specifically if a specific target matches "allowlist_patterns"
+        then it will always pass, and will not be checked against "blocklist_patterns".
+
+        The use case is to allow blocking more generic location (for example,
+        blocklist; //testing/.*), while still allowing specific exceptions
+        (for example, allowlist: //testing/jest/.*).
     """
+
     bxl_main = "fbcode//buck2/tests/check_dependencies_test.bxl:test"
     allowlist_patterns = ",".join(allowlist_patterns) if allowlist_patterns else ""
     blocklist_patterns = ",".join(blocklist_patterns) if blocklist_patterns else ""
     if not (expect_failure_msg == None or len(expect_failure_msg) > 0):
         fail("Expected failure message can only be None or non-empty string")
+
+    # Legacy mode: infer check mode.
+    # TODO: remove once all existing targets are migrated to explicit mode.
+    if mode == None:
+        if allowlist_patterns and len(allowlist_patterns) > 0:
+            mode = "allowlist"
+        elif blocklist_patterns and len(blocklist_patterns) > 0:
+            mode = "blocklist"
+        else:
+            fail("Either allowlist or blocklist must be non-empty.")
+
+    if mode not in ("allowlist", "blocklist"):
+        fail("mode must be one of: allowlist, blocklist")
 
     buck2_e2e_test(
         contacts = contacts,
@@ -49,6 +88,7 @@ def check_dependencies_test(
             "BXL_MAIN": bxl_main,
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
             "TARGET": target,
+            "VERIFICATION_MODE": mode,
         } | (env or {}),
         # fbcode_macros uses tags instead of labels
         tags = ["check_dependencies_test"],

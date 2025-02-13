@@ -15,18 +15,20 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, get_mode_from_platfor
 # It does not need to be edited for new `check_dependencies_test`.
 
 
-def process_list_arg(is_allowlist: bool) -> list[str]:
-    env_var = "ALLOWLIST" if is_allowlist else "BLOCKLIST"
-    list_env = os.environ[env_var]
+def pass_list_arg(from_env_var: str, to_bxl_param: str) -> list[str]:
+    list_env = os.environ[from_env_var]
     split_list = [] if list_env == "" else list_env.split(",")
-    list_str_arg = "--allowlist_patterns" if is_allowlist else "--blocklist_patterns"
-    return [elem for item in split_list for elem in (list_str_arg, item)]
+    return [elem for item in split_list for elem in (to_bxl_param, item)]
 
 
 @buck_test(inplace=True)
 async def test_check_dependencies_bxl(buck) -> None:
-    allowlist = process_list_arg(is_allowlist=True)
-    blocklist = process_list_arg(is_allowlist=False)
+    allowlist_args = pass_list_arg(
+        from_env_var="ALLOWLIST", to_bxl_param="--allowlist_patterns"
+    )
+    blocklist_args = pass_list_arg(
+        from_env_var="BLOCKLIST", to_bxl_param="--blocklist_patterns"
+    )
     expect_failure_msg = os.environ["EXPECT_FAILURE_MSG"]
 
     fbcode_build_mode = os.environ.get("CHECK_DEPENDENCIES_TEST_FBCODE_BUILD_MODE")
@@ -43,8 +45,10 @@ async def test_check_dependencies_bxl(buck) -> None:
         "--",
         "--target",
         os.environ["TARGET"],
-        *allowlist,
-        *blocklist,
+        "--verification_mode",
+        os.environ["VERIFICATION_MODE"],
+        *allowlist_args,
+        *blocklist_args,
     )
     if expect_failure_msg == "":
         await bxl_call
