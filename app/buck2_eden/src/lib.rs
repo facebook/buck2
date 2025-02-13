@@ -13,6 +13,7 @@
 #![feature(used_with_arg)]
 
 pub mod connection;
+pub mod error;
 pub mod io_provider;
 
 pub mod semaphore {

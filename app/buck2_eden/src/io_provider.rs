@@ -39,8 +39,8 @@ use edenfs::SynchronizeWorkingCopyParams;
 use fbinit::FacebookInit;
 
 use crate::connection::EdenConnectionManager;
-use crate::connection::EdenDataIntoResult;
-use crate::connection::EdenError;
+use crate::error::EdenDataIntoResult;
+use crate::error::EdenError;
 use crate::semaphore::buck2_default;
 
 #[derive(Allocative)]
