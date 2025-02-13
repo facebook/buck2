@@ -130,7 +130,12 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
         func: F,
     ) -> Result<(), E>;
 
+    /// map the attr named `key` to a value using `func`
+    /// attribute here is usered defined attribute, not including special attributes.
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
+
+    /// map the any attr (user defined attribute or special attribute) named `key` to a value using `func`
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
 }
 
 #[async_trait]

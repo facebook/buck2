@@ -112,6 +112,16 @@ impl QueryTarget for TargetNode {
         )
     }
 
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
+        match self.attr_or_none(key, AttrInspectOptions::All) {
+            Some(attr) => func(Some(attr.value)),
+            None => match self.special_attr_or_none(key) {
+                Some(special) => func(Some(&special)),
+                None => func(None),
+            },
+        }
+    }
+
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(
         &self,
         mut func: F,

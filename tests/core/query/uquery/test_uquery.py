@@ -542,3 +542,11 @@ async def test_uquery_rdeps(buck: Buck) -> None:
 
     result = await buck.query("""rdeps(root//bin:the_binary, //lib:file1, 100)""")
     assert result.stdout == "root//bin:the_binary\nroot//lib:lib1\nroot//lib:file1\n"
+
+
+@buck_test(data_dir="bxl_simple")
+async def test_query_attrfilter_special_attribute(buck: Buck) -> None:
+    out = await buck.uquery(
+        "attrfilter(buck.package, 'root//bin:TARGETS.fixture',root//bin:the_binary)"
+    )
+    assert out.stdout.strip() == "root//bin:the_binary"

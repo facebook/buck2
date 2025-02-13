@@ -301,6 +301,14 @@ mod tests {
             unimplemented!()
         }
 
+        fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(
+            &self,
+            _key: &str,
+            _func: F,
+        ) -> R {
+            unimplemented!()
+        }
+
         fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(
             &self,
             _func: F,

@@ -394,6 +394,11 @@ impl QueryTarget for ActionQueryNode {
         // TODO(cjhopman): In addition to implementing this, we should be able to return an buck2_error::Error here rather than panicking.
         unimplemented!("inputs not yet implemented in aquery")
     }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R {
+        // aquery doesn't have special attrs, so this is the same as map_attr
+        self.map_attr(key, func)
+    }
 }
 
 pub fn iter_action_inputs<'a>(

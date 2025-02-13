@@ -195,4 +195,9 @@ impl QueryTarget for ConfiguredGraphNodeRef {
         }
         Ok(())
     }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R {
+        // TODO(nero): use map_attr for now to avoid breaking changes
+        self.map_attr(key, func)
+    }
 }

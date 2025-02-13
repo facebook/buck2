@@ -136,6 +136,10 @@ impl QueryTarget for Target {
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
         unimplemented!()
     }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, _key: &str, _func: F) -> R {
+        unimplemented!()
+    }
 }
 
 struct Env;
