@@ -145,6 +145,8 @@ impl Action for SimpleAction {
                     .collect(),
                 ctx.fs(),
                 ctx.digest_config(),
+                ctx.run_action_knobs()
+                    .add_empty_dot_buckconfig_to_re_commands,
             )?,
             sorted_vector_map![],
         );

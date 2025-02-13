@@ -218,6 +218,7 @@ impl CommandExecutionPaths {
         outputs: IndexSet<CommandExecutionOutput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
+        add_empty_dot_buckconfig: bool,
     ) -> buck2_error::Result<Self> {
         let mut builder = inputs_directory(&inputs, fs)?;
 
@@ -233,13 +234,15 @@ impl CommandExecutionPaths {
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
-        insert_entry(
-            &mut builder,
-            ProjectRelativePath::unchecked_new(".buckconfig"),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
-                digest_config.cas_digest_config(),
-            ))),
-        )?;
+        if add_empty_dot_buckconfig {
+            insert_entry(
+                &mut builder,
+                ProjectRelativePath::unchecked_new(".buckconfig"),
+                DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
+                    digest_config.cas_digest_config(),
+                ))),
+            )?;
+        }
 
         let input_directory = builder.fingerprint(digest_config.as_directory_serializer());
 
