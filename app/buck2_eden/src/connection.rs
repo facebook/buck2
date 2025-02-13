@@ -43,6 +43,8 @@ use edenfs_clients::errors::ListMountsError;
 use edenfs_clients::EdenService;
 use fb303_core_clients::BaseService;
 use fbinit::FacebookInit;
+use fbthrift::ApplicationException;
+use fbthrift::ApplicationExceptionErrorCode;
 use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -413,6 +415,47 @@ pub enum ConnectAndRequestError<E> {
     RequestError(E),
 }
 
+fn is_app_exception_from_hanging(e: &ApplicationException) -> bool {
+    // Timeout indicates that a single Thrift request took too long. Loadshedding indicates "Queue
+    // Timeout" errors which are typically caused by heavy load on the Thrift server.
+    e.type_ == ApplicationExceptionErrorCode::Timeout
+        || e.type_ == ApplicationExceptionErrorCode::Loadshedding
+}
+
+pub trait ErrorFromHangingMount {
+    fn is_caused_by_hanging_mount(&self) -> bool;
+}
+
+impl<E: ErrorFromHangingMount> ErrorFromHangingMount for ConnectAndRequestError<E> {
+    fn is_caused_by_hanging_mount(&self) -> bool {
+        match self {
+            // NOTE: This is slightly incorrect, but the only user of this trait is the EdenFS
+            // health check. The health check short circuits on ConnectionErrors, and therefore
+            // this codepath will never be hit. This code can be fixed using structured logging to
+            // return a new flavor of ConnectionError for hangs during client creation.
+            Self::ConnectionError(_) => false,
+            Self::RequestError(e) => e.is_caused_by_hanging_mount(),
+        }
+    }
+}
+
+macro_rules! impl_error_from_hanging_mount {
+    ($err: ident) => {
+        impl ErrorFromHangingMount for ::edenfs_clients::errors::$err {
+            fn is_caused_by_hanging_mount(&self) -> bool {
+                match self {
+                    // For now, we assume all Thrift Errors are not caused by a hanging mount.
+                    Self::ThriftError(..) => false,
+                    Self::ApplicationException(e) if is_app_exception_from_hanging(e) => true,
+                    _ => false,
+                }
+            }
+        }
+    };
+}
+
+impl_error_from_hanging_mount!(GetDaemonInfoError);
+
 impl<E> std::error::Error for ConnectAndRequestError<E>
 where
     E: std::error::Error,
@@ -486,6 +529,7 @@ impl_has_error_handling_strategy!(ReaddirError);
 impl_has_error_handling_strategy!(GetSHA1Error);
 impl_has_error_handling_strategy!(GetCurrentJournalPositionError);
 impl_has_error_handling_strategy!(ChangesSinceV2Error);
+impl_has_error_handling_strategy!(GetDaemonInfoError);
 
 fn eden_posix_error_tag(code: i32) -> ErrorTag {
     match code {

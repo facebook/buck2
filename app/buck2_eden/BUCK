@@ -29,5 +29,6 @@ rust_library(
         # @oss-disable[end= ]: "//common/rust/shed/sorted_vector_map:sorted_vector_map",
         # @oss-disable[end= ]: "//common/rust/thrift/bareclient:thriftclient",
         # @oss-disable[end= ]: "//fb303/thrift:fb303_core-rust-clients",
+        # @oss-disable[end= ]: "//thrift/lib/rust:fbthrift",
     ],
 )
