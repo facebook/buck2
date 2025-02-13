@@ -14,7 +14,7 @@ def check_dependencies_test(
         name,
         target,
         contacts,
-        mode = None,
+        mode,
         allowlist_patterns = None,
         blocklist_patterns = None,
         expect_failure_msg = None,
@@ -64,16 +64,6 @@ def check_dependencies_test(
     blocklist_patterns = ",".join(blocklist_patterns) if blocklist_patterns else ""
     if not (expect_failure_msg == None or len(expect_failure_msg) > 0):
         fail("Expected failure message can only be None or non-empty string")
-
-    # Legacy mode: infer check mode.
-    # TODO: remove once all existing targets are migrated to explicit mode.
-    if mode == None:
-        if allowlist_patterns and len(allowlist_patterns) > 0:
-            mode = "allowlist"
-        elif blocklist_patterns and len(blocklist_patterns) > 0:
-            mode = "blocklist"
-        else:
-            fail("Either allowlist or blocklist must be non-empty.")
 
     if mode not in ("allowlist", "blocklist"):
         fail("mode must be one of: allowlist, blocklist")
