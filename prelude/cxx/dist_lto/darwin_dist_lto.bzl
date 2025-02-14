@@ -13,6 +13,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
+    "CxxSanitizerRuntimeArguments",
     "cxx_link_cmd_parts",
     "get_extra_darwin_linker_flags",
     "linker_map_args",
@@ -83,6 +84,7 @@ def cxx_darwin_dist_link(
         opts: LinkOptions,
         premerger_enabled: bool,
         executable_link: bool,
+        sanitizer_runtime_args: CxxSanitizerRuntimeArguments,
         linker_map: Artifact | None = None) -> (LinkedObject, dict[str, list[DefaultInfo]]):
     """
     Perform a distributed thin-lto link into the supplied output
@@ -158,6 +160,7 @@ def cxx_darwin_dist_link(
     unsorted_index_link_data = []
     linker_flags = []
     common_link_flags = cmd_args(get_target_sdk_version_flags(ctx), get_extra_darwin_linker_flags())
+    common_link_flags.add(sanitizer_runtime_args.extra_link_args)
     extra_codegen_flags = get_target_sdk_version_flags(ctx)
 
     # Information used to construct the dynamic plan:

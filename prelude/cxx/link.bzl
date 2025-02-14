@@ -151,8 +151,6 @@ def cxx_link_into(
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
         sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
-        if sanitizer_runtime_args.extra_link_args or sanitizer_runtime_args.sanitizer_runtime_files:
-            fail("Cannot use distributed thinlto with sanitizer runtime")
 
         linker_type = linker_info.type
         if linker_type == LinkerType("darwin"):
@@ -162,9 +160,12 @@ def cxx_link_into(
                 opts,
                 linker_info.thin_lto_premerger_enabled,
                 is_result_executable,
+                sanitizer_runtime_args,
                 linker_map,
             )
         elif linker_type == LinkerType("gnu"):
+            if sanitizer_runtime_args.extra_link_args or sanitizer_runtime_args.sanitizer_runtime_files:
+                fail("Cannot use GNU distributed thinlto with sanitizer runtime")
             exe = cxx_gnu_dist_link(
                 ctx,
                 output,
@@ -183,7 +184,7 @@ def cxx_link_into(
             link_execution_preference_info = LinkExecutionPreferenceInfo(
                 preference = opts.link_execution_preference,
             ),
-            sanitizer_runtime_files = [],
+            sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
             extra_outputs = extra_outputs,
         )
 
