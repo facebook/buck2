@@ -45,12 +45,12 @@ use futures::FutureExt;
 use tokio::sync::oneshot::Sender;
 use tracing::error;
 
+use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
+use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
-use crate::materializers::deferred::ArtifactMaterializationData;
 use crate::materializers::deferred::ArtifactMaterializationStage;
-use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 

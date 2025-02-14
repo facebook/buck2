@@ -43,8 +43,8 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 
-use crate::materializers::deferred::ArtifactMetadata;
-use crate::materializers::deferred::DirectoryMetadata;
+use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
+use crate::materializers::deferred::artifact_tree::DirectoryMetadata;
 
 #[derive(Display, Allocative, Clone, From, PartialEq, Eq, Debug)]
 pub struct MaterializerStateIdentity(String);

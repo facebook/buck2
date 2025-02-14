@@ -104,6 +104,7 @@ mod state_machine {
     use buck2_error::buck2_error;
     use buck2_error::BuckErrorContext;
     use buck2_events::source::ChannelEventSource;
+    use buck2_execute::directory::ActionDirectoryEntry;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
     use buck2_execute::execute::blocking::IoRequest;
