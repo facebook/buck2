@@ -55,10 +55,8 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_execute::directory::ActionDirectory;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::directory::ActionDirectoryRef;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
@@ -2366,130 +2364,6 @@ impl ArtifactTree {
         }
 
         Ok(futs)
-    }
-}
-
-enum FoundArtifact {
-    /// Proper artifact.
-    Found,
-    /// Found a directory artifact with dependencies inside it.
-    FoundForDir,
-    // TODO(nga): figure the meaning of remaining. Are these bugs?
-    /// Dependency dir not found in tree.
-    DirNotFound,
-    /// Leaf pointing to a dir.
-    LeafPointsToDir,
-}
-
-impl<V: 'static> FileTree<V> {
-    /// Finds all the paths in `deps` that are artifacts in `self`
-    fn find_artifacts<D>(&self, deps: &D) -> Vec<ProjectRelativePathBuf>
-    where
-        D: ActionDirectory,
-    {
-        let mut artifacts = Vec::new();
-        self.find_artifacts_impl(deps, |path, found| match found {
-            FoundArtifact::Found | FoundArtifact::FoundForDir => {
-                artifacts.push(path.to_buf());
-            }
-            FoundArtifact::DirNotFound | FoundArtifact::LeafPointsToDir => {}
-        });
-        artifacts
-    }
-
-    fn find_artifacts_for_debug<D>(&self, deps: &D) -> Vec<(ProjectRelativePathBuf, &'static str)>
-    where
-        D: ActionDirectory,
-    {
-        let mut result = Vec::new();
-        self.find_artifacts_impl(deps, |path, found| {
-            let found = match found {
-                FoundArtifact::Found => "Found",
-                FoundArtifact::FoundForDir => "FoundForDir",
-                FoundArtifact::DirNotFound => "DirNotFound",
-                FoundArtifact::LeafPointsToDir => "LeafPointsToDir",
-            };
-            result.push((path.to_buf(), found));
-        });
-        result
-    }
-
-    fn find_artifacts_impl<D>(
-        &self,
-        deps: &D,
-        mut listener: impl FnMut(&ProjectRelativePath, FoundArtifact),
-    ) where
-        D: ActionDirectory,
-    {
-        fn walk_deps<'a, V, D>(
-            tree: &FileTree<V>,
-            entry: DirectoryEntry<D, &ActionDirectoryMember>,
-            path: &mut ProjectRelativePathBuf,
-            listener: &mut impl FnMut(&ProjectRelativePath, FoundArtifact),
-        ) where
-            D: ActionDirectoryRef<'a>,
-        {
-            match (tree, entry) {
-                (FileTree::Data(_), DirectoryEntry::Leaf(_)) => {
-                    listener(path, FoundArtifact::Found);
-                }
-                (FileTree::Data(_), DirectoryEntry::Dir(_)) => {
-                    listener(path, FoundArtifact::FoundForDir);
-                }
-                (FileTree::Tree(tree_children), DirectoryEntry::Dir(d)) => {
-                    // Not an artifact, but if entry is a directory we can search deeper within
-                    for (name, child) in d.entries() {
-                        path.push(name);
-                        if let Some(subtree) = tree_children.get(name) {
-                            walk_deps(subtree, child, path, listener);
-                        } else {
-                            listener(path, FoundArtifact::DirNotFound);
-                        }
-                        let popped = path.pop();
-                        assert!(popped);
-                    }
-                }
-                (FileTree::Tree(_), DirectoryEntry::Leaf(_)) => {
-                    listener(path, FoundArtifact::LeafPointsToDir);
-                }
-            }
-        }
-
-        let mut path_buf = ProjectRelativePathBuf::default();
-        walk_deps(
-            self,
-            DirectoryEntry::Dir(Directory::as_ref(deps)),
-            &mut path_buf,
-            &mut listener,
-        );
-        assert!(path_buf.is_empty());
-    }
-
-    /// Removes path from FileTree. Returns an iterator of pairs of path and entry removed
-    /// from the tree.
-    fn remove_path(
-        &mut self,
-        path: &ProjectRelativePath,
-    ) -> Box<dyn Iterator<Item = (ProjectRelativePathBuf, V)>> {
-        let mut path_iter = path.iter();
-        let removed = self.remove(&mut path_iter);
-
-        let mut path = path;
-        // Rewind the `path` up to the entry we *actually* found.
-        for _ in path_iter {
-            path = path
-                .parent()
-                .expect("Path iterator cannot cause us to rewind past the last parent");
-        }
-        let path = path.to_owned();
-
-        match removed {
-            Some(tree) => Box::new(
-                tree.into_iter_with_paths()
-                    .map(move |(k, v)| ((path).join(k), v)),
-            ),
-            None => Box::new(std::iter::empty()),
-        }
     }
 }
 
