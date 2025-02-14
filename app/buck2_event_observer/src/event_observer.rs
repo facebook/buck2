@@ -82,6 +82,14 @@ where
             use buck2_data::buck_event::Data::*;
 
             match event.data() {
+                SpanStart(start) => match &start.data {
+                    Some(buck2_data::span_start_event::Data::Command(command)) => {
+                        if let Some(client) = &mut self.health_check_client {
+                            client.update_command_data(command.data.clone());
+                        }
+                    }
+                    _ => {}
+                },
                 SpanEnd(end) => {
                     use buck2_data::span_end_event::Data::*;
 
