@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("constants.bxl", "ANDROID", "CLANG", "CXXFLAGS", "CXXPPFLAGS", "LANGUAGE_STANDARD", "LDFLAGS", "TOOLSET", "VS2019", "VS2022")
+load("constants.bxl", "ANDROID", "CLANG", "CXXFLAGS", "CXXPPFLAGS", "FLAGS_LOCATION", "LANGUAGE_STANDARD", "LDFLAGS", "TOOLSET", "VS2019", "VS2022")
 load("flags_parser_utils.bxl", "get_compiler_settings_from_flags", "get_linker_settings_from_flags")
 load("get_compiler_settings.bxl", "gen_compiler_settings")
 load("get_linker_settings.bxl", "gen_linker_settings")
@@ -20,9 +20,18 @@ ANDROID_CXXPPFLAGS = read_root_config("fbcode-platform-cxx#platform010-clang", "
 ANDROID_CXXFLAGS = read_root_config("fbcode-platform-cxx#platform010-clang", "cxxflags") or ""
 ANDROID_LDFLAGS = read_root_config("fbcode-platform-cxx#platform010-clang", "ldflags") or ""
 
+# Simple enum used to determine where flags come from.
+_FlagsLocation = enum(
+    # Flags come from the dict itsself
+    "dict",
+    # Flags come from the CxxToolchain
+    "CxxToolchain",  # @unused, Will use in a future change.
+)
+
 # @unsorted-dict-items
 LANGUAGE_STANDARD_AND_TOOLSET_MAP = {
     ANDROID: {
+        FLAGS_LOCATION: _FlagsLocation("dict"),
         CXXFLAGS: ANDROID_CXXFLAGS,
         CXXPPFLAGS: ANDROID_CXXPPFLAGS,
         LDFLAGS: ANDROID_LDFLAGS,
@@ -30,6 +39,7 @@ LANGUAGE_STANDARD_AND_TOOLSET_MAP = {
         TOOLSET: "Clang_5_0",
     },
     CLANG: {
+        FLAGS_LOCATION: _FlagsLocation("dict"),
         CXXFLAGS: STD_CXXFLAGS,
         CXXPPFLAGS: STD_CXXPPFLAGS,
         LDFLAGS: STD_LDFLAGS,
@@ -37,6 +47,7 @@ LANGUAGE_STANDARD_AND_TOOLSET_MAP = {
         TOOLSET: "ClangCL",
     },
     VS2019: {
+        FLAGS_LOCATION: _FlagsLocation("dict"),
         CXXFLAGS: STD_CXXFLAGS,
         CXXPPFLAGS: STD_CXXPPFLAGS,
         LDFLAGS: STD_LDFLAGS,
@@ -44,6 +55,7 @@ LANGUAGE_STANDARD_AND_TOOLSET_MAP = {
         TOOLSET: "v142",
     },
     VS2022: {
+        FLAGS_LOCATION: _FlagsLocation("dict"),
         CXXFLAGS: STD_CXXFLAGS,
         CXXPPFLAGS: STD_CXXPPFLAGS,
         LDFLAGS: STD_LDFLAGS,
@@ -68,17 +80,20 @@ def _remove_flags_with_macros(flags: list) -> list:
     flags = [item for item in flags if "$(" not in item and ")" not in item]
     return dedupe_by_value(flags)
 
-def _get_compiler_settings(platform: str) -> dict:
-    cxxppflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXPPFLAGS]
-    cxxflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXFLAGS]
-    compiler_flags = cxxppflags.split(" ") + cxxflags.split(" ")
+# Simple record type that holds flags read from the `cxx_toolchain`.
+_CxxToolchainFlags = record(
+    cxxflags = list[str],
+    cxxppflags = list[str],
+    ldflags = list[str],
+)
+
+def _get_compiler_settings(cxx_toolchain_flags: _CxxToolchainFlags) -> dict:
+    compiler_flags = cxx_toolchain_flags.cxxppflags + cxx_toolchain_flags.cxxflags
     compiler_flags = _remove_flags_with_macros(compiler_flags)
     return get_compiler_settings_from_flags(compiler_flags)
 
-def _get_linker_settings(platform: str, buck_root: str) -> dict:
-    ldflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][LDFLAGS]
-    linker_flags = ldflags.split(" ")
-    linker_flags = _remove_flags_with_macros(linker_flags)
+def _get_linker_settings(cxx_toolchain_flags: _CxxToolchainFlags, buck_root: str) -> dict:
+    linker_flags = _remove_flags_with_macros(cxx_toolchain_flags.ldflags)
     return get_linker_settings_from_flags(linker_flags, buck_root)
 
 def _get_provider_output_path(provider, bxl_ctx):
@@ -97,8 +112,24 @@ def _get_path(target: str, bxl_ctx):
 def _main(bxl_ctx):
     platform = _get_platform(bxl_ctx.cli_args.vs_version_year)
 
-    compiler_settings = _get_compiler_settings(platform)
-    linker_settings = _get_linker_settings(platform, bxl_ctx.root())
+    flags_location = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][FLAGS_LOCATION]
+
+    if flags_location == _FlagsLocation("dict"):
+        cxxppflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXPPFLAGS].split(" ")
+        cxxflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][CXXFLAGS].split(" ")
+        ldflags = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][LDFLAGS].split(" ")
+        cxx_toolchain_flags = _CxxToolchainFlags(
+            cxxflags = cxxflags,
+            cxxppflags = cxxppflags,
+            ldflags = ldflags,
+        )
+    elif flags_location == _FlagsLocation("CxxToolchain"):
+        fail("Not Implemented Yet flags_location '%s' in platform '%s'" % (flags_location, platform))
+    else:
+        fail("Unknown flags_location '%s' in platform '%s'" % (flags_location, platform))
+
+    compiler_settings = _get_compiler_settings(cxx_toolchain_flags)
+    linker_settings = _get_linker_settings(cxx_toolchain_flags, bxl_ctx.root())
     platform_toolset = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][TOOLSET]
 
     # Set default language standard if not specified
