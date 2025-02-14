@@ -141,7 +141,7 @@ def generate_bxl_utils_api_docs(buck: str) -> None:
             content = "\n".join(content.splitlines()[1:])
 
             prefix = f"""# {file.stem} \n\nThe following functions are defined in the bxl file: `{buck_bxl_file_name}`. \
-            You can import them in your bxl file by using `load("{buck_bxl_file_name}", "function_name")`\n\n"""
+            You can import them in your bxl file by using `load("@{buck_bxl_file_name}", "function_name")`\n\n"""
 
             dest = base_dir / (str(relative_file.with_suffix(".md")))
 
