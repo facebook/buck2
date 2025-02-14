@@ -16,11 +16,9 @@ use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfCounter;
 use remote_execution::ActionResultResponse;
 use remote_execution::ExecuteResponse;
-use remote_execution::ExecutedActionMemoryStats;
 use remote_execution::TDirectory2;
 use remote_execution::TExecutedActionMetadata;
 use remote_execution::TFile;
-use remote_execution::TPerfCount;
 use remote_execution::TSubsysPerfCount;
 use remote_execution::TSymlink;
 use remote_execution::TTimestamp;
@@ -96,10 +94,7 @@ impl RemoteActionResult for ExecuteResponse {
     }
 
     fn timing(&self) -> CommandExecutionMetadata {
-        timing_from_re_metadata(
-            &self.action_result.execution_metadata,
-            Some(&self.executed_action_details.memory_stats),
-        )
+        timing_from_re_metadata(&self.action_result.execution_metadata)
     }
 
     fn std_streams(
@@ -147,7 +142,7 @@ impl RemoteActionResult for ActionCacheResult {
     }
 
     fn timing(&self) -> CommandExecutionMetadata {
-        let mut timing = timing_from_re_metadata(&self.0.action_result.execution_metadata, None);
+        let mut timing = timing_from_re_metadata(&self.0.action_result.execution_metadata);
         // This was a cache hit so we didn't wait at all
         timing.wall_time = Duration::ZERO;
         timing.input_materialization_duration = Duration::ZERO;
@@ -169,10 +164,7 @@ impl RemoteActionResult for ActionCacheResult {
     }
 }
 
-fn timing_from_re_metadata(
-    meta: &TExecutedActionMetadata,
-    memory_stat: Option<&ExecutedActionMemoryStats>,
-) -> CommandExecutionMetadata {
+fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMetadata {
     let execution_time = meta
         .execution_completed_timestamp
         .saturating_duration_since(&meta.execution_start_timestamp);
@@ -182,7 +174,7 @@ fn timing_from_re_metadata(
             .execution_start_timestamp
             .saturating_duration_since(&TTimestamp::unix_epoch());
 
-    let execution_stats = match convert_perf_counts(&meta.instruction_counts, memory_stat) {
+    let execution_stats = match convert_perf_counts(meta) {
         Ok(v) => Some(v),
         Err(e) => {
             tracing::warn!("Invalid instruction counts received from RE: {:#}", e);
@@ -211,18 +203,17 @@ fn timing_from_re_metadata(
 }
 
 fn convert_perf_counts(
-    perf_counts: &TPerfCount,
-    memory_stat: Option<&ExecutedActionMemoryStats>,
+    meta: &TExecutedActionMetadata,
 ) -> buck2_error::Result<buck2_data::CommandExecutionStats> {
     Ok({
-        let userspace_counter = convert_perf_count(&perf_counts.userspace_events)?;
-        let kernel_counter = convert_perf_count(&perf_counts.kernel_events)?;
+        let userspace_counter = convert_perf_count(&meta.instruction_counts.userspace_events)?;
+        let kernel_counter = convert_perf_count(&meta.instruction_counts.kernel_events)?;
         buck2_data::CommandExecutionStats {
             cpu_instructions_user: userspace_counter.map(|p| p.adjusted_count()),
             cpu_instructions_kernel: kernel_counter.map(|p| p.adjusted_count()),
             userspace_events: userspace_counter.map(|p| p.to_proto()),
             kernel_events: kernel_counter.map(|p| p.to_proto()),
-            memory_peak: memory_stat.map(|m| m.max_used_mem as u64),
+            memory_peak: Some(meta.max_used_mem as u64),
         }
     })
 }
