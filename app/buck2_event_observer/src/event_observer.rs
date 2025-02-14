@@ -13,6 +13,7 @@ use std::time::Instant;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
+use buck2_health_check::health_check_client::HealthCheckClient;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
@@ -37,6 +38,7 @@ pub struct EventObserver<E> {
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
     pub cold_build_detector: Option<ColdBuildDetector>,
+    pub health_check_client: Option<HealthCheckClient>,
     dice_state: DiceState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
@@ -56,13 +58,14 @@ where
             two_snapshots: TwoSnapshots::default(),
             system_info: buck2_data::SystemInfo::default(),
             session_info: SessionInfo {
-                trace_id,
+                trace_id: trace_id.clone(),
                 test_session: None,
                 legacy_dice: false,
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
             cold_build_detector,
+            health_check_client: Some(HealthCheckClient::new(trace_id.to_string())),
             dice_state: DiceState::new(),
             extra: E::new(),
         }
