@@ -89,6 +89,7 @@ use futures::stream::TryStreamExt;
 use starlark_map::small_map::SmallMap;
 use tokio::sync::mpsc;
 use tokio::sync::Mutex;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::transport::Channel;
 
 #[derive(Debug, buck2_error::Error)]
@@ -350,6 +351,62 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
+struct ConnectedInstaller<'a> {
+    client: InstallerClient<Channel>,
+    artifact_fs: ArtifactFs,
+    install_request_data: &'a InstallRequestData<'a>,
+    installer_log_filename: String,
+    device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
+}
+
+impl<'a> ConnectedInstaller<'a> {
+    fn new(
+        client: InstallerClient<Channel>,
+        artifact_fs: ArtifactFs,
+        install_request_data: &'a InstallRequestData<'a>,
+        installer_log_filename: String,
+    ) -> Self {
+        Self {
+            client,
+            artifact_fs,
+            install_request_data,
+            installer_log_filename,
+            device_metadata: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    async fn send_install_info(&mut self) -> buck2_error::Result<()> {
+        for (installed_target, install_files) in &self.install_request_data.installed_targets {
+            send_install_info(
+                self.client.clone(),
+                &install_id(installed_target),
+                install_files,
+                &self.artifact_fs,
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    async fn send_files(
+        &mut self,
+        files_rx: mpsc::UnboundedReceiver<FileResult>,
+    ) -> buck2_error::Result<()> {
+        UnboundedReceiverStream::new(files_rx)
+            .map(buck2_error::Ok)
+            .try_for_each_concurrent(None, |file| {
+                send_file(
+                    file,
+                    &self.artifact_fs,
+                    self.client.clone(),
+                    self.installer_log_filename.to_owned(),
+                    self.device_metadata.dupe(),
+                )
+            })
+            .await
+    }
+}
+
 async fn handle_install_request<'a>(
     ctx: &'a mut DiceComputations<'_>,
     install_log_dir: &AbsNormPathBuf,
@@ -358,6 +415,7 @@ async fn handle_install_request<'a>(
     installer_debug: bool,
 ) -> buck2_error::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
+
     let (artifacts_ready, (installer_ready, installer_finished, device_metadata)) = ctx
         .try_compute2(
             |ctx| {
@@ -405,36 +463,26 @@ async fn handle_install_request<'a>(
                     let artifact_fs = ctx.get_artifact_fs().await?;
 
                     let installer_ready = Instant::now();
-                    for (installed_target, install_files) in &install_request_data.installed_targets
-                    {
-                        send_install_info(
-                            client.clone(),
-                            &install_id(installed_target),
-                            install_files,
-                            &artifact_fs,
-                        )
-                        .await?;
-                    }
 
-                    let device_metadata = Arc::new(Mutex::new(Vec::new()));
-                    let send_files_result =
-                        tokio_stream::wrappers::UnboundedReceiverStream::new(files_rx)
-                            .map(buck2_error::Ok)
-                            .try_for_each_concurrent(None, |file| {
-                                send_file(
-                                    file,
-                                    &artifact_fs,
-                                    client.clone(),
-                                    installer_log_filename.to_owned(),
-                                    device_metadata.dupe(),
-                                )
-                            })
-                            .await;
+                    let mut installer = ConnectedInstaller::new(
+                        client,
+                        artifact_fs,
+                        install_request_data,
+                        installer_log_filename,
+                    );
+                    installer.send_install_info().await?;
+
+                    let send_files_result = installer.send_files(files_rx).await;
                     let installer_finished = Instant::now();
-                    send_shutdown_command(client.clone()).await?;
+
+                    send_shutdown_command(installer.client.clone()).await?;
                     send_files_result
                         .buck_error_context("Failed to send artifacts to installer")?;
-                    buck2_error::Ok((installer_ready, installer_finished, device_metadata))
+                    buck2_error::Ok((
+                        installer_ready,
+                        installer_finished,
+                        installer.device_metadata,
+                    ))
                 }
                 .boxed()
             },
