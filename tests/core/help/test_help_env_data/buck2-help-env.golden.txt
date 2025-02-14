@@ -5,9 +5,10 @@ BUCK2_ARG0                              String
 BUCK2_DEBUG_RAWOUTPUT_CHUNK_SIZE        usize                 DEFAULT_CHUNK_SIZE
 BUCK2_DICE_DUMP_ON_PANIC                bool                  false
 BUCK2_DICE_SNAPSHOT_INTERVAL_MS         u64                   500
+BUCK2_DISABLE_EDEN_HEALTH_CHECK         bool                  false
 BUCK2_DISABLE_FILE_ATTR                 bool                  false
 BUCK2_DISABLE_MACOS_QOS                 bool                  false
-BUCK2_EDEN_SEMAPHORE                    usize                 2048
+BUCK2_EDEN_SEMAPHORE                    usize                 DEFAULT_MAX_OUTSTANDING_REQUESTS
 BUCK2_HARD_ERROR                        String
 BUCK2_IO_SEMAPHORE                      usize                 num_cpus::get()
 BUCK2_IO_THREADS                        usize                 4
