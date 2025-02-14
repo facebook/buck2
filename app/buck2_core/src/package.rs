@@ -67,6 +67,17 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 /// However, we use it in context where we expect it to be a valid package
 /// (for example, attempt to gather package listing for a package fails
 /// if it is a directory, but does not have a build file).
+///
+/// A **valid** Buck2 package is defined by:
+/// - A `BUCK` file that designates the root of the package.
+/// - All files in the BUCK file’s directory and its subdirectories,
+///   provided that none of those subdirectories contain their own `BUCK` file.
+///   (If a subdirectory does contain a BUCK file, it forms a new, separate package.)
+///
+/// You can find the example above
+///
+/// a valid `PackageLabel` is the `CellPath` that points to a folder containing a `BUCK` file.
+/// e.g. `root//path/to/package` is a valid `PackageLabel` if `root//path/to/package/BUCK` exists.
 #[derive(
     Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
 )]
