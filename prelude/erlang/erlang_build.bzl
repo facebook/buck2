@@ -706,13 +706,24 @@ def _get_erl_opts(
         )
         args.add(cmd_args(hidden = resource_folder))
 
+    source = cmd_args(src, format = "{source, \"{}\"}")
+    path_type = "{path_type, relative}"
+    preserved_opts = _preserved_opts(opts)
+
+    compile_info = cmd_args([source, path_type, preserved_opts], delimiter = ", ")
+
     # add relevant compile_info manually
-    args.add(cmd_args(
-        src,
-        format = "+{compile_info, [{source, \"{}\"}, {path_type, relative}, {options, []}]}",
-    ))
+    args.add(cmd_args(compile_info, format = "+{compile_info, [{}]}"))
 
     return args
+
+def _preserved_opts(opts: list[str]) -> cmd_args:
+    """Options that should be preserved in the beam file despite +determinstic"""
+    preservable = set(["+inline", "+line_coverage"])
+    preserved = [opt.lstrip("+") for opt in preservable.intersection(opts)]
+
+    joined = cmd_args(preserved, delimiter = ", ")
+    return cmd_args(joined, format = "{options, [{}]}")
 
 def private_include_name(toolchain: Toolchain, appname: str) -> str:
     """The temporary appname private header files."""
