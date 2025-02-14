@@ -595,10 +595,31 @@ message TestDiscovery {
 // Result of invoking buck2 rage
 message RageResult {
   reserved 1 to 8;
+  // TODO iguridi: remove string_data and int_data
   map<string, string> string_data = 9;
   map<string, uint64> int_data = 10;
+
   google.protobuf.Timestamp timestamp = 11;
   google.protobuf.Duration command_duration = 12;
+
+  optional string command = 13;
+  optional string buck2_revision = 14;
+  optional string username = 15;
+  optional string hostname = 16;
+  optional string os = 17;
+  optional string os_version = 18;
+
+  string dice_dump = 19;
+  string materializer_state = 20;
+  string materializer_fsck = 21;
+  string thread_dump = 22;
+  string daemon_stderr_dump = 23;
+  string hg_snapshot_id = 24;
+  string invocation_id = 25;
+  string event_log_dump = 26;
+  string re_logs = 27;
+
+  optional int64 daemon_uptime_s = 28;
 }
 
 message VersionControlRevision {
