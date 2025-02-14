@@ -8,11 +8,12 @@
  */
 
 pub mod clean_stale;
+mod data_tree;
 mod extension;
-mod file_tree;
 mod io_handler;
 mod subscriptions;
 
+mod file_tree;
 #[cfg(test)]
 mod tests;
 
