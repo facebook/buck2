@@ -8,10 +8,16 @@
  */
 
 use crate::health_check_context::HealthCheckContext;
+#[cfg(fbcode_build)]
+use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
 
 /// This client maintains the context and make requests to the health check server.
 pub struct HealthCheckClient {
     health_check_context: HealthCheckContext,
+
+    // TODO(rajneeshl): This is a temporary hack to unblock the warm revision check. Remove this once we have a proper health check server.
+    #[cfg(fbcode_build)]
+    warm_revision_check: WarmRevisionCheck,
 }
 
 impl HealthCheckClient {
@@ -21,6 +27,8 @@ impl HealthCheckClient {
                 trace_id,
                 ..Default::default()
             },
+            #[cfg(fbcode_build)]
+            warm_revision_check: WarmRevisionCheck::new(),
         }
     }
 
@@ -41,5 +49,18 @@ impl HealthCheckClient {
 
     pub fn update_excess_cache_misses(&mut self, has_excess_cache_misses: bool) {
         self.health_check_context.has_excess_cache_misses = Some(has_excess_cache_misses);
+    }
+
+    pub async fn check_stable_revision(&self) -> Option<Vec<String>> {
+        #[cfg(fbcode_build)]
+        {
+            self.warm_revision_check
+                .run(&self.health_check_context)
+                .await
+        }
+        #[cfg(not(fbcode_build))]
+        {
+            None
+        }
     }
 }
