@@ -161,6 +161,9 @@ where
                                     .update_parsed_target_patterns(tag)
                                     .await?;
                             }
+                            if let Some(client) = &mut self.health_check_client {
+                                client.update_parsed_target_patterns(tag);
+                            }
                         }
                         DiceStateSnapshot(dice) => {
                             self.dice_state.update(dice);
