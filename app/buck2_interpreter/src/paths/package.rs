@@ -14,6 +14,15 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::paths::file_name::FileName;
 
+/// Represents the path to a PACKAGE file.
+///
+/// Each package can define local configuration
+/// by providing a PACKAGE file. This file is evaluated prior to the BUCK file and
+/// can specify per-package values accessible via Starlark.
+///
+/// Example of a valid PACKAGE file path: `fbsource//path/to/PACKAGE`
+///
+/// Find more details in the [Buck2 documentation](https://buck2.build/docs/rule_authors/package_files/).
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, derive_more::Display)]
 #[display("{}", path)]
 pub struct PackageFilePath {
