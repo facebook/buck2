@@ -10,7 +10,6 @@
 use buck2_common::build_count::BuildCountManager;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::soft_error;
-use buck2_data::FileWatcherEnd;
 use buck2_data::ParsedTargetPatterns;
 
 /// Detects if this is the first build since a rebase.
@@ -36,23 +35,14 @@ impl ColdBuildDetector {
         self.first_build_since_rebase
     }
 
-    pub async fn update_merge_base(
-        &mut self,
-        file_watcher: &FileWatcherEnd,
-    ) -> buck2_error::Result<()> {
-        if let Some(merge_base) = file_watcher
-            .stats
-            .as_ref()
-            .and_then(|stats| stats.branched_from_revision.as_ref())
-        {
-            // We could get multiple updates. If the filewatcher restarts, it could send a new merge base.
-            // Recompute the first_build_since_rebase only if the merge base changed.
-            if self.merge_base.as_deref() == Some(merge_base) {
-                return Ok(());
-            }
-            self.merge_base = Some(merge_base.clone());
-            self.try_compute_first_build_since_rebase().await?;
+    pub async fn update_merge_base(&mut self, merge_base: &str) -> buck2_error::Result<()> {
+        // We could get multiple updates. If the filewatcher restarts, it could send a new merge base.
+        // Recompute the first_build_since_rebase only if the merge base changed.
+        if self.merge_base.as_deref() == Some(merge_base) {
+            return Ok(());
         }
+        self.merge_base = Some(merge_base.to_owned());
+        self.try_compute_first_build_since_rebase().await?;
         Ok(())
     }
 

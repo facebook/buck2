@@ -102,8 +102,17 @@ where
                             self.action_stats.update(action_execution_end);
                         }
                         buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
-                            if let Some(cold_build_detector) = &mut self.cold_build_detector {
-                                cold_build_detector.update_merge_base(file_watcher).await?;
+                            if let Some(merge_base) = file_watcher
+                                .stats
+                                .as_ref()
+                                .and_then(|stats| stats.branched_from_revision.as_ref())
+                            {
+                                if let Some(cold_build_detector) = &mut self.cold_build_detector {
+                                    cold_build_detector.update_merge_base(&merge_base).await?;
+                                }
+                                if let Some(health_check_client) = &mut self.health_check_client {
+                                    health_check_client.update_branched_from_revision(&merge_base);
+                                }
                             }
                         }
                         _ => {}
