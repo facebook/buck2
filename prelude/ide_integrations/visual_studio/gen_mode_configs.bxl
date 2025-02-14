@@ -110,6 +110,12 @@ def _get_path(target: str, bxl_ctx):
     return absolute_path
 
 def _main(bxl_ctx):
+    actions = bxl_ctx.bxl_actions().actions
+    fbsource = bxl_ctx.cli_args.fbsource
+    root = bxl_ctx.root()
+
+    output_artifact = actions.declare_output(get_mode_config_path(bxl_ctx.cli_args.mode_name))
+
     platform = _get_platform(bxl_ctx.cli_args.vs_version_year)
 
     flags_location = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][FLAGS_LOCATION]
@@ -123,13 +129,18 @@ def _main(bxl_ctx):
             cxxppflags = cxxppflags,
             ldflags = ldflags,
         )
+        _produce_proj_artifact(bxl_ctx, actions, fbsource, cxx_toolchain_flags, output_artifact, root = root, platform = platform)
     elif flags_location == _FlagsLocation("CxxToolchain"):
         fail("Not Implemented Yet flags_location '%s' in platform '%s'" % (flags_location, platform))
     else:
         fail("Unknown flags_location '%s' in platform '%s'" % (flags_location, platform))
 
+    bxl_ctx.output.print(bxl_ctx.output.ensure(output_artifact).abs_path())
+
+def _produce_proj_artifact(bxl_ctx, actions, fbsource: bool, cxx_toolchain_flags: _CxxToolchainFlags, output_artifact: Artifact, root: str, platform: str):
+    """Produce the <Project> file output artifact"""
     compiler_settings = _get_compiler_settings(cxx_toolchain_flags)
-    linker_settings = _get_linker_settings(cxx_toolchain_flags, bxl_ctx.root())
+    linker_settings = _get_linker_settings(cxx_toolchain_flags, root)
     platform_toolset = LANGUAGE_STANDARD_AND_TOOLSET_MAP[platform][TOOLSET]
 
     # Set default language standard if not specified
@@ -144,7 +155,7 @@ def _main(bxl_ctx):
     linker_settings_content = gen_linker_settings(linker_settings)
 
     toolchains_props = ""
-    if bxl_ctx.cli_args.fbsource and platform != ANDROID:
+    if fbsource and platform != ANDROID:
         toolchains_props = "        <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
 
     absolutize_path_exe = _get_path(ABSOLUTIZE_PATH_EXE, bxl_ctx)
@@ -183,10 +194,7 @@ def _main(bxl_ctx):
         delimiter = "\n",
     )
 
-    actions = bxl_ctx.bxl_actions().actions
-    artifact = actions.declare_output(get_mode_config_path(bxl_ctx.cli_args.mode_name))
-    actions.write(artifact.as_output(), content, allow_args = True)
-    bxl_ctx.output.print(bxl_ctx.output.ensure(artifact).abs_path())
+    actions.write(output_artifact.as_output(), content, allow_args = True)
 
 main = bxl_main(
     impl = _main,
