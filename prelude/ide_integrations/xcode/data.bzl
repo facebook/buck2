@@ -33,7 +33,6 @@ XcodeDataInfoKeys = struct(
     SRCS = "srcs",
     SWIFT_VERSION = "swift_version",
     TARGET = "target",
-    TARGETS_BEING_FOCUSED = "targets_being_focused",
     TEST_HOST_APP_BINARY = "test_host_app_binary",
     TEST_HOST_APP_TARGET = "test_host_app_target",
     TEST_TARGET = "test_target",
