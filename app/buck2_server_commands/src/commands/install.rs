@@ -351,12 +351,20 @@ fn calculate_hash<T: Hash>(t: &T) -> u64 {
     s.finish()
 }
 
+struct InstallResult {
+    installer_ready: Instant,
+    installer_finished: Instant,
+    device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
+    result: buck2_error::Result<()>,
+}
+
 struct ConnectedInstaller<'a> {
     client: InstallerClient<Channel>,
     artifact_fs: ArtifactFs,
     install_request_data: &'a InstallRequestData<'a>,
     installer_log_filename: String,
     device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
+    installer_ready: Instant,
 }
 
 impl<'a> ConnectedInstaller<'a> {
@@ -372,6 +380,34 @@ impl<'a> ConnectedInstaller<'a> {
             install_request_data,
             installer_log_filename,
             device_metadata: Arc::new(Mutex::new(Vec::new())),
+            installer_ready: Instant::now(),
+        }
+    }
+
+    async fn install(mut self, files_rx: mpsc::UnboundedReceiver<FileResult>) -> InstallResult {
+        let install_info_result = self.send_install_info().await;
+        if install_info_result.is_err() {
+            return self.install_result(install_info_result);
+        }
+
+        let send_files_result = self.send_files(files_rx).await;
+
+        let shutdown_result = send_shutdown_command(self.client.clone()).await;
+        if shutdown_result.is_err() {
+            return self.install_result(shutdown_result);
+        }
+
+        self.install_result(
+            send_files_result.buck_error_context("Failed to send artifacts to installer"),
+        )
+    }
+
+    fn install_result(self, result: buck2_error::Result<()>) -> InstallResult {
+        InstallResult {
+            installer_ready: self.installer_ready,
+            installer_finished: Instant::now(),
+            device_metadata: self.device_metadata,
+            result,
         }
     }
 
@@ -416,7 +452,7 @@ async fn handle_install_request<'a>(
 ) -> buck2_error::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
 
-    let (artifacts_ready, (installer_ready, installer_finished, device_metadata)) = ctx
+    let (artifacts_ready, install_result) = ctx
         .try_compute2(
             |ctx| {
                 async move {
@@ -462,32 +498,26 @@ async fn handle_install_request<'a>(
                     let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
                     let artifact_fs = ctx.get_artifact_fs().await?;
 
-                    let installer_ready = Instant::now();
-
-                    let mut installer = ConnectedInstaller::new(
+                    let installer = ConnectedInstaller::new(
                         client,
                         artifact_fs,
                         install_request_data,
                         installer_log_filename,
                     );
-                    installer.send_install_info().await?;
 
-                    let send_files_result = installer.send_files(files_rx).await;
-                    let installer_finished = Instant::now();
-
-                    send_shutdown_command(installer.client.clone()).await?;
-                    send_files_result
-                        .buck_error_context("Failed to send artifacts to installer")?;
-                    buck2_error::Ok((
-                        installer_ready,
-                        installer_finished,
-                        installer.device_metadata,
-                    ))
+                    buck2_error::Ok(installer.install(files_rx).await)
                 }
                 .boxed()
             },
         )
         .await?;
+
+    let InstallResult {
+        installer_ready,
+        installer_finished,
+        device_metadata,
+        result,
+    } = install_result;
 
     let device_metadata: Vec<buck2_data::DeviceMetadata> = device_metadata
         .lock()
@@ -510,7 +540,7 @@ async fn handle_install_request<'a>(
         duration: install_duration.try_into().ok(),
         device_metadata,
     });
-    buck2_error::Ok(())
+    result
 }
 
 async fn send_install_info(

@@ -101,6 +101,13 @@ if linux_only():
         assert error["category"] == "INFRA"
         assert "INSTALLER_TAG" in error["category_key"]
 
+        install_duration_ms = record["install_duration_us"] / 1000
+
+        assert install_duration_ms > 0
+        assert record["install_device_metadata"] == [
+            {"entry": [{"key": "version", "value": "1"}]}
+        ]
+
     @buck_test(inplace=True)
     async def test_fail_to_build_artifact(buck: Buck) -> None:
         await expect_failure(
