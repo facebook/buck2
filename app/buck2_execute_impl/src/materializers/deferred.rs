@@ -11,6 +11,7 @@ pub mod clean_stale;
 mod data_tree;
 mod extension;
 mod io_handler;
+mod materialize_stack;
 mod subscriptions;
 
 pub(crate) mod artifact_tree;
@@ -20,7 +21,6 @@ mod tests;
 
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::fmt::Formatter;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
@@ -85,7 +85,6 @@ use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
 use derivative::Derivative;
-use derive_more::Display;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::future;
@@ -122,6 +121,7 @@ use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
+use crate::materializers::deferred::materialize_stack::MaterializeStack;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
 use crate::materializers::deferred::subscriptions::MaterializerSubscriptions;
 use crate::materializers::sqlite::MaterializerState;
@@ -975,30 +975,6 @@ impl<T: 'static> Stream for CommandStream<T> {
 
         // We can never be done because we never drop the senders, so let's not bother.
         Poll::Pending
-    }
-}
-
-#[derive(Copy, Clone, Dupe)]
-enum MaterializeStack<'a> {
-    Empty,
-    Child(&'a MaterializeStack<'a>, &'a ProjectRelativePath),
-}
-
-impl<'a> Display for MaterializeStack<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let MaterializeStack::Empty = self {
-            return write!(f, "(empty)");
-        }
-
-        // Avoid recursion because we are fighting with stack overflow here,
-        // and we do not want another stack overflow when producing error message.
-        let mut stack = Vec::new();
-        let mut current = *self;
-        while let MaterializeStack::Child(parent, path) = current {
-            stack.push(path);
-            current = *parent;
-        }
-        write!(f, "{}", stack.iter().rev().join(" -> "))
     }
 }
 

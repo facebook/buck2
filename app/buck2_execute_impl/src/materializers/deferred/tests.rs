@@ -1339,13 +1339,3 @@ mod state_machine {
         .await
     }
 }
-
-#[test]
-fn test_materialize_stack_display() {
-    let s = MaterializeStack::Empty;
-    assert_eq!("(empty)", s.to_string());
-    let s = MaterializeStack::Child(&s, ProjectRelativePath::new("foo").unwrap());
-    assert_eq!("foo", s.to_string());
-    let s = MaterializeStack::Child(&s, ProjectRelativePath::new("bar/baz").unwrap());
-    assert_eq!("foo -> bar/baz", s.to_string());
-}
