@@ -342,14 +342,15 @@ async fn dispatch_event_to_scribe(
     let data = Some(Data::PersistEventLogSubprocess(result));
     let event = InstantEvent { data };
     if let Some(sink) = sink {
-        sink.send_now(BuckEvent::new(
-            SystemTime::now(),
-            invocation_id.to_owned(),
-            None,
-            None,
-            event.into(),
-        ))
-        .await;
+        let _res = sink
+            .send_now(BuckEvent::new(
+                SystemTime::now(),
+                invocation_id.to_owned(),
+                None,
+                None,
+                event.into(),
+            ))
+            .await;
     } else {
         tracing::warn!("Couldn't send log upload result to scribe")
     };

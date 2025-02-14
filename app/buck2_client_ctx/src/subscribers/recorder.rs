@@ -40,6 +40,7 @@ use buck2_error::buck2_error;
 use buck2_error::classify::source_area;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
+use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::Tier;
 use buck2_event_log::ttl::manifold_event_log_ttl;
@@ -1749,16 +1750,15 @@ impl EventSubscriber for InvocationRecorder {
 
     async fn finalize(&mut self) -> buck2_error::Result<()> {
         let event = self.create_record_event();
-        #[allow(unreachable_patterns)]
-        if let Ok(Some(scribe_sink)) =
-            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)
+        if let Some(scribe_sink) =
+            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)?
         {
             tracing::info!("Recording invocation to Scribe: {:?}", &event);
-            scribe_sink.send_now(event).await;
+            scribe_sink.send_now(event).await
         } else {
             tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
+            Err(internal_error!("Scribe sink not enabled"))
         }
-        Ok(())
     }
 
     fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {

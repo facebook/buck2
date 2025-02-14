@@ -254,7 +254,7 @@ mod imp {
         // Note that if we fail to spawn a writer thread, then we just won't log.
         let _err = thread_spawn("buck2-write-panic-to-scribe", move || {
             let runtime = Builder::new_current_thread().enable_all().build().unwrap();
-            runtime.block_on(
+            let _res = runtime.block_on(
                 sink.send_now(BuckEvent::new(
                     SystemTime::now(),
                     TraceId::new(),

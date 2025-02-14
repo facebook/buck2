@@ -6,5 +6,7 @@
     "Failed to build 'root//:fail2 (<unspecified>)'"
   ],
   "exit_code": 3,
-  "finalizing_error_messages": []
+  "finalizing_error_messages": [
+    "'invocation recorder' failed to finalize\n\nCaused by:\n    Scribe sink not enabled (internal error)"
+  ]
 }

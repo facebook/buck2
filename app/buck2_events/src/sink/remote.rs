@@ -25,6 +25,7 @@ mod fbcode {
     use buck2_data::Location;
     use buck2_data::StructuredError;
     use buck2_error::conversion::from_any_with_tag;
+    use buck2_error::ErrorTag;
     use buck2_util::truncate::truncate;
     use fbinit::FacebookInit;
     use prost::Message;
@@ -68,7 +69,7 @@ mod fbcode {
                 retry_attempts,
                 message_batch_size,
             )
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))?;
 
             // schedule_type can change for the same daemon, because on OD some builds are pre warmed for users
             // This would be problematic, because this is run just once on the daemon
@@ -82,12 +83,12 @@ mod fbcode {
         }
 
         // Send this event now, bypassing internal message queue.
-        pub async fn send_now(&self, event: BuckEvent) {
-            self.send_messages_now(vec![event]).await;
+        pub async fn send_now(&self, event: BuckEvent) -> buck2_error::Result<()> {
+            self.send_messages_now(vec![event]).await
         }
 
         // Send multiple events now, bypassing internal message queue.
-        pub async fn send_messages_now(&self, events: Vec<BuckEvent>) {
+        pub async fn send_messages_now(&self, events: Vec<BuckEvent>) -> buck2_error::Result<()> {
             let messages = events
                 .into_iter()
                 .filter_map(|e| {
@@ -99,7 +100,10 @@ mod fbcode {
                     })
                 })
                 .collect();
-            self.client.send_messages_now(messages).await;
+            self.client
+                .send_messages_now(messages)
+                .await
+                .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))
         }
 
         // Send this event by placing it on the internal message queue.
@@ -349,8 +353,12 @@ mod fbcode {
     pub enum RemoteEventSink {}
 
     impl RemoteEventSink {
-        pub async fn send_now(&self, _event: BuckEvent) {}
-        pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) {}
+        pub async fn send_now(&self, _event: BuckEvent) -> buck2_error::Result<()> {
+            Ok(())
+        }
+        pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) -> buck2_error::Result<()> {
+            Ok(())
+        }
     }
 
     impl EventSink for RemoteEventSink {

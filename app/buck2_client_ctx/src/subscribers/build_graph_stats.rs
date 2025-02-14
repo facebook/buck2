@@ -80,7 +80,7 @@ impl BuildGraphStats {
             new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(100), 2, None)
         {
             tracing::info!("Sending events to Scribe: {:?}", &events);
-            sink.send_messages_now(events).await;
+            let _res = sink.send_messages_now(events).await;
         } else {
             tracing::info!("Events were not sent to Scribe: {:?}", &events);
         }

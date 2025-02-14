@@ -127,3 +127,18 @@ async def test_command_report_post_build_client_error(
     assert len(report["error_messages"]) == 1
     assert report["exit_code"] == UnknownFailure
     assert "Injected Build Response Error" in report["error_messages"][0]
+
+
+@buck_test()
+async def test_cleanup_timeout(buck: Buck, tmp_path: Path) -> None:
+    report = tmp_path / "command_report.json"
+    await buck.targets("--command-report-path", str(report), ":")
+
+    with open(report) as f:
+        report = json.loads(f.read())
+
+    # test commands have scribe logging disabled, which is reported as a finalizing error
+    finalizing_errors = report["finalizing_error_messages"]
+    assert len(finalizing_errors) == 1
+    assert "'invocation recorder' failed to finalize" in finalizing_errors[0]
+    assert "Scribe sink not enabled" in finalizing_errors[0]

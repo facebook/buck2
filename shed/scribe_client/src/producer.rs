@@ -328,8 +328,8 @@ impl ScribeProducer {
     }
 
     /// Sends all messages in `messages` now (bypass internal message queue.)
-    pub(crate) async fn send_messages_now(&self, messages: Vec<Message>) {
-        self.send_impl(messages).await;
+    pub(crate) async fn send_messages_now(&self, messages: Vec<Message>) -> Result<(), WriteError> {
+        self.send_impl(messages).await
     }
 
     async fn refresh_connection(
@@ -352,9 +352,9 @@ impl ScribeProducer {
             .collect()
     }
 
-    async fn send_impl(&self, messages: Vec<Message>) {
+    async fn send_impl(&self, messages: Vec<Message>) -> Result<(), WriteError> {
         if messages.is_empty() {
-            return;
+            return Ok(());
         }
 
         let mut messages: Vec<MessageSendState> = messages
@@ -378,6 +378,8 @@ impl ScribeProducer {
         if let Some(last_cutoff) = *self.last_cutoff.lock().unwrap() {
             cc_state.load_last_cutoff(last_cutoff, messages.len());
         }
+
+        let mut first_request_error: Option<RequestError> = None;
 
         while retry_count < retry_intervals.len() {
             cutoff_len = std::cmp::min(messages.len(), cc_state.current_cutoff);
@@ -412,8 +414,8 @@ impl ScribeProducer {
                             "scribe_producer: received fatal error from scribe, will retry: {:#}",
                             e,
                         );
-                        match e {
-                            NonthrowingFunctionError::ThriftError(te) => {
+                        let refresh_error = match e {
+                            NonthrowingFunctionError::ThriftError(ref te) => {
                                 // Error on Thrift transport layer. The channel likely got EOF due to any of
                                 // server hitting connection limit, connection age timeout, server connection
                                 // idle timeout, or server crashes and the endpoint is voided.
@@ -424,15 +426,23 @@ impl ScribeProducer {
                                     tracing::debug!(
                                         "The existing connection reached EOF. Reconnecting."
                                     );
-                                    // If an error happens during re-connection, ignore it because the build
-                                    // command has already started and we don't want to bail out.
-                                    let _ignore = self.refresh_connection(&mut client_).await;
+                                    let res = self.refresh_connection(&mut client_).await;
+                                    res.err()
+                                } else {
+                                    None
                                 }
                             }
                             NonthrowingFunctionError::ApplicationException(_) => {
                                 // Error on Thrift application layer. Rarely happens as long as we use an
                                 // official thrift library. No special action is taken but just retry it.
+                                None
                             }
+                        };
+                        if first_request_error.is_none() {
+                            first_request_error = Some(RequestError {
+                                error: e,
+                                refresh_error,
+                            });
                         }
                         retry_count += 1;
                         continue;
@@ -496,12 +506,12 @@ impl ScribeProducer {
                 cc_state.current_cutoff
             );
         }
-
-        // Any messages leftover after exiting the loop are ones we failed to send after exhausting retries and
-        // should be counted as errors.
-        if !messages.is_empty() {
-            tracing::debug!("scribe_producer: failed to send all messages");
+        if cc_state.current_cutoff < original_len {
+            *self.last_cutoff.lock().unwrap() = Some(cc_state.current_cutoff);
+        } else {
+            *self.last_cutoff.lock().unwrap() = None;
         }
+
         for message in &messages {
             match &message.error {
                 None => {
@@ -512,17 +522,22 @@ impl ScribeProducer {
                 Some(e) => e.inc_counter(&self.counters),
             }
         }
-
-        if cc_state.current_cutoff < original_len {
-            *self.last_cutoff.lock().unwrap() = Some(cc_state.current_cutoff);
+        // Any messages leftover after exiting the loop are ones we failed to send after exhausting retries and
+        // should be counted as errors.
+        if !messages.is_empty() {
+            tracing::debug!("scribe_producer: failed to send all messages");
+            Err(WriteError {
+                first_message_error: messages.into_iter().next().and_then(|m| m.error),
+                first_request_error,
+            })
         } else {
-            *self.last_cutoff.lock().unwrap() = None;
+            Ok(())
         }
     }
 
-    pub(crate) async fn run_once(&self) {
+    pub(crate) async fn run_once(&self) -> Result<(), WriteError> {
         if self.queue.is_empty() {
-            return;
+            return Ok(());
         }
 
         let mut messages: Vec<Message> = vec![];
@@ -534,7 +549,7 @@ impl ScribeProducer {
             }
         }
 
-        self.send_impl(messages).await;
+        self.send_impl(messages).await
     }
 }
 
@@ -559,6 +574,42 @@ fn connect(fb: FacebookInit) -> anyhow::Result<ProducerServiceClient> {
             // machine.
             .with_secure(false),
     )
+}
+
+#[derive(Debug)]
+pub struct RequestError {
+    error: NonthrowingFunctionError,
+    refresh_error: Option<anyhow::Error>,
+}
+
+// At least one of each possible error type if any message in a request failed to send.
+// Only makes sense to track a single request error since the rest will be from retries.
+// May be useful to track one error per message but most likely they will be duplicates and
+// right now this is ignored in any cases we send more than a single message (only used for invocation record).
+#[derive(Debug)]
+pub struct WriteError {
+    first_request_error: Option<RequestError>,
+    first_message_error: Option<WriteMessageError>,
+}
+
+impl From<WriteError> for anyhow::Error {
+    fn from(val: WriteError) -> Self {
+        let error = anyhow::anyhow!("scribe_producer: failed to send all messages");
+        let error = match val.first_message_error {
+            Some(e) => error.context(e),
+            None => error,
+        };
+        match val.first_request_error {
+            Some(e) => {
+                let error = error.context(e.error);
+                match e.refresh_error {
+                    Some(re) => error.context(re),
+                    None => error,
+                }
+            }
+            None => error,
+        }
+    }
 }
 
 // Errors returned from Scribe's Producer API. Each corresponds to a return code
@@ -665,6 +716,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use fbthrift::application_exception::ApplicationException;
+    use fbthrift::ApplicationExceptionErrorCode;
     use scribe_producer_service::WriteMessageResult as ThriftWriteMessageResult;
     use scribe_producer_service::WriteMessagesResponse;
     use scribe_producer_service_clients::errors::WriteMessagesError;
@@ -717,7 +769,7 @@ mod tests {
         };
 
         producer.offer(message);
-        producer.run_once().await;
+        producer.run_once().await.expect("write failure");
         let counters = producer.export_counters();
         println!("counters: {:?}", counters);
         assert_eq!(counters.successes, 1);
@@ -785,7 +837,7 @@ mod tests {
         for _ in codes[0].iter() {
             producer.offer(message("hello, world!"));
         }
-        producer.run_once().await;
+        producer.run_once().await.expect("write failure");
         let counters = producer.export_counters();
         assert_eq!(counters.successes, 5);
         assert_eq!(counters.failures(), 0);
@@ -809,7 +861,7 @@ mod tests {
         for _ in codes[0].iter() {
             producer.offer(message("hello, world!"));
         }
-        producer.run_once().await;
+        producer.run_once().await.expect("write failure");
         let counters = producer.export_counters();
         println!("counters: {:?}", counters);
         assert_eq!(counters.successes, 3);
@@ -861,10 +913,17 @@ mod tests {
             producer.offer(message("hello, world!"));
         }
 
-        producer.run_once().await;
+        let res = producer.run_once().await;
         let counters = producer.export_counters();
         assert_eq!(counters.successes, 5);
         assert_eq!(counters.failures(), 2);
+        assert_matches!(
+            res,
+            Err(WriteError {
+                first_message_error: Some(WriteMessageError::EnqueueFailed),
+                ..
+            })
+        );
     }
 
     #[fbinit::test]
@@ -880,11 +939,23 @@ mod tests {
         for _ in 0..5 {
             producer.offer(message("hello, world!"));
         }
-
-        producer.run_once().await;
+        let res = producer.run_once().await;
         let counters = producer.export_counters();
         assert_eq!(counters.successes, 0);
         assert_eq!(counters.failures(), 5);
+        assert_matches!(
+            res,
+            Err(WriteError {
+                first_request_error: Some(RequestError {
+                    error: NonthrowingFunctionError::ApplicationException(ApplicationException {
+                        message: _,
+                        type_: ApplicationExceptionErrorCode::UnknownMethod,
+                    },),
+                    ..
+                }),
+                ..
+            })
+        );
     }
 
     #[fbinit::test]
@@ -898,7 +969,8 @@ mod tests {
         let producer = make_ScribeProducer(fb, client, codes[0].len());
         producer
             .send_messages_now(vec![message("hello, world!")])
-            .await;
+            .await
+            .expect("write failed");
         let counters = producer.export_counters();
         assert_eq!(counters.successes, 1);
         assert_eq!(counters.failures(), 0);
@@ -944,7 +1016,7 @@ mod tests {
         for _ in codes[0].iter() {
             producer.offer(message("hello, world!"));
         }
-        producer.run_once().await;
+        producer.run_once().await.expect("write failed");
         let counters = producer.export_counters();
         assert_eq!(counters.successes, 8);
         assert_eq!(counters.failures(), 0);
@@ -990,10 +1062,17 @@ mod tests {
             producer.offer(message("hello, world!"));
         }
 
-        producer.run_once().await;
+        let res = producer.run_once().await;
         let counters = producer.export_counters();
         assert_eq!(counters.successes, 0);
         assert_eq!(counters.failures(), 8);
+        assert_matches!(
+            res,
+            Err(WriteError {
+                first_message_error: Some(WriteMessageError::EnqueueFailed),
+                ..
+            })
+        );
     }
 
     #[fbinit::test]
@@ -1041,11 +1120,11 @@ mod tests {
         for _ in 0..8 {
             producer.offer(message("hello, world!"));
         }
-        producer.run_once().await;
+        producer.run_once().await.expect("write failed");
         for _ in 0..8 {
             producer.offer(message("hello, world!"));
         }
-        producer.run_once().await;
+        producer.run_once().await.expect("write failed");
         let counters = producer.export_counters();
         assert_eq!(counters.successes, 16);
         assert_eq!(counters.failures(), 0);

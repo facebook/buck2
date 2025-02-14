@@ -68,7 +68,7 @@ async fn producer_loop(producer: &ScribeProducer) {
     const SLEEP_INTERVAL: Duration = Duration::from_millis(500);
 
     loop {
-        producer.run_once().await;
+        let _res = producer.run_once().await;
         tokio::time::sleep(SLEEP_INTERVAL).await;
     }
 }
@@ -106,7 +106,10 @@ impl ScribeClient {
     }
 
     /// Sends all messages in `messages` now (bypass internal message queue.)
-    pub async fn send_messages_now(&self, messages: Vec<Message>) {
-        self.scribe_producer.send_messages_now(messages).await
+    pub async fn send_messages_now(&self, messages: Vec<Message>) -> anyhow::Result<()> {
+        self.scribe_producer
+            .send_messages_now(messages)
+            .await
+            .map_err(|e| e.into())
     }
 }
