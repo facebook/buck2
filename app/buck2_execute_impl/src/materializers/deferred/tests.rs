@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use buck2_common::file_ops::FileMetadata;
 use buck2_core::fs::fs_util::IoError;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -89,6 +90,7 @@ fn test_remove_path() {
     assert_eq!(removed_subtree.get("a/b/c/e"), Some(&"a/b/c/e".to_owned()));
 }
 
+#[cfg(test)]
 mod state_machine {
     use std::path::Path;
     use std::sync::Barrier;
@@ -105,15 +107,22 @@ mod state_machine {
     use buck2_error::BuckErrorContext;
     use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::ActionDirectoryEntry;
+    use buck2_execute::directory::ActionSharedDirectory;
     use buck2_execute::directory::Symlink;
     use buck2_execute::directory::INTERNER;
     use buck2_execute::execute::blocking::IoRequest;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
+    use buck2_wrapper_common::invocation_id::TraceId;
+    use futures::future::BoxFuture;
+    use futures::future::FutureExt;
+    use futures::StreamExt;
     use tokio::time::sleep;
     use tokio::time::Duration as TokioDuration;
 
     use super::*;
     use crate::materializers::deferred::clean_stale::CleanInvalidatedPathRequest;
+    use crate::materializers::deferred::command_processor::TestingDeferredMaterializerCommandProcessor;
+    use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOperation;
     use crate::materializers::deferred::subscriptions::SubscriptionHandle;
     use crate::materializers::sqlite::testing_materializer_state_sqlite_db;
 
@@ -544,11 +553,7 @@ mod state_machine {
             let path = make_path("foo/bar");
             let value = ArtifactValue::file(digest_config.empty_file());
 
-            dm.declare(
-                &path,
-                value.dupe(),
-                Box::new(ArtifactMaterializationMethod::Test),
-            );
+            dm.testing_declare(&path, value.dupe());
             assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
 
             let res = dm
@@ -557,29 +562,16 @@ mod state_machine {
                 .await;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
 
-            dm.materialization_finished(
-                path.clone(),
-                Utc::now(),
-                dm.version_tracker.current(),
-                res,
-            );
+            dm.testing_materialization_finished(path.clone(), Utc::now(), res);
             assert_eq!(dm.io.take_log(), &[]);
 
             // When redeclaring the same artifact nothing happens.
-            dm.declare(
-                &path,
-                value.dupe(),
-                Box::new(ArtifactMaterializationMethod::Test),
-            );
+            dm.testing_declare(&path, value.dupe());
             assert_eq!(dm.io.take_log(), &[]);
 
             // When declaring the same artifact but under it, we clean it and it's a new artifact.
             let path2 = make_path("foo/bar/baz");
-            dm.declare(
-                &path2,
-                value.dupe(),
-                Box::new(ArtifactMaterializationMethod::Test),
-            );
+            dm.testing_declare(&path2, value.dupe());
             assert_eq!(dm.io.take_log(), &[(Op::Clean, path2.clone())]);
 
             let _ignore = dm
@@ -632,10 +624,9 @@ mod state_machine {
             let digest_config = dm.io.digest_config();
 
             // Declare symlink target
-            dm.declare(
+            dm.testing_declare(
                 &target_path,
                 ArtifactValue::file(digest_config.empty_file()),
-                Box::new(ArtifactMaterializationMethod::Test),
             );
             assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
@@ -645,11 +636,7 @@ mod state_machine {
                 &target_from_symlink,
                 digest_config,
             )?;
-            dm.declare(
-                &symlink_path,
-                symlink_value,
-                Box::new(ArtifactMaterializationMethod::Test),
-            );
+            dm.testing_declare(&symlink_path, symlink_value);
             assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
@@ -708,11 +695,7 @@ mod state_machine {
                 &target_from_symlink,
                 digest_config,
             )?;
-            dm.declare(
-                &symlink_path,
-                symlink_value,
-                Box::new(ArtifactMaterializationMethod::Test),
-            );
+            dm.testing_declare(&symlink_path, symlink_value);
             assert_eq!(dm.io.take_log(), &[(Op::Clean, symlink_path.clone())]);
 
             // Materialize the symlink, at this point the target is not in the tree so it's ignored
@@ -725,19 +708,13 @@ mod state_machine {
             assert_eq!(logs, &[(Op::Materialize, symlink_path.clone())]);
 
             // Mark the symlink as materialized
-            dm.materialization_finished(
-                symlink_path.clone(),
-                Utc::now(),
-                dm.version_tracker.current(),
-                res,
-            );
+            dm.testing_materialization_finished(symlink_path.clone(), Utc::now(), res);
             assert_eq!(dm.io.take_log(), &[]);
 
             // Declare symlink target
-            dm.declare(
+            dm.testing_declare(
                 &target_path,
                 ArtifactValue::file(digest_config.empty_file()),
-                Box::new(ArtifactMaterializationMethod::Test),
             );
             assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
@@ -777,7 +754,7 @@ mod state_machine {
         drop(handle);
 
         while let Ok(cmd) = channel.high_priority.try_recv() {
-            dm.process_one_command(cmd);
+            dm.testing_process_one_command(cmd);
         }
 
         assert!(!dm.subscriptions.has_any_subscriptions());
@@ -801,16 +778,16 @@ mod state_machine {
             let bar = make_path("bar");
             let qux = make_path("qux");
 
-            dm.declare_existing(&foo_bar, value.dupe());
+            dm.testing_declare_existing(&foo_bar, value.dupe());
 
             handle.subscribe_to_paths(vec![foo_bar_baz.clone(), bar.clone()]);
             while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.process_one_command(cmd);
+                dm.testing_process_one_command(cmd);
             }
 
-            dm.declare_existing(&bar, value.dupe());
-            dm.declare_existing(&foo_bar_baz, value.dupe());
-            dm.declare_existing(&qux, value.dupe());
+            dm.testing_declare_existing(&bar, value.dupe());
+            dm.testing_declare_existing(&foo_bar_baz, value.dupe());
+            dm.testing_declare_existing(&qux, value.dupe());
 
             let mut paths = Vec::new();
             while let Ok(path) = handle.receiver().try_recv() {
@@ -837,15 +814,11 @@ mod state_machine {
 
             let foo_bar = make_path("foo/bar");
 
-            dm.declare(
-                &foo_bar,
-                value.dupe(),
-                Box::new(ArtifactMaterializationMethod::Test),
-            );
+            dm.testing_declare(&foo_bar, value.dupe());
 
             handle.subscribe_to_paths(vec![foo_bar.clone()]);
             while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.process_one_command(cmd);
+                dm.testing_process_one_command(cmd);
             }
 
             // We need to yield to let the materialization task run. If we had a handle to it, we'd
@@ -867,7 +840,7 @@ mod state_machine {
             // Drain low priority commands. This should include our materialization finished message,
             // at which point we'll notify the subscription handle.
             while let Ok(cmd) = channel.low_priority.try_recv() {
-                dm.process_one_low_priority_command(cmd);
+                dm.testing_process_one_low_priority_command(cmd);
             }
 
             let mut paths = Vec::new();
@@ -899,14 +872,14 @@ mod state_machine {
 
             handle.subscribe_to_paths(vec![path.clone()]);
             while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.process_one_command(cmd);
+                dm.testing_process_one_command(cmd);
             }
 
-            dm.declare_existing(&path, value1.dupe());
+            dm.testing_declare_existing(&path, value1.dupe());
 
             handle.unsubscribe_from_paths(vec![path.clone()]);
             while let Ok(cmd) = channel.high_priority.try_recv() {
-                dm.process_one_command(cmd);
+                dm.testing_process_one_command(cmd);
             }
 
             dm.sqlite_db
@@ -916,7 +889,7 @@ mod state_machine {
                 .delete(vec![path.clone()])
                 .buck_error_context("delete failed")
                 .unwrap();
-            dm.declare_existing(&path, value2.dupe());
+            dm.testing_declare_existing(&path, value2.dupe());
 
             let mut paths = Vec::new();
             while let Ok(path) = handle.receiver().try_recv() {
@@ -940,10 +913,10 @@ mod state_machine {
             let value2 = ArtifactValue::dir(digest_config.empty_directory());
 
             // Start from having something.
-            dm.declare_existing(&path, value1);
+            dm.testing_declare_existing(&path, value1);
 
             // This will collect the existing future and invalidate, and then fail in doing so.
-            dm.declare(&path, value2, Box::new(ArtifactMaterializationMethod::Test));
+            dm.testing_declare(&path, value2);
 
             // Now we check that materialization fails. This needs to wait on the previous clean.
             let res = dm
@@ -981,15 +954,13 @@ mod state_machine {
                 digest_config,
             )?;
             // Declare and materialize symlink and target
-            dm.declare(
+            dm.testing_declare(
                 &target_path,
                 target_value.clone(),
-                Box::new(ArtifactMaterializationMethod::Test),
             );
-            dm.declare(
+            dm.testing_declare(
                 &symlink_path,
                 symlink_value.clone(),
-                Box::new(ArtifactMaterializationMethod::Test),
             );
             dm.materialize_artifact(&symlink_path, EventDispatcher::null())
                 .buck_error_context("Expected a future")?
@@ -1007,7 +978,7 @@ mod state_machine {
 
             // Process materialization_finished, change symlink stage to materialized
             while let Ok(cmd) = channel.low_priority.try_recv() {
-                dm.process_one_low_priority_command(cmd);
+                dm.testing_process_one_low_priority_command(cmd);
             }
 
             // Change symlink target value and re-declare
@@ -1017,10 +988,9 @@ mod state_machine {
                 is_executable: false,
             };
             let target_value = ArtifactValue::file(meta);
-            dm.declare(
+            dm.testing_declare(
                 &target_path,
                 target_value,
-                Box::new(ArtifactMaterializationMethod::Test),
             );
             assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
@@ -1040,7 +1010,7 @@ mod state_machine {
             );
             // Process materialization_finished, _only_ target is cleaned, not symlink
             while let Ok(cmd) = channel.low_priority.try_recv() {
-                dm.process_one_low_priority_command(cmd);
+                dm.testing_process_one_low_priority_command(cmd);
             }
             assert_eq!(dm.io.take_log(), &[(Op::Clean, target_path.clone())]);
 
@@ -1065,7 +1035,7 @@ mod state_machine {
             let value1 = ArtifactValue::file(digest_config.empty_file());
 
             // Declare a value.
-            dm.declare(&path, value1, Box::new(ArtifactMaterializationMethod::Test));
+            dm.testing_declare(&path, value1);
 
             // Make materializations fail
             dm.io.set_fail(true);
@@ -1100,7 +1070,7 @@ mod state_machine {
 
             while let Ok(cmd) = channel.low_priority.try_recv() {
                 eprintln!("got cmd = {:?}", cmd);
-                dm.process_one_low_priority_command(cmd);
+                dm.testing_process_one_low_priority_command(cmd);
                 processed += 1;
             }
 
@@ -1323,16 +1293,16 @@ mod state_machine {
 
             let path = make_path("test/dir/path");
             let value1 = ArtifactValue::dir(digest_config.empty_directory());
-            dm.declare_existing(&path, value1);
+            dm.testing_declare_existing(&path, value1);
 
-            assert!(dm.has_artifact(path.clone()));
-            assert!(!dm.has_artifact(path.join(ForwardRelativePath::new("foo").unwrap())));
-            assert!(!dm.has_artifact(path.parent().unwrap().to_owned()));
+            assert!(dm.testing_has_artifact(path.clone()));
+            assert!(!dm.testing_has_artifact(path.join(ForwardRelativePath::new("foo").unwrap())));
+            assert!(!dm.testing_has_artifact(path.parent().unwrap().to_owned()));
 
             dm.materialize_artifact(&path, EventDispatcher::null());
-            assert!(dm.has_artifact(path.clone()));
-            assert!(!dm.has_artifact(path.join(ForwardRelativePath::new("foo").unwrap())));
-            assert!(!dm.has_artifact(path.parent().unwrap().to_owned()));
+            assert!(dm.testing_has_artifact(path.clone()));
+            assert!(!dm.testing_has_artifact(path.join(ForwardRelativePath::new("foo").unwrap())));
+            assert!(!dm.testing_has_artifact(path.parent().unwrap().to_owned()));
 
             Ok(())
         })

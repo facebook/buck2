@@ -150,7 +150,7 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
 }
 
 impl CleanStaleArtifactsCommand {
-    pub(crate) fn create_clean_fut<T: IoHandler>(
+    pub(super) fn create_clean_fut<T: IoHandler>(
         &self,
         processor: &mut DeferredMaterializerCommandProcessor<T>,
         trace_id: Option<TraceId>,
