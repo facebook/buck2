@@ -84,11 +84,9 @@ use crate::materializers::deferred::command_processor::DeferredMaterializerComma
 use crate::materializers::deferred::command_processor::LogBuffer;
 use crate::materializers::deferred::command_processor::LowPriorityMaterializerCommand;
 use crate::materializers::deferred::command_processor::MaterializerCommand;
-use crate::materializers::deferred::command_processor::VersionTracker;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::materializers::deferred::io_handler::DefaultIoHandler;
 use crate::materializers::deferred::io_handler::IoHandler;
-use crate::materializers::deferred::subscriptions::MaterializerSubscriptions;
 use crate::materializers::sqlite::MaterializerState;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
@@ -626,24 +624,22 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             let rt = Handle::current();
             let stats = stats.dupe();
             let io = io.dupe();
-            move |cancellations| DeferredMaterializerCommandProcessor {
-                io,
-                sqlite_db,
-                rt,
-                defer_write_actions: configs.defer_write_actions,
-                log_buffer: LogBuffer::new(25),
-                version_tracker: VersionTracker::new(),
-                command_sender,
-                tree,
-                subscriptions: MaterializerSubscriptions::new(),
-                ttl_refresh_history: Vec::new(),
-                ttl_refresh_instance: None,
-                cancellations,
-                stats,
-                access_times_buffer,
-                verbose_materializer_log: configs.verbose_materializer_log,
-                daemon_dispatcher,
-                disable_eager_write_dispatch: configs.disable_eager_write_dispatch,
+            move |cancellations| {
+                DeferredMaterializerCommandProcessor::new(
+                    io,
+                    sqlite_db,
+                    rt,
+                    configs.defer_write_actions,
+                    LogBuffer::new(25),
+                    command_sender,
+                    tree,
+                    cancellations,
+                    stats,
+                    access_times_buffer,
+                    configs.verbose_materializer_log,
+                    daemon_dispatcher,
+                    configs.disable_eager_write_dispatch,
+                )
             }
         };
 

@@ -18,8 +18,6 @@ use buck2_execute::directory::insert_file;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 
-use super::Version;
-use super::VersionTracker;
 use super::*;
 
 #[test]
@@ -449,25 +447,21 @@ mod state_machine {
 
         let (command_sender, command_receiver) = channel();
         (
-            DeferredMaterializerCommandProcessor {
+            DeferredMaterializerCommandProcessor::new(
                 io,
-                sqlite_db: Some(db),
-                rt: Handle::current(),
-                defer_write_actions: true,
-                log_buffer: LogBuffer::new(1),
-                version_tracker: VersionTracker::new(),
-                command_sender: command_sender.dupe(),
+                Some(db),
+                Handle::current(),
+                true,
+                LogBuffer::new(1),
+                command_sender.dupe(),
                 tree,
-                subscriptions: MaterializerSubscriptions::new(),
-                ttl_refresh_history: Default::default(),
-                ttl_refresh_instance: Default::default(),
-                cancellations: CancellationContext::testing(),
-                stats: Arc::new(DeferredMaterializerStats::default()),
-                access_times_buffer: Default::default(),
-                verbose_materializer_log: true,
+                CancellationContext::testing(),
+                Arc::new(DeferredMaterializerStats::default()),
+                Default::default(),
+                true,
                 daemon_dispatcher,
-                disable_eager_write_dispatch: true,
-            },
+                true,
+            ),
             command_sender,
             command_receiver,
             daemon_dispatcher_events,

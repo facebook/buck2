@@ -92,12 +92,12 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     pub(super) sqlite_db: Option<MaterializerStateSqliteDb>,
     /// The runtime the deferred materializer will spawn futures on. This is normally the runtime
     /// used by the rest of Buck.
-    pub(super) rt: Handle,
+    rt: Handle,
     pub(super) defer_write_actions: bool,
-    pub(super) log_buffer: LogBuffer,
+    log_buffer: LogBuffer,
     /// Keep track of artifact versions to avoid callbacks clobbering state if the state has moved
     /// forward.
-    pub(super) version_tracker: VersionTracker,
+    version_tracker: VersionTracker,
     /// Send messages back to the materializer.
     pub(super) command_sender: Arc<MaterializerSender<T>>,
     /// The actual materializer state.
@@ -108,14 +108,13 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// small and we create it infrequently, that's fine.
     pub(super) ttl_refresh_history: Vec<TtlRefreshHistoryEntry>,
     /// The current ttl_refresh instance, if any exists.
-    pub(super) ttl_refresh_instance:
-        Option<oneshot::Receiver<(DateTime<Utc>, buck2_error::Result<()>)>>,
+    ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, buck2_error::Result<()>)>>,
     pub(super) cancellations: &'static CancellationContext,
-    pub(super) stats: Arc<DeferredMaterializerStats>,
-    pub(super) access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
-    pub(super) verbose_materializer_log: bool,
-    pub(super) daemon_dispatcher: EventDispatcher,
-    pub(super) disable_eager_write_dispatch: bool,
+    stats: Arc<DeferredMaterializerStats>,
+    access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
+    verbose_materializer_log: bool,
+    daemon_dispatcher: EventDispatcher,
+    disable_eager_write_dispatch: bool,
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
@@ -236,10 +235,10 @@ pub(super) enum LowPriorityMaterializerCommand {
 }
 
 #[derive(Debug)]
-pub(super) struct VersionTracker(Version);
+struct VersionTracker(Version);
 
 impl VersionTracker {
-    pub(super) fn new() -> Self {
+    fn new() -> Self {
         // Each Declare bumps the version, so that if an artifact is declared
         // a second time mid materialization of its previous version, we don't
         // incorrectly assume we materialized the latest version. We start with
@@ -350,6 +349,46 @@ impl<T: 'static> Stream for CommandStream<T> {
 }
 
 impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
+    pub(super) fn new(
+        io: Arc<T>,
+        sqlite_db: Option<MaterializerStateSqliteDb>,
+        rt: Handle,
+        defer_write_actions: bool,
+        log_buffer: LogBuffer,
+        command_sender: Arc<MaterializerSender<T>>,
+        tree: ArtifactTree,
+        cancellations: &'static CancellationContext,
+        stats: Arc<DeferredMaterializerStats>,
+        access_times_buffer: Option<HashSet<ProjectRelativePathBuf>>,
+        verbose_materializer_log: bool,
+        daemon_dispatcher: EventDispatcher,
+        disable_eager_write_dispatch: bool,
+    ) -> Self {
+        let subscriptions = MaterializerSubscriptions::new();
+        let ttl_refresh_history = Vec::new();
+        let ttl_refresh_instance = None;
+        let version_tracker = VersionTracker::new();
+        Self {
+            io,
+            sqlite_db,
+            rt,
+            defer_write_actions,
+            log_buffer,
+            version_tracker,
+            command_sender,
+            tree,
+            subscriptions,
+            ttl_refresh_history,
+            ttl_refresh_instance,
+            cancellations,
+            stats,
+            access_times_buffer,
+            verbose_materializer_log,
+            daemon_dispatcher,
+            disable_eager_write_dispatch,
+        }
+    }
+
     fn spawn_from_rt<F>(rt: &Handle, f: F) -> JoinHandle<F::Output>
     where
         F: std::future::Future + Send + 'static,
