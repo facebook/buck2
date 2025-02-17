@@ -131,6 +131,7 @@ def build_package(
         package_name = pkg_name,
         package_root = package_root,
         go_list_out = go_list_out,
+        srcs = srcs,
     )
 
 def _compile(

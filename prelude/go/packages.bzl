@@ -22,6 +22,9 @@ GoPackageInfo = provider(
         "go_list_out": provider_field(Artifact),
         "package_name": provider_field(str),
         "package_root": provider_field(str),
+        # Full list of package source files
+        # including generated and files of the package under test
+        "srcs": provider_field(list[Artifact]),
     },
 )
 
