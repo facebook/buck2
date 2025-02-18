@@ -421,6 +421,12 @@ impl<'a> ServerCommandContext<'a> {
             interpreter_platform,
             interpreter_architecture,
             interpreter_xcode_version,
+            unstable_materialize_failed_action_outputs: self.build_options.as_ref().and_then(
+                |opts| match &opts.unstable_materialize_failed_action_outputs.is_empty() {
+                    true => None,
+                    false => Some(opts.unstable_materialize_failed_action_outputs.clone()),
+                },
+            ),
         })
     }
 
@@ -520,6 +526,7 @@ struct DiceCommandUpdater<'s, 'a: 's> {
     interpreter_platform: InterpreterHostPlatform,
     interpreter_architecture: InterpreterHostArchitecture,
     interpreter_xcode_version: Option<XcodeVersionInfo>,
+    unstable_materialize_failed_action_outputs: Option<String>,
 }
 
 fn create_cycle_detector() -> Arc<dyn UserCycleDetector> {
@@ -731,6 +738,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             resource_control_config.hybrid_execution_memory_limit_gibibytes,
+            self.unstable_materialize_failed_action_outputs.clone(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());

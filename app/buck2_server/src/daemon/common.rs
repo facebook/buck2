@@ -101,6 +101,7 @@ pub struct CommandExecutorFactory {
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
     local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
+    unstable_materialize_failed_action_outputs: Option<String>,
 }
 
 impl CommandExecutorFactory {
@@ -123,6 +124,7 @@ impl CommandExecutorFactory {
         re_use_case_override: Option<RemoteExecutorUseCase>,
         memory_tracker: Option<Arc<MemoryTracker>>,
         hybrid_execution_memory_limit_gibibytes: Option<u64>,
+        unstable_materialize_failed_action_outputs: Option<String>,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new(
             re_connection
@@ -151,6 +153,7 @@ impl CommandExecutorFactory {
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
             local_actions_throttle,
+            unstable_materialize_failed_action_outputs,
         }
     }
 
@@ -238,6 +241,9 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     paranoid: self.paranoid.dupe(),
                     materialize_failed_inputs: self.materialize_failed_inputs,
                     dependencies: dependencies.to_vec(),
+                    unstable_materialize_failed_action_outputs: self
+                        .unstable_materialize_failed_action_outputs
+                        .clone(),
                 }
             };
 

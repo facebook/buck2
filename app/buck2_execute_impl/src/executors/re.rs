@@ -80,6 +80,7 @@ pub struct ReExecutor {
     pub paranoid: Option<ParanoidDownloader>,
     pub materialize_failed_inputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
+    pub unstable_materialize_failed_action_outputs: Option<String>,
 }
 
 impl ReExecutor {
