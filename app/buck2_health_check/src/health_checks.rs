@@ -8,3 +8,4 @@
  */
 
 // @oss-disable: pub mod facebook;
+pub(crate) mod vpn_check;
