@@ -49,7 +49,6 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
-use starlark::values::OwnedFrozenRef;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
@@ -353,15 +352,14 @@ pub fn transitive_validations(
     deps: SmallMap<ConfiguredTargetLabel, TransitiveValidations>,
     provider_collection: FrozenProviderCollectionValueRef,
 ) -> Option<TransitiveValidations> {
+    let provider_collection = provider_collection.to_owned();
     let info = provider_collection
-        .value()
-        .builtin_provider::<FrozenValidationInfo>();
+        .value
+        .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenValidationInfo>())
+        .map(|v| v.into_owned_frozen_ref());
     if info.is_some() || deps.len() > 1 {
-        let owned_info = info.map(|x| unsafe {
-            OwnedFrozenRef::new_unchecked(x.as_ref(), provider_collection.owner().dupe())
-        });
         Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
-            info: owned_info,
+            info,
             children: deps.into_keys().collect(),
         })))
     } else {
