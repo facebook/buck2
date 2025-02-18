@@ -28,6 +28,7 @@ use dupe::Dupe;
 use futures::FutureExt;
 use indexmap::IndexMap;
 use itertools::Itertools;
+use starlark::values::OwnedFrozenValueTyped;
 
 pub(crate) enum TestStageSimple {
     Listing,
@@ -93,7 +94,12 @@ async fn required_providers<'v>(
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
     stage: &TestStageSimple,
-) -> anyhow::Result<Vec<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)>> {
+) -> anyhow::Result<
+    Vec<(
+        &'v ConfiguredTargetLabel,
+        OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
+    )>,
+> {
     let available_resources = test_info.local_resources();
 
     let targets = required_local_resources
@@ -140,17 +146,22 @@ async fn required_providers<'v>(
 async fn get_local_resource_info<'v>(
     dice: &mut DiceComputations<'_>,
     target: &'v ConfiguredProvidersLabel,
-) -> anyhow::Result<(&'v ConfiguredTargetLabel, &'v FrozenLocalResourceInfo)> {
-    let providers = dice.get_providers(target).await?.require_compatible()?;
-    let providers = providers.provider_collection();
-    Ok((
-        target.target(),
-        providers
-            .builtin_provider::<FrozenLocalResourceInfo>()
-            .context(format!(
-                "Target `{}` expected to contain `LocalResourceInfo` provider",
-                target
-            ))?
-            .as_ref(),
-    ))
+) -> anyhow::Result<(
+    &'v ConfiguredTargetLabel,
+    OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
+)> {
+    let local_resource_info = dice
+        .get_providers(target)
+        .await?
+        .require_compatible()?
+        .value
+        .maybe_map(|c| {
+            c.as_ref()
+                .builtin_provider_value::<FrozenLocalResourceInfo>()
+        })
+        .context(format!(
+            "Target `{}` expected to contain `LocalResourceInfo` provider",
+            target
+        ))?;
+    Ok((target.target(), local_resource_info))
 }
