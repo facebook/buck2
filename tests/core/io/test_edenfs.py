@@ -10,9 +10,13 @@
 import subprocess
 
 from buck2.tests.core.common.io.file_watcher import (
+    FileWatcherEvent,
+    FileWatcherEventType,
+    FileWatcherKind,
     FileWatcherProvider,
     get_file_watcher_events,
 )
+
 from buck2.tests.core.common.io.file_watcher_dir_tests import (
     run_create_directory_test,
     run_remove_directory_test,
@@ -35,6 +39,7 @@ from buck2.tests.core.common.io.file_watcher_scm_tests import (
 from buck2.tests.core.common.io.file_watcher_tests import (
     FileSystemType,
     setup_file_watcher_test,
+    verify_results,
 )
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -164,7 +169,15 @@ async def test_edenfs_files_report_on_fresh_instance(buck: Buck) -> None:
     await setup_file_watcher_scm_test(buck)
     await buck.kill()
 
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/ghi"
+        ),
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/jkl"
+        ),
+    ]
+
     is_fresh_instance, results = await get_file_watcher_events(buck)
     assert is_fresh_instance
-    # this is a bug, we should report file changes
-    assert results == []
+    verify_results(results, required)

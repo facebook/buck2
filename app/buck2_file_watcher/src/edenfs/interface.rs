@@ -542,28 +542,37 @@ impl EdenFsFileWatcher {
         let dice = dice.unstable_take();
 
         // Get mergebase state
-        let last_mergebase = self.last_mergebase.read().await.clone();
-        let mergebase = self.mergebase.read().await.clone();
-        let branched_from_revision_timestamp = mergebase.as_ref().map(|m| m.timestamp);
-        let branched_from_global_rev = mergebase.as_ref().and_then(|m| m.global_rev);
+        let last_mergebase_info = self.last_mergebase.read().await.clone();
+        let mergebase_info = self.mergebase.read().await.clone();
+        let mergebase = mergebase_info.as_ref().map(|m| m.mergebase.clone());
+        let branched_from_revision_timestamp = mergebase_info.as_ref().map(|m| m.timestamp);
+        let branched_from_global_rev = mergebase_info.as_ref().and_then(|m| m.global_rev);
 
         let mut base_stats = buck2_data::FileWatcherStats {
             fresh_instance: true,
-            branched_from_revision: mergebase.as_ref().map(|m| m.mergebase.clone()),
+            branched_from_revision: mergebase.clone(),
             branched_from_global_rev,
             branched_from_revision_timestamp,
             watchman_version: None,
             fresh_instance_data: Some(buck2_data::FreshInstance {
-                new_mergebase: last_mergebase.is_none() || last_mergebase != mergebase,
+                new_mergebase: last_mergebase_info.is_none()
+                    || last_mergebase_info != mergebase_info,
                 cleared_dice: true,
                 cleared_dep_files: true,
             }),
             ..Default::default()
         };
 
-        base_stats.incomplete_events_reason = Some("Large or Unknown change".to_owned());
-
-        Ok((FileWatcherStats::new(base_stats, 0), dice))
+        if let Some(mergebase) = mergebase {
+            let mut tracker = FileChangeTracker::new();
+            let mut stats = FileWatcherStats::new(base_stats, 0);
+            self.process_sapling_status(&mut tracker, &mut stats, mergebase, None)
+                .await?;
+            Ok((stats, dice))
+        } else {
+            base_stats.incomplete_events_reason = Some("Large or Unknown change".to_owned());
+            Ok((FileWatcherStats::new(base_stats, 0), dice))
+        }
     }
 
     // Compute and update the mergebase.
