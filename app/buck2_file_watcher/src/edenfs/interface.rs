@@ -43,6 +43,7 @@ use tracing::warn;
 
 use crate::edenfs::sapling::get_mergebase;
 use crate::edenfs::sapling::get_status;
+use crate::edenfs::sapling::MergebaseDetails;
 use crate::edenfs::sapling::SaplingGetStatusResult;
 use crate::edenfs::sapling::SaplingStatus;
 use crate::edenfs::utils::bytes_to_string_or_unknown;
@@ -71,8 +72,8 @@ pub(crate) struct EdenFsFileWatcher {
     position: RwLock<JournalPosition>,
     cells: CellResolver,
     ignore_specs: HashMap<CellName, IgnoreSet>,
-    mergebase: RwLock<Option<String>>,
-    last_mergebase: RwLock<Option<String>>,
+    mergebase: RwLock<Option<MergebaseDetails>>,
+    last_mergebase: RwLock<Option<MergebaseDetails>>,
     mergebase_with: Option<String>,
 }
 
@@ -551,10 +552,9 @@ impl EdenFsFileWatcher {
     async fn update_mergebase(&self, to: &str) -> buck2_error::Result<bool> {
         if let Some(mergebase_with) = &self.mergebase_with {
             // Compute new mergebase.
-            let mergebase_info = get_mergebase(&self.root, &to, mergebase_with)
+            let mergebase = get_mergebase(&self.root, &to, mergebase_with)
                 .await
                 .buck_error_context("Failed to get mergebase")?;
-            let mergebase = mergebase_info.map(|i| i.mergebase);
             let last_mergebase = self.mergebase.read().await.clone();
 
             // Update mergebases

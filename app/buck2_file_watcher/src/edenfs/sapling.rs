@@ -10,6 +10,7 @@
 use std::path::Path;
 use std::process::Stdio;
 
+use allocative::Allocative;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_util::process::async_background_command;
@@ -31,10 +32,17 @@ pub(crate) enum SaplingGetStatusResult {
 }
 
 #[allow(dead_code)]
+#[derive(Allocative, Clone)]
 pub(crate) struct MergebaseDetails {
     pub mergebase: String,
     pub timestamp: u64,
     pub global_rev: Option<u64>,
+}
+
+impl PartialEq for MergebaseDetails {
+    fn eq(&self, other: &Self) -> bool {
+        self.mergebase == other.mergebase
+    }
 }
 
 pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
