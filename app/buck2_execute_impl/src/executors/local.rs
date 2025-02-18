@@ -244,7 +244,7 @@ impl LocalExecutor {
                         // output from previous run of that action could actually be used as the
                         // input during current run (e.g. extra output which is an incremental state describing the actual output).
                         if !request.outputs_cleanup {
-                            materialize_build_outputs_from_previous_run(
+                            materialize_build_outputs(
                                 &self.artifact_fs,
                                 self.materializer.as_ref(),
                                 request,
@@ -967,11 +967,13 @@ async fn check_inputs(
     }
 }
 
-/// Materialize build outputs from the previous run of the same command.
-/// Useful when executing incremental actions first remotely and then locally.
+/// Materialize all output artifact for CommandExecutionRequest.
+///
+/// Note that the outputs could be from the previous run of the same command if cleanup on the action was not performed.
+/// The above is useful when executing incremental actions first remotely and then locally.
 /// In that case output from remote execution which is incremental state should be materialized prior local execution.
 /// Such incremental state in fact serves as the input while being output as well.
-pub async fn materialize_build_outputs_from_previous_run(
+async fn materialize_build_outputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
