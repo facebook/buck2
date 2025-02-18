@@ -63,4 +63,15 @@ impl HealthCheckClient {
             None
         }
     }
+
+    pub fn is_vpn_check_enabled(&self) -> bool {
+        #[cfg(fbcode_build)]
+        {
+            crate::health_checks::vpn_check::can_run(&self.health_check_context)
+        }
+        #[cfg(not(fbcode_build))]
+        {
+            false
+        }
+    }
 }
