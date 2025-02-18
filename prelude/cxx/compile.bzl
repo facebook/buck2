@@ -911,6 +911,7 @@ def _precompile_single_cxx(
         dep_files = action_dep_files,
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = False,
+        low_pass_filter = False,
     )
 
     return HeaderUnit(
