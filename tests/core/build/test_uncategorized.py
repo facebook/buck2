@@ -435,7 +435,7 @@ async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
         if "MaterializeFailedInputs" in line:
             found_materialize_failed_inputs_span = True
 
-        # Inpsect failed input
+        # Inspect failed input
         materialized_inputs_for_failed = json_get(
             line,
             "Event",
@@ -463,6 +463,49 @@ async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
         raise AssertionError("Did not find relevant ActionError")
     if not found_materialize_failed_inputs_span:
         raise AssertionError("Did not find relevant MaterializeFailedInputs span")
+
+
+@buck_test(data_dir="materialize_outputs_for_failed_actions")
+async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--no-remote-cache",
+            "--unstable-materialize-failed-action-outputs=json",
+            "-c",
+            f"test.cache_buster={random_string()}",
+        ),
+    )
+
+    log = (await buck.log("show")).stdout.strip().splitlines()
+
+    found_action_error = False
+
+    for line in log:
+        # Inspect failed output
+        materialized_outputs_for_failed = json_get(
+            line,
+            "Event",
+            "data",
+            "Instant",
+            "data",
+            "ActionError",
+            "last_command",
+            "details",
+            "command_kind",
+            "command",
+            "RemoteCommand",
+            "materialized_outputs_for_failed_actions",
+        )
+
+        if materialized_outputs_for_failed:
+            found_action_error = True
+            assert len(materialized_outputs_for_failed) == 1
+            materialized_outputs_for_failed[0].endswith("json")
+
+    if not found_action_error:
+        raise AssertionError("Did not find relevant ActionError")
 
 
 def random_string() -> str:
