@@ -53,8 +53,8 @@ use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 // point we could get rid of the Query variant for ResolvedMacro.
 
 #[derive(Debug, PartialEq, Allocative)]
-pub enum ResolvedMacro {
-    Location(FrozenRef<'static, FrozenDefaultInfo>),
+pub enum ResolvedMacro<'v> {
+    Location(FrozenRef<'v, FrozenDefaultInfo>),
     Source(Artifact),
     /// Holds an arg-like value
     ArgLike(FrozenCommandLineArg),
@@ -64,7 +64,7 @@ pub enum ResolvedMacro {
 
 assert_eq_size!(ResolvedMacro, [usize; 2]);
 
-impl Display for ResolvedMacro {
+impl<'v> Display for ResolvedMacro<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ResolvedMacro::Location(_) => {
@@ -104,7 +104,7 @@ fn add_outputs_to_arg(
     Ok(())
 }
 
-impl ResolvedMacro {
+impl<'v> ResolvedMacro<'v> {
     pub fn add_to_arg(
         &self,
         builder: &mut dyn ArgBuilder,
@@ -155,12 +155,12 @@ impl ResolvedMacro {
 }
 
 #[derive(Debug, PartialEq, Allocative)]
-pub enum ResolvedStringWithMacrosPart {
+pub enum ResolvedStringWithMacrosPart<'v> {
     String(ArcStr),
-    Macro(/* write_to_file */ bool, ResolvedMacro),
+    Macro(/* write_to_file */ bool, ResolvedMacro<'v>),
 }
 
-impl Display for ResolvedStringWithMacrosPart {
+impl<'v> Display for ResolvedStringWithMacrosPart<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::String(x) => f.write_str(x),
@@ -176,7 +176,7 @@ impl Display for ResolvedStringWithMacrosPart {
 
 #[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct ResolvedStringWithMacros {
-    parts: Vec<ResolvedStringWithMacrosPart>,
+    parts: Vec<ResolvedStringWithMacrosPart<'static>>,
     configured_macros: Option<ConfiguredStringWithMacros>,
 }
 
@@ -194,7 +194,7 @@ impl Display for ResolvedStringWithMacros {
 
 impl ResolvedStringWithMacros {
     pub fn new(
-        parts: Vec<ResolvedStringWithMacrosPart>,
+        parts: Vec<ResolvedStringWithMacrosPart<'static>>,
         configured_macros: Option<&ConfiguredStringWithMacros>,
     ) -> Self {
         Self {

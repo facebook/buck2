@@ -102,6 +102,18 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
             None
         };
 
+        // SAFETY: FIXME(JakobDegen): This isn't quite right. We know that this is safe because we
+        // know that the underlying references point into frozen heaps kept alive by this module.
+        // However, it's also possible to get `'v`-lifetimed references into the non-frozen heap in
+        // the current module, in which case this is unsound. Ergonomic support for this pattern
+        // would require adopting an additional lifetime to represent the distinction.
+        let resolved_parts = unsafe {
+            std::mem::transmute::<
+                Vec<ResolvedStringWithMacrosPart<'v>>,
+                Vec<ResolvedStringWithMacrosPart<'static>>,
+            >(resolved_parts)
+        };
+
         Ok(ctx.heap().alloc(ResolvedStringWithMacros::new(
             resolved_parts,
             configured_macros,
@@ -109,15 +121,17 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
     }
 }
 
-fn resolve_configured_macro(
+fn resolve_configured_macro<'v>(
     configured_macro: &ConfiguredMacro,
-    ctx: &dyn AttrResolutionContext,
+    ctx: &dyn AttrResolutionContext<'v>,
     pkg: PackageLabel,
-) -> buck2_error::Result<ResolvedMacro> {
+) -> buck2_error::Result<ResolvedMacro<'v>> {
     match configured_macro {
         ConfiguredMacro::Location(target) => {
             let providers_value = ctx.get_dep(target)?;
-            Ok(ResolvedMacro::Location(providers_value.default_info()?))
+            Ok(ResolvedMacro::Location(
+                providers_value.as_ref().default_info()?,
+            ))
         }
         ConfiguredMacro::Exe { label, .. } => {
             // Don't need to consider exec_dep as it already was applied when configuring the label.
