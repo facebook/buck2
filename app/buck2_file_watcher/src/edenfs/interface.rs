@@ -308,6 +308,10 @@ impl EdenFsFileWatcher {
                         .buck_error_context("Failed to process commit transition.")?
                 }
                 LargeChangeNotification::lostChanges(_lost_changes) => {
+                    let current_rev = ".";
+                    self.update_mergebase(current_rev)
+                        .await
+                        .buck_error_context("Failed to update mergebase.")?;
                     // Return true indicating a large change (i.e. invalidate DICE).
                     true
                 }

@@ -151,7 +151,7 @@ async def test_edenfs_file_watcher_stats(buck: Buck) -> None:
 
     file_stats = file_stats[0]
     assert file_stats["fresh_instance"]
-    # This is a bug, we should report all those fields on fresh_instance
-    assert file_stats["branched_from_revision"] is None
+    assert file_stats["branched_from_revision"] is not None
+    assert file_stats["branched_from_revision_timestamp"] is not None
+    # we don't have global revision for test repo
     assert file_stats["branched_from_global_rev"] is None
-    assert file_stats["branched_from_revision_timestamp"] is None
