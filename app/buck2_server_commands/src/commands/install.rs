@@ -293,12 +293,13 @@ async fn collect_install_request_data<'a>(
             let providers_label = ctx
                 .get_configured_provider_label(&label, &global_cfg_options)
                 .await?;
-            let frozen_providers = ctx
+            let install_info = ctx
                 .get_providers(&providers_label)
                 .await?
-                .require_compatible()?;
-            let providers = frozen_providers.provider_collection();
-            match providers.builtin_provider::<FrozenInstallInfo>() {
+                .require_compatible()?
+                .value
+                .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenInstallInfo>());
+            match install_info {
                 Some(install_info) => {
                     let installer_label = install_info.get_installer()?;
                     installer_to_files_map
