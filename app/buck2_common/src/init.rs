@@ -146,6 +146,9 @@ pub struct SystemWarningConfig {
     /// If None, we don't warn the user.
     /// The corresponding buckconfig is `buck2_system_warning.avg_re_download_bytes_per_sec_threshold`.
     pub avg_re_download_bytes_per_sec_threshold: Option<u64>,
+    /// A regex that controls which targets are opted into the vpn check.
+    /// The corresponding buckconfig is `buck2_health_check.vpn_check_optin_target_prefix`.
+    pub vpn_check_optin_target_regex: Option<String>,
 }
 
 impl SystemWarningConfig {
@@ -166,11 +169,16 @@ impl SystemWarningConfig {
             section: "buck2_system_warning",
             property: "avg_re_download_bytes_per_sec_threshold",
         })?;
+        let vpn_check_optin_target_regex = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "vpn_check_optin_target_regex",
+        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
             min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold,
+            vpn_check_optin_target_regex,
         })
     }
 
