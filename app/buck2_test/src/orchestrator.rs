@@ -151,7 +151,7 @@ use indexmap::indexset;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use sorted_vector_map::SortedVectorMap;
-use starlark::values::FrozenRef;
+use starlark::values::OwnedFrozenValueTyped;
 use uuid::Uuid;
 
 use crate::local_resource_api::LocalResourcesSetupResult;
@@ -1221,15 +1221,15 @@ impl<'b> BuckTestOrchestrator<'b> {
     async fn get_test_info(
         dice: &mut DiceComputations<'_>,
         test_target: &ConfiguredProvidersLabel,
-    ) -> anyhow::Result<FrozenRef<'static, FrozenExternalRunnerTestInfo>> {
-        let providers = dice
-            .get_providers(test_target)
+    ) -> anyhow::Result<OwnedFrozenValueTyped<FrozenExternalRunnerTestInfo>> {
+        dice.get_providers(test_target)
             .await?
-            .require_compatible()?;
-
-        let providers = providers.provider_collection();
-        providers
-            .builtin_provider::<FrozenExternalRunnerTestInfo>()
+            .require_compatible()?
+            .value
+            .maybe_map(|c| {
+                c.as_ref()
+                    .builtin_provider_value::<FrozenExternalRunnerTestInfo>()
+            })
             .context("Test executable only supports ExternalRunnerTestInfo providers")
     }
 
