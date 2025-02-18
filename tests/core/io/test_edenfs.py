@@ -30,6 +30,7 @@ from buck2.tests.core.common.io.file_watcher_scm_tests import (
     run_checkout_with_mergebase_test,
     run_rebase_with_mergebase_test,
     run_restack_with_mergebase_test,
+    setup_file_watcher_scm_test,
 )
 from buck2.tests.core.common.io.file_watcher_tests import (
     FileSystemType,
@@ -155,3 +156,15 @@ async def test_edenfs_file_watcher_stats(buck: Buck) -> None:
     assert file_stats["branched_from_revision_timestamp"] is not None
     # we don't have global revision for test repo
     assert file_stats["branched_from_global_rev"] is None
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_files_report_on_fresh_instance(buck: Buck) -> None:
+    await setup_file_watcher_test(buck)
+    await setup_file_watcher_scm_test(buck)
+    await buck.kill()
+
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert is_fresh_instance
+    # this is a bug, we should report file changes
+    assert results == []
