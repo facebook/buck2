@@ -38,6 +38,7 @@ from buck2.tests.core.common.io.file_watcher_tests import (
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 @buck_test(setup_eden=True)
@@ -132,3 +133,25 @@ async def test_edenfs_truncate_journal(buck: Buck) -> None:
 
     is_fresh_instance, _ = await get_file_watcher_events(buck)
     assert is_fresh_instance
+
+
+@buck_test(setup_eden=True)
+async def test_edenfs_file_watcher_stats(buck: Buck) -> None:
+    await setup_file_watcher_test(buck)
+
+    file_stats = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "FileWatcher",
+        "stats",
+    )
+
+    file_stats = file_stats[0]
+    assert file_stats["fresh_instance"]
+    # This is a bug, we should report all those fields on fresh_instance
+    assert file_stats["branched_from_revision"] is None
+    assert file_stats["branched_from_global_rev"] is None
+    assert file_stats["branched_from_revision_timestamp"] is None
