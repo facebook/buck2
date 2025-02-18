@@ -527,13 +527,14 @@ impl EdenFsFileWatcher {
         // Get mergebase state
         let last_mergebase = self.last_mergebase.read().await.clone();
         let mergebase = self.mergebase.read().await.clone();
+        let branched_from_revision_timestamp = mergebase.as_ref().map(|m| m.timestamp);
+        let branched_from_global_rev = mergebase.as_ref().and_then(|m| m.global_rev);
 
-        // TODO: refactor or reuse this struct - utilizing fields when data is available.
         let mut base_stats = buck2_data::FileWatcherStats {
             fresh_instance: true,
-            branched_from_revision: None,
-            branched_from_global_rev: None,
-            branched_from_revision_timestamp: None,
+            branched_from_revision: mergebase.as_ref().map(|m| m.mergebase.clone()),
+            branched_from_global_rev,
+            branched_from_revision_timestamp,
             watchman_version: None,
             fresh_instance_data: Some(buck2_data::FreshInstance {
                 new_mergebase: last_mergebase.is_none() || last_mergebase != mergebase,
