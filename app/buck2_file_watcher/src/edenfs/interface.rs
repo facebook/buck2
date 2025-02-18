@@ -551,9 +551,10 @@ impl EdenFsFileWatcher {
     async fn update_mergebase(&self, to: &str) -> buck2_error::Result<bool> {
         if let Some(mergebase_with) = &self.mergebase_with {
             // Compute new mergebase.
-            let mergebase = get_mergebase(&self.root, &to, mergebase_with)
+            let mergebase_info = get_mergebase(&self.root, &to, mergebase_with)
                 .await
                 .buck_error_context("Failed to get mergebase")?;
+            let mergebase = mergebase_info.map(|i| i.mergebase);
             let last_mergebase = self.mergebase.read().await.clone();
 
             // Update mergebases

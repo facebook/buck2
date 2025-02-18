@@ -30,11 +30,18 @@ pub(crate) enum SaplingGetStatusResult {
     TooManyChanges,
 }
 
+#[allow(dead_code)]
+pub(crate) struct MergebaseDetails {
+    pub mergebase: String,
+    pub timestamp: u64,
+    pub global_rev: Option<u64>,
+}
+
 pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
     current_dir: D,
     commit: C,
     mergegase_with: M,
-) -> buck2_error::Result<Option<String>> {
+) -> buck2_error::Result<Option<MergebaseDetails>> {
     let output = async_background_command("sl")
         .current_dir(current_dir)
         .env("HGPLAIN", "1")
@@ -42,7 +49,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
             "log",
             "--traceback",
             "-T",
-            "{node}",
+            "{node}\n{date}\n{get(extras, \"global_rev\")}",
             "-r",
             format!("ancestor({}, {})", commit.as_ref(), mergegase_with.as_ref()).as_str(),
         ])
@@ -59,13 +66,39 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
         );
     }
 
-    let mergebase =
-        String::from_utf8(output.stdout).buck_error_context("Failed to parse mergebase")?;
-    if mergebase.is_empty() {
-        Ok(None)
-    } else {
-        Ok(Some(mergebase))
+    parse_log_output(output.stdout)
+}
+
+fn parse_log_output(output: Vec<u8>) -> buck2_error::Result<Option<MergebaseDetails>> {
+    let output = String::from_utf8(output).buck_error_context("Failed to parse sl log output")?;
+    if output.is_empty() {
+        return Ok(None);
     }
+    let v: Vec<&str> = output.trim().splitn(3, '\n').collect();
+    let mergebase = v
+        .first()
+        .buck_error_context("Failed to parse mergebase")?
+        .to_string();
+    let timestamp = v
+        .get(1)
+        .buck_error_context("Failed to parse mergebase timestamp")?
+        .parse::<f64>() // hg returns the fractional seconds
+        .buck_error_context("Failed to parse mergebase timestamp")? as u64;
+    let global_rev = if let Some(global_rev) = v.get(2) {
+        Some(
+            global_rev
+                .parse::<u64>()
+                .buck_error_context("Failed to parse global_rev")?,
+        )
+    } else {
+        None
+    };
+
+    Ok(Some(MergebaseDetails {
+        mergebase,
+        timestamp,
+        global_rev,
+    }))
 }
 
 // Get status between two revisions. If second is None, then it is the working copy.
@@ -209,6 +242,35 @@ mod tests {
                 .is_err()
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_log_output() -> buck2_error::Result<()> {
+        // the format is {node}\n{date}\n{global_rev}
+        let output =
+            "71de423b796418e8ff5300dbe9bd9ad3aef63a9c\n1739790802.028800\n1020164040".to_owned();
+        let details = parse_log_output(output.as_bytes().to_vec())?.unwrap();
+        assert_eq!(
+            details.mergebase,
+            "71de423b796418e8ff5300dbe9bd9ad3aef63a9c"
+        );
+        assert_eq!(details.timestamp, 1739790802);
+        assert_eq!(details.global_rev, Some(1020164040));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_log_output_no_global_rev() -> buck2_error::Result<()> {
+        // Not all repos have global revision
+        let output = "71de423b796418e8ff5300dbe9bd9ad3aef63a9c\n1739790802.028800\n".to_owned();
+        let details = parse_log_output(output.as_bytes().to_vec())?.unwrap();
+        assert_eq!(
+            details.mergebase,
+            "71de423b796418e8ff5300dbe9bd9ad3aef63a9c"
+        );
+        assert_eq!(details.global_rev, None);
+        assert_eq!(details.timestamp, 1739790802);
         Ok(())
     }
 }
