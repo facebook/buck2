@@ -434,6 +434,58 @@ impl EdenFsFileWatcher {
         Ok(())
     }
 
+    async fn process_sapling_status(
+        &self,
+        tracker: &mut FileChangeTracker,
+        stats: &mut FileWatcherStats,
+        from: String,
+        to: Option<String>,
+    ) -> buck2_error::Result<bool> {
+        // limit results to 10,000
+        match get_status(&self.root, &from, to, 10_000)
+            .await
+            .buck_error_context("Failed to get Sapling status.")?
+        {
+            SaplingGetStatusResult::TooManyChanges => Ok(true),
+            SaplingGetStatusResult::Normal(status) => {
+                // Process statuses - if any fail, will terminate early.
+                let results: buck2_error::Result<Vec<_>> = status
+                    .into_iter()
+                    .map(|(change, path)| match change {
+                        SaplingStatus::Added | SaplingStatus::NotTracked => self
+                            .process_file_watcher_event(
+                                tracker,
+                                stats,
+                                Kind::File,
+                                Type::Create,
+                                path.as_bytes(),
+                            ),
+                        SaplingStatus::Modified => self.process_file_watcher_event(
+                            tracker,
+                            stats,
+                            Kind::File,
+                            Type::Modify,
+                            path.as_bytes(),
+                        ),
+                        SaplingStatus::Removed | SaplingStatus::Missing => self
+                            .process_file_watcher_event(
+                                tracker,
+                                stats,
+                                Kind::File,
+                                Type::Delete,
+                                path.as_bytes(),
+                            ),
+                    })
+                    .collect();
+
+                // Return false indicating no large change.
+                results
+                    .map(|_| false)
+                    .buck_error_context("Failed to process Sapling statuses.")
+            }
+        }
+    }
+
     // Process commit transitions. Compute the actual changes using the
     // mergebase and mergebase-with using Sapling. In cases where mergebase
     // has changed, we need to invalidate DICE. In cases where it has not
@@ -453,49 +505,9 @@ impl EdenFsFileWatcher {
             // Mergebase has changed - invalidate DICE.
             Ok(true)
         } else {
-            // Mergebase has not changed - compute status - limit results to 10,000.
-            match get_status(&self.root, &from, Some(&to), 10_000)
+            // Mergebase has not changed - compute status
+            self.process_sapling_status(tracker, stats, from, Some(to))
                 .await
-                .buck_error_context("Failed to get Sapling status.")?
-            {
-                SaplingGetStatusResult::TooManyChanges => Ok(true),
-                SaplingGetStatusResult::Normal(status) => {
-                    // Process statuses - if any fail, will terminate early.
-                    let results: buck2_error::Result<Vec<_>> = status
-                        .into_iter()
-                        .map(|(change, path)| match change {
-                            SaplingStatus::Added | SaplingStatus::NotTracked => self
-                                .process_file_watcher_event(
-                                    tracker,
-                                    stats,
-                                    Kind::File,
-                                    Type::Create,
-                                    path.as_bytes(),
-                                ),
-                            SaplingStatus::Modified => self.process_file_watcher_event(
-                                tracker,
-                                stats,
-                                Kind::File,
-                                Type::Modify,
-                                path.as_bytes(),
-                            ),
-                            SaplingStatus::Removed | SaplingStatus::Missing => self
-                                .process_file_watcher_event(
-                                    tracker,
-                                    stats,
-                                    Kind::File,
-                                    Type::Delete,
-                                    path.as_bytes(),
-                                ),
-                        })
-                        .collect();
-
-                    // Return false indicating no large change.
-                    results
-                        .map(|_| false)
-                        .buck_error_context("Failed to process Sapling statuses.")
-                }
-            }
         }
     }
 
