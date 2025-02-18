@@ -942,11 +942,7 @@ where
     let package_path = pattern.package_path();
 
     let path = match relative.dir() {
-        Some(rel)
-            if cell_alias.is_none() && (relative.allow_relative() || package_path.is_empty()) =>
-        {
-            CellPathCow::Owned(rel.join(package_path))
-        }
+        Some(rel) if cell_alias.is_none() => CellPathCow::Owned(rel.join(package_path)),
         _ => CellPathCow::Borrowed(CellPathRef::new(cell, CellRelativePath::new(package_path))),
     };
 
