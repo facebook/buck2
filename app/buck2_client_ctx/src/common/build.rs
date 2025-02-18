@@ -177,6 +177,14 @@ pub struct CommonBuildOptions {
     /// Materializes inputs for failed actions which ran on RE
     #[clap(long)]
     materialize_failed_inputs: bool,
+
+    /// Materializes outputs that match the string provided for failed actions which ran on RE
+    ///
+    /// `--unstable-materialize-failed-action-outputs=*` will materialize all outputs
+    /// `--unstable-materialize-failed-action-outputs=<pattern>` will only match paths that contains the pattern string
+    /// TODO(minglunli): Hiding for now as it's intended to be an intermediate step
+    #[clap(long, hide = true)]
+    unstable_materialize_failed_action_outputs: Option<String>,
 }
 
 impl CommonBuildOptions {
@@ -210,6 +218,11 @@ impl CommonBuildOptions {
             .iter()
             .map(|s| s.to_owned())
             .collect();
+        let unstable_materialize_failed_action_outputs = self
+            .unstable_materialize_failed_action_outputs
+            .as_deref()
+            .unwrap_or("")
+            .to_owned();
 
         buck2_cli_proto::CommonBuildOptions {
             concurrency,
@@ -238,6 +251,7 @@ impl CommonBuildOptions {
             skip_incompatible_targets: self.skip_incompatible_targets,
             materialize_failed_inputs: self.materialize_failed_inputs,
             enable_optional_validations,
+            unstable_materialize_failed_action_outputs,
             unstable_include_failures_build_report,
             unstable_include_package_project_relative_paths,
             unstable_include_artifact_hash_information,

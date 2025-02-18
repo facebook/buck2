@@ -396,6 +396,10 @@ message CommonBuildOptions {
   /// Validations to run that are marked optional.
   repeated string enable_optional_validations = 19;
 
+  // This will likely be deleted later and never become a real option. Adding it
+  // for now as it makes iterating easier in the beginning.
+  string unstable_materialize_failed_action_outputs = 4241000;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if
