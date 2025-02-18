@@ -104,7 +104,10 @@ def main(argv: List[str]) -> None:
     parser.add_argument("--name", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--entry-points", default=None)
-    parser.add_argument("--srcs", action="append", default=[])
+    parser.add_argument("--manifest", dest="manifests", action="append", default=[])
+    parser.add_argument(
+        "--src-path", nargs=2, dest="src_paths", action="append", default=[]
+    )
     parser.add_argument("--metadata", nargs=2, action="append", default=[])
     parser.add_argument("--data", nargs=2, action="append", default=[])
     args = parser.parse_args(argv[1:])
@@ -127,7 +130,7 @@ def main(argv: List[str]) -> None:
         ),
         metadata=args.metadata,
     ) as whl:
-        for src in args.srcs:
+        for src in args.manifests:
             with open(src) as f:
                 manifest = json.load(f)
             for dst, src, *_ in manifest:
@@ -137,6 +140,9 @@ def main(argv: List[str]) -> None:
                     if os.path.basename(dst) == "__init__.py":
                         pkgs_with_init.add(pkg)
                 whl.write(dst, src)
+
+        for dst, src in args.src_paths:
+            whl.write(dst, src)
 
         for dst, src in args.data:
             whl.write_data(dst, src)

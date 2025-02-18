@@ -119,3 +119,9 @@ prelude.python_bootstrap_binary(
     main = "wheel.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_binary(
+    name = "create_link_tree",
+    main = "create_link_tree.py",
+    visibility = ["PUBLIC"],
+)
