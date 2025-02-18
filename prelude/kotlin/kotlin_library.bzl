@@ -386,7 +386,7 @@ def build_kotlin_library(
             kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
                 ctx,
                 ctx.attrs.srcs,
-                deps,
+                (deps or []) + [kotlin_toolchain.kotlin_stdlib],
                 annotation_processor_properties,
                 ksp_annotation_processor_properties,
                 additional_classpath_entries,
@@ -407,7 +407,7 @@ def build_kotlin_library(
                     abi_jar_snapshot = None,
                 ),
             )]
-            children = kotlinc_classes_classpath + ([additional_classpath_entries] if additional_classpath_entries else [])
+            children = kotlinc_classes_classpath + ([additional_classpath_entries] if additional_classpath_entries else []) + [kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].compiling_deps]
             all_additional_classpath_entries = ctx.actions.tset(JavaCompilingDepsTSet, children = children)
             java_lib = build_java_library(
                 ctx,
