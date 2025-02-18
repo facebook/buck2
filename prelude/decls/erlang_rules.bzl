@@ -71,6 +71,9 @@ common_application_attributes = {
 
 rules_attributes = {
     "erlang_app": {
+        "app_name": attrs.option(attrs.string(), default = None, doc = """
+                This attribute allows the user to overwrite the Erlang application name, which otherwise defaults to the target name.
+            """),
         "app_src": attrs.option(attrs.source(), default = None, doc = """
                 The `app_src` field allows to optionally reference a `*.app.src` template file. This template file will then be used by
                 buck2 to generate the `*.app` output file in the applications `ebin/` directory. This is useful during the migration from
@@ -161,7 +164,7 @@ rules_attributes = {
         """),
     } | common_application_attributes,
     "erlang_app_includes": {
-        "application_name": attrs.string(),
+        "app_name": attrs.string(),
         "includes": attrs.list(attrs.source(), default = []),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },

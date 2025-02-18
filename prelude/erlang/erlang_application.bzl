@@ -32,6 +32,7 @@ load(
 load(
     ":erlang_utils.bzl",
     "action_identifier",
+    "app_name",
     "build_paths",
     "multidict_projection",
     "multidict_projection_key",
@@ -60,14 +61,14 @@ def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
                                check_dependencies(ctx.attrs.extra_includes, [ErlangAppIncludeInfo]))
     dependencies = flatten_dependencies(ctx, all_direct_dependencies)
 
-    name = ctx.attrs.name
+    name = app_name(ctx)
     if name in dependencies and ErlangAppInfo in dependencies[name]:
         fail("cannot depend on an application with the same name: %s" % (dependencies[name].label,))
 
     return build_application(ctx, toolchains, dependencies)
 
 def build_application(ctx, toolchains, dependencies) -> list[Provider]:
-    name = ctx.attrs.name
+    name = app_name(ctx)
 
     build_environments = {}
     app_folders = {}
@@ -120,7 +121,7 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
     ]
 
 def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuildEnvironment:
-    name = ctx.attrs.name
+    name = app_name(ctx)
 
     build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies)
 
@@ -214,7 +215,7 @@ def _generate_priv_dir(
         toolchain: Toolchain,
         build_environment: BuildEnvironment) -> BuildEnvironment:
     """Generate the application's priv dir."""
-    name = ctx.attrs.name
+    name = app_name(ctx)
 
     resources = ctx.attrs.resources
     priv_symlinks = {}
@@ -332,7 +333,7 @@ def link_output(
         link_path: str,
         build_environment: BuildEnvironment) -> Artifact:
     """Link application output folder in working dir root folder."""
-    name = ctx.attrs.name
+    name = app_name(ctx)
 
     ebin = build_environment.app_beams.values() + [build_environment.app_files[name]]
     include = build_environment.app_includes.values()
@@ -444,7 +445,7 @@ def build_app_info(
         app_folders: dict[str, Artifact],
         primary_app_folder: Artifact,
         start_dependencies: dict[str, list[StartDependencySet]]) -> Provider:
-    name = ctx.attrs.name
+    name = app_name(ctx)
 
     version = {
         toolchain.name: ctx.attrs.version
