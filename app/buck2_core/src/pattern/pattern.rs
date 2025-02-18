@@ -297,7 +297,10 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_alias_resolver,
             None,
             TargetParsingOptions {
-                relative: TargetParsingRel::RequireAbsolute(relative_dir),
+                relative: match relative_dir {
+                    Some(d) => TargetParsingRel::AllowLimitedRelative(d),
+                    None => TargetParsingRel::RequireAbsolute,
+                },
                 infer_target: false,
                 strip_package_trailing_slash: false,
             },
@@ -773,26 +776,31 @@ fn normalize_package<'a>(
 }
 
 #[derive(Clone, Dupe)]
-enum TargetParsingRel<'a> {
-    /// The dir this pattern should be interpreted relative to.
+pub enum TargetParsingRel<'a> {
+    /// Parse the pattern relative to this package path
     AllowRelative(CellPathRef<'a>),
-    /// The dir this pattern should be interpreted relative to.
-    /// This is only used for targets such as `:foo`.
-    RequireAbsolute(Option<CellPathRef<'a>>),
+    /// Allows relative patterns, but only if they're like `:foo`, not `bar:foo`
+    AllowLimitedRelative(CellPathRef<'a>),
+    /// Require the pattern to be absolute.
+    ///
+    /// Still allows reference to the self-cell (`//foo:bar`)
+    RequireAbsolute,
 }
 
 impl<'a> TargetParsingRel<'a> {
     fn dir(&self) -> Option<CellPathRef<'a>> {
         match self {
             TargetParsingRel::AllowRelative(dir) => Some(*dir),
-            TargetParsingRel::RequireAbsolute(dir) => *dir,
+            TargetParsingRel::AllowLimitedRelative(dir) => Some(*dir),
+            TargetParsingRel::RequireAbsolute => None,
         }
     }
 
-    fn allow_relative(&self) -> bool {
+    fn allow_full_relative(&self) -> bool {
         match self {
             TargetParsingRel::AllowRelative(_) => true,
-            TargetParsingRel::RequireAbsolute(_) => false,
+            TargetParsingRel::AllowLimitedRelative(_) => false,
+            TargetParsingRel::RequireAbsolute => false,
         }
     }
 }
@@ -811,7 +819,7 @@ struct TargetParsingOptions<'a> {
 impl<'a> TargetParsingOptions<'a> {
     fn precise() -> TargetParsingOptions<'a> {
         TargetParsingOptions {
-            relative: TargetParsingRel::RequireAbsolute(None),
+            relative: TargetParsingRel::RequireAbsolute,
             infer_target: false,
             strip_package_trailing_slash: false,
         }
@@ -927,7 +935,7 @@ where
     // just relative target). This is a bit of a wonky  definition of "is_absolute" but we rely on
     // it.
     let is_absolute_or_adjacent = cell_alias.is_some() || pattern.is_adjacent_target();
-    if !relative.allow_relative() && !is_absolute_or_adjacent {
+    if !relative.allow_full_relative() && !is_absolute_or_adjacent {
         return Err(TargetPatternParseError::AbsoluteRequired.into());
     }
 
