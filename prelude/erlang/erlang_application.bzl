@@ -60,6 +60,10 @@ def erlang_application_impl(ctx: AnalysisContext) -> list[Provider]:
                                check_dependencies(ctx.attrs.extra_includes, [ErlangAppIncludeInfo]))
     dependencies = flatten_dependencies(ctx, all_direct_dependencies)
 
+    name = ctx.attrs.name
+    if name in dependencies and ErlangAppInfo in dependencies[name]:
+        fail("cannot depend on an application with the same name: %s" % (dependencies[name].label,))
+
     return build_application(ctx, toolchains, dependencies)
 
 def build_application(ctx, toolchains, dependencies) -> list[Provider]:
