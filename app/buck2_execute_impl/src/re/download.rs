@@ -61,7 +61,9 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
+use crate::executors::local::materialize_build_outputs;
 use crate::executors::local::materialize_inputs;
+use crate::executors::local::FileToMaterialize;
 use crate::re::paranoid_download::ParanoidDownloader;
 use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 
@@ -83,6 +85,7 @@ pub async fn download_action_results<'a>(
     action_exit_code: i32,
     artifact_fs: &ArtifactFs,
     materialize_failed_re_action_inputs: bool,
+    materialize_failed_re_action_outputs: Option<String>,
     additional_message: Option<String>,
 ) -> DownloadResult {
     let std_streams = response.std_streams(re_client, re_use_case, digest_config);
@@ -164,10 +167,38 @@ pub async fn download_action_results<'a>(
                 None
             };
 
+            let materialized_outputs = if let Some(pattern) = materialize_failed_re_action_outputs {
+                let files_to_materialize = match pattern == *"*" {
+                    true => FileToMaterialize::All,
+                    false => FileToMaterialize::Match(pattern),
+                };
+
+                match materialize_build_outputs(
+                    artifact_fs,
+                    materializer,
+                    request,
+                    files_to_materialize,
+                )
+                .await
+                {
+                    Ok(materialized_paths) => Some(materialized_paths.clone()),
+                    Err(e) => {
+                        console_message(format!(
+                            "Failed to materialize outputs for failed action: {}",
+                            e
+                        ));
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+
             manager.failure(
-                response.execution_kind_with_materialized_inputs_for_failed(
+                response.execution_kind_for_failed_actions(
                     details,
                     materialized_inputs,
+                    materialized_outputs,
                 ),
                 outputs,
                 CommandStdStreams::Remote(std_streams),

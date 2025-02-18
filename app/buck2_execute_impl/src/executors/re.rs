@@ -312,6 +312,7 @@ impl PreparedCommandExecutor for ReExecutor {
             details: details.clone(),
             queue_time: Duration::ZERO,
             materialized_inputs_for_failed: None,
+            materialized_outputs_for_failed_actions: None,
         });
 
         if command.request.executor_preference().requires_local() {
@@ -377,6 +378,7 @@ impl PreparedCommandExecutor for ReExecutor {
             exit_code,
             &self.artifact_fs,
             self.materialize_failed_inputs,
+            self.unstable_materialize_failed_action_outputs.clone(),
             additional_message,
         )
         .boxed()

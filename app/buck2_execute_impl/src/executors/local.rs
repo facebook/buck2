@@ -248,8 +248,10 @@ impl LocalExecutor {
                                 &self.artifact_fs,
                                 self.materializer.as_ref(),
                                 request,
+                                FileToMaterialize::All,
                             )
-                            .await
+                            .await?;
+                            buck2_error::Ok(())
                         } else {
                             Ok(())
                         }
@@ -967,17 +969,23 @@ async fn check_inputs(
     }
 }
 
+pub enum FileToMaterialize {
+    All,
+    Match(String),
+}
+
 /// Materialize all output artifact for CommandExecutionRequest.
 ///
 /// Note that the outputs could be from the previous run of the same command if cleanup on the action was not performed.
 /// The above is useful when executing incremental actions first remotely and then locally.
 /// In that case output from remote execution which is incremental state should be materialized prior local execution.
 /// Such incremental state in fact serves as the input while being output as well.
-async fn materialize_build_outputs(
+pub async fn materialize_build_outputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-) -> buck2_error::Result<()> {
+    files_to_materialize: FileToMaterialize,
+) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
     let mut paths = vec![];
 
     for output in request.outputs() {
@@ -985,14 +993,21 @@ async fn materialize_build_outputs(
             CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: _,
-            } => {
-                paths.push(artifact_fs.resolve_build(path));
-            }
+            } => match files_to_materialize {
+                FileToMaterialize::All => paths.push(artifact_fs.resolve_build(path)),
+                FileToMaterialize::Match(ref pattern) => {
+                    if path.path().as_str().contains(pattern) {
+                        paths.push(artifact_fs.resolve_build(path));
+                    }
+                }
+            },
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
     }
 
-    materializer.ensure_materialized(paths).await
+    materializer.ensure_materialized(paths.clone()).await?;
+
+    Ok(paths)
 }
 
 /// Create any output dirs requested by the command. Note that this makes no effort to delete

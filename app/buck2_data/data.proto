@@ -1910,9 +1910,12 @@ message RemoteCommand {
   optional string remote_dep_file_key = 6;
 
   // Project relative paths to the materialized inputs for failed
-
   // actions, if `--materialize-failed-inputs` was passed to build options
   repeated string materialized_inputs_for_failed = 7;
+
+  // Project relative paths to the materialized outputs for failed actions, if
+  // `--unstable_materialize_failed_action_outputs` was passed to build options
+  repeated string materialized_outputs_for_failed_actions = 8;
 }
 
 message RemoteCommandDetails {

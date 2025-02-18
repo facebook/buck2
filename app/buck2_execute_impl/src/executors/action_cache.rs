@@ -192,6 +192,7 @@ async fn query_action_cache_and_download_result(
         artifact_fs,
         false,
         None,
+        None,
     )
     .await;
 

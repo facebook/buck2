@@ -40,10 +40,11 @@ pub trait RemoteActionResult: Send + Sync {
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind;
 
     /// This is only called after we inspect the action result, and the exit code is not 0
-    fn execution_kind_with_materialized_inputs_for_failed(
+    fn execution_kind_for_failed_actions(
         &self,
         details: RemoteCommandExecutionDetails,
         materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+        materialized_outputs_for_failed_actions: Option<Vec<ProjectRelativePathBuf>>,
     ) -> CommandExecutionKind;
 
     fn timing(&self) -> CommandExecutionMetadata;
@@ -73,13 +74,14 @@ impl RemoteActionResult for ExecuteResponse {
     }
 
     fn execution_kind(&self, details: RemoteCommandExecutionDetails) -> CommandExecutionKind {
-        self.execution_kind_with_materialized_inputs_for_failed(details, None)
+        self.execution_kind_for_failed_actions(details, None, None)
     }
 
-    fn execution_kind_with_materialized_inputs_for_failed(
+    fn execution_kind_for_failed_actions(
         &self,
         details: RemoteCommandExecutionDetails,
         materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+        materialized_outputs_for_failed_actions: Option<Vec<ProjectRelativePathBuf>>,
     ) -> CommandExecutionKind {
         let meta = &self.action_result.execution_metadata;
         let queue_time = meta
@@ -90,6 +92,7 @@ impl RemoteActionResult for ExecuteResponse {
             details,
             queue_time,
             materialized_inputs_for_failed,
+            materialized_outputs_for_failed_actions,
         }
     }
 
@@ -133,10 +136,11 @@ impl RemoteActionResult for ActionCacheResult {
         }
     }
 
-    fn execution_kind_with_materialized_inputs_for_failed(
+    fn execution_kind_for_failed_actions(
         &self,
         details: RemoteCommandExecutionDetails,
         _materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+        _materialized_outputs_for_failed_actions: Option<Vec<ProjectRelativePathBuf>>,
     ) -> CommandExecutionKind {
         self.execution_kind(details)
     }
