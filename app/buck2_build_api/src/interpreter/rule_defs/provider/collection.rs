@@ -430,7 +430,7 @@ impl<'v> Freeze for ProviderCollection<'v> {
 }
 
 impl FrozenProviderCollection {
-    pub fn default_info(&self) -> buck2_error::Result<FrozenRef<'static, FrozenDefaultInfo>> {
+    pub fn default_info<'a>(&'a self) -> buck2_error::Result<FrozenRef<'a, FrozenDefaultInfo>> {
         self.builtin_provider().internal_error(
             "DefaultInfo should always be set for providers returned from rule function",
         )
@@ -440,14 +440,16 @@ impl FrozenProviderCollection {
         self.providers.contains_key(provider_id)
     }
 
-    pub fn builtin_provider<T: FrozenBuiltinProviderLike>(&self) -> Option<FrozenRef<'static, T>> {
+    pub fn builtin_provider<'a, T: FrozenBuiltinProviderLike>(
+        &'a self,
+    ) -> Option<FrozenRef<'a, T>> {
         self.builtin_provider_value::<T>()
             .map(|v| v.to_frozen_value().downcast_frozen_ref().unwrap())
     }
 
-    pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
-        &self,
-    ) -> Option<FrozenValueTyped<'static, T>> {
+    pub fn builtin_provider_value<'a, T: FrozenBuiltinProviderLike>(
+        &'a self,
+    ) -> Option<FrozenValueTyped<'a, T>> {
         let provider: FrozenValue = *self.providers.get(T::builtin_provider_id())?;
         Some(FrozenValueTyped::new(provider).expect("Incorrect provider type"))
     }

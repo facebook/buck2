@@ -94,7 +94,7 @@ pub trait ProviderLike<'v>: Debug {
 }
 
 /// Implemented by frozen builtin providers.
-pub trait FrozenBuiltinProviderLike: ProviderLike<'static> + StarlarkValue<'static> {
+pub trait FrozenBuiltinProviderLike: ProviderLike<'static> + for<'v> StarlarkValue<'v> {
     fn builtin_provider_id() -> &'static Arc<ProviderId>;
 }
 
