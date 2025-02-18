@@ -441,11 +441,15 @@ impl FrozenProviderCollection {
     }
 
     pub fn builtin_provider<T: FrozenBuiltinProviderLike>(&self) -> Option<FrozenRef<'static, T>> {
+        self.builtin_provider_value::<T>()
+            .map(|v| v.to_frozen_value().downcast_frozen_ref().unwrap())
+    }
+
+    pub fn builtin_provider_value<T: FrozenBuiltinProviderLike>(
+        &self,
+    ) -> Option<FrozenValueTyped<'static, T>> {
         let provider: FrozenValue = *self.providers.get(T::builtin_provider_id())?;
-        let provider = provider
-            .downcast_frozen_ref::<T>()
-            .expect("Incorrect provider type");
-        Some(provider)
+        Some(FrozenValueTyped::new(provider).expect("Incorrect provider type"))
     }
 
     pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<&FrozenValue> {
