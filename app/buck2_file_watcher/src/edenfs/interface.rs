@@ -51,6 +51,7 @@ use crate::edenfs::utils::dtype_into_file_watcher_kind;
 use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
+use crate::stats::MAX_FILE_CHANGE_RECORDS;
 use crate::utils::find_first_valid_parent;
 
 #[derive(Debug, buck2_error::Error)]
@@ -441,8 +442,8 @@ impl EdenFsFileWatcher {
         from: String,
         to: Option<String>,
     ) -> buck2_error::Result<bool> {
-        // limit results to 10,000
-        match get_status(&self.root, &from, to, 10_000)
+        // limit results to MAX_FILE_CHANGE_RECORDS
+        match get_status(&self.root, &from, to, MAX_FILE_CHANGE_RECORDS)
             .await
             .buck_error_context("Failed to get Sapling status.")?
         {
