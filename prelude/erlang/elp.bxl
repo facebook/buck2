@@ -150,6 +150,7 @@ def _elp_config(ctx):
         srcs = _build_output(srcs)
         result[label_name] = dict(
             name = target.attrs_lazy().get("name"),
+            app_name = target.attrs_lazy().get("app_name"),
             suite = suite,
             srcs = srcs,
             includes = includes,
