@@ -290,7 +290,7 @@ impl<'v> AnalysisRegistry<'v> {
     > {
         let AnalysisRegistry {
             actions,
-            artifact_groups,
+            artifact_groups: _,
             anon_targets: _,
             analysis_value_storage,
             short_path_assertions: _,
@@ -304,7 +304,6 @@ impl<'v> AnalysisRegistry<'v> {
                 frozen_module: Some(frozen_env.dupe()),
             };
             let actions = actions.ensure_bound(&analysis_value_fetcher)?;
-            artifact_groups.ensure_bound(&analysis_value_fetcher)?;
             let recorded_values = analysis_value_fetcher.get_recorded_values(actions)?;
 
             Ok(recorded_values)
