@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_futures::cancellation::CancellationContext;
 use cmp_any::PartialEqAny;
@@ -32,6 +33,7 @@ use futures::FutureExt;
 
 use crate::buildfiles::HasBuildfiles;
 use crate::dice::file_ops::delegate::get_delegated_file_ops;
+use crate::file_ops::DirectorySubListingMatchingOutput;
 use crate::file_ops::FileOps;
 use crate::file_ops::FileOpsError;
 use crate::file_ops::RawPathMetadata;
@@ -58,6 +60,22 @@ impl DiceFileComputations {
         ctx.compute(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::Yes,
+        })
+        .await?
+    }
+
+    /// Returns the entries in the given directory with the provided filename, matching up to case.
+    ///
+    /// This is intended to make it possible to reason about not-fully-case-sensitive file
+    /// systems without picking up a dependency on the whole `ReadDirKey`
+    pub async fn directory_sublisting_matching_any_case(
+        ctx: &mut DiceComputations<'_>,
+        directory_path: CellPathRef<'_>,
+        filename: &FileName,
+    ) -> buck2_error::Result<DirectorySubListingMatchingOutput> {
+        ctx.compute(&DirectorySubListingMatchingInAnyCaseKey {
+            directory_path: directory_path.to_owned(),
+            filename: filename.to_owned(),
         })
         .await?
     }
@@ -164,6 +182,8 @@ pub struct FileChangeTracker {
     /// We cannot unconditionally respect directory modification events from the file watcher, as it
     /// is not aware of our ignore rules.
     maybe_modified_dirs: HashSet<CellPath>,
+
+    directory_sublisting_matching_any_case: HashSet<DirectorySubListingMatchingInAnyCaseKey>,
 }
 
 impl FileChangeTracker {
@@ -173,6 +193,7 @@ impl FileChangeTracker {
             dirs_to_dirty: Default::default(),
             paths_to_dirty: Default::default(),
             maybe_modified_dirs: Default::default(),
+            directory_sublisting_matching_any_case: Default::default(),
         }
     }
 
@@ -182,6 +203,7 @@ impl FileChangeTracker {
             if let Some(dir) = p.0.parent() {
                 if self.maybe_modified_dirs.contains(&dir.to_owned()) {
                     self.insert_dir_keys(dir.to_owned());
+                    self.insert_sublisting_matching_any_case(p.0.to_owned());
                 }
             }
         }
@@ -189,6 +211,7 @@ impl FileChangeTracker {
         ctx.changed(self.files_to_dirty)?;
         ctx.changed(self.dirs_to_dirty)?;
         ctx.changed(self.paths_to_dirty)?;
+        ctx.changed(self.directory_sublisting_matching_any_case)?;
 
         Ok(())
     }
@@ -196,7 +219,21 @@ impl FileChangeTracker {
     fn file_contents_modify(&mut self, path: CellPath) {
         self.files_to_dirty
             .insert(ReadFileKey(Arc::new(path.clone())));
-        self.paths_to_dirty.insert(PathMetadataKey(path));
+        self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+    }
+
+    fn insert_sublisting_matching_any_case(&mut self, path: CellPath) {
+        if let Some(parent) = &path.parent() {
+            if let Some(file_name) = path.path().file_name() {
+                let lower_case_file_name = file_name.to_string().to_lowercase();
+                self.directory_sublisting_matching_any_case.insert(
+                    DirectorySubListingMatchingInAnyCaseKey {
+                        directory_path: parent.to_owned(),
+                        filename: FileName::unchecked_new(&lower_case_file_name).to_owned(),
+                    },
+                );
+            }
+        }
     }
 
     fn insert_dir_keys(&mut self, path: CellPath) {
@@ -214,6 +251,7 @@ impl FileChangeTracker {
         let parent = path.parent();
 
         self.file_contents_modify(path.clone());
+        self.insert_sublisting_matching_any_case(path.clone());
         if let Some(parent) = parent {
             // The above can be None (validly!) if we have a cell we either create or delete.
             // That never happens in established repos, but if you are setting one up, it's not uncommon.
@@ -225,6 +263,7 @@ impl FileChangeTracker {
 
     pub fn dir_added_or_removed(&mut self, path: CellPath) {
         self.paths_to_dirty.insert(PathMetadataKey(path.clone()));
+        self.insert_sublisting_matching_any_case(path.clone());
         if let Some(parent) = path.parent() {
             let parent = parent.to_owned();
             // The above can be None (validly!) if we have a cell we either create or delete.
@@ -307,6 +346,39 @@ impl Key for ReadDirKey {
             .read_dir(self.path.as_ref().path())
             .await
             .map_err(buck2_error::Error::from)
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            _ => false,
+        }
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+}
+
+#[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq)]
+#[display("{}, {}", directory_path, filename)]
+struct DirectorySubListingMatchingInAnyCaseKey {
+    directory_path: CellPath,
+    filename: FileNameBuf,
+}
+
+#[async_trait]
+impl Key for DirectorySubListingMatchingInAnyCaseKey {
+    type Value = buck2_error::Result<DirectorySubListingMatchingOutput>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        get_delegated_file_ops(ctx, self.directory_path.cell(), CheckIgnores::Yes)
+            .await?
+            .read_matching_files_from_dir(self.directory_path.path(), &self.filename)
+            .await
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
