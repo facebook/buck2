@@ -1006,10 +1006,14 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
 
 def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing.Any:
     compiler_info = None
-    if ext.value in (".cpp", ".cc", ".cl", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
+    if ext.value in (".cpp", ".cc", ".cl", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
         compiler_info = toolchain.cxx_compiler_info
-    elif ext.value in (".c", ".m"):
+    elif ext.value == ".c":
         compiler_info = toolchain.c_compiler_info
+    elif ext.value == ".m":
+        compiler_info = toolchain.objc_compiler_info
+    elif ext.value == ".mm":
+        compiler_info = toolchain.objcxx_compiler_info
     elif ext.value in (".s", ".sx", ".S"):
         compiler_info = toolchain.as_compiler_info
     elif ext.value == ".cu":

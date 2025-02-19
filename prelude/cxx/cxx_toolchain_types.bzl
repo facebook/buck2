@@ -138,6 +138,8 @@ CudaCompilerInfo = provider(fields = _compiler_fields)
 CvtresCompilerInfo = provider(fields = _compiler_fields)
 CxxCompilerInfo = provider(fields = _compiler_fields)
 HipCompilerInfo = provider(fields = _compiler_fields)
+ObjcCompilerInfo = provider(fields = _compiler_fields)
+ObjcxxCompilerInfo = provider(fields = _compiler_fields)
 RcCompilerInfo = provider(fields = _compiler_fields)
 
 DistLtoToolsInfo = provider(fields = dict(
@@ -213,6 +215,8 @@ CxxToolchainInfo = provider(
         "linker_info": provider_field(typing.Any, default = None),
         "lipo": provider_field([RunInfo, None], default = None),
         "llvm_link": provider_field(typing.Any, default = None),
+        "objc_compiler_info": provider_field([ObjcCompilerInfo, None], default = None),
+        "objcxx_compiler_info": provider_field([ObjcxxCompilerInfo, None], default = None),
         "object_format": provider_field(typing.Any, default = None),
         "optimization_compiler_flags_EXPERIMENTAL": provider_field(typing.Any, default = []),
         "pic_behavior": provider_field(typing.Any, default = None),
@@ -279,7 +283,9 @@ def cxx_toolchain_infos(
         target_sdk_version = None,
         lipo = None,
         remap_cwd = False,
-        optimization_compiler_flags_EXPERIMENTAL = []):
+        optimization_compiler_flags_EXPERIMENTAL = [],
+        objc_compiler_info = None,
+        objcxx_compiler_info = None):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -290,6 +296,16 @@ def cxx_toolchain_infos(
 
     # TODO(T110378099): verify types of the inner info objects.
     _validate_linker_info(linker_info)
+
+    # Maintain backwards compatibility with ObjC compilation using the C compiler.
+    if objc_compiler_info == None:
+        objc_compiler_info = ObjcCompilerInfo(
+            **{k: getattr(c_compiler_info, k, None) for k in _compiler_fields}
+        )
+    if objcxx_compiler_info == None:
+        objcxx_compiler_info = ObjcxxCompilerInfo(
+            **{k: getattr(cxx_compiler_info, k, None) for k in _compiler_fields}
+        )
 
     toolchain_info = CxxToolchainInfo(
         as_compiler_info = as_compiler_info,
@@ -314,6 +330,8 @@ def cxx_toolchain_infos(
         linker_info = linker_info,
         lipo = lipo,
         llvm_link = llvm_link,
+        objc_compiler_info = objc_compiler_info,
+        objcxx_compiler_info = objcxx_compiler_info,
         object_format = object_format,
         optimization_compiler_flags_EXPERIMENTAL = optimization_compiler_flags_EXPERIMENTAL,
         pic_behavior = pic_behavior,

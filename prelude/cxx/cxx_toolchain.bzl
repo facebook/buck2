@@ -21,6 +21,8 @@ load(
     "HipCompilerInfo",
     "LinkerInfo",
     "LinkerType",
+    "ObjcCompilerInfo",
+    "ObjcxxCompilerInfo",
     "PicBehavior",
     "RcCompilerInfo",
     "ShlibInterfacesMode",
@@ -56,11 +58,27 @@ def cxx_toolchain_impl(ctx):
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
     )
+    objc_info = ObjcCompilerInfo(
+        compiler = c_compiler,
+        compiler_type = ctx.attrs.c_compiler_type or ctx.attrs.compiler_type,
+        compiler_flags = cmd_args(ctx.attrs.c_compiler_flags, c_lto_flags, ctx.attrs.objc_compiler_flags),
+        preprocessor = c_compiler,
+        preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
+        allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
+    )
     cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
     cxx_info = CxxCompilerInfo(
         compiler = cxx_compiler,
         compiler_type = ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.cxx_compiler_flags, c_lto_flags),
+        preprocessor = cxx_compiler,
+        preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
+        allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
+    )
+    objcxx_info = ObjcxxCompilerInfo(
+        compiler = cxx_compiler,
+        compiler_type = ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type,
+        compiler_flags = cmd_args(ctx.attrs.cxx_compiler_flags, c_lto_flags, ctx.attrs.objcxx_compiler_flags),
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
@@ -193,6 +211,8 @@ def cxx_toolchain_impl(ctx):
         linker_info = linker_info,
         lipo = ctx.attrs.lipo[RunInfo] if ctx.attrs.lipo else None,
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link else None,
+        objc_compiler_info = objc_info,
+        objcxx_compiler_info = objcxx_info,
         object_format = CxxObjectFormat(object_format),
         optimization_compiler_flags_EXPERIMENTAL = ctx.attrs.optimization_compiler_flags_EXPERIMENTAL,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior),
