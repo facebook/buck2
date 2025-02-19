@@ -16,7 +16,7 @@ load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
-load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftVersion", "get_implicit_framework_search_path_providers")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
@@ -867,6 +867,18 @@ def _get_shared_flags(
 
     if getattr(ctx.attrs, "application_extension", False):
         cmd.add("-application-extension")
+
+    # Only apple_library has swift_macro_deps
+    swift_macros = getattr(ctx.attrs, "swift_macro_deps", [])
+    if swift_macros:
+        # https://github.com/swiftlang/swift/pull/70079
+        cmd.add(["-Xfrontend", "-disable-sandbox"])
+        for m in ctx.plugins[SwiftMacroPlugin]:
+            macro_artifact = m[DefaultInfo].default_outputs[0]
+            cmd.add([
+                "-load-plugin-executable",
+                cmd_args(macro_artifact, format = "{}#" + macro_artifact.basename),
+            ])
 
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
 

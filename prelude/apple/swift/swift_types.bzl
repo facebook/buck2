@@ -11,6 +11,8 @@ SWIFTMODULE_EXTENSION = ".swiftmodule"
 
 SwiftCompilationModes = ["wmo", "incremental", "auto"]
 
+SwiftMacroPlugin = plugins.kind()
+
 SwiftVersion = ["5", "6"]
 
 def _swift_framework_implicit_search_paths_args(args: cmd_args):

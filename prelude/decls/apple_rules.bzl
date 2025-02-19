@@ -16,7 +16,7 @@ load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
-load("@prelude//apple/swift:swift_types.bzl", "SwiftVersion")
+load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
@@ -527,6 +527,7 @@ apple_library = prelude_rule(
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = True),
+            "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
             "swift_module_skip_function_bodies": attrs.bool(default = True),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "thin_lto": attrs.bool(default = False),
@@ -536,6 +537,7 @@ apple_library = prelude_rule(
         } |
         buck.allow_cache_upload_arg()
     ),
+    uses_plugins = [SwiftMacroPlugin],
 )
 
 apple_package = prelude_rule(
