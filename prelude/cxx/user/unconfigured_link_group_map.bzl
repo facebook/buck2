@@ -6,12 +6,12 @@
 # of this source tree.
 
 load(
-    "@prelude//cxx:link_groups.bzl",
-    "get_link_group_info_from_linkable_graph",
+    "@prelude//cxx:groups.bzl",
+    "parse_groups_definitions",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
-    "LinkGroupInfoGenerator",
+    "LinkGroupDefinitions",
     "link_group_inlined_map_attr",
 )
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
@@ -19,9 +19,8 @@ load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
-        LinkGroupInfoGenerator(
-            generator = get_link_group_info_from_linkable_graph,
-            link_group_map = ctx.attrs.link_group_map,
+        LinkGroupDefinitions(
+            definitions = parse_groups_definitions(ctx.attrs.link_group_map),
         ),
     ]
 

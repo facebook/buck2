@@ -45,10 +45,9 @@ LinkGroupInfo = provider(
     },
 )
 
-LinkGroupInfoGenerator = provider(
+LinkGroupDefinitions = provider(
     fields = {
-        "generator": provider_field(typing.Any),
-        "link_group_map": provider_field(list[typing.Any]),
+        "definitions": provider_field(list[Group]),
     },
 )
 
