@@ -31,6 +31,7 @@ load(
     "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
     "SharedLibLinkable",
+    "get_lib_output_style",
     "set_link_info_link_whole",
     "wrap_link_info",
     "wrap_with_no_as_needed_shared_libs_flags",
@@ -537,7 +538,7 @@ def get_filtered_labels_to_links_map(
 
     filtered_groups = [None, NO_MATCH_LABEL, MATCH_ALL_LABEL]
 
-    output_style = LibOutputStyle("pic_archive") if build_context.link_strategy != LinkStrategy("shared") else LibOutputStyle("shared_lib")
+    output_style = get_lib_output_style(build_context.link_strategy, Linkage("any"), build_context.pic_behavior) if build_context.link_strategy != LinkStrategy("shared") else LibOutputStyle("shared_lib")
 
     for target in linkables:
         node = build_context.linkable_graph.nodes[target]
