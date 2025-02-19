@@ -31,7 +31,6 @@ load(
     "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
     "SharedLibLinkable",
-    "get_lib_output_style",
     "set_link_info_link_whole",
     "wrap_link_info",
     "wrap_with_no_as_needed_shared_libs_flags",
@@ -298,13 +297,14 @@ def _transitively_update_shared_linkage(
     # Identify targets whose shared linkage style may be propagated to
     # dependencies. Implicitly created root libraries are skipped.
     shared_lib_roots = []
+
     for target in link_group_preferred_linkage:
         # This preferred-linkage mapping may not actually be in the link graph.
         node = linkable_graph_node_map.get(target)
         if node == None:
             continue
-        output_style = get_lib_output_style(link_strategy, link_group_preferred_linkage.get(target, node.preferred_linkage), pic_behavior)
-        if output_style == LibOutputStyle("shared_lib"):
+        prefered_linkage = link_group_preferred_linkage.get(target, node.preferred_linkage)
+        if prefered_linkage != Linkage("static"):
             target_link_group = link_group_roots.get(target)
             if target_link_group == None or target_link_group == link_group:
                 shared_lib_roots.append(target)
@@ -532,13 +532,13 @@ def get_filtered_labels_to_links_map(
 
     filtered_groups = [None, NO_MATCH_LABEL, MATCH_ALL_LABEL]
 
+    output_style = LibOutputStyle("pic_archive") if build_context.link_strategy != LinkStrategy("shared") else LibOutputStyle("shared_lib")
+
     for target in linkables:
         node = build_context.linkable_graph.nodes[target]
         target_link_group = build_context.link_group_mappings.get(target)
 
-        output_style = get_lib_output_style(build_context.link_strategy, build_context.link_group_preferred_linkage.get(target, node.preferred_linkage), build_context.pic_behavior)
-        output_style_for_static_strategy = get_lib_output_style(LinkStrategy("static_pic"), build_context.link_group_preferred_linkage.get(target, node.preferred_linkage), build_context.pic_behavior)
-        is_forced_shared_linkage = output_style_for_static_strategy == LibOutputStyle("shared_lib")
+        link_group_preferred_linkage = build_context.link_group_preferred_linkage.get(target, node.preferred_linkage)
 
         # We should always add force-static libs to the link.
         is_force_static_lib = force_static_follows_dependents and node.preferred_linkage == Linkage("static") and not node.ignore_force_static_follows_dependents
@@ -546,7 +546,7 @@ def get_filtered_labels_to_links_map(
         # If this belongs to the match all link group or the group currently being evaluated
         matches_current_link_group = target_link_group == MATCH_ALL_LABEL or target_link_group == link_group
 
-        if is_forced_shared_linkage:
+        if link_group_preferred_linkage == Linkage("shared"):
             # filter out any dependencies to be discarded
             if should_discard_group(build_context.link_groups.get(target_link_group)):
                 continue
@@ -570,7 +570,7 @@ def get_filtered_labels_to_links_map(
                     # 2. It matches all link groups (can duplicate symbols across graph)
                     # 3. It forces static linkage (can duplicate symbols across graph)
                     if not should_discard_group(build_context.link_groups.get(target_link_group)):
-                        add_link(target, output_style_for_static_strategy)
+                        add_link(target, LibOutputStyle("pic_archive"))
 
                 elif not target_link_group or target_link_group == NO_MATCH_LABEL:
                     # Target directly linked dynamically if:
@@ -1029,12 +1029,16 @@ def create_link_groups(
         link_strategy,
         linkable_graph.nodes,
     )
+
+    pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior
+    if pic_behavior == PicBehavior("supported"):
+        pic_behavior = PicBehavior("always_enabled")
     linkables = _collect_all_linkables(
         linkable_graph = linkable_graph,
         is_executable_link = False,
         link_strategy = link_strategy,
         link_group_preferred_linkage = link_group_preferred_linkage,
-        pic_behavior = get_cxx_toolchain_info(ctx).pic_behavior,
+        pic_behavior = pic_behavior,
         link_group_roots = roots,
     )
 
