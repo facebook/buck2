@@ -89,8 +89,14 @@ def parse_groups_definitions(
         # callers to have different top-level types for the `root`s.
         parse_root: typing.Callable = lambda d: d) -> list[Group]:
     groups = []
+    group_names = set()
     for map_entry in map:
         name = map_entry[0]
+
+        # Dedup the link group specs, take the deinition from the first definition
+        if name in group_names:
+            continue
+        group_names.add(name)
         mappings = map_entry[1]
         attrs = (map_entry[2] or {}) if len(map_entry) > 2 else {}
 

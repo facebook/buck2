@@ -29,6 +29,7 @@ load(
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupDefinitions",
     "LinkGroupInfo",  # @unused Used as a type
 )
 load("@prelude//cxx:linker.bzl", "get_rpath_origin")
@@ -161,7 +162,7 @@ def _get_link_group_info(
         link_deps: list[LinkableProviders],
         libs: list[LinkableProviders],
         extensions: dict[str, LinkableProviders],
-        shared_only_libs: list[LinkableProviders]) -> (LinkGroupInfo, list[LinkGroupLibSpec]):
+        shared_only_libs: list[LinkableProviders]) -> ([LinkGroupInfo, None], list[LinkGroupLibSpec]):
     """
     Return the `LinkGroupInfo` and link group lib specs to use for this binary.
     This will handle parsing the various user-specific parameters and automatic
@@ -169,52 +170,51 @@ def _get_link_group_info(
     eventually, extensions.
     """
 
-    link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps])
-    link_group_specs = []
+    link_group_map = ctx.attrs.link_group_map
+    definitions = []
 
-    # Add link group specs from user-provided link group info.
-    if link_group_info != None:
-        link_group_specs.extend(create_shared_lib_link_group_specs(ctx, link_group_info))
+    if isinstance(link_group_map, Dependency):
+        if LinkGroupDefinitions in link_group_map:
+            definitions = link_group_map[LinkGroupDefinitions].definitions
+
+    if not definitions:
+        link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps])
+
+        # Add link group specs from user-provided link group info.
+        if link_group_info != None:
+            definitions = link_group_info.groups.values()
 
     # Add link group specs from dlopenable C++ libraries.
     root_specs = _get_root_link_group_specs(libs, extensions)
 
-    # Add link group specs for shared-only libs, which makes sure we link
-    # against them dynamically.
-    shared_groups = _get_shared_only_groups(shared_only_libs)
+    # We prepend the dlopen roots, so that they take precedence over
+    # user-specific ones.
+    link_group_specs = root_specs + create_shared_lib_link_group_specs(ctx, definitions)
 
-    # (Re-)build the link group info
-    if root_specs or shared_groups or link_group_info == None:
-        # We prepend the dlopen roots, so that they take precedence over
-        # user-specific ones.
-        link_group_specs = root_specs + link_group_specs
+    # We add the auto-generated root specs first so it takes precedence (as
+    # we really rely on this for things to work), followed by shared-only libs
+    # to make sure we link against them dynamically. Add user-defined mappings
+    # last.
+    link_groups = [s.group for s in root_specs] + _get_shared_only_groups(shared_only_libs) + definitions
 
-        # Regenerate the new `LinkGroupInfo` with the new link group lib
-        # groups.
-        linkable_graph = LinkableGraph(
-            #label = ctx.label,
-            nodes = ctx.actions.tset(
-                LinkableGraphTSet,
-                children = (
-                    [d.linkable_graph.nodes for d in link_deps] +
-                    [d.linkable_graph.nodes for d in libs] +
-                    [d.linkable_graph.nodes for d in extensions.values()] +
-                    [d.linkable_graph.nodes for d in shared_only_libs]
-                ),
+    linkable_graph = LinkableGraph(
+        #label = ctx.label,
+        nodes = ctx.actions.tset(
+            LinkableGraphTSet,
+            children = (
+                [d.linkable_graph.nodes for d in link_deps] +
+                [d.linkable_graph.nodes for d in libs] +
+                [d.linkable_graph.nodes for d in extensions.values()] +
+                [d.linkable_graph.nodes for d in shared_only_libs]
             ),
-        )
+        ),
+    )
 
-        # We add user-defined mappings last, so that our auto-generated
-        # ones get precedence (as we rely on this for things to work).
-        link_groups = [s.group for s in root_specs] + shared_groups
-        if link_group_info != None:
-            link_groups += link_group_info.groups.values()
-
-        link_group_info = build_link_group_info(
-            graph = linkable_graph,
-            groups = link_groups,
-            min_node_count = ctx.attrs.link_group_min_binary_node_count,
-        )
+    link_group_info = build_link_group_info(
+        graph = linkable_graph,
+        groups = link_groups,
+        min_node_count = ctx.attrs.link_group_min_binary_node_count,
+    )
 
     return (link_group_info, link_group_specs)
 

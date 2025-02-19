@@ -233,10 +233,10 @@ def _only_shared_mappings(group: Group) -> bool:
             return False
     return True
 
-def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: LinkGroupInfo) -> list[LinkGroupLibSpec]:
+def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_definitions: list[Group]) -> list[LinkGroupLibSpec]:
     specs = []
     linker_info = get_cxx_toolchain_info(ctx).linker_info
-    for group in link_group_info.groups.values():
+    for group in link_group_definitions:
         if group.name in (MATCH_ALL_LABEL, NO_MATCH_LABEL):
             continue
 
@@ -256,7 +256,7 @@ def create_shared_lib_link_group_specs(ctx: AnalysisContext, link_group_info: Li
 def get_auto_link_group_specs(ctx: AnalysisContext, link_group_info: [LinkGroupInfo, None]) -> [list[LinkGroupLibSpec], None]:
     if link_group_info == None or not ctx.attrs.auto_link_groups:
         return None
-    return create_shared_lib_link_group_specs(ctx, link_group_info)
+    return create_shared_lib_link_group_specs(ctx, link_group_info.groups.values())
 
 def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)))

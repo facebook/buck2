@@ -17,10 +17,14 @@ load(
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
+    if ctx.attrs.link_group_map:
+        definitions = parse_groups_definitions(ctx.attrs.link_group_map)
+    else:
+        definitions = []
     return [
         DefaultInfo(),
         LinkGroupDefinitions(
-            definitions = parse_groups_definitions(ctx.attrs.link_group_map),
+            definitions = definitions,
         ),
     ]
 
