@@ -24,6 +24,7 @@ use buck2_common::package_listing::listing::PackageListing;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::package::PackageLabel;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -286,8 +287,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         package: PackageLabel,
     ) -> buck2_error::Result<Option<(PackageFilePath, AstModule, ModuleDeps)>> {
         // Note:
-        // * we are using `read_dir` instead of `read_path_metadata` because
-        //   * it is an extra IO, and `read_dir` is likely already cached.
+        /// To avoid paying the cost of read_dir when computing if any specific file has changed (e.g. PACKAGE),
+        /// we depend on directory_sublisting_matching_any_case_key to invalidate all files that match (regardless of case).
+        /// We need to do this to make sure to work with case-sensitive file paths.
         //   * `read_path_metadata` would not tell us if the file name is `PACKAGE`
         //     and not `package` on case-insensitive filesystems.
         //     We do case-sensitive comparison for `BUCK` files, so we do the same here.
@@ -311,16 +313,23 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 ctx: &mut DiceComputations,
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
-                // This is cached if evaluating a `PACKAGE` file next to a `BUCK` file.
-                let dir = DiceFileComputations::read_dir(ctx, self.0.as_cell_path()).await?;
                 for package_file_path in PackageFilePath::for_dir(self.0.as_cell_path()) {
-                    if !dir.contains(
-                        package_file_path
-                            .path()
-                            .path()
-                            .file_name()
-                            .internal_error("Must have name")?,
-                    ) {
+                    let file_name = package_file_path.file_name();
+                    let lower_case_file_name = file_name.as_str().to_lowercase();
+                    let directory_sublisting_output =
+                        DiceFileComputations::directory_sublisting_matching_any_case(
+                            ctx,
+                            self.0.as_cell_path(),
+                            FileName::unchecked_new(&lower_case_file_name),
+                        )
+                        .await?;
+
+                    let file_exists = directory_sublisting_output
+                        .included
+                        .iter()
+                        .any(|f| f.file_name == file_name);
+
+                    if !file_exists {
                         continue;
                     }
                     return Ok(Some(Arc::new(package_file_path)));

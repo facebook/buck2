@@ -34,6 +34,7 @@ use crate::dice::file_ops::delegate::keys::FileOpsKey;
 use crate::dice::file_ops::delegate::keys::FileOpsValue;
 use crate::dice::file_ops::CheckIgnores;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
+use crate::file_ops::DirectorySubListingMatchingOutput;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
@@ -311,6 +312,23 @@ impl FileOpsDelegateWithIgnores {
 
         Ok(ReadDirOutput {
             included: included_entries.into(),
+        })
+    }
+
+    pub(crate) async fn read_matching_files_from_dir(
+        &self,
+        directory: &CellRelativePath,
+        file_name: &FileNameBuf,
+    ) -> buck2_error::Result<DirectorySubListingMatchingOutput> {
+        let dir = self.read_dir(directory).await?;
+        let mut sublisting = Vec::new();
+        for entry in dir.included.iter() {
+            if entry.file_name.as_str().to_lowercase() == file_name.as_str() {
+                sublisting.push(entry.to_owned());
+            }
+        }
+        Ok(DirectorySubListingMatchingOutput {
+            included: sublisting.into(),
         })
     }
 
