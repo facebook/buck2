@@ -20,7 +20,7 @@ def buck_e2e_test(
         data = None,
         data_dir = None,
         srcs = None,
-        tags = None,
+        labels = None,
         deps = None,
         env = None,
         resources = None,
@@ -39,14 +39,14 @@ def buck_e2e_test(
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
     srcs = srcs or []
-    tags = tags or []
+    labels = labels or []
     deps = deps or []
     cfg_modifiers = cfg_modifiers or []
 
     for s in skip_for_os:
         if s not in ["darwin", "windows"]:
             fail("Skipped os must be one of darwin or windows, not {}".format(s))
-    tags = list(tags) + [
+    labels = list(labels) + [
         # Running multiple bucks are expensive. This limits tpx to parallelism of 4.
         "heavyweight",
     ]
@@ -77,7 +77,7 @@ def buck_e2e_test(
     if serialize_test_cases:
         # This lets us pass stress runs by making all test cases inside of a test file serial
         # Test cases in different files can still run in parallel.
-        tags.append("serialize_test_cases")
+        labels.append("serialize_test_cases")
 
     if data and data_dir:
         fail("`data` and `data_dir` cannot be used together")
@@ -116,7 +116,6 @@ def buck_e2e_test(
     if not "conftest.py" in resources.values():
         resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
-    labels = []
     if "darwin" in skip_for_os:
         labels += ci.remove_labels(ci.mac(ci.aarch64(ci.opt())))
     if "windows" in skip_for_os:
@@ -129,7 +128,7 @@ def buck_e2e_test(
         name = name,
         base_module = base_module,
         srcs = srcs,
-        tags = tags,
+        labels = labels,
         deps = deps,
         env = env,
         emails = contacts,
@@ -140,7 +139,6 @@ def buck_e2e_test(
         pytest_marks = pytest_marks,
         pytest_expr = pytest_expr,
         pytest_confcutdir = pytest_confcutdir,
-        labels = labels,
         metadata = metadata,
         compatible_with = compatible_with,
     )
@@ -190,7 +188,7 @@ def buck2_e2e_test(
         data = None,
         data_dir = None,
         srcs = (),
-        tags = (),
+        labels = (),
         resources = None,
         pytest_config = None,
         pytest_marks = None,
@@ -229,6 +227,7 @@ def buck2_e2e_test(
         "contacts": contacts,
         "data": data,
         "data_dir": data_dir,
+        "labels": labels,
         "pytest_confcutdir": pytest_confcutdir,
         "pytest_config": pytest_config,
         "pytest_expr": pytest_expr,
@@ -237,7 +236,6 @@ def buck2_e2e_test(
         "resources": resources,
         "serialize_test_cases": serialize_test_cases,
         "srcs": srcs,
-        "tags": tags,
         "use_buck_api": use_buck_api,
     }
 

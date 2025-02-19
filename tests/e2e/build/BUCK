@@ -30,7 +30,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_worker",
     srcs = ["test_worker.py"],
-    tags = ["long_running"],
+    labels = ["long_running"],
     deps = [
         "//buck2/tests/e2e_util:utils",
     ],

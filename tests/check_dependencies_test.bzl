@@ -80,8 +80,7 @@ def check_dependencies_test(
             "TARGET": target,
             "VERIFICATION_MODE": mode,
         } | (env or {}),
-        # fbcode_macros uses tags instead of labels
-        tags = ["check_dependencies_test"],
+        labels = ["check_dependencies_test"],
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,
@@ -123,8 +122,7 @@ def assert_dependencies_test(
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
             "TARGET": target,
         },
-        # fbcode_macros uses tags instead of labels
-        tags = ["assert_dependencies_test"],
+        labels = ["assert_dependencies_test"],
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,
@@ -171,8 +169,7 @@ def audit_dependents_test(
             "SOURCE_TARGET": source_target,
             "TARGET": target,
         },
-        # fbcode_macros uses tags instead of labels
-        tags = ["audit_dependents_test"],
+        labels = ["audit_dependents_test"],
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,
