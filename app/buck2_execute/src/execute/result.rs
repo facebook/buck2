@@ -245,6 +245,9 @@ impl CommandExecutionResult {
             CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::Local { .. },
             } => true,
+            CommandExecutionStatus::Success {
+                execution_kind: CommandExecutionKind::LocalWorker { .. },
+            } => true,
             _ => false,
         }
     }

@@ -597,7 +597,6 @@ impl UploadCache for CacheUploader {
             (false, None)
         };
 
-        // note uploads aren't attempted for local worker actions because we don't upload outputs for them so there is no action result
         let should_upload_dep_file =
             res.was_locally_executed() || res.was_remotely_executed() || res.was_action_cache_hit();
 
