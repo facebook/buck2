@@ -6,7 +6,7 @@
 # of this source tree.
 
 def _action(ctx):
-    return [DefaultInfo(), RunInfo(ctx.attrs.src)]
+    return [DefaultInfo(), RunInfo(cmd_args("python3", ctx.attrs.src))]
 
 my_rule = rule(
     impl = _action,
