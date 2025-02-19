@@ -16,7 +16,7 @@ use crate::health_check_context::HealthCheckContext;
 pub(crate) fn can_run(health_check_context: &HealthCheckContext) -> bool {
     if let Some(optin_target_regex) = &health_check_context
         .experiment_configurations
-        .vpn_check_optin_target_regex
+        .optin_vpn_check_targets_regex
     {
         if let Ok(optin_pattern) = Regex::new(optin_target_regex) {
             return health_check_context
@@ -42,7 +42,7 @@ mod tests {
     fn health_check_context(target: Option<String>, regex: Option<String>) -> HealthCheckContext {
         HealthCheckContext {
             experiment_configurations: buck2_data::SystemInfo {
-                vpn_check_optin_target_regex: regex,
+                optin_vpn_check_targets_regex: regex,
                 ..Default::default()
             },
             parsed_target_patterns: target.map(|t| buck2_data::ParsedTargetPatterns {

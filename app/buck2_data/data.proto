@@ -2549,7 +2549,7 @@ message SystemInfo {
   optional uint64 remaining_disk_space_threshold_gb = 4;
   optional uint64 min_re_download_bytes_threshold = 5;
   optional uint64 avg_re_download_bytes_per_sec_threshold = 6;
-  optional string vpn_check_optin_target_regex = 8;
+  optional string optin_vpn_check_targets_regex = 8;
 }
 
 message CpuCounter {

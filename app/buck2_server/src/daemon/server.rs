@@ -432,8 +432,8 @@ impl BuckdServer {
             min_re_download_bytes_threshold: system_warning_config.min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold: system_warning_config
                 .avg_re_download_bytes_per_sec_threshold,
-            vpn_check_optin_target_regex: system_warning_config
-                .vpn_check_optin_target_regex
+            optin_vpn_check_targets_regex: system_warning_config
+                .optin_vpn_check_targets_regex
                 .clone(),
         });
 
