@@ -527,10 +527,7 @@ impl ScribeProducer {
         // should be counted as errors.
         if !messages.is_empty() {
             tracing::debug!("scribe_producer: failed to send all messages");
-            Err(WriteError {
-                first_message_error: messages.into_iter().next().and_then(|m| m.error),
-                first_request_error,
-            })
+            Err(WriteError::new(first_request_error, messages, retry_count))
         } else {
             Ok(())
         }
@@ -591,20 +588,48 @@ pub struct RequestError {
 pub struct WriteError {
     first_request_error: Option<RequestError>,
     first_message_error: Option<WriteMessageError>,
+    failed_message_count: usize,
+    failed_message_bytes: usize,
+    retry_count: usize,
+}
+
+impl WriteError {
+    fn new(
+        first_request_error: Option<RequestError>,
+        failed_messages: Vec<MessageSendState>,
+        retry_count: usize,
+    ) -> Self {
+        let failed_message_count = failed_messages.len();
+        let failed_message_bytes = failed_messages
+            .iter()
+            .fold(0, |acc, m| acc + m.message.message.len());
+        Self {
+            first_message_error: failed_messages.into_iter().next().and_then(|m| m.error),
+            first_request_error,
+            failed_message_count,
+            failed_message_bytes,
+            retry_count,
+        }
+    }
 }
 
 impl From<WriteError> for anyhow::Error {
     fn from(val: WriteError) -> Self {
-        let error = anyhow::anyhow!("scribe_producer: failed to send all messages");
+        let error = anyhow::anyhow!(
+            "scribe_producer: failed to send {} message(s) with {} bytes after {} retries",
+            val.failed_message_count,
+            val.failed_message_bytes,
+            val.retry_count
+        );
         let error = match val.first_message_error {
-            Some(e) => error.context(e),
+            Some(e) => error.context(format!("message error: {:?}", e)),
             None => error,
         };
         match val.first_request_error {
             Some(e) => {
-                let error = error.context(e.error);
+                let error = error.context(format!("request error: {:?}", e.error));
                 match e.refresh_error {
-                    Some(re) => error.context(re),
+                    Some(re) => error.context(format!("connection refresh error: {:?}", re)),
                     None => error,
                 }
             }
