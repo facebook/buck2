@@ -20,7 +20,6 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     input_android_apk_under_test_info = None
     input_unstripped_shared_libraries = None
     input_android_apk_subtargets = None
-    input_android_aab_subtargets = None
     if ctx.attrs.apk != None:
         # TODO(T104150125) The underlying APK should not have exopackage enabled
         input_android_apk_info = ctx.attrs.apk[AndroidApkInfo]
@@ -43,7 +42,6 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_apk = input_android_aab_info.aab
         input_manifest = input_android_aab_info.manifest
         input_materialized_artifacts = input_android_aab_info.materialized_artifacts
-        input_android_aab_subtargets = ctx.attrs.aab[DefaultInfo].sub_targets
 
         env_vars = {
             "AAB": cmd_args(input_apk),
@@ -98,20 +96,11 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                         "aab": [DefaultInfo(
                             default_outputs = [genrule_default_output],
                         )],
-                        "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
                     },
                 ),
             ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
         else:
-            default_providers = [
-                DefaultInfo(
-                    default_output = genrule_default_output,
-                    other_outputs = genrule_default_info[0].other_outputs,
-                    sub_targets = {
-                        "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
-                    },
-                ),
-            ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
+            default_providers = genrule_providers
 
     else:
         sub_targets = {k: [v[DefaultInfo]] for k, v in genrule_default_info[0].sub_targets.items()}
