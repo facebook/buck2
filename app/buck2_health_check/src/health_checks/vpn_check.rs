@@ -14,19 +14,18 @@ use regex::Regex;
 use crate::health_check_context::HealthCheckContext;
 
 pub(crate) fn can_run(health_check_context: &HealthCheckContext) -> bool {
-    if let Some(optin_target_regex) = &health_check_context
-        .experiment_configurations
-        .optin_vpn_check_targets_regex
-    {
-        if let Ok(optin_pattern) = Regex::new(optin_target_regex) {
-            return health_check_context
-                .parsed_target_patterns
-                .as_ref()
-                .is_some_and(|f| {
-                    f.target_patterns
+    if let Some(configs) = health_check_context.experiment_configurations.as_ref() {
+        if let Some(optin_target_regex) = configs.optin_vpn_check_targets_regex.as_ref() {
+            if let Ok(regex) = Regex::new(&optin_target_regex) {
+                if let Some(parsed_target_patterns) =
+                    health_check_context.parsed_target_patterns.as_ref()
+                {
+                    return parsed_target_patterns
+                        .target_patterns
                         .iter()
-                        .any(|pattern| optin_pattern.is_match(&pattern.value))
-                });
+                        .any(|pattern| regex.is_match(&pattern.value));
+                }
+            }
         }
     }
     false
@@ -41,10 +40,10 @@ mod tests {
 
     fn health_check_context(target: Option<String>, regex: Option<String>) -> HealthCheckContext {
         HealthCheckContext {
-            experiment_configurations: buck2_data::SystemInfo {
+            experiment_configurations: Some(buck2_data::SystemInfo {
                 optin_vpn_check_targets_regex: regex,
                 ..Default::default()
-            },
+            }),
             parsed_target_patterns: target.map(|t| buck2_data::ParsedTargetPatterns {
                 target_patterns: vec![buck2_data::TargetPattern {
                     value: t.to_owned(),

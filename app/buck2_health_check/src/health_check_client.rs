@@ -51,6 +51,14 @@ impl HealthCheckClient {
         self.health_check_context.has_excess_cache_misses = Some(has_excess_cache_misses);
     }
 
+    pub fn update_experiment_configurations(
+        &mut self,
+        experiment_configurations: &buck2_data::SystemInfo,
+    ) {
+        self.health_check_context.experiment_configurations =
+            Some(experiment_configurations.clone());
+    }
+
     pub async fn check_stable_revision(&self) -> Option<Vec<String>> {
         #[cfg(fbcode_build)]
         {

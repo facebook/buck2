@@ -32,5 +32,5 @@ pub(crate) struct HealthCheckContext {
     pub has_excess_cache_misses: Option<bool>,
 
     /// Configurations for health check experiments.
-    pub experiment_configurations: buck2_data::SystemInfo,
+    pub experiment_configurations: Option<buck2_data::SystemInfo>,
 }
