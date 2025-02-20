@@ -55,7 +55,9 @@ pub struct IoError {
 }
 
 fn is_retryable(err: &io::Error) -> bool {
-    cfg!(target_os = "macos") && err.kind() == io::ErrorKind::TimedOut
+    cfg!(target_os = "macos")
+        && (err.kind() == io::ErrorKind::TimedOut
+            || err.kind() == io::ErrorKind::StaleNetworkFileHandle)
 }
 
 static MAX_IO_ATTEMPTS: u32 = 3;
@@ -1390,6 +1392,14 @@ mod tests {
         test_cases.insert(
             get_test_path("test_timeout", &tempdir),
             (ErrorKind::TimedOut, expected_attempts, should_succeed),
+        );
+        test_cases.insert(
+            get_test_path("test_stale", &tempdir),
+            (
+                ErrorKind::StaleNetworkFileHandle,
+                expected_attempts,
+                should_succeed,
+            ),
         );
 
         // These test cases should behave the same on all platforms
