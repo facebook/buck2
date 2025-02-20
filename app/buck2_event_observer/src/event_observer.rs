@@ -163,6 +163,9 @@ where
                         }
                         SystemInfo(system_info) => {
                             self.system_info = system_info.clone();
+                            if let Some(client) = &mut self.health_check_client {
+                                client.update_experiment_configurations(system_info);
+                            }
                         }
                         TargetPatterns(tag) => {
                             if let Some(cold_build_detector) = &mut self.cold_build_detector {
