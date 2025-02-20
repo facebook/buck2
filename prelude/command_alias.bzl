@@ -60,7 +60,7 @@ def _command_alias_impl_target_unix(ctx, exec_is_windows: bool):
 
     run_info_args_args = []
     run_info_args_hidden = []
-    if len(ctx.attrs.env) > 0 or len(ctx.attrs.platform_exe.items()) > 0:
+    if ctx.attrs.run_using_single_arg or len(ctx.attrs.env) > 0 or len(ctx.attrs.platform_exe.items()) > 0:
         run_info_args_args.append(trampoline)
         run_info_args_hidden.append(trampoline_args)
     else:
@@ -125,7 +125,7 @@ def _command_alias_impl_target_windows(ctx, exec_is_windows: bool):
 
     run_info_args_args = []
     run_info_args_hidden = []
-    if len(ctx.attrs.env) > 0:
+    if ctx.attrs.run_using_single_arg or len(ctx.attrs.env) > 0:
         run_info_args_args.append(trampoline)
         run_info_args_hidden.append(trampoline_args)
     else:
