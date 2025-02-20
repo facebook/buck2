@@ -259,6 +259,7 @@ pub(crate) struct ScribeProducer {
     retry_attempts: usize,
     message_batch_size: Option<usize>,
     last_cutoff: Mutex<Option<usize>>,
+    thrift_timeout: Duration,
 }
 
 pub struct ScribeConfig {
@@ -266,6 +267,7 @@ pub struct ScribeConfig {
     pub retry_backoff: Duration,
     pub retry_attempts: usize,
     pub message_batch_size: Option<usize>,
+    pub thrift_timeout: Duration,
 }
 
 impl Default for ScribeConfig {
@@ -275,13 +277,14 @@ impl Default for ScribeConfig {
             retry_backoff: Duration::from_millis(500),
             retry_attempts: 5,
             message_batch_size: None,
+            thrift_timeout: Duration::from_secs(1),
         }
     }
 }
 
 impl ScribeProducer {
     pub(crate) fn new(fb: FacebookInit, config: ScribeConfig) -> anyhow::Result<ScribeProducer> {
-        let client = connect(fb)?;
+        let client = connect(fb, config.thrift_timeout)?;
         let queue = ArrayQueue::new(config.buffer_size);
         Ok(ScribeProducer {
             fb,
@@ -292,6 +295,7 @@ impl ScribeProducer {
             retry_attempts: config.retry_attempts,
             message_batch_size: config.message_batch_size,
             last_cutoff: Mutex::new(None),
+            thrift_timeout: config.thrift_timeout,
         })
     }
 
@@ -358,7 +362,7 @@ impl ScribeProducer {
         &self,
         client_: &mut tokio::sync::MutexGuard<'_, ProducerServiceClient>,
     ) -> anyhow::Result<()> {
-        let new_client = connect(self.fb)?;
+        let new_client = connect(self.fb, self.thrift_timeout)?;
         **client_ = new_client;
         Ok(())
     }
@@ -564,15 +568,15 @@ impl ScribeProducer {
 }
 
 /// Connect to Scribe producer service (local Scribe daemon) via Thrift interface.
-fn connect(fb: FacebookInit) -> anyhow::Result<ProducerServiceClient> {
+fn connect(fb: FacebookInit, timeout: Duration) -> anyhow::Result<ProducerServiceClient> {
     let addr = SocketAddr::new(
         IpAddr::V6(Ipv6Addr::LOCALHOST),
         DEFAULT_PRODUCER_SERVICE_PORT as u16,
     );
     build_ProducerService_client(
         ThriftChannelBuilder::from_sock_addr(fb, addr)?
-            .with_conn_timeout(1000)
-            .with_recv_timeout(1000)
+            .with_conn_timeout(timeout.as_millis().try_into()?)
+            .with_recv_timeout(timeout.as_millis().try_into()?)
             .with_channel_pool(false)
             .with_transport_type(TransportType::Header)
             // By default, ThriftChannelBuilder will initiate a TLS handshake with the target server. This works fine
@@ -777,6 +781,7 @@ mod tests {
             retry_attempts: 5,
             message_batch_size: None,
             last_cutoff: Mutex::new(None),
+            thrift_timeout: Duration::from_millis(0),
         }
     }
 

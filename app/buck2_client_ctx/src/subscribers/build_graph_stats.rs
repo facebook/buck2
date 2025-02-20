@@ -84,6 +84,7 @@ impl BuildGraphStats {
                 retry_backoff: Duration::from_millis(100),
                 retry_attempts: 2,
                 message_batch_size: None,
+                thrift_timeout: Duration::from_secs(1),
             },
         ) {
             tracing::info!("Sending events to Scribe: {:?}", &events);

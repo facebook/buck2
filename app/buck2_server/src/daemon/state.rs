@@ -318,6 +318,7 @@ impl DaemonState {
                     retry_backoff,
                     retry_attempts,
                     message_batch_size,
+                    thrift_timeout: Duration::from_secs(1),
                 },
             )
             .buck_error_context("failed to init scribe sink")?;

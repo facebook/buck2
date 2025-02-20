@@ -372,6 +372,7 @@ mod fbcode {
         pub retry_backoff: Duration,
         pub retry_attempts: usize,
         pub message_batch_size: Option<usize>,
+        pub thrift_timeout: Duration,
     }
 }
 

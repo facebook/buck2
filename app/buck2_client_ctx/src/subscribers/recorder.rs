@@ -1758,6 +1758,7 @@ impl EventSubscriber for InvocationRecorder {
                 retry_backoff: Duration::from_millis(500),
                 retry_attempts: 5,
                 message_batch_size: None,
+                thrift_timeout: Duration::from_secs(2),
             },
         )? {
             tracing::info!("Recording invocation to Scribe: {:?}", &event);
