@@ -11,6 +11,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:regex",
+        "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_util:buck2_util",

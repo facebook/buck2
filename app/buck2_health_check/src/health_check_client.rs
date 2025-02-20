@@ -10,14 +10,17 @@
 use crate::health_check_context::HealthCheckContext;
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
+use crate::health_checks::vpn_check::VpnCheck;
 
 /// This client maintains the context and make requests to the health check server.
 pub struct HealthCheckClient {
     health_check_context: HealthCheckContext,
 
-    // TODO(rajneeshl): This is a temporary hack to unblock the warm revision check. Remove this once we have a proper health check server.
+    // TODO(rajneeshl): These are temporary hacks to call health checks directly from client.
+    // Move these to the health check server when it is ready.
     #[cfg(fbcode_build)]
     warm_revision_check: WarmRevisionCheck,
+    vpn_check: VpnCheck,
 }
 
 impl HealthCheckClient {
@@ -29,6 +32,7 @@ impl HealthCheckClient {
             },
             #[cfg(fbcode_build)]
             warm_revision_check: WarmRevisionCheck::new(),
+            vpn_check: VpnCheck::new(),
         }
     }
 
@@ -41,6 +45,8 @@ impl HealthCheckClient {
         parsed_target_patterns: &buck2_data::ParsedTargetPatterns,
     ) {
         self.health_check_context.parsed_target_patterns = Some(parsed_target_patterns.clone());
+        self.vpn_check
+            .try_update_can_run(&self.health_check_context);
     }
 
     pub fn update_branched_from_revision(&mut self, branched_from_revision: &str) {
@@ -57,6 +63,8 @@ impl HealthCheckClient {
     ) {
         self.health_check_context.experiment_configurations =
             Some(experiment_configurations.clone());
+        self.vpn_check
+            .try_update_can_run(&self.health_check_context);
     }
 
     pub async fn check_stable_revision(&self) -> Option<Vec<String>> {
@@ -73,13 +81,6 @@ impl HealthCheckClient {
     }
 
     pub fn is_vpn_check_enabled(&self) -> bool {
-        #[cfg(fbcode_build)]
-        {
-            crate::health_checks::vpn_check::can_run(&self.health_check_context)
-        }
-        #[cfg(not(fbcode_build))]
-        {
-            false
-        }
+        self.vpn_check.can_run()
     }
 }
