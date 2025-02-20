@@ -8,5 +8,5 @@
  */
 
 #[cfg(fbcode_build)]
-pub mod facebook;
+pub(crate) mod facebook;
 pub(crate) mod vpn_check;

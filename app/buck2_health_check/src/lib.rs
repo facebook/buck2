@@ -9,5 +9,5 @@
 
 pub mod health_check_client;
 pub(crate) mod health_check_context;
-pub mod health_checks;
+pub(crate) mod health_checks;
 pub mod report;
