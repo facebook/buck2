@@ -258,12 +258,13 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 )]
             });
 
-        result.write_command_report(
+        // Don't fail the command if command report fails to write. TODO(ctolliday) show a warning?
+        let _unused = result.write_command_report(
             ctx.trace_id,
             buck_log_dir,
             command_report_path,
             finalizing_errors,
-        )?;
+        );
         result
     }
 
