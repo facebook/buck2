@@ -58,6 +58,8 @@ fn is_retryable(err: &io::Error) -> bool {
     cfg!(target_os = "macos") && err.kind() == io::ErrorKind::TimedOut
 }
 
+static MAX_IO_ATTEMPTS: u32 = 3;
+
 fn with_retries<T>(mut func: impl FnMut() -> io::Result<T>) -> io::Result<T> {
     let mut attempts = 0;
     let mut last_error_kind: Option<std::io::ErrorKind> = None;
@@ -79,7 +81,7 @@ fn with_retries<T>(mut func: impl FnMut() -> io::Result<T>) -> io::Result<T> {
             Err(e) if is_retryable(&e) => {
                 last_error_kind = Some(e.kind());
                 attempts += 1;
-                if attempts >= 3 {
+                if attempts >= MAX_IO_ATTEMPTS {
                     return Err(e);
                 }
             }
@@ -782,6 +784,7 @@ pub fn relative_path_from_system(path: &Path) -> buck2_error::Result<Cow<'_, Rel
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::fs;
     use std::fs::File;
     use std::io;
@@ -804,6 +807,7 @@ mod tests {
     use crate::fs::fs_util::symlink_metadata;
     use crate::fs::fs_util::write;
     use crate::fs::fs_util::IoError;
+    use crate::fs::fs_util::MAX_IO_ATTEMPTS;
     use crate::fs::paths::abs_norm_path::AbsNormPath;
     use crate::fs::paths::abs_path::AbsPath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -1337,41 +1341,69 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_retry_io() -> buck2_error::Result<()> {
-        let retries = 3;
-        let tempdir = tempfile::tempdir()?;
-        let path = tempdir.path().join("test");
-        std::fs::write(&path, "test")?;
-        let mut attempts = 0;
+    static TEST_FILE_CONTENT: &str = "test";
 
+    fn check_io_with_retry(
+        path: &Path,
+        error_kind: std::io::ErrorKind,
+        expected_attempts: u32,
+        should_succeed: bool,
+    ) {
+        let mut attempts: u32 = 0;
         let mut open_fn = |p: &Path| -> io::Result<File> {
             attempts += 1;
-            if attempts >= retries {
+            if attempts >= MAX_IO_ATTEMPTS {
                 std::fs::File::open(p)
             } else {
-                Err(io::Error::new(io::ErrorKind::TimedOut, "timed out"))
+                Err(io::Error::new(error_kind, error_kind.to_string()))
             }
         };
+        let io_result = make_error_with_retry!(open_fn(path), format!("test123"));
 
-        let file = make_error_with_retry!(open_fn(&path), format!("test123"));
-
-        #[cfg(target_os = "macos")]
-        {
-            let mut file = file?;
-            assert_eq!(attempts, retries);
+        if should_succeed {
+            let mut file = io_result.unwrap();
+            assert_eq!(attempts, expected_attempts);
             let mut buf = String::new();
-            io::Read::read_to_string(&mut file, &mut buf)?;
-            assert_eq!(buf, "test");
+            io::Read::read_to_string(&mut file, &mut buf).unwrap();
+            assert_eq!(buf, TEST_FILE_CONTENT);
+        } else {
+            assert_eq!(io_result.err().map(|e| e.e.kind()).unwrap(), error_kind);
+            assert_eq!(attempts, expected_attempts);
         }
+    }
 
-        #[cfg(not(target_os = "macos"))]
-        {
-            assert_eq!(
-                file.err().map(|e| e.e.kind()).unwrap(),
-                io::ErrorKind::TimedOut
-            );
-            assert_eq!(attempts, 1);
+    fn get_test_path(name: &str, tempdir: &tempfile::TempDir) -> std::path::PathBuf {
+        let path = tempdir.path().join(name);
+        std::fs::write(&path, TEST_FILE_CONTENT).unwrap();
+        path
+    }
+
+    #[test]
+    fn test_retry_io() -> buck2_error::Result<()> {
+        use std::io::ErrorKind;
+
+        let tempdir = tempfile::tempdir().unwrap();
+        let mut test_cases = HashMap::new();
+        // The behavior of these test cases varies by platform
+        let should_succeed = cfg!(target_os = "macos");
+        let expected_attempts = if should_succeed { MAX_IO_ATTEMPTS } else { 1 };
+        test_cases.insert(
+            get_test_path("test_timeout", &tempdir),
+            (ErrorKind::TimedOut, expected_attempts, should_succeed),
+        );
+
+        // These test cases should behave the same on all platforms
+        test_cases.insert(
+            get_test_path("test_too_many_args", &tempdir),
+            (ErrorKind::ArgumentListTooLong, 1, false),
+        );
+        test_cases.insert(
+            get_test_path("test_permission_denied", &tempdir),
+            (ErrorKind::PermissionDenied, 1, false),
+        );
+
+        for (test_path, results) in test_cases {
+            check_io_with_retry(&test_path, results.0, results.1, results.2);
         }
 
         Ok(())
