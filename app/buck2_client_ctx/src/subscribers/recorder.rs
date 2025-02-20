@@ -50,6 +50,7 @@ use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_events::errors::create_error_report;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
+use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::BuckEvent;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
@@ -1750,9 +1751,15 @@ impl EventSubscriber for InvocationRecorder {
 
     async fn finalize(&mut self) -> buck2_error::Result<()> {
         let event = self.create_record_event();
-        if let Some(scribe_sink) =
-            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(500), 5, None)?
-        {
+        if let Some(scribe_sink) = new_remote_event_sink_if_enabled(
+            self.fb,
+            ScribeConfig {
+                buffer_size: 1,
+                retry_backoff: Duration::from_millis(500),
+                retry_attempts: 5,
+                message_batch_size: None,
+            },
+        )? {
             tracing::info!("Recording invocation to Scribe: {:?}", &event);
             scribe_sink.send_now(event).await
         } else {

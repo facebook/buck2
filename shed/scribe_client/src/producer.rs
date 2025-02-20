@@ -261,24 +261,36 @@ pub(crate) struct ScribeProducer {
     last_cutoff: Mutex<Option<usize>>,
 }
 
+pub struct ScribeConfig {
+    pub buffer_size: usize,
+    pub retry_backoff: Duration,
+    pub retry_attempts: usize,
+    pub message_batch_size: Option<usize>,
+}
+
+impl Default for ScribeConfig {
+    fn default() -> Self {
+        Self {
+            buffer_size: 100,
+            retry_backoff: Duration::from_millis(500),
+            retry_attempts: 5,
+            message_batch_size: None,
+        }
+    }
+}
+
 impl ScribeProducer {
-    pub(crate) fn new(
-        fb: FacebookInit,
-        buffer_size: usize,
-        retry_backoff: Duration,
-        retry_attempts: usize,
-        message_batch_size: Option<usize>,
-    ) -> anyhow::Result<ScribeProducer> {
+    pub(crate) fn new(fb: FacebookInit, config: ScribeConfig) -> anyhow::Result<ScribeProducer> {
         let client = connect(fb)?;
-        let queue = ArrayQueue::new(buffer_size);
+        let queue = ArrayQueue::new(config.buffer_size);
         Ok(ScribeProducer {
             fb,
             client: tokio::sync::Mutex::new(client),
             queue,
             counters: ProducerCountersData::default(),
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
+            retry_backoff: config.retry_backoff,
+            retry_attempts: config.retry_attempts,
+            message_batch_size: config.message_batch_size,
             last_cutoff: Mutex::new(None),
         })
     }

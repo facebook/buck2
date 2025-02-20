@@ -56,13 +56,13 @@ fn the_panic_hook(fb: FacebookInit, info: &PanicHookInfo) {
 mod imp {
     use std::collections::HashMap;
     use std::panic::PanicHookInfo;
-    use std::time::Duration;
 
     use backtrace::Backtrace;
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::metadata;
     use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
+    use buck2_events::sink::remote::ScribeConfig;
     use buck2_events::BuckEvent;
     use buck2_util::threads::thread_spawn;
     use fbinit::FacebookInit;
@@ -227,13 +227,7 @@ mod imp {
             return;
         }
 
-        let sink = match new_remote_event_sink_if_enabled(
-            fb,
-            /* buffer size */ 100,
-            /* retry_backoff */ Duration::from_millis(500),
-            /* retry_attempts */ 5,
-            /* message_batch_size */ None,
-        ) {
+        let sink = match new_remote_event_sink_if_enabled(fb, ScribeConfig::default()) {
             #[allow(unreachable_patterns)]
             Ok(Some(sink)) => sink,
             _ => {

@@ -77,6 +77,7 @@ use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
+use remote::ScribeConfig;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
@@ -312,10 +313,12 @@ impl DaemonState {
             })?;
             let scribe_sink = Self::init_scribe_sink(
                 fb,
-                buffer_size,
-                retry_backoff,
-                retry_attempts,
-                message_batch_size,
+                ScribeConfig {
+                    buffer_size,
+                    retry_backoff,
+                    retry_attempts,
+                    message_batch_size,
+                },
             )
             .buck_error_context("failed to init scribe sink")?;
 
@@ -738,20 +741,11 @@ impl DaemonState {
 
     fn init_scribe_sink(
         fb: FacebookInit,
-        buffer_size: usize,
-        retry_backoff: Duration,
-        retry_attempts: usize,
-        message_batch_size: Option<usize>,
+        config: ScribeConfig,
     ) -> buck2_error::Result<Option<Arc<dyn EventSinkWithStats>>> {
         facebook_only();
-        remote::new_remote_event_sink_if_enabled(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )
-        .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
+        remote::new_remote_event_sink_if_enabled(fb, config)
+            .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
     }
 
     /// Prepares an event stream for a request by bootstrapping an event source and EventDispatcher pair. The given

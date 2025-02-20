@@ -43,6 +43,7 @@ use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::read::EventLogSummary;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::sink::remote::RemoteEventSink;
+use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::BuckEvent;
 use buck2_util::process::async_background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -584,13 +585,7 @@ async fn dispatch_event_to_scribe(
 fn create_scribe_sink(ctx: &ClientCommandContext) -> buck2_error::Result<Option<RemoteEventSink>> {
     // TODO(swgiillespie) scribe_logging is likely the right feature for this, but we should be able to inject a sink
     // without using configurations at the call site
-    new_remote_event_sink_if_enabled(
-        ctx.fbinit(),
-        /* buffer size */ 100,
-        /* retry_backoff */ Duration::from_millis(500),
-        /* retry_attempts */ 5,
-        /* message_batch_size */ None,
-    )
+    new_remote_event_sink_if_enabled(ctx.fbinit(), ScribeConfig::default())
 }
 
 async fn maybe_select_invocation(

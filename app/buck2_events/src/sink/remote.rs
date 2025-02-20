@@ -10,14 +10,12 @@
 //! A Sink for forwarding events directly to Remote service.
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
 
 use fbinit::FacebookInit;
 
 #[cfg(fbcode_build)]
 mod fbcode {
     use std::sync::Arc;
-    use std::time::Duration;
     use std::time::SystemTime;
 
     use buck2_core::buck2_env;
@@ -29,6 +27,7 @@ mod fbcode {
     use buck2_util::truncate::truncate;
     use fbinit::FacebookInit;
     use prost::Message;
+    pub use scribe_client::ScribeConfig;
 
     use crate::metadata;
     use crate::schedule_type::ScheduleType;
@@ -57,19 +56,10 @@ mod fbcode {
         pub fn new(
             fb: FacebookInit,
             category: String,
-            buffer_size: usize,
-            retry_backoff: Duration,
-            retry_attempts: usize,
-            message_batch_size: Option<usize>,
+            config: ScribeConfig,
         ) -> buck2_error::Result<RemoteEventSink> {
-            let client = scribe_client::ScribeClient::new(
-                fb,
-                buffer_size,
-                retry_backoff,
-                retry_attempts,
-                message_batch_size,
-            )
-            .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))?;
+            let client = scribe_client::ScribeClient::new(fb, config)
+                .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))?;
 
             // schedule_type can change for the same daemon, because on OD some builds are pre warmed for users
             // This would be problematic, because this is run just once on the daemon
@@ -343,6 +333,7 @@ mod fbcode {
 #[cfg(not(fbcode_build))]
 mod fbcode {
     use std::sync::Arc;
+    use std::time::Duration;
 
     use crate::BuckEvent;
     use crate::Event;
@@ -374,56 +365,39 @@ mod fbcode {
             match *self {}
         }
     }
+
+    #[derive(Default)]
+    pub struct ScribeConfig {
+        pub buffer_size: usize,
+        pub retry_backoff: Duration,
+        pub retry_attempts: usize,
+        pub message_batch_size: Option<usize>,
+    }
 }
 
 pub use fbcode::*;
 
 fn new_remote_event_sink_if_fbcode(
     fb: FacebookInit,
-    buffer_size: usize,
-    retry_backoff: Duration,
-    retry_attempts: usize,
-    message_batch_size: Option<usize>,
+    config: ScribeConfig,
 ) -> buck2_error::Result<Option<RemoteEventSink>> {
     #[cfg(fbcode_build)]
     {
-        Ok(Some(RemoteEventSink::new(
-            fb,
-            scribe_category()?,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )?))
+        Ok(Some(RemoteEventSink::new(fb, scribe_category()?, config)?))
     }
     #[cfg(not(fbcode_build))]
     {
-        let _ = (
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        );
+        let _ = (fb, config);
         Ok(None)
     }
 }
 
 pub fn new_remote_event_sink_if_enabled(
     fb: FacebookInit,
-    buffer_size: usize,
-    retry_backoff: Duration,
-    retry_attempts: usize,
-    message_batch_size: Option<usize>,
+    config: ScribeConfig,
 ) -> buck2_error::Result<Option<RemoteEventSink>> {
     if is_enabled() {
-        new_remote_event_sink_if_fbcode(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )
+        new_remote_event_sink_if_fbcode(fb, config)
     } else {
         Ok(None)
     }

@@ -25,6 +25,7 @@ use buck2_error::BuckErrorContext;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::sink::remote::RemoteEventSink;
+use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 use tokio::fs::File;
@@ -357,13 +358,7 @@ async fn dispatch_event_to_scribe(
 }
 
 fn create_scribe_sink(ctx: &ClientCommandContext) -> buck2_error::Result<Option<RemoteEventSink>> {
-    new_remote_event_sink_if_enabled(
-        ctx.fbinit(),
-        /* buffer size */ 100,
-        /* retry_backoff */ Duration::from_millis(500),
-        /* retry_attempts */ 5,
-        /* message_batch_size */ None,
-    )
+    new_remote_event_sink_if_enabled(ctx.fbinit(), ScribeConfig::default())
 }
 
 #[cfg(test)]
