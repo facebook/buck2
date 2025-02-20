@@ -7,5 +7,6 @@
  * of this source tree.
  */
 
-// @oss-disable: pub mod facebook;
+#[cfg(fbcode_build)]
+pub mod facebook;
 pub(crate) mod vpn_check;
