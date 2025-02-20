@@ -26,6 +26,7 @@ pub(crate) struct LowDiskSpace {
 
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
+pub const VPN_ENABLED_LINK: &str = ": https://fburl.com/buck2_vpn_enabled";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
@@ -49,6 +50,17 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
             ""
         } else {
             DISK_REMEDIATION_LINK
+        }
+    )
+}
+
+pub(crate) fn vpn_enabled_msg() -> String {
+    format!(
+        "Enabling VPN may significantly impact build speed{}",
+        if is_open_source() {
+            ""
+        } else {
+            VPN_ENABLED_LINK
         }
     )
 }

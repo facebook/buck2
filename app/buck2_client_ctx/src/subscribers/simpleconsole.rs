@@ -45,8 +45,10 @@ use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
 use crate::subscribers::system_warning::check_memory_pressure_snapshot;
 use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
+use crate::subscribers::system_warning::is_vpn_enabled;
 use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
+use crate::subscribers::system_warning::vpn_enabled_msg;
 
 /// buck2 daemon info is printed to stderr if there are no other updates available
 /// within this duration.
@@ -57,6 +59,7 @@ enum SystemWarningTypes {
     MemoryPressure,
     LowDiskSpace,
     SlowDownloadSpeed,
+    VpnEnabled,
 }
 
 static ELAPSED_SYSTEM_WARNING_MAP: Lazy<Mutex<HashMap<SystemWarningTypes, (Instant, u64)>>> =
@@ -138,6 +141,10 @@ fn init_remaining_system_warning_count() {
         .lock()
         .unwrap()
         .insert(SystemWarningTypes::SlowDownloadSpeed, (Instant::now(), 1));
+    ELAPSED_SYSTEM_WARNING_MAP
+        .lock()
+        .unwrap()
+        .insert(SystemWarningTypes::VpnEnabled, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.
@@ -648,6 +655,19 @@ where
                         echo_system_warning_exponential(
                             SystemWarningTypes::LowDiskSpace,
                             &low_disk_space_msg(&low_disk_space),
+                        )?;
+                    }
+                    if self
+                        .observer()
+                        .health_check_client
+                        .as_ref()
+                        .map(|c| c.is_vpn_check_enabled())
+                        .unwrap_or(false)
+                        && is_vpn_enabled()
+                    {
+                        echo_system_warning_exponential(
+                            SystemWarningTypes::VpnEnabled,
+                            &vpn_enabled_msg(),
                         )?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
