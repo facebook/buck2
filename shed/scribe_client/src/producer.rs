@@ -159,6 +159,7 @@ enum CongestionControlPhase {
 
 #[derive(Debug)]
 struct CongestionControlState {
+    initial_cutoff: usize,
     phase: CongestionControlPhase,
     current_cutoff: usize,
 
@@ -180,6 +181,7 @@ const FAST_RECOVERY_STEPS: usize = 10;
 impl CongestionControlState {
     fn new(initial_cutoff: usize) -> Self {
         Self {
+            initial_cutoff,
             phase: CongestionControlPhase::EarlyFail,
             current_cutoff: initial_cutoff,
             cliff_top: 0,
@@ -236,6 +238,14 @@ impl CongestionControlState {
         self.phase = CongestionControlPhase::FastRecovery {
             step: self.compute_recovery_amount(),
         };
+    }
+
+    fn compute_last_cutoff(&self) -> Option<usize> {
+        if self.current_cutoff < self.initial_cutoff {
+            Some(self.current_cutoff)
+        } else {
+            None
+        }
     }
 }
 
@@ -365,15 +375,7 @@ impl ScribeProducer {
             })
             .collect();
 
-        let retry_intervals: Vec<Duration> = self.make_retry_intervals();
-
         let mut cc_state = CongestionControlState::new(messages.len());
-        let original_len = messages.len();
-        let mut retry_count = 0;
-
-        let mut cutoff_len;
-        let mut success_count;
-        let mut retryable_error_count;
 
         if let Some(last_cutoff) = *self.last_cutoff.lock().unwrap() {
             cc_state.load_last_cutoff(last_cutoff, messages.len());
@@ -381,10 +383,10 @@ impl ScribeProducer {
 
         let mut first_request_error: Option<RequestError> = None;
 
+        let retry_intervals: Vec<Duration> = self.make_retry_intervals();
+        let mut retry_count = 0;
         while retry_count < retry_intervals.len() {
-            cutoff_len = std::cmp::min(messages.len(), cc_state.current_cutoff);
-            success_count = 0;
-            retryable_error_count = 0;
+            let cutoff_len = std::cmp::min(messages.len(), cc_state.current_cutoff);
 
             tracing::debug!(
                 "retry_count={}, interval={:?}, current_cutoff={}, {} remained in batch",
@@ -450,7 +452,10 @@ impl ScribeProducer {
                 }
             };
 
+            let mut success_count = 0;
+            let mut retryable_error_count = 0;
             let mut write_result_iter = results.iter();
+            // Filter successful messages.
             messages.retain_mut(|message| {
                 write_result_iter.next().map_or(true, |result| {
                     match result_code_into_result(result.code) {
@@ -460,7 +465,7 @@ impl ScribeProducer {
                                 .fetch_add(1, atomic::Ordering::Relaxed);
 
                             // Unwrap safety: an individual message cant't be so large its length
-                            // can't be repsentable as 64 bits.
+                            // can't be representable as 64 bits.
                             self.counters.bytes_written.fetch_add(
                                 message.message.message.len().try_into().unwrap(),
                                 atomic::Ordering::Relaxed,
@@ -506,11 +511,7 @@ impl ScribeProducer {
                 cc_state.current_cutoff
             );
         }
-        if cc_state.current_cutoff < original_len {
-            *self.last_cutoff.lock().unwrap() = Some(cc_state.current_cutoff);
-        } else {
-            *self.last_cutoff.lock().unwrap() = None;
-        }
+        *self.last_cutoff.lock().unwrap() = cc_state.compute_last_cutoff();
 
         for message in &messages {
             match &message.error {
@@ -1143,6 +1144,7 @@ mod tests {
                 current_cutoff: 501,
                 cliff_top: 1000,
                 cliff_bottom: 501,
+                ..
             }
         );
 
@@ -1155,6 +1157,7 @@ mod tests {
                 current_cutoff: 251,
                 cliff_top: 501,
                 cliff_bottom: 251,
+                ..
             }
         );
 
@@ -1167,6 +1170,7 @@ mod tests {
                 current_cutoff: 251,
                 cliff_top: 501,
                 cliff_bottom: 251,
+                ..
             }
         );
 
@@ -1179,6 +1183,7 @@ mod tests {
                 current_cutoff: 277,
                 cliff_top: 501,
                 cliff_bottom: 251,
+                ..
             }
         );
 
@@ -1191,6 +1196,7 @@ mod tests {
                 current_cutoff: 303,
                 cliff_top: 501,
                 cliff_bottom: 251,
+                ..
             }
         );
 
@@ -1205,6 +1211,7 @@ mod tests {
                 current_cutoff: 563,
                 cliff_top: 501,
                 cliff_bottom: 251,
+                ..
             }
         );
 
@@ -1217,6 +1224,7 @@ mod tests {
                 current_cutoff: 408,
                 cliff_top: 563,
                 cliff_bottom: 408,
+                ..
             }
         );
 
@@ -1229,6 +1237,7 @@ mod tests {
                 current_cutoff: 307,
                 cliff_top: 408,
                 cliff_bottom: 307,
+                ..
             }
         );
 
@@ -1241,6 +1250,7 @@ mod tests {
                 current_cutoff: 318,
                 cliff_top: 408,
                 cliff_bottom: 307,
+                ..
             }
         );
     }
