@@ -26,6 +26,10 @@ def _archive_flags(
         return ["/Brepro", "/d2threads1"]
     elif archiver_type == "windows_clang":
         return ["/llvmlibthin"] if thin else []
+    elif archiver_type == "amdclang":
+        # amdclang can be used to create archives with --emit-static-lib, so let's
+        # prefer to let the toolchain define the args instead of hardcoding them here.
+        return []
     flags = ""
 
     # Operate in quick append mode, so that objects with identical basenames
@@ -69,6 +73,8 @@ def _archive(
     ))
     if archiver_type == "windows" or archiver_type == "windows_clang":
         command.add([cmd_args(archive_output.as_output(), format = "/OUT:{}")])
+    elif archiver_type == "amdclang":
+        command.add(["-o", archive_output.as_output()])
     else:
         command.add([archive_output.as_output()])
 
