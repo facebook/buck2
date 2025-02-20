@@ -81,41 +81,6 @@ def _remove_swiftinterface_module_prefixes(command):
         f.truncate()
 
 
-def _read_output_file_map(command):
-    for i in range(len(command)):
-        if command[i] == "-output-file-map":
-            with open(command[i + 1]) as f:
-                return json.load(f)
-
-    return None
-
-
-def _validate_file_type_of_incremental_output(command):
-    output_file_map = _read_output_file_map(command)
-    if output_file_map is None:
-        print("Failed to read output file map", file=sys.stderr)
-        sys.exit(1)
-
-    for _, outputs in output_file_map.items():
-        swiftdeps = outputs.get("swift-dependencies", None)
-        if swiftdeps:
-            with open(swiftdeps, "rb") as f:
-                magic = f.read(4)
-                if not (magic == b"DDEP" or magic == b"DEPS"):
-                    print(
-                        f"Invalid magic number in {swiftdeps}: {magic}", file=sys.stderr
-                    )
-                    sys.exit(1)
-
-        obj = outputs.get("object", None)
-        if obj:
-            with open(obj, "rb") as f:
-                magic = f.read(4)
-                if magic != b"\xcf\xfa\xed\xfe":
-                    print(f"Invalid magic number in {obj}: {magic}", file=sys.stderr)
-                    sys.exit(1)
-
-
 def main():
     env = os.environ.copy()
     if "INSIDE_RE_WORKER" in env and _RE_TMPDIR_ENV_VAR in env:
@@ -189,9 +154,6 @@ def main():
     # https://github.com/swiftlang/swift/issues/56573
     if should_remove_module_prefixes:
         _remove_swiftinterface_module_prefixes(command)
-
-    if "-incremental" in command:
-        _validate_file_type_of_incremental_output(command)
 
     sys.exit(result.returncode)
 
