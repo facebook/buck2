@@ -111,14 +111,58 @@ mod interactive_terminal {
 
 #[cfg(windows)]
 mod interactive_terminal {
-    pub struct InteractiveTerminal;
+    use std::io::IsTerminal;
+    use std::os::windows::io::AsRawHandle;
+
+    use buck2_error::BuckErrorContext;
+    use winapi::shared::minwindef::DWORD;
+    use winapi::um::consoleapi::GetConsoleMode;
+    use winapi::um::consoleapi::SetConsoleMode;
+    use winapi::um::wincon::ENABLE_ECHO_INPUT;
+    use winapi::um::wincon::ENABLE_LINE_INPUT;
+    use winapi::um::winnt::HANDLE;
+
+    fn get_console_mode(handle: HANDLE) -> buck2_error::Result<DWORD> {
+        let mut mode: DWORD = 0;
+        if unsafe { GetConsoleMode(handle, &mut mode) } != 0 {
+            Ok(mode)
+        } else {
+            Err(std::io::Error::last_os_error()).buck_error_context("Failed to get console mode")
+        }
+    }
+
+    fn set_console_mode(handle: HANDLE, mode: DWORD) -> buck2_error::Result<()> {
+        if unsafe { SetConsoleMode(handle, mode) != 0 } {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error()).buck_error_context("Failed to set console mode")
+        }
+    }
+
+    pub struct InteractiveTerminal {
+        mode: DWORD,
+    }
 
     impl InteractiveTerminal {
         pub fn enable() -> buck2_error::Result<Option<Self>> {
-            Ok(None)
+            let handle = std::io::stdin().as_raw_handle();
+
+            if !std::io::stdin().is_terminal()
+                || !std::io::stdout().is_terminal()
+                || !std::io::stderr().is_terminal()
+            {
+                return Ok(None);
+            }
+
+            let mode = get_console_mode(handle)?;
+            // Switch to non-canonical mode to get input immediately, and disable echo.
+            set_console_mode(handle, mode & !(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT))?;
+            Ok(Some(Self { mode }))
         }
 
         pub fn disable(&mut self) -> buck2_error::Result<()> {
+            let handle = std::io::stdin().as_raw_handle();
+            set_console_mode(handle, self.mode)?;
             Ok(())
         }
     }
