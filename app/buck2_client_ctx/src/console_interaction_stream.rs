@@ -109,7 +109,22 @@ mod interactive_terminal {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+mod interactive_terminal {
+    pub struct InteractiveTerminal;
+
+    impl InteractiveTerminal {
+        pub fn enable() -> buck2_error::Result<Option<Self>> {
+            Ok(None)
+        }
+
+        pub fn disable(&mut self) -> buck2_error::Result<()> {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
 mod interactive_terminal {
     pub struct InteractiveTerminal;
 
