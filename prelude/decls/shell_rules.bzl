@@ -82,6 +82,10 @@ sh_binary = prelude_rule(
                   appending one itself if necessary. Setting this to False prevents that behavior and makes the caller
                   responsible for ensuring an existing appropriate extension.
             """),
+            "copy_resources": attrs.bool(default = False, doc = """
+                By default, sh_binary attempts to use symbolic links for the resources. This can be changed so,
+                that copies are made instead.
+            """),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),

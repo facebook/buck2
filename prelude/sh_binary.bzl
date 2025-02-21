@@ -24,7 +24,8 @@ def _generate_script(
         resources: list[Artifact],
         append_script_extension: bool,
         actions: AnalysisActions,
-        is_windows: bool) -> (Artifact, Artifact):
+        is_windows: bool,
+        copy_resources: bool) -> (Artifact, Artifact):
     main_path = main.short_path
     if not append_script_extension:
         main_link = main_path
@@ -35,7 +36,12 @@ def _generate_script(
     resources = {_derive_link(src): src for src in resources}
     resources[main_link] = main
 
-    resources_dir = actions.symlinked_dir("resources", resources)
+    # windows isn't stable with resources passed in as symbolic links for
+    # remote execution. Allow using copies instead.
+    if copy_resources:
+        resources_dir = actions.copied_dir("resources", resources)
+    else:
+        resources_dir = actions.symlinked_dir("resources", resources)
 
     script_name = name + (".bat" if is_windows else "")
     script = actions.declare_output(script_name)
@@ -81,8 +87,9 @@ def _generate_script(
             "setlocal EnableDelayedExpansion",
             # Fully qualified script path.
             "set __SRC=%~f0",
-            # This is essentially a realpath.
-            'for /f "tokens=2 delims=[]" %%a in (\'dir %__SRC% ^|%SYSTEMROOT%\\System32\\find.exe "<SYMLINK>"\') do set "__SRC=%%a"',
+            # Symbolic links on windows RE systems aren't stable. so don't try to resolve
+            # the links when using copies.
+            'for /f "tokens=2 delims=[]" %%a in (\'dir %__SRC% ^|%SYSTEMROOT%\\System32\\find.exe "<SYMLINK>"\') do set "__SRC=%%a"' if not copy_resources else '',
             # Get parent folder.
             'for %%a in ("%__SRC%") do set "__SCRIPT_DIR=%%~dpa"',
             "set BUCK_SH_BINARY_VERSION_UNSTABLE=2",
@@ -103,6 +110,7 @@ def _generate_script(
 # "deps": attrs.list(attrs.dep(), default = []),
 # "main": attrs.source(),
 # "resources": attrs.list(attrs.source(), default = []),
+# "copy_resources": attrs.bool(default = False),
 def sh_binary_impl(ctx):
     # TODO: implement deps (not sure what those even do, though)
     if len(ctx.attrs.deps) > 0:
@@ -116,6 +124,7 @@ def sh_binary_impl(ctx):
         ctx.attrs.append_script_extension,
         ctx.actions,
         is_windows,
+        ctx.attrs.copy_resources,
     )
 
     script = script.with_associated_artifacts([resources_dir])

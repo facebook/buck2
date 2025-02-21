@@ -609,6 +609,7 @@ inlined_extra_attributes = {
     "python_bootstrap_binary": {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "main": attrs.source(),
+        "copy_deps": attrs.bool(default = True),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
         "_win_python_wrapper": attrs.default_only(
