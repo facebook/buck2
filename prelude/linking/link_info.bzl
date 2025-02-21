@@ -247,7 +247,16 @@ def _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable: LinkableT
 # Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     if isinstance(linkable, ArchiveLinkable):
-        if linkable.link_whole:
+        if linkable.linker_type == LinkerType("darwin") and linkable.archive.external_objects:
+            if not linkable.link_whole:
+                args.add("-Wl,--start-lib")
+
+            for object in linkable.archive.external_objects:
+                args.add(object)
+
+            if not linkable.link_whole:
+                args.add("-Wl,--end-lib")
+        elif linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
         else:
             args.add(linkable.archive.artifact)
