@@ -56,7 +56,7 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
 
 pub(crate) fn vpn_enabled_msg() -> String {
     format!(
-        "Enabling VPN may significantly impact build speed{}",
+        "For optimal build speed, consider disconnecting from VPN{}",
         if is_open_source() {
             ""
         } else {
