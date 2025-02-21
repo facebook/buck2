@@ -1661,6 +1661,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             relinker_link_args = (
                 original_shared_library.link_args +
                 [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])] +
+                [LinkArgs(flags = ctx.attrs.relinker_extra_args)] +
                 ([LinkArgs(infos = [set_link_info_link_whole(red_linkable[1]) for red_linkable in red_linkables[platform]])] if len(red_linkables) > 0 else [])
             )
 
