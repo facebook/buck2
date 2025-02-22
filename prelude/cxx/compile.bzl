@@ -20,6 +20,7 @@ load(
     "HeaderExtension",
     "HeadersDepFiles",
 )
+load("@prelude//cxx:cuda.bzl", "cuda_compile")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
@@ -385,15 +386,26 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
-    ctx.actions.run(
-        cmd,
-        category = src_compile_cmd.cxx_compile_cmd.category,
-        identifier = identifier,
-        dep_files = action_dep_files,
-        allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
-        allow_dep_file_cache_upload = False,
-        **error_handler_args
-    )
+    if src_compile_cmd.src.extension == ".cu":
+        cuda_compile(
+            ctx,
+            cmd,
+            src_compile_cmd,
+            identifier,
+            action_dep_files,
+            allow_dep_file_cache_upload = False,
+            error_handler_args = error_handler_args,
+        )
+    else:
+        ctx.actions.run(
+            cmd,
+            category = src_compile_cmd.cxx_compile_cmd.category,
+            identifier = identifier,
+            dep_files = action_dep_files,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+            allow_dep_file_cache_upload = False,
+            **error_handler_args
+        )
 
     # If we're building with split debugging, where the debug info is in the
     # original object, then add the object as external debug info
