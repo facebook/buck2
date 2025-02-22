@@ -130,14 +130,17 @@ load(
 )
 load(
     ":compile.bzl",
-    "CxxCompileCommandOutput",
-    "CxxCompileFlavor",
-    "CxxCompileOutput",  # @unused Used as a type
-    "CxxSrcCompileCommand",
     "compile_cxx",
     "create_compile_cmds",
     "cxx_objects_sub_targets",
     "precompile_cxx",
+)
+load(
+    ":compile_types.bzl",
+    "CxxCompileCommandOutput",
+    "CxxCompileFlavor",
+    "CxxCompileOutput",  # @unused Used as a type
+    "CxxSrcCompileCommand",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(

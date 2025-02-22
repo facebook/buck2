@@ -108,11 +108,11 @@ load(
 )
 load(
     ":compile.bzl",
-    "CxxCompileFlavor",
     "compile_cxx",
     "create_compile_cmds",
     "cxx_objects_sub_targets",
 )
+load(":compile_types.bzl", "CxxCompileFlavor")
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":cxx_instrumentation.bzl",

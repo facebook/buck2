@@ -38,7 +38,7 @@ load(
     "CompileArgsfiles",
 )
 load(
-    "@prelude//cxx:compile.bzl",
+    "@prelude//cxx:compile_types.bzl",
     "AsmExtensions",
     "CxxSrcCompileCommand",  # @unused Used as a type
 )
