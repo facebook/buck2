@@ -217,16 +217,11 @@ fn attr_module(registry: &mut GlobalsBuilder) {
 
         let coerced_default = match default {
             None => None,
-            Some(default) => {
-                match coercer.coerce(
-                    AttrIsConfigurable::Yes,
-                    &attr_coercion_context_for_bzl(eval)?,
-                    default,
-                ) {
-                    Ok(coerced_default) => Some(coerced_default),
-                    Err(_) => return Err(ValueError::IncorrectParameterType.into()),
-                }
-            }
+            Some(default) => Some(coercer.coerce(
+                AttrIsConfigurable::Yes,
+                &attr_coercion_context_for_bzl(eval)?,
+                default,
+            )?),
         };
 
         Ok(StarlarkAttribute::new(Attribute::new(
@@ -262,16 +257,11 @@ fn attr_module(registry: &mut GlobalsBuilder) {
 
         let coerced_default = match default {
             None => None,
-            Some(default) => {
-                match coercer.coerce(
-                    AttrIsConfigurable::Yes,
-                    &attr_coercion_context_for_bzl(eval)?,
-                    default,
-                ) {
-                    Ok(coerced_default) => Some(coerced_default),
-                    Err(_) => return Err(ValueError::IncorrectParameterType.into()),
-                }
-            }
+            Some(default) => Some(coercer.coerce(
+                AttrIsConfigurable::Yes,
+                &attr_coercion_context_for_bzl(eval)?,
+                default,
+            )?),
         };
 
         Ok(StarlarkAttribute::new(Attribute::new(
