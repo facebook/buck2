@@ -30,6 +30,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::target::name::TargetName;
 use buck2_error::conversion::from_any_with_tag;
@@ -498,10 +499,9 @@ impl<'a> BuckLspContext<'a> {
             })
             .await?;
         let cell_resolver = artifact_fs.cell_resolver();
-        match ParsedPattern::<ProvidersPatternExtra>::parsed_opt_absolute(
+        match ParsedPattern::<ProvidersPatternExtra>::parse_not_relaxed(
             literal,
-            Some(current_package),
-            current_package.cell(),
+            TargetParsingRel::AllowLimitedRelative(current_package),
             &cell_resolver,
             &cell_alias_resolver,
         ) {

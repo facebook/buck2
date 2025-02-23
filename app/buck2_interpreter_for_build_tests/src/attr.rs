@@ -234,7 +234,7 @@ fn dep_works() -> buck2_error::Result<()> {
             attrs.dep(default="notatarget")
         "#
         ),
-        "Invalid absolute target",
+        "Invalid target pattern",
     );
 
     // Relative targets are disallowed; there is no build file for them to be relative to

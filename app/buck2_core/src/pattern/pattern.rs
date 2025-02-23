@@ -260,7 +260,7 @@ impl<T: PatternType> ParsedPattern<T> {
         }
     }
 
-    /// Parse a TargetPattern, but where there there is no relative directory.
+    /// `parse_not_relaxed` with `TargetParsingRel::RequiresAbsolute`
     pub fn parse_precise(
         pattern: &str,
         cell: CellName,
@@ -285,10 +285,9 @@ impl<T: PatternType> ParsedPattern<T> {
         })
     }
 
-    pub fn parsed_opt_absolute(
+    pub fn parse_not_relaxed(
         pattern: &str,
-        relative_dir: Option<CellPathRef>,
-        cell: CellName,
+        relative: TargetParsingRel<'_>,
         cell_resolver: &CellResolver,
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
@@ -296,49 +295,13 @@ impl<T: PatternType> ParsedPattern<T> {
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
-                relative: match relative_dir {
-                    Some(d) => TargetParsingRel::AllowLimitedRelative(d),
-                    None => TargetParsingRel::RequireAbsolute(cell),
-                },
+                relative,
                 infer_target: false,
                 strip_package_trailing_slash: false,
             },
             pattern,
         )
-        .with_buck_error_context(|| {
-            format!(
-                "Invalid absolute target pattern `{}` is not allowed",
-                pattern
-            )
-        })
-    }
-
-    /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, and resolving relative
-    /// targets via `enclosing_package`, if provided.
-    /// Allows everything from `parse_absolute`, plus relative patterns.
-    pub fn parse_relative(
-        target_alias_resolver: &dyn TargetAliasResolver,
-        relative_dir: CellPathRef,
-        pattern: &str,
-        cell_resolver: &CellResolver,
-        cell_alias_resolver: &CellAliasResolver,
-    ) -> buck2_error::Result<Self> {
-        parse_target_pattern(
-            cell_resolver,
-            cell_alias_resolver,
-            TargetParsingOptions {
-                relative: TargetParsingRel::AllowRelative(relative_dir, target_alias_resolver),
-                infer_target: false,
-                strip_package_trailing_slash: false,
-            },
-            pattern,
-        )
-        .with_buck_error_context(|| {
-            format!(
-                "Invalid relative target pattern `{}` is not allowed",
-                pattern
-            )
-        })
+        .with_buck_error_context(|| format!("Invalid target pattern `{}` is not allowed", pattern))
     }
 
     /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, resolving relative
@@ -1075,6 +1038,7 @@ mod tests {
     use crate::configuration::hash::ConfigurationHash;
     use crate::package::PackageLabel;
     use crate::pattern::pattern::ParsedPattern;
+    use crate::pattern::pattern::TargetParsingRel;
     use crate::pattern::pattern::TargetPatternParseError;
     use crate::pattern::pattern_type::ConfigurationPredicate;
     use crate::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -1301,10 +1265,9 @@ mod tests {
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path"),
-            ParsedPattern::<T>::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::<T>::parse_not_relaxed(
                 "...",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             )
@@ -1312,10 +1275,9 @@ mod tests {
         );
         assert_eq!(
             mk_recursive::<T>("root", "package/path/foo"),
-            ParsedPattern::<T>::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::<T>::parse_not_relaxed(
                 "foo/...",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             )
@@ -1341,10 +1303,9 @@ mod tests {
         );
         assert_eq!(
             mk_target("root", "package/path/foo", "target"),
-            ParsedPattern::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::parse_not_relaxed(
                 "foo:target",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             )?
@@ -1360,10 +1321,9 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parse_relative(
-                &NoAliases,
-                package.as_ref(),
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "path",
+                TargetParsingRel::AllowRelative(package.as_ref(), &NoAliases),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -1490,55 +1450,50 @@ mod tests {
 
         assert_eq!(
             mk_target("root", "other", "target"),
-            ParsedPattern::parsed_opt_absolute(
+            ParsedPattern::parse_not_relaxed(
                 "//other:target",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             )?
         );
         assert_eq!(
             mk_target("root", "package/path", "target"),
-            ParsedPattern::parsed_opt_absolute(
+            ParsedPattern::parse_not_relaxed(
                 ":target",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             )?
         );
-        let err = ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+        let err = ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
             ":target",
-            None,
-            CellName::testing_new("root"),
+            TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
             &resolver(),
             &alias_resolver(),
         )
         .unwrap_err();
         assert!(
             err.to_string()
-                .contains("Invalid absolute target pattern `:target` is not allowed"),
+                .contains("Invalid target pattern `:target` is not allowed"),
             "{}",
             err
         );
         // But this should be fine.
         assert_eq!(
             mk_target("cell1", "", "target"),
-            ParsedPattern::parsed_opt_absolute(
+            ParsedPattern::parse_not_relaxed(
                 "cell1//:target",
-                None,
-                CellName::testing_new("root"),
+                TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
                 &resolver(),
                 &alias_resolver(),
             )?
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -1550,10 +1505,9 @@ mod tests {
         );
 
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar:bar",
-                Some(package.as_ref()),
-                CellName::testing_new("root"),
+                TargetParsingRel::AllowLimitedRelative(package.as_ref()),
                 &resolver(),
                 &alias_resolver(),
             ),
@@ -1564,10 +1518,9 @@ mod tests {
             }
         );
         assert_matches!(
-            ParsedPattern::<TargetPatternExtra>::parsed_opt_absolute(
+            ParsedPattern::<TargetPatternExtra>::parse_not_relaxed(
                 "foo/bar:bar",
-                None,
-                CellName::testing_new("root"),
+                TargetParsingRel::RequireAbsolute(CellName::testing_new("root")),
                 &resolver(),
                 &alias_resolver(),
             ),

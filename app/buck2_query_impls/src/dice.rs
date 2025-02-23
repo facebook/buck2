@@ -34,6 +34,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::query_file_literal::parse_query_file_literal;
@@ -112,10 +113,9 @@ impl LiteralParser {
         &self,
         value: &str,
     ) -> buck2_error::Result<ParsedPattern<ProvidersPatternExtra>> {
-        ParsedPattern::parse_relative(
-            &self.target_alias_resolver,
-            self.working_dir.as_ref(),
+        ParsedPattern::parse_not_relaxed(
             value,
+            TargetParsingRel::AllowRelative(self.working_dir.as_ref(), &self.target_alias_resolver),
             &self.cell_resolver,
             &self.cell_alias_resolver,
         )
