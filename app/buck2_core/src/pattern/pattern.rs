@@ -272,7 +272,6 @@ impl<T: PatternType> ParsedPattern<T> {
             cell,
             cell_resolver,
             cell_alias_resolver,
-            None,
             TargetParsingOptions::precise(),
             pattern,
         )
@@ -295,7 +294,6 @@ impl<T: PatternType> ParsedPattern<T> {
             cell,
             cell_resolver,
             cell_alias_resolver,
-            None,
             TargetParsingOptions {
                 relative: match relative_dir {
                     Some(d) => TargetParsingRel::AllowLimitedRelative(d),
@@ -328,9 +326,8 @@ impl<T: PatternType> ParsedPattern<T> {
             relative_dir.cell(),
             cell_resolver,
             cell_alias_resolver,
-            Some(target_alias_resolver),
             TargetParsingOptions {
-                relative: TargetParsingRel::AllowRelative(relative_dir),
+                relative: TargetParsingRel::AllowRelative(relative_dir, target_alias_resolver),
                 infer_target: false,
                 strip_package_trailing_slash: false,
             },
@@ -362,9 +359,8 @@ impl<T: PatternType> ParsedPattern<T> {
             relative_dir.cell(),
             cell_resolver,
             cell_alias_resolver,
-            Some(target_alias_resolver),
             TargetParsingOptions {
-                relative: TargetParsingRel::AllowRelative(relative_dir),
+                relative: TargetParsingRel::AllowRelative(relative_dir, target_alias_resolver),
                 infer_target: true,
                 strip_package_trailing_slash: true,
             },
@@ -778,7 +774,7 @@ fn normalize_package<'a>(
 #[derive(Clone, Dupe)]
 pub enum TargetParsingRel<'a> {
     /// Parse the pattern relative to this package path
-    AllowRelative(CellPathRef<'a>),
+    AllowRelative(CellPathRef<'a>, &'a dyn TargetAliasResolver),
     /// Allows relative patterns, but only if they're like `:foo`, not `bar:foo`
     AllowLimitedRelative(CellPathRef<'a>),
     /// Require the pattern to be absolute.
@@ -790,7 +786,7 @@ pub enum TargetParsingRel<'a> {
 impl<'a> TargetParsingRel<'a> {
     fn dir(&self) -> Option<CellPathRef<'a>> {
         match self {
-            TargetParsingRel::AllowRelative(dir) => Some(*dir),
+            TargetParsingRel::AllowRelative(dir, _) => Some(*dir),
             TargetParsingRel::AllowLimitedRelative(dir) => Some(*dir),
             TargetParsingRel::RequireAbsolute => None,
         }
@@ -798,9 +794,17 @@ impl<'a> TargetParsingRel<'a> {
 
     fn allow_full_relative(&self) -> bool {
         match self {
-            TargetParsingRel::AllowRelative(_) => true,
+            TargetParsingRel::AllowRelative(_, _) => true,
             TargetParsingRel::AllowLimitedRelative(_) => false,
             TargetParsingRel::RequireAbsolute => false,
+        }
+    }
+
+    fn target_alias_resolver(&self) -> Option<&dyn TargetAliasResolver> {
+        match self {
+            TargetParsingRel::AllowRelative(_, r) => Some(*r),
+            TargetParsingRel::AllowLimitedRelative(_) => None,
+            TargetParsingRel::RequireAbsolute => None,
         }
     }
 }
@@ -832,7 +836,6 @@ fn parse_target_pattern<T>(
     cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
-    target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
 ) -> buck2_error::Result<ParsedPattern<T>>
@@ -844,7 +847,6 @@ where
             cell_name,
             cell_resolver,
             cell_alias_resolver,
-            target_alias_resolver,
             opts,
             pattern,
         )?;
@@ -885,7 +887,6 @@ fn parse_target_pattern_no_validate<T>(
     cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
-    target_alias_resolver: Option<&dyn TargetAliasResolver>,
     opts: TargetParsingOptions,
     pattern: &str,
 ) -> buck2_error::Result<ParsedPattern<T>>
@@ -908,7 +909,7 @@ where
 
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 
-    if let Some(target_alias_resolver) = target_alias_resolver {
+    if let Some(target_alias_resolver) = relative.target_alias_resolver() {
         if let Some(aliased) = resolve_target_alias(
             cell_name,
             cell_resolver,
@@ -1028,7 +1029,6 @@ where
         cell_name,
         cell_resolver,
         cell_alias_resolver,
-        None,
         TargetParsingOptions::precise(),
         alias,
     )
