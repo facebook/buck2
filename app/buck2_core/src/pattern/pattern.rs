@@ -12,7 +12,6 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_error::buck2_error;
-use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -269,10 +268,13 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
         parse_target_pattern(
-            cell,
             cell_resolver,
             cell_alias_resolver,
-            TargetParsingOptions::precise(),
+            TargetParsingOptions {
+                relative: TargetParsingRel::RequireAbsolute(cell),
+                infer_target: false,
+                strip_package_trailing_slash: false,
+            },
             pattern,
         )
         .with_buck_error_context(|| {
@@ -291,13 +293,12 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
         parse_target_pattern(
-            cell,
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
                 relative: match relative_dir {
                     Some(d) => TargetParsingRel::AllowLimitedRelative(d),
-                    None => TargetParsingRel::RequireAbsolute,
+                    None => TargetParsingRel::RequireAbsolute(cell),
                 },
                 infer_target: false,
                 strip_package_trailing_slash: false,
@@ -323,7 +324,6 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
         parse_target_pattern(
-            relative_dir.cell(),
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
@@ -356,7 +356,6 @@ impl<T: PatternType> ParsedPattern<T> {
         cell_alias_resolver: &CellAliasResolver,
     ) -> buck2_error::Result<Self> {
         parse_target_pattern(
-            relative_dir.cell(),
             cell_resolver,
             cell_alias_resolver,
             TargetParsingOptions {
@@ -780,7 +779,7 @@ pub enum TargetParsingRel<'a> {
     /// Require the pattern to be absolute.
     ///
     /// Still allows reference to the self-cell (`//foo:bar`)
-    RequireAbsolute,
+    RequireAbsolute(CellName),
 }
 
 impl<'a> TargetParsingRel<'a> {
@@ -788,7 +787,7 @@ impl<'a> TargetParsingRel<'a> {
         match self {
             TargetParsingRel::AllowRelative(dir, _) => Some(*dir),
             TargetParsingRel::AllowLimitedRelative(dir) => Some(*dir),
-            TargetParsingRel::RequireAbsolute => None,
+            TargetParsingRel::RequireAbsolute(_) => None,
         }
     }
 
@@ -796,7 +795,7 @@ impl<'a> TargetParsingRel<'a> {
         match self {
             TargetParsingRel::AllowRelative(_, _) => true,
             TargetParsingRel::AllowLimitedRelative(_) => false,
-            TargetParsingRel::RequireAbsolute => false,
+            TargetParsingRel::RequireAbsolute(_) => false,
         }
     }
 
@@ -804,7 +803,15 @@ impl<'a> TargetParsingRel<'a> {
         match self {
             TargetParsingRel::AllowRelative(_, r) => Some(*r),
             TargetParsingRel::AllowLimitedRelative(_) => None,
-            TargetParsingRel::RequireAbsolute => None,
+            TargetParsingRel::RequireAbsolute(_) => None,
+        }
+    }
+
+    fn cell(&self) -> CellName {
+        match self {
+            TargetParsingRel::AllowRelative(p, _) => p.cell(),
+            TargetParsingRel::AllowLimitedRelative(p) => p.cell(),
+            TargetParsingRel::RequireAbsolute(c) => *c,
         }
     }
 }
@@ -820,20 +827,9 @@ struct TargetParsingOptions<'a> {
     strip_package_trailing_slash: bool,
 }
 
-impl<'a> TargetParsingOptions<'a> {
-    fn precise() -> TargetParsingOptions<'a> {
-        TargetParsingOptions {
-            relative: TargetParsingRel::RequireAbsolute,
-            infer_target: false,
-            strip_package_trailing_slash: false,
-        }
-    }
-}
-
 /// Parse a TargetPattern out, resolving aliases via `cell_resolver`, and resolving relative
 /// targets via `enclosing_package`, if provided.
 fn parse_target_pattern<T>(
-    cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
     opts: TargetParsingOptions,
@@ -844,7 +840,6 @@ where
 {
     let res: buck2_error::Result<_> = try {
         let parsed_pattern = parse_target_pattern_no_validate::<T>(
-            cell_name,
             cell_resolver,
             cell_alias_resolver,
             opts,
@@ -884,7 +879,6 @@ where
 }
 
 fn parse_target_pattern_no_validate<T>(
-    cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
     opts: TargetParsingOptions,
@@ -899,19 +893,11 @@ where
         strip_package_trailing_slash,
     } = opts;
 
-    if let Some(dir) = relative.dir() {
-        if dir.cell() != cell_name {
-            return Err(internal_error!(
-                "Cell resolver cell `{cell_name}` does not match the given relative dir `{dir}`"
-            ));
-        }
-    }
-
     let lex = lex_target_pattern(pattern, strip_package_trailing_slash)?;
 
     if let Some(target_alias_resolver) = relative.target_alias_resolver() {
         if let Some(aliased) = resolve_target_alias(
-            cell_name,
+            relative.cell(),
             cell_resolver,
             cell_alias_resolver,
             target_alias_resolver,
@@ -1026,10 +1012,13 @@ where
 
     // We found a matching alias. Parse the alias as a target.
     let res = parse_target_pattern::<TargetPatternExtra>(
-        cell_name,
         cell_resolver,
         cell_alias_resolver,
-        TargetParsingOptions::precise(),
+        TargetParsingOptions {
+            relative: TargetParsingRel::RequireAbsolute(cell_name),
+            infer_target: false,
+            strip_package_trailing_slash: false,
+        },
         alias,
     )
     .with_buck_error_context(|| ResolveTargetAliasError::ErrorDereferencing {
