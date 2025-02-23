@@ -230,13 +230,6 @@ impl ProvidersLabel {
     pub fn configure_pair_no_exec(&self, cfg: ConfigurationNoExec) -> ConfiguredProvidersLabel {
         self.configure_pair(cfg.cfg_pair().dupe())
     }
-
-    /// Determines whether a string, **IF IT IS LATER COERCED** would be a relative label.
-    ///
-    /// This function **DOES NOT** validate the entire label string.
-    pub fn maybe_relative_label(raw_label: &str) -> bool {
-        raw_label.starts_with(':')
-    }
 }
 
 impl Serialize for ProvidersLabel {
@@ -346,7 +339,6 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use crate::provider::label::ProviderName;
-    use crate::provider::label::ProvidersLabel;
 
     #[test]
     fn providers_name_validation() {
@@ -354,17 +346,5 @@ mod tests {
         ProviderName::new("foo_-,.=+/1".to_owned()).unwrap();
         assert!(ProviderName::new("foo bar".to_owned()).is_err());
         assert!(ProviderName::new("foo@bar".to_owned()).is_err());
-    }
-
-    #[test]
-    fn providers_label_maybe_relative() {
-        assert!(ProvidersLabel::maybe_relative_label(":foo"));
-        assert!(ProvidersLabel::maybe_relative_label(":foo[bar]"));
-        assert!(ProvidersLabel::maybe_relative_label(":invalid@label"));
-        assert!(!ProvidersLabel::maybe_relative_label("root//:bar"));
-        assert!(!ProvidersLabel::maybe_relative_label("root//foo:foo"));
-        assert!(!ProvidersLabel::maybe_relative_label(
-            "root//foo:invalid@label"
-        ));
     }
 }
