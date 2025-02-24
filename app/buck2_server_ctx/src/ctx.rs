@@ -47,7 +47,7 @@ const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "synchronizing-and-waiting";
 
 #[derive(Allocative, Debug)]
 pub struct PreviousCommandDataInternal {
-    pub external_configs: Vec<buck2_data::BuckconfigComponent>,
+    pub external_and_local_configs: Vec<buck2_data::BuckconfigComponent>,
     pub sanitized_argv: Vec<String>,
     pub trace_id: TraceId,
 }
@@ -61,17 +61,17 @@ impl PreviousCommandData {
     pub fn process_current_command(
         &mut self,
         event_dispatcher: EventDispatcher,
-        current_external_configs: Vec<buck2_data::BuckconfigComponent>,
+        current_external_and_local_configs: Vec<buck2_data::BuckconfigComponent>,
         current_sanitized_argv: Vec<String>,
         current_trace: TraceId,
     ) {
         if let Some(PreviousCommandDataInternal {
-            external_configs,
+            external_and_local_configs: external_configs,
             sanitized_argv,
             trace_id,
         }) = self.data.as_ref()
         {
-            if *current_external_configs != *external_configs {
+            if *current_external_and_local_configs != *external_configs {
                 event_dispatcher.instant_event(buck2_data::PreviousCommandWithMismatchedConfig {
                     sanitized_argv: sanitized_argv.clone(),
                     trace_id: trace_id.to_string(),
@@ -80,7 +80,7 @@ impl PreviousCommandData {
         }
 
         self.data = Some(PreviousCommandDataInternal {
-            external_configs: current_external_configs,
+            external_and_local_configs: current_external_and_local_configs,
             sanitized_argv: current_sanitized_argv,
             trace_id: current_trace,
         });
@@ -279,6 +279,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             self.cancellation_context(),
                             preemptible,
                             self.previous_command_data().into(),
+                            self.project_root(),
                         )
                         .await,
                     DiceCriticalSectionEnd {},

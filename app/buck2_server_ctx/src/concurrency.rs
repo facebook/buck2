@@ -22,6 +22,7 @@ use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::soft_error;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
@@ -347,6 +348,7 @@ impl ConcurrencyHandler {
         cancellations: &CancellationContext,
         preemptible: PreemptibleWhen,
         previous_command_data: Arc<LockedPreviousCommandData>,
+        project_root: &ProjectRoot,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -384,6 +386,7 @@ impl ConcurrencyHandler {
                                 exit_when_different_state,
                                 preemptible,
                                 previous_command_data,
+                                project_root,
                             )
                         })
                         .await,
@@ -417,6 +420,7 @@ impl ConcurrencyHandler {
         exit_when_different_state: bool,
         preemptible: PreemptibleWhen,
         previous_command_data: Arc<LockedPreviousCommandData>,
+        project_root: &ProjectRoot,
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
@@ -600,23 +604,25 @@ impl ConcurrencyHandler {
             .await?
         {
             let external_configs = transaction.get_injected_external_buckconfig_data().await?;
-            let current_external_configs: Vec<buck2_data::BuckconfigComponent> =
-                external_configs.get_buckconfig_components();
+            let current_external_and_local_configs: Vec<buck2_data::BuckconfigComponent> =
+                external_configs
+                    .get_buckconfig_components(project_root)
+                    .await;
 
             let mut previous_command_data = previous_command_data.data.lock().unwrap();
 
             previous_command_data.process_current_command(
                 event_dispatcher.dupe(),
-                current_external_configs.clone(),
+                current_external_and_local_configs.clone(),
                 current_sanitized_argv,
                 trace,
             );
 
             event_dispatcher.instant_event(buck2_data::TagEvent {
-                tags: get_experiment_tags(&current_external_configs),
+                tags: get_experiment_tags(&current_external_and_local_configs),
             });
             event_dispatcher.instant_event(buck2_data::BuckconfigInputValues {
-                components: current_external_configs,
+                components: current_external_and_local_configs,
             });
         }
         // create the on exit drop handler, which will take care of notifying tasks.
@@ -763,6 +769,7 @@ mod tests {
     use assert_matches::assert_matches;
     use async_trait::async_trait;
     use buck2_common::legacy_configs::dice::SetLegacyConfigs;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::is_open_source;
     use buck2_events::create_source_sink_pair;
     use buck2_events::source::ChannelEventSource;
@@ -844,6 +851,8 @@ mod tests {
 
         let barrier = Arc::new(Barrier::new(3));
 
+        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
+
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
             &NoChanges,
@@ -860,6 +869,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -877,6 +887,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -894,6 +905,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -912,6 +924,7 @@ mod tests {
         let traces2 = TraceId::new();
 
         let barrier = Arc::new(Barrier::new(2));
+        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
@@ -929,6 +942,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         let fut2 = concurrency.enter(
@@ -947,6 +961,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -969,6 +984,8 @@ mod tests {
 
         let barrier = Arc::new(Barrier::new(3));
 
+        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
+
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
             &NoChanges,
@@ -985,6 +1002,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -1002,6 +1020,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -1019,6 +1038,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -1069,6 +1089,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1095,6 +1116,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1123,6 +1145,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1189,6 +1212,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1215,6 +1239,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1243,6 +1268,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1314,6 +1340,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Always,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1340,6 +1367,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1368,6 +1396,7 @@ mod tests {
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
                         LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1472,6 +1501,7 @@ mod tests {
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
                 LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
             )
             .await?;
 
@@ -1492,6 +1522,7 @@ mod tests {
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
                 LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
             )
             .await?;
 
@@ -1511,6 +1542,7 @@ mod tests {
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
                 LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
             )
             .await?;
 
@@ -1620,6 +1652,7 @@ mod tests {
                             CancellationContext::testing(),
                             PreemptibleWhen::Never,
                             LockedPreviousCommandData::default().into(),
+                            ProjectRootTemp::new().unwrap().path(),
                         )
                         .await
                 }
@@ -1696,6 +1729,7 @@ mod tests {
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
                     LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
                 )
                 .await
         });
@@ -1741,6 +1775,7 @@ mod tests {
             on_enter: AtomicBool::new(false),
             allow_exit: AtomicBool::new(false),
         };
+        let project_root_temp = ProjectRootTemp::new().unwrap();
         let fut1 = concurrency.enter(
             EventDispatcher::null(),
             &updater1,
@@ -1754,6 +1789,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         pin_mut!(fut1);
 
@@ -1776,6 +1812,7 @@ mod tests {
             CancellationContext::testing(),
             PreemptibleWhen::Never,
             LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         pin_mut!(fut2);
 

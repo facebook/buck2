@@ -40,6 +40,9 @@ async def test_external_buckconfigs(buck: Buck) -> None:
         with open(buck.cwd / "src", "w") as src:
             src.write("test")
 
+        with open(buck.cwd / ".buckconfig.local", "w") as localconfig:
+            localconfig.write("[local_section]\n")
+            localconfig.write("local_key = local_value\n")
         await buck.build(
             "@root//mode/my_mode",
             "//:test",
@@ -52,20 +55,23 @@ async def test_external_buckconfigs(buck: Buck) -> None:
     buckconfig_input_values = await filter_events(
         buck, "Event", "data", "Instant", "data", "BuckconfigInputValues", "components"
     )
+
     assert len(buckconfig_input_values) == 1
     external_configs = buckconfig_input_values[0]
 
-    assert len(external_configs) == 4
+    assert len(external_configs) == 5
     external_index = 0
     # The order is important here. We first have the buckconfig values from external sources
     external_path_configs = external_configs[0]["data"]["GlobalExternalConfigFile"]
+    assert len(external_path_configs["values"]) == 2
+
     # Our tests inject file_watcher to external configs in test setup stage
-    injected_config_value = external_path_configs["values"][external_index]
+    local_config_value = external_path_configs["values"][external_index]
     assert (
-        injected_config_value["section"] == "buck2"
-        and injected_config_value["key"] == "file_watcher"
-        and injected_config_value["value"] == "fs_hash_crawler"
-        and not injected_config_value["is_cli"]
+        local_config_value["section"] == "buck2"
+        and local_config_value["key"] == "file_watcher"
+        and local_config_value["value"] == "fs_hash_crawler"
+        and not local_config_value["is_cli"]
     )
     external_index += 1
     external_path_config_value = external_path_configs["values"][external_index]
@@ -77,24 +83,37 @@ async def test_external_buckconfigs(buck: Buck) -> None:
     )
     # since the origin is a tempfile, we can't assert the exact path
     assert external_path_configs["origin_path"].endswith("extra.bcfg")
+
+    # Next comes the buckconfig.local values
+    local_path_configs = external_configs[1]["data"]["GlobalExternalConfigFile"]
+    assert len(local_path_configs["values"]) == 1
+    assert local_path_configs["origin_path"] == ".buckconfig.local"
+    local_config_value = local_path_configs["values"][0]
+    assert (
+        local_config_value["section"] == "local_section"
+        and local_config_value["key"] == "local_key"
+        and local_config_value["value"] == "local_value"
+        and not local_config_value["is_cli"]
+    )
+
     # The rest matches the same order provided by the above buck command
     # i.e. modefile, command line config flag, followed by the config file
 
     # We only store the path of the modefile
     assert (
-        external_configs[1]["data"]["ConfigFile"]["data"]["ProjectRelativePath"]
+        external_configs[2]["data"]["ConfigFile"]["data"]["ProjectRelativePath"]
         == "my_mode.bcfg"
     )
 
     # Then comes the config flag from the cli
-    config_flag = external_configs[2]["data"]["ConfigValue"]
+    config_flag = external_configs[3]["data"]["ConfigValue"]
     assert config_flag["is_cli"]
     assert (
         config_flag["section"] == "my_section"
         and config_flag["key"] == "my_key"
         and config_flag["value"] == "my_value"
     )
-    config_file = external_configs[3]["data"]["ConfigFile"]["data"][
+    config_file = external_configs[4]["data"]["ConfigFile"]["data"][
         "GlobalExternalConfig"
     ]
 

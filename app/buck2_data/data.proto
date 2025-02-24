@@ -339,12 +339,13 @@ message ConfigValue {
 
 message ConfigFile {
   oneof data {
-    // If the config file is project relative, the path of the file. We only
-    // store the path, not actual values of project-relative buckconfigs because
-    // they are huge/costly to store
+    // If the config file is project relative (except .buckconfig.local), the
+    // path of the file. We only store the path, not actual values of
+    // project-relative buckconfigs because they are huge/costly to store
     string project_relative_path = 1;
-    // If the config file is external, we store all the config values in a list
-    // along with the path the file is originating from
+    // If the config file is external or project-relative .buckconfig.local, we
+    // store all the config values in a list along with the path the file is
+    // originating from
     GlobalExternalConfig global_external_config = 2;
   }
 }

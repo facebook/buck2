@@ -51,6 +51,7 @@ use crate::legacy_configs::path::ExternalConfigSource;
 use crate::legacy_configs::path::ProjectConfigSource;
 use crate::legacy_configs::path::DEFAULT_EXTERNAL_CONFIG_SOURCES;
 use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
+use crate::legacy_configs::path::DOT_BUCKCONFIG_LOCAL;
 
 /// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
@@ -115,7 +116,42 @@ impl ExternalBuckconfigData {
         }
     }
 
-    pub fn get_buckconfig_components(&self) -> Vec<buck2_data::BuckconfigComponent> {
+    async fn get_local_config_component(
+        project_root: &ProjectRoot,
+    ) -> Option<buck2_data::BuckconfigComponent> {
+        use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
+
+        let root_path = CellRootPathBuf::new(ProjectRelativePath::empty().to_owned());
+
+        let path = ForwardRelativePath::new(DOT_BUCKCONFIG_LOCAL).expect(
+            "Internal error: .buckconfig.local should always be a valid forward relative path",
+        );
+        let local_config = ConfigPath::Project(root_path.as_project_relative_path().join(path));
+
+        let file_ops = &mut DefaultConfigParserFileOps {
+            project_fs: project_root.dupe(),
+        };
+
+        let mut parser = LegacyConfigParser::new();
+        parser
+            .parse_file(&local_config, None, false, file_ops)
+            .await
+            .ok()
+            .map(|_| {
+                let project_config_local = buck2_data::GlobalExternalConfig {
+                    values: parser.to_proto_external_config_values(false),
+                    origin_path: DOT_BUCKCONFIG_LOCAL.to_owned(),
+                };
+                buck2_data::BuckconfigComponent {
+                    data: Some(GlobalExternalConfigFile(project_config_local)),
+                }
+            })
+    }
+
+    pub async fn get_buckconfig_components(
+        &self,
+        project_root: &ProjectRoot,
+    ) -> Vec<buck2_data::BuckconfigComponent> {
         use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
         let mut res: Vec<buck2_data::BuckconfigComponent> = self
             .external_path_configs
@@ -131,6 +167,10 @@ impl ExternalBuckconfigData {
                 }
             })
             .collect();
+
+        if let Some(local_config_component) = Self::get_local_config_component(project_root).await {
+            res.push(local_config_component)
+        }
         res.extend(to_proto_config_args(&self.args));
         res
     }
