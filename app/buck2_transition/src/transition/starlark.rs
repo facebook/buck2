@@ -97,9 +97,7 @@ pub(crate) struct FrozenTransition {
     id: Arc<TransitionId>,
     pub(crate) implementation: FrozenValue,
     pub(crate) refs: SmallMap<FrozenStringValue, TargetLabel>,
-    pub(crate) attrs_names_starlark: Option<Vec<FrozenStringValue>>,
-    // the same as `attrs_names_starlark` but String representation
-    pub(crate) attrs_names: Option<Arc<[String]>>,
+    pub(crate) attrs_names: Option<Vec<FrozenStringValue>>,
     pub(crate) split: bool,
 }
 
@@ -152,21 +150,12 @@ impl<'v> Freeze for Transition<'v> {
             .attrs
             .map(|a| a.into_try_map(|a| a.freeze(freezer)))
             .transpose()?;
-        let attrs_names = attrs.as_ref().map(|attrs| {
-            Arc::from(
-                attrs
-                    .iter()
-                    .map(|a| a.as_str().to_owned())
-                    .collect::<Vec<_>>(),
-            )
-        });
         let split = self.split;
         Ok(FrozenTransition {
             id,
             implementation,
             refs,
-            attrs_names_starlark: attrs,
-            attrs_names,
+            attrs_names: attrs,
             split,
         })
     }

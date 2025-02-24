@@ -12,6 +12,7 @@ async-trait = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 itertools = { workspace = true }
+ref-cast = { workspace = true }
 
 allocative = { workspace = true }
 dice = { workspace = true }
