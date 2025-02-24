@@ -188,6 +188,7 @@ export const sidebars: SidebarsConfig = {
           items: [
             'bxl/explanation/basics',
             'bxl/explanation/labels_and_nodes',
+            'bxl/explanation/bxl_cquery_vs_cli_cquery',
           ]
         },
         'bxl/faq',
