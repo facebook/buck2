@@ -22,8 +22,8 @@ use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
 
-use crate::configuration::resolved::ResolvedConfiguration;
-use crate::configuration::resolved::ResolvedConfigurationSettings;
+use crate::configuration::resolved::MatchedConfigurationSettingKeys;
+use crate::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -35,7 +35,7 @@ pub enum PlatformConfigurationError {
 /// The context for attribute configuration. Contains information about the
 /// configuration.
 pub trait AttrConfigurationContext {
-    fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings;
+    fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys;
 
     fn cfg(&self) -> ConfigurationNoExec;
 
@@ -101,7 +101,7 @@ pub trait AttrConfigurationContext {
 }
 
 pub struct AttrConfigurationContextImpl<'b> {
-    resolved_cfg: &'b ResolvedConfiguration,
+    resolved_cfg: &'b MatchedConfigurationSettingKeysWithCfg,
     exec_cfg: ConfigurationNoExec,
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     toolchain_cfg: ConfigurationWithExec,
@@ -111,7 +111,7 @@ pub struct AttrConfigurationContextImpl<'b> {
 
 impl<'b> AttrConfigurationContextImpl<'b> {
     pub fn new(
-        resolved_cfg: &'b ResolvedConfiguration,
+        resolved_cfg: &'b MatchedConfigurationSettingKeysWithCfg,
         exec_cfg: ConfigurationNoExec,
         resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
@@ -127,7 +127,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
 }
 
 impl<'b> AttrConfigurationContext for AttrConfigurationContextImpl<'b> {
-    fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+    fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
         self.resolved_cfg.settings()
     }
 

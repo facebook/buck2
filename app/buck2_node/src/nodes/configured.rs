@@ -59,8 +59,8 @@ use crate::bzl_or_bxl_path::BzlOrBxlPath;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
 use crate::configuration::resolved::ConfigurationSettingKey;
-use crate::configuration::resolved::ResolvedConfiguration;
-use crate::configuration::resolved::ResolvedConfigurationSettings;
+use crate::configuration::resolved::MatchedConfigurationSettingKeys;
+use crate::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use crate::nodes::attributes::DEPS;
 use crate::nodes::attributes::EXECUTION_PLATFORM;
 use crate::nodes::attributes::ONCALL;
@@ -184,7 +184,7 @@ impl TargetNodeOrForward {
 struct ConfiguredTargetNodeData {
     label: Hashed<ConfiguredTargetLabel>,
     target_node: TargetNodeOrForward,
-    resolved_configuration: ResolvedConfiguration,
+    resolved_configuration: MatchedConfigurationSettingKeysWithCfg,
     resolved_transition_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
     execution_platform_resolution: ExecutionPlatformResolution,
     // all_deps includes regular deps and transitioned deps,
@@ -231,9 +231,9 @@ impl ConfiguredTargetNode {
                 internal_attrs,
                 call_stack,
             ),
-            ResolvedConfiguration::new(
+            MatchedConfigurationSettingKeysWithCfg::new(
                 ConfigurationNoExec::new(name.cfg().dupe()),
-                ResolvedConfigurationSettings::empty(),
+                MatchedConfigurationSettingKeys::empty(),
             ),
             OrderedMap::new(),
             execution_platform_resolution,
@@ -247,7 +247,7 @@ impl ConfiguredTargetNode {
     pub fn new(
         name: ConfiguredTargetLabel,
         target_node: TargetNode,
-        resolved_configuration: ResolvedConfiguration,
+        resolved_configuration: MatchedConfigurationSettingKeysWithCfg,
         resolved_tr_configurations: OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         execution_platform_resolution: ExecutionPlatformResolution,
         deps: Vec<ConfiguredTargetNode>,
@@ -305,9 +305,9 @@ impl ConfiguredTargetNode {
                     transitioned_node.dupe(),
                 ),
                 // We have no attributes with selects, so resolved configurations is empty.
-                resolved_configuration: ResolvedConfiguration::new(
+                resolved_configuration: MatchedConfigurationSettingKeysWithCfg::new(
                     name.cfg_pair().check_no_exec_cfg()?,
-                    ResolvedConfigurationSettings::empty(),
+                    MatchedConfigurationSettingKeys::empty(),
                 ),
                 // We have no attributes to transition, so empty map is fine.
                 resolved_transition_configurations: OrderedMap::new(),

@@ -58,8 +58,8 @@ use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
-use buck2_node::configuration::resolved::ResolvedConfiguration;
-use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
+use buck2_node::configuration::resolved::MatchedConfigurationSettingKeys;
+use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculationImpl;
@@ -163,7 +163,7 @@ enum PluginDepError {
 
 fn unpack_target_compatible_with_attr(
     target_node: TargetNodeRef,
-    resolved_cfg: &ResolvedConfiguration,
+    resolved_cfg: &MatchedConfigurationSettingKeysWithCfg,
     attr_name: &str,
 ) -> buck2_error::Result<Option<ConfiguredAttr>> {
     let attr = target_node.attr_or_none(attr_name, AttrInspectOptions::All);
@@ -173,11 +173,11 @@ fn unpack_target_compatible_with_attr(
     };
 
     struct AttrConfigurationContextToResolveCompatibleWith<'c> {
-        resolved_cfg: &'c ResolvedConfiguration,
+        resolved_cfg: &'c MatchedConfigurationSettingKeysWithCfg,
     }
 
     impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'c> {
-        fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+        fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
             self.resolved_cfg.settings()
         }
 
@@ -239,7 +239,7 @@ fn unpack_target_compatible_with_attr(
 fn check_compatible(
     target_label: &ConfiguredTargetLabel,
     target_node: TargetNodeRef,
-    resolved_cfg: &ResolvedConfiguration,
+    resolved_cfg: &MatchedConfigurationSettingKeysWithCfg,
 ) -> buck2_error::Result<MaybeCompatible<()>> {
     let target_compatible_with = unpack_target_compatible_with_attr(
         target_node,
@@ -564,23 +564,23 @@ pub(crate) async fn gather_deps(
 async fn resolve_transition_attrs<'a>(
     transitions: impl Iterator<Item = &TransitionId>,
     target_node: &'a TargetNode,
-    resolved_cfg: &ResolvedConfiguration,
+    matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
     platform_cfgs: &OrderedMap<TargetLabel, ConfigurationData>,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<OrderedMap<&'a str, Arc<ConfiguredAttr>>> {
     struct AttrConfigurationContextToResolveTransitionAttrs<'c> {
-        resolved_cfg: &'c ResolvedConfiguration,
+        matched_cfg_keys: &'c MatchedConfigurationSettingKeysWithCfg,
         toolchain_cfg: ConfigurationWithExec,
         platform_cfgs: &'c OrderedMap<TargetLabel, ConfigurationData>,
     }
 
     impl<'c> AttrConfigurationContext for AttrConfigurationContextToResolveTransitionAttrs<'c> {
-        fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
-            self.resolved_cfg.settings()
+        fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
+            self.matched_cfg_keys.settings()
         }
 
         fn cfg(&self) -> ConfigurationNoExec {
-            self.resolved_cfg.cfg().dupe()
+            self.matched_cfg_keys.cfg().dupe()
         }
 
         fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
@@ -610,9 +610,9 @@ async fn resolve_transition_attrs<'a>(
     }
 
     let cfg_ctx = AttrConfigurationContextToResolveTransitionAttrs {
-        resolved_cfg,
+        matched_cfg_keys,
         platform_cfgs,
-        toolchain_cfg: resolved_cfg
+        toolchain_cfg: matched_cfg_keys
             .cfg()
             .make_toolchain(&ConfigurationNoExec::unbound_exec()),
     };
@@ -697,7 +697,7 @@ async fn compute_configured_target_node_no_transition(
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
     let resolved_configuration = ctx
-        .get_resolved_configuration(
+        .get_matched_cfg_keys(
             target_cfg,
             CellNameForConfigurationResolution(target_cell),
             target_node.get_configuration_deps(),
@@ -928,8 +928,8 @@ async fn compute_configured_forward_target_node(
     let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref())
         .boxed()
         .await?;
-    let resolved_configuration = ctx
-        .get_resolved_configuration(
+    let matched_cfg_keys = ctx
+        .get_matched_cfg_keys(
             target_label_before_transition.cfg(),
             CellNameForConfigurationResolution(target_node.label().pkg().cell_name()),
             target_node.get_configuration_deps(),
@@ -945,7 +945,7 @@ async fn compute_configured_forward_target_node(
     let attrs = resolve_transition_attrs(
         iter::once(transition_id),
         target_node,
-        &resolved_configuration,
+        &matched_cfg_keys,
         &platform_cfgs,
         ctx,
     )
@@ -991,7 +991,7 @@ async fn compute_configured_forward_target_node(
         if let MaybeCompatible::Compatible(node) = &transitioned_node {
             // check that the attrs weren't changed first. This should be the only way that we can hit non-idempotence
             // here and gives a better error than if we just give the general idempotence error.
-            verify_transitioned_attrs(&attrs, resolved_configuration.cfg().cfg(), node)?;
+            verify_transitioned_attrs(&attrs, matched_cfg_keys.cfg().cfg(), node)?;
 
             if let Some(forward) = node.forward_target() {
                 return Err(NodeCalculationError::TransitionNotIdempotent(

@@ -18,7 +18,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 
 use crate::configuration::resolved::ConfigurationSettingKey;
-use crate::configuration::resolved::ResolvedConfiguration;
+use crate::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 
 #[async_trait]
 pub trait ConfigurationCalculationDyn: Send + Sync + 'static {
@@ -28,13 +28,13 @@ pub trait ConfigurationCalculationDyn: Send + Sync + 'static {
         target: &TargetLabel,
     ) -> buck2_error::Result<ConfigurationData>;
 
-    async fn get_resolved_configuration(
+    async fn get_matched_cfg_keys(
         &self,
         dice: &mut DiceComputations<'_>,
         target_cfg: &ConfigurationData,
         target_node_cell: CellNameForConfigurationResolution,
         configuration_deps: &[ConfigurationSettingKey],
-    ) -> buck2_error::Result<ResolvedConfiguration>;
+    ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg>;
 }
 
 /// For config_settings that need to be resolved when producing a ResolvedConfiguration, the buckconfig values are looked up in

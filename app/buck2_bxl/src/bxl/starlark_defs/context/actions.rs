@@ -91,7 +91,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     };
     let resolved_configuration = CONFIGURATION_CALCULATION
         .get()?
-        .get_resolved_configuration(ctx, &platform_configuration, cell, &exec_compatible_with)
+        .get_matched_cfg_keys(ctx, &platform_configuration, cell, &exec_compatible_with)
         .await?;
 
     // there is not explicit configured deps, so platforms is empty

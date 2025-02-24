@@ -606,12 +606,10 @@ impl CoercedAttr {
         select: &'a CoercedSelector,
     ) -> buck2_error::Result<&'a CoercedAttr> {
         let CoercedSelector { entries, default } = select;
-        let resolved_cfg_settings = ctx.resolved_cfg_settings();
-        let resolved_entries = entries.iter().filter_map(|(k, v)| {
-            resolved_cfg_settings
-                .setting_matches(k)
-                .map(|conf| (k, conf, v))
-        });
+        let matched_cfg_keys = ctx.matched_cfg_keys();
+        let resolved_entries = entries
+            .iter()
+            .filter_map(|(k, v)| matched_cfg_keys.setting_matches(k).map(|conf| (k, conf, v)));
         if let Some(v) = Self::select_the_most_specific(resolved_entries)? {
             Ok(v)
         } else {

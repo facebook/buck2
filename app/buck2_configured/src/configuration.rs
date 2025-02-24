@@ -28,8 +28,8 @@ use buck2_node::configuration::calculation::ConfigurationCalculationDyn;
 use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
-use buck2_node::configuration::resolved::ResolvedConfiguration;
-use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
+use buck2_node::configuration::resolved::MatchedConfigurationSettingKeys;
+use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -102,7 +102,7 @@ struct ConfigurationNodeKey {
     target_cell,
     configuration_deps.len()
 )]
-struct ResolvedConfigurationKey {
+struct MatchedConfigurationSettingKeysKey {
     target_cfg: ConfigurationData,
     target_cell: CellNameForConfigurationResolution,
     configuration_deps: Vec<ConfigurationSettingKey>,
@@ -115,15 +115,12 @@ pub(crate) trait ConfigurationCalculation {
         target: &TargetLabel,
     ) -> buck2_error::Result<ConfigurationData>;
 
-    async fn get_resolved_configuration<
-        'a,
-        T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send,
-    >(
+    async fn get_matched_cfg_keys<'a, T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send>(
         &mut self,
         target_cfg: &ConfigurationData,
         target_node_cell: CellNameForConfigurationResolution,
         configuration_deps: T,
-    ) -> buck2_error::Result<ResolvedConfiguration>;
+    ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg>;
 }
 
 struct ConfigurationCalculationDynImpl;
@@ -138,14 +135,14 @@ impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
         Ok(ctx.get_platform_configuration(target).await?)
     }
 
-    async fn get_resolved_configuration(
+    async fn get_matched_cfg_keys(
         &self,
         ctx: &mut DiceComputations<'_>,
         target_cfg: &ConfigurationData,
         target_node_cell: CellNameForConfigurationResolution,
         configuration_deps: &[ConfigurationSettingKey],
-    ) -> buck2_error::Result<ResolvedConfiguration> {
-        ctx.get_resolved_configuration(target_cfg, target_node_cell, configuration_deps)
+    ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
+        ctx.get_matched_cfg_keys(target_cfg, target_node_cell, configuration_deps)
             .await
     }
 }
@@ -214,8 +211,8 @@ async fn compute_platform_configuration(
 }
 
 #[async_trait]
-impl Key for ResolvedConfigurationKey {
-    type Value = buck2_error::Result<ResolvedConfiguration>;
+impl Key for MatchedConfigurationSettingKeysKey {
+    type Value = buck2_error::Result<MatchedConfigurationSettingKeysWithCfg>;
 
     async fn compute(
         &self,
@@ -239,8 +236,8 @@ impl Key for ResolvedConfigurationKey {
             let node = node?;
             resolved_settings.insert(label, node);
         }
-        let resolved_settings = ResolvedConfigurationSettings::new(resolved_settings);
-        Ok(ResolvedConfiguration::new(
+        let resolved_settings = MatchedConfigurationSettingKeys::new(resolved_settings);
+        Ok(MatchedConfigurationSettingKeysWithCfg::new(
             ConfigurationNoExec::new(self.target_cfg.dupe()),
             resolved_settings,
         ))
@@ -349,7 +346,7 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             .map_err(buck2_error::Error::from)
     }
 
-    async fn get_resolved_configuration<
+    async fn get_matched_cfg_keys<
         'a,
         T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send,
     >(
@@ -357,10 +354,10 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         target_cfg: &ConfigurationData,
         target_cell: CellNameForConfigurationResolution,
         configuration_deps: T,
-    ) -> buck2_error::Result<ResolvedConfiguration> {
+    ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
         let configuration_deps: Vec<ConfigurationSettingKey> =
             configuration_deps.into_iter().map(|t| t.dupe()).collect();
-        self.compute(&ResolvedConfigurationKey {
+        self.compute(&MatchedConfigurationSettingKeysKey {
             target_cfg: target_cfg.dupe(),
             target_cell,
             configuration_deps,
