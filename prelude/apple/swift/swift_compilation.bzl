@@ -18,7 +18,7 @@ load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "g
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
 load(
     "@prelude//cxx:cxx_sources.bzl",
@@ -148,6 +148,13 @@ _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency",
 
 _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
 
+def _get_target_flags(ctx) -> list[str]:
+    if get_cxx_platform_info(ctx).name.startswith("linux"):
+        # Linux triples are unversioned
+        return ["-target", "{}-unknown-linux-gnu".format(get_swift_toolchain_info(ctx).architecture)]
+    else:
+        return ["-target", get_target_triple(ctx)]
+
 def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: typing.Callable) -> Promise:
     # Get SDK deps from direct dependencies,
     # all transitive deps will be compiled recursively.
@@ -162,7 +169,7 @@ def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: t
     pcm_targets = get_swift_pcm_anon_targets(
         ctx,
         ctx.attrs.deps,
-        ["-target", get_target_triple(ctx)],
+        _get_target_flags(ctx),
         False,  # C++ Interop is disabled for now.
     )
 
@@ -172,7 +179,7 @@ def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: t
         ctx,
         False,
         direct_uncompiled_sdk_deps,
-        ["-target", get_target_triple(ctx)],
+        _get_target_flags(ctx),
     )
 
     # Recursively compile SDK and prebuilt_apple_framework's Swift dependencies.
@@ -225,7 +232,7 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
 
     # Each target needs to propagate the compilers target triple.
     # This can vary depending on the deployment target of each library.
-    gather += ["-target", get_target_triple(ctx)]
+    gather += _get_target_flags(ctx)
 
     for f in ctx.attrs.swift_compiler_flags:
         if next:
@@ -762,14 +769,13 @@ def _get_shared_flags(
         cmd.add(["-working-directory="])
 
     cmd.add(get_sdk_flags(ctx))
+    cmd.add(_get_target_flags(ctx))
     cmd.add([
         # Always use color, consistent with clang.
         "-color-diagnostics",
         # Unset the working directory in the debug information.
         "-file-compilation-dir",
         ".",
-        "-target",
-        get_target_triple(ctx),
         "-module-name",
         module_name,
         "-Xfrontend",
