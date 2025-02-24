@@ -31,10 +31,10 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::configuration::ConfigurationCalculation;
-use crate::configuration::ExecutionPlatformResolutionKey;
-use crate::nodes::get_execution_platform_toolchain_dep;
+use crate::execution::get_execution_platform_toolchain_dep;
+use crate::execution::ExecutionPlatformResolutionKey;
+use crate::execution::ToolchainExecutionPlatformCompatibilityKey;
 use crate::nodes::ConfiguredTargetNodeKey;
-use crate::nodes::ToolchainExecutionPlatformCompatibilityKey;
 
 struct ConfiguredTargetCalculationInstance;
 
@@ -140,6 +140,7 @@ fn display_configured_graph_cycle_error(cycle: &[ConfiguredGraphCycleKeys]) -> S
 // here. Would be good to check on things like transitions, toolchains, configuration nodes. Still, this will currently catch most
 // configured graph cycles.
 #[derive(Debug, Display, Clone, Eq, PartialEq, Hash)]
+#[allow(private_interfaces)]
 pub enum ConfiguredGraphCycleKeys {
     #[display("{}", _0)]
     ConfiguredTargetNode(ConfiguredTargetNodeKey),

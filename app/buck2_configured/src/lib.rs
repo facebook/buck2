@@ -12,11 +12,12 @@
 
 pub mod calculation;
 pub mod configuration;
+pub mod execution;
 pub mod nodes;
 
 pub fn init_late_bindings() {
     calculation::init_configured_target_calculation();
-    configuration::init_get_execution_platforms();
+    execution::init_get_execution_platforms();
     configuration::init_configuration_calculation();
     nodes::init_configured_target_node_calculation();
 }

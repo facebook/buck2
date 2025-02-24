@@ -9,49 +9,36 @@
 
 use std::sync::Arc;
 
-use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
-use itertools::Itertools;
 use allocative::Allocative;
-use async_trait::async_trait;use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
+use async_trait::async_trait;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::FrozenPlatformInfo;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
-use futures::FutureExt;
-use starlark_map::unordered_map::UnorderedMap;
-use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::execution_types::execution::ExecutionPlatform;
-use buck2_core::execution_types::execution::ExecutionPlatformError;
-use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
-use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_core::execution_types::execution_platforms::ExecutionPlatformFallback;
-use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
-use buck2_core::execution_types::execution_platforms::ExecutionPlatformsData;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_futures::cancellation::CancellationContext;
+use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
+use buck2_node::configuration::calculation::ConfigurationCalculationDyn;
+use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::resolved::ConfigurationNode;
-use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
+use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
 use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
-use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use buck2_futures::cancellation::CancellationContext;
-use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
-use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
-use buck2_node::configuration::calculation::{ConfigurationCalculationDyn, CONFIGURATION_CALCULATION};
-use buck2_node::execution::{GetExecutionPlatformsImpl, GET_EXECUTION_PLATFORMS, GetExecutionPlatforms, EXECUTION_PLATFORMS_BUCKCONFIG};
-use crate::nodes::check_toolchain_execution_platform_compatibility;
-use crate::nodes::ExecutionPlatformConstraints;
+use futures::FutureExt;
+use starlark_map::unordered_map::UnorderedMap;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -62,10 +49,6 @@ pub enum ConfigurationError {
     MissingConfigurationInfoProvider(ProvidersLabel),
     #[error("Expected `{0}` to be a `platform()` target, but it had no `PlatformInfo` provider.")]
     MissingPlatformInfo(TargetLabel),
-    #[error(
-        "Expected `{0}` to provide a `ExecutionPlatformRegistrationInfo` as it's configured as the `build.execution_platforms` value."
-    )]
-    MissingExecutionPlatformRegistrationInfo(TargetLabel),
     #[error(
         "Platform target `{0}` evaluation returned `ProviderInfo` label `{1}` which resolved to an unequal configuration"
     )]
@@ -128,182 +111,6 @@ async fn get_target_platform_detector(
     ctx.compute(&TargetPlatformDetectorKey).await?
 }
 
-/// Returns the configured [ExecutionPlatforms] or None if `build.execution_platforms` is not configured.
-async fn compute_execution_platforms(
-    ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<Option<ExecutionPlatforms>> {
-    let cells = ctx.get_cell_resolver().await?;
-    let cell_alias_resolver = ctx.get_cell_alias_resolver(cells.root_cell()).await?;
-
-    let execution_platforms_target = ctx
-        .get_legacy_config_property(cells.root_cell(), EXECUTION_PLATFORMS_BUCKCONFIG)
-        .await?;
-
-    let execution_platforms_target = match execution_platforms_target {
-        Some(v) => TargetLabel::parse(&v, cells.root_cell(), &cells, &cell_alias_resolver)?,
-        None => {
-            return Ok(None);
-        }
-    };
-
-    let providers = &ctx
-        // Execution platform won't be supplied as a subtarget
-        .get_configuration_analysis_result(&ProvidersLabel::default_for(
-            execution_platforms_target.dupe(),
-        ))
-        .await?;
-
-    let result = providers
-        .provider_collection()
-        .builtin_provider::<FrozenExecutionPlatformRegistrationInfo>()
-        .ok_or_else(|| {
-            buck2_error::Error::from(
-                ConfigurationError::MissingExecutionPlatformRegistrationInfo(
-                    execution_platforms_target.dupe(),
-                ),
-            )
-        })?;
-
-    let mut platforms = Vec::new();
-    for platform in result.platforms()? {
-        platforms.push(platform.to_execution_platform()?);
-    }
-    Ok(Some(Arc::new(ExecutionPlatformsData::new(
-        execution_platforms_target,
-        platforms,
-        result.fallback()?,
-    ))))
-}
-
-/// Check if a particular execution platform is compatible with the constraints or not.
-/// Return either Ok/Ok if it is, or a reason if not.
-pub(crate) async fn check_execution_platform(
-    ctx: &mut DiceComputations<'_>,
-    target_node_cell: CellNameForConfigurationResolution,
-    exec_compatible_with: &[ConfigurationSettingKey],
-    exec_deps: &[TargetLabel],
-    exec_platform: &ExecutionPlatform,
-    toolchain_deps: &[TargetConfiguredTargetLabel],
-) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-    let resolved_platform_configuration = ctx
-        .get_resolved_configuration(exec_platform.cfg(), target_node_cell, exec_compatible_with)
-        .await?;
-
-    // Then check if the platform satisfies compatible_with
-    for constraint in exec_compatible_with {
-        if resolved_platform_configuration
-            .settings()
-            .setting_matches(constraint)
-            .is_none()
-        {
-            return Ok(Err(
-                ExecutionPlatformIncompatibleReason::ConstraintNotSatisfied(constraint.dupe().0),
-            ));
-        }
-    }
-
-    // Then check that all exec_deps are compatible with the platform. We collect errors separately,
-    // so that we do not report an error if we would later find an incompatibility
-    let mut errs = Vec::new();
-    for dep in exec_deps {
-        match ctx
-            .get_internal_configured_target_node(
-                &dep.configure_pair_no_exec(exec_platform.cfg_pair_no_exec().dupe()),
-            )
-            .await
-        {
-            Ok(MaybeCompatible::Compatible(_)) => (),
-            Ok(MaybeCompatible::Incompatible(reason)) => {
-                return Ok(Err(
-                    ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
-                        reason.dupe(),
-                    ),
-                ));
-            }
-            Err(e) => errs.push(e.context(format!(
-                "Error checking compatibility of `{}` with `{}`",
-                dep,
-                exec_platform.cfg()
-            ))),
-        };
-    }
-
-    for dep in toolchain_deps {
-        match check_toolchain_execution_platform_compatibility(
-            ctx,
-            dep.dupe(),
-            exec_platform.dupe(),
-        )
-        .await
-        {
-            Ok(Ok(())) => {}
-            Ok(Err(reason)) => {
-                return Ok(Err(reason));
-            }
-            Err(e) => errs.push(e),
-        }
-    }
-    if let Some(e) = errs.pop() {
-        return Err(e.into());
-    }
-
-    Ok(Ok(()))
-}
-
-async fn get_execution_platforms_enabled(
-    ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<ExecutionPlatforms> {
-    ctx.get_execution_platforms()
-        .await?
-        .buck_error_context("Execution platforms are not enabled")
-}
-
-async fn resolve_execution_platform_from_constraints(
-    ctx: &mut DiceComputations<'_>,
-    target_node_cell: CellNameForConfigurationResolution,
-    exec_compatible_with: &[ConfigurationSettingKey],
-    exec_deps: &[TargetLabel],
-    toolchain_deps: &[TargetConfiguredTargetLabel],
-) -> buck2_error::Result<ExecutionPlatformResolution> {
-    let mut skipped = Vec::new();
-    let execution_platforms = get_execution_platforms_enabled(ctx).await?;
-    for exec_platform in execution_platforms.candidates() {
-        match check_execution_platform(
-            ctx,
-            target_node_cell,
-            exec_compatible_with,
-            exec_deps,
-            exec_platform,
-            toolchain_deps,
-        )
-        .await?
-        {
-            Ok(()) => {
-                return Ok(ExecutionPlatformResolution::new(
-                    Some(exec_platform.dupe()),
-                    skipped,
-                ));
-            }
-            Err(reason) => {
-                skipped.push((exec_platform.id(), reason));
-            }
-        }
-    }
-
-    match execution_platforms.fallback() {
-        ExecutionPlatformFallback::UseUnspecifiedExec => {
-            Ok(ExecutionPlatformResolution::new(None, skipped))
-        }
-        ExecutionPlatformFallback::Error => {
-            Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(skipped).into()).into())
-        }
-        ExecutionPlatformFallback::Platform(platform) => Ok(ExecutionPlatformResolution::new(
-            Some(platform.dupe()),
-            skipped,
-        )),
-    }
-}
-
 async fn configuration_matches(
     ctx: &mut DiceComputations<'_>,
     cfg: &ConfigurationData,
@@ -338,10 +145,6 @@ async fn configuration_matches(
 
     Ok(true)
 }
-
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
-#[display("ExecutionPlatforms")]
-pub struct ExecutionPlatformsKey;
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
 #[display("ConfigurationNode({}, {})", cfg_target, target_cfg)]
@@ -392,22 +195,6 @@ pub(crate) trait ConfigurationCalculation {
         target_cell: CellNameForConfigurationResolution,
         cfg_target: &ConfigurationSettingKey,
     ) -> buck2_error::Result<ConfigurationNode>;
-
-    /// Gets the compatible execution platforms for a give list of compatible_with constraints and execution deps.
-    ///
-    /// We do this as a sort of monolithic computation (rather than checking things one-by-one or separating
-    /// compatible_with and exec deps) because we expect those values to be common across many nodes (for example,
-    /// all c++ targets targeting a specific platform are likely to share compatible_with and exec_deps except
-    /// for some rare exceptions). By having a monolithic key like `(Vec<TargetLabel>, Vec<TargetLabel>)` allows all
-    /// those nodes to just have a single dice dep. This approach has the downside that it is less incremental, but
-    /// we expect these things to change rarely.
-    async fn resolve_execution_platform_from_constraints(
-        &mut self,
-        target_node_cell: CellNameForConfigurationResolution,
-        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-        exec_deps: Arc<[TargetLabel]>,
-        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-    ) -> buck2_error::Result<ExecutionPlatformResolution>;
 }
 
 struct ConfigurationCalculationDynImpl;
@@ -668,141 +455,4 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         })
         .map_err(buck2_error::Error::from)
     }
-
-    async fn resolve_execution_platform_from_constraints(
-        &mut self,
-        target_node_cell: CellNameForConfigurationResolution,
-        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-        exec_deps: Arc<[TargetLabel]>,
-        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-    ) -> buck2_error::Result<ExecutionPlatformResolution> {
-        self.compute(&ExecutionPlatformResolutionKey {
-            target_node_cell,
-            exec_compatible_with,
-            exec_deps,
-            toolchain_deps,
-        })
-        .await?
-    }
-}
-
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
-pub struct ExecutionPlatformResolutionKey {
-    /// Determining a compatible execution platform requires checking the target and toolchain's
-    /// exec_compatible_with. This in turn requires a ResolvedConfiguration, which resolves the
-    /// buckconfig-related config_setting values based on the cell of the target the configuration
-    /// is being resolved for.
-    target_node_cell: CellNameForConfigurationResolution,
-    exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-    exec_deps: Arc<[TargetLabel]>,
-    toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-}
-
-impl Display for ExecutionPlatformResolutionKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Resolving execution platform: cell:{}",
-            self.target_node_cell
-        )?;
-
-        if !self.exec_compatible_with.is_empty() {
-            write!(
-                f,
-                ", exec_compatible_with=[{}]",
-                self.exec_compatible_with.iter().join(", ")
-            )?
-        }
-
-        if !self.exec_deps.is_empty() {
-            write!(f, ", exec_deps=[{}]", self.exec_deps.iter().join(", "))?
-        }
-
-        if !self.toolchain_deps.is_empty() {
-            write!(
-                f,
-                ", toolchain_deps=[{}]",
-                self.toolchain_deps.iter().join(", ")
-            )?;
-        }
-
-        Ok(())
-    }
-}
-
-#[async_trait]
-impl Key for ExecutionPlatformResolutionKey {
-    type Value = buck2_error::Result<ExecutionPlatformResolution>;
-
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
-    ) -> Self::Value {
-        resolve_execution_platform_from_constraints(
-            ctx,
-            self.target_node_cell,
-            &self.exec_compatible_with,
-            &self.exec_deps,
-            &self.toolchain_deps,
-        )
-        .await
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
-    }
-}
-
-struct GetExecutionPlatformsInstance;
-
-#[async_trait]
-impl Key for ExecutionPlatformsKey {
-    type Value = buck2_error::Result<Option<ExecutionPlatforms>>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
-    ) -> Self::Value {
-        compute_execution_platforms(ctx).await
-    }
-
-    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
-        // TODO(cjhopman) should these be comparable for caching
-        false
-    }
-}
-
-#[async_trait]
-impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
-    async fn get_execution_platforms_impl(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
-        ctx.compute(&ExecutionPlatformsKey).await?
-    }
-
-    async fn execution_platform_resolution_one_for_cell(
-        &self,
-        dice: &mut DiceComputations<'_>,
-        exec_deps: Arc<[TargetLabel]>,
-        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-        cell: CellNameForConfigurationResolution,
-    ) -> buck2_error::Result<ExecutionPlatformResolution> {
-        ExecutionPlatformConstraints::new_constraints(
-            exec_deps,
-            toolchain_deps,
-            exec_compatible_with,
-        )
-        .one_for_cell(dice, cell)
-        .await
-    }
-}
-
-pub(crate) fn init_get_execution_platforms() {
-    GET_EXECUTION_PLATFORMS.init(&GetExecutionPlatformsInstance);
 }

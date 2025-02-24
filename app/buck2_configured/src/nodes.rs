@@ -14,7 +14,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_build_api::transition::TRANSITION_CALCULATION;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
@@ -32,8 +31,6 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
-use buck2_core::execution_types::execution::ExecutionPlatform;
-use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -58,14 +55,11 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
-use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
-use buck2_node::execution::GetExecutionPlatforms;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculationImpl;
@@ -86,8 +80,9 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
-use crate::configuration::check_execution_platform;
 use crate::configuration::ConfigurationCalculation;
+use crate::execution::find_execution_platform_by_configuration;
+use crate::execution::resolve_execution_platform;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -137,7 +132,7 @@ enum CompatibilityConstraints {
     All(ConfiguredAttr),
 }
 
-async fn compute_platform_cfgs(
+pub(crate) async fn compute_platform_cfgs(
     ctx: &mut DiceComputations<'_>,
     node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<OrderedMap<TargetLabel, ConfigurationData>> {
@@ -150,27 +145,13 @@ async fn compute_platform_cfgs(
     Ok(platform_map)
 }
 
-async fn legacy_execution_platform(
-    ctx: &DiceComputations<'_>,
-    cfg: &ConfigurationNoExec,
-) -> ExecutionPlatform {
-    ExecutionPlatform::legacy_execution_platform(
-        ctx.get_fallback_executor_config().clone(),
-        cfg.dupe(),
-    )
-}
-
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
 enum ToolchainDepError {
-    #[error("Can't find toolchain_dep execution platform using configuration `{0}`")]
-    ToolchainDepMissingPlatform(ConfigurationData),
     #[error("Target `{0}` was used as a toolchain_dep, but is not a toolchain rule")]
     NonToolchainRuleUsedAsToolchainDep(TargetLabel),
     #[error("Target `{0}` was used not as a toolchain_dep, but is a toolchain rule")]
     ToolchainRuleUsedAsNormalDep(TargetLabel),
-    #[error("Target `{0}` has a transition_dep, which is not permitted on a toolchain rule")]
-    ToolchainTransitionDep(TargetLabel),
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -178,276 +159,6 @@ enum ToolchainDepError {
 enum PluginDepError {
     #[error("Plugin dep `{0}` is a toolchain rule")]
     PluginDepIsToolchainRule(TargetLabel),
-}
-
-pub async fn find_execution_platform_by_configuration(
-    ctx: &mut DiceComputations<'_>,
-    exec_cfg: &ConfigurationData,
-    cfg: &ConfigurationData,
-) -> buck2_error::Result<ExecutionPlatform> {
-    match ctx.get_execution_platforms().await? {
-        Some(platforms) if exec_cfg != &ConfigurationData::unbound_exec() => {
-            for c in platforms.candidates() {
-                if c.cfg() == exec_cfg {
-                    return Ok(c.dupe());
-                }
-            }
-            Err(buck2_error::Error::from(
-                ToolchainDepError::ToolchainDepMissingPlatform(exec_cfg.dupe()),
-            ))
-        }
-        _ => Ok(legacy_execution_platform(ctx, &ConfigurationNoExec::new(cfg.dupe())).await),
-    }
-}
-
-pub(crate) struct ExecutionPlatformConstraints {
-    exec_deps: Arc<[TargetLabel]>,
-    toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-    exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-}
-
-impl ExecutionPlatformConstraints {
-    pub(crate) fn new_constraints(
-        exec_deps: Arc<[TargetLabel]>,
-        toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
-        exec_compatible_with: Arc<[ConfigurationSettingKey]>,
-    ) -> Self {
-        Self {
-            exec_deps,
-            toolchain_deps,
-            exec_compatible_with,
-        }
-    }
-
-    fn new(
-        node: TargetNodeRef,
-        gathered_deps: &GatheredDeps,
-        cfg_ctx: &(dyn AttrConfigurationContext + Sync),
-    ) -> buck2_error::Result<Self> {
-        let exec_compatible_with: Arc<[_]> = if let Some(a) = node.attr_or_none(
-            EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-            AttrInspectOptions::All,
-        ) {
-            let configured_attr = a.configure(cfg_ctx).with_buck_error_context(|| {
-                format!(
-                    "Error configuring attribute `{}` to resolve execution platform",
-                    a.name
-                )
-            })?;
-            ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
-                .map(|label| {
-                    label.with_buck_error_context(|| {
-                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
-                    })
-                })
-                .collect::<Result<_, _>>()?
-        } else {
-            Arc::new([])
-        };
-
-        Ok(Self::new_constraints(
-            gathered_deps
-                .exec_deps
-                .iter()
-                .map(|c| c.0.target().unconfigured().dupe())
-                .collect(),
-            gathered_deps
-                .toolchain_deps
-                .iter()
-                .map(|c| c.dupe())
-                .collect(),
-            exec_compatible_with,
-        ))
-    }
-
-    pub(crate) async fn one_for_cell(
-        self,
-        ctx: &mut DiceComputations<'_>,
-        cell: CellNameForConfigurationResolution,
-    ) -> buck2_error::Result<ExecutionPlatformResolution> {
-        ctx.resolve_execution_platform_from_constraints(
-            cell,
-            self.exec_compatible_with,
-            self.exec_deps,
-            self.toolchain_deps,
-        )
-        .await
-    }
-}
-
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-#[display(
-        "ToolchainExecutionPlatformCompatibilityKey({}, {})",
-        target,
-        exec_platform.id()
-    )]
-pub struct ToolchainExecutionPlatformCompatibilityKey {
-    target: TargetConfiguredTargetLabel,
-    exec_platform: ExecutionPlatform,
-}
-
-impl ToolchainExecutionPlatformCompatibilityKey {
-    pub fn describe(&self) -> impl Display {
-        format!("{} ({})", self.target, self.exec_platform.id())
-    }
-
-    async fn compute_impl(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-        let node = ctx.get_target_node(self.target.unconfigured()).await?;
-        if node.transition_deps().next().is_some() {
-            // We could actually check this when defining the rule, but a bit of a corner
-            // case, and much simpler to do so here.
-            return Err(buck2_error::Error::from(
-                ToolchainDepError::ToolchainTransitionDep(self.target.unconfigured().dupe()),
-            ));
-        }
-        let cell_name = CellNameForConfigurationResolution(self.target.pkg().cell_name());
-        let resolved_configuration = &ctx
-            .get_resolved_configuration(self.target.cfg(), cell_name, node.get_configuration_deps())
-            .await?;
-        let platform_cfgs = compute_platform_cfgs(ctx, node.as_ref()).await?;
-        // We don't really need `resolved_transitions` here:
-        // `Traversal` declared above ignores transitioned dependencies.
-        // But we pass `resolved_transitions` here to prevent breakages in the future
-        // if something here changes.
-        let resolved_transitions = OrderedMap::new();
-        let cfg_ctx = AttrConfigurationContextImpl::new(
-            resolved_configuration,
-            ConfigurationNoExec::unbound_exec(),
-            &resolved_transitions,
-            &platform_cfgs,
-        );
-        let (gathered_deps, errors_and_incompats) =
-            gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx).await?;
-        if let Some(ret) = errors_and_incompats.finalize() {
-            // Statically assert that we hit one of the `?`s
-            enum Void {}
-            let _: Void = ret?.require_compatible()?;
-        }
-        let constraints =
-            ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
-
-        check_execution_platform(
-            ctx,
-            cell_name,
-            &constraints.exec_compatible_with,
-            &constraints.exec_deps,
-            &self.exec_platform,
-            &constraints.toolchain_deps,
-        )
-        .await
-    }
-}
-
-#[async_trait]
-impl Key for ToolchainExecutionPlatformCompatibilityKey {
-    type Value = buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>>;
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellation: &CancellationContext,
-    ) -> Self::Value {
-        Ok(LookingUpConfiguredNodeContext::add_context(
-            self.compute_impl(ctx).await,
-            self.target.inner().dupe(),
-        )?)
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
-    }
-}
-
-pub(crate) async fn check_toolchain_execution_platform_compatibility(
-    ctx: &mut DiceComputations<'_>,
-    target: TargetConfiguredTargetLabel,
-    exec_platform: ExecutionPlatform,
-) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-    ctx.compute(&ToolchainExecutionPlatformCompatibilityKey {
-        target,
-        exec_platform,
-    })
-    .await?
-}
-
-pub async fn get_execution_platform_toolchain_dep(
-    ctx: &mut DiceComputations<'_>,
-    target_label: &TargetConfiguredTargetLabel,
-    target_node: TargetNodeRef<'_>,
-) -> buck2_error::Result<MaybeCompatible<ExecutionPlatformResolution>> {
-    assert!(target_node.is_toolchain_rule());
-    let target_cfg = target_label.cfg();
-    let target_cell = target_node.label().pkg().cell_name();
-    let resolved_configuration = ctx
-        .get_resolved_configuration(
-            target_cfg,
-            CellNameForConfigurationResolution(target_cell),
-            target_node.get_configuration_deps(),
-        )
-        .await?;
-    if target_node.transition_deps().next().is_some() {
-        Err(buck2_error::Error::from(
-            ToolchainDepError::ToolchainTransitionDep(target_label.unconfigured().dupe()),
-        ))
-    } else {
-        let platform_cfgs = compute_platform_cfgs(ctx, target_node).await?;
-        let resolved_transitions = OrderedMap::new();
-        let cfg_ctx = AttrConfigurationContextImpl::new(
-            &resolved_configuration,
-            ConfigurationNoExec::unbound_exec(),
-            &resolved_transitions,
-            &platform_cfgs,
-        );
-        let (gathered_deps, errors_and_incompats) =
-            gather_deps(target_label, target_node, &cfg_ctx, ctx).await?;
-        if let Some(ret) = errors_and_incompats.finalize() {
-            return ret.map_err(Into::into);
-        }
-        Ok(MaybeCompatible::Compatible(
-            resolve_execution_platform(
-                ctx,
-                target_node,
-                &resolved_configuration,
-                &gathered_deps,
-                &cfg_ctx,
-            )
-            .await?,
-        ))
-    }
-}
-
-async fn resolve_execution_platform(
-    ctx: &mut DiceComputations<'_>,
-    node: TargetNodeRef<'_>,
-    resolved_configuration: &ResolvedConfiguration,
-    gathered_deps: &GatheredDeps,
-    cfg_ctx: &(dyn AttrConfigurationContext + Sync),
-) -> buck2_error::Result<ExecutionPlatformResolution> {
-    // If no execution platforms are configured, we fall back to the legacy execution
-    // platform behavior. We currently only support legacy execution platforms. That behavior is that there is a
-    // single executor config (the fallback config) and the execution platform is in the same
-    // configuration as the target.
-    // The non-none case will be handled when we invoke the resolve_execution_platform() on ctx below, the none
-    // case can't be handled there because we don't pass the full configuration into it.
-    if ctx.get_execution_platforms().await?.is_none() {
-        return Ok(ExecutionPlatformResolution::new(
-            Some(legacy_execution_platform(ctx, resolved_configuration.cfg()).await),
-            Vec::new(),
-        ));
-    };
-
-    let constraints = ExecutionPlatformConstraints::new(node, gathered_deps, cfg_ctx)?;
-    constraints
-        .one_for_cell(
-            ctx,
-            CellNameForConfigurationResolution(node.label().pkg().cell_name()),
-        )
-        .await
 }
 
 fn unpack_target_compatible_with_attr(
@@ -644,13 +355,13 @@ async fn check_plugin_deps(
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum CheckVisibility {
+pub(crate) enum CheckVisibility {
     Yes,
     No,
 }
 
 #[derive(Default)]
-struct ErrorsAndIncompatibilities {
+pub(crate) struct ErrorsAndIncompatibilities {
     errs: Vec<buck2_error::Error>,
     incompats: Vec<Arc<IncompatiblePlatformReason>>,
 }
@@ -709,7 +420,7 @@ impl ErrorsAndIncompatibilities {
     }
 
     /// Returns an error/incompatibility to return, if any, and `None` otherwise
-    pub fn finalize<T>(mut self) -> Option<buck2_error::Result<MaybeCompatible<T>>> {
+    pub(crate) fn finalize<T>(mut self) -> Option<buck2_error::Result<MaybeCompatible<T>>> {
         // FIXME(JakobDegen): Report all incompatibilities
         if let Some(incompat) = self.incompats.pop() {
             return Some(Ok(MaybeCompatible::Incompatible(incompat)));
@@ -722,14 +433,14 @@ impl ErrorsAndIncompatibilities {
 }
 
 #[derive(Default)]
-struct GatheredDeps {
-    deps: Vec<ConfiguredTargetNode>,
-    exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
-    toolchain_deps: SmallSet<TargetConfiguredTargetLabel>,
-    plugin_lists: PluginLists,
+pub(crate) struct GatheredDeps {
+    pub(crate) deps: Vec<ConfiguredTargetNode>,
+    pub(crate) exec_deps: SmallMap<ConfiguredProvidersLabel, CheckVisibility>,
+    pub(crate) toolchain_deps: SmallSet<TargetConfiguredTargetLabel>,
+    pub(crate) plugin_lists: PluginLists,
 }
 
-async fn gather_deps(
+pub(crate) async fn gather_deps(
     target_label: &TargetConfiguredTargetLabel,
     target_node: TargetNodeRef<'_>,
     attr_cfg_ctx: &(dyn AttrConfigurationContext + Sync),
@@ -1314,7 +1025,7 @@ pub(crate) fn init_configured_target_node_calculation() {
 }
 
 #[derive(Debug, Allocative, Eq, PartialEq)]
-struct LookingUpConfiguredNodeContext {
+pub(crate) struct LookingUpConfiguredNodeContext {
     target: ConfiguredTargetLabel,
     len: usize,
     rest: Option<Arc<Self>>,
@@ -1330,7 +1041,7 @@ impl buck2_error::TypedContext for LookingUpConfiguredNodeContext {
 }
 
 impl LookingUpConfiguredNodeContext {
-    fn new(target: ConfiguredTargetLabel, parent: Option<Arc<Self>>) -> Self {
+    pub(crate) fn new(target: ConfiguredTargetLabel, parent: Option<Arc<Self>>) -> Self {
         let (len, rest) = match parent {
             Some(v) => (v.len + 1, Some(v.clone())),
             None => (1, None),
@@ -1338,7 +1049,7 @@ impl LookingUpConfiguredNodeContext {
         Self { target, len, rest }
     }
 
-    fn add_context<T>(
+    pub(crate) fn add_context<T>(
         res: buck2_error::Result<T>,
         target: ConfiguredTargetLabel,
     ) -> buck2_error::Result<T> {

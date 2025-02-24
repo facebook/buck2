@@ -21,7 +21,7 @@ use buck2_common::dice::data::testing::SetTestingIoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::package_listing::listing::testing::PackageListingExt;
 use buck2_common::package_listing::listing::PackageListing;
-use buck2_configured::configuration::ExecutionPlatformsKey;
+use buck2_configured::execution::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
