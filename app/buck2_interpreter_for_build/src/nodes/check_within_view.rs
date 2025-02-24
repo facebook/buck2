@@ -7,12 +7,8 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
-use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
@@ -81,38 +77,6 @@ pub(crate) fn check_within_view(
 
     impl<'a, 'x> CoercedAttrTraversal<'a> for WithinViewCheckTraversal<'x> {
         fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep.target())
-        }
-
-        fn plugin_dep(
-            &mut self,
-            dep: &'a TargetLabel,
-            _kind: &PluginKind,
-        ) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
-        }
-
-        fn exec_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep.target())
-        }
-
-        fn toolchain_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep.target())
-        }
-
-        fn transition_dep(
-            &mut self,
-            dep: &'a ProvidersLabel,
-            _tr: &Arc<TransitionId>,
-        ) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep.target())
-        }
-
-        fn split_transition_dep(
-            &mut self,
-            dep: &'a ProvidersLabel,
-            _tr: &Arc<TransitionId>,
-        ) -> buck2_error::Result<()> {
             self.check_dep_within_view(dep.target())
         }
 

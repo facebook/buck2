@@ -25,7 +25,6 @@ use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
-use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -341,46 +340,6 @@ impl TargetNode {
                 Ok(())
             }
 
-            fn exec_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn toolchain_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn transition_dep(
-                &mut self,
-                _dep: &'a ProvidersLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn plugin_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _kind: &PluginKind,
-            ) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn split_transition_dep(
-                &mut self,
-                _dep: &'a ProvidersLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn configuration_dep(
-                &mut self,
-                _dep: &ProvidersLabel,
-                _t: ConfigurationDepKind,
-            ) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
             fn label(&mut self, label: &'a ProvidersLabel) -> buck2_error::Result<()> {
                 self.labels.push(label);
                 Ok(())
@@ -627,46 +586,6 @@ impl<'a> TargetNodeRef<'a> {
             }
 
             fn dep(&mut self, _dep: &ProvidersLabel) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn exec_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn toolchain_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn plugin_dep(
-                &mut self,
-                _dep: &'a TargetLabel,
-                _kind: &PluginKind,
-            ) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn transition_dep(
-                &mut self,
-                _dep: &'a ProvidersLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn split_transition_dep(
-                &mut self,
-                _dep: &'a ProvidersLabel,
-                _tr: &Arc<TransitionId>,
-            ) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
-            fn configuration_dep(
-                &mut self,
-                _dep: &ProvidersLabel,
-                _t: ConfigurationDepKind,
-            ) -> buck2_error::Result<()> {
                 Ok(())
             }
         }
