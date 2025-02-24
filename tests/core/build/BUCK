@@ -17,6 +17,11 @@ buck2_core_tests(
                 "windows",
             ],
         },
+        "test_outputs_ordering": {
+            "env": {
+                "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
+            },
+        },
         "test_paranoid": {
             "data": "//buck2/tests/targets:isolated_targets",
         },
