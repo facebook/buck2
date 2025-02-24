@@ -18,7 +18,9 @@ use tracing::instrument;
 use crate::buck::truncate_line_ending;
 use crate::buck::utf8_output;
 use crate::buck::Buck;
+use crate::cli::develop_with_sysroot;
 use crate::json_project::Sysroot;
+use crate::target::Target;
 
 #[derive(Debug)]
 pub(crate) enum SysrootConfig {
@@ -40,7 +42,6 @@ pub(crate) fn resolve_buckconfig_sysroot(
     buck: &Buck,
     project_root: &Path,
 ) -> Result<Sysroot, anyhow::Error> {
-    let sysroot_src = project_root.join(buck.resolve_sysroot_src()?);
     let sysroot: PathBuf = {
         // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with something
         // derived from buck, e.g.
@@ -66,9 +67,29 @@ pub(crate) fn resolve_buckconfig_sysroot(
         sysroot.into()
     };
 
+    let sysroot_src = buck.resolve_sysroot_src()?;
+    let sysroot_targets = Target::new(format!("fbsource//{}:", sysroot_src.to_string_lossy()));
+    // the `library` path component needs to be appended to the `sysroot_src_path`
+    // so that rust-analyzer will be able to find standard library sources.
+    let sysroot_src = project_root.join(sysroot_src).join("library");
+
+    let sysroot_project = develop_with_sysroot(
+        buck,
+        vec![sysroot_targets],
+        Sysroot {
+            sysroot: sysroot.clone(),
+            sysroot_src: Some(sysroot_src.clone()),
+            sysroot_project: None,
+        },
+        true,
+        false,
+        false,
+    )?;
+
     Ok(Sysroot {
         sysroot,
         sysroot_src: Some(sysroot_src),
+        sysroot_project: Some(sysroot_project),
     })
 }
 
@@ -93,6 +114,7 @@ pub(crate) fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
     let sysroot = Sysroot {
         sysroot,
         sysroot_src: Some(sysroot_src),
+        sysroot_project: None, // rustup sysroot is not buckified
     };
     Ok(sysroot)
 }

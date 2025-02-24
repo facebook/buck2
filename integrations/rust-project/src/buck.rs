@@ -187,7 +187,7 @@ pub(crate) fn to_json_project(
     }
 
     let jp = JsonProject {
-        sysroot,
+        sysroot: Box::new(sysroot),
         crates,
         runnables: vec![
             Runnable {
@@ -504,10 +504,7 @@ impl Buck {
             sysroot_src_path: PathBuf,
         }
         let cfg: BuckConfig = deserialize_output(child.wait_with_output(), &command)?;
-        // the `library` path component needs to be appended to the `sysroot_src_path`
-        // so that rust-analyzer will be able to find standard library sources.
-        let cfg = cfg.sysroot_src_path.join("library");
-        Ok(cfg)
+        Ok(cfg.sysroot_src_path)
     }
 
     /// Determines the owning target(s) of the saved file and builds them.

@@ -21,6 +21,7 @@ use super::Input;
 use crate::buck;
 use crate::buck::select_mode;
 use crate::buck::to_json_project;
+use crate::buck::Buck;
 use crate::json_project::JsonProject;
 use crate::json_project::Sysroot;
 use crate::path::safe_canonicalize;
@@ -232,36 +233,31 @@ impl Develop {
             ..
         } = self;
 
-        let project_root = buck.resolve_project_root()?;
-
-        info!("building generated code");
-        let exclude_workspaces =
-            std::env::var("RUST_PROJECT_EXCLUDE_WORKSPACES").is_ok_and(|it| it != "0");
-        let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
-
-        info!("resolving aliased libraries");
-        let aliased_libraries =
-            buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
-
         info!("fetching sysroot");
         let sysroot = match &sysroot {
             SysrootConfig::Sysroot(path) => Sysroot {
                 sysroot: safe_canonicalize(&expand_tilde(path)?),
                 sysroot_src: None,
+                sysroot_project: None,
             },
-            SysrootConfig::BuckConfig => resolve_buckconfig_sysroot(&buck, &project_root)?,
+            SysrootConfig::BuckConfig => {
+                let project_root = buck.resolve_project_root()?;
+                resolve_buckconfig_sysroot(&buck, &project_root)?
+            }
             SysrootConfig::Rustup => resolve_rustup_sysroot()?,
         };
-        info!("converting buck info to rust-project.json");
-        let rust_project = to_json_project(
+
+        let exclude_workspaces =
+            std::env::var("RUST_PROJECT_EXCLUDE_WORKSPACES").is_ok_and(|it| it != "0");
+
+        develop_with_sysroot(
+            buck,
+            targets,
             sysroot,
-            expanded_and_resolved,
-            aliased_libraries,
+            exclude_workspaces,
             *check_cycles,
             *include_all_buildfiles,
-        )?;
-
-        Ok(rust_project)
+        )
     }
 
     /// For every Rust file, return the relevant buck targets that should be used to configure rust-analyzer.
@@ -291,4 +287,31 @@ fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
     } else {
         Ok(path.to_path_buf())
     }
+}
+
+pub(crate) fn develop_with_sysroot(
+    buck: &Buck,
+    targets: Vec<Target>,
+    sysroot: Sysroot,
+    exclude_workspaces: bool,
+    check_cycles: bool,
+    include_all_buildfiles: bool,
+) -> Result<JsonProject, anyhow::Error> {
+    info!("building generated code");
+    let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
+
+    info!("resolving aliased libraries");
+    let aliased_libraries =
+        buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
+
+    info!("converting buck info to rust-project.json");
+    let rust_project = to_json_project(
+        sysroot,
+        expanded_and_resolved,
+        aliased_libraries,
+        check_cycles,
+        include_all_buildfiles,
+    )?;
+
+    Ok(rust_project)
 }
