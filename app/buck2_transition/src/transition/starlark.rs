@@ -255,8 +255,6 @@ fn validate_transition_impl(implementation: Value, attrs: bool, split: bool) -> 
 #[starlark_module]
 fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
-        // Note that precise function type is not checked by static or runtime typechecker,
-        // and exists here only for documentation purposes.
         #[starlark(require = named)] r#impl: StarlarkCallableChecked<
             'v,
             TransitionImplParams,
