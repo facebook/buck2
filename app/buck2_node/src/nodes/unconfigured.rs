@@ -537,16 +537,7 @@ impl<'a> TargetNodeRef<'a> {
     }
 
     pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a ProvidersLabel> {
-        self.get_configuration_deps_with_kind()
-            .filter_map(|(d, k)| {
-                // FIXME(JakobDegen): This behavior is a footgun. Remove.
-                match k {
-                    ConfigurationDepKind::CompatibilityAttribute => true,
-                    ConfigurationDepKind::SelectKey => true,
-                    ConfigurationDepKind::ConfiguredDepPlatform => false,
-                }
-                .then_some(d)
-            })
+        self.get_configuration_deps_with_kind().map(|(d, _)| d)
     }
 
     pub fn get_configuration_deps_with_kind(

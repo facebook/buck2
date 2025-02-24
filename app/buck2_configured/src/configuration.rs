@@ -346,14 +346,18 @@ pub(crate) async fn get_matched_cfg_keys_for_node(
     target_cell: CellNameForConfigurationResolution,
     node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
-    get_matched_cfg_keys(
-        ctx,
-        &target_cfg,
-        target_cell,
-        node.get_configuration_deps()
-            .map(ConfigurationSettingKey::ref_cast),
-    )
-    .await
+    let d = node
+        .get_configuration_deps_with_kind()
+        .filter_map(|(d, k)| {
+            match k {
+                ConfigurationDepKind::CompatibilityAttribute => true,
+                ConfigurationDepKind::SelectKey => true,
+                ConfigurationDepKind::ConfiguredDepPlatform => false,
+            }
+            .then_some(d)
+        })
+        .map(ConfigurationSettingKey::ref_cast);
+    get_matched_cfg_keys(ctx, &target_cfg, target_cell, d).await
 }
 
 struct ConfigurationCalculationDynImpl;

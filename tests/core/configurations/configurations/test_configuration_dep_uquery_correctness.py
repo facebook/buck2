@@ -53,10 +53,7 @@ async def test_default_target_platform(buck: Buck) -> None:
 
 @buck_test()
 async def test_configured_dep_platform(buck: Buck) -> None:
-    # FIXME(JakobDegen): Bug.
-    await check_has_uquery_path(
-        buck, ":stub_configured", "root//:base", expect_fail=True
-    )
+    await check_has_uquery_path(buck, ":stub_configured", "root//:base")
 
 
 @buck_test()
