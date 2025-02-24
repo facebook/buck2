@@ -33,7 +33,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 
-use crate::configuration::ConfigurationCalculation;
+use crate::configuration::get_platform_configuration;
 use crate::execution::get_execution_platform_toolchain_dep;
 
 async fn get_target_platform_detector(
@@ -98,8 +98,7 @@ async fn get_default_platform(
 ) -> buck2_error::Result<ConfigurationData> {
     let detector = get_target_platform_detector(ctx).await?;
     if let Some(target) = detector.detect(target) {
-        return ctx
-            .get_platform_configuration(target)
+        return get_platform_configuration(ctx, target)
             .await
             .map_err(buck2_error::Error::from);
     }
@@ -123,7 +122,7 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
     ) -> buck2_error::Result<ConfiguredTargetLabel> {
         let (node, super_package) = ctx.get_target_node_with_super_package(target).await?;
 
-        async fn get_platform_configuration(
+        async fn get_platform_configuration_from_options(
             ctx: &mut DiceComputations<'_>,
             global_cfg_options: &GlobalCfgOptions,
             target: &TargetLabel,
@@ -132,11 +131,10 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         ) -> buck2_error::Result<ConfigurationData> {
             let current_cfg = match global_cfg_options.target_platform.as_ref() {
                 Some(global_target_platform) => {
-                    ctx.get_platform_configuration(global_target_platform)
-                        .await?
+                    get_platform_configuration(ctx, global_target_platform).await?
                 }
                 None => match node.get_default_target_platform() {
-                    Some(target) => ctx.get_platform_configuration(target).await?,
+                    Some(target) => get_platform_configuration(ctx, target).await?,
                     None => get_default_platform(ctx, target).await?,
                 },
             };
@@ -157,11 +155,17 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
         match node.rule_kind() {
             RuleKind::Configuration => Ok(target.configure(ConfigurationData::unbound())),
             RuleKind::Normal => Ok(target.configure(
-                get_platform_configuration(ctx, global_cfg_options, target, &node, &super_package)
-                    .await?,
+                get_platform_configuration_from_options(
+                    ctx,
+                    global_cfg_options,
+                    target,
+                    &node,
+                    &super_package,
+                )
+                .await?,
             )),
             RuleKind::Toolchain => {
-                let cfg = get_platform_configuration(
+                let cfg = get_platform_configuration_from_options(
                     ctx,
                     global_cfg_options,
                     target,

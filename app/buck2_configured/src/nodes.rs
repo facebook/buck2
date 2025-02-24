@@ -79,7 +79,8 @@ use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::configuration::ConfigurationCalculation;
+use crate::configuration::compute_platform_cfgs;
+use crate::configuration::get_matched_cfg_keys;
 use crate::cycle::ConfiguredGraphCycleDescriptor;
 use crate::execution::find_execution_platform_by_configuration;
 use crate::execution::resolve_execution_platform;
@@ -130,19 +131,6 @@ enum NodeCalculationError {
 enum CompatibilityConstraints {
     Any(ConfiguredAttr),
     All(ConfiguredAttr),
-}
-
-pub(crate) async fn compute_platform_cfgs(
-    ctx: &mut DiceComputations<'_>,
-    node: TargetNodeRef<'_>,
-) -> buck2_error::Result<OrderedMap<TargetLabel, ConfigurationData>> {
-    let mut platform_map = OrderedMap::new();
-    for platform_target in node.platform_deps() {
-        let config = ctx.get_platform_configuration(platform_target).await?;
-        platform_map.insert(platform_target.dupe(), config);
-    }
-
-    Ok(platform_map)
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -696,16 +684,16 @@ async fn compute_configured_target_node_no_transition(
         &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
-    let resolved_configuration = ctx
-        .get_matched_cfg_keys(
-            target_cfg,
-            CellNameForConfigurationResolution(target_cell),
-            target_node.get_configuration_deps(),
-        )
-        .await
-        .with_buck_error_context(|| {
-            format!("Error resolving configuration deps of `{}`", target_label)
-        })?;
+    let resolved_configuration = get_matched_cfg_keys(
+        ctx,
+        target_cfg,
+        CellNameForConfigurationResolution(target_cell),
+        target_node.get_configuration_deps(),
+    )
+    .await
+    .with_buck_error_context(|| {
+        format!("Error resolving configuration deps of `{}`", target_label)
+    })?;
 
     // Must check for compatibility before evaluating non-compatibility attributes.
     if let MaybeCompatible::Incompatible(reason) =
@@ -928,19 +916,19 @@ async fn compute_configured_forward_target_node(
     let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref())
         .boxed()
         .await?;
-    let matched_cfg_keys = ctx
-        .get_matched_cfg_keys(
-            target_label_before_transition.cfg(),
-            CellNameForConfigurationResolution(target_node.label().pkg().cell_name()),
-            target_node.get_configuration_deps(),
+    let matched_cfg_keys = get_matched_cfg_keys(
+        ctx,
+        target_label_before_transition.cfg(),
+        CellNameForConfigurationResolution(target_node.label().pkg().cell_name()),
+        target_node.get_configuration_deps(),
+    )
+    .await
+    .with_buck_error_context(|| {
+        format!(
+            "Error resolving configuration deps of `{}`",
+            target_label_before_transition
         )
-        .await
-        .with_buck_error_context(|| {
-            format!(
-                "Error resolving configuration deps of `{}`",
-                target_label_before_transition
-            )
-        })?;
+    })?;
 
     let attrs = resolve_transition_attrs(
         iter::once(transition_id),

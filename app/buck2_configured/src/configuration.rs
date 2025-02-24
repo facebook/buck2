@@ -30,11 +30,13 @@ use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeys;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
+use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::FutureExt;
+use starlark_map::ordered_map::OrderedMap;
 use starlark_map::unordered_map::UnorderedMap;
 
 #[derive(Debug, buck2_error::Error)]
@@ -106,38 +108,6 @@ struct MatchedConfigurationSettingKeysKey {
     target_cfg: ConfigurationData,
     target_cell: CellNameForConfigurationResolution,
     configuration_deps: Vec<ConfigurationSettingKey>,
-}
-
-#[async_trait]
-pub(crate) trait ConfigurationCalculation {
-    async fn get_platform_configuration(
-        &mut self,
-        target: &TargetLabel,
-    ) -> buck2_error::Result<ConfigurationData>;
-
-    async fn get_matched_cfg_keys<'a, T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send>(
-        &mut self,
-        target_cfg: &ConfigurationData,
-        target_node_cell: CellNameForConfigurationResolution,
-        configuration_deps: T,
-    ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg>;
-}
-
-struct ConfigurationCalculationDynImpl;
-
-#[async_trait]
-impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
-    async fn get_platform_configuration(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        target: &TargetLabel,
-    ) -> buck2_error::Result<ConfigurationData> {
-        Ok(ctx.get_platform_configuration(target).await?)
-    }
-}
-
-pub(crate) fn init_configuration_calculation() {
-    CONFIGURATION_CALCULATION.init(&ConfigurationCalculationDynImpl);
 }
 
 async fn compute_platform_configuration_no_label_check(
@@ -299,58 +269,85 @@ impl Key for ConfigurationNodeKey {
     }
 }
 
-#[async_trait]
-impl ConfigurationCalculation for DiceComputations<'_> {
-    async fn get_platform_configuration(
-        &mut self,
-        target: &TargetLabel,
-    ) -> buck2_error::Result<ConfigurationData> {
-        #[derive(derive_more::Display, Debug, Eq, Hash, PartialEq, Clone, Allocative)]
-        struct PlatformConfigurationKey(TargetLabel);
+pub(crate) async fn get_platform_configuration(
+    ctx: &mut DiceComputations<'_>,
+    target: &TargetLabel,
+) -> buck2_error::Result<ConfigurationData> {
+    #[derive(derive_more::Display, Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+    struct PlatformConfigurationKey(TargetLabel);
 
-        #[async_trait]
-        impl Key for PlatformConfigurationKey {
-            type Value = buck2_error::Result<ConfigurationData>;
+    #[async_trait]
+    impl Key for PlatformConfigurationKey {
+        type Value = buck2_error::Result<ConfigurationData>;
 
-            async fn compute(
-                &self,
-                ctx: &mut DiceComputations,
-                _cancellation: &CancellationContext,
-            ) -> Self::Value {
-                compute_platform_configuration(ctx, &self.0)
-                    .await
-                    .map_err(buck2_error::Error::from)
-            }
-
-            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-                match (x, y) {
-                    (Ok(x), Ok(y)) => x == y,
-                    _ => false,
-                }
-            }
+        async fn compute(
+            &self,
+            ctx: &mut DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
+            compute_platform_configuration(ctx, &self.0)
+                .await
+                .map_err(buck2_error::Error::from)
         }
 
-        self.compute(&PlatformConfigurationKey(target.dupe()))
-            .await?
-            .map_err(buck2_error::Error::from)
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            match (x, y) {
+                (Ok(x), Ok(y)) => x == y,
+                _ => false,
+            }
+        }
     }
 
-    async fn get_matched_cfg_keys<
-        'a,
-        T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send,
-    >(
-        &mut self,
-        target_cfg: &ConfigurationData,
-        target_cell: CellNameForConfigurationResolution,
-        configuration_deps: T,
-    ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
-        let configuration_deps: Vec<ConfigurationSettingKey> =
-            configuration_deps.into_iter().map(|t| t.dupe()).collect();
-        self.compute(&MatchedConfigurationSettingKeysKey {
-            target_cfg: target_cfg.dupe(),
-            target_cell,
-            configuration_deps,
-        })
+    ctx.compute(&PlatformConfigurationKey(target.dupe()))
         .await?
+        .map_err(buck2_error::Error::from)
+}
+
+pub(crate) async fn compute_platform_cfgs(
+    ctx: &mut DiceComputations<'_>,
+    node: TargetNodeRef<'_>,
+) -> buck2_error::Result<OrderedMap<TargetLabel, ConfigurationData>> {
+    let mut platform_map = OrderedMap::new();
+    for platform_target in node.platform_deps() {
+        let config = get_platform_configuration(ctx, platform_target).await?;
+        platform_map.insert(platform_target.dupe(), config);
     }
+
+    Ok(platform_map)
+}
+
+pub(crate) async fn get_matched_cfg_keys<
+    'a,
+    T: IntoIterator<Item = &'a ConfigurationSettingKey> + Send,
+>(
+    ctx: &mut DiceComputations<'_>,
+    target_cfg: &ConfigurationData,
+    target_cell: CellNameForConfigurationResolution,
+    configuration_deps: T,
+) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
+    let configuration_deps: Vec<ConfigurationSettingKey> =
+        configuration_deps.into_iter().map(|t| t.dupe()).collect();
+    ctx.compute(&MatchedConfigurationSettingKeysKey {
+        target_cfg: target_cfg.dupe(),
+        target_cell,
+        configuration_deps,
+    })
+    .await?
+}
+
+struct ConfigurationCalculationDynImpl;
+
+#[async_trait]
+impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
+    async fn get_platform_configuration(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        target: &TargetLabel,
+    ) -> buck2_error::Result<ConfigurationData> {
+        Ok(get_platform_configuration(ctx, target).await?)
+    }
+}
+
+pub(crate) fn init_configuration_calculation() {
+    CONFIGURATION_CALCULATION.init(&ConfigurationCalculationDynImpl);
 }

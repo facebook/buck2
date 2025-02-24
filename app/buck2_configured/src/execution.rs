@@ -53,8 +53,8 @@ use dupe::Dupe;
 use itertools::Itertools;
 use starlark_map::ordered_map::OrderedMap;
 
-use crate::configuration::ConfigurationCalculation;
-use crate::nodes::compute_platform_cfgs;
+use crate::configuration::get_matched_cfg_keys;
+use crate::configuration::compute_platform_cfgs;
 use crate::nodes::gather_deps;
 use crate::nodes::GatheredDeps;
 use crate::nodes::LookingUpConfiguredNodeContext;
@@ -212,9 +212,13 @@ impl ToolchainExecutionPlatformCompatibilityKey {
             ));
         }
         let cell_name = CellNameForConfigurationResolution(self.target.pkg().cell_name());
-        let matched_cfg_keys = &ctx
-            .get_matched_cfg_keys(self.target.cfg(), cell_name, node.get_configuration_deps())
-            .await?;
+        let matched_cfg_keys = get_matched_cfg_keys(
+            ctx,
+            self.target.cfg(),
+            cell_name,
+            node.get_configuration_deps(),
+        )
+        .await?;
         let platform_cfgs = compute_platform_cfgs(ctx, node.as_ref()).await?;
         // We don't really need `resolved_transitions` here:
         // `Traversal` declared above ignores transitioned dependencies.
@@ -222,7 +226,7 @@ impl ToolchainExecutionPlatformCompatibilityKey {
         // if something here changes.
         let resolved_transitions = OrderedMap::new();
         let cfg_ctx = AttrConfigurationContextImpl::new(
-            matched_cfg_keys,
+            &matched_cfg_keys,
             ConfigurationNoExec::unbound_exec(),
             &resolved_transitions,
             &platform_cfgs,
@@ -291,13 +295,13 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
     assert!(target_node.is_toolchain_rule());
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
-    let matched_cfg_keys = ctx
-        .get_matched_cfg_keys(
-            target_cfg,
-            CellNameForConfigurationResolution(target_cell),
-            target_node.get_configuration_deps(),
-        )
-        .await?;
+    let matched_cfg_keys = get_matched_cfg_keys(
+        ctx,
+        target_cfg,
+        CellNameForConfigurationResolution(target_cell),
+        target_node.get_configuration_deps(),
+    )
+    .await?;
     if target_node.transition_deps().next().is_some() {
         Err(buck2_error::Error::from(
             ExecutionPlatformComputationError::ToolchainTransitionDep(
@@ -417,9 +421,13 @@ async fn check_execution_platform(
     exec_platform: &ExecutionPlatform,
     toolchain_deps: &[TargetConfiguredTargetLabel],
 ) -> buck2_error::Result<Result<(), ExecutionPlatformIncompatibleReason>> {
-    let matched_cfg_keys = ctx
-        .get_matched_cfg_keys(exec_platform.cfg(), target_node_cell, exec_compatible_with)
-        .await?;
+    let matched_cfg_keys = get_matched_cfg_keys(
+        ctx,
+        exec_platform.cfg(),
+        target_node_cell,
+        exec_compatible_with,
+    )
+    .await?;
 
     // Then check if the platform satisfies compatible_with
     for constraint in exec_compatible_with {
