@@ -1,4 +1,4 @@
-load(":defs.bzl", "configured_alias", "incoming_transition_alias", "outgoing_transition_alias")
+load(":defs.bzl", "incoming_transition_alias", "outgoing_transition_alias")
 
 constraint_setting(
     name = "animal",
@@ -27,9 +27,9 @@ stub(
     name = "stub",
 )
 
-configured_alias(
+stub(
     name = "stub_configured",
-    actual = (":stub", ":base"),
+    configured_deps = [(":stub", ":base")],
 )
 
 # Transition dep refs

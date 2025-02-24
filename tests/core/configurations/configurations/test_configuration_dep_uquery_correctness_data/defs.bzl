@@ -32,10 +32,3 @@ incoming_transition_alias = rule(
     attrs = {},
     cfg = _t,
 )
-
-configured_alias = rule(
-    impl = _impl,
-    attrs = {
-        "actual": attrs.configured_dep(),
-    },
-)

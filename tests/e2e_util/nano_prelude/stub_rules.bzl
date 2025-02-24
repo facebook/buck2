@@ -22,6 +22,7 @@ stub = rule(
         "srcs": attrs.list(attrs.source(), default = []),
         "toolchain_deps": attrs.list(attrs.toolchain_dep(), default = []),
         "labels": attrs.list(attrs.string(), default = []),
+        "configured_deps": attrs.list(attrs.configured_dep(), default = []),
     },
 )
 
