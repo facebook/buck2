@@ -116,36 +116,46 @@ impl ExternalBuckconfigData {
         }
     }
 
-    async fn get_local_config_component(
+    async fn get_local_config_components(
         project_root: &ProjectRoot,
-    ) -> Option<buck2_data::BuckconfigComponent> {
+    ) -> Vec<buck2_data::BuckconfigComponent> {
         use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
-
-        let root_path = CellRootPathBuf::new(ProjectRelativePath::empty().to_owned());
-
-        let path = ForwardRelativePath::new(DOT_BUCKCONFIG_LOCAL).expect(
-            "Internal error: .buckconfig.local should always be a valid forward relative path",
-        );
-        let local_config = ConfigPath::Project(root_path.as_project_relative_path().join(path));
-
         let file_ops = &mut DefaultConfigParserFileOps {
             project_fs: project_root.dupe(),
         };
+        let mut local_config_components = Vec::new();
+        if let Ok(legacy_cells) =
+            BuckConfigBasedCells::parse_with_config_args(&project_root, &[]).await
+        {
+            let path = ForwardRelativePath::new(DOT_BUCKCONFIG_LOCAL).expect(
+                "Internal error: .buckconfig.local should always be a valid forward relative path",
+            );
+            for (_cell, cell_instance) in legacy_cells.cell_resolver.cells() {
+                let relative_path = cell_instance.path().as_project_relative_path().join(path);
+                let origin_path = relative_path.to_string();
+                let local_config = ConfigPath::Project(relative_path);
 
-        let mut parser = LegacyConfigParser::new();
-        parser
-            .parse_file(&local_config, None, false, file_ops)
-            .await
-            .ok()
-            .map(|_| {
-                let project_config_local = buck2_data::GlobalExternalConfig {
-                    values: parser.to_proto_external_config_values(false),
-                    origin_path: DOT_BUCKCONFIG_LOCAL.to_owned(),
-                };
-                buck2_data::BuckconfigComponent {
-                    data: Some(GlobalExternalConfigFile(project_config_local)),
+                let mut parser = LegacyConfigParser::new();
+                if parser
+                    .parse_file(&local_config, None, false, file_ops)
+                    .await
+                    .is_ok()
+                {
+                    let values = parser.to_proto_external_config_values(false);
+                    if values.is_empty() {
+                        // Don't create an empty component for cells with non-existing .buckconfig.local
+                        continue;
+                    }
+                    local_config_components.push(buck2_data::BuckconfigComponent {
+                        data: Some(GlobalExternalConfigFile(buck2_data::GlobalExternalConfig {
+                            values,
+                            origin_path,
+                        })),
+                    });
                 }
-            })
+            }
+        }
+        local_config_components
     }
 
     pub async fn get_buckconfig_components(
@@ -168,9 +178,7 @@ impl ExternalBuckconfigData {
             })
             .collect();
 
-        if let Some(local_config_component) = Self::get_local_config_component(project_root).await {
-            res.push(local_config_component)
-        }
+        res.extend(Self::get_local_config_components(project_root).await);
         res.extend(to_proto_config_args(&self.args));
         res
     }
