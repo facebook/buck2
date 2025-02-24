@@ -155,13 +155,9 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
 
 //
 // Single line looks like:
-//    M fbcode/buck2/app/buck2_file_watcher/src/edenfs/sapling.rs
-//    A fbcode/buck2/app/buck2_file_watcher/src/edenfs/sapling.rs
-//    R fbcode/buck2/app/buck2_file_watcher/src/edenfs/sapling.rs
-//    ! fbcode/buck2/app/buck2_file_watcher/src/edenfs/sapling.rs
-//    ? fbcode/buck2/app/buck2_file_watcher/src/edenfs/sapling.rs
+//    <status> <path>
 //
-// Where:
+// Where status is one of:
 //   M = modified
 //   A = added
 //   R = removed
@@ -173,15 +169,16 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
 // Note:
 //   Paths can have spaces, but are not quoted.
 fn process_one_status_line(line: &str) -> buck2_error::Result<Option<(SaplingStatus, String)>> {
+    let mut chars = line.chars();
     // Must include a status and at least one char path.
-    let mut parts = line.split_whitespace();
-    if let (Some(change), Some(path), None) = (parts.next(), parts.next(), parts.next()) {
-        Ok(match change {
-            "M" => Some((SaplingStatus::Modified, path.to_owned())),
-            "A" => Some((SaplingStatus::Added, path.to_owned())),
-            "R" => Some((SaplingStatus::Removed, path.to_owned())),
-            "!" => Some((SaplingStatus::Missing, path.to_owned())),
-            "?" => Some((SaplingStatus::NotTracked, path.to_owned())),
+    if let (Some(status), Some(' '), path) = (chars.next(), chars.next(), chars.collect::<String>())
+    {
+        Ok(match status {
+            'M' => Some((SaplingStatus::Modified, path)),
+            'A' => Some((SaplingStatus::Added, path)),
+            'R' => Some((SaplingStatus::Removed, path)),
+            '!' => Some((SaplingStatus::Missing, path)),
+            '?' => Some((SaplingStatus::NotTracked, path)),
             _ => None, // Skip all others
         })
     } else {
@@ -238,6 +235,15 @@ mod tests {
             ))
         );
 
+        // Space in path
+        assert_eq!(
+            process_one_status_line("M ovrsource-legacy/unity/socialvr/modules/wb_unity_asset_bundles/Assets/MetaHorizonUnityAssetBundle/Editor/Unity Dependencies/ABDataSource.cs")?,
+            Some((
+                SaplingStatus::Modified,
+                "ovrsource-legacy/unity/socialvr/modules/wb_unity_asset_bundles/Assets/MetaHorizonUnityAssetBundle/Editor/Unity Dependencies/ABDataSource.cs".to_owned()
+            ))
+        );
+
         assert_eq!(
             process_one_status_line("C buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
             None
@@ -245,6 +251,17 @@ mod tests {
 
         assert!(process_one_status_line("NO").is_err());
 
+        // Invalid status (missing status), but valid path with space in it
+        assert!(
+            process_one_status_line(" ovrsource-legacy/unity/socialvr/modules/wb_unity_asset_bundles/Assets/MetaHorizonUnityAssetBundle/Editor/Unity Dependencies/ABDataSource.cs")
+                .is_err());
+
+        // Malformed status (no space)
+        assert!(
+            process_one_status_line("Mbuck2/app/buck2_file_watcher/src/edenfs/sapling.rs").is_err()
+        );
+
+        // Malformed status (colon instead of space)
         assert!(
             process_one_status_line("M:buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")
                 .is_err()
