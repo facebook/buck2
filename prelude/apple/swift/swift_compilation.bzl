@@ -62,6 +62,7 @@ load(
     ":swift_pcm_compilation_types.bzl",
     "SwiftPCMUncompiledInfo",
 )
+load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info")
@@ -760,14 +761,13 @@ def _get_shared_flags(
         # in the debug info.
         cmd.add(["-working-directory="])
 
+    cmd.add(get_sdk_flags(ctx))
     cmd.add([
         # Always use color, consistent with clang.
         "-color-diagnostics",
         # Unset the working directory in the debug information.
         "-file-compilation-dir",
         ".",
-        "-sdk",
-        toolchain.sdk_path,
         "-target",
         get_target_triple(ctx),
         "-module-name",

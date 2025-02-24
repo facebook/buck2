@@ -12,6 +12,7 @@ load(
     ":swift_debug_info_utils.bzl",
     "extract_and_merge_clang_debug_infos",
 )
+load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
@@ -133,7 +134,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         swift_toolchain = apple_toolchain.swift_toolchain_info
         cmd = cmd_args(swift_toolchain.compiler)
         cmd.add(uncompiled_sdk_module_info.partial_cmd)
-        cmd.add(["-sdk", swift_toolchain.sdk_path])
+        cmd.add(get_sdk_flags(ctx))
         cmd.add(swift_toolchain.compiler_flags)
 
         if swift_toolchain.resource_dir:

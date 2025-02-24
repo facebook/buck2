@@ -16,6 +16,7 @@ load(
     "extract_and_merge_clang_debug_infos",
 )
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
+load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
@@ -322,7 +323,7 @@ def _get_base_pcm_flags(
 
     cmd = cmd_args(
         get_shared_pcm_compilation_args(module_name),
-        ["-sdk", swift_toolchain.sdk_path],
+        get_sdk_flags(ctx),
         swift_toolchain.compiler_flags,
         ([
             "-resource-dir",

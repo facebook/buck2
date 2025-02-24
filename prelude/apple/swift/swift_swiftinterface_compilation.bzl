@@ -16,6 +16,7 @@ load(
     "extract_and_merge_swift_debug_infos",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
+load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
 
@@ -49,7 +50,7 @@ def compile_swiftinterface_common(
     swift_toolchain = apple_toolchain.swift_toolchain_info
     cmd = cmd_args(swift_toolchain.compiler)
     cmd.add(partial_cmd)
-    cmd.add(["-sdk", swift_toolchain.sdk_path])
+    cmd.add(get_sdk_flags(ctx))
 
     if swift_toolchain.resource_dir:
         cmd.add([
