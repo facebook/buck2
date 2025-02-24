@@ -378,7 +378,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
         ..
     } = visitor;
     let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
-    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.to_string()).collect();
+    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
 
     let expected_deps = vec![
         "root//some:target",
@@ -657,7 +657,7 @@ fn test_source_label_deps() -> anyhow::Result<()> {
         ..
     } = visitor;
     let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
-    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.to_string()).collect();
+    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
 
     let expected_deps = vec![
         "root//some:target",

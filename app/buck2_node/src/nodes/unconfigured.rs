@@ -25,6 +25,7 @@ use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -272,11 +273,6 @@ impl TargetNode {
     #[inline]
     pub fn attrs(&self, opts: AttrInspectOptions) -> impl Iterator<Item = CoercedAttrFull> {
         self.as_ref().attrs(opts)
-    }
-
-    #[inline]
-    pub fn platform_deps(&self) -> impl Iterator<Item = &TargetLabel> {
-        self.as_ref().platform_deps()
     }
 
     /// Return `None` if attribute is not present or unknown.
@@ -541,11 +537,27 @@ impl<'a> TargetNodeRef<'a> {
     }
 
     pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a ProvidersLabel> {
-        self.0.get().deps_cache.configuration_deps.iter()
+        self.get_configuration_deps_with_kind()
+            .filter_map(|(d, k)| {
+                // FIXME(JakobDegen): This behavior is a footgun. Remove.
+                match k {
+                    ConfigurationDepKind::CompatibilityAttribute => true,
+                    ConfigurationDepKind::SelectKey => true,
+                    ConfigurationDepKind::ConfiguredDepPlatform => false,
+                }
+                .then_some(d)
+            })
     }
 
-    pub fn platform_deps(self) -> impl Iterator<Item = &'a TargetLabel> {
-        self.0.get().deps_cache.platform_deps.iter()
+    pub fn get_configuration_deps_with_kind(
+        self,
+    ) -> impl Iterator<Item = (&'a ProvidersLabel, ConfigurationDepKind)> {
+        self.0
+            .get()
+            .deps_cache
+            .configuration_deps
+            .iter()
+            .map(|(d, k)| (d, *k))
     }
 
     /// Returns all deps for this node that we know about after processing the build file

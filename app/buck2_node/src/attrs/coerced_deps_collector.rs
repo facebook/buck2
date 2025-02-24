@@ -38,11 +38,8 @@ pub struct CoercedDeps {
     /// Contains the toolchain deps derived from the attributes.
     pub toolchain_deps: ThinBoxSlice<TargetLabel>,
 
-    /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: ThinBoxSlice<ProvidersLabel>,
-
-    /// Contains platform targets of configured_alias()
-    pub platform_deps: ThinBoxSlice<TargetLabel>,
+    /// Contains the configuration deps
+    pub configuration_deps: ThinBoxSlice<(ProvidersLabel, ConfigurationDepKind)>,
 
     /// Contains the plugin deps
     pub plugin_deps: ThinBoxSlice<TargetLabel>,
@@ -56,7 +53,6 @@ impl From<CoercedDepsCollector> for CoercedDeps {
             exec_deps,
             toolchain_deps,
             configuration_deps,
-            platform_deps,
             plugin_deps,
         } = collector;
         CoercedDeps {
@@ -65,7 +61,6 @@ impl From<CoercedDepsCollector> for CoercedDeps {
             exec_deps: exec_deps.into_iter().collect(),
             toolchain_deps: toolchain_deps.into_iter().collect(),
             configuration_deps: configuration_deps.into_iter().collect(),
-            platform_deps: platform_deps.into_iter().collect(),
             plugin_deps: plugin_deps.into_iter().collect(),
         }
     }
@@ -88,10 +83,7 @@ pub struct CoercedDepsCollector {
     pub toolchain_deps: OrderedSet<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: OrderedSet<ProvidersLabel>,
-
-    /// Contains platform targets of configured_alias()
-    pub platform_deps: OrderedSet<TargetLabel>,
+    pub configuration_deps: OrderedSet<(ProvidersLabel, ConfigurationDepKind)>,
 
     /// Contains the plugin deps
     pub plugin_deps: OrderedSet<TargetLabel>,
@@ -105,7 +97,6 @@ impl CoercedDepsCollector {
             toolchain_deps: OrderedSet::new(),
             transition_deps: OrderedSet::new(),
             configuration_deps: OrderedSet::new(),
-            platform_deps: OrderedSet::new(),
             plugin_deps: OrderedSet::new(),
         }
     }
@@ -152,15 +143,7 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
         dep: &ProvidersLabel,
         t: ConfigurationDepKind,
     ) -> buck2_error::Result<()> {
-        match t {
-            ConfigurationDepKind::CompatibilityAttribute | ConfigurationDepKind::SelectKey => {
-                self.configuration_deps.insert(dep.dupe());
-            }
-            ConfigurationDepKind::ConfiguredDepPlatform => {
-                self.platform_deps.insert(dep.target().dupe());
-            }
-        }
-
+        self.configuration_deps.insert((dep.dupe(), t));
         Ok(())
     }
 

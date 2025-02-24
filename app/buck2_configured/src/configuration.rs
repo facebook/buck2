@@ -23,6 +23,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::calculation::ConfigurationCalculationDyn;
 use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
@@ -309,9 +310,12 @@ pub(crate) async fn compute_platform_cfgs(
     node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<OrderedMap<TargetLabel, ConfigurationData>> {
     let mut platform_map = OrderedMap::new();
-    for platform_target in node.platform_deps() {
-        let config = get_platform_configuration(ctx, platform_target).await?;
-        platform_map.insert(platform_target.dupe(), config);
+    for (platform_target, kind) in node.get_configuration_deps_with_kind() {
+        if kind == ConfigurationDepKind::ConfiguredDepPlatform {
+            let platform_target = platform_target.target();
+            let config = get_platform_configuration(ctx, platform_target).await?;
+            platform_map.insert(platform_target.dupe(), config);
+        }
     }
 
     Ok(platform_map)
