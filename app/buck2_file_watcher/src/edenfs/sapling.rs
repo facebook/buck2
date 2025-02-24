@@ -22,8 +22,11 @@ pub(crate) enum SaplingStatus {
     Modified,
     Added,
     Removed,
+    Clean,
     Missing,
     NotTracked,
+    Ignored,
+    Copied,
 }
 
 pub(crate) enum SaplingGetStatusResult {
@@ -173,12 +176,16 @@ fn process_one_status_line(line: &str) -> buck2_error::Result<Option<(SaplingSta
     // Must include a status and at least one char path.
     if let (Some(status), Some(' '), path) = (chars.next(), chars.next(), chars.collect::<String>())
     {
+        let path = path.to_owned();
         Ok(match status {
             'M' => Some((SaplingStatus::Modified, path)),
             'A' => Some((SaplingStatus::Added, path)),
             'R' => Some((SaplingStatus::Removed, path)),
+            'C' => Some((SaplingStatus::Clean, path)),
             '!' => Some((SaplingStatus::Missing, path)),
             '?' => Some((SaplingStatus::NotTracked, path)),
+            'I' => Some((SaplingStatus::Ignored, path)),
+            ' ' => Some((SaplingStatus::Copied, path)),
             _ => None, // Skip all others
         })
     } else {
@@ -246,7 +253,26 @@ mod tests {
 
         assert_eq!(
             process_one_status_line("C buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
-            None
+            Some((
+                SaplingStatus::Clean,
+                "buck2/app/buck2_file_watcher/src/edenfs/sapling.rs".to_owned()
+            ))
+        );
+
+        assert_eq!(
+            process_one_status_line("I buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
+            Some((
+                SaplingStatus::Ignored,
+                "buck2/app/buck2_file_watcher/src/edenfs/sapling.rs".to_owned()
+            ))
+        );
+
+        assert_eq!(
+            process_one_status_line("  buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
+            Some((
+                SaplingStatus::Copied,
+                "buck2/app/buck2_file_watcher/src/edenfs/sapling.rs".to_owned()
+            ))
         );
 
         assert!(process_one_status_line("NO").is_err());

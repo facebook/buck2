@@ -453,14 +453,16 @@ impl EdenFsFileWatcher {
                 let results: buck2_error::Result<Vec<_>> = status
                     .into_iter()
                     .map(|(change, path)| match change {
-                        SaplingStatus::Added | SaplingStatus::NotTracked => self
-                            .process_file_watcher_event(
-                                tracker,
-                                stats,
-                                Kind::File,
-                                Type::Create,
-                                path.as_bytes(),
-                            ),
+                        SaplingStatus::Added
+                        | SaplingStatus::NotTracked
+                        | SaplingStatus::Copied
+                        | SaplingStatus::Ignored => self.process_file_watcher_event(
+                            tracker,
+                            stats,
+                            Kind::File,
+                            Type::Create,
+                            path.as_bytes(),
+                        ),
                         SaplingStatus::Modified => self.process_file_watcher_event(
                             tracker,
                             stats,
@@ -468,14 +470,15 @@ impl EdenFsFileWatcher {
                             Type::Modify,
                             path.as_bytes(),
                         ),
-                        SaplingStatus::Removed | SaplingStatus::Missing => self
-                            .process_file_watcher_event(
+                        SaplingStatus::Removed | SaplingStatus::Missing | SaplingStatus::Clean => {
+                            self.process_file_watcher_event(
                                 tracker,
                                 stats,
                                 Kind::File,
                                 Type::Delete,
                                 path.as_bytes(),
-                            ),
+                            )
+                        }
                     })
                     .collect();
 
