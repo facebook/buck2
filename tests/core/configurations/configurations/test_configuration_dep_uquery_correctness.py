@@ -8,15 +8,70 @@
 # pyre-strict
 
 
+import json
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test()
-async def test_default_target_platform(buck: Buck) -> None:
+async def check_has_uquery_path(
+    buck: Buck, target: str, dep: str, expect_fail: bool = False
+) -> None:
     result = await buck.uquery(
-        "somepath(:with_custom_dtp, :base)",
+        f"somepath({target}, {dep})",
     )
     path = result.stdout.splitlines()
-    # FIXME(JakobDegen): Bug. This dependency exists.
+    # Apparently, configuration deps never show up in `somepath`. Interesting.
     assert len(path) == 0
+
+    result = await buck.uquery(
+        f"deps({target})",
+        "-a",
+        "buck.deps",
+        "-a",
+        "buck.configuration_deps",
+    )
+    all_deps = [
+        d
+        for node in json.loads(result.stdout).values()
+        for deps in node.values()
+        for d in deps
+    ]
+    if expect_fail:
+        assert dep not in all_deps
+    else:
+        assert dep in all_deps
+
+
+@buck_test()
+async def test_default_target_platform(buck: Buck) -> None:
+    # FIXME(JakobDegen): Bug.
+    await check_has_uquery_path(
+        buck, ":with_custom_dtp", "root//:base", expect_fail=True
+    )
+
+
+@buck_test()
+async def test_configured_dep_platform(buck: Buck) -> None:
+    # FIXME(JakobDegen): Bug.
+    await check_has_uquery_path(
+        buck, ":stub_configured", "root//:base", expect_fail=True
+    )
+
+
+@buck_test()
+async def test_transition_dep_refs(buck: Buck) -> None:
+    # FIXME(JakobDegen): Bug.
+    await check_has_uquery_path(
+        buck, ":pre_out_transition", "root//:cat", expect_fail=True
+    )
+
+    # FIXME(JakobDegen): Bug.
+    await check_has_uquery_path(
+        buck, ":post_out_transition", "root//:cat", expect_fail=True
+    )
+
+
+@buck_test()
+async def test_select_keys(buck: Buck) -> None:
+    await check_has_uquery_path(buck, ":with_select", "root//:cat")
