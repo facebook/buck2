@@ -134,17 +134,6 @@ impl ConfigurationCalculationDyn for ConfigurationCalculationDynImpl {
     ) -> buck2_error::Result<ConfigurationData> {
         Ok(ctx.get_platform_configuration(target).await?)
     }
-
-    async fn get_matched_cfg_keys(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-        target_cfg: &ConfigurationData,
-        target_node_cell: CellNameForConfigurationResolution,
-        configuration_deps: &[ConfigurationSettingKey],
-    ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
-        ctx.get_matched_cfg_keys(target_cfg, target_node_cell, configuration_deps)
-            .await
-    }
 }
 
 pub(crate) fn init_configuration_calculation() {
