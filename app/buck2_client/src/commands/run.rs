@@ -200,6 +200,12 @@ impl StreamingCommand for RunCommand {
 
         let chdir = self.chdir.map(|chdir| chdir.resolve(&ctx.working_dir));
 
+        let exec_handoff_message = format!(
+            "Starting RUN of `{}`\nRunning defined output located at: `{}`",
+            self.target.clone(),
+            run_args[0].clone()
+        );
+        console.print_stderr(&exec_handoff_message)?;
         ExitResult::exec(
             run_args[0].clone().into(),
             run_args.into_iter().map(|arg| arg.into()).collect(),
