@@ -201,7 +201,7 @@ async def test_previous_command_with_mismatched_config(
     # Previous command didn't change any external configs but still has new_configs_used = 1 due to changes to project-relative configs.
     # We don't capture that by design at the moment.
     record_file = tmp_path / "record.json"
-    await buck.build(
+    res = await buck.build(
         "@root//mode/my_mode",
         "//:test",
         "-c",
@@ -209,9 +209,25 @@ async def test_previous_command_with_mismatched_config(
         "--unstable-write-invocation-record",
         str(record_file),
     )
+    trace_id = json.loads(res.stdout)["trace_id"]
 
     previous_invalidating_command = await filter_events(
         buck, "Event", "data", "Instant", "data", "PreviousCommandWithMismatchedConfig"
     )
     assert len(previous_invalidating_command) == 0
     assert read_invocation_record(record_file)["new_configs_used"] == 1
+
+    # Make a change to .buckconfig.local
+    with open(buck.cwd / ".buckconfig.local", "w") as localconfig:
+        localconfig.write("\n[local_section]\nlocal_key = local_value\n")
+    await buck.build(
+        "@root//mode/my_mode",
+        "//:test",
+        "-c",
+        "my_section.my_key=my_new_value",
+    )
+    previous_invalidating_command = await filter_events(
+        buck, "Event", "data", "Instant", "data", "PreviousCommandWithMismatchedConfig"
+    )
+    assert len(previous_invalidating_command) == 1
+    assert previous_invalidating_command[0]["trace_id"] == trace_id
