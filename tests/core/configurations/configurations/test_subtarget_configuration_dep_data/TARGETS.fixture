@@ -1,0 +1,16 @@
+load(":subtarget_alias.bzl", "subtarget_alias")
+
+platform(
+    name = "base",
+    constraint_values = [],
+)
+
+subtarget_alias(
+    name = "alias_platform",
+    actual = ":base",
+)
+
+stub(
+    name = "stub",
+    default_target_platform = ":alias_platform[sub]",
+)
