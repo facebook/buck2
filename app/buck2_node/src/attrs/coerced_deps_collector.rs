@@ -13,6 +13,7 @@ use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::thin_box::ThinBoxSlice;
 use dupe::Dupe;
@@ -111,36 +112,38 @@ impl CoercedDepsCollector {
 }
 
 impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
-    fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.deps.insert(dep.dupe());
+    fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()> {
+        self.deps.insert(dep.target().dupe());
         Ok(())
     }
 
-    fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.exec_deps.insert(dep.dupe());
+    fn exec_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
+        self.exec_deps.insert(dep.target().dupe());
         Ok(())
     }
 
-    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.toolchain_deps.insert(dep.dupe());
+    fn toolchain_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
+        self.toolchain_deps.insert(dep.target().dupe());
         Ok(())
     }
 
     fn transition_dep(
         &mut self,
-        dep: &'a TargetLabel,
+        dep: &'a ProvidersLabel,
         tr: &Arc<TransitionId>,
     ) -> buck2_error::Result<()> {
-        self.transition_deps.insert((dep.dupe(), tr.dupe()));
+        self.transition_deps
+            .insert((dep.target().dupe(), tr.dupe()));
         Ok(())
     }
 
     fn split_transition_dep(
         &mut self,
-        dep: &'a TargetLabel,
+        dep: &'a ProvidersLabel,
         tr: &Arc<TransitionId>,
     ) -> buck2_error::Result<()> {
-        self.transition_deps.insert((dep.dupe(), tr.dupe()));
+        self.transition_deps
+            .insert((dep.target().dupe(), tr.dupe()));
         Ok(())
     }
 

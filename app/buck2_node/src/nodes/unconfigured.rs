@@ -337,21 +337,21 @@ impl TargetNode {
                 Ok(())
             }
 
-            fn dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
+            fn dep(&mut self, _dep: &ProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
+            fn exec_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
+            fn toolchain_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
             fn transition_dep(
                 &mut self,
-                _dep: &'a TargetLabel,
+                _dep: &'a ProvidersLabel,
                 _tr: &Arc<TransitionId>,
             ) -> buck2_error::Result<()> {
                 Ok(())
@@ -371,7 +371,7 @@ impl TargetNode {
 
             fn split_transition_dep(
                 &mut self,
-                _dep: &'a TargetLabel,
+                _dep: &'a ProvidersLabel,
                 _tr: &Arc<TransitionId>,
             ) -> buck2_error::Result<()> {
                 Ok(())
@@ -629,15 +629,15 @@ impl<'a> TargetNodeRef<'a> {
                 Ok(())
             }
 
-            fn dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
+            fn dep(&mut self, _dep: &ProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn exec_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
+            fn exec_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
-            fn toolchain_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
+            fn toolchain_dep(&mut self, _dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
                 Ok(())
             }
 
@@ -655,7 +655,7 @@ impl<'a> TargetNodeRef<'a> {
 
             fn transition_dep(
                 &mut self,
-                _dep: &'a TargetLabel,
+                _dep: &'a ProvidersLabel,
                 _tr: &Arc<TransitionId>,
             ) -> buck2_error::Result<()> {
                 Ok(())
@@ -663,7 +663,7 @@ impl<'a> TargetNodeRef<'a> {
 
             fn split_transition_dep(
                 &mut self,
-                _dep: &'a TargetLabel,
+                _dep: &'a ProvidersLabel,
                 _tr: &Arc<TransitionId>,
             ) -> buck2_error::Result<()> {
                 Ok(())

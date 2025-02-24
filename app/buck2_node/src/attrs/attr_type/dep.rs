@@ -91,10 +91,10 @@ impl DepAttr<ProvidersLabel> {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> buck2_error::Result<()> {
         match &attr_type.transition {
-            DepAttrTransition::Identity(..) => traversal.dep(label.target()),
-            DepAttrTransition::Exec => traversal.exec_dep(label.target()),
-            DepAttrTransition::Toolchain => traversal.toolchain_dep(label.target()),
-            DepAttrTransition::Transition(tr) => traversal.transition_dep(label.target(), tr),
+            DepAttrTransition::Identity(..) => traversal.dep(label),
+            DepAttrTransition::Exec => traversal.exec_dep(label),
+            DepAttrTransition::Toolchain => traversal.toolchain_dep(label),
+            DepAttrTransition::Transition(tr) => traversal.transition_dep(label, tr),
         }
     }
 }

@@ -77,7 +77,7 @@ impl UnconfiguredExplicitConfiguredDep {
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> buck2_error::Result<()> {
-        traversal.dep(self.label.target())?;
+        traversal.dep(&self.label)?;
         traversal.platform_dep(&self.platform)
     }
 }

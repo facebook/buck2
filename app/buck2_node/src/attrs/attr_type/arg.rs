@@ -251,16 +251,16 @@ impl MacroBase<ProvidersLabel> {
     ) -> buck2_error::Result<()> {
         match self {
             MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
-                traversal.dep(l.target())
+                traversal.dep(l)
             }
             MacroBase::Exe {
                 label,
                 exec_dep: true,
-            } => traversal.exec_dep(label.target()),
+            } => traversal.exec_dep(label),
             MacroBase::Exe {
                 label,
                 exec_dep: false,
-            } => traversal.dep(label.target()),
+            } => traversal.dep(label),
             MacroBase::Query(query) => query.traverse(traversal),
             MacroBase::Source(path) => {
                 for x in path.inputs() {

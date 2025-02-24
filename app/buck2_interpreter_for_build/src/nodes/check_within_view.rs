@@ -13,6 +13,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -79,8 +80,8 @@ pub(crate) fn check_within_view(
     }
 
     impl<'a, 'x> CoercedAttrTraversal<'a> for WithinViewCheckTraversal<'x> {
-        fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
+        fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()> {
+            self.check_dep_within_view(dep.target())
         }
 
         fn plugin_dep(
@@ -91,28 +92,28 @@ pub(crate) fn check_within_view(
             self.check_dep_within_view(dep)
         }
 
-        fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
+        fn exec_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
+            self.check_dep_within_view(dep.target())
         }
 
-        fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
+        fn toolchain_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
+            self.check_dep_within_view(dep.target())
         }
 
         fn transition_dep(
             &mut self,
-            dep: &'a TargetLabel,
+            dep: &'a ProvidersLabel,
             _tr: &Arc<TransitionId>,
         ) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
+            self.check_dep_within_view(dep.target())
         }
 
         fn split_transition_dep(
             &mut self,
-            dep: &'a TargetLabel,
+            dep: &'a ProvidersLabel,
             _tr: &Arc<TransitionId>,
         ) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
+            self.check_dep_within_view(dep.target())
         }
 
         fn configuration_dep(

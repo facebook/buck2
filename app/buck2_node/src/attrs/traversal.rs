@@ -18,17 +18,17 @@ use buck2_core::target::label::label::TargetLabel;
 use crate::configuration::resolved::ConfigurationSettingKey;
 
 pub trait CoercedAttrTraversal<'a> {
-    fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
-    fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
-    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
+    fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()>;
+    fn exec_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()>;
+    fn toolchain_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()>;
     fn transition_dep(
         &mut self,
-        dep: &'a TargetLabel,
+        dep: &'a ProvidersLabel,
         tr: &Arc<TransitionId>,
     ) -> buck2_error::Result<()>;
     fn split_transition_dep(
         &mut self,
-        dep: &'a TargetLabel,
+        dep: &'a ProvidersLabel,
         tr: &Arc<TransitionId>,
     ) -> buck2_error::Result<()>;
     fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> buck2_error::Result<()>;

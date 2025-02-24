@@ -507,17 +507,15 @@ impl CoercedAttr {
             CoercedAttrWithType::WithinView(..) => Ok(()),
             CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => dep.traverse(traversal),
             CoercedAttrWithType::SplitTransitionDep(dep, t) => {
-                traversal.split_transition_dep(dep.target(), &t.transition)
+                traversal.split_transition_dep(dep, &t.transition)
             }
-            CoercedAttrWithType::ConfiguredDep(dep) => {
-                traversal.dep(dep.label.target().unconfigured())
-            }
+            CoercedAttrWithType::ConfiguredDep(dep) => traversal.dep(&dep.label.unconfigured()),
             CoercedAttrWithType::ConfigurationDep(dep, _t) => traversal.configuration_dep(dep),
             CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
             CoercedAttrWithType::Dep(dep, t) => {
                 DepAttr::<ProvidersLabel>::traverse(dep, t, traversal)
             }
-            CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s.target()),
+            CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s),
             CoercedAttrWithType::Label(label, _t) => traversal.label(label),
             CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal, pkg),
             CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
