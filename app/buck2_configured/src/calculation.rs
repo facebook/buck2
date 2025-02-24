@@ -104,6 +104,12 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     node.as_ref(),
                 )
                 .await?
+                // FIXME(JakobDegen): This is busted. Callers of this function expect to need to
+                // subsequently actually configure the target, and handle any possible
+                // incompatibilities at that time. Doing this here prevents them from handling those
+                // as they would for non-toolchain targets.
+                //
+                // FIXME(JakobDegen): Write a test for the above.
                 .require_compatible()?
                 .cfg();
                 Ok(target.configure_with_exec(cfg, exec_cfg.cfg().dupe()))
