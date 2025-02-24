@@ -46,9 +46,8 @@ async def test_local_action(buck: Buck) -> None:
         # "z" is a first output for action.
         digests = [o["tiny_digest"] for o in outputs]
         assert len(digests) == 2
-        # TODO: We want those to be in alphabetical order
-        # Checking that "z" is first in action outputs
-        assert digests[0] != "da39a3ee"
+        # Checking that "a" is first in action outputs
+        assert digests[0] == "da39a3ee"
         return
 
     raise AssertionError("Didn't find ActionExecution data")
@@ -84,9 +83,8 @@ async def test_remote_action(buck: Buck) -> None:
         # "z" is a first output for action.
         digests = [o["tiny_digest"] for o in outputs]
         assert len(digests) == 2
-        # TODO: We want those to be in alphabetical order
-        # Checking that "z" is first in action outputs
-        assert digests[0] != "da39a3ee"
+        # Checking that "a" is first in action outputs
+        assert digests[0] == "da39a3ee"
         break
 
     what_ran = await read_what_ran(buck)

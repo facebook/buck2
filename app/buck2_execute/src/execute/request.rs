@@ -222,6 +222,17 @@ impl CommandExecutionPaths {
     ) -> buck2_error::Result<Self> {
         let mut builder = inputs_directory(&inputs, fs)?;
 
+        // RE spec requires outputs to be sorted:
+        // https://github.com/bazelbuild/remote-apis/blob/1f36c310b28d762b258ea577ed08e8203274efae/build/bazel/remote/execution/v2/remote_execution.proto#L667-L669
+        // We sort early here and not when we create RE action in order for local and remote actions to be in-sync.
+        let outputs: IndexSet<_> = outputs
+            .into_iter()
+            .sorted_by_key(|e| {
+                let resolved = e.as_ref().resolve(fs);
+                resolved.into_path()
+            })
+            .collect();
+
         let output_paths = outputs
             .iter()
             .map(|o| {

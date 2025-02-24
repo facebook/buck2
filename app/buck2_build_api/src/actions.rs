@@ -113,7 +113,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>>;
 
     /// All the outputs this 'Artifact' will generate. Just like inputs, this should be a pure
-    /// function.
+    /// function. Note that outputs in action result might be ordered differently.
     fn outputs(&self) -> Cow<'_, [BuildArtifact]>;
 
     /// Returns a reference to an output of the action. All actions are required to have at least one output.

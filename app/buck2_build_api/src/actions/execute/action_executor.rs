@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::ControlFlow;
 use std::sync::Arc;
@@ -619,13 +620,30 @@ impl BuckActionExecutor {
                 }
             }
 
-            // Check all the outputs were returned, and no additional outputs
+            fn check_all_requested_outputs_returned_without_extra<'a>(
+                outputs: &[BuildArtifact],
+                result_outputs: impl IntoIterator<Item = &'a BuildArtifactPath>,
+            ) -> bool {
+                // Ignore ordering as outputs in original action might be ordered differently from
+                // output paths in action result (they are sorted there).
+                let result_output_paths: HashSet<&BuildArtifactPath> =
+                    result_outputs.into_iter().collect();
+                let mut outputs_count = 0;
+                for output in outputs.iter() {
+                    outputs_count += 1;
+                    let output_path = output.get_path();
+                    if !result_output_paths.contains(output_path) {
+                        return false;
+                    }
+                }
+                outputs_count == result_output_paths.len()
+            }
+
             // TODO (T122966509): Check projections here as well
-            if !outputs
-                .iter()
-                .map(|b| b.get_path())
-                .eq(result.0.outputs.keys())
-            {
+            if !check_all_requested_outputs_returned_without_extra(
+                &outputs,
+                result.0.outputs.keys(),
+            ) {
                 let declared = outputs
                     .iter()
                     .filter(|x| !result.0.outputs.contains_key(x.get_path()))
