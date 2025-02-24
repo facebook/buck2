@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::query::PackageLabelOption;
 use buck2_build_api::actions::query::CONFIGURED_ATTR_TO_VALUE;
@@ -24,7 +23,6 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_futures::cancellation::CancellationContext;
@@ -47,7 +45,6 @@ use starlark::values::dict::UnpackDictEntries;
 use starlark::values::structs::AllocStruct;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::sorted_map::SortedMap;
 
@@ -80,7 +77,7 @@ fn call_transition_function<'v>(
     refs: Value<'v>,
     attrs: Option<Value<'v>>,
     eval: &mut Evaluator<'v, '_, '_>,
-) -> anyhow::Result<TransitionApplied> {
+) -> buck2_error::Result<TransitionApplied> {
     let mut args = vec![
         (
             "platform",
@@ -96,9 +93,7 @@ fn call_transition_function<'v>(
         .eval_function(transition.implementation.to_value(), &[], &args)
         .map_err(buck2_error::Error::from)?;
     if transition.split {
-        match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)
-            .into_anyhow_result()?
-        {
+        match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)? {
             Some(dict) => {
                 let mut split = OrderedMap::new();
                 for (k, v) in dict.entries {
@@ -190,14 +185,11 @@ async fn do_apply_transition(
                     return Err(ApplyTransitionError::InconsistentTransitionAndComputation.into());
                 }
             };
-            match call_transition_function(&transition, conf, refs, attrs, &mut eval)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
-            {
+            match call_transition_function(&transition, conf, refs, attrs, &mut eval)? {
                 TransitionApplied::Single(new) => {
                     let new_2 =
                         match call_transition_function(&transition, &new, refs, attrs, &mut eval)
-                            .context("applying transition again on transition output")
-                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+                            .buck_error_context("applying transition again on transition output")?
                         {
                             TransitionApplied::Single(new_2) => new_2,
                             TransitionApplied::Split(_) => {
