@@ -9,8 +9,8 @@
 
 use starlark::environment::GlobalsBuilder;
 
-pub(crate) struct ProviderRegistration {
-    pub(crate) register_globals: fn(&mut GlobalsBuilder),
+pub struct ProviderRegistration {
+    pub register_globals: fn(&mut GlobalsBuilder),
 }
 
 inventory::collect!(ProviderRegistration);

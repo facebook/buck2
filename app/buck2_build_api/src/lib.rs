@@ -53,3 +53,10 @@ pub fn init_late_bindings() {
         interpreter::rule_defs::provider::ty::abstract_provider::init_provider_ty();
     });
 }
+
+#[doc(hidden)]
+pub mod __derive_refs {
+    pub use display_container;
+    pub use inventory;
+    pub use serde;
+}

@@ -21,7 +21,7 @@ pub mod local_resource_info;
 pub mod platform_info;
 pub mod run_info;
 pub mod template_placeholder_info;
-pub(crate) mod ty;
+pub mod ty;
 pub mod validation_info;
 pub mod worker_info;
 pub mod worker_run_info;
