@@ -277,7 +277,7 @@ fn configured_attr_to_value<'v>(
         }
         ConfiguredAttr::ConfigurationDep(c) => {
             // TODO(T198210718)
-            heap.alloc(StarlarkTargetLabel::new(c.0.target().dupe()))
+            heap.alloc(StarlarkTargetLabel::new(c.target().dupe()))
         }
         ConfiguredAttr::PluginDep(d, _) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
         ConfiguredAttr::Dep(d) => heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.dupe())),

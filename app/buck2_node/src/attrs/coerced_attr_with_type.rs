@@ -49,7 +49,6 @@ use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::values::TargetModifiersValue;
-use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -98,7 +97,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     ),
     SplitTransitionDep(&'a ProvidersLabel, &'t SplitTransitionDepAttrType),
     ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
-    ConfigurationDep(&'a ConfigurationSettingKey, ConfigurationDepAttrType),
+    ConfigurationDep(&'a ProvidersLabel, ConfigurationDepAttrType),
     PluginDep(&'a TargetLabel, &'t PluginDepAttrType),
     Dep(&'a ProvidersLabel, &'t DepAttrType),
     SourceLabel(&'a ProvidersLabel, SourceAttrType),

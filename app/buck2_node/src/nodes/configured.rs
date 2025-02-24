@@ -336,7 +336,10 @@ impl ConfiguredTargetNode {
             Ok(list) => list,
             Err(e) => return Either::Left(iter::once(Err(e))),
         };
-        Either::Right(list.into_iter().map(|val| val.try_into_configuration_dep()))
+        Either::Right(list.into_iter().map(|val| {
+            val.try_into_configuration_dep()
+                .map(ConfigurationSettingKey)
+        }))
     }
 
     pub fn execution_platform_resolution(&self) -> &ExecutionPlatformResolution {

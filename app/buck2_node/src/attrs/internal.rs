@@ -17,6 +17,7 @@ use starlark_map::ordered_map::OrderedMap;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::any::AnyAttrType;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
@@ -73,7 +74,7 @@ fn default_target_platform_attribute() -> Attribute {
 }
 
 fn target_compatible_with_attribute() -> Attribute {
-    let entry_type = AttrType::configuration_dep();
+    let entry_type = AttrType::configuration_dep(ConfigurationDepKind::CompatibilityAttribute);
     Attribute::new(
         Some(Arc::new(AnyAttrType::empty_list())),
         "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
@@ -82,7 +83,7 @@ fn target_compatible_with_attribute() -> Attribute {
 }
 
 fn exec_compatible_with_attribute() -> Attribute {
-    let entry_type = AttrType::configuration_dep();
+    let entry_type = AttrType::configuration_dep(ConfigurationDepKind::CompatibilityAttribute);
     Attribute::new(
         Some(Arc::new(AnyAttrType::empty_list())),
         "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform",

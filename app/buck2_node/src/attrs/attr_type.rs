@@ -22,6 +22,7 @@ use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::arg::ArgAttrType;
 use crate::attrs::attr_type::bool::BoolAttrType;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::dep::DepAttrTransition;
 use crate::attrs::attr_type::dep::DepAttrType;
@@ -206,9 +207,9 @@ impl AttrType {
         }))
     }
 
-    pub fn configuration_dep() -> Self {
+    pub fn configuration_dep(t: ConfigurationDepKind) -> Self {
         Self(Arc::new(AttrTypeInner2 {
-            inner: AttrTypeInner::ConfigurationDep(ConfigurationDepAttrType),
+            inner: AttrTypeInner::ConfigurationDep(ConfigurationDepAttrType(t)),
             may_have_queries: false,
         }))
     }

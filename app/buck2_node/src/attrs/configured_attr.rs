@@ -15,6 +15,7 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
@@ -46,7 +47,6 @@ use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 use crate::attrs::serialize::AttrSerializeWithContext;
 use crate::attrs::values::TargetModifiersValue;
-use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
@@ -81,7 +81,7 @@ pub enum ConfiguredAttr {
     WithinView(WithinViewSpecification),
     ExplicitConfiguredDep(Box<ConfiguredExplicitConfiguredDep>),
     SplitTransitionDep(Box<ConfiguredSplitTransitionDep>),
-    ConfigurationDep(ConfigurationSettingKey),
+    ConfigurationDep(ProvidersLabel),
     // Note: Despite being named `PluginDep`, this doesn't really act like a dep but rather like a
     // label
     PluginDep(TargetLabel, PluginKind),
@@ -190,7 +190,7 @@ impl ConfiguredAttr {
                 }
                 Ok(())
             }
-            ConfiguredAttr::ConfigurationDep(dep) => traversal.configuration_dep(&dep.0),
+            ConfiguredAttr::ConfigurationDep(dep) => traversal.configuration_dep(dep),
             ConfiguredAttr::PluginDep(dep, kind) => traversal.plugin_dep(dep, kind),
             ConfiguredAttr::Dep(dep) => dep.traverse(traversal),
             ConfiguredAttr::SourceLabel(dep) => traversal.dep(dep),
@@ -349,7 +349,7 @@ impl ConfiguredAttr {
         }
     }
 
-    pub(crate) fn try_into_configuration_dep(self) -> buck2_error::Result<ConfigurationSettingKey> {
+    pub(crate) fn try_into_configuration_dep(self) -> buck2_error::Result<ProvidersLabel> {
         match self {
             ConfiguredAttr::ConfigurationDep(d) => Ok(d),
             s => Err(buck2_error!(

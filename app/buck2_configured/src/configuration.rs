@@ -36,6 +36,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::FutureExt;
+use ref_cast::RefCast;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::unordered_map::UnorderedMap;
 
@@ -341,7 +342,14 @@ pub(crate) async fn get_matched_cfg_keys_for_node(
     target_cell: CellNameForConfigurationResolution,
     node: TargetNodeRef<'_>,
 ) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
-    get_matched_cfg_keys(ctx, &target_cfg, target_cell, node.get_configuration_deps()).await
+    get_matched_cfg_keys(
+        ctx,
+        &target_cfg,
+        target_cell,
+        node.get_configuration_deps()
+            .map(ConfigurationSettingKey::ref_cast),
+    )
+    .await
 }
 
 struct ConfigurationCalculationDynImpl;

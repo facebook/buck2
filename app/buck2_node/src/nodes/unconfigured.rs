@@ -25,6 +25,7 @@ use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
@@ -41,7 +42,6 @@ use crate::attrs::values::AttrValues;
 use crate::attrs::values::TargetModifiersValue;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
-use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::modifiers::PackageCfgModifiersValue;
 use crate::nodes::attributes::CONFIGURATION_DEPS;
@@ -318,7 +318,7 @@ impl TargetNode {
     }
 
     #[inline]
-    pub fn get_configuration_deps(&self) -> impl Iterator<Item = &ConfigurationSettingKey> {
+    pub fn get_configuration_deps(&self) -> impl Iterator<Item = &ProvidersLabel> {
         self.as_ref().get_configuration_deps()
     }
     #[inline]
@@ -357,10 +357,6 @@ impl TargetNode {
                 Ok(())
             }
 
-            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
             fn plugin_dep(
                 &mut self,
                 _dep: &'a TargetLabel,
@@ -379,7 +375,8 @@ impl TargetNode {
 
             fn configuration_dep(
                 &mut self,
-                _dep: &'a ConfigurationSettingKey,
+                _dep: &ProvidersLabel,
+                _t: ConfigurationDepKind,
             ) -> buck2_error::Result<()> {
                 Ok(())
             }
@@ -584,7 +581,7 @@ impl<'a> TargetNodeRef<'a> {
         self.0.get().deps_cache.toolchain_deps.iter()
     }
 
-    pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a ConfigurationSettingKey> {
+    pub fn get_configuration_deps(self) -> impl Iterator<Item = &'a ProvidersLabel> {
         self.0.get().deps_cache.configuration_deps.iter()
     }
 
@@ -641,10 +638,6 @@ impl<'a> TargetNodeRef<'a> {
                 Ok(())
             }
 
-            fn platform_dep(&mut self, _dep: &'a TargetLabel) -> buck2_error::Result<()> {
-                Ok(())
-            }
-
             fn plugin_dep(
                 &mut self,
                 _dep: &'a TargetLabel,
@@ -671,7 +664,8 @@ impl<'a> TargetNodeRef<'a> {
 
             fn configuration_dep(
                 &mut self,
-                _dep: &'a ConfigurationSettingKey,
+                _dep: &ProvidersLabel,
+                _t: ConfigurationDepKind,
             ) -> buck2_error::Result<()> {
                 Ok(())
             }

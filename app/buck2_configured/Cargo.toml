@@ -15,6 +15,7 @@ allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+ref-cast = { workspace = true }
 starlark_map = { workspace = true }
 
 buck2_build_api = { workspace = true }

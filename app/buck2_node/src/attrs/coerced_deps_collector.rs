@@ -19,8 +19,8 @@ use buck2_util::thin_box::ThinBoxSlice;
 use dupe::Dupe;
 use starlark_map::ordered_set::OrderedSet;
 
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::traversal::CoercedAttrTraversal;
-use crate::configuration::resolved::ConfigurationSettingKey;
 
 #[derive(Default, Debug, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedDeps {
@@ -39,7 +39,7 @@ pub struct CoercedDeps {
     pub toolchain_deps: ThinBoxSlice<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: ThinBoxSlice<ConfigurationSettingKey>,
+    pub configuration_deps: ThinBoxSlice<ProvidersLabel>,
 
     /// Contains platform targets of configured_alias()
     pub platform_deps: ThinBoxSlice<TargetLabel>,
@@ -88,7 +88,7 @@ pub struct CoercedDepsCollector {
     pub toolchain_deps: OrderedSet<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: OrderedSet<ConfigurationSettingKey>,
+    pub configuration_deps: OrderedSet<ProvidersLabel>,
 
     /// Contains platform targets of configured_alias()
     pub platform_deps: OrderedSet<TargetLabel>,
@@ -147,13 +147,20 @@ impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
         Ok(())
     }
 
-    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> buck2_error::Result<()> {
-        self.configuration_deps.insert(dep.dupe());
-        Ok(())
-    }
+    fn configuration_dep(
+        &mut self,
+        dep: &ProvidersLabel,
+        t: ConfigurationDepKind,
+    ) -> buck2_error::Result<()> {
+        match t {
+            ConfigurationDepKind::CompatibilityAttribute | ConfigurationDepKind::SelectKey => {
+                self.configuration_deps.insert(dep.dupe());
+            }
+            ConfigurationDepKind::ConfiguredDepPlatform => {
+                self.platform_deps.insert(dep.target().dupe());
+            }
+        }
 
-    fn platform_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.platform_deps.insert(dep.dupe());
         Ok(())
     }
 

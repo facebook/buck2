@@ -30,8 +30,10 @@ use starlark_map::unordered_map::UnorderedMap;
     Clone,
     Dupe,
     Ord,
-    PartialOrd
+    PartialOrd,
+    ref_cast::RefCast
 )]
+#[repr(transparent)]
 pub struct ConfigurationSettingKey(pub ProvidersLabel);
 
 impl ConfigurationSettingKey {

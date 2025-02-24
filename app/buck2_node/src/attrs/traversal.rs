@@ -15,7 +15,7 @@ use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 
-use crate::configuration::resolved::ConfigurationSettingKey;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 
 pub trait CoercedAttrTraversal<'a> {
     fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()>;
@@ -31,8 +31,11 @@ pub trait CoercedAttrTraversal<'a> {
         dep: &'a ProvidersLabel,
         tr: &Arc<TransitionId>,
     ) -> buck2_error::Result<()>;
-    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> buck2_error::Result<()>;
-    fn platform_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()>;
+    fn configuration_dep(
+        &mut self,
+        dep: &ProvidersLabel,
+        kind: ConfigurationDepKind,
+    ) -> buck2_error::Result<()>;
     fn plugin_dep(&mut self, dep: &'a TargetLabel, kind: &PluginKind) -> buck2_error::Result<()>;
     fn input(&mut self, input: SourcePathRef) -> buck2_error::Result<()>;
     fn label(&mut self, _label: &'a ProvidersLabel) -> buck2_error::Result<()> {

@@ -41,6 +41,7 @@ use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
@@ -305,7 +306,7 @@ pub enum CoercedAttr {
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
     SplitTransitionDep(ProvidersLabel),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
-    ConfigurationDep(ConfigurationSettingKey),
+    ConfigurationDep(ProvidersLabel),
     PluginDep(TargetLabel),
     Dep(ProvidersLabel),
     SourceLabel(ProvidersLabel),
@@ -432,7 +433,7 @@ impl CoercedAttr {
         match CoercedAttrWithType::pack(self, t)? {
             CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
                 for (condition, value) in entries.iter() {
-                    traversal.configuration_dep(condition)?;
+                    traversal.configuration_dep(&condition.0, ConfigurationDepKind::SelectKey)?;
                     value.traverse(t, pkg, traversal)?;
                 }
                 if let Some(v) = default {
@@ -510,7 +511,7 @@ impl CoercedAttr {
                 traversal.split_transition_dep(dep, &t.transition)
             }
             CoercedAttrWithType::ConfiguredDep(dep) => traversal.dep(&dep.label.unconfigured()),
-            CoercedAttrWithType::ConfigurationDep(dep, _t) => traversal.configuration_dep(dep),
+            CoercedAttrWithType::ConfigurationDep(dep, t) => traversal.configuration_dep(dep, t.0),
             CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
             CoercedAttrWithType::Dep(dep, t) => {
                 DepAttr::<ProvidersLabel>::traverse(dep, t, traversal)
