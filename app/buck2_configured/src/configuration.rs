@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
@@ -32,7 +30,6 @@ use buck2_node::configuration::resolved::ConfigurationNode;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::ResolvedConfiguration;
 use buck2_node::configuration::resolved::ResolvedConfigurationSettings;
-use buck2_node::configuration::target_platform_detector::TargetPlatformDetector;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -53,62 +50,6 @@ pub enum ConfigurationError {
         "Platform target `{0}` evaluation returned `ProviderInfo` label `{1}` which resolved to an unequal configuration"
     )]
     PlatformEvalUnequalConfiguration(TargetLabel, TargetLabel),
-}
-
-async fn get_target_platform_detector(
-    ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<Arc<TargetPlatformDetector>> {
-    // This requires a bit of computation so cache it on the graph.
-    // TODO(cjhopman): Should we construct this (and similar buckconfig-derived objects) as part of the buck config itself?
-    #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
-    #[display("TargetPlatformDetectorKey")]
-    struct TargetPlatformDetectorKey;
-
-    #[async_trait]
-    impl Key for TargetPlatformDetectorKey {
-        type Value = buck2_error::Result<Arc<TargetPlatformDetector>>;
-        async fn compute(
-            &self,
-            ctx: &mut DiceComputations,
-            _cancellation: &CancellationContext,
-        ) -> Self::Value {
-            // We get this off the root cell's config. It's not clear that that's the appropriate way to do it, but its the easiest to get working at FB.
-            // TODO(cjhopman): Consider revisiting that approach.
-            let resolver = ctx.get_cell_resolver().await?;
-            let root_cell = resolver.root_cell();
-            let cell_alias_resolver = ctx.get_cell_alias_resolver(root_cell).await?;
-
-            Ok(Arc::new(
-                match ctx
-                    .get_legacy_config_property(
-                        root_cell,
-                        BuckconfigKeyRef {
-                            section: "parser",
-                            property: "target_platform_detector_spec",
-                        },
-                    )
-                    .await?
-                {
-                    None => TargetPlatformDetector::empty(),
-                    Some(spec) => TargetPlatformDetector::parse_spec(
-                        &spec,
-                        root_cell,
-                        &resolver,
-                        &cell_alias_resolver,
-                    )?,
-                },
-            ))
-        }
-
-        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-            match (x, y) {
-                (Ok(x), Ok(y)) => x == y,
-                _ => false,
-            }
-        }
-    }
-
-    ctx.compute(&TargetPlatformDetectorKey).await?
 }
 
 async fn configuration_matches(
@@ -169,11 +110,6 @@ struct ResolvedConfigurationKey {
 
 #[async_trait]
 pub(crate) trait ConfigurationCalculation {
-    async fn get_default_platform(
-        &mut self,
-        target: &TargetLabel,
-    ) -> buck2_error::Result<ConfigurationData>;
-
     async fn get_platform_configuration(
         &mut self,
         target: &TargetLabel,
@@ -411,21 +347,6 @@ impl ConfigurationCalculation for DiceComputations<'_> {
         self.compute(&PlatformConfigurationKey(target.dupe()))
             .await?
             .map_err(buck2_error::Error::from)
-    }
-
-    async fn get_default_platform(
-        &mut self,
-        target: &TargetLabel,
-    ) -> buck2_error::Result<ConfigurationData> {
-        let detector = get_target_platform_detector(self).await?;
-        if let Some(target) = detector.detect(target) {
-            return self
-                .get_platform_configuration(target)
-                .await
-                .map_err(buck2_error::Error::from);
-        }
-        // TODO(cjhopman): This needs to implement buck1's approach to determining target platform, it's currently missing the fallback to buckconfig parser.target_platform.
-        Ok(ConfigurationData::unspecified())
     }
 
     async fn get_resolved_configuration<
