@@ -188,13 +188,6 @@ pub(crate) trait ConfigurationCalculation {
         target_node_cell: CellNameForConfigurationResolution,
         configuration_deps: T,
     ) -> buck2_error::Result<ResolvedConfiguration>;
-
-    async fn get_configuration_node(
-        &mut self,
-        target_cfg: &ConfigurationData,
-        target_cell: CellNameForConfigurationResolution,
-        cfg_target: &ConfigurationSettingKey,
-    ) -> buck2_error::Result<ConfigurationNode>;
 }
 
 struct ConfigurationCalculationDynImpl;
@@ -298,8 +291,7 @@ impl Key for ResolvedConfigurationKey {
                 async move {
                     (
                         d.dupe(),
-                        ctx.get_configuration_node(&self.target_cfg, self.target_cell, d)
-                            .await,
+                        get_configuration_node(ctx, &self.target_cfg, self.target_cell, d).await,
                     )
                 }
                 .boxed()
@@ -321,6 +313,26 @@ impl Key for ResolvedConfigurationKey {
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         false
     }
+}
+
+async fn get_configuration_node(
+    ctx: &mut DiceComputations<'_>,
+    target_cfg: &ConfigurationData,
+    target_cell: CellNameForConfigurationResolution,
+    cfg_target: &ConfigurationSettingKey,
+) -> buck2_error::Result<ConfigurationNode> {
+    ctx.compute(&ConfigurationNodeKey {
+        target_cfg: target_cfg.dupe(),
+        target_cell,
+        cfg_target: cfg_target.dupe(),
+    })
+    .await?
+    .with_buck_error_context(|| {
+        format!(
+            "Error getting configuration node of `{}` within the `{}` configuration",
+            cfg_target, target_cfg,
+        )
+    })
 }
 
 #[async_trait]
@@ -433,26 +445,5 @@ impl ConfigurationCalculation for DiceComputations<'_> {
             configuration_deps,
         })
         .await?
-    }
-
-    async fn get_configuration_node(
-        &mut self,
-        target_cfg: &ConfigurationData,
-        target_cell: CellNameForConfigurationResolution,
-        cfg_target: &ConfigurationSettingKey,
-    ) -> buck2_error::Result<ConfigurationNode> {
-        self.compute(&ConfigurationNodeKey {
-            target_cfg: target_cfg.dupe(),
-            target_cell,
-            cfg_target: cfg_target.dupe(),
-        })
-        .await?
-        .with_buck_error_context(|| {
-            format!(
-                "Error getting configuration node of `{}` within the `{}` configuration",
-                cfg_target, target_cfg,
-            )
-        })
-        .map_err(buck2_error::Error::from)
     }
 }
