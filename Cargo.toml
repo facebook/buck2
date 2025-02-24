@@ -35,6 +35,7 @@ members = [
     "app/buck2_event_observer",
     "app/buck2_events",
     "app/buck2_event_log",
+    "app/buck2_event_publisher_proto",
     "app/buck2_execute",
     "app/buck2_execute_impl",
     "app/buck2_external_cells",
