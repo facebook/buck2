@@ -55,6 +55,7 @@ use starlark_map::ordered_map::OrderedMap;
 
 use crate::configuration::get_matched_cfg_keys;
 use crate::configuration::compute_platform_cfgs;
+use crate::configuration::get_matched_cfg_keys_for_node;
 use crate::nodes::gather_deps;
 use crate::nodes::GatheredDeps;
 use crate::nodes::LookingUpConfiguredNodeContext;
@@ -212,13 +213,8 @@ impl ToolchainExecutionPlatformCompatibilityKey {
             ));
         }
         let cell_name = CellNameForConfigurationResolution(self.target.pkg().cell_name());
-        let matched_cfg_keys = get_matched_cfg_keys(
-            ctx,
-            self.target.cfg(),
-            cell_name,
-            node.get_configuration_deps(),
-        )
-        .await?;
+        let matched_cfg_keys =
+            get_matched_cfg_keys_for_node(ctx, self.target.cfg(), cell_name, node.as_ref()).await?;
         let platform_cfgs = compute_platform_cfgs(ctx, node.as_ref()).await?;
         // We don't really need `resolved_transitions` here:
         // `Traversal` declared above ignores transitioned dependencies.
@@ -295,11 +291,11 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
     assert!(target_node.is_toolchain_rule());
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
-    let matched_cfg_keys = get_matched_cfg_keys(
+    let matched_cfg_keys = get_matched_cfg_keys_for_node(
         ctx,
         target_cfg,
         CellNameForConfigurationResolution(target_cell),
-        target_node.get_configuration_deps(),
+        target_node,
     )
     .await?;
     if target_node.transition_deps().next().is_some() {

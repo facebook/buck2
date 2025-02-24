@@ -80,7 +80,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::configuration::compute_platform_cfgs;
-use crate::configuration::get_matched_cfg_keys;
+use crate::configuration::get_matched_cfg_keys_for_node;
 use crate::cycle::ConfiguredGraphCycleDescriptor;
 use crate::execution::find_execution_platform_by_configuration;
 use crate::execution::resolve_execution_platform;
@@ -684,11 +684,11 @@ async fn compute_configured_target_node_no_transition(
         &TargetConfiguredTargetLabel::new_without_exec_cfg(target_label.dupe());
     let target_cfg = target_label.cfg();
     let target_cell = target_node.label().pkg().cell_name();
-    let resolved_configuration = get_matched_cfg_keys(
+    let resolved_configuration = get_matched_cfg_keys_for_node(
         ctx,
         target_cfg,
         CellNameForConfigurationResolution(target_cell),
-        target_node.get_configuration_deps(),
+        target_node.as_ref(),
     )
     .await
     .with_buck_error_context(|| {
@@ -916,11 +916,11 @@ async fn compute_configured_forward_target_node(
     let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref())
         .boxed()
         .await?;
-    let matched_cfg_keys = get_matched_cfg_keys(
+    let matched_cfg_keys = get_matched_cfg_keys_for_node(
         ctx,
         target_label_before_transition.cfg(),
         CellNameForConfigurationResolution(target_node.label().pkg().cell_name()),
-        target_node.get_configuration_deps(),
+        target_node.as_ref(),
     )
     .await
     .with_buck_error_context(|| {

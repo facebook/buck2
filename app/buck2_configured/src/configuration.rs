@@ -335,6 +335,15 @@ pub(crate) async fn get_matched_cfg_keys<
     .await?
 }
 
+pub(crate) async fn get_matched_cfg_keys_for_node(
+    ctx: &mut DiceComputations<'_>,
+    target_cfg: &ConfigurationData,
+    target_cell: CellNameForConfigurationResolution,
+    node: TargetNodeRef<'_>,
+) -> buck2_error::Result<MatchedConfigurationSettingKeysWithCfg> {
+    get_matched_cfg_keys(ctx, &target_cfg, target_cell, node.get_configuration_deps()).await
+}
+
 struct ConfigurationCalculationDynImpl;
 
 #[async_trait]
