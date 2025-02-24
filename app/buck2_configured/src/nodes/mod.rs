@@ -7,4 +7,6 @@
  * of this source tree.
  */
 
+// @nolint
+
 pub mod calculation;
