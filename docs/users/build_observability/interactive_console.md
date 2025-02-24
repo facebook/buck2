@@ -78,8 +78,6 @@ We support the following toggles:
 - `-` - show fewer lines
 - `h` - show help
 
-Note: Not available yet for Windows
-
 ## No console
 
 When specifying the `none` console type, Buck2 will only print if the build
