@@ -79,8 +79,8 @@ use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::calculation::ConfiguredGraphCycleDescriptor;
 use crate::configuration::ConfigurationCalculation;
+use crate::cycle::ConfiguredGraphCycleDescriptor;
 use crate::execution::find_execution_platform_by_configuration;
 use crate::execution::resolve_execution_platform;
 

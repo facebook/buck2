@@ -12,6 +12,7 @@
 
 pub mod calculation;
 pub mod configuration;
+pub mod cycle;
 pub mod execution;
 pub mod nodes;
 
