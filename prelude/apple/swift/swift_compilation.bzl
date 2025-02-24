@@ -877,8 +877,6 @@ def _get_shared_flags(
     # Only apple_library has swift_macro_deps
     swift_macros = getattr(ctx.attrs, "swift_macro_deps", [])
     if swift_macros:
-        # https://github.com/swiftlang/swift/pull/70079
-        cmd.add(["-Xfrontend", "-disable-sandbox"])
         for m in ctx.plugins[SwiftMacroPlugin]:
             macro_artifact = m[DefaultInfo].default_outputs[0]
             cmd.add([
