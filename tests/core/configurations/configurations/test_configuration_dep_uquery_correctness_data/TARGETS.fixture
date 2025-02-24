@@ -1,0 +1,9 @@
+platform(
+    name = "base",
+    constraint_values = [],
+)
+
+stub(
+    name = "with_custom_dtp",
+    default_target_platform = ":base",
+)
