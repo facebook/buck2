@@ -86,8 +86,8 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::calculation::ConfiguredGraphCycleDescriptor;
-use crate::configuration::calculation::check_execution_platform;
-use crate::configuration::calculation::ConfigurationCalculation;
+use crate::configuration::check_execution_platform;
+use crate::configuration::ConfigurationCalculation;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

@@ -50,8 +50,8 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_node::configuration::calculation::{ConfigurationCalculationDyn, CONFIGURATION_CALCULATION};
 use buck2_node::execution::{GetExecutionPlatformsImpl, GET_EXECUTION_PLATFORMS, GetExecutionPlatforms, EXECUTION_PLATFORMS_BUCKCONFIG};
-use crate::nodes::calculation::check_toolchain_execution_platform_compatibility;
-use crate::nodes::calculation::ExecutionPlatformConstraints;
+use crate::nodes::check_toolchain_execution_platform_compatibility;
+use crate::nodes::ExecutionPlatformConstraints;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]

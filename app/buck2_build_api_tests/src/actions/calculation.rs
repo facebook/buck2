@@ -48,7 +48,7 @@ use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::http::SetHttpClient;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::inject_legacy_config_for_test;
-use buck2_configured::nodes::calculation::ConfiguredTargetNodeKey;
+use buck2_configured::nodes::ConfiguredTargetNodeKey;
 use buck2_core::category::CategoryRef;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;

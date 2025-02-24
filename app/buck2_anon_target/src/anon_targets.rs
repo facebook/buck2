@@ -32,7 +32,7 @@ use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
-use buck2_configured::nodes::calculation::find_execution_platform_by_configuration;
+use buck2_configured::nodes::find_execution_platform_by_configuration;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::pair::ConfigurationNoExec;

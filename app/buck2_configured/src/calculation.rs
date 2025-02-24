@@ -30,11 +30,11 @@ use dice::DynKey;
 use dupe::Dupe;
 use gazebo::prelude::*;
 
-use crate::configuration::calculation::ConfigurationCalculation;
-use crate::configuration::calculation::ExecutionPlatformResolutionKey;
-use crate::nodes::calculation::get_execution_platform_toolchain_dep;
-use crate::nodes::calculation::ConfiguredTargetNodeKey;
-use crate::nodes::calculation::ToolchainExecutionPlatformCompatibilityKey;
+use crate::configuration::ConfigurationCalculation;
+use crate::configuration::ExecutionPlatformResolutionKey;
+use crate::nodes::get_execution_platform_toolchain_dep;
+use crate::nodes::ConfiguredTargetNodeKey;
+use crate::nodes::ToolchainExecutionPlatformCompatibilityKey;
 
 struct ConfiguredTargetCalculationInstance;
 
