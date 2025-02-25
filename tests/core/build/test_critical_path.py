@@ -20,7 +20,7 @@ from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 @dataclass
-class critical_path_log:
+class CriticalPathLog:
     kind: str
     name: str
     category: str
@@ -38,7 +38,7 @@ async def do_critical_path(buck: Buck) -> None:
     critical_path = [e.split("\t") for e in critical_path]
 
     trimmed_critical_path = [
-        critical_path_log(e[0], e[1].split(" ")[0], e[2], e[3], e[4], e[5], e[6], e[7])
+        CriticalPathLog(e[0], e[1].split(" ")[0], e[2], e[3], e[4], e[5], e[6], e[7])
         for e in critical_path
     ]
 
