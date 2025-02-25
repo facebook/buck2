@@ -85,7 +85,7 @@ def apple_target_platforms(
 
     # Define the generated platforms
     for platform in supported_cxx_platforms:
-        platform_dep = get_default_target_platform_for_platform(platform)
+        platform_dep = _get_base_target_platform_for_platform(platform)
         cxx_platform_constraints = cxx_platforms_constraint_values.get(platform, [])
         if is_mobile_platform(platform) or is_buck2_mac_platform(platform):
             for build_mode in supported_build_modes:
@@ -119,7 +119,7 @@ def apple_target_platforms(
     )
 
     analysis_platform = _get_analysis_platform_for_supported_platforms(supported_cxx_platforms)
-    analysis_platform_dep = get_default_target_platform_for_platform(analysis_platform)
+    analysis_platform_dep = _get_base_target_platform_for_platform(analysis_platform)
     analysis_platform_build_mode_constraints = build_mode_constraint_values.get(get_build_mode_debug(), [])
 
     platform_rule(
