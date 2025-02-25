@@ -259,7 +259,10 @@ impl BxlServerCommand {
         Ok(eval_bxl(dice_ctx, bxl_key.clone()).await?.0)
     }
 
-    /// Materialize the ensured artifacts from bxl main function.
+    /// Materializes artifacts from the BXL result, handling both explicitly collected
+    /// artifacts and those from build target results (from `ctx.build`).
+    ///
+    /// Returns the build results and any errors encountered during materialization.
     async fn materialize_artifacts(
         &self,
         dice_ctx: &mut DiceTransaction,
@@ -269,35 +272,123 @@ impl BxlServerCommand {
         BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>,
         Vec<buck2_data::ErrorReport>,
     ) {
-        let final_artifact_materializations =
-            Materializations::from_i32(self.req.final_artifact_materializations)
-                .with_buck_error_context(|| "Invalid final_artifact_materializations")
-                .unwrap();
-        let final_artifact_uploads = Uploads::from_i32(self.req.final_artifact_uploads)
+        let materialization_context = self.create_materialization_context();
+        let build_results = filter_bxl_build_results(bxl_result.get_build_result_opt());
+
+        send_bxl_target_cfg_event(server_ctx, &self.req, &build_results);
+
+        let errors = self
+            .ensure_all_artifacts(
+                dice_ctx,
+                &materialization_context,
+                build_results.values(),
+                bxl_result.get_artifacts_opt(),
+            )
+            .await;
+
+        (build_results, errors)
+    }
+
+    /// Creates a materialization context from request parameters.
+    /// This context determines how artifacts will be materialized and uploaded.
+    fn create_materialization_context(&self) -> MaterializationAndUploadContext {
+        let materializations = Materializations::from_i32(self.req.final_artifact_materializations)
+            .with_buck_error_context(|| "Invalid final_artifact_materializations")
+            .unwrap();
+
+        let uploads = Uploads::from_i32(self.req.final_artifact_uploads)
             .with_buck_error_context(|| "Invalid final_artifact_uploads")
             .unwrap();
 
-        let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
-        let labeled_configured_build_results = filter_bxl_build_results(build_results);
-        send_bxl_target_cfg_event(server_ctx, &self.req, &labeled_configured_build_results);
-        let configured_build_results = labeled_configured_build_results.values();
-        let build_result = ensure_artifacts(
-            dice_ctx,
-            &(final_artifact_materializations, final_artifact_uploads).into(),
-            configured_build_results,
-            bxl_result.get_artifacts_opt(),
-        )
-        .await;
-        let errors = match build_result {
-            Ok(_) => vec![],
-            Err(errors) => errors
-                .iter()
-                .map(create_error_report)
-                .unique_by(|e| e.message.clone())
-                .collect(),
-        };
+        (materializations, uploads).into()
+    }
 
-        (labeled_configured_build_results, errors)
+    /// Ensures that all artifacts from BXL execution are materialized.
+    ///
+    /// Wraps the materialization process in tracing spans
+    /// and converts errors to a standardized report format.
+    async fn ensure_all_artifacts(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        materialization_context: &MaterializationAndUploadContext,
+        target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
+        artifacts: Option<&Vec<ArtifactGroup>>,
+    ) -> Vec<buck2_data::ErrorReport> {
+        if let Some(artifacts) = artifacts {
+            let result = get_dispatcher()
+                .span_async(BxlEnsureArtifactsStart {}, async move {
+                    let result = self
+                        .materialize_collected_artifacts(
+                            ctx,
+                            materialization_context,
+                            target_results,
+                            artifacts,
+                        )
+                        .await;
+
+                    (result, BxlEnsureArtifactsEnd {})
+                })
+                .await;
+
+            match result {
+                Ok(_) => vec![],
+                Err(errors) => errors
+                    .iter()
+                    .map(create_error_report)
+                    .unique_by(|e| e.message.clone())
+                    .collect(),
+            }
+        } else {
+            vec![]
+        }
+    }
+
+    /// Collects and materializes artifacts from both explicit artifact list and target results.
+    ///
+    /// Returns the arggregated errors encountered during materialization.
+    async fn materialize_collected_artifacts(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        materialization_context: &MaterializationAndUploadContext,
+        target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
+        artifacts: &[ArtifactGroup],
+    ) -> Result<(), Vec<buck2_error::Error>> {
+        let mut artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
+        let mut errors = Vec::new();
+
+        // Collect artifacts from target results
+        for res in target_results {
+            for output in &res.outputs {
+                match output {
+                    Ok(artifacts) => {
+                        for (artifact, _value) in artifacts.values.iter() {
+                            artifacts_to_materialize.push(ArtifactGroup::Artifact(artifact.dupe()))
+                        }
+                    }
+                    Err(e) => errors.push(e.dupe()),
+                }
+            }
+        }
+
+        // Materialize all collected artifacts in parallel
+        let materialize_errors = ctx
+            .compute_join(artifacts_to_materialize, |ctx, artifact| {
+                async move {
+                    materialize_and_upload_artifact_group(ctx, &artifact, materialization_context)
+                        .await?;
+                    Ok(())
+                }
+                .boxed()
+            })
+            .await;
+
+        errors.extend(materialize_errors.into_iter().filter_map(|v| v.err()));
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     /// We write the stdout and stderr to files in buck-out as cache
@@ -431,73 +522,6 @@ async fn copy_output<W: Write>(
     )?;
     io::copy(&mut file, &mut output)?;
     Ok(())
-}
-
-async fn ensure_artifacts(
-    ctx: &mut DiceComputations<'_>,
-    materialization_and_upload: &MaterializationAndUploadContext,
-    target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
-    artifacts: Option<&Vec<ArtifactGroup>>,
-) -> Result<(), Vec<buck2_error::Error>> {
-    if let Some(artifacts) = artifacts {
-        return {
-            get_dispatcher()
-                .span_async(BxlEnsureArtifactsStart {}, async move {
-                    (
-                        ensure_artifacts_inner(
-                            ctx,
-                            materialization_and_upload,
-                            target_results,
-                            artifacts,
-                        )
-                        .await,
-                        BxlEnsureArtifactsEnd {},
-                    )
-                })
-                .await
-        };
-    }
-    Ok(())
-}
-
-async fn ensure_artifacts_inner(
-    ctx: &mut DiceComputations<'_>,
-    materialization_and_upload: &MaterializationAndUploadContext,
-    target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
-    artifacts: &[ArtifactGroup],
-) -> Result<(), Vec<buck2_error::Error>> {
-    let mut artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
-    let mut errors = Vec::new();
-
-    for res in target_results {
-        for output in &res.outputs {
-            match output {
-                Ok(artifacts) => {
-                    for (artifact, _value) in artifacts.values.iter() {
-                        artifacts_to_materialize.push(ArtifactGroup::Artifact(artifact.dupe()))
-                    }
-                }
-                Err(e) => errors.push(e.dupe()),
-            }
-        }
-    }
-
-    let materialize_errors = ctx
-        .compute_join(artifacts_to_materialize, |ctx, artifact| {
-            async move {
-                materialize_and_upload_artifact_group(ctx, &artifact, materialization_and_upload)
-                    .await?;
-                Ok(())
-            }
-            .boxed()
-        })
-        .await;
-    errors.extend(materialize_errors.into_iter().filter_map(|v| v.err()));
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors)
-    }
 }
 
 #[derive(Debug, buck2_error::Error)]
