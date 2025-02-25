@@ -49,7 +49,7 @@ def get_extra_build_params(args: argparse.Namespace) -> List[str]:
 
 
 def build_command(args: argparse.Namespace, extra_args: List[str]) -> List[str]:
-    cmd = ["buck2", "run", "fbcode//buck2:buck2"]
+    cmd = ["buck2", "run", "fbcode//buck2:buck2_bundle"]
     inner_buck_isolation_dir = (
         args.run_isolation_dir if args.run_isolation_dir else "v2.self"
     )
