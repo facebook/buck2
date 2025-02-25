@@ -9,10 +9,13 @@
 
 import json
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden
 from buck2.tests.e2e_util.helper.utils import filter_events, read_invocation_record
 
 
@@ -231,3 +234,83 @@ async def test_previous_command_with_mismatched_config(
     )
     assert len(previous_invalidating_command) == 1
     assert previous_invalidating_command[0]["trace_id"] == trace_id
+
+
+@dataclass
+class ExternalConfigsLog:
+    descriptor: str
+    cell: Optional[str] = None
+    origin: Optional[str] = None
+
+
+@buck_test()
+async def test_log_external_configs(buck: Buck) -> None:
+    await buck.build(
+        "@root//mode/my_mode",
+        "//:test",
+        "-c",
+        "my_section.my_key=my_value",
+        "-c",
+        "my_section.my_key=my_new_value",
+    )
+
+    external_configs = (await buck.log("external-configs")).stdout.strip().splitlines()
+    external_configs = [e.split("\t") for e in external_configs]
+
+    external_configs = [
+        ExternalConfigsLog(
+            e[0],  # section.key = value
+            e[1] if len(e) > 1 else None,  # cell
+            e[2] if len(e) > 2 else None,  # origin
+        )
+        for e in external_configs
+    ]
+    expected = [
+        # Our tests inject file_watcher to external configs in test setup stage
+        ExternalConfigsLog(
+            descriptor="buck2.file_watcher = fs_hash_crawler",
+        ),
+        ExternalConfigsLog(
+            descriptor="my_mode.bcfg",
+            origin="config-file",
+        ),
+        ExternalConfigsLog(
+            descriptor="my_section.my_key = my_value",
+            origin="cli",
+        ),
+        # We don't override but just display the input as it is provided by the cli
+        ExternalConfigsLog(
+            descriptor="my_section.my_key = my_new_value",
+            origin="cli",
+        ),
+    ]
+    assert len(external_configs) == 4
+
+    for s, e in zip(external_configs, expected):
+        assert s.descriptor == e.descriptor
+        if s.origin != "":
+            assert s.origin == e.origin
+
+
+@buck_test()
+async def test_log_external_configs_json(buck: Buck) -> None:
+    await buck.build(
+        "@root//mode/my_mode",
+        "//:test",
+        "-c",
+        "my_section.my_key=my_value",
+        "-c",
+        "my_section.my_key=my_new_value",
+    )
+
+    external_configs = (
+        (await buck.log("external-configs", "--format", "json"))
+        .stdout.strip()
+        .splitlines()
+    )
+    external_configs = [json.loads(e) for e in external_configs]
+
+    golden(
+        output=json.dumps(external_configs, sort_keys=True, indent=2),
+        rel_path="events.golden.json",
+    )

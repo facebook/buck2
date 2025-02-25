@@ -11,6 +11,7 @@ mod critical_path;
 pub(crate) mod debug_replay;
 pub(crate) mod debug_what_ran;
 mod diff;
+mod external_configs;
 pub(crate) mod options;
 pub(crate) mod path_log;
 mod replay;
@@ -95,6 +96,7 @@ pub enum LogCommand {
     Summary(summary::SummaryCommand),
     #[clap(subcommand)]
     Diff(diff::DiffCommand),
+    ExternalConfigs(external_configs::ExternalConfigsCommand),
 }
 
 impl LogCommand {
@@ -113,6 +115,7 @@ impl LogCommand {
             Self::ShowUser(cmd) => cmd.exec(matches, ctx),
             Self::Summary(cmd) => cmd.exec(matches, ctx),
             Self::Diff(cmd) => cmd.exec(matches, ctx),
+            Self::ExternalConfigs(cmd) => cmd.exec(matches, ctx),
         }
     }
 
