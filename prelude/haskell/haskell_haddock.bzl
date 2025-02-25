@@ -41,7 +41,7 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
     )
 
     cmd = cmd_args(haskell_toolchain.haddock)
-    cmd.add(cmd_args(args.args_for_cmd, format = "--optghc={}"))
+    cmd.add(args.args_for_cmd)
     cmd.add(
         "--use-index",
         "doc-index.html",

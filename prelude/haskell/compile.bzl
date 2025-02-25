@@ -140,7 +140,10 @@ def compile_args(
 
     # Some rules pass in RTS (e.g. `+RTS ... -RTS`) options for GHC, which can't
     # be parsed when inside an argsfile.
-    compile_cmd.add(ctx.attrs.compiler_flags)
+    if for_haddock:
+        compile_cmd.add(cmd_args(ctx.attrs.compiler_flags, format = "--optghc={}"))
+    else:
+        compile_cmd.add(ctx.attrs.compiler_flags)
 
     compile_args = cmd_args()
     compile_args.add("-no-link", "-i")
