@@ -304,18 +304,21 @@ def make_compile_outputs(
         used_jars_json = used_jars_json,
     )
 
-def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, library: Artifact) -> Artifact:
+def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, library: Artifact, keepSynthetic: bool = False) -> Artifact:
     # It's possible for the library to be created in a subdir that is
     # itself some actions output artifact, so we replace directory
     # separators to get a path that we can uniquely own.
     # TODO(cjhopman): This probably should take in the output path.
     class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path.replace("/", "_")))
+    cmd = [
+        class_abi_generator[RunInfo],
+        library,
+        class_abi.as_output(),
+    ]
+    if keepSynthetic:
+        cmd.append("--keep-synthetic")
     actions.run(
-        [
-            class_abi_generator[RunInfo],
-            library,
-            class_abi.as_output(),
-        ],
+        cmd,
         category = "class_abi_generation",
         identifier = library.short_path,
     )

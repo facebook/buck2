@@ -427,7 +427,7 @@ def _create_jar_artifact(
 
     ctx.actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
 
-    abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, jar_out)
+    abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, jar_out, getattr(ctx.attrs, "keep_synthetics_in_class_abi", False) or False)
 
     has_postprocessor = hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor
     final_jar = postprocess_jar(ctx.actions, java_toolchain.zip_scrubber, ctx.attrs.jar_postprocessor[RunInfo], java_toolchain.postprocessor_runner[RunInfo], jar_out, actions_identifier) if has_postprocessor else jar_out
