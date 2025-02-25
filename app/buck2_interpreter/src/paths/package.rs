@@ -75,8 +75,4 @@ impl PackageFilePath {
     pub fn path(&self) -> &CellPath {
         &self.path
     }
-
-    pub fn file_name(&self) -> &FileName {
-        self.path.path().file_name().unwrap()
-    }
 }
