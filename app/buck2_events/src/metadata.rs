@@ -36,6 +36,9 @@ pub fn collect() -> HashMap<String, String> {
     if let Some(username) = info.username {
         map.insert("username".to_owned(), username);
     }
+    if let Some(system_fingerprint) = info.system_fingerprint {
+        map.insert("system_fingerprint".to_owned(), system_fingerprint);
+    }
 
     if let Some(rev) = buck2_build_info::revision() {
         map.insert("buck2_revision".to_owned(), rev.to_owned());
@@ -86,6 +89,7 @@ pub struct SystemInfo {
     pub hostname: Option<String>,
     pub os: String,
     pub os_version: Option<String>,
+    pub system_fingerprint: Option<String>,
 }
 
 pub fn system_info() -> SystemInfo {
@@ -97,6 +101,7 @@ pub fn system_info() -> SystemInfo {
         username,
         os: os_type(),
         os_version: os_version(),
+        system_fingerprint: system_fingerprint(),
     }
 }
 
@@ -158,6 +163,19 @@ pub fn username() -> buck2_error::Result<Option<String>> {
     #[cfg(not(fbcode_build))]
     {
         Ok::<Option<String>, buck2_error::Error>(None)
+    }
+}
+
+pub fn system_fingerprint() -> Option<String> {
+    #[cfg(fbcode_build)]
+    {
+        use devserver_fingerprint::SystemFingerprintReader;
+        let sfr = SystemFingerprintReader::get().ok()?;
+        sfr.fingerprint().map(|s| s.to_owned())
+    }
+    #[cfg(not(fbcode_build))]
+    {
+        None
     }
 }
 
