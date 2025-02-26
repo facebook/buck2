@@ -73,7 +73,7 @@ pub(crate) fn resolve_buckconfig_sysroot(
     // so that rust-analyzer will be able to find standard library sources.
     let sysroot_src = project_root.join(sysroot_src).join("library");
 
-    let sysroot_project = develop_with_sysroot(
+    let mut sysroot_project = develop_with_sysroot(
         buck,
         vec![sysroot_targets],
         Sysroot {
@@ -85,6 +85,14 @@ pub(crate) fn resolve_buckconfig_sysroot(
         false,
         false,
     )?;
+    for krate in &mut sysroot_project.crates {
+        if let Some(display_name) = &mut krate.display_name {
+            *display_name = display_name
+                .strip_suffix("-0.0.0") // rust-analyzer identifies lang crates by name, so we need `core-0.0.0` to be `core`
+                .unwrap_or(display_name)
+                .to_owned();
+        }
+    }
 
     Ok(Sysroot {
         sysroot,
