@@ -23,7 +23,15 @@ def get_deps(bxl_ctx, targets: list[TargetLabel]) -> typing.Iterable:
         "toolchains//:android-hack": True,
     }
 
-    return [dep for dep in deps if dep.label.raw_target() not in block_list]
+    # Dedupe targets under different configurations
+    seen_labels = {}
+    processed_deps = list()
+    for dep in deps:
+        label = dep.label.raw_target()
+        if label not in block_list and label not in seen_labels:
+            processed_deps.append(dep)
+            seen_labels[label] = True
+    return processed_deps
 
 def _main(bxl_ctx):
     targets = flatten_lists(bxl_ctx.cli_args.target)
