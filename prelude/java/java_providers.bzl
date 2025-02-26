@@ -508,13 +508,17 @@ def get_global_code_info(
             global_code_library_compiling_deps = [library_compiling_deps]
         elif contains_trigger:
             if single_library_dep == None:
-                fail("Target {} contains dep {} which is a 'trigger' for the global code rule {}, but the target does not produce any output. ".format(
-                         ctx.label.raw_target(),
-                         contains_trigger,
-                         name,
-                     ) +
-                     "If the target does not export anything, it can be removed completely, or otherwise just remove all of the deps.")
-            global_code_library_compiling_deps = [single_library_dep]
+                # We have to have single_library_dep - otherwise there is no output.
+                # This /should/ be a failure - however there are WAY too many places that do not follow this pattern to effectively fail here.
+                #fail("Target {} contains dep {} which is a 'trigger' for the global code rule {}, but the target does not produce any output. ".format(
+                #         ctx.label.raw_target(),
+                #         contains_trigger,
+                #         name,
+                #     ) +
+                #     "If the target does not export anything, it can be removed completely, or otherwise just remove all of the deps.")
+                global_code_library_compiling_deps = []
+            else:
+                global_code_library_compiling_deps = [single_library_dep]
         else:
             global_code_library_compiling_deps = []
 
