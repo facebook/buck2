@@ -184,6 +184,19 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         )
 
+    # Add in resources for the current rule.
+    if ctx.attrs.resources:
+        srcs.append(
+            create_manifest_for_entries(
+                ctx,
+                name = "resources.txt",
+                entries = [
+                    (dest, resource, str(ctx.label.raw_target()))
+                    for dest, resource in ctx.attrs.resources.items()
+                ],
+            ),
+        )
+
     dist = ctx.attrs.dist or ctx.attrs.name
     name_parts = [
         dist,
@@ -288,6 +301,7 @@ python_wheel = rule(
         scripts = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         libraries_query = attrs.option(attrs.query(), default = None),
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
+        resources = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         support_future_python_versions = attrs.bool(default = False),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
