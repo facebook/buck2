@@ -10,6 +10,7 @@ rust_library(
         "fbsource//third-party/rust:equivalent",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",
+        "//buck2/gazebo/strong_hash:strong_hash",
         "//buck2/shed/lock_free_hashtable:lock_free_hashtable",
     ],
 )
