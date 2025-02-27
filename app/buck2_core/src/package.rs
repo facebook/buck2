@@ -53,6 +53,7 @@ use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
 use static_interner::Interner;
+use strong_hash::StrongHash;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
@@ -79,7 +80,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 /// a valid `PackageLabel` is the `CellPath` that points to a folder containing a `BUCK` file.
 /// e.g. `root//path/to/package` is a valid `PackageLabel` if `root//path/to/package/BUCK` exists.
 #[derive(
-    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, StrongHash
 )]
 pub struct PackageLabel(Intern<PackageLabelData>);
 
@@ -89,7 +90,7 @@ impl Serialize for PackageLabel {
     }
 }
 
-#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash)]
 struct PackageLabelData(CellPath);
 
 #[derive(Hash, Eq, PartialEq)]
