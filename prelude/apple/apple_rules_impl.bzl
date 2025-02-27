@@ -215,7 +215,7 @@ extra_attributes = {
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
         # Temporary attribute to control migration of rpath logic into the prelude
         "_prelude_rpaths": attrs.bool(default = select({
-            "DEFAULT": False,
+            "DEFAULT": True,
             "config//features/apple/constraints:prelude_rpaths_disabled": False,
             "config//features/apple/constraints:prelude_rpaths_enabled": True,
         })),
