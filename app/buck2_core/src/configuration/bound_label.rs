@@ -8,6 +8,7 @@
  */
 
 use allocative::Allocative;
+use strong_hash::StrongHash;
 
 use crate::configuration::builtin::BuiltinPlatform;
 
@@ -34,7 +35,8 @@ enum BoundConfigurationLabelError {
     Hash,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 pub struct BoundConfigurationLabel(String);
 
