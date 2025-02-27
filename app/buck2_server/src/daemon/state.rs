@@ -33,6 +33,7 @@ use buck2_common::systemd::SystemdCreationDecision;
 use buck2_common::systemd::SystemdRunner;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
+use buck2_core::configuration::data::init_new_platform_hash_rollout_threshold;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
@@ -610,6 +611,12 @@ impl DaemonState {
                     property: "remote_dep_file_cache_enabled",
                 })?
                 .unwrap_or(false);
+
+            let new_platform_hash_rollout = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "new_platform_hash_rollout",
+            })?;
+            init_new_platform_hash_rollout_threshold(new_platform_hash_rollout)?;
 
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),

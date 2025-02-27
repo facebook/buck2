@@ -7,17 +7,19 @@
  * of this source tree.
  */
 
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
+use std::hash::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
 use buck2_util::hash::BuckHasher;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
@@ -48,6 +50,8 @@ enum ConfigurationError {
         "Attempted to access the configuration data for the \"unspecified_exec\" platform. This platform is used when no execution platform was resolved for a target."
     )]
     UnspecifiedExec,
+    #[error("Internal error: NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD is already initialized")]
+    NewPlatformHashRolloutThresholdAlreadyInitialized,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -63,6 +67,21 @@ enum ConfigurationLookupError {
         "Found configuration `{0}` by hash, but label mismatched from what is requested: `{1}`"
     )]
     ConfigFoundByHashLabelMismatch(ConfigurationData, BoundConfigurationId),
+}
+
+pub static NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD: OnceCell<u8> = OnceCell::new();
+
+pub fn init_new_platform_hash_rollout_threshold(rollout: Option<f64>) -> buck2_error::Result<()> {
+    let rollout_threshold = if let Some(rollout) = rollout {
+        (rollout * (u64::MAX as f64)) as u8
+    } else {
+        // disabled by default
+        0u8
+    };
+    NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD
+        .set(rollout_threshold)
+        .map_err(|_| ConfigurationError::NewPlatformHashRolloutThresholdAlreadyInitialized)?;
+    Ok(())
 }
 
 fn emit_configuration_instant_event(cfg: &ConfigurationData) -> buck2_error::Result<()> {
@@ -415,10 +434,32 @@ impl std::hash::Hash for HashedConfigurationPlatform {
 
 impl HashedConfigurationPlatform {
     fn new(configuration_platform: ConfigurationPlatform) -> Self {
-        // TODO(cjhopman): Should this be a crypto hasher?
-        let mut hasher = DefaultHasher::new();
-        configuration_platform.hash(&mut hasher);
-        let output_hash = hasher.finish();
+        let mut hasher = Blake3StrongHasher::new();
+        configuration_platform.strong_hash(&mut hasher);
+        let output_hash = hasher.digest();
+        let output_hash = u64::from_be_bytes(
+            output_hash.as_bytes()[0..8]
+                .try_into()
+                .expect("Internal error from converting a slice of 8 to an array of 8"),
+        );
+
+        let rollout_threshold = match NEW_PLATFORM_HASH_ROLLOUT_THRESHOLD.get() {
+            Some(v) => *v,
+            // We only hit the uninitialized case in unit tests. In this case, we don't want to throw an
+            // error because it would fail a bunch of unit tests, and we don't want to
+            // unit tests explicitly initialize this value because this is a temporary migration value
+            // that we will get rid of later. We have e2e tests checking that this does not enable
+            // new hashing in production.
+            None => u8::MAX,
+        };
+
+        let output_hash = if output_hash as u8 <= rollout_threshold {
+            output_hash
+        } else {
+            let mut hasher = DefaultHasher::new();
+            configuration_platform.hash(&mut hasher);
+            hasher.finish()
+        };
         let output_hash = ConfigurationHash::new(output_hash);
 
         let full_name = match &configuration_platform {
@@ -468,10 +509,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(configuration.output_hash().as_str(), "7978e19328f9f229");
+        assert_eq!(configuration.output_hash().as_str(), "aa02f1990fb35119");
         assert_eq!(
             configuration.to_string(),
-            "cfg_for//:testing_exec#7978e19328f9f229"
+            "cfg_for//:testing_exec#aa02f1990fb35119"
         );
 
         Ok(())
@@ -496,15 +537,12 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            "cfg_for//:testing_exec#7978e19328f9f229",
-            configuration.to_string()
-        );
+        let expected_cfg_str = "cfg_for//:testing_exec#aa02f1990fb35119";
+        assert_eq!(expected_cfg_str, configuration.to_string());
 
-        let looked_up = ConfigurationData::lookup_bound(
-            BoundConfigurationId::parse("cfg_for//:testing_exec#7978e19328f9f229").unwrap(),
-        )
-        .unwrap();
+        let looked_up =
+            ConfigurationData::lookup_bound(BoundConfigurationId::parse(expected_cfg_str).unwrap())
+                .unwrap();
         assert_eq!(configuration, looked_up);
     }
 }
