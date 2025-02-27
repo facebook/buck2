@@ -5,7 +5,10 @@ oncall("build_infra")
 rust_library(
     name = "buck2_health_check",
     srcs = glob(
-        ["src/**/*.rs"],
+        [
+            "src/**/*.rs",
+            "src/**/*.graphql",
+        ],
     ),
     test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
