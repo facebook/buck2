@@ -1243,6 +1243,9 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
         }[link_strategy]
         return "llvm-ir" + link_strategy_suffix
 
+    if emit == Emit("llvm-ir-noopt"):
+        return "llvm-ir-noopt"
+
     fail("unrecognized rustc action:", crate_type, link_strategy, emit)
 
 EmitOperation = record(
@@ -1308,6 +1311,9 @@ def _rustc_emit(
                 effective_emit = "link"
         elif emit == Emit("metadata-fast") or emit == Emit("clippy"):
             effective_emit = "metadata"
+        elif emit == Emit("llvm-ir-noopt"):
+            effective_emit = "llvm-ir"
+            emit_args.add("-Cno-prepopulate-passes")
         else:
             effective_emit = emit.value
 

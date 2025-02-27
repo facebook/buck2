@@ -78,6 +78,7 @@ load(
 )
 load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
+load(":profile.bzl", "analyze_llvm_lines")
 load(":resources.bzl", "rust_attr_resources")
 
 def _strategy_params(
@@ -333,6 +334,23 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
+
+    llvm_ir_noopt = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("llvm-ir-noopt"),
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    ).output
+    llvm_lines = analyze_llvm_lines(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        llvm_ir_noopt = llvm_ir_noopt,
+    )
+    if llvm_lines != None:
+        extra_compiled_targets["llvm_lines"] = llvm_lines
 
     extra_compiled_targets["llvm_ir"] = rust_compile(
         ctx = ctx,

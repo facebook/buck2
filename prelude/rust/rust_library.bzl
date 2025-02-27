@@ -111,6 +111,7 @@ load(
     "output_as_diag_subtargets",
 )
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
+load(":profile.bzl", "analyze_llvm_lines")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":targets.bzl", "targets")
@@ -260,6 +261,20 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
+    llvm_ir_noopt = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("llvm-ir-noopt"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    ).output
+    llvm_lines = analyze_llvm_lines(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        llvm_ir_noopt = llvm_ir_noopt,
+    )
+
     # If doctests=True or False is set on the individual target, respect that.
     # Otherwise look at the global setting on the toolchain.
     doctests_enabled = \
@@ -325,6 +340,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
+        llvm_lines = llvm_lines,
     )
     providers += _rust_metadata_providers(
         diag_artifacts = diag_artifacts,
@@ -542,7 +558,8 @@ def _default_providers(
         expand: Artifact,
         sources: Artifact,
         rustdoc_coverage: Artifact,
-        named_deps_names: Artifact | None) -> list[Provider]:
+        named_deps_names: Artifact | None,
+        llvm_lines: Artifact | None) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -551,6 +568,8 @@ def _default_providers(
     targets["doc-coverage"] = rustdoc_coverage
     if named_deps_names:
         targets["named_deps"] = named_deps_names
+    if llvm_lines != None:
+        targets["llvm_lines"] = llvm_lines
     sub_targets = {
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()

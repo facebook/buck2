@@ -15,6 +15,7 @@ internal_tool_attrs = {
     "deferred_link_action": _internal_tool("prelude//rust/tools:deferred_link_action"),
     "extract_link_action": _internal_tool("prelude//rust/tools:extract_link_action"),
     "failure_filter_action": _internal_tool("prelude//rust/tools:failure_filter_action"),
+    "llvm_lines_output_redirect": _internal_tool("prelude//rust/tools:llvm_lines_output_redirect"),
     "rustc_action": _internal_tool("prelude//rust/tools:rustc_action"),
     "rustdoc_coverage": _internal_tool("prelude//rust/tools:rustdoc_coverage"),
     "rustdoc_test_with_resources": _internal_tool("prelude//rust/tools:rustdoc_test_with_resources"),

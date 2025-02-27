@@ -140,6 +140,10 @@ rust_toolchain_attrs = {
     # Setting this allows Rust rules to use features which are only available
     # on nightly release.
     "nightly_features": provider_field(bool, default = False),
+    # The `cargo llvm-lines` binary - if present, Rust targets have a
+    # `llvm-lines` subtarget
+    "llvm_lines_tool": provider_field(RunInfo | None, default = None),
+    "llvm_lines_output_redirect": provider_field(RunInfo | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)
