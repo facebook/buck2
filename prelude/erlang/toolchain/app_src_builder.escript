@@ -144,7 +144,7 @@ get_mod(_, undefined) ->
 get_mod(AppName, [ModuleName, StringArgs]) ->
     parse_term(
         AppName,
-        ["{", ModuleName, ",[", lists:join(",", StringArgs), "]}"],
+        ["{", ModuleName, ", ", StringArgs, "}"],
         "mod field"
     ).
 

@@ -23,7 +23,7 @@ erlang_application(
         "+warnings_as_errors",
     ],
     includes = glob(["include/*.hrl"]),
-    mod = ("test_exec", []),
+    mod = ("test_exec", "[]"),
     resources = read_root_config("erlang", "erlang_tests_default_config", "").split(),
     shell_libs = [],
     use_global_parse_transforms = False,
