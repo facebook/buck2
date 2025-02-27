@@ -11,9 +11,11 @@ version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
+blake3 = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }
 starlark_map = { workspace = true }
+strong_hash = { workspace = true }
 sysinfo = { workspace = true }
 tracing = { workspace = true }
 triomphe = { workspace = true }

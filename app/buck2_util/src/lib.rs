@@ -29,6 +29,7 @@ pub mod process_stats;
 pub mod rtabort;
 pub mod self_ref;
 pub mod sliding_window;
+pub mod strong_hasher;
 pub mod system_stats;
 pub mod thin_box;
 pub mod threads;
