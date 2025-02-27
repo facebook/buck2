@@ -1,0 +1,15 @@
+[package]
+description = "Proc macro for strong_hash crate"
+edition = "2021"
+license = { workspace = true }
+name = "strong_hash_derive"
+repository = { workspace = true }
+version = "0.1.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }

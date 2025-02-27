@@ -97,6 +97,9 @@ members = [
     "gazebo/cmp_any",
     "gazebo/gazebo",
     "gazebo/gazebo_derive",
+    "gazebo/strong_hash",
+    "gazebo/strong_hash_derive",
+    "gazebo/strong_hash_tests",
     "integrations/resources/rust",
     "integrations/rust-project",
     "remote_execution/oss/re_grpc",
@@ -336,6 +339,8 @@ starlark_lsp = { version = "0.13.0", path = "starlark-rust/starlark_lsp" }
 starlark_map = { version = "0.13.0", path = "starlark-rust/starlark_map" }
 starlark_syntax = { version = "0.13.0", path = "starlark-rust/starlark_syntax" }
 static_interner = { path = "shed/static_interner" }
+strong_hash = { path = "gazebo/strong_hash" }
+strong_hash_derive = { path = "gazebo/strong_hash_derive" }
 three_billion_instructions = { path = "shed/three_billion_instructions" }
 
 buck2_action_impl = { path = "app/buck2_action_impl" }
