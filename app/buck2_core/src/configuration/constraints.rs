@@ -35,7 +35,7 @@ impl ConstraintKey {
 }
 
 #[derive(
-    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative
+    Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
 )]
 pub struct ConstraintValue(pub TargetLabel);
 
