@@ -26,6 +26,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use smallvec::SmallVec;
+use strong_hash::StrongHash;
 
 use crate::fs::fs_util;
 use crate::fs::paths::file_name::FileName;
@@ -46,7 +47,8 @@ use crate::fs::paths::path_util::path_remove_prefix;
     PartialOrd,
     Ord,
     Hash,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePath(
