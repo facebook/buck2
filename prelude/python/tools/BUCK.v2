@@ -120,6 +120,22 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.export_file(
+    name = "patchelf.py",
+    src = "patchelf.py",
+    mode = "reference",
+)
+
+prelude.command_alias(
+    name = "patchelf",
+    args = [
+        "--patchelf",
+        "$(exe_target fbsource//third-party/patchelf:patchelf)",
+    ],
+    exe = ":patchelf.py",
+    visibility = ["PUBLIC"],
+)
+
 prelude.python_bootstrap_binary(
     name = "create_link_tree",
     main = "create_link_tree.py",

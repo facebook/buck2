@@ -101,6 +101,20 @@ def _whl_cmd(
 
     return cmd_args(cmd, hidden = hidden)
 
+def _rpath(dst, rpath):
+    """
+    Relative the given `rpath` to `dst`, via `$ORIGIN`.
+    """
+
+    expect(not paths.is_absolute(dst))
+    expect(not paths.is_absolute(rpath))
+
+    base = "$ORIGIN"
+    dirpath = paths.dirname(dst)
+    if dirpath:
+        base = paths.join(base, *[".." for _ in dirpath.split("/")])
+    return paths.join(base, rpath)
+
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
     sub_targets = {}
@@ -113,6 +127,36 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             if PythonLibraryInfo in lib:
                 libraries[lib.label] = lib
 
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    toolchain_info = get_cxx_toolchain_info(ctx)
+
+    # RPATHs to embed in the binary.
+    rpaths = python_toolchain.wheel_rpaths + ctx.attrs.rpaths
+
+    def _maybe_patchelf(dst, src):
+        # If there's no rpaths, there's nothing to patch.
+        if not rpaths:
+            return src
+
+        # Heuristic: if we see an extension, assume it's not an ELF file (this might miss
+        # DSOs embedded as resources).
+        _, ext = paths.split_extension(dst)
+        if ext:
+            return src
+
+        # Run the patchelf -- this will just copy if it turns out the given
+        # path isn't and ELF file.
+        out = ctx.actions.declare_output(paths.join("__patched__", dst))
+        cmd = cmd_args(
+            ctx.attrs._patchelf[RunInfo],
+            "--output",
+            out.as_output(),
+            cmd_args([_rpath(dst, p) for p in rpaths], prepend = "--rpath"),
+            src,
+        )
+        ctx.actions.run(cmd, category = "patchelf", identifier = dst)
+        return out
+
     srcs = []
     extensions = {}
     for dep in libraries.values():
@@ -123,8 +167,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             expect(not manifests.default_resources[1])
             srcs.append(manifests.default_resources[0])
         if manifests.extensions != None:
-            python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
-            toolchain_info = get_cxx_toolchain_info(ctx)
             items = manifests.extensions.items()
             expect(len(items) == 1)
             extension = items[0][0]
@@ -163,6 +205,10 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                     links = [
                         LinkArgs(flags = python_toolchain.extension_linker_flags),
                         LinkArgs(flags = python_toolchain.wheel_linker_flags),
+                        LinkArgs(flags = [
+                            "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                            for rpath in rpaths
+                        ]),
                         LinkArgs(infos = inputs),
                     ],
                     category_suffix = "native_extension",
@@ -191,7 +237,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx,
                 name = "resources.txt",
                 entries = [
-                    (dest, resource, str(ctx.label.raw_target()))
+                    (dest, _maybe_patchelf(dest, resource), str(ctx.label.raw_target()))
                     for dest, resource in ctx.attrs.resources.items()
                 ],
             ),
@@ -302,8 +348,10 @@ python_wheel = rule(
         libraries_query = attrs.option(attrs.query(), default = None),
         prefer_stripped_objects = attrs.default_only(attrs.bool(default = False)),
         resources = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
+        rpaths = attrs.list(attrs.string(), default = []),
         support_future_python_versions = attrs.bool(default = False),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
+        _patchelf = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:patchelf")),
         _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
         _cxx_toolchain = toolchains_common.cxx(),
         _python_toolchain = toolchains_common.python(),
