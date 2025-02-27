@@ -23,6 +23,7 @@ use serde::Serializer;
 use static_interner::Intern;
 use static_interner::InternDisposition;
 use static_interner::Interner;
+use strong_hash::StrongHash;
 
 use crate::configuration::bound_id::BoundConfigurationId;
 use crate::configuration::bound_label::BoundConfigurationLabel;
@@ -340,7 +341,7 @@ impl ConfigurationPlatform {
 }
 
 /// A set of values used in configuration-related contexts.
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash)]
 pub struct ConfigurationDataData {
     // contains the full specification of the platform configuration
     pub constraints: BTreeMap<ConstraintKey, ConstraintValue>,
