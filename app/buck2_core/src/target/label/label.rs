@@ -24,6 +24,8 @@ use ref_cast::ref_cast_custom;
 use ref_cast::RefCastCustom;
 use serde::Serialize;
 use serde::Serializer;
+use strong_hash::StrongHash;
+use strong_hash::StrongHasher;
 use triomphe::ThinArc;
 
 use crate::cells::name::CellName;
@@ -41,7 +43,7 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::triomphe_thin_arc_borrow::ThinArcBorrow;
 use crate::target::name::TargetNameRef;
 
-#[derive(Eq, PartialEq, Allocative)]
+#[derive(Eq, PartialEq, Allocative, StrongHash)]
 struct TargetLabelHeader {
     /// Hash of target label (not package, not name).
     /// Place hash first to make equality check faster.
@@ -65,6 +67,13 @@ pub struct TargetLabel(
         u8,
     >,
 );
+
+impl StrongHash for TargetLabel {
+    fn strong_hash<H: StrongHasher>(&self, state: &mut H) {
+        self.pkg().strong_hash(state);
+        self.name().strong_hash(state);
+    }
+}
 
 impl Debug for TargetLabel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
