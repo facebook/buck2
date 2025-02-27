@@ -13,7 +13,6 @@ use indexmap::IndexSet;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::ArtifactGroup;
-use crate::bxl::build_result::BxlBuildResult;
 
 /// The result of evaluating a bxl function
 #[derive(Allocative)]
@@ -28,7 +27,6 @@ pub enum BxlResult {
     BuildsArtifacts {
         output_loc: BuildArtifactPath,
         error_loc: BuildArtifactPath,
-        built: Vec<BxlBuildResult>,
         artifacts: Vec<ArtifactGroup>,
         analysis_values: RecordedAnalysisValues,
     },
@@ -51,7 +49,6 @@ impl BxlResult {
             Self::BuildsArtifacts {
                 output_loc,
                 error_loc,
-                built: vec![],
                 artifacts: ensured_artifacts.into_iter().collect(),
                 analysis_values,
             }
@@ -87,13 +84,6 @@ impl BxlResult {
         match self {
             BxlResult::None { .. } => None,
             BxlResult::BuildsArtifacts { artifacts, .. } => Some(artifacts),
-        }
-    }
-
-    pub fn get_build_result_opt(&self) -> Option<&Vec<BxlBuildResult>> {
-        match self {
-            BxlResult::None { .. } => None,
-            BxlResult::BuildsArtifacts { built, .. } => Some(built),
         }
     }
 }

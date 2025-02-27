@@ -17,8 +17,6 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::build::build_report::BuildReportOpts;
-use buck2_build_api::build::ConfiguredBuildTargetResult;
-use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
@@ -39,7 +37,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
@@ -52,7 +49,6 @@ use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::module::StarlarkModulePath;
-use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -150,20 +146,15 @@ impl BxlServerCommand {
 
         let bxl_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await?;
 
-        let (labeled_configured_build_results, errors) = self
-            .materialize_artifacts(&mut dice_ctx, server_ctx, bxl_result.dupe())
+        let errors = self
+            .materialize_artifacts(&mut dice_ctx, bxl_result.dupe())
             .await;
 
         self.copy_output(&mut dice_ctx, server_ctx, bxl_result, stdout)
             .await?;
 
         let serialized_build_report = self
-            .generate_build_report(
-                &bxl_cmd_ctx,
-                &mut dice_ctx,
-                server_ctx,
-                labeled_configured_build_results,
-            )
+            .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx)
             .await?;
 
         Ok(BxlResponse {
@@ -259,34 +250,22 @@ impl BxlServerCommand {
         Ok(eval_bxl(dice_ctx, bxl_key.clone()).await?.0)
     }
 
-    /// Materializes artifacts from the BXL result, handling both explicitly collected
-    /// artifacts and those from build target results (from `ctx.build`).
+    /// Materializes artifacts from the BXL result
     ///
     /// Returns the build results and any errors encountered during materialization.
     async fn materialize_artifacts(
         &self,
         dice_ctx: &mut DiceTransaction,
-        server_ctx: &dyn ServerCommandContextTrait,
         bxl_result: Arc<BxlResult>,
-    ) -> (
-        BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>,
-        Vec<buck2_data::ErrorReport>,
-    ) {
+    ) -> Vec<buck2_data::ErrorReport> {
         let materialization_context = self.create_materialization_context();
-        let build_results = filter_bxl_build_results(bxl_result.get_build_result_opt());
 
-        send_bxl_target_cfg_event(server_ctx, &self.req, &build_results);
-
-        let errors = self
-            .ensure_all_artifacts(
-                dice_ctx,
-                &materialization_context,
-                build_results.values(),
-                bxl_result.get_artifacts_opt(),
-            )
-            .await;
-
-        (build_results, errors)
+        self.ensure_all_artifacts(
+            dice_ctx,
+            &materialization_context,
+            bxl_result.get_artifacts_opt(),
+        )
+        .await
     }
 
     /// Creates a materialization context from request parameters.
@@ -311,19 +290,13 @@ impl BxlServerCommand {
         &self,
         ctx: &mut DiceComputations<'_>,
         materialization_context: &MaterializationAndUploadContext,
-        target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
         artifacts: Option<&Vec<ArtifactGroup>>,
     ) -> Vec<buck2_data::ErrorReport> {
         if let Some(artifacts) = artifacts {
             let result = get_dispatcher()
                 .span_async(BxlEnsureArtifactsStart {}, async move {
                     let result = self
-                        .materialize_collected_artifacts(
-                            ctx,
-                            materialization_context,
-                            target_results,
-                            artifacts,
-                        )
+                        .materialize_collected_artifacts(ctx, materialization_context, artifacts)
                         .await;
 
                     (result, BxlEnsureArtifactsEnd {})
@@ -343,32 +316,17 @@ impl BxlServerCommand {
         }
     }
 
-    /// Collects and materializes artifacts from both explicit artifact list and target results.
+    /// Collects and materializes artifacts
     ///
     /// Returns the arggregated errors encountered during materialization.
     async fn materialize_collected_artifacts(
         &self,
         ctx: &mut DiceComputations<'_>,
         materialization_context: &MaterializationAndUploadContext,
-        target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
         artifacts: &[ArtifactGroup],
     ) -> Result<(), Vec<buck2_error::Error>> {
-        let mut artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
+        let artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
         let mut errors = Vec::new();
-
-        // Collect artifacts from target results
-        for res in target_results {
-            for output in &res.outputs {
-                match output {
-                    Ok(artifacts) => {
-                        for (artifact, _value) in artifacts.values.iter() {
-                            artifacts_to_materialize.push(ArtifactGroup::Artifact(artifact.dupe()))
-                        }
-                    }
-                    Err(e) => errors.push(e.dupe()),
-                }
-            }
-        }
 
         // Materialize all collected artifacts in parallel
         let materialize_errors = ctx
@@ -409,10 +367,6 @@ impl BxlServerCommand {
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &mut DiceTransaction,
         server_ctx: &dyn ServerCommandContextTrait,
-        labeled_configured_build_results: BTreeMap<
-            ConfiguredProvidersLabel,
-            ConfiguredBuildTargetResult,
-        >,
     ) -> buck2_error::Result<Option<String>> {
         let bxl_opts = self
             .req
@@ -438,10 +392,7 @@ impl BxlServerCommand {
                 server_ctx.project_root(),
                 ctx.cwd,
                 server_ctx.events().trace_id(),
-                &labeled_configured_build_results
-                    .iter()
-                    .map(|(k, v)| (k.to_owned(), Some(v.to_owned())))
-                    .collect::<BTreeMap<_, _>>(),
+                &BTreeMap::default(),
                 &BTreeMap::default(),
             )?
         } else {
@@ -459,14 +410,6 @@ struct BxlCommandContext<'a> {
     bxl_label: BxlFunctionLabel,
     project_root: String,
     global_cfg_options: GlobalCfgOptions,
-}
-
-fn send_bxl_target_cfg_event(
-    server_ctx: &dyn ServerCommandContextTrait,
-    request: &buck2_cli_proto::BxlRequest,
-    labels: &BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>,
-) {
-    send_target_cfg_event(server_ctx.events(), labels.keys(), &request.target_cfg);
 }
 
 pub(crate) async fn get_bxl_cli_args(
@@ -575,23 +518,4 @@ pub(crate) fn parse_bxl_label_from_cli(
         bxl_path: BxlFilePath::new(import_path)?,
         name: bxl_fn.to_owned(),
     })
-}
-
-fn filter_bxl_build_results(
-    build_results: Option<&Vec<BxlBuildResult>>,
-) -> BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult> {
-    let mut btree = BTreeMap::new();
-    if let Some(build_results) = build_results {
-        for res in build_results {
-            match res {
-                BxlBuildResult::Built { label, result } => {
-                    if btree.insert(label.to_owned(), result.to_owned()).is_some() {
-                        tracing::debug!("Found duped bxl result {}", label);
-                    }
-                }
-                BxlBuildResult::None => (),
-            }
-        }
-    }
-    btree
 }
