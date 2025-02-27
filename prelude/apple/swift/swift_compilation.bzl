@@ -784,6 +784,10 @@ def _get_shared_flags(
         "-disable-cxx-interop-requirement-at-import",
         "-Xfrontend",
         "-emit-clang-header-nonmodular-includes",
+        # RE actions are run in a sandbox, which will fail to run macros as
+        # you cannot nest sandbox actions.
+        # https://github.com/swiftlang/swift/pull/70079
+        "-disable-sandbox",
     ])
 
     if parse_as_library:

@@ -127,12 +127,6 @@ def main():
         f"{os.getcwd()}=.",
     ]
 
-    # RE actions are run in a sandbox, which will fail to run macros as
-    # you cannot nest sandbox actions.
-    # https://github.com/swiftlang/swift/pull/70079
-    if "INSIDE_RE_WORKER" in env:
-        command.append("-disable-sandbox")
-
     result = subprocess.run(
         command,
         stdout=subprocess.PIPE,
