@@ -24,6 +24,7 @@ use gazebo::transmute;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 use crate::fs::paths::file_name::FileName;
 use crate::fs::paths::fmt::quoted_display;
@@ -34,7 +35,7 @@ use crate::fs::paths::RelativePathBuf;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the cell
 #[derive(
-    Display, Derivative, Hash, PartialEq, Eq, RefCast, PartialOrd, Ord, Allocative
+    Display, Derivative, Hash, PartialEq, Eq, RefCast, PartialOrd, Ord, Allocative, StrongHash
 )]
 #[derivative(Debug)]
 #[repr(transparent)]
