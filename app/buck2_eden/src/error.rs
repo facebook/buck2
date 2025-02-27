@@ -45,7 +45,7 @@ pub enum ConnectAndRequestError<E> {
     #[error(transparent)]
     #[buck2(tag = IoEdenConnectionError)]
     ConnectionError(buck2_error::Error),
-    #[error("Eden Request Failed: {0}")]
+    #[error("Eden Request Failed: {0:?}")]
     #[buck2(tag = IoEdenRequestError)]
     RequestError(E),
 }

@@ -11,6 +11,7 @@
 #![allow(clippy::useless_vec)]
 
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -184,7 +185,7 @@ impl EdenConnectionManager {
     where
         F: Fn(&(dyn EdenService + Send + Sync)) -> Fut,
         Fut: Future<Output = Result<T, E>>,
-        E: HasErrorHandlingStrategy + Display,
+        E: HasErrorHandlingStrategy + Debug + Display,
     {
         const MAX_ATTEMPTS: usize = 3;
 
