@@ -324,7 +324,7 @@ impl ToProtoMessage for ConfigurationData {
     }
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
+#[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash)]
 enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
     Bound(BoundConfigurationLabel, ConfigurationDataData),
