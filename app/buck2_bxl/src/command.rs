@@ -260,12 +260,8 @@ impl BxlServerCommand {
     ) -> Vec<buck2_data::ErrorReport> {
         let materialization_context = self.create_materialization_context();
 
-        self.ensure_all_artifacts(
-            dice_ctx,
-            &materialization_context,
-            bxl_result.get_artifacts_opt(),
-        )
-        .await
+        self.ensure_all_artifacts(dice_ctx, &materialization_context, bxl_result.artifacts())
+            .await
     }
 
     /// Creates a materialization context from request parameters.
@@ -290,29 +286,29 @@ impl BxlServerCommand {
         &self,
         ctx: &mut DiceComputations<'_>,
         materialization_context: &MaterializationAndUploadContext,
-        artifacts: Option<&Vec<ArtifactGroup>>,
+        artifacts: &[ArtifactGroup],
     ) -> Vec<buck2_data::ErrorReport> {
-        if let Some(artifacts) = artifacts {
-            let result = get_dispatcher()
-                .span_async(BxlEnsureArtifactsStart {}, async move {
-                    let result = self
-                        .materialize_collected_artifacts(ctx, materialization_context, artifacts)
-                        .await;
+        if artifacts.is_empty() {
+            return vec![];
+        }
 
-                    (result, BxlEnsureArtifactsEnd {})
-                })
-                .await;
+        let result = get_dispatcher()
+            .span_async(BxlEnsureArtifactsStart {}, async move {
+                let result = self
+                    .materialize_collected_artifacts(ctx, materialization_context, artifacts)
+                    .await;
 
-            match result {
-                Ok(_) => vec![],
-                Err(errors) => errors
-                    .iter()
-                    .map(create_error_report)
-                    .unique_by(|e| e.message.clone())
-                    .collect(),
-            }
-        } else {
-            vec![]
+                (result, BxlEnsureArtifactsEnd {})
+            })
+            .await;
+
+        match result {
+            Ok(_) => vec![],
+            Err(errors) => errors
+                .iter()
+                .map(create_error_report)
+                .unique_by(|e| e.message.clone())
+                .collect(),
         }
     }
 
@@ -357,8 +353,8 @@ impl BxlServerCommand {
         bxl_result: Arc<BxlResult>,
         stdout: impl Write,
     ) -> buck2_error::Result<()> {
-        copy_output(stdout, dice_ctx, bxl_result.get_output_loc()).await?;
-        copy_output(server_ctx.stderr()?, dice_ctx, bxl_result.get_error_loc()).await?;
+        copy_output(stdout, dice_ctx, bxl_result.output_loc()).await?;
+        copy_output(server_ctx.stderr()?, dice_ctx, bxl_result.error_loc()).await?;
         Ok(())
     }
 
