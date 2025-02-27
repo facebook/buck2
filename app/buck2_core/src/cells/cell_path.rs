@@ -11,6 +11,7 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use relative_path::RelativePath;
+use strong_hash::StrongHash;
 
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
@@ -33,7 +34,8 @@ struct StripPrefixError(CellName, CellName);
     PartialEq,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 #[display("{}", self.as_ref())]
 pub struct CellPath {
