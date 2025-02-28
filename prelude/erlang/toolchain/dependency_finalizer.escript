@@ -54,7 +54,7 @@ read_file(File) ->
             Err
     end.
 
--spec build_dep_info(file:filename(), dep_files_data()) -> ok.
+-spec build_dep_info(file:filename(), dep_files_data()) -> list(map()).
 build_dep_info(Source, DepFiles) ->
     Key = list_to_binary(filename:basename(Source, ".erl") ++ ".beam"),
     collect_dependencies([Key], DepFiles, sets:new([{version, 2}]), []).
@@ -65,17 +65,8 @@ collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
     case DepFiles of
         #{Key := #{<<"dep_file">> := DepFile}} ->
             {ok, Dependencies} = read_file(DepFile),
-            {NextKeys, NextVisited, NextAcc} = lists:foldl(
-                fun(#{<<"file">> := File} = Dep, {KeysAcc, VisitedAcc, DepAcc}) ->
-                    NextKey = key(File),
-                    case sets:is_element(NextKey, VisitedAcc) of
-                        true -> {KeysAcc, VisitedAcc, DepAcc};
-                        false -> {[NextKey | KeysAcc], sets:add_element(Key, VisitedAcc), [Dep | DepAcc]}
-                    end
-                end,
-                {Rest, Visited, Acc},
-                Dependencies
-            ),
+            {NextKeys, NextVisited, NextAcc} =
+                collect_dependencies_for_key(Dependencies, Key, Rest, Visited, Acc),
             collect_dependencies(
                 NextKeys,
                 DepFiles,
@@ -86,6 +77,17 @@ collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
             %% We cannot find key in DepFiles, which means it's from OTP or missing
             %% We don't add anything to the dependencies and let the compiler fail for a proper error message.
             collect_dependencies(Rest, DepFiles, Visited, Acc)
+    end.
+
+collect_dependencies_for_key([], _CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
+    {KeysAcc, VisitedAcc, DepAcc};
+collect_dependencies_for_key([#{<<"file">> := File} = Dep | Deps], CurrentKey, KeysAcc, VisitedAcc, DepAcc) ->
+    NextKey = key(File),
+    case sets:is_element(NextKey, VisitedAcc) of
+        true ->
+            collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, VisitedAcc, DepAcc);
+        false ->
+            collect_dependencies_for_key(Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])
     end.
 
 -spec key(string()) -> string().

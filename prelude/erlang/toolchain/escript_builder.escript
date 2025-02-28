@@ -35,7 +35,6 @@
 -spec main([string()]) -> ok.
 main([Spec]) ->
     try
-        io:format("~p ~p~n", [Spec, file:consult(Spec)]),
         {ok, [Terms]} = file:consult(Spec),
         do(Terms)
     catch
@@ -125,8 +124,8 @@ load_parallel(Files) ->
     Self = self(),
     F = fun() -> worker(Self) end,
     Jobs = min(length(Files), erlang:system_info(schedulers)),
-    Pids = [spawn_monitor(F) || _I <- lists:seq(1, Jobs)],
-    queue(Files, Pids, []).
+    Refs = #{element(2,spawn_monitor(F)) => [] || _I <- lists:seq(1, Jobs)},
+    queue(Files, Refs, maps:size(Refs), []).
 
 -spec worker(pid()) -> ok.
 worker(QueuePid) ->
@@ -141,29 +140,35 @@ worker(QueuePid) ->
 
 -spec file_contents(file:filename()) -> binary().
 file_contents(Filename) ->
-    case file:read_file(Filename) of
+    case file:read_file(Filename, [raw]) of
         {ok, Bin} -> Bin;
         Error -> error({read_file, Filename, Error})
     end.
 
--spec queue(escript_load_spec(), [pid()], escript_archive_spec()) -> escript_archive_spec().
-queue([], [], Acc) ->
+-spec queue(escript_load_spec(), #{reference() => []}, non_neg_integer(), escript_archive_spec()) -> escript_archive_spec().
+queue([], _JobRefs, 0, Acc) ->
     Acc;
-queue(Files, Pids, Acc) ->
+queue(Files, JobRefs, NumLeft, Acc) ->
     receive
-        Worker when is_pid(Worker), Files =:= [] ->
-            Worker ! empty,
-            queue(Files, Pids, Acc);
-        Worker when is_pid(Worker) ->
-            Worker ! {load, hd(Files)},
-            queue(tl(Files), Pids, Acc);
         {done, File, Res} ->
             io:format("Loaded ~ts~n", [File]),
-            queue(Files, Pids, [Res | Acc]);
-        {'DOWN', Mref, _, Pid, normal} ->
-            Pids2 = lists:delete({Pid, Mref}, Pids),
-            queue(Files, Pids2, Acc);
-        {'DOWN', _Mref, _, _Pid, Info} ->
-            io:format("ERROR: Compilation failed: ~p", [Info]),
-            erlang:halt(1)
+            queue(Files, JobRefs, NumLeft, [Res | Acc]);
+        {'DOWN', Mref, _, _Pid, Info} ->
+            case Info of
+                normal when is_map_key(Mref, JobRefs) ->
+                    queue(Files, JobRefs, NumLeft-1, Acc);
+                _ ->
+                    io:format("ERROR: Compilation failed: ~p", [Info]),
+                    erlang:halt(1)
+            end;
+        Worker when is_pid(Worker) ->
+            case Files of
+                [] ->
+                    Worker ! empty,
+                    queue(Files, JobRefs, NumLeft, Acc);
+                [_|_] ->
+                    [NextFile | MoreFiles] = Files,
+                    Worker ! {load, NextFile},
+                    queue(MoreFiles,JobRefs,  NumLeft, Acc)
+            end
     end.
