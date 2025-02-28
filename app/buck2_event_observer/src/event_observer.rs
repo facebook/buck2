@@ -100,6 +100,14 @@ where
                     {
                         ActionExecution(action_execution_end) => {
                             self.action_stats.update(action_execution_end);
+                            let has_excess_cache_misses = self.action_stats.excess_cache_misses > 0;
+                            if has_excess_cache_misses {
+                                if let Some(health_check_client) = &mut self.health_check_client {
+                                    health_check_client
+                                        .update_excess_cache_misses(has_excess_cache_misses)
+                                        .await;
+                                }
+                            }
                         }
                         buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
                             if let Some(merge_base) = file_watcher
