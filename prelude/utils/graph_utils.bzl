@@ -90,15 +90,21 @@ def fail_cycle(
     if cycle:
         errors = []
         for i, c in enumerate(cycle):
-            indented_number = "\n\n" + (" -> " if i > 0 else "    ") + "" * (3 - len(str(i))) + str(i + 1) + ": "
+            indented_number = (" -> " if i > 0 else "    ") + "" * (3 - len(str(i))) + str(i + 1) + ": "
             edge_explanation = ""
             if i > 0:
                 edge_explanation = "\n" + " " * 9 + "Reason for edge:"
                 edge_explanation += "".join(["\n" + " " * 11 + e for e in edge_explainer(cycle[i - 1], c)])
             errors.append(indented_number + node_formatter(c) + edge_explanation)
         fail(
-            "cycle in graph detected:{}\n".format("".join(errors)),
+            "cycle detected between the following targets:\n    {}\n\ncycle details:\n{}\n\n".format(
+                "\n -> ".join(
+                    [node_formatter(c) for c in cycle],
+                ),
+                "\n\n".join(errors),
+            ),
         )
+
     fail("expected cycle, but found none")
 
 def find_cycle(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any] | None:
