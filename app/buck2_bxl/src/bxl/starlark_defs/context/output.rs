@@ -85,6 +85,10 @@ pub(crate) struct OutputStream {
     #[trace(unsafe_ignore)]
     #[allocative(skip)]
     pub(crate) sink: Rc<RefCell<dyn Write>>,
+    #[derivative(Debug = "ignore")]
+    #[trace(unsafe_ignore)]
+    #[allocative(skip)]
+    pub(crate) error_sink: Rc<RefCell<dyn Write>>,
     #[trace(unsafe_ignore)]
     artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifactOrGroup>>>,
     #[derivative(Debug = "ignore")]
@@ -107,9 +111,11 @@ impl OutputStream {
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: Rc<RefCell<dyn Write>>,
+        error_sink: Rc<RefCell<dyn Write>>,
     ) -> Self {
         Self {
             sink,
+            error_sink,
             artifacts_to_ensure: RefCell::new(Some(Default::default())),
             project_fs,
             artifact_fs,

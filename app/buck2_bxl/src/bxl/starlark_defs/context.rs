@@ -106,7 +106,6 @@ struct UnconfiguredTargetInAnalysis;
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
 pub(crate) struct RootBxlContextData<'v> {
     output_stream: ValueTyped<'v, OutputStream>,
-    error_stream: ValueTyped<'v, OutputStream>,
     cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
 }
 
@@ -366,10 +365,6 @@ impl<'v> BxlContext<'v> {
                 core.project_fs.clone(),
                 core.artifact_fs.clone(),
                 output_sink,
-            )),
-            error_stream: heap.alloc_typed(OutputStream::new(
-                core.project_fs.clone(),
-                core.artifact_fs.clone(),
                 error_sink,
             )),
         };
@@ -542,7 +537,9 @@ impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
     // Used for caching error logs emitted from within the BXL core.
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.context_type {
-            BxlContextType::Root(root) => writeln!(root.error_stream.sink.borrow_mut(), "{}", msg)?,
+            BxlContextType::Root(root) => {
+                writeln!(root.output_stream.error_sink.borrow_mut(), "{}", msg)?
+            }
             BxlContextType::Dynamic(_) => console_message(msg),
             BxlContextType::AnonTarget => console_message(msg),
         }
