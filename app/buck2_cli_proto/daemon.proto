@@ -576,15 +576,13 @@ message BuildTarget {
 }
 
 message BuildResponse {
-  reserved 101;
+  reserved 101, 200;
   repeated BuildTarget build_targets = 1;
   // Absolute path to the repo root
   string project_root = 2;
 
   optional string serialized_build_report = 100;
   repeated buck.data.ErrorReport errors = 102;
-
-  optional bool run_buck2_explain = 200;
 }
 
 message CounterWithExamples {

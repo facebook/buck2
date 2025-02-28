@@ -311,22 +311,11 @@ async fn process_build_result(
 
     let project_root = server_ctx.project_root().to_string();
 
-    let run_buck2_explain = ctx
-        .parse_legacy_config_property(
-            cell_resolver.root_cell(),
-            BuckconfigKeyRef {
-                section: "buck2",
-                property: "automatic_buck2_explain",
-            },
-        )
-        .await?;
-
     Ok(buck2_cli_proto::BuildResponse {
         build_targets,
         project_root,
         serialized_build_report,
         errors,
-        run_buck2_explain,
     })
 }
 
