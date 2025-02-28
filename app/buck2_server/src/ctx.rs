@@ -264,6 +264,7 @@ impl<'a> ServerCommandContext<'a> {
                     .instant_event(buck2_data::RemoteExecutionSessionCreated {
                         session_id: session_id.to_owned(),
                         experiment_name,
+                        persistent_cache_mode: client.get_persistent_cache_mode(),
                     })
             }
         }

@@ -397,6 +397,7 @@ message DiceKeyState {
 message RemoteExecutionSessionCreated {
   string session_id = 1;
   string experiment_name = 2;
+  optional string persistent_cache_mode = 3;
 }
 
 message Location {
@@ -2208,6 +2209,9 @@ message InvocationRecord {
   // UUID of the previous command stored only if external configs are different
   optional string previous_uuid_with_mismatched_config = 243;
   optional string file_watcher = 244;
+
+  // CASd persistent cache mode used by the RE client
+  optional string persistent_cache_mode = 245;
 }
 
 // Record event sent directly to scribe.

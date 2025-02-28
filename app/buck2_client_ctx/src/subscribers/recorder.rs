@@ -101,6 +101,7 @@ pub(crate) struct InvocationRecorder {
     command_duration: Option<prost_types::Duration>,
     re_session_id: Option<String>,
     re_experiment_name: Option<String>,
+    persistent_cache_mode: Option<String>,
     critical_path_duration: Option<Duration>,
     tags: Vec<String>,
     run_local_count: u64,
@@ -250,6 +251,7 @@ impl InvocationRecorder {
             command_duration: None,
             re_session_id: None,
             re_experiment_name: None,
+            persistent_cache_mode: None,
             critical_path_duration: None,
             tags: vec![],
             run_local_count: 0,
@@ -652,6 +654,7 @@ impl InvocationRecorder {
             client_walltime: self.start_time.elapsed().try_into().ok(),
             re_session_id: self.re_session_id.take().unwrap_or_default(),
             re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
+            persistent_cache_mode: self.persistent_cache_mode.clone(),
             cli_args: self.cli_args.clone(),
             representative_config_flags: self.representative_config_flags.clone(),
             critical_path_duration: self.critical_path_duration.and_then(|x| x.try_into().ok()),
@@ -1088,6 +1091,7 @@ impl InvocationRecorder {
     ) -> buck2_error::Result<()> {
         self.re_session_id = Some(session.session_id.clone());
         self.re_experiment_name = Some(session.experiment_name.clone());
+        self.persistent_cache_mode = session.persistent_cache_mode.clone();
         Ok(())
     }
 

@@ -114,6 +114,7 @@ struct RemoteExecutionClientData {
     get_digest_expirations: OpStats,
     extend_digest_ttl: OpStats,
     local_cache: LocalCacheStats,
+    persistent_cache_mode: Option<String>,
 }
 
 #[cfg(fbcode_build)]
@@ -136,6 +137,7 @@ impl RemoteExecutionClient {
 
         let client = RemoteExecutionClientImpl::new(re_config).await?;
 
+        let persistent_cache_mode = client.persistent_cache_mode.clone();
         Ok(Self {
             data: Arc::new(RemoteExecutionClientData {
                 client,
@@ -148,6 +150,7 @@ impl RemoteExecutionClient {
                 get_digest_expirations: OpStats::default(),
                 extend_digest_ttl: OpStats::default(),
                 local_cache: Default::default(),
+                persistent_cache_mode,
             }),
         })
     }
@@ -368,6 +371,10 @@ impl RemoteExecutionClient {
         self.data.client.get_session_id()
     }
 
+    pub fn get_persistent_cache_mode(&self) -> Option<String> {
+        self.data.persistent_cache_mode.clone()
+    }
+
     pub fn get_experiment_name(&self) -> buck2_error::Result<Option<String>> {
         self.data
             .client
@@ -406,6 +413,7 @@ struct RemoteExecutionClientImpl {
     download_chunk_size: usize,
     /// Preserve file symlinks as symlinks when uploading action result.
     respect_file_symlinks: bool,
+    persistent_cache_mode: Option<String>,
 }
 
 fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
@@ -432,6 +440,8 @@ impl RemoteExecutionClientImpl {
             let download_chunk_size = std::cmp::max(download_concurrency / 8, 1);
             let static_metadata = &re_config.static_metadata;
 
+            #[allow(unused_mut)]
+            let mut persistent_cache_mode = None;
             #[cfg(fbcode_build)]
             let client = {
                 use buck2_core::fs::fs_util;
@@ -569,6 +579,11 @@ impl RemoteExecutionClientImpl {
                         }
                         remote_cache_config
                     };
+                    persistent_cache_mode = Some(format!(
+                        "small=>{:?}, large=>{:?}",
+                        small_files_policy, large_files_policy
+                    ));
+
                     embedded_cas_daemon_config.remote_cache_config = Some(remote_cache_config);
                     embedded_cas_daemon_config.cache_config.writable_cache = false;
                     embedded_cas_daemon_config
@@ -795,6 +810,7 @@ impl RemoteExecutionClientImpl {
                 download_files_semapore: Arc::new(Semaphore::new(download_concurrency)),
                 download_chunk_size,
                 respect_file_symlinks,
+                persistent_cache_mode,
             }
         };
 
