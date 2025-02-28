@@ -21,9 +21,6 @@ import com.facebook.buck.util.Console;
 import com.facebook.buck.util.DefaultProcessExecutor;
 import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.Verbosity;
-import com.facebook.buck.util.environment.Platform;
-import com.facebook.buck.util.timing.Clock;
-import com.facebook.buck.util.timing.DefaultClock;
 import com.google.common.collect.ImmutableList;
 import java.io.Closeable;
 import java.io.IOException;
@@ -41,8 +38,6 @@ public class CompilerDaemonRunner implements Closeable {
   private final ClassLoaderCache classLoaderCache;
   private final Console console;
   private final ProcessExecutor processExecutor;
-  private final Platform platform;
-  private final Clock clock;
 
   private static final List<String> COMPILER_ERRORS =
       List.of(
@@ -61,10 +56,6 @@ public class CompilerDaemonRunner implements Closeable {
     this.classLoaderCache = new ClassLoaderCache();
     this.console = console;
     this.processExecutor = new DefaultProcessExecutor(console);
-    this.platform = Platform.detect();
-    // no need to measure thread CPU time as this is an external process, and we do not pass
-    // thread time back to buck with Downward API
-    this.clock = new DefaultClock(false);
   }
 
   @Override
@@ -80,10 +71,8 @@ public class CompilerDaemonRunner implements Closeable {
       this.executionContext =
           StepExecutionUtils.createExecutionContext(
               classLoaderCache,
-              platform,
               processExecutor,
               console,
-              clock,
               command.getBuildCommand().getRuleCellRoot());
     }
 

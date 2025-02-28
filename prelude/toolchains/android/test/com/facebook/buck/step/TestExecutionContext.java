@@ -15,8 +15,6 @@ import com.facebook.buck.testutil.TestConsole;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.FakeProcessExecutor;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
-import com.facebook.buck.util.environment.Platform;
-import com.facebook.buck.util.timing.FakeClock;
 import java.nio.file.Paths;
 
 public class TestExecutionContext {
@@ -33,12 +31,10 @@ public class TestExecutionContext {
     AbsPath rootPath = AbsPath.of(Paths.get(".").toAbsolutePath()).normalize();
     return IsolatedExecutionContext.builder()
         .setConsole(new TestConsole())
-        .setPlatform(Platform.detect())
         .setEnvironment(EnvVariablesProvider.getSystemEnv())
         .setClassLoaderCache(testClassLoaderCache)
         .setProcessExecutor(new FakeProcessExecutor())
-        .setRuleCellRoot(rootPath)
-        .setClock(FakeClock.doNotCare());
+        .setRuleCellRoot(rootPath);
   }
 
   public static IsolatedExecutionContext newInstance() {

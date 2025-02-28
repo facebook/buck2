@@ -17,8 +17,6 @@ import com.facebook.buck.step.isolatedsteps.IsolatedStepsRunner;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.ProcessExecutor;
-import com.facebook.buck.util.environment.Platform;
-import com.facebook.buck.util.timing.Clock;
 import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 
@@ -35,12 +33,9 @@ public class StepExecutionUtils {
   @Nonnull
   public static IsolatedExecutionContext createExecutionContext(
       ClassLoaderCache classLoaderCache,
-      Platform platform,
       ProcessExecutor processExecutor,
       Console console,
-      Clock clock,
       AbsPath ruleCellRoot) {
-    return IsolatedExecutionContext.of(
-        classLoaderCache, console, platform, processExecutor, ruleCellRoot, clock);
+    return IsolatedExecutionContext.of(classLoaderCache, console, processExecutor, ruleCellRoot);
   }
 }

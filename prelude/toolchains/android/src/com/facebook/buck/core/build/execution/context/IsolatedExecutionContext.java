@@ -16,44 +16,33 @@ import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.Verbosity;
-import com.facebook.buck.util.environment.Platform;
-import com.facebook.buck.util.timing.Clock;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Optional;
-import java.util.UUID;
 import org.immutables.value.Value;
 
 /** The context exposed for executing {@code IsolatedStep}s */
 @BuckStyleValueWithBuilder
 public abstract class IsolatedExecutionContext implements Closeable {
 
-  private final UUID buildId = UUID.randomUUID();
-
   /** Returns an {@link IsolatedExecutionContext}. */
   public static IsolatedExecutionContext of(
       ClassLoaderCache classLoaderCache,
       Console console,
-      Platform platform,
       ProcessExecutor processExecutor,
-      AbsPath ruleCellRoot,
-      Clock clock) {
+      AbsPath ruleCellRoot) {
     return ImmutableIsolatedExecutionContext.builder()
         .setConsole(console)
-        .setPlatform(platform)
         .setProcessExecutor(processExecutor)
         .setRuleCellRoot(ruleCellRoot)
-        .setClock(clock)
         .setClassLoaderCache(classLoaderCache.addRef())
         .build();
   }
 
   public abstract Console getConsole();
-
-  public abstract Platform getPlatform();
 
   public abstract ImmutableMap<String, String> getEnvironment();
 
@@ -75,9 +64,6 @@ public abstract class IsolatedExecutionContext implements Closeable {
    */
   public abstract AbsPath getRuleCellRoot();
 
-  /** Returns clock associated with the current invocation. */
-  public abstract Clock getClock();
-
   @Value.Default
   public ClassLoaderCache getClassLoaderCache() {
     return new ClassLoaderCache();
@@ -96,10 +82,6 @@ public abstract class IsolatedExecutionContext implements Closeable {
   @Value.Derived
   public PrintStream getStdOut() {
     return getConsole().getStdErr();
-  }
-
-  public UUID getBuildId() {
-    return buildId;
   }
 
   @Value.Derived
@@ -134,12 +116,10 @@ public abstract class IsolatedExecutionContext implements Closeable {
     // This should replace (or otherwise retain) all of the closeable parts of the context.
     return ImmutableIsolatedExecutionContext.builder()
         .setConsole(newConsole)
-        .setPlatform(getPlatform())
         .setProcessExecutor(getProcessExecutor().cloneWithOutputStreams(newStdout, newStderr))
         .setRuleCellRoot(getRuleCellRoot())
         .setClassLoaderCache(getClassLoaderCache().addRef())
         .setEnvironment(getEnvironment())
-        .setClock(getClock())
         .build();
   }
 

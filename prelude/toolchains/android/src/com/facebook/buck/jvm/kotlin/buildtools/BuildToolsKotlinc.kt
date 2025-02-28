@@ -25,6 +25,7 @@ import java.io.IOException
 import java.io.PrintStream
 import java.nio.file.Path
 import java.util.Optional
+import java.util.UUID
 import org.jetbrains.kotlin.buildtools.api.CompilationService
 import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 import org.jetbrains.kotlin.buildtools.api.ProjectId
@@ -66,7 +67,7 @@ class BuildToolsKotlinc : Kotlinc {
 
     val result =
         kotlinCompilationService.compile(
-            ProjectId.ProjectUUID(context.buildId),
+            ProjectId.ProjectUUID(UUID.randomUUID()),
             compilerArgs,
             mode,
             BuckKotlinLogger(UncloseablePrintStream(context.stdErr), kotlinCDLoggingContext))
