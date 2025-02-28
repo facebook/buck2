@@ -185,7 +185,7 @@ extra_attributes = {
         "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "extra_linker_outputs": attrs.set(attrs.string(), default = []),
         "ibtool": attrs.exec_dep(providers = [RunInfo]),
-        "installer": attrs.default_only(attrs.label(default = "fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/installer/apple:apple_installer")),
+        "installer": attrs.default_only(attrs.label(default = "prelude//toolchains/android/src/com/facebook/buck/installer/apple:apple_installer")),
         "libtool": attrs.exec_dep(providers = [RunInfo]),
         "lipo": attrs.exec_dep(providers = [RunInfo]),
         "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),

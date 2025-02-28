@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+// Copied from fbcode/buck2/install_proto/install.proto
+// (https://fburl.com/code/y9zjtzvn)
+
+//----------------------------------------------
+//  Generate command
+//----------------------------------------------
+//
+// When modifying this file, please run the following generate command,
+// and include generated code in your commit
+//
+// xplat/toolchains/android/sdk/tools/protobuf/gen.py
+//
+//-----------------------
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.facebook.buck.install.model";
+option java_outer_classname = "InstallerProto";
+
+package install;
+
+service Installer {
+  rpc Install(InstallInfoRequest) returns (InstallResponse) {};
+  rpc FileReady(FileReadyRequest) returns (FileResponse) {};
+  rpc ShutdownServer(ShutdownRequest) returns (ShutdownResponse) {};
+}
+
+message InstallInfoRequest {
+  string install_id = 1;
+  map<string, string> files = 2;
+}
+
+message InstallResponse {
+  string install_id = 1;
+}
+
+message FileReadyRequest {
+  string install_id = 1;
+  string name = 2;
+  string sha1 = 3;
+  string path = 4;
+}
+
+message FileResponse {
+  string install_id = 1;
+  string name = 2;
+  string path = 3;
+  ErrorDetail error_detail = 4;
+  // Connected device metadata to be logged to scuba.
+  // Should be sent once per device per install command,
+  // not per FileReadyRequest.
+  // Returned here in case the installer needs information
+  // from received files in order to connect.
+  repeated DeviceMetadata device_metadata = 5;
+}
+
+// Metadata about a connected device for logging.
+// ex. device name, os version.
+message DeviceMetadata {
+  message Entry {
+    string key = 1;
+    string value = 2;
+  }
+  repeated Entry entry = 1;
+}
+
+message ErrorDetail {
+  // Error message
+  string message = 1;
+  ErrorCategory category = 2;
+  repeated string tags = 3;
+}
+
+// Should be kept in sync with buck2_error::ErrorTier.
+enum ErrorCategory {
+  ERROR_CATEGORY_UNSPECIFIED = 0;
+  // Unexpected errors in installer. AKA Infra error.
+  TIER_0 = 1;
+  // Expected errors in inputs explicitly tracked by buck. AKA User error.
+  INPUT = 2;
+  // Errors that may be triggered by issues with the host,
+  // resource limits, non-explicit dependencies or potentially
+  // ambiguous input errors.
+  // These can be tracked but not eliminated.
+  ENVIRONMENT = 3;
+}
+
+message ShutdownRequest {
+  reserved 1;
+}
+
+message ShutdownResponse {
+  reserved 1;
+}

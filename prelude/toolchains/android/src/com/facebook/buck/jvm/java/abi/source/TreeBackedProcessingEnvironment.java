@@ -1,0 +1,79 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+package com.facebook.buck.jvm.java.abi.source;
+
+import com.sun.source.util.Trees;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import javax.annotation.processing.Filer;
+import javax.annotation.processing.Messager;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
+
+class TreeBackedProcessingEnvironment implements ProcessingEnvironment {
+  private final FrontendOnlyJavacTask task;
+  private final ProcessingEnvironment javacProcessingEnvironment;
+  private final TreeBackedMessager messager;
+  private final TreeBackedFiler filer;
+  private final Map<String, String> options = new HashMap<>();
+
+  public TreeBackedProcessingEnvironment(
+      FrontendOnlyJavacTask task, ProcessingEnvironment javacProcessingEnvironment) {
+    this.task = task;
+    this.javacProcessingEnvironment = javacProcessingEnvironment;
+    messager = new TreeBackedMessager(task, javacProcessingEnvironment.getMessager());
+    filer = new TreeBackedFiler(task, javacProcessingEnvironment.getFiler());
+
+    options.putAll(javacProcessingEnvironment.getOptions());
+    options.put("com.facebook.buck.java.generating_abi", "true");
+  }
+
+  @Override
+  public Map<String, String> getOptions() {
+    return options;
+  }
+
+  @Override
+  public Messager getMessager() {
+    return messager;
+  }
+
+  @Override
+  public Filer getFiler() {
+    return filer;
+  }
+
+  @Override
+  public Elements getElementUtils() {
+    return task.getElements();
+  }
+
+  @Override
+  public Types getTypeUtils() {
+    return task.getTypes();
+  }
+
+  public Trees getTreeUtils() {
+    return task.getTrees();
+  }
+
+  @Override
+  public SourceVersion getSourceVersion() {
+    return javacProcessingEnvironment.getSourceVersion();
+  }
+
+  @Override
+  public Locale getLocale() {
+    return javacProcessingEnvironment.getLocale();
+  }
+}
