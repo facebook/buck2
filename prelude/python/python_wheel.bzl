@@ -133,7 +133,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     # RPATHs to embed in the binary.
     rpaths = python_toolchain.wheel_rpaths + ctx.attrs.rpaths
 
-    def _maybe_patchelf(dst, src):
+    def maybe_patchelf(dst, src):
         # If there's no rpaths, there's nothing to patch.
         if not rpaths:
             return src
@@ -237,7 +237,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx,
                 name = "resources.txt",
                 entries = [
-                    (dest, _maybe_patchelf(dest, resource), str(ctx.label.raw_target()))
+                    (dest, maybe_patchelf(dest, resource), str(ctx.label.raw_target()))
                     for dest, resource in ctx.attrs.resources.items()
                 ],
             ),
