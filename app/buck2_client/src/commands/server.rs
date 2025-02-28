@@ -20,7 +20,14 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
 #[derive(Debug, clap::Parser)]
-#[clap(about = "Start, query, and control the http server")]
+#[clap(
+    about = "Start, query, and control the http server",
+    long_about = "Start, query, and control the buck2 server, a long-lived process, spanning buck2 command line invocations.
+Using this command can ensure the daemon is running.
+
+To stop a specific server, use `buck2 kill` and add `--isolation-dir` for a specific instance.
+To stop all instances, use `buck2 killall`."
+)]
 pub struct ServerCommand {}
 
 #[async_trait]
