@@ -9,7 +9,6 @@
 
 package com.facebook.buck.jvm.cd;
 
-import com.facebook.buck.core.build.execution.context.actionid.ActionId;
 import java.io.IOException;
 
 /** A single compilation action created from command line or worker args */
@@ -18,7 +17,7 @@ public interface JvmCDCommand {
 
   BuildCommandStepsBuilder getBuildCommand();
 
-  ActionId getActionId();
+  String getActionId();
 
   int getLoggingLevel();
 

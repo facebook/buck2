@@ -84,7 +84,6 @@ public class CompilerDaemonRunner implements Closeable {
               processExecutor,
               console,
               clock,
-              command.getActionId(),
               command.getBuildCommand().getRuleCellRoot());
     }
 

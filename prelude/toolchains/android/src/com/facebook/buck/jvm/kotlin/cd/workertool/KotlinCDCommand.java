@@ -10,7 +10,6 @@
 package com.facebook.buck.jvm.kotlin.cd.workertool;
 
 import com.facebook.buck.cd.model.kotlin.Metadata;
-import com.facebook.buck.core.build.execution.context.actionid.ActionId;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
@@ -331,8 +330,8 @@ public class KotlinCDCommand implements JvmCDCommand {
   }
 
   @Override
-  public ActionId getActionId() {
-    return ActionId.of(actionId);
+  public String getActionId() {
+    return actionId;
   }
 
   @Override

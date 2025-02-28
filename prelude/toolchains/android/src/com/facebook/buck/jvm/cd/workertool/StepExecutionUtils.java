@@ -10,7 +10,6 @@
 package com.facebook.buck.jvm.cd.workertool;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
-import com.facebook.buck.core.build.execution.context.actionid.ActionId;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.step.StepExecutionResult;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
@@ -40,9 +39,8 @@ public class StepExecutionUtils {
       ProcessExecutor processExecutor,
       Console console,
       Clock clock,
-      ActionId actionId,
       AbsPath ruleCellRoot) {
     return IsolatedExecutionContext.of(
-        classLoaderCache, console, platform, processExecutor, ruleCellRoot, actionId, clock);
+        classLoaderCache, console, platform, processExecutor, ruleCellRoot, clock);
   }
 }

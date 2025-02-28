@@ -9,7 +9,6 @@
 
 package com.facebook.buck.core.build.execution.context;
 
-import com.facebook.buck.core.build.execution.context.actionid.ActionId;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.immutables.BuckStyleValueWithBuilder;
 import com.facebook.buck.util.Ansi;
@@ -41,34 +40,14 @@ public abstract class IsolatedExecutionContext implements Closeable {
       Platform platform,
       ProcessExecutor processExecutor,
       AbsPath ruleCellRoot,
-      ActionId actionId,
       Clock clock) {
     return ImmutableIsolatedExecutionContext.builder()
         .setConsole(console)
         .setPlatform(platform)
         .setProcessExecutor(processExecutor)
         .setRuleCellRoot(ruleCellRoot)
-        .setActionId(actionId)
         .setClock(clock)
         .setClassLoaderCache(classLoaderCache.addRef())
-        .build();
-  }
-
-  /** Returns an {@link IsolatedExecutionContext}. */
-  public static IsolatedExecutionContext of(
-      Console console,
-      Platform platform,
-      ProcessExecutor processExecutor,
-      AbsPath ruleCellRoot,
-      ActionId actionId,
-      Clock clock) {
-    return ImmutableIsolatedExecutionContext.builder()
-        .setConsole(console)
-        .setPlatform(platform)
-        .setProcessExecutor(processExecutor)
-        .setRuleCellRoot(ruleCellRoot)
-        .setActionId(actionId)
-        .setClock(clock)
         .build();
   }
 
@@ -95,12 +74,6 @@ public abstract class IsolatedExecutionContext implements Closeable {
    * return cell2's path.
    */
   public abstract AbsPath getRuleCellRoot();
-
-  /**
-   * Returns an id of executing action. Typically represents that fully qualified name of the build
-   * target.
-   */
-  public abstract ActionId getActionId();
 
   /** Returns clock associated with the current invocation. */
   public abstract Clock getClock();
@@ -166,7 +139,6 @@ public abstract class IsolatedExecutionContext implements Closeable {
         .setRuleCellRoot(getRuleCellRoot())
         .setClassLoaderCache(getClassLoaderCache().addRef())
         .setEnvironment(getEnvironment())
-        .setActionId(getActionId())
         .setClock(getClock())
         .build();
   }

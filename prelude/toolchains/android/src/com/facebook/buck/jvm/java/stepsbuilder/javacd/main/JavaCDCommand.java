@@ -9,7 +9,6 @@
 
 package com.facebook.buck.jvm.java.stepsbuilder.javacd.main;
 
-import com.facebook.buck.core.build.execution.context.actionid.ActionId;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.AbiDirWriter;
@@ -123,8 +122,8 @@ public class JavaCDCommand implements JvmCDCommand {
   }
 
   @Override
-  public ActionId getActionId() {
-    return ActionId.of(actionId);
+  public String getActionId() {
+    return actionId;
   }
 
   @Override

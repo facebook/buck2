@@ -10,7 +10,6 @@
 package com.facebook.buck.step;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
-import com.facebook.buck.core.build.execution.context.actionid.ActionId;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.testutil.TestConsole;
 import com.facebook.buck.util.ClassLoaderCache;
@@ -39,7 +38,6 @@ public class TestExecutionContext {
         .setClassLoaderCache(testClassLoaderCache)
         .setProcessExecutor(new FakeProcessExecutor())
         .setRuleCellRoot(rootPath)
-        .setActionId(ActionId.of("test_action_id"))
         .setClock(FakeClock.doNotCare());
   }
 

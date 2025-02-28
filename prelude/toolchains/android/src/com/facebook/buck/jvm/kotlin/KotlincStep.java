@@ -13,7 +13,6 @@ import static com.facebook.buck.jvm.java.CompilerOutputPaths.getKotlinTempDepFil
 import static com.google.common.collect.Iterables.transform;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
-import com.facebook.buck.core.build.execution.context.actionid.ActionId;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
@@ -240,10 +239,6 @@ public class KotlincStep extends IsolatedStep {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
 
     AbsPath ruleCellRoot = context.getRuleCellRoot();
-    ActionId actionId = context.getActionId();
-    if (actionId != null) {
-      System.setProperty("BUCK_ACTION_ID", actionId.getValue());
-    }
 
     if (outputDirectory != null) {
       builder.add(DESTINATION_FLAG, ruleCellRoot.resolve(outputDirectory).toString());
