@@ -21,6 +21,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+#[cfg(fbcode_build)]
+use buck2_re_configuration::CASdMode;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use chrono::DateTime;
 use chrono::Utc;
@@ -48,6 +50,8 @@ use remote_execution::NamedDigestWithPermissions;
 use remote_execution::REClient;
 use remote_execution::REClientBuilder;
 use remote_execution::RemoteExecutionMetadata;
+#[cfg(fbcode_build)]
+use remote_execution::RemoteFetchPolicy;
 use remote_execution::Stage;
 use remote_execution::TActionResult2;
 use remote_execution::TCode;
@@ -110,6 +114,15 @@ struct RemoteExecutionClientData {
     get_digest_expirations: OpStats,
     extend_digest_ttl: OpStats,
     local_cache: LocalCacheStats,
+}
+
+#[cfg(fbcode_build)]
+fn map_casd_mode_into_remote_fetch_policy(casd_mode: &CASdMode) -> RemoteFetchPolicy {
+    match casd_mode {
+        CASdMode::LocalWithoutSync => RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
+        CASdMode::Remote => RemoteFetchPolicy::REMOTE_FETCH,
+        CASdMode::LocalWithSync => RemoteFetchPolicy::LOCAL_FETCH_WITH_SYNC,
+    }
 }
 
 impl RemoteExecutionClient {
@@ -467,62 +480,91 @@ impl RemoteExecutionClientImpl {
                 // If a shared CAS cache directory is configured, we
                 // want to tell the RE client to rely on an external
                 // CAS daemon to manage the cache.
-                if let Some(shared_cache) = &static_metadata.cas_shared_cache {
+                if let Some(external_casd_address) = &static_metadata.shared_casd_address {
+                    use buck2_re_configuration::CASdAddress;
+                    use buck2_re_configuration::CopyPolicy as Buck2CopyPolicy;
                     use remote_execution::RemoteCASdAddress;
                     use remote_execution::RemoteCacheConfig;
-                    use remote_execution::RemoteCacheManagerMode;
-                    use remote_execution::RemoteFetchPolicy;
+                    use remote_execution::RemoteCacheSyncConfig;
 
-                    let mode = match static_metadata
-                        .cas_shared_cache_mode
-                        .as_deref()
-                        .unwrap_or("BIG_FILES")
-                        .to_uppercase()
-                        .as_str()
-                        .trim()
-                    {
-                        "BIG_FILES" => RemoteCacheManagerMode::BIG_FILES,
-                        "ALL_FILES" => RemoteCacheManagerMode::ALL_FILES,
-                        "ALL_FILES_LOCAL_WITHOUT_SYNC" => {
-                            RemoteCacheManagerMode::ALL_FILES_LOCAL_WITHOUT_SYNC
-                        }
-                        unknown => {
-                            return Err(buck2_error!(
-                                buck2_error::ErrorTag::Input,
-                                "Unknown RemoteCacheManagerMode: {}",
-                                unknown
-                            ));
-                        }
-                    };
-
-                    let (small_files_policy, large_files_policy) = match mode {
-                        RemoteCacheManagerMode::BIG_FILES => (
-                            RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
-                            RemoteFetchPolicy::REMOTE_FETCH,
-                        ),
-                        RemoteCacheManagerMode::ALL_FILES => (
-                            RemoteFetchPolicy::REMOTE_FETCH,
-                            RemoteFetchPolicy::REMOTE_FETCH,
-                        ),
-                        RemoteCacheManagerMode::ALL_FILES_LOCAL_WITHOUT_SYNC => (
-                            RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
-                            RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
-                        ),
-                        _ => unreachable!(),
-                    };
+                    let policies: buck2_error::Result<(RemoteFetchPolicy, RemoteFetchPolicy)> =
+                        if let Some(legacy_mode) = &static_metadata.legacy_shared_casd_mode {
+                            let upper_legacy_mode = legacy_mode.to_uppercase();
+                            match upper_legacy_mode.trim() {
+                                "BIG_FILES" => Ok((
+                                    RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
+                                    RemoteFetchPolicy::REMOTE_FETCH,
+                                )),
+                                "ALL_FILES" => Ok((
+                                    RemoteFetchPolicy::REMOTE_FETCH,
+                                    RemoteFetchPolicy::REMOTE_FETCH,
+                                )),
+                                "ALL_FILES_LOCAL_WITHOUT_SYNC" => Ok((
+                                    RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
+                                    RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC,
+                                )),
+                                unknown => {
+                                    return Err(buck2_error!(
+                                        buck2_error::ErrorTag::Input,
+                                        "Unknown RemoteCacheManagerMode: {}",
+                                        unknown
+                                    ));
+                                }
+                            }
+                        } else {
+                            Ok((
+                                static_metadata
+                                    .shared_casd_mode_small_files
+                                    .as_ref()
+                                    .map(map_casd_mode_into_remote_fetch_policy)
+                                    .unwrap_or(RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC),
+                                static_metadata
+                                    .shared_casd_mode_large_files
+                                    .as_ref()
+                                    .map(map_casd_mode_into_remote_fetch_policy)
+                                    .unwrap_or(RemoteFetchPolicy::LOCAL_FETCH_WITHOUT_SYNC),
+                            ))
+                        };
+                    let (small_files_policy, large_files_policy) = policies?;
 
                     let remote_cache_config = {
                         let mut remote_cache_config = RemoteCacheConfig {
-                            mode,
-                            port: static_metadata.cas_shared_cache_port,
                             small_files: small_files_policy,
                             large_files: large_files_policy,
-                            address: RemoteCASdAddress::tcp_port(
-                                static_metadata.cas_shared_cache_port.unwrap_or(23333),
-                            ),
+                            address: match external_casd_address {
+                                CASdAddress::Uds(path) => RemoteCASdAddress::uds_path(path.clone()),
+                                CASdAddress::Tcp(port) => RemoteCASdAddress::tcp_port(*port as i32),
+                            },
+                            sync_files_config: Some(RemoteCacheSyncConfig {
+                                max_batch_size: static_metadata
+                                    .shared_casd_cache_sync_max_batch_size
+                                    .unwrap_or(100)
+                                    as i32,
+                                max_delay_ms: static_metadata
+                                    .shared_casd_cache_sync_max_delay_ms
+                                    .unwrap_or(1000)
+                                    as i32,
+                                wal_buckets: static_metadata
+                                    .shared_casd_cache_sync_wal_files_count
+                                    .unwrap_or(8)
+                                    as i32,
+                                wal_max_file_size: static_metadata
+                                    .shared_casd_cache_sync_wal_file_max_size
+                                    .unwrap_or(200 << 20)
+                                    as i64,
+                                ..Default::default()
+                            }),
+                            sync_copy_policy: match static_metadata
+                                .shared_casd_copy_policy
+                                .clone()
+                                .unwrap_or(Buck2CopyPolicy::Copy)
+                            {
+                                Buck2CopyPolicy::Copy => CopyPolicy::FULL_COPY,
+                                Buck2CopyPolicy::Reflink => CopyPolicy::SOFT_COPY,
+                            },
                             ..Default::default()
                         };
-                        if let Some(tls) = static_metadata.cas_shared_cache_tls {
+                        if let Some(tls) = static_metadata.shared_casd_use_tls {
                             remote_cache_config.use_tls = tls;
                         }
                         remote_cache_config
@@ -532,7 +574,7 @@ impl RemoteExecutionClientImpl {
                     embedded_cas_daemon_config
                         .cache_config
                         .downloads_cache_config
-                        .dir_path = Some(shared_cache.to_owned());
+                        .dir_path = static_metadata.shared_casd_cache_path.clone();
                 }
 
                 // prevents downloading the same trees (dirs)
