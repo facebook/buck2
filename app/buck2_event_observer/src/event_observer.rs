@@ -85,7 +85,7 @@ where
                 SpanStart(start) => match &start.data {
                     Some(buck2_data::span_start_event::Data::Command(command)) => {
                         if let Some(client) = &mut self.health_check_client {
-                            client.update_command_data(command.data.clone());
+                            client.update_command_data(command.data.clone()).await;
                         }
                     }
                     _ => {}
@@ -111,7 +111,9 @@ where
                                     cold_build_detector.update_merge_base(&merge_base).await?;
                                 }
                                 if let Some(health_check_client) = &mut self.health_check_client {
-                                    health_check_client.update_branched_from_revision(&merge_base);
+                                    health_check_client
+                                        .update_branched_from_revision(&merge_base)
+                                        .await;
                                 }
                             }
                         }
@@ -164,7 +166,7 @@ where
                         SystemInfo(system_info) => {
                             self.system_info = system_info.clone();
                             if let Some(client) = &mut self.health_check_client {
-                                client.update_experiment_configurations(system_info);
+                                client.update_experiment_configurations(system_info).await;
                             }
                         }
                         TargetPatterns(tag) => {
@@ -174,7 +176,7 @@ where
                                     .await?;
                             }
                             if let Some(client) = &mut self.health_check_client {
-                                client.update_parsed_target_patterns(tag);
+                                client.update_parsed_target_patterns(tag).await;
                             }
                         }
                         DiceStateSnapshot(dice) => {
