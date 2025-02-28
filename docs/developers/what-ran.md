@@ -46,8 +46,13 @@ Use What Ran as follows:
     It's expected that you'll do this from the root of your project (use
     `buck2 root --kind project` to find where that is).
   - If the executor was `re` or `cache`, you're provided a RE digest of the form
-    `HASH:SIZE`. Run `frecli cas download-action HASH:SIZE` to retrieve the
-    action, then follow the instructions to run it.
+    `HASH:SIZE`.
+
+<FbInternalOnly>
+:::note
+  For `re` or `cache`, run `frecli cas download-action HASH:SIZE` to retrieve the action, then follow the instructions to run it.
+:::
+</FbInternalOnly>
 
 ## Examples
 
