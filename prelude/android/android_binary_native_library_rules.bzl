@@ -17,6 +17,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
+# @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "gatorade_libraries")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
@@ -342,6 +343,7 @@ def get_android_binary_native_library_info(
             unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
             final_shared_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
             _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, unrelinked_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug, unrelinked = True)
+            # @oss-disable[end= ]: final_shared_libs_by_platform = gatorade_libraries(ctx, final_shared_libs_by_platform)
 
         bolt_args = getattr(ctx.attrs, "native_library_bolt_args", None)
         if bolt_args and len(bolt_args) != 0:
@@ -1665,6 +1667,8 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
                 ([LinkArgs(infos = [set_link_info_link_whole(red_linkable[1]) for red_linkable in red_linkables[platform]])] if len(red_linkables) > 0 else [])
             )
 
+            extra_args = {} # @oss-enable
+            # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path)
             shared_lib = create_shared_lib(
                 ctx,
                 output_path = output_path,
@@ -1674,6 +1678,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
                 shared_lib_deps = original_shared_library.shlib_deps,
                 label = original_shared_library.label,
                 can_be_asset = original_shared_library.can_be_asset,
+                **extra_args
             )
             needed_symbols_from_this = extract_undefined_symbols(ctx, cxx_toolchain, shared_lib.lib.output)
             unioned_needed_symbols_file = ctx.actions.declare_output(output_path + ".all_needed_symbols")
@@ -1756,7 +1761,9 @@ def create_shared_lib(
         cxx_toolchain: CxxToolchainInfo,
         shared_lib_deps: list[str],
         label: Label,
-        can_be_asset: bool) -> SharedLibrary:
+        can_be_asset: bool,
+        extra_linker_outputs_factory: typing.Callable | None = None,
+        extra_linker_outputs_flags_factory: typing.Callable | None = None) -> SharedLibrary:
     for link_arg in link_args:
         flags = link_arg.flags or []
         for info in link_arg.infos or []:
@@ -1776,6 +1783,8 @@ def create_shared_lib(
             identifier = output_path,
             strip = False,
             cxx_toolchain = cxx_toolchain,
+            extra_linker_outputs_factory = extra_linker_outputs_factory,
+            extra_linker_outputs_flags_factory = extra_linker_outputs_flags_factory,
         ),
     )
 
@@ -1789,6 +1798,7 @@ def create_shared_lib(
         for_primary_apk = False,
         soname = soname,
         label = label,
+        extra_outputs = link_result.extra_outputs,
     )
 
 def _create_bolt_lib(

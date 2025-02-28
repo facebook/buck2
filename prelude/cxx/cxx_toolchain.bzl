@@ -170,6 +170,7 @@ def cxx_toolchain_impl(ctx):
 
     utilities_info = BinaryUtilitiesInfo(
         bolt = ctx.attrs.bolt[RunInfo] if ctx.attrs.bolt else None,
+        custom_tools = {name: dep[RunInfo] for name, dep in ctx.attrs.custom_tools.items()},
         nm = ctx.attrs.nm[RunInfo],
         objcopy = ctx.attrs.objcopy_for_shared_library_interface[RunInfo],
         objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
@@ -247,6 +248,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "cpp_dep_tracking_mode": attrs.enum(DepTrackingMode.values(), default = "makefile"),
         "cuda_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cuda_dep_tracking_mode": attrs.enum(DepTrackingMode.values(), default = "makefile"),
+        "custom_tools": attrs.dict(key = attrs.string(), value = dep_type(providers = [RunInfo]), default = {}),
         "cvtres_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cxx_compiler": dep_type(providers = [RunInfo]),
         "gcno_files": attrs.bool(default = False),

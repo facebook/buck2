@@ -78,6 +78,7 @@ LinkerInfo = provider(
 BinaryUtilitiesInfo = provider(fields = {
     "bolt": provider_field(typing.Any, default = None),
     "bolt_msdk": provider_field(typing.Any, default = None),
+    "custom_tools": provider_field(dict[str, RunInfo], default = {}),
     "dwp": provider_field(typing.Any, default = None),
     "nm": provider_field(typing.Any, default = None),
     "objcopy": provider_field(typing.Any, default = None),

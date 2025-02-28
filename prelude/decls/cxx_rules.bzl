@@ -1004,6 +1004,7 @@ cxx_toolchain = prelude_rule(
             "cuda_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cuda_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "cuda_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "custom_tools": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
             "cvtres_compiler": attrs.option(attrs.source(), default = None),
             "cvtres_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cvtres_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
