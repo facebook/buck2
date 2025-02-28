@@ -27,6 +27,7 @@ pub(crate) struct LowDiskSpace {
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
 pub const VPN_ENABLED_LINK: &str = ": https://fburl.com/buck2_vpn_enabled";
+pub const STABLE_REVISION_LINK: &str = ": https://fburl.com/dev_stable";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
@@ -63,6 +64,21 @@ pub(crate) fn vpn_enabled_msg() -> String {
             VPN_ENABLED_LINK
         }
     )
+}
+
+pub(crate) fn stable_revision_msg(targets_not_on_stable: &[String]) -> Vec<String> {
+    let mut messages: Vec<String> = Vec::new();
+    for target in targets_not_on_stable {
+        messages.push(format!(
+            "Target is not on a stable revision: {target}. Rebase to a stable revision to benefit from warm caches for faster builds{}",
+            if is_open_source() {
+                ""
+            } else {
+                STABLE_REVISION_LINK
+            }
+        ))
+    }
+    messages
 }
 
 pub(crate) fn check_memory_pressure(
