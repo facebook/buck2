@@ -149,6 +149,8 @@ pub struct SystemWarningConfig {
     /// A regex that controls which targets are opted into the vpn check.
     /// The corresponding buckconfig is `buck2_health_check.optin_vpn_check_targets_regex`.
     pub optin_vpn_check_targets_regex: Option<String>,
+    /// Whether to enable the stable revision check.
+    pub enable_stable_revision_check: Option<bool>,
 }
 
 impl SystemWarningConfig {
@@ -173,12 +175,17 @@ impl SystemWarningConfig {
             section: "buck2_health_check",
             property: "optin_vpn_check_targets_regex",
         })?;
+        let enable_stable_revision_check = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "enable_stable_revision_check",
+        })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
             min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold,
             optin_vpn_check_targets_regex,
+            enable_stable_revision_check,
         })
     }
 
