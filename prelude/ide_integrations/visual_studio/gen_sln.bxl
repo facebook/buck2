@@ -108,12 +108,31 @@ def _set_startup_target(targets, vs_settings_list, startup_target_label):
     else:
         warning("Startup target couldn't be located: {}. Please check passed in targets list, `--recursive_target_types`, `--target_exclude_pattern` and `--target_exclude_pattern`.".format(startup_target_label))
 
+# In buck dependency tree, duplicate targets can exist with exact same label but different
+# configurations. While VS doesn't like duplicate project names (prompting with message: The
+# solution already contains an item named 'xxx'). Besides, there is not much value in showing
+# multiple projects for the same target but with slightly different configuration. Ideally, this
+# could be more efficient trimming those duplicates while building dependency trees, but it's more
+# risky of getting missing target nodes while traversaling the dependency tree after trimming.
+def _dedup_targets(targets, vs_settings_list):
+    deduped_targets = []
+    deduped_vs_settings_list = []
+    seen_raw_targets = set()
+    for i in range(len(targets)):
+        raw_target = targets[i].label.raw_target()
+        if raw_target not in seen_raw_targets:
+            seen_raw_targets.add(raw_target)
+            deduped_targets.append(targets[i])
+            deduped_vs_settings_list.append(vs_settings_list[i])
+    return deduped_targets, deduped_vs_settings_list
+
 def gen_sln(targets, vs_settings_list, explicit_targets, startup_target_label, bxl_ctx):
     log_debug("# Generating sln for {}", startup_target_label, bxl_ctx = bxl_ctx)
     if len(targets) != len(vs_settings_list):
         fail("targets and vs_settings_list are expected to be length.")
 
     _set_startup_target(targets, vs_settings_list, startup_target_label)
+    targets, vs_settings_list = _dedup_targets(targets, vs_settings_list)
     existing_folders = {}  # folder path => folder guid
     nested_projects = {}  # project guid => parent guid
 
