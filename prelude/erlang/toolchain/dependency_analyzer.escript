@@ -1,6 +1,6 @@
 %% #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! +S 1:1 +sbtu +A1
+%%! +S 1:1 +sbtu +A1 +MMscs 8 +MMsco false
 
 %% Copyright (c) Meta Platforms, Inc. and affiliates.
 %%
