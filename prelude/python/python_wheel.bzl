@@ -151,7 +151,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.attrs._patchelf[RunInfo],
             "--output",
             out.as_output(),
-            cmd_args([_rpath(dst, p) for p in rpaths], prepend = "--rpath"),
+            cmd_args([_rpath(dst, p) for p in rpaths], format = "--rpath={}"),
             src,
         )
         ctx.actions.run(cmd, category = "patchelf", identifier = dst)
