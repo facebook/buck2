@@ -23,8 +23,12 @@ rust_library(
         # @oss-disable[end= ]: "fbsource//third-party/rust:graphql_client",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
+        # @oss-disable[end= ]: "//common/rust/cpe:cpe",
+        # @oss-disable[end= ]: "//common/rust/interngraph:interngraph",
+        "//common/rust/shed/fbinit:fbinit",
     ],
 )
