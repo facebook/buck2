@@ -11,7 +11,7 @@ package com.facebook.buck.features.zip.rules.utils;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
-import com.facebook.buck.core.sourcepath.resolver.impl.utils.RelativePathMapUtils;
+import com.facebook.buck.util.relativepathmap.RelativePathMapUtils;
 import com.facebook.buck.util.zip.collect.OnDuplicateEntry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

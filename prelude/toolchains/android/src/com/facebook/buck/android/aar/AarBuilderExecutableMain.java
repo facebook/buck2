@@ -10,7 +10,7 @@
 package com.facebook.buck.android.aar;
 
 import com.facebook.buck.core.filesystems.AbsPath;
-import com.facebook.buck.core.sourcepath.resolver.impl.utils.RelativePathMapUtils;
+import com.facebook.buck.util.relativepathmap.RelativePathMapUtils;
 import com.facebook.buck.util.zip.collect.OnDuplicateEntry;
 import com.facebook.buck.util.zip.collect.ZipEntrySourceCollectionBuilder;
 import com.facebook.buck.util.zip.collect.ZipEntrySourceCollectionWriter;

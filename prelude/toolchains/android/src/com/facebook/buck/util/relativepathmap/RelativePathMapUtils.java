@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-package com.facebook.buck.core.sourcepath.resolver.impl.utils;
+package com.facebook.buck.util.relativepathmap;
 
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
