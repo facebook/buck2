@@ -145,6 +145,9 @@ CxxCompileOutput = record(
     assembly = field(Artifact | None, None),
     diagnostics = field(Artifact | None, None),
     preproc = field(Artifact | None, None),
+    # Plain dump of running NVCC -dryrun which will be used for genearting an
+    # NVCC compilation plan.
+    nvcc_dryrun = field(Artifact | None, None),
 )
 
 CxxCompileFlavor = enum(

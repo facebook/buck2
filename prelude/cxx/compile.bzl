@@ -20,7 +20,7 @@ load(
     "HeaderExtension",
     "HeadersDepFiles",
 )
-load("@prelude//cxx:cuda.bzl", "cuda_compile")
+load("@prelude//cxx:cuda.bzl", "CudaCompileInfo", "cuda_compile")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
@@ -386,12 +386,13 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
+    nvcc_dryrun = None
     if src_compile_cmd.src.extension == ".cu":
-        cuda_compile(
+        nvcc_dryrun = cuda_compile(
             ctx,
             cmd,
             src_compile_cmd,
-            identifier,
+            CudaCompileInfo(filename = filename_base, identifier = identifier, output_prefix = folder_name),
             action_dep_files,
             allow_dep_file_cache_upload = False,
             error_handler_args = error_handler_args,
@@ -517,6 +518,7 @@ def _compile_single_cxx(
         assembly = assembly,
         diagnostics = diagnostics,
         preproc = preproc,
+        nvcc_dryrun = nvcc_dryrun,
     )
 
 def _get_base_compile_cmd(
@@ -863,6 +865,8 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
         if obj.preproc:
             sub_targets["preprocessed"] = [DefaultInfo(obj.preproc)]
+        if obj.nvcc_dryrun:
+            sub_targets["nvcc-dryrun"] = [DefaultInfo(obj.nvcc_dryrun)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,
