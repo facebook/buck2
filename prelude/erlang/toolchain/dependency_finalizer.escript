@@ -29,10 +29,10 @@ do(Source, InFile, OutSpec) ->
     case read_file(InFile) of
         {ok, DepFiles} ->
             Dependencies = build_dep_info(Source, DepFiles),
-            OutData = unicode:characters_to_binary(json:encode(Dependencies)),
+            OutData = json:encode(Dependencies),
             case OutSpec of
                 {file, File} ->
-                    ok = file:write_file(File, OutData);
+                    ok = write_file(File, OutData);
                 stdout ->
                     io:format("~s~n", [OutData])
             end;
@@ -43,7 +43,7 @@ do(Source, InFile, OutSpec) ->
 
 -spec read_file(file:filename()) -> {ok, dep_files_data()} | {error, term()}.
 read_file(File) ->
-    case file:read_file(File) of
+    case file:read_file(File, [raw]) of
         {ok, Data} ->
             {ok, json:decode(Data)};
         Err ->
@@ -89,4 +89,26 @@ key(FileName) ->
     case filename:extension(FileName) of
         ".erl" -> filename:basename(FileName, ".erl") ++ ".beam";
         _ -> FileName
+    end.
+
+-spec write_file(file:filename(), iolist()) -> string().
+write_file(File, Data) ->
+    case
+        % We write in raw mode because this is a standalone escript, so we don't
+        % need advanced file server features, and we gain performance by avoiding
+        % calling through the file server
+        file:open(File, [write, binary, raw])
+    of
+        {ok, Handle} ->
+            try
+                % We use file:pwrite instead of file:write_file to work around
+                % the latter needlessly flattening iolists (as returned by
+                % json:encode/1, etc.) to a binary
+                file:pwrite(Handle, 0, Data)
+            after
+                file:close(Handle)
+            end,
+            ok;
+        {error, _} = Error ->
+            Error
     end.
