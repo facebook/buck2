@@ -22,6 +22,7 @@ use crate::subscribers::system_warning::check_memory_pressure_snapshot;
 use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::is_vpn_enabled;
 use crate::subscribers::system_warning::low_disk_space_msg;
+use crate::subscribers::system_warning::stable_revision_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 use crate::subscribers::system_warning::vpn_enabled_msg;
 
@@ -63,12 +64,15 @@ impl<'a> Component for SystemWarningComponent<'a> {
         {
             lines.push(warning_styled(&low_disk_space_msg(&low_disk_space))?);
         }
-        if self
-            .health_check_client
-            .is_some_and(|c| c.is_vpn_check_enabled())
-            && is_vpn_enabled()
-        {
-            lines.push(warning_styled(&vpn_enabled_msg())?);
+        if let Some(health_check_client) = self.health_check_client {
+            if health_check_client.is_vpn_check_enabled() && is_vpn_enabled() {
+                lines.push(warning_styled(&vpn_enabled_msg())?);
+            }
+            if let Some(targets) = health_check_client.check_stable_revision() {
+                for message in &stable_revision_msg(targets) {
+                    lines.push(warning_styled(message)?);
+                }
+            }
         }
         Ok(Lines(lines))
     }
