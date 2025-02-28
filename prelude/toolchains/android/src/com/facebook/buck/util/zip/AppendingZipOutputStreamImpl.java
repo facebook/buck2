@@ -9,7 +9,6 @@
 
 package com.facebook.buck.util.zip;
 
-import com.facebook.buck.util.timing.Clock;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashSet;
@@ -35,7 +34,6 @@ class AppendingZipOutputStreamImpl implements CustomZipOutputStream.Impl {
 
   private final OutputStream delegate;
   private final boolean throwExceptionsOnDuplicate;
-  private final Clock clock;
   private final List<EntryAccounting> entries = new LinkedList<>();
   private final Set<String> seenNames = new HashSet<>();
 
@@ -43,10 +41,8 @@ class AppendingZipOutputStreamImpl implements CustomZipOutputStream.Impl {
 
   @Nullable private EntryAccounting currentEntry = null;
 
-  public AppendingZipOutputStreamImpl(
-      Clock clock, OutputStream stream, boolean throwExceptionsOnDuplicate) {
+  public AppendingZipOutputStreamImpl(OutputStream stream, boolean throwExceptionsOnDuplicate) {
     this.delegate = stream;
-    this.clock = clock;
     this.throwExceptionsOnDuplicate = throwExceptionsOnDuplicate;
   }
 
@@ -62,7 +58,7 @@ class AppendingZipOutputStreamImpl implements CustomZipOutputStream.Impl {
       // Same exception as ZipOutputStream.
       throw new ZipException("duplicate entry: " + entry.getName());
     }
-    currentEntry = new EntryAccounting(clock, entry, currentOffset);
+    currentEntry = new EntryAccounting(entry, currentOffset);
     currentOffset += currentEntry.writeLocalFileHeader(delegate);
     addEntry(currentEntry);
   }
@@ -74,10 +70,6 @@ class AppendingZipOutputStreamImpl implements CustomZipOutputStream.Impl {
   protected void addEntry(EntryAccounting entry) {
     seenNames.add(entry.getName());
     entries.add(entry);
-  }
-
-  protected Clock getClock() {
-    return clock;
   }
 
   protected long getCurrentOffset() {

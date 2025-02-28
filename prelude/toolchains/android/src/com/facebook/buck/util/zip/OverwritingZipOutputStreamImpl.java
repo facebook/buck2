@@ -9,7 +9,6 @@
 
 package com.facebook.buck.util.zip;
 
-import com.facebook.buck.util.timing.Clock;
 import com.google.common.hash.Hashing;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -40,15 +39,13 @@ public class OverwritingZipOutputStreamImpl implements CustomZipOutputStream.Imp
   // Attempt to maintain ordering of files that are added.
   private final Map<File, EntryAccounting> entries = new LinkedHashMap<>();
   private final File scratchDir;
-  private final Clock clock;
   private final OutputStream delegate;
   @Nullable private EntryAccounting currentEntry;
 
   /** Place-holder for bytes. */
   @Nullable private OutputStream currentOutput;
 
-  public OverwritingZipOutputStreamImpl(Clock clock, OutputStream out) {
-    this.clock = clock;
+  public OverwritingZipOutputStreamImpl(OutputStream out) {
     this.delegate = out;
 
     try {
@@ -65,7 +62,7 @@ public class OverwritingZipOutputStreamImpl implements CustomZipOutputStream.Imp
   @Override
   public void actuallyPutNextEntry(ZipEntry entry) throws IOException {
     // We calculate the actual offset when closing the stream, so 0 is fine.
-    currentEntry = new EntryAccounting(clock, entry, /* currentOffset */ 0);
+    currentEntry = new EntryAccounting(entry, /* currentOffset */ 0);
 
     long md5 = Hashing.md5().hashUnencodedChars(entry.getName()).asLong();
     String name = String.valueOf(md5);

@@ -9,7 +9,6 @@
 
 package com.facebook.buck.util.zip;
 
-import com.facebook.buck.util.timing.Clock;
 import com.google.common.base.Preconditions;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -64,13 +63,13 @@ class EntryAccounting {
   @Nullable private Deflater deflater = new Deflater(Deflater.DEFAULT_COMPRESSION, true);
   @Nullable private byte[] buffer = new byte[ARBITRARY_SIZE];
 
-  public EntryAccounting(Clock clock, ZipEntry entry, long currentOffset) {
+  public EntryAccounting(ZipEntry entry, long currentOffset) {
     this.entry = entry;
     this.method = Method.detect(entry.getMethod());
     this.offset = currentOffset;
 
     if (entry.getTime() == -1) {
-      entry.setTime(clock.currentTimeMillis());
+      entry.setTime(System.currentTimeMillis());
     }
 
     if (entry instanceof CustomZipEntry) {

@@ -11,8 +11,6 @@ package com.facebook.buck.util.zip;
 
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.util.io.IoUtil;
-import com.facebook.buck.util.timing.Clock;
-import com.facebook.buck.util.timing.DefaultClock;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -97,38 +95,26 @@ public class ZipOutputStreams {
    * @param mode How to handle duplicate entries.
    */
   public static CustomZipOutputStream newOutputStream(OutputStream out, HandleDuplicates mode) {
-    return newOutputStream(out, mode, new DefaultClock());
+    return new CustomZipOutputStream(newImpl(out, mode));
   }
 
   public static CustomJarOutputStream newJarOutputStream(OutputStream out, HandleDuplicates mode) {
-    return newJarOutputStream(out, mode, new DefaultClock());
-  }
-
-  public static CustomZipOutputStream newOutputStream(
-      OutputStream out, HandleDuplicates mode, Clock clock) {
-    return new CustomZipOutputStream(newImpl(out, mode, clock));
+    return new CustomJarOutputStream(newImpl(out, mode));
   }
 
   public static CustomZipOutputStream newSimpleOutputStream(OutputStream out) {
-    return new CustomZipOutputStream(new SimpleZipOutputStreamImpl(new DefaultClock(), out));
+    return new CustomZipOutputStream(new SimpleZipOutputStreamImpl(out));
   }
 
-  public static CustomJarOutputStream newJarOutputStream(
-      OutputStream out, HandleDuplicates mode, Clock clock) {
-    return new CustomJarOutputStream(newImpl(out, mode, clock));
-  }
-
-  protected static CustomZipOutputStream.Impl newImpl(
-      OutputStream out, HandleDuplicates mode, Clock clock) {
+  protected static CustomZipOutputStream.Impl newImpl(OutputStream out, HandleDuplicates mode) {
     CustomZipOutputStream.Impl impl;
     switch (mode) {
       case APPEND_TO_ZIP:
       case THROW_EXCEPTION:
-        impl =
-            new AppendingZipOutputStreamImpl(clock, out, mode == HandleDuplicates.THROW_EXCEPTION);
+        impl = new AppendingZipOutputStreamImpl(out, mode == HandleDuplicates.THROW_EXCEPTION);
         break;
       case OVERWRITE_EXISTING:
-        impl = new OverwritingZipOutputStreamImpl(clock, out);
+        impl = new OverwritingZipOutputStreamImpl(out);
         break;
       default:
         throw new HumanReadableException(

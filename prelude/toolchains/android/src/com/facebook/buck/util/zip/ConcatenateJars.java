@@ -20,8 +20,6 @@ import static java.util.stream.Collectors.partitioningBy;
 import static java.util.stream.Collectors.toList;
 
 import com.facebook.buck.core.filesystems.AbsPath;
-import com.facebook.buck.util.timing.Clock;
-import com.facebook.buck.util.timing.DefaultClock;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -110,7 +108,6 @@ public class ConcatenateJars {
     }
   }
 
-  private final Clock clock = new DefaultClock();
   private final CentralDirectoryReader directoryReader = new CentralDirectoryReader();
 
   private final Set<AbsPath> jars = new LinkedHashSet<>();
@@ -226,7 +223,7 @@ public class ConcatenateJars {
 
   private AppendingZipOutputStreamImpl newAppendStream(final Path output) throws IOException {
     return new AppendingZipOutputStreamImpl(
-        clock, new BufferedOutputStream(Files.newOutputStream(output, APPEND, WRITE)), false);
+        new BufferedOutputStream(Files.newOutputStream(output, APPEND, WRITE)), false);
   }
 
   /**
@@ -285,8 +282,7 @@ public class ConcatenateJars {
         }
         final JarEntry entry = jar.getJarEntry(file.getName());
         // add entry again to recompute the new offset
-        entries.add(
-            new EntryAccounting(clock, new JarEntry(entry), relocatedOffset + file.getOffset()));
+        entries.add(new EntryAccounting(new JarEntry(entry), relocatedOffset + file.getOffset()));
       }
 
       return entries;

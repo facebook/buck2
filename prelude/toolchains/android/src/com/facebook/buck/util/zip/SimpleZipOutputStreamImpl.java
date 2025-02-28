@@ -9,7 +9,6 @@
 
 package com.facebook.buck.util.zip;
 
-import com.facebook.buck.util.timing.Clock;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.LinkedList;
@@ -25,14 +24,12 @@ import javax.annotation.Nullable;
 class SimpleZipOutputStreamImpl implements CustomZipOutputStream.Impl {
 
   private final OutputStream delegate;
-  private final Clock clock;
   private long currentOffset = 0;
   private List<EntryAccounting> entries = new LinkedList<>();
   @Nullable private EntryAccounting currentEntry = null;
 
-  public SimpleZipOutputStreamImpl(Clock clock, OutputStream stream) {
+  public SimpleZipOutputStreamImpl(OutputStream stream) {
     this.delegate = stream;
-    this.clock = clock;
   }
 
   @Override
@@ -42,7 +39,7 @@ class SimpleZipOutputStreamImpl implements CustomZipOutputStream.Impl {
 
   @Override
   public void actuallyPutNextEntry(ZipEntry entry) throws IOException {
-    currentEntry = new EntryAccounting(clock, entry, currentOffset);
+    currentEntry = new EntryAccounting(entry, currentOffset);
     entries.add(currentEntry);
     currentOffset += currentEntry.writeLocalFileHeader(delegate);
   }

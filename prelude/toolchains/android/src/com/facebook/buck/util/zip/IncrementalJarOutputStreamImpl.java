@@ -13,8 +13,6 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.WRITE;
 
-import com.facebook.buck.util.timing.Clock;
-import com.facebook.buck.util.timing.DefaultClock;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
@@ -50,21 +48,19 @@ public class IncrementalJarOutputStreamImpl extends AppendingZipOutputStreamImpl
       dstChannel.position(centralDirectory.getEntryOffset());
 
       return new IncrementalJarOutputStreamImpl(
-          new DefaultClock(), Channels.newOutputStream(dstChannel), centralDirectory);
+          Channels.newOutputStream(dstChannel), centralDirectory);
     }
   }
 
   private final AppendableCentralDirectory appendableDirectory;
 
   IncrementalJarOutputStreamImpl(OutputStream stream) {
-    this(new DefaultClock(), stream, new AppendableCentralDirectory());
+    this(stream, new AppendableCentralDirectory());
   }
 
   public IncrementalJarOutputStreamImpl(
-      final Clock clock,
-      final OutputStream outputStream,
-      final AppendableCentralDirectory appendableDirectory) {
-    super(clock, outputStream, false);
+      final OutputStream outputStream, final AppendableCentralDirectory appendableDirectory) {
+    super(outputStream, false);
     this.appendableDirectory = appendableDirectory;
     setCurrentOffset(appendableDirectory.getEntryOffset());
   }
