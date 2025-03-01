@@ -71,6 +71,18 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_bootstrap_binary(
+    name = "symlink_only_dir_entry",
+    main = "symlink_only_dir_entry.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "cd_run",
+    main = "cd_run.py",
+    visibility = ["PUBLIC"],
+)
+
 prelude.export_file(
     name = "linkable_symbol.rs",
     visibility = ["PUBLIC"],

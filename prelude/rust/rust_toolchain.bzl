@@ -127,6 +127,9 @@ rust_toolchain_attrs = {
     # The `cargo llvm-lines` binary - if present, Rust targets have a
     # `llvm-lines` subtarget
     "llvm_lines_tool": provider_field(RunInfo | None, default = None),
+    # The `crox` binary from measure-me, if present, used to generate a
+    # self-profile trace subtarget
+    "measureme_crox": provider_field(RunInfo | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

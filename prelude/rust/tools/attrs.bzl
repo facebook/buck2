@@ -12,6 +12,7 @@ def _internal_tool(default: str) -> Attr:
 # configurable attributes there. This list of internal tools is distracting and
 # expected to grow.
 _internal_tool_attrs = {
+    "cd_run": _internal_tool("prelude//rust/tools:cd_run"),
     "deferred_link_action": _internal_tool("prelude//rust/tools:deferred_link_action"),
     "extract_link_action": _internal_tool("prelude//rust/tools:extract_link_action"),
     "failure_filter_action": _internal_tool("prelude//rust/tools:failure_filter_action"),
@@ -19,6 +20,7 @@ _internal_tool_attrs = {
     "rustc_action": _internal_tool("prelude//rust/tools:rustc_action"),
     "rustdoc_coverage": _internal_tool("prelude//rust/tools:rustdoc_coverage"),
     "rustdoc_test_with_resources": _internal_tool("prelude//rust/tools:rustdoc_test_with_resources"),
+    "symlink_only_dir_entry": _internal_tool("prelude//rust/tools:symlink_only_dir_entry"),
     "transitive_dependency_symlinks_tool": _internal_tool("prelude//rust/tools:transitive_dependency_symlinks"),
 }
 
