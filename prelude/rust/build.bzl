@@ -43,6 +43,7 @@ load(
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:utils.bzl", "flatten_dict")
@@ -97,6 +98,7 @@ load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
 def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
     # Setup source symlink tree.
@@ -161,6 +163,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
 
     return CompileContext(
         toolchain_info = toolchain_info,
+        internal_tools_info = internal_tools_info,
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
         symlinked_srcs = symlinked_srcs,
@@ -223,7 +226,7 @@ def generate_rustdoc(
 
     rustdoc_cmd = _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = compile_ctx.internal_tools_info.rustc_action,
         args = rustdoc_cmd_action,
         argfile_name = "{}.args".format(subdir),
     )
@@ -279,12 +282,12 @@ def generate_rustdoc_coverage(
 
     rustdoc_cmd = _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = compile_ctx.internal_tools_info.rustc_action,
         args = rustdoc_cmd_action,
         argfile_name = "{}.args".format(file),
     )
 
-    cmd = cmd_args([toolchain_info.rustdoc_coverage, output.as_output(), rustdoc_cmd])
+    cmd = cmd_args([compile_ctx.internal_tools_info.rustdoc_coverage, output.as_output(), rustdoc_cmd])
 
     ctx.actions.run(cmd, category = "rustdoc_coverage")
 
@@ -300,6 +303,7 @@ def generate_rustdoc_test(
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
+    internal_tools_info = compile_ctx.internal_tools_info
     doc_dep_ctx = DepCollectionContext(
         advanced_unstable_linking = compile_ctx.dep_ctx.advanced_unstable_linking,
         include_doc_deps = True,
@@ -411,7 +415,7 @@ def generate_rustdoc_test(
         cmd_args(compile_ctx.linker_args, format = "-Clinker={}"),
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
         runtool,
-        cmd_args(toolchain_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
+        cmd_args(internal_tools_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
@@ -425,7 +429,7 @@ def generate_rustdoc_test(
 
     return _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = internal_tools_info.rustc_action,
         args = rustdoc_cmd,
         argfile_name = "{}.args".format(common_args.subdir),
     )
@@ -488,7 +492,7 @@ def rust_compile(
         out_version_script = ctx.actions.declare_output(common_args.subdir + "/version-script")
         out_objects_dir = ctx.actions.declare_output(common_args.subdir + "/objects", dir = True)
         linker_cmd = cmd_args(
-            toolchain_info.extract_link_action,
+            compile_ctx.internal_tools_info.extract_link_action,
             cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
             cmd_args(out_version_script.as_output(), format = "--out_version-script={}") if out_version_script else cmd_args(),
             cmd_args(out_objects_dir.as_output(), format = "--out_objects={}"),
@@ -503,7 +507,7 @@ def rust_compile(
         )
 
         deferred_link_cmd = cmd_args(
-            toolchain_info.deferred_link_action,
+            compile_ctx.internal_tools_info.deferred_link_action,
             cmd_args(out_objects_dir, format = "--objects={}"),
             cmd_args(out_version_script, format = "--version-script={}"),
             compile_ctx.linker_args,
@@ -845,7 +849,7 @@ def dynamic_symlinked_dirs(
 
     ctx.actions.run(
         [
-            compile_ctx.toolchain_info.transitive_dependency_symlinks_tool,
+            compile_ctx.internal_tools_info.transitive_dependency_symlinks_tool,
             cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
             cmd_args(artifacts_json, format = "--artifacts={}"),
         ],
@@ -1408,7 +1412,7 @@ def _rustc_invoke(
 
     compile_cmd = _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = compile_ctx.internal_tools_info.rustc_action,
         args = compile_cmd,
         argfile_name = "{}-{}.args".format(prefix, diag),
     )

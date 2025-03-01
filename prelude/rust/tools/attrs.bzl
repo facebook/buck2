@@ -11,7 +11,7 @@ def _internal_tool(default: str) -> Attr:
 # Factored out of prelude//toolchains/rust.bzl to keep only the user-facing
 # configurable attributes there. This list of internal tools is distracting and
 # expected to grow.
-internal_tool_attrs = {
+_internal_tool_attrs = {
     "deferred_link_action": _internal_tool("prelude//rust/tools:deferred_link_action"),
     "extract_link_action": _internal_tool("prelude//rust/tools:extract_link_action"),
     "failure_filter_action": _internal_tool("prelude//rust/tools:failure_filter_action"),
@@ -21,3 +21,23 @@ internal_tool_attrs = {
     "rustdoc_test_with_resources": _internal_tool("prelude//rust/tools:rustdoc_test_with_resources"),
     "transitive_dependency_symlinks_tool": _internal_tool("prelude//rust/tools:transitive_dependency_symlinks"),
 }
+
+RustInternalToolsInfo = provider(fields = {
+    tool: RunInfo
+    for tool in _internal_tool_attrs.keys()
+})
+
+def _impl(ctx: AnalysisContext) -> list[Provider]:
+    info = RustInternalToolsInfo(
+        **{
+            tool: getattr(ctx.attrs, tool)[RunInfo]
+            for tool in _internal_tool_attrs.keys()
+        }
+    )
+    return [DefaultInfo(), info]
+
+rust_internal_tools_toolchain = rule(
+    impl = _impl,
+    attrs = _internal_tool_attrs,
+    is_toolchain_rule = True,
+)

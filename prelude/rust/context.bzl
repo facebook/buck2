@@ -7,6 +7,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//linking:link_info.bzl", "LinkStrategy")
+load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load(":build_params.bzl", "BuildParams", "CrateType", "Emit")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
 
@@ -46,6 +47,7 @@ DepCollectionContext = record(
 # by the same rule.
 CompileContext = record(
     toolchain_info = field(RustToolchainInfo),
+    internal_tools_info = field(RustInternalToolsInfo),
     cxx_toolchain_info = field(CxxToolchainInfo),
     dep_ctx = field(DepCollectionContext),
     # Symlink root containing all sources.
