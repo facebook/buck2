@@ -97,11 +97,6 @@ impl AttributeSpec {
         *ID
     }
 
-    pub fn attr_is_internal(id: AttributeId) -> bool {
-        static INTERNAL_ATTR_COUNT: Lazy<usize> = Lazy::new(|| internal_attrs().len());
-        usize::from(id.index_in_attribute_spec) < *INTERNAL_ATTR_COUNT
-    }
-
     fn new(attributes: OrderedMap<Box<str>, Attribute>) -> buck2_error::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());

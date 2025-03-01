@@ -181,6 +181,10 @@ const INTERNAL_ATTRS: [InternalAttribute; 10] = [
     TARGET_MODIFIERS_ATTRIBUTE,
 ];
 
+pub fn is_internal_attr(name: &str) -> bool {
+    internal_attrs().contains_key(name)
+}
+
 pub fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
     static ATTRS: Lazy<OrderedMap<&'static str, Attribute>> = Lazy::new(|| {
         OrderedMap::from_iter(INTERNAL_ATTRS.iter().map(|attr| (attr.name, (attr.attr)())))

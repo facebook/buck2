@@ -36,7 +36,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::attrs::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -180,7 +180,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
-            if internal_attrs().contains_key(a.name) {
+            if is_internal_attr(a.name) {
                 None
             } else {
                 Some((a.name, a.value))
@@ -196,7 +196,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
-            if internal_attrs().contains_key(a.name) {
+            if is_internal_attr(a.name) {
                 None
             } else {
                 Some((a.name, a.value))
