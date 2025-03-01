@@ -54,7 +54,7 @@ use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_attr_full::ConfiguredAttrFull;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::attrs::internal::TESTS_ATTRIBUTE;
 use crate::bzl_or_bxl_path::BzlOrBxlPath;
 use crate::call_stack::StarlarkCallStack;
 use crate::call_stack::StarlarkTargetCallStackRoot;
@@ -419,7 +419,7 @@ impl ConfiguredTargetNode {
         }
 
         let mut traversal = TestCollector::default();
-        if let Some(tests) = self.get(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All) {
+        if let Some(tests) = self.get(TESTS_ATTRIBUTE.name, AttrInspectOptions::All) {
             tests.traverse(self.label().pkg(), &mut traversal).unwrap();
         }
         traversal.labels.into_iter()

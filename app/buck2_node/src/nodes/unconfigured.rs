@@ -32,10 +32,10 @@ use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::coerced_deps_collector::CoercedDeps;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD;
-use crate::attrs::internal::METADATA_ATTRIBUTE_FIELD;
-use crate::attrs::internal::TARGET_MODIFIERS_ATTRIBUTE_FIELD;
-use crate::attrs::internal::TESTS_ATTRIBUTE_FIELD;
+use crate::attrs::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE;
+use crate::attrs::internal::METADATA_ATTRIBUTE;
+use crate::attrs::internal::TARGET_MODIFIERS_ATTRIBUTE;
+use crate::attrs::internal::TESTS_ATTRIBUTE;
 use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
@@ -190,7 +190,7 @@ impl TargetNode {
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
         match self.attr_or_none(
-            DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
+            DEFAULT_TARGET_PLATFORM_ATTRIBUTE.name,
             AttrInspectOptions::All,
         ) {
             Some(v) => match v.value {
@@ -343,7 +343,7 @@ impl TargetNode {
         }
 
         let tests = self
-            .attr_or_none(TESTS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
+            .attr_or_none(TESTS_ATTRIBUTE.name, AttrInspectOptions::All)
             .expect("tests is an internal attribute field and will always be present");
 
         let mut traversal = TestCollector::default();
@@ -504,7 +504,7 @@ impl<'a> TargetNodeRef<'a> {
     }
 
     pub fn metadata(self) -> buck2_error::Result<Option<&'a MetadataMap>> {
-        self.attr_or_none(METADATA_ATTRIBUTE_FIELD, AttrInspectOptions::All)
+        self.attr_or_none(METADATA_ATTRIBUTE.name, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::Metadata(m) => Ok(m),
                 x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
@@ -513,7 +513,7 @@ impl<'a> TargetNodeRef<'a> {
     }
 
     pub fn target_modifiers(self) -> buck2_error::Result<Option<&'a TargetModifiersValue>> {
-        self.attr_or_none(TARGET_MODIFIERS_ATTRIBUTE_FIELD, AttrInspectOptions::All)
+        self.attr_or_none(TARGET_MODIFIERS_ATTRIBUTE.name, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::TargetModifiers(m) => Ok(m),
                 x => Err(internal_error!(

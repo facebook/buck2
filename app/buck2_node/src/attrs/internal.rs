@@ -30,148 +30,169 @@ use crate::visibility::WithinViewSpecification;
 // the repr string, setting defaults. Some of that is just about making it easier to work with the
 // coerced attrs and some of it is about a nicer structure for defining these attributes and
 // accessing them off nodes.
-// TODO(cjhopman): these attributes should be marked as "unconfigurable" or "unselectable" or something
-// since we need to be able to read them in their unconfigured form.
-pub const NAME_ATTRIBUTE_FIELD: &str = "name";
-pub const DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD: &str = "default_target_platform";
 
-pub const TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "target_compatible_with";
+pub struct InternalAttribute {
+    pub name: &'static str,
+    attr: fn() -> Attribute,
+    is_configurable: AttrIsConfigurable,
+}
+
+pub const NAME_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "name",
+    attr: || Attribute::new(None, "name of the target", AttrType::string()),
+    is_configurable: AttrIsConfigurable::No,
+};
+
+pub(crate) const DEFAULT_TARGET_PLATFORM_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "default_target_platform",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(CoercedAttr::None)),
+            "specifies the default target platform, used when no platforms are specified on the command line",
+            AttrType::option(AttrType::label()),
+        )
+    },
+    is_configurable: AttrIsConfigurable::No,
+};
+
 /// buck1 used "compatible_with" for this. in buck2, we have two "compatible with" concepts, both
 /// target and exec compatibility and so we are switching to "target_compatible_with". For now we'll accept
 /// either form for target compatibility (but not both).
-pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "compatible_with";
-pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD: &str = "exec_compatible_with";
+pub const TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "target_compatible_with",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(AnyAttrType::empty_list())),
+            "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
+            AttrType::list(AttrType::configuration_dep(
+                ConfigurationDepKind::CompatibilityAttribute,
+            )),
+        )
+    },
+    is_configurable: AttrIsConfigurable::Yes,
+};
 
-pub const VISIBILITY_ATTRIBUTE_FIELD: &str = "visibility";
-pub const WITHIN_VIEW_ATTRIBUTE_FIELD: &str = "within_view";
-pub const METADATA_ATTRIBUTE_FIELD: &str = "metadata";
-pub const TARGET_MODIFIERS_ATTRIBUTE_FIELD: &str = "modifiers";
+pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "compatible_with",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(AnyAttrType::empty_list())),
+            "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
+            AttrType::list(AttrType::configuration_dep(
+                ConfigurationDepKind::CompatibilityAttribute,
+            )),
+        )
+    },
+    // `compatible_with` is not configurable in Buck v1.
+    is_configurable: AttrIsConfigurable::No,
+};
 
-pub const TESTS_ATTRIBUTE_FIELD: &str = "tests";
+pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "exec_compatible_with",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(AnyAttrType::empty_list())),
+            "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform",
+            AttrType::list(AttrType::configuration_dep(
+                ConfigurationDepKind::CompatibilityAttribute,
+            )),
+        )
+    },
+    is_configurable: AttrIsConfigurable::Yes,
+};
 
-fn name_attribute() -> Attribute {
-    Attribute::new(None, "name of the target", AttrType::string())
-}
+pub const VISIBILITY_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "visibility",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(CoercedAttr::Visibility(
+                VisibilitySpecification::DEFAULT,
+            ))),
+            "a list of visibility patterns restricting what targets can depend on this one",
+            AttrType::visibility(),
+        )
+    },
+    // visibility attributes aren't configurable so that we can cache them on targetnodes.
+    is_configurable: AttrIsConfigurable::No,
+};
 
-fn default_target_platform_attribute() -> Attribute {
-    Attribute::new(
-        Some(Arc::new(CoercedAttr::None)),
-        "specifies the default target platform, used when no platforms are specified on the command line",
-        AttrType::option(AttrType::label()),
-    )
-}
+pub const WITHIN_VIEW_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "within_view",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(CoercedAttr::WithinView(
+                WithinViewSpecification::PUBLIC,
+            ))),
+            "a list of visibility patterns restricting what this target can depend on",
+            AttrType::within_view(),
+        )
+    },
+    is_configurable: AttrIsConfigurable::No,
+};
 
-fn target_compatible_with_attribute() -> Attribute {
-    let entry_type = AttrType::configuration_dep(ConfigurationDepKind::CompatibilityAttribute);
-    Attribute::new(
-        Some(Arc::new(AnyAttrType::empty_list())),
-        "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
-        AttrType::list(entry_type),
-    )
-}
+pub(crate) const METADATA_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "metadata",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(CoercedAttr::Metadata(MetadataMap::default()))),
+            "a key-value map of metadata associated with this target",
+            AttrType::metadata(),
+        )
+    },
+    is_configurable: AttrIsConfigurable::No,
+};
 
-fn exec_compatible_with_attribute() -> Attribute {
-    let entry_type = AttrType::configuration_dep(ConfigurationDepKind::CompatibilityAttribute);
-    Attribute::new(
-        Some(Arc::new(AnyAttrType::empty_list())),
-        "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform",
-        AttrType::list(entry_type),
-    )
-}
+pub(crate) const TARGET_MODIFIERS_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "modifiers",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(CoercedAttr::TargetModifiers(
+                TargetModifiersValue::new(serde_json::Value::Array(vec![])),
+            ))),
+            "an array of modifiers associated with this target",
+            AttrType::target_modifiers(),
+        )
+    },
+    is_configurable: AttrIsConfigurable::No,
+};
 
-fn visibility_attribute() -> Attribute {
-    Attribute::new(
-        Some(Arc::new(CoercedAttr::Visibility(
-            VisibilitySpecification::DEFAULT,
-        ))),
-        "a list of visibility patterns restricting what targets can depend on this one",
-        AttrType::visibility(),
-    )
-}
+pub(crate) const TESTS_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    name: "tests",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(AnyAttrType::empty_list())),
+            "a list of targets that provide tests for this one",
+            AttrType::list(AttrType::label()),
+        )
+    },
+    is_configurable: AttrIsConfigurable::Yes,
+};
 
-fn within_view_attribute() -> Attribute {
-    Attribute::new(
-        Some(Arc::new(CoercedAttr::WithinView(
-            WithinViewSpecification::PUBLIC,
-        ))),
-        "a list of visibility patterns restricting what this target can depend on",
-        AttrType::within_view(),
-    )
-}
-
-fn metadata_attribute() -> Attribute {
-    Attribute::new(
-        Some(Arc::new(CoercedAttr::Metadata(MetadataMap::default()))),
-        "a key-value map of metadata associated with this target",
-        AttrType::metadata(),
-    )
-}
-
-fn target_modifiers_attribute() -> Attribute {
-    Attribute::new(
-        Some(Arc::new(CoercedAttr::TargetModifiers(
-            TargetModifiersValue::new(serde_json::Value::Array(vec![])),
-        ))),
-        "an array of modifiers associated with this target",
-        AttrType::target_modifiers(),
-    )
-}
-
-fn tests_attribute() -> Attribute {
-    let entry_type = AttrType::label();
-    Attribute::new(
-        Some(Arc::new(AnyAttrType::empty_list())),
-        "a list of targets that provide tests for this one",
-        AttrType::list(entry_type),
-    )
-}
+const INTERNAL_ATTRS: [InternalAttribute; 10] = [
+    NAME_ATTRIBUTE,
+    DEFAULT_TARGET_PLATFORM_ATTRIBUTE,
+    TARGET_COMPATIBLE_WITH_ATTRIBUTE,
+    LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE,
+    EXEC_COMPATIBLE_WITH_ATTRIBUTE,
+    VISIBILITY_ATTRIBUTE,
+    WITHIN_VIEW_ATTRIBUTE,
+    METADATA_ATTRIBUTE,
+    TESTS_ATTRIBUTE,
+    TARGET_MODIFIERS_ATTRIBUTE,
+];
 
 pub fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
     static ATTRS: Lazy<OrderedMap<&'static str, Attribute>> = Lazy::new(|| {
-        OrderedMap::from_iter([
-            (NAME_ATTRIBUTE_FIELD, name_attribute()),
-            (
-                DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD,
-                default_target_platform_attribute(),
-            ),
-            (
-                TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-                target_compatible_with_attribute(),
-            ),
-            (
-                LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-                target_compatible_with_attribute(),
-            ),
-            (
-                EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-                exec_compatible_with_attribute(),
-            ),
-            (VISIBILITY_ATTRIBUTE_FIELD, visibility_attribute()),
-            (WITHIN_VIEW_ATTRIBUTE_FIELD, within_view_attribute()),
-            (METADATA_ATTRIBUTE_FIELD, metadata_attribute()),
-            (TESTS_ATTRIBUTE_FIELD, tests_attribute()),
-            (
-                TARGET_MODIFIERS_ATTRIBUTE_FIELD,
-                target_modifiers_attribute(),
-            ),
-        ])
+        OrderedMap::from_iter(INTERNAL_ATTRS.iter().map(|attr| (attr.name, (attr.attr)())))
     });
     &ATTRS
 }
 
 pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
-    // `compatible_with` is not configurable in Buck v1.
-    if name == NAME_ATTRIBUTE_FIELD
-        || name == LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
-        || name == DEFAULT_TARGET_PLATFORM_ATTRIBUTE_FIELD
-        // visibility attributes aren't configurable so that we can cache them on targetnodes.
-        || name == VISIBILITY_ATTRIBUTE_FIELD
-        || name == WITHIN_VIEW_ATTRIBUTE_FIELD
-        || name == METADATA_ATTRIBUTE_FIELD
-        || name == TARGET_MODIFIERS_ATTRIBUTE_FIELD
-    {
-        AttrIsConfigurable::No
-    } else {
-        AttrIsConfigurable::Yes
+    for a in &INTERNAL_ATTRS {
+        if a.name == name {
+            return a.is_configurable;
+        }
     }
+    AttrIsConfigurable::Yes
 }

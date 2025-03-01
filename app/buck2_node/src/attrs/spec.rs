@@ -21,9 +21,9 @@ use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::id::AttributeId;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::internal::internal_attrs;
-use crate::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use crate::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
-use crate::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
+use crate::attrs::internal::NAME_ATTRIBUTE;
+use crate::attrs::internal::VISIBILITY_ATTRIBUTE;
+use crate::attrs::internal::WITHIN_VIEW_ATTRIBUTE;
 use crate::attrs::values::AttrValues;
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
@@ -56,7 +56,7 @@ impl AttributeSpec {
             let index_in_attribute_spec = u16::try_from(
                 internal_attrs()
                     .keys()
-                    .position(|name| *name == NAME_ATTRIBUTE_FIELD)
+                    .position(|name| *name == NAME_ATTRIBUTE.name)
                     .unwrap(),
             )
             .unwrap();
@@ -72,7 +72,7 @@ impl AttributeSpec {
             let index_in_attribute_spec = u16::try_from(
                 internal_attrs()
                     .keys()
-                    .position(|name| *name == VISIBILITY_ATTRIBUTE_FIELD)
+                    .position(|name| *name == VISIBILITY_ATTRIBUTE.name)
                     .unwrap(),
             )
             .unwrap();
@@ -88,7 +88,7 @@ impl AttributeSpec {
             let index_in_attribute_spec = u16::try_from(
                 internal_attrs()
                     .keys()
-                    .position(|name| *name == WITHIN_VIEW_ATTRIBUTE_FIELD)
+                    .position(|name| *name == WITHIN_VIEW_ATTRIBUTE.name)
                     .unwrap(),
             )
             .unwrap();

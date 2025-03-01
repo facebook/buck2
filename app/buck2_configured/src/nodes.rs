@@ -55,8 +55,8 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE;
+use buck2_node::attrs::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeys;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
@@ -92,8 +92,8 @@ enum NodeCalculationError {
     TargetCompatibleNotList(String, String),
     #[error(
         "`{0}` had both `{}` and `{}` attributes. It should only have one.",
-        TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
+        TARGET_COMPATIBLE_WITH_ATTRIBUTE.name,
+        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name
     )]
     BothTargetCompatibleWith(String),
     #[error(
@@ -176,8 +176,8 @@ fn unpack_target_compatible_with_attr(
         fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
             Err(internal_error!(
                 "exec_cfg() is not needed to resolve `{}` or `{}`",
-                TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-                LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
+                TARGET_COMPATIBLE_WITH_ATTRIBUTE.name,
+                LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name
             ))
         }
 
@@ -188,8 +188,7 @@ fn unpack_target_compatible_with_attr(
         fn platform_cfg(&self, _label: &TargetLabel) -> buck2_error::Result<ConfigurationData> {
             unreachable!(
                 "platform_cfg() is not needed to resolve `{}` or `{}`",
-                TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-                LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
+                TARGET_COMPATIBLE_WITH_ATTRIBUTE.name, LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name
             )
         }
 
@@ -198,8 +197,8 @@ fn unpack_target_compatible_with_attr(
         ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
             Err(internal_error!(
                 "resolved_transitions() is not needed to resolve `{}` or `{}`",
-                TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-                LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
+                TARGET_COMPATIBLE_WITH_ATTRIBUTE.name,
+                LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name
             ))
         }
     }
@@ -232,12 +231,12 @@ fn check_compatible(
     let target_compatible_with = unpack_target_compatible_with_attr(
         target_node,
         resolved_cfg,
-        TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+        TARGET_COMPATIBLE_WITH_ATTRIBUTE.name,
     )?;
     let legacy_compatible_with = unpack_target_compatible_with_attr(
         target_node,
         resolved_cfg,
-        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
+        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name,
     )?;
 
     let compatibility_constraints = match (target_compatible_with, legacy_compatible_with) {
@@ -279,7 +278,7 @@ fn check_compatible(
                 check_compatibility(attr).with_buck_error_context(|| {
                     format!(
                         "attribute `{}`",
-                        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD
+                        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name
                     )
                 })?;
             let incompatible = incompatible.into_iter().next();
@@ -293,7 +292,7 @@ fn check_compatible(
         CompatibilityConstraints::All(attr) => {
             let (_compatible, incompatible) =
                 check_compatibility(attr).with_buck_error_context(|| {
-                    format!("attribute `{}`", TARGET_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
+                    format!("attribute `{}`", TARGET_COMPATIBLE_WITH_ATTRIBUTE.name)
                 })?;
             match incompatible.into_iter().next() {
                 Some(label) => label,

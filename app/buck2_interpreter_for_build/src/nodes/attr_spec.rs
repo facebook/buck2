@@ -21,9 +21,9 @@ use buck2_node::attrs::configurable::AttrIsConfigurable;
 use buck2_node::attrs::id::AttributeId;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::internal::attr_is_configurable;
-use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::NAME_ATTRIBUTE;
+use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE;
+use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
 use buck2_util::arc_str::ArcStr;
@@ -86,7 +86,7 @@ impl AttributeSpecExt for AttributeSpec {
 
         let mut indices = self.attr_specs();
         let name = match indices.next() {
-            Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE_FIELD => {
+            Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE.name => {
                 let name = param_parser.next()?;
                 attr_values.push_sorted(
                     attr_idx,
@@ -121,8 +121,8 @@ impl AttributeSpecExt for AttributeSpec {
                 None => Some(param_parser.next()?),
             };
 
-            let attr_is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;
-            let attr_is_within_view = attr_name == WITHIN_VIEW_ATTRIBUTE_FIELD;
+            let attr_is_visibility = attr_name == VISIBILITY_ATTRIBUTE.name;
+            let attr_is_within_view = attr_name == WITHIN_VIEW_ATTRIBUTE.name;
             if let Some(v) = user_value {
                 let mut coerced = attribute
                     .coerce(

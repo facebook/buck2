@@ -34,7 +34,7 @@ use buck2_futures::cancellation::CancellationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD;
+use buck2_node::attrs::internal::EXEC_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
@@ -127,10 +127,9 @@ impl ExecutionPlatformConstraints {
         gathered_deps: &GatheredDeps,
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
-        let exec_compatible_with: Arc<[_]> = if let Some(a) = node.attr_or_none(
-            EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD,
-            AttrInspectOptions::All,
-        ) {
+        let exec_compatible_with: Arc<[_]> = if let Some(a) =
+            node.attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.name, AttrInspectOptions::All)
+        {
             let configured_attr = a.configure(cfg_ctx).with_buck_error_context(|| {
                 format!(
                     "Error configuring attribute `{}` to resolve execution platform",
@@ -140,7 +139,7 @@ impl ExecutionPlatformConstraints {
             ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
                 .map(|label| {
                     label.with_buck_error_context(|| {
-                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE_FIELD)
+                        format!("attribute `{}`", EXEC_COMPATIBLE_WITH_ATTRIBUTE.name)
                     })
                 })
                 .collect::<Result<_, _>>()?
