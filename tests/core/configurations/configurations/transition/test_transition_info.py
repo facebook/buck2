@@ -22,3 +22,13 @@ async def test_transition_info_outgoing_edge(buck: Buck) -> None:
     res = json.loads(res.stdout)
     assert len(res) == 1
     assert list(res.values())[0]["labels"] == ["cat"]
+
+
+@buck_test()
+async def test_transition_info_incoming_edge(buck: Buck) -> None:
+    res = await buck.cquery(
+        "root//:base", "-u", ":pre_incoming_transition", "-a", "labels"
+    )
+    res = json.loads(res.stdout)
+    assert len(res) == 1
+    assert list(res.values())[0]["labels"] == ["cat"]

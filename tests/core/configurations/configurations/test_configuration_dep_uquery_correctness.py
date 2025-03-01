@@ -68,7 +68,9 @@ async def test_transition_dep_refs(buck: Buck) -> None:
         buck, ":post_out_transition", "root//:cat", expect_fail=True
     )
 
-    await check_has_uquery_path(buck, ":pre_out_transition_nvew", "root//:transition")
+    await check_has_uquery_path(buck, ":pre_out_transition_vnew", "root//:transition")
+
+    await check_has_uquery_path(buck, ":pre_inc_transition_vnew", "root//:transition")
 
 
 @buck_test()

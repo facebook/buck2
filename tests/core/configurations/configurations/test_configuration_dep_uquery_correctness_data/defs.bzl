@@ -45,3 +45,9 @@ outgoing_transition_alias_vnew = rule(
         "actual": attrs.transition_dep(cfg = "root//:transition"),
     },
 )
+
+incoming_transition_alias_vnew = rule(
+    impl = _impl,
+    attrs = {},
+    supports_incoming_transition = True,
+)

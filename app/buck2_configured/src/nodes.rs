@@ -48,6 +48,7 @@ use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLa
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::attrs::configuration_context::PlatformConfigurationError;
@@ -55,6 +56,7 @@ use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
+use buck2_node::attrs::spec::internal::INCOMING_TRANSITION_ATTRIBUTE;
 use buck2_node::attrs::spec::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::attrs::spec::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::attrs::spec::AttributeId;
@@ -68,6 +70,7 @@ use buck2_node::nodes::configured_frontend::CONFIGURED_TARGET_NODE_CALCULATION;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
+use buck2_node::rule::RuleIncomingTransition;
 use buck2_node::visibility::VisibilityError;
 use derive_more::Display;
 use dice::Demand;
@@ -897,8 +900,20 @@ async fn compute_configured_target_node(
         _ => {}
     }
 
-    if let Some(transition_id) = &target_node.rule.cfg {
-        compute_configured_forward_target_node(key, &target_node, transition_id, ctx).await
+    let transition_id = match &target_node.rule.cfg {
+        RuleIncomingTransition::None => None,
+        RuleIncomingTransition::Fixed(transition_id) => Some(transition_id.dupe()),
+        RuleIncomingTransition::FromAttribute => target_node
+            .attr_or_none(INCOMING_TRANSITION_ATTRIBUTE.name, AttrInspectOptions::All)
+            .and_then(|v| match v.value {
+                CoercedAttr::None => None,
+                CoercedAttr::ConfigurationDep(l) => Some(Arc::new(TransitionId::Target(l.dupe()))),
+                _ => unreachable!("Verified by attr coercer"),
+            }),
+    };
+
+    if let Some(transition_id) = transition_id {
+        compute_configured_forward_target_node(key, &target_node, &transition_id, ctx).await
     } else {
         // We are not caching `ConfiguredTransitionedNodeKey` because this is cheap,
         // and no need to fetch `target_node` again.

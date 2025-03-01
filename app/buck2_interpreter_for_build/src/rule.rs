@@ -12,7 +12,6 @@ use std::fmt;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
@@ -28,12 +27,12 @@ use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::unconfigured::RuleKind;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::rule::Rule;
+use buck2_node::rule::RuleIncomingTransition;
 use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
-use gazebo::prelude::*;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::docs::DocFunction;
@@ -108,7 +107,7 @@ pub struct RuleCallable<'v> {
     /// Type for the typechecker.
     ty: Ty,
     /// When specified, this transition will be applied to the target before configuring it.
-    cfg: Option<Arc<TransitionId>>,
+    cfg: RuleIncomingTransition,
     /// The plugins that are used by these targets
     uses_plugins: Vec<PluginKind>,
     /// This kind of the rule, e.g. whether it can be used in configuration context.
@@ -159,6 +158,8 @@ enum RuleError {
     IsConfigurationAndToolchain,
     #[error("`rule` can only be declared in bzl files")]
     RuleNonInBzl,
+    #[error("Cannot specify `cfg` and `supports_incoming_transition` at the same time")]
+    CfgAndSupportsIncomingTransition,
 }
 
 impl<'v> AllocValue<'v> for RuleCallable<'v> {
@@ -172,6 +173,7 @@ impl<'v> RuleCallable<'v> {
         implementation: RuleImpl<'v>,
         attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         cfg: Option<Value>,
+        supports_incoming_transition: Option<bool>,
         doc: &str,
         is_configuration_rule: bool,
         is_toolchain_rule: bool,
@@ -214,7 +216,12 @@ impl<'v> RuleCallable<'v> {
             })
             .collect::<buck2_error::Result<Vec<(String, Attribute)>>>()?;
 
-        let cfg = cfg.try_map(transition_id_from_value)?;
+        let cfg = match (cfg, supports_incoming_transition) {
+            (Some(_), Some(_)) => return Err(RuleError::CfgAndSupportsIncomingTransition.into()),
+            (Some(cfg), None) => RuleIncomingTransition::Fixed(transition_id_from_value(cfg)?),
+            (None, Some(true)) => RuleIncomingTransition::FromAttribute,
+            (None, Some(false) | None) => RuleIncomingTransition::None,
+        };
 
         let rule_kind = match (is_configuration_rule, is_toolchain_rule) {
             (false, false) => RuleKind::Normal,
@@ -223,8 +230,11 @@ impl<'v> RuleCallable<'v> {
             (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
         };
 
-        let attributes =
-            AttributeSpec::from(sorted_validated_attrs, artifact_promise_mappings.is_some())?;
+        let attributes = AttributeSpec::from(
+            sorted_validated_attrs,
+            artifact_promise_mappings.is_some(),
+            &cfg,
+        )?;
         let ty = Ty::ty_function(attributes.ty_function());
 
         Ok(RuleCallable {
@@ -255,6 +265,7 @@ impl<'v> RuleCallable<'v> {
         Self::new(
             implementation,
             attrs,
+            None,
             None,
             doc,
             false,
@@ -569,6 +580,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
         >,
         #[starlark(require = named)] attrs: UnpackDictEntries<&'v str, &'v StarlarkAttribute>,
         #[starlark(require = named)] cfg: Option<ValueOfUnchecked<'v, TransitionReprLate>>,
+        #[starlark(require = named)] supports_incoming_transition: Option<bool>,
         #[starlark(require = named, default = "")] doc: &str,
         #[starlark(require = named, default = false)] is_configuration_rule: bool,
         #[starlark(require = named, default = false)] is_toolchain_rule: bool,
@@ -580,6 +592,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             RuleImpl::BuildRule(StarlarkCallable::unchecked_new(r#impl.0)),
             attrs,
             cfg.map(|v| v.get()),
+            supports_incoming_transition,
             doc,
             is_configuration_rule,
             is_toolchain_rule,

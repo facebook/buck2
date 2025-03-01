@@ -1,4 +1,9 @@
-load(":defs.bzl", "constraint_override_transition", "stub_transition")
+load(
+    ":defs.bzl",
+    "constraint_override_transition",
+    "stub_transition",
+    "stub_with_incoming_transition",
+)
 
 constraint_setting(
     name = "animal",
@@ -31,4 +36,11 @@ stub_transition(
     name = "pre_outgoing_transition",
     dep = ":base",
     default_target_platform = ":empty_platform",
+)
+
+stub_with_incoming_transition(
+    name = "pre_incoming_transition",
+    dep = ":base",
+    default_target_platform = ":empty_platform",
+    incoming_transition = ":transition",
 )

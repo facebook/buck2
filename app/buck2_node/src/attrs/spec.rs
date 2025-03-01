@@ -16,8 +16,11 @@ use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::spec::internal::internal_attrs;
+use crate::attrs::spec::internal::common_internal_attrs;
+use crate::attrs::spec::internal::is_internal_attr;
+use crate::attrs::spec::internal::INCOMING_TRANSITION_ATTRIBUTE;
 use crate::attrs::values::AttrValues;
+use crate::rule::RuleIncomingTransition;
 
 pub mod internal;
 
@@ -63,8 +66,12 @@ impl AttributeSpec {
         Ok(AttributeSpec { attributes })
     }
 
-    pub fn from(attributes: Vec<(String, Attribute)>, is_anon: bool) -> buck2_error::Result<Self> {
-        let internal_attrs = internal_attrs();
+    pub fn from(
+        attributes: Vec<(String, Attribute)>,
+        is_anon: bool,
+        cfg: &RuleIncomingTransition,
+    ) -> buck2_error::Result<Self> {
+        let internal_attrs = common_internal_attrs();
 
         let mut instances: OrderedMap<Box<str>, Attribute> =
             OrderedMap::with_capacity(attributes.len());
@@ -75,9 +82,20 @@ impl AttributeSpec {
             }
         }
 
+        if cfg == &RuleIncomingTransition::FromAttribute {
+            instances.insert(
+                INCOMING_TRANSITION_ATTRIBUTE.name.into(),
+                (INCOMING_TRANSITION_ATTRIBUTE.attr)(),
+            );
+        }
+
         for (name, instance) in attributes.into_iter() {
             if is_anon {
                 instance.coercer().validate_for_anon_rule()?;
+            }
+
+            if is_internal_attr(&name) {
+                return Err(AttributeSpecError::InternalAttributeRedefined(name.to_owned()).into());
             }
 
             match instances.entry(name.into_boxed_str()) {
@@ -86,14 +104,7 @@ impl AttributeSpec {
                 }
                 small_map::Entry::Occupied(e) => {
                     let name: &str = e.key();
-                    if internal_attrs.contains_key(name) {
-                        return Err(AttributeSpecError::InternalAttributeRedefined(
-                            name.to_owned(),
-                        )
-                        .into());
-                    } else {
-                        return Err(AttributeSpecError::DuplicateAttribute(name.to_owned()).into());
-                    }
+                    return Err(AttributeSpecError::DuplicateAttribute(name.to_owned()).into());
                 }
             }
         }
@@ -229,10 +240,16 @@ pub(crate) mod testing {
 
     use crate::attrs::attr::Attribute;
     use crate::attrs::spec::AttributeSpec;
+    use crate::rule::RuleIncomingTransition;
 
     impl AttributeSpec {
-        pub(crate) fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
-            AttributeSpec::from(attributes.into_iter().collect(), false).unwrap()
+        pub fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
+            AttributeSpec::from(
+                attributes.into_iter().collect(),
+                false,
+                &RuleIncomingTransition::None,
+            )
+            .unwrap()
         }
     }
 }

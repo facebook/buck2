@@ -44,3 +44,11 @@ stub_transition = rule(
         "dep": attrs.transition_dep(cfg = "//:transition"),
     },
 )
+
+stub_with_incoming_transition = rule(
+    impl = _impl,
+    attrs = {
+        "dep": attrs.dep(),
+    },
+    supports_incoming_transition = True,
+)

@@ -638,6 +638,7 @@ pub mod testing {
     use crate::attrs::fmt_context::AttrFmtContext;
     use crate::attrs::spec::internal::NAME_ATTRIBUTE;
     use crate::nodes::targets_map::TargetsMap;
+    use crate::rule::RuleIncomingTransition;
 
     pub trait TargetNodeExt {
         fn testing_new(
@@ -688,7 +689,7 @@ pub mod testing {
                     attributes: attr_spec,
                     rule_type,
                     rule_kind: RuleKind::Normal,
-                    cfg: None,
+                    cfg: RuleIncomingTransition::None,
                     uses_plugins: Vec::new(),
                 }),
                 Arc::new(Package {

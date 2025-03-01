@@ -1,6 +1,7 @@
 load(
     ":defs.bzl",
     "incoming_transition_alias",
+    "incoming_transition_alias_vnew",
     "outgoing_transition_alias",
     "outgoing_transition_alias_vnew",
     "stub_configuration",
@@ -65,8 +66,18 @@ stub_configuration(
 )
 
 outgoing_transition_alias_vnew(
-    name = "pre_out_transition_nvew",
+    name = "pre_out_transition_vnew",
     actual = ":post_out_transition",
+)
+
+incoming_transition_alias_vnew(
+    name = "post_inc_transition_vnew",
+    incoming_transition = ":transition",
+)
+
+stub(
+    name = "pre_inc_transition_vnew",
+    deps = [":post_inc_transition_vnew"],
 )
 
 # Select keys

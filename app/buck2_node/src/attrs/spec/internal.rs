@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
+use starlark_map::ordered_set::OrderedSet;
 
 use crate::attrs::attr::Attribute;
 use crate::attrs::attr_type::any::AnyAttrType;
@@ -187,11 +188,56 @@ const INTERNAL_ATTRS: [InternalAttribute; 10] = [
     TARGET_MODIFIERS_ATTRIBUTE,
 ];
 
-pub fn is_internal_attr(name: &str) -> bool {
-    internal_attrs().contains_key(name)
+pub struct OptionalInternalAttribute {
+    pub name: &'static str,
+    pub(super) attr: fn() -> Attribute,
+    is_configurable: AttrIsConfigurable,
 }
 
-pub(super) fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
+pub const INCOMING_TRANSITION_ATTRIBUTE: OptionalInternalAttribute = OptionalInternalAttribute {
+    name: "incoming_transition",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(CoercedAttr::None)),
+            "specifies the incoming transition to apply to this target",
+            AttrType::option(AttrType::configuration_dep(
+                ConfigurationDepKind::Transition,
+            )),
+        )
+    },
+    is_configurable: AttrIsConfigurable::No,
+};
+
+const fn to_optional(attr: InternalAttribute) -> OptionalInternalAttribute {
+    OptionalInternalAttribute {
+        name: attr.name,
+        attr: attr.attr,
+        is_configurable: attr.is_configurable,
+    }
+}
+
+/// Includes optional internal attrs
+const ALL_INTERNAL_ATTRS: [OptionalInternalAttribute; 11] = [
+    to_optional(NAME_ATTRIBUTE),
+    to_optional(DEFAULT_TARGET_PLATFORM_ATTRIBUTE),
+    to_optional(TARGET_COMPATIBLE_WITH_ATTRIBUTE),
+    to_optional(LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE),
+    to_optional(EXEC_COMPATIBLE_WITH_ATTRIBUTE),
+    to_optional(VISIBILITY_ATTRIBUTE),
+    to_optional(WITHIN_VIEW_ATTRIBUTE),
+    to_optional(METADATA_ATTRIBUTE),
+    to_optional(TESTS_ATTRIBUTE),
+    to_optional(TARGET_MODIFIERS_ATTRIBUTE),
+    INCOMING_TRANSITION_ATTRIBUTE,
+];
+
+pub fn is_internal_attr(name: &str) -> bool {
+    static ATTRS: Lazy<OrderedSet<&'static str>> =
+        Lazy::new(|| OrderedSet::from_iter(ALL_INTERNAL_ATTRS.iter().map(|attr| attr.name)));
+    ATTRS.contains(name)
+}
+
+pub(super) fn common_internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
     static ATTRS: Lazy<OrderedMap<&'static str, Attribute>> = Lazy::new(|| {
         OrderedMap::from_iter(INTERNAL_ATTRS.iter().map(|attr| (attr.name, (attr.attr)())))
     });
@@ -199,7 +245,7 @@ pub(super) fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
 }
 
 pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
-    for a in &INTERNAL_ATTRS {
+    for a in &ALL_INTERNAL_ATTRS {
         if a.name == name {
             return a.is_configurable;
         }
