@@ -11,7 +11,6 @@
 
 use std::sync::Arc;
 
-use buck2_core::provider::id::ProviderId;
 use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 
@@ -52,17 +51,6 @@ pub const TESTS_ATTRIBUTE_FIELD: &str = "tests";
 
 fn name_attribute() -> Attribute {
     Attribute::new(None, "name of the target", AttrType::string())
-}
-
-pub fn internal_attrs_platform_info_provider_id() -> &'static Arc<ProviderId> {
-    static PLATFORM_INFO_PROVIDER_ID: Lazy<Arc<ProviderId>> = Lazy::new(|| {
-        // Hardcode provider name, because we do not depend on providers here.
-        Arc::new(ProviderId {
-            path: None,
-            name: "PlatformInfo".to_owned(),
-        })
-    });
-    &PLATFORM_INFO_PROVIDER_ID
 }
 
 fn default_target_platform_attribute() -> Attribute {
