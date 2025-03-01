@@ -157,7 +157,13 @@ impl StreamingCommand for RunCommand {
         let mut run_args = response.build_targets[0].run_args.clone();
         run_args.extend(self.extra_run_args);
 
-        print_build_succeeded(&console, ctx)?;
+        let extra = if !self.emit_shell {
+            Some(" - starting your binary")
+        } else {
+            None
+        };
+
+        print_build_succeeded(&console, ctx, extra)?;
 
         // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute
         // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
@@ -200,12 +206,6 @@ impl StreamingCommand for RunCommand {
 
         let chdir = self.chdir.map(|chdir| chdir.resolve(&ctx.working_dir));
 
-        let exec_handoff_message = format!(
-            "Starting RUN of `{}`\nRunning defined output located at: `{}`",
-            self.target.clone(),
-            run_args[0].clone()
-        );
-        console.print_stderr(&exec_handoff_message)?;
         ExitResult::exec(
             run_args[0].clone().into(),
             run_args.into_iter().map(|arg| arg.into()).collect(),

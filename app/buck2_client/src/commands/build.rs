@@ -283,7 +283,7 @@ impl StreamingCommand for BuildCommand {
             if self.patterns.is_empty() {
                 console.print_warning("NO BUILD TARGET PATTERNS SPECIFIED")?;
             } else {
-                print_build_succeeded(&console, ctx)?;
+                print_build_succeeded(&console, ctx, None)?;
             }
         } else {
             print_build_failed(&console)?;
@@ -360,9 +360,11 @@ impl StreamingCommand for BuildCommand {
 pub(crate) fn print_build_succeeded(
     console: &FinalConsole,
     ctx: &ClientCommandContext<'_>,
+    extra: Option<&str>,
 ) -> buck2_error::Result<()> {
     if ctx.verbosity.print_success_message() {
-        console.print_success("BUILD SUCCEEDED")?;
+        console.print_success_no_newline("BUILD SUCCEEDED")?;
+        console.print_stderr(extra.unwrap_or_default())?;
     }
     Ok(())
 }
