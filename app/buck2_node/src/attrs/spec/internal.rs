@@ -20,30 +20,28 @@ use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::configurable::AttrIsConfigurable;
+use crate::attrs::spec::AttributeId;
 use crate::attrs::values::TargetModifiersValue;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-// TODO(cjhopman): figure out something better for these default attributes that we need to interpret
-// internally. There's currently a lot of awkwardness involved: accessing the value, needing to create
-// the repr string, setting defaults. Some of that is just about making it easier to work with the
-// coerced attrs and some of it is about a nicer structure for defining these attributes and
-// accessing them off nodes.
-
 pub struct InternalAttribute {
+    pub id: AttributeId,
     pub name: &'static str,
     attr: fn() -> Attribute,
     is_configurable: AttrIsConfigurable,
 }
 
 pub const NAME_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(0),
     name: "name",
     attr: || Attribute::new(None, "name of the target", AttrType::string()),
     is_configurable: AttrIsConfigurable::No,
 };
 
 pub(crate) const DEFAULT_TARGET_PLATFORM_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(1),
     name: "default_target_platform",
     attr: || {
         Attribute::new(
@@ -59,6 +57,7 @@ pub(crate) const DEFAULT_TARGET_PLATFORM_ATTRIBUTE: InternalAttribute = Internal
 /// target and exec compatibility and so we are switching to "target_compatible_with". For now we'll accept
 /// either form for target compatibility (but not both).
 pub const TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(2),
     name: "target_compatible_with",
     attr: || {
         Attribute::new(
@@ -73,6 +72,7 @@ pub const TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribut
 };
 
 pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(3),
     name: "compatible_with",
     attr: || {
         Attribute::new(
@@ -88,6 +88,7 @@ pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalA
 };
 
 pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(4),
     name: "exec_compatible_with",
     attr: || {
         Attribute::new(
@@ -102,6 +103,7 @@ pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute 
 };
 
 pub const VISIBILITY_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(5),
     name: "visibility",
     attr: || {
         Attribute::new(
@@ -117,6 +119,7 @@ pub const VISIBILITY_ATTRIBUTE: InternalAttribute = InternalAttribute {
 };
 
 pub const WITHIN_VIEW_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(6),
     name: "within_view",
     attr: || {
         Attribute::new(
@@ -131,6 +134,7 @@ pub const WITHIN_VIEW_ATTRIBUTE: InternalAttribute = InternalAttribute {
 };
 
 pub(crate) const METADATA_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(7),
     name: "metadata",
     attr: || {
         Attribute::new(
@@ -142,7 +146,21 @@ pub(crate) const METADATA_ATTRIBUTE: InternalAttribute = InternalAttribute {
     is_configurable: AttrIsConfigurable::No,
 };
 
+pub(crate) const TESTS_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(8),
+    name: "tests",
+    attr: || {
+        Attribute::new(
+            Some(Arc::new(AnyAttrType::empty_list())),
+            "a list of targets that provide tests for this one",
+            AttrType::list(AttrType::label()),
+        )
+    },
+    is_configurable: AttrIsConfigurable::Yes,
+};
+
 pub(crate) const TARGET_MODIFIERS_ATTRIBUTE: InternalAttribute = InternalAttribute {
+    id: AttributeId(9),
     name: "modifiers",
     attr: || {
         Attribute::new(
@@ -154,18 +172,6 @@ pub(crate) const TARGET_MODIFIERS_ATTRIBUTE: InternalAttribute = InternalAttribu
         )
     },
     is_configurable: AttrIsConfigurable::No,
-};
-
-pub(crate) const TESTS_ATTRIBUTE: InternalAttribute = InternalAttribute {
-    name: "tests",
-    attr: || {
-        Attribute::new(
-            Some(Arc::new(AnyAttrType::empty_list())),
-            "a list of targets that provide tests for this one",
-            AttrType::list(AttrType::label()),
-        )
-    },
-    is_configurable: AttrIsConfigurable::Yes,
 };
 
 const INTERNAL_ATTRS: [InternalAttribute; 10] = [
@@ -185,7 +191,7 @@ pub fn is_internal_attr(name: &str) -> bool {
     internal_attrs().contains_key(name)
 }
 
-pub fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
+pub(super) fn internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
     static ATTRS: Lazy<OrderedMap<&'static str, Attribute>> = Lazy::new(|| {
         OrderedMap::from_iter(INTERNAL_ATTRS.iter().map(|attr| (attr.name, (attr.attr)())))
     });
@@ -199,4 +205,16 @@ pub fn attr_is_configurable(name: &str) -> AttrIsConfigurable {
         }
     }
     AttrIsConfigurable::Yes
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::attrs::spec::internal::INTERNAL_ATTRS;
+
+    #[test]
+    fn verify_attr_ids() {
+        for (i, a) in INTERNAL_ATTRS.iter().enumerate() {
+            assert_eq!(a.id.0 as usize, i);
+        }
+    }
 }

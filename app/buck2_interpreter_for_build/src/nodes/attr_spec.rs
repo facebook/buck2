@@ -174,7 +174,7 @@ impl AttributeSpecExt for AttributeSpec {
         attr_values.shrink_to_fit();
 
         // For now `within_view` is always set, but let's make code more robust.
-        if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
+        if let Some(within_view) = attr_values.get(WITHIN_VIEW_ATTRIBUTE.id) {
             let within_view = match within_view {
                 CoercedAttr::WithinView(within_view) => within_view,
                 _ => return Err(internal_error!("`within_view` coerced incorrectly")),

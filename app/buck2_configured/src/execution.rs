@@ -128,12 +128,12 @@ impl ExecutionPlatformConstraints {
         cfg_ctx: &(dyn AttrConfigurationContext + Sync),
     ) -> buck2_error::Result<Self> {
         let exec_compatible_with: Arc<[_]> = if let Some(a) =
-            node.attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.name, AttrInspectOptions::All)
+            node.known_attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.id, AttrInspectOptions::All)
         {
             let configured_attr = a.configure(cfg_ctx).with_buck_error_context(|| {
                 format!(
                     "Error configuring attribute `{}` to resolve execution platform",
-                    a.name
+                    EXEC_COMPATIBLE_WITH_ATTRIBUTE.name
                 )
             })?;
             ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)

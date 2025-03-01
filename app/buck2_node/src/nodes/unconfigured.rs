@@ -36,6 +36,8 @@ use crate::attrs::spec::internal::DEFAULT_TARGET_PLATFORM_ATTRIBUTE;
 use crate::attrs::spec::internal::METADATA_ATTRIBUTE;
 use crate::attrs::spec::internal::TARGET_MODIFIERS_ATTRIBUTE;
 use crate::attrs::spec::internal::TESTS_ATTRIBUTE;
+use crate::attrs::spec::internal::VISIBILITY_ATTRIBUTE;
+use crate::attrs::spec::AttributeId;
 use crate::attrs::spec::AttributeSpec;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::attrs::values::AttrValues;
@@ -189,8 +191,8 @@ impl TargetNode {
     }
 
     pub fn get_default_target_platform(&self) -> Option<&TargetLabel> {
-        match self.attr_or_none(
-            DEFAULT_TARGET_PLATFORM_ATTRIBUTE.name,
+        match self.known_attr_or_none(
+            DEFAULT_TARGET_PLATFORM_ATTRIBUTE.id,
             AttrInspectOptions::All,
         ) {
             Some(v) => match v.value {
@@ -242,7 +244,7 @@ impl TargetNode {
     }
 
     pub fn visibility(&self) -> buck2_error::Result<&VisibilitySpecification> {
-        match self.0.attributes.get(AttributeSpec::visibility_attr_id()) {
+        match self.0.attributes.get(VISIBILITY_ATTRIBUTE.id) {
             Some(CoercedAttr::Visibility(v)) => Ok(v),
             Some(a) => {
                 // This code is unreachable: visibility attributes are validated
@@ -285,6 +287,15 @@ impl TargetNode {
         opts: AttrInspectOptions,
     ) -> Option<CoercedAttrFull<'a>> {
         self.as_ref().attr_or_none(key, opts)
+    }
+
+    /// Return `None` if attribute is not present or unknown.
+    pub fn known_attr_or_none(
+        &self,
+        id: AttributeId,
+        opts: AttrInspectOptions,
+    ) -> Option<CoercedAttrFull<'_>> {
+        self.as_ref().known_attr_or_none(id, opts)
     }
 
     /// Get attribute.
@@ -438,6 +449,19 @@ impl<'a> TargetNodeRef<'a> {
             .attr_or_none(&self.0.get().attributes, key, opts)
     }
 
+    /// Return `None` if attribute is not present or unknown.
+    pub fn known_attr_or_none(
+        &self,
+        id: AttributeId,
+        opts: AttrInspectOptions,
+    ) -> Option<CoercedAttrFull<'a>> {
+        self.0
+            .get()
+            .rule
+            .attributes
+            .known_attr_or_none(id, &self.0.get().attributes, opts)
+    }
+
     /// Get the iterator of all attributes.
     ///
     /// "attribute" here is a user defined attribute, not including "special" attributes.
@@ -504,7 +528,7 @@ impl<'a> TargetNodeRef<'a> {
     }
 
     pub fn metadata(self) -> buck2_error::Result<Option<&'a MetadataMap>> {
-        self.attr_or_none(METADATA_ATTRIBUTE.name, AttrInspectOptions::All)
+        self.known_attr_or_none(METADATA_ATTRIBUTE.id, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::Metadata(m) => Ok(m),
                 x => Err(internal_error!("`metadata` attribute should be coerced as a dict of strings to JSON values. Found `{:?}` instead", x)),
@@ -513,7 +537,7 @@ impl<'a> TargetNodeRef<'a> {
     }
 
     pub fn target_modifiers(self) -> buck2_error::Result<Option<&'a TargetModifiersValue>> {
-        self.attr_or_none(TARGET_MODIFIERS_ATTRIBUTE.name, AttrInspectOptions::All)
+        self.known_attr_or_none(TARGET_MODIFIERS_ATTRIBUTE.id, AttrInspectOptions::All)
             .map(|attr| match attr.value {
                 CoercedAttr::TargetModifiers(m) => Ok(m),
                 x => Err(internal_error!(
@@ -612,6 +636,7 @@ pub mod testing {
     use crate::attrs::attr::Attribute;
     use crate::attrs::coerced_deps_collector::CoercedDepsCollector;
     use crate::attrs::fmt_context::AttrFmtContext;
+    use crate::attrs::spec::internal::NAME_ATTRIBUTE;
     use crate::nodes::targets_map::TargetsMap;
 
     pub trait TargetNodeExt {
@@ -640,7 +665,7 @@ pub mod testing {
             let mut attributes = AttrValues::with_capacity(attrs.len() + 1);
 
             attributes.push_sorted(
-                AttributeSpec::name_attr_id(),
+                NAME_ATTRIBUTE.id,
                 CoercedAttr::String(StringLiteral(label.name().as_str().into())),
             );
 

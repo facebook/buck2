@@ -8,7 +8,6 @@
  */
 
 use allocative::Allocative;
-use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
@@ -18,9 +17,6 @@ use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
 use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::attrs::spec::internal::internal_attrs;
-use crate::attrs::spec::internal::NAME_ATTRIBUTE;
-use crate::attrs::spec::internal::VISIBILITY_ATTRIBUTE;
-use crate::attrs::spec::internal::WITHIN_VIEW_ATTRIBUTE;
 use crate::attrs::values::AttrValues;
 
 pub mod internal;
@@ -60,48 +56,6 @@ pub(crate) enum AttributeSpecError {
 }
 
 impl AttributeSpec {
-    pub(crate) fn name_attr_id() -> AttributeId {
-        static ID: Lazy<AttributeId> = Lazy::new(|| {
-            let index_in_attribute_spec = u16::try_from(
-                internal_attrs()
-                    .keys()
-                    .position(|name| *name == NAME_ATTRIBUTE.name)
-                    .unwrap(),
-            )
-            .unwrap();
-            AttributeId(index_in_attribute_spec)
-        });
-        *ID
-    }
-
-    pub(crate) fn visibility_attr_id() -> AttributeId {
-        static ID: Lazy<AttributeId> = Lazy::new(|| {
-            let index_in_attribute_spec = u16::try_from(
-                internal_attrs()
-                    .keys()
-                    .position(|name| *name == VISIBILITY_ATTRIBUTE.name)
-                    .unwrap(),
-            )
-            .unwrap();
-            AttributeId(index_in_attribute_spec)
-        });
-        *ID
-    }
-
-    pub fn within_view_attr_id() -> AttributeId {
-        static ID: Lazy<AttributeId> = Lazy::new(|| {
-            let index_in_attribute_spec = u16::try_from(
-                internal_attrs()
-                    .keys()
-                    .position(|name| *name == WITHIN_VIEW_ATTRIBUTE.name)
-                    .unwrap(),
-            )
-            .unwrap();
-            AttributeId(index_in_attribute_spec)
-        });
-        *ID
-    }
-
     fn new(attributes: OrderedMap<Box<str>, Attribute>) -> buck2_error::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
@@ -226,15 +180,20 @@ impl AttributeSpec {
         idx: AttributeId,
         attr_values: &'v AttrValues,
         opts: AttrInspectOptions,
-    ) -> Option<&'v CoercedAttr> {
-        if let Some(attr) = attr_values.get(idx) {
-            return Some(attr);
-        }
+    ) -> Option<CoercedAttrFull<'v>> {
+        let value = if let Some(attr) = attr_values.get(idx) {
+            attr
+        } else if opts.include_default() {
+            self.attribute_by_id(idx).default()?
+        } else {
+            return None;
+        };
 
-        if opts.include_default() {
-            return self.attribute_by_id(idx).default().map(|v| &**v);
-        }
-        None
+        Some(CoercedAttrFull {
+            name: self.attribute_name_by_id(idx),
+            attr: self.attribute_by_id(idx),
+            value,
+        })
     }
 
     pub fn attr_or_none<'v>(
@@ -244,11 +203,7 @@ impl AttributeSpec {
         opts: AttrInspectOptions,
     ) -> Option<CoercedAttrFull<'v>> {
         if let Some(idx) = self.attribute_id_by_name(name) {
-            // Same as function parameter `name` but with lifetime of `self`.
-            let name = self.attribute_name_by_id(idx);
-            let attr = self.attribute_by_id(idx);
-            let value = self.known_attr_or_none(idx, attr_values, opts)?;
-            Some(CoercedAttrFull { name, attr, value })
+            self.known_attr_or_none(idx, attr_values, opts)
         } else {
             None
         }
@@ -261,13 +216,7 @@ impl AttributeSpec {
         opts: AttrInspectOptions,
     ) -> buck2_error::Result<Option<CoercedAttrFull<'v>>> {
         if let Some(idx) = self.attribute_id_by_name(key) {
-            Ok(self
-                .known_attr_or_none(idx, attr_values, opts)
-                .map(|value| {
-                    let name = self.attribute_name_by_id(idx);
-                    let attr = self.attribute_by_id(idx);
-                    CoercedAttrFull { name, attr, value }
-                }))
+            Ok(self.known_attr_or_none(idx, attr_values, opts))
         } else {
             Err(AttributeSpecError::UnknownAttribute(key.to_owned()).into())
         }

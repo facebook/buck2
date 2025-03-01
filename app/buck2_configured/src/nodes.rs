@@ -57,6 +57,7 @@ use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::attrs::spec::internal::LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE;
 use buck2_node::attrs::spec::internal::TARGET_COMPATIBLE_WITH_ATTRIBUTE;
+use buck2_node::attrs::spec::AttributeId;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeys;
 use buck2_node::configuration::resolved::MatchedConfigurationSettingKeysWithCfg;
@@ -152,9 +153,9 @@ enum PluginDepError {
 fn unpack_target_compatible_with_attr(
     target_node: TargetNodeRef,
     resolved_cfg: &MatchedConfigurationSettingKeysWithCfg,
-    attr_name: &str,
+    attr_id: AttributeId,
 ) -> buck2_error::Result<Option<ConfiguredAttr>> {
-    let attr = target_node.attr_or_none(attr_name, AttrInspectOptions::All);
+    let attr = target_node.known_attr_or_none(attr_id, AttrInspectOptions::All);
     let attr = match attr {
         Some(attr) => attr,
         None => return Ok(None),
@@ -205,7 +206,7 @@ fn unpack_target_compatible_with_attr(
 
     let attr = attr
         .configure(&AttrConfigurationContextToResolveCompatibleWith { resolved_cfg })
-        .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr_name))?;
+        .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr.name))?;
 
     match attr.value.unpack_list() {
         Some(values) => {
@@ -231,12 +232,12 @@ fn check_compatible(
     let target_compatible_with = unpack_target_compatible_with_attr(
         target_node,
         resolved_cfg,
-        TARGET_COMPATIBLE_WITH_ATTRIBUTE.name,
+        TARGET_COMPATIBLE_WITH_ATTRIBUTE.id,
     )?;
     let legacy_compatible_with = unpack_target_compatible_with_attr(
         target_node,
         resolved_cfg,
-        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name,
+        LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.id,
     )?;
 
     let compatibility_constraints = match (target_compatible_with, legacy_compatible_with) {
