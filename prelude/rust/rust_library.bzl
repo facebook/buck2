@@ -76,6 +76,7 @@ load(
     "Emit",
     "LinkageLang",
     "MetadataKind",
+    "ProfileMode",  # @unused Used as a type
     "RuleType",
     "build_params",
 )
@@ -269,10 +270,30 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = _DEFAULT_ROOTS,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
+    llvm_time_trace = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("llvm-time-trace"),
+    )
+    self_profile = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("self-profile"),
+    )
     profiles = make_profile_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
         llvm_ir_noopt = llvm_ir_noopt,
+        llvm_time_trace = llvm_time_trace,
+        self_profile = self_profile,
     )
 
     # If doctests=True or False is set on the individual target, respect that.

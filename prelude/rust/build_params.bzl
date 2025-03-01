@@ -76,6 +76,11 @@ Emit = enum(
     "metadata-fast",
 )
 
+ProfileMode = enum(
+    "llvm-time-trace",
+    "self-profile",
+)
+
 # The different quantities of Rust metadata that can be requested from
 # dependencies. Each one corresponds to an `Emit` variant, but not all `Emit`
 # variants output metadata
