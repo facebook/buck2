@@ -8,8 +8,6 @@
  */
 
 use allocative::Allocative;
-use buck2_core::soft_error;
-use buck2_error::buck2_error;
 use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
@@ -126,14 +124,6 @@ impl AttributeSpec {
         for (name, instance) in attributes.into_iter() {
             if is_anon {
                 instance.coercer().validate_for_anon_rule()?;
-            }
-            if name == "metadata" {
-                soft_error!(
-                    "metadata_attribute",
-                    buck2_error!(buck2_error::ErrorTag::Input, "Rules should not declare an attribute named metadata`"),
-                    deprecation: true,
-                    quiet: true
-                )?;
             }
 
             match instances.entry(name.into_boxed_str()) {
