@@ -96,21 +96,18 @@ mod tests {
 
     #[test]
     fn test_targets() {
-        let data: TargetSet<ConfiguredTargetNode> = gen_data(
-            vec![(
-                "srcs",
-                Attribute::new(None, "", AttrType::list(AttrType::source(false))),
-                CoercedAttr::List(ListLiteral(ArcSlice::new([
-                    CoercedAttr::SourceFile(CoercedPath::File(
-                        PackageRelativePath::new("foo/bar").unwrap().to_arc(),
-                    )),
-                    CoercedAttr::SourceFile(CoercedPath::File(
-                        PackageRelativePath::new("foo/bar2").unwrap().to_arc(),
-                    )),
-                ]))),
-            )],
-            vec![],
-        );
+        let data: TargetSet<ConfiguredTargetNode> = gen_data(vec![(
+            "srcs",
+            Attribute::new(None, "", AttrType::list(AttrType::source(false))),
+            CoercedAttr::List(ListLiteral(ArcSlice::new([
+                CoercedAttr::SourceFile(CoercedPath::File(
+                    PackageRelativePath::new("foo/bar").unwrap().to_arc(),
+                )),
+                CoercedAttr::SourceFile(CoercedPath::File(
+                    PackageRelativePath::new("foo/bar2").unwrap().to_arc(),
+                )),
+            ]))),
+        )]);
 
         let fbs = gen_fbs(data).unwrap();
         let fbs = fbs.finished_data();
@@ -145,11 +142,6 @@ mod tests {
             buck2_node::attrs::attr::Attribute,
             buck2_node::attrs::coerced_attr::CoercedAttr,
         )>,
-        internal_attrs: Vec<(
-            &str,
-            buck2_node::attrs::attr::Attribute,
-            buck2_node::attrs::coerced_attr::CoercedAttr,
-        )>,
     ) -> TargetSet<ConfiguredTargetNode> {
         // Setup data
         let target_label = TargetLabel::testing_parse("cell//pkg:foo");
@@ -170,7 +162,6 @@ mod tests {
             "foo_lib",
             execution_platform_resolution.dupe(),
             attrs,
-            internal_attrs,
             Some(StarlarkCallStack::new(StarlarkCallStackWrapper(
                 CallStack {
                     frames: vec![Frame {
@@ -190,7 +181,6 @@ mod tests {
             configured_target_label2,
             "foo_lib",
             execution_platform_resolution,
-            vec![],
             vec![],
             None,
         );

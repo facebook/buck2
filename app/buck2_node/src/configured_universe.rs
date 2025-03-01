@@ -336,7 +336,6 @@ mod tests {
                 "idris_library",
                 ExecutionPlatformResolution::new(None, Vec::new()),
                 vec![],
-                vec![],
                 None,
             )]))
             .unwrap();

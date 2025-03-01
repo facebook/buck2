@@ -170,7 +170,6 @@ fn mock_analysis_for_action_resolution(
                 "foo_lib",
                 ExecutionPlatformResolution::new(None, Vec::new()),
                 vec![],
-                vec![],
                 None,
             ),
         )),
