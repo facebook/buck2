@@ -160,6 +160,8 @@ enum RuleError {
     RuleNonInBzl,
     #[error("Cannot specify `cfg` and `supports_incoming_transition` at the same time")]
     CfgAndSupportsIncomingTransition,
+    #[error("{0} rules do not support incoming transitions")]
+    RuleDoesNotSupportIncomingTransition(&'static str),
 }
 
 impl<'v> AllocValue<'v> for RuleCallable<'v> {
@@ -181,10 +183,6 @@ impl<'v> RuleCallable<'v> {
         artifact_promise_mappings: Option<ArtifactPromiseMappings<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<RuleCallable<'v>> {
-        // TODO(nmj): Add default attributes in here like 'name', 'visibility', etc
-        // TODO(nmj): Verify that names are valid. This is technically handled by the Params
-        //                 objects, but will blow up in a friendlier way here.
-
         let build_context = BuildContext::from_context(eval)?;
 
         let rule_path: BzlOrBxlPath = match (&build_context.additional, &implementation) {
@@ -229,6 +227,20 @@ impl<'v> RuleCallable<'v> {
             (false, true) => RuleKind::Toolchain,
             (true, true) => return Err(RuleError::IsConfigurationAndToolchain.into()),
         };
+
+        if cfg != RuleIncomingTransition::None {
+            let unsupported_rule_kind_str = match rule_kind {
+                RuleKind::Normal => None,
+                RuleKind::Configuration => Some("Configuration"),
+                RuleKind::Toolchain => Some("Toolchain"),
+            };
+            if let Some(unsupported_rule_kind_str) = unsupported_rule_kind_str {
+                return Err(RuleError::RuleDoesNotSupportIncomingTransition(
+                    unsupported_rule_kind_str,
+                )
+                .into());
+            }
+        }
 
         let attributes = AttributeSpec::from(
             sorted_validated_attrs,
