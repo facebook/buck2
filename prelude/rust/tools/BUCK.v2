@@ -66,8 +66,8 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
-    name = "llvm_lines_output_redirect",
-    main = "llvm_lines_output_redirect.py",
+    name = "redirect_stdout",
+    main = "redirect_stdout.py",
     visibility = ["PUBLIC"],
 )
 

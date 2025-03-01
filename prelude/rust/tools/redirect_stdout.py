@@ -13,10 +13,12 @@ import sys
 
 
 def main():
-    llvm_lines = sys.argv[1]
+    if len(sys.argv) < 3:
+        raise ValueError("expected at least 2 arguments")
+    tool = sys.argv[1]
     out = sys.argv[2]
     with open(out, "w") as f:
-        res = subprocess.run([llvm_lines] + sys.argv[3:], stdout=f)
+        res = subprocess.run([tool] + sys.argv[3:], stdout=f)
     sys.exit(res.returncode)
 
 

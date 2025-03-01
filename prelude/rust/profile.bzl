@@ -16,7 +16,7 @@ def analyze_llvm_lines(
     llvm_lines = ctx.actions.declare_output("llvm_lines.txt")
     ctx.actions.run(
         cmd_args(
-            compile_ctx.internal_tools_info.llvm_lines_output_redirect,
+            compile_ctx.internal_tools_info.redirect_stdout,
             compile_ctx.toolchain_info.llvm_lines_tool,
             llvm_lines.as_output(),
             "llvm-lines",
