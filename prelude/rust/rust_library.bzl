@@ -111,7 +111,7 @@ load(
     "output_as_diag_subtargets",
 )
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
-load(":profile.bzl", "analyze_llvm_lines")
+load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":targets.bzl", "targets")
@@ -269,7 +269,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = _DEFAULT_ROOTS,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
-    llvm_lines = analyze_llvm_lines(
+    profiles = make_profile_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
         llvm_ir_noopt = llvm_ir_noopt,
@@ -340,7 +340,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
-        llvm_lines = llvm_lines,
+        profiles = profiles,
     )
     providers += _rust_metadata_providers(
         diag_artifacts = diag_artifacts,
@@ -559,7 +559,7 @@ def _default_providers(
         sources: Artifact,
         rustdoc_coverage: Artifact,
         named_deps_names: Artifact | None,
-        llvm_lines: Artifact | None) -> list[Provider]:
+        profiles: list[Provider]) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -568,12 +568,11 @@ def _default_providers(
     targets["doc-coverage"] = rustdoc_coverage
     if named_deps_names:
         targets["named_deps"] = named_deps_names
-    if llvm_lines != None:
-        targets["llvm_lines"] = llvm_lines
     sub_targets = {
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()
     }
+    sub_targets["profile"] = profiles
 
     # Add provider for default output, and for each lib output style...
     # FIXME(JakobDegen): C++ rules only provide some of the output styles,

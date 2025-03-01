@@ -78,7 +78,7 @@ load(
 )
 load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
-load(":profile.bzl", "analyze_llvm_lines")
+load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
 
 def _strategy_params(
@@ -344,13 +344,12 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
-    llvm_lines = analyze_llvm_lines(
+    profiles = make_profile_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
         llvm_ir_noopt = llvm_ir_noopt,
     )
-    if llvm_lines != None:
-        extra_compiled_targets["llvm_lines"] = llvm_lines
+    sub_targets["profile"] = profiles
 
     extra_compiled_targets["llvm_ir"] = rust_compile(
         ctx = ctx,

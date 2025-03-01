@@ -7,10 +7,10 @@
 
 load(":context.bzl", "CompileContext")  # @unused: Used as type
 
-def analyze_llvm_lines(
+def _analyze_llvm_lines(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        llvm_ir_noopt: Artifact) -> Artifact | None:
+        llvm_ir_noopt: Artifact) -> list[Provider] | None:
     if compile_ctx.toolchain_info.llvm_lines_tool == None:
         return None
     llvm_lines = ctx.actions.declare_output("llvm_lines.txt")
@@ -25,4 +25,16 @@ def analyze_llvm_lines(
         ),
         category = "analyze_llvm_lines",
     )
-    return llvm_lines
+    return [DefaultInfo(default_output = llvm_lines)]
+
+def make_profile_providers(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        llvm_ir_noopt: Artifact) -> list[Provider]:
+    sub_targets = {}
+
+    llvm_lines = _analyze_llvm_lines(ctx, compile_ctx, llvm_ir_noopt)
+    if llvm_lines != None:
+        sub_targets["llvm_lines"] = llvm_lines
+
+    return [DefaultInfo(sub_targets = sub_targets)]
