@@ -62,6 +62,7 @@ com/facebook/buck/testrunner/TestNGRunner.class
 com/facebook/buck/testrunner/TestResult.class
 com/facebook/buck/testrunner/TestXmlEscaper.class
 com/facebook/buck/testrunner/TpxStandardOutputTestListener.class
+com/facebook/buck/testrunner/InstrumentationTpxStandardOutputTestListener.class
 com/facebook/buck/testrunner/reportlayer/ReportLayer.class
 com/facebook/buck/testrunner/reportlayer/VideoRecordingReportLayer.class
 com/facebook/buck/testrunner/reportlayer/TombstonesReportLayer.class
