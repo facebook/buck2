@@ -16,13 +16,24 @@ use super::anon_target_attr_validation::AnonRuleAttrValidation;
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
-use crate::attrs::id::AttributeId;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::internal::internal_attrs;
-use crate::attrs::internal::NAME_ATTRIBUTE;
-use crate::attrs::internal::VISIBILITY_ATTRIBUTE;
-use crate::attrs::internal::WITHIN_VIEW_ATTRIBUTE;
+use crate::attrs::spec::internal::internal_attrs;
+use crate::attrs::spec::internal::NAME_ATTRIBUTE;
+use crate::attrs::spec::internal::VISIBILITY_ATTRIBUTE;
+use crate::attrs::spec::internal::WITHIN_VIEW_ATTRIBUTE;
 use crate::attrs::values::AttrValues;
+
+pub mod internal;
+
+/// Identifies an attribute within a rule.
+#[derive(
+    Debug, Clone, dupe::Dupe, Copy, Eq, Hash, PartialEq, Ord, PartialOrd, Allocative
+)]
+pub struct AttributeId(u16); // Index in the attribute spec
+
+impl AttributeId {
+    const MAX_INDEX: u16 = u16::MAX;
+}
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
 /// is split into a mapping of "attribute name" -> "attribute id". The Attributes are stored in a vec
@@ -58,9 +69,7 @@ impl AttributeSpec {
                     .unwrap(),
             )
             .unwrap();
-            AttributeId {
-                index_in_attribute_spec,
-            }
+            AttributeId(index_in_attribute_spec)
         });
         *ID
     }
@@ -74,9 +83,7 @@ impl AttributeSpec {
                     .unwrap(),
             )
             .unwrap();
-            AttributeId {
-                index_in_attribute_spec,
-            }
+            AttributeId(index_in_attribute_spec)
         });
         *ID
     }
@@ -90,9 +97,7 @@ impl AttributeSpec {
                     .unwrap(),
             )
             .unwrap();
-            AttributeId {
-                index_in_attribute_spec,
-            }
+            AttributeId(index_in_attribute_spec)
         });
         *ID
     }
@@ -154,34 +159,24 @@ impl AttributeSpec {
             .map(|(index_in_attribute_spec, (name, attribute))| {
                 (
                     &**name,
-                    AttributeId {
-                        index_in_attribute_spec: index_in_attribute_spec as u16,
-                    },
+                    AttributeId(index_in_attribute_spec as u16),
                     attribute,
                 )
             })
     }
 
     fn attribute_by_id(&self, id: AttributeId) -> &Attribute {
-        self.attributes
-            .get_index(id.index_in_attribute_spec as usize)
-            .unwrap()
-            .1
+        self.attributes.get_index(id.0 as usize).unwrap().1
     }
 
     fn attribute_name_by_id(&self, id: AttributeId) -> &str {
-        self.attributes
-            .get_index(id.index_in_attribute_spec as usize)
-            .unwrap()
-            .0
+        self.attributes.get_index(id.0 as usize).unwrap().0
     }
 
     pub(crate) fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
         self.attributes
             .get_index_of(name)
-            .map(|index_in_attribute_spec| AttributeId {
-                index_in_attribute_spec: index_in_attribute_spec as u16,
-            })
+            .map(|index_in_attribute_spec| AttributeId(index_in_attribute_spec as u16))
     }
 
     pub fn attribute(&self, name: &str) -> Option<&Attribute> {

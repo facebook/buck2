@@ -16,7 +16,7 @@ use starlark_map::vec2::Vec2;
 
 use super::attr_type::any_matches::AnyMatches;
 use crate::attrs::coerced_attr::CoercedAttr;
-use crate::attrs::id::AttributeId;
+use crate::attrs::spec::AttributeId;
 
 #[derive(Debug, Eq, PartialEq, Hash, Default, Allocative)]
 pub struct AttrValues {
