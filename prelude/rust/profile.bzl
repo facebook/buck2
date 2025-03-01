@@ -8,6 +8,13 @@
 load(":context.bzl", "CompileContext")  # @unused: Used as type
 load(":outputs.bzl", "RustcOutput")
 
+def _make_trace_providers(compile_ctx: CompileContext, a: Artifact) -> list[Provider]:
+    p = [DefaultInfo(default_output = a)]
+    make_trace_upload = compile_ctx.toolchain_info.make_trace_upload
+    if make_trace_upload != None:
+        p.append(make_trace_upload(a))
+    return p
+
 def _analyze_llvm_lines(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
@@ -28,12 +35,10 @@ def _analyze_llvm_lines(
     )
     return [DefaultInfo(default_output = llvm_lines)]
 
-def _llvm_time_trace(llvm_time_trace: RustcOutput) -> list[Provider]:
-    return [
-        DefaultInfo(
-            default_output = llvm_time_trace.profile_output,
-        ),
-    ]
+def _llvm_time_trace(
+        compile_ctx: CompileContext,
+        llvm_time_trace: RustcOutput) -> list[Provider]:
+    return _make_trace_providers(compile_ctx, llvm_time_trace.profile_output)
 
 def _self_profile(
         ctx: AnalysisContext,
@@ -68,7 +73,7 @@ def _self_profile(
             ),
             category = "run_crox",
         )
-        sub_targets["trace"] = [DefaultInfo(default_output = proftrace)]
+        sub_targets["trace"] = _make_trace_providers(compile_ctx, proftrace)
     return [DefaultInfo(sub_targets = sub_targets)]
 
 def make_profile_providers(
@@ -83,7 +88,7 @@ def make_profile_providers(
     if llvm_lines != None:
         sub_targets["llvm_lines"] = llvm_lines
 
-    sub_targets["llvm_passes"] = _llvm_time_trace(llvm_time_trace)
+    sub_targets["llvm_passes"] = _llvm_time_trace(compile_ctx, llvm_time_trace)
     sub_targets["rustc_stages"] = _self_profile(ctx, compile_ctx, self_profile)
 
     return [DefaultInfo(sub_targets = sub_targets)]
