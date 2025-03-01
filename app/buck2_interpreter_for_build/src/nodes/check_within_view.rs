@@ -89,7 +89,7 @@ pub(crate) fn check_within_view(
                 // Skip some configuration deps
                 ConfigurationDepKind::CompatibilityAttribute => (),
                 ConfigurationDepKind::SelectKey => (),
-                ConfigurationDepKind::ConfiguredDepPlatform => {
+                ConfigurationDepKind::ConfiguredDepPlatform | ConfigurationDepKind::Transition => {
                     self.check_dep_within_view(dep.target())?
                 }
             }

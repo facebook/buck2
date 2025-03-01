@@ -353,6 +353,7 @@ pub(crate) async fn get_matched_cfg_keys_for_node(
                 ConfigurationDepKind::CompatibilityAttribute => true,
                 ConfigurationDepKind::SelectKey => true,
                 ConfigurationDepKind::ConfiguredDepPlatform => false,
+                ConfigurationDepKind::Transition => false,
             }
             .then_some(d)
         })

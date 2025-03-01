@@ -15,6 +15,7 @@ rust_library(
         "fbsource//third-party/rust:ref-cast",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_build_api_derive:buck2_build_api_derive",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_events:buck2_events",

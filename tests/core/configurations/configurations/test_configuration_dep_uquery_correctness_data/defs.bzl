@@ -32,3 +32,16 @@ incoming_transition_alias = rule(
     attrs = {},
     cfg = _t,
 )
+
+stub_configuration = rule(
+    impl = _impl,
+    attrs = {},
+    is_configuration_rule = True,
+)
+
+outgoing_transition_alias_vnew = rule(
+    impl = _impl,
+    attrs = {
+        "actual": attrs.transition_dep(cfg = "root//:transition"),
+    },
+)

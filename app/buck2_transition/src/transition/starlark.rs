@@ -110,7 +110,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
         let mut id = self.id.borrow_mut();
         // First export wins
         if id.is_none() {
-            *id = Some(Arc::new(TransitionId {
+            *id = Some(Arc::new(TransitionId::MagicObject {
                 path: self.path.clone(),
                 name: variable_name.to_owned(),
             }));
@@ -178,12 +178,12 @@ impl TransitionValue for FrozenTransition {
     }
 }
 
-struct ParamNameAndType {
-    name: &'static str,
-    ty: LazyLock<Ty>,
+pub(crate) struct ParamNameAndType {
+    pub(crate) name: &'static str,
+    pub(crate) ty: LazyLock<Ty>,
 }
 
-static IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
+pub(crate) static IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
     name: "platform",
     ty: LazyLock::new(PlatformInfo::starlark_type_repr),
 };
@@ -191,12 +191,12 @@ static IMPL_REFS_PARAM: ParamNameAndType = ParamNameAndType {
     name: "refs",
     ty: LazyLock::new(StructRef::starlark_type_repr),
 };
-static IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
+pub(crate) static IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
     name: "attrs",
     ty: LazyLock::new(StructRef::starlark_type_repr),
 };
 
-type ImplSingleReturnTy<'v> = PlatformInfo<'v>;
+pub(crate) type ImplSingleReturnTy<'v> = PlatformInfo<'v>;
 type ImplSplitReturnTy<'v> = DictType<String, PlatformInfo<'v>>;
 
 struct TransitionImplParams;

@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKindSet;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_error::BuckErrorContext;
@@ -212,16 +213,22 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
-        let transition_id = transition_id_from_value(cfg)?;
-        let coercer = AttrType::transition_dep(required_providers, transition_id);
+        let label_coercion_ctx = attr_coercion_context_for_bzl(eval)?;
 
+        // FIXME(JakobDegen): Use a proper unpack for this. Easier to do after deleting old API
+        let transition_id = if let Some(s) = StringValue::new(cfg) {
+            let transition_target = label_coercion_ctx.coerce_providers_label(&s)?;
+            Arc::new(TransitionId::Target(transition_target))
+        } else {
+            transition_id_from_value(cfg)?
+        };
+
+        let coercer = AttrType::transition_dep(required_providers, transition_id);
         let coerced_default = match default {
             None => None,
-            Some(default) => Some(coercer.coerce(
-                AttrIsConfigurable::Yes,
-                &attr_coercion_context_for_bzl(eval)?,
-                default,
-            )?),
+            Some(default) => {
+                Some(coercer.coerce(AttrIsConfigurable::Yes, &label_coercion_ctx, default)?)
+            }
         };
 
         Ok(StarlarkAttribute::new(Attribute::new(

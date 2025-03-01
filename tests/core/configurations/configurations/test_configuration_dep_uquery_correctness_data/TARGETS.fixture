@@ -1,4 +1,10 @@
-load(":defs.bzl", "incoming_transition_alias", "outgoing_transition_alias")
+load(
+    ":defs.bzl",
+    "incoming_transition_alias",
+    "outgoing_transition_alias",
+    "outgoing_transition_alias_vnew",
+    "stub_configuration",
+)
 
 constraint_setting(
     name = "animal",
@@ -50,6 +56,17 @@ incoming_transition_alias(
 stub(
     name = "pre_inc_transition",
     deps = [":post_inc_transition"],
+)
+
+# Transition dep refs in vnew
+
+stub_configuration(
+    name = "transition",
+)
+
+outgoing_transition_alias_vnew(
+    name = "pre_out_transition_nvew",
+    actual = ":post_out_transition",
 )
 
 # Select keys
