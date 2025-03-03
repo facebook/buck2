@@ -66,6 +66,10 @@ async def test_external_buckconfigs(buck: Buck) -> None:
     external_index = 0
     # The order is important here. We first have the buckconfig values from external sources
     external_path_configs = external_configs[0]["data"]["GlobalExternalConfigFile"]
+    assert (
+        external_path_configs["origin_path"]
+        == buck._env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"]
+    )
     assert len(external_path_configs["values"]) == 2
 
     # Our tests inject file_watcher to external configs in test setup stage
@@ -84,8 +88,6 @@ async def test_external_buckconfigs(buck: Buck) -> None:
         and external_path_config_value["value"] == "external_path_configs_value"
         and not external_path_config_value["is_cli"]
     )
-    # since the origin is a tempfile, we can't assert the exact path
-    assert external_path_configs["origin_path"].endswith("extra.bcfg")
 
     # Next comes the buckconfig.local values
     local_path_configs = external_configs[1]["data"]["GlobalExternalConfigFile"]
