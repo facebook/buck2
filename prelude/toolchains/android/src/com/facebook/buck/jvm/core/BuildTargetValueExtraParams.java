@@ -35,16 +35,16 @@ public abstract class BuildTargetValueExtraParams {
 
   public abstract String getShortName();
 
-  public abstract RelPath getConfiguredBuckOut();
+  public abstract RelPath getScratchPath();
 
   /** Creates {@link BuildTargetValueExtraParams} */
-  public static BuildTargetValueExtraParams of(
+  private static BuildTargetValueExtraParams of(
       RelPath cellRelativeBasePath,
       boolean flavored,
       RelPath basePathForBaseName,
       String shortNameAndFlavorPostfix,
       String shortName,
-      RelPath configuredBuckOut) {
+      RelPath scratchDir) {
     checkArgument(
         shortNameAndFlavorPostfix.startsWith(shortName),
         "shortNameAndFlavorPostfix:%s should start with shortName:%s",
@@ -56,10 +56,11 @@ public abstract class BuildTargetValueExtraParams {
         basePathForBaseName,
         shortNameAndFlavorPostfix,
         shortName,
-        configuredBuckOut);
+        scratchDir);
   }
 
-  public static BuildTargetValueExtraParams of(BuildTargetValue buildTargetValue, RelPath buckOut) {
+  public static BuildTargetValueExtraParams of(
+      BuildTargetValue buildTargetValue, RelPath scratchDir) {
     // in buck1: cell//base_path:target#flavor vs. in buck2: cell//base_path:target[flavor]
     String buck1Style = "(#(.*))";
     String buck2Style = "(\\[([^\\]]*)\\])";
@@ -88,7 +89,7 @@ public abstract class BuildTargetValueExtraParams {
         RelPath.get(buildTargetConfigHash).resolve(RelPathSerializer.deserialize(basePath)),
         shortNameAndFlavorPostfix,
         targetName,
-        buckOut);
+        scratchDir);
   }
 
   public String getModuleName() {
@@ -107,8 +108,7 @@ public abstract class BuildTargetValueExtraParams {
   /** Returns annotation path for the given {@code target} and {@code format} */
   public RelPath getAnnotationPath(String format) {
     checkArgument(!format.startsWith("/"), "format string should not start with a slash");
-    RelPath configuredBuckOut = getConfiguredBuckOut();
-    return getRelativePath(format, configuredBuckOut.resolveRel("annotation"));
+    return getRelativePath(format, getScratchPath().resolveRel("annotation"));
   }
 
   /** Returns `gen` directory path for the given {@code target} */
@@ -120,15 +120,13 @@ public abstract class BuildTargetValueExtraParams {
   /** Returns `gen` directory path for the given {@code target} and {@code format} */
   public RelPath getGenPath(String format) {
     checkArgument(!format.startsWith("/"), "format string should not start with a slash");
-    RelPath configuredBuckOut = getConfiguredBuckOut();
-    return getRelativePath(format, configuredBuckOut.resolveRel("gen"));
+    return getRelativePath(format, getScratchPath().resolveRel("gen"));
   }
 
   /** Returns `gen` directory path for the given {@code target} and {@code format} */
   public RelPath getScratchPath(String format) {
     checkArgument(!format.startsWith("/"), "format string should not start with a slash");
-    RelPath configuredBuckOut = getConfiguredBuckOut();
-    return getRelativePath(format, configuredBuckOut.resolveRel("bin"));
+    return getRelativePath(format, getScratchPath().resolveRel("bin"));
   }
 
   public RelPath getRelativePath(String format, RelPath directory) {

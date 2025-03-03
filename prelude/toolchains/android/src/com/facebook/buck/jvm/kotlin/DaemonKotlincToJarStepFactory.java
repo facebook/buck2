@@ -95,11 +95,11 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
 
     Kotlinc kotlinc = InMemoryKotlincFactory.create(extraParams);
 
+    CompilerOutputPaths compilerOutputPaths = parameters.getOutputPaths();
     BuildTargetValueExtraParams buildTargetValueExtraParams =
-        BuildTargetValueExtraParams.of(invokingRule, buckOut);
+        BuildTargetValueExtraParams.of(invokingRule, compilerOutputPaths.getWorkingDirectory());
 
     ImmutableSortedSet<RelPath> sourceFilePaths = parameters.getSourceFilePaths();
-    CompilerOutputPaths compilerOutputPaths = parameters.getOutputPaths();
     RelPath outputDirectory = compilerOutputPaths.getClassesDir();
     RelPath kotlinOutputDirectory = kotlinClassesDir != null ? kotlinClassesDir : outputDirectory;
     steps.add(MkdirIsolatedStep.of(kotlinOutputDirectory));
