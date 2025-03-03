@@ -58,7 +58,7 @@ impl TryFrom<buck2_test_proto::TestStage> for TestStage {
         use buck2_test_proto::Testing;
 
         let res = match s.item.context("Missing `item`")? {
-            Item::Listing(Listing { suite }) => Self::Listing(suite),
+            Item::Listing(Listing { suite }) => Self::Listing { suite },
             Item::Testing(Testing { suite, testcases }) => Self::Testing { suite, testcases },
         };
 
@@ -74,7 +74,7 @@ impl TryInto<buck2_test_proto::TestStage> for TestStage {
         use buck2_test_proto::Testing;
 
         let item = match self {
-            Self::Listing(suite) => Item::Listing(Listing { suite }),
+            Self::Listing { suite } => Item::Listing(Listing { suite }),
             Self::Testing { suite, testcases } => Item::Testing(Testing { suite, testcases }),
         };
 
@@ -1086,7 +1086,9 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            stage: TestStage::Listing("name".to_owned()),
+            stage: TestStage::Listing {
+                suite: "name".to_owned(),
+            },
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {
@@ -1189,7 +1191,9 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            stage: TestStage::Listing("name".to_owned()),
+            stage: TestStage::Listing {
+                suite: "name".to_owned(),
+            },
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {

@@ -38,7 +38,7 @@ pub(crate) enum TestStageSimple {
 impl From<&TestStage> for TestStageSimple {
     fn from(value: &TestStage) -> Self {
         match value {
-            TestStage::Listing(_) => TestStageSimple::Listing,
+            TestStage::Listing { .. } => TestStageSimple::Listing,
             TestStage::Testing { .. } => TestStageSimple::Testing,
         }
     }

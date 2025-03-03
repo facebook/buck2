@@ -52,8 +52,10 @@ pub struct ConfiguredTarget {
 /// Metadata about the execution to display
 #[derive(Debug, Clone, PartialEq, Allocative, Hash, Eq)]
 pub enum TestStage {
-    // Listing the test binary to discover tests. The String is the name of the suite at the binary
-    Listing(String),
+    // Listing the test binary to discover tests.
+    Listing {
+        suite: String,
+    },
     // the name of the test(s) that we are running for the suite of a target
     Testing {
         suite: String,
@@ -64,7 +66,7 @@ pub enum TestStage {
 impl fmt::Display for TestStage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
-            TestStage::Listing(name) => write!(f, "Listing({})", name),
+            TestStage::Listing { suite } => write!(f, "Listing({})", suite),
             TestStage::Testing { suite, testcases } => {
                 write!(f, "Testing({}:[{}])", suite, testcases.join(", "))
             }

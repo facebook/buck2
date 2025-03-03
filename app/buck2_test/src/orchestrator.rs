@@ -496,7 +496,7 @@ enum TestExecutionPrefix {
 impl TestExecutionPrefix {
     fn new(stage: &TestStage, session: &TestSession) -> Self {
         match stage {
-            TestStage::Listing(_) => TestExecutionPrefix::Listing,
+            TestStage::Listing { .. } => TestExecutionPrefix::Listing,
             TestStage::Testing { .. } => TestExecutionPrefix::Testing(session.prefix().dupe()),
         }
     }
@@ -559,7 +559,7 @@ async fn prepare_and_execute(
     liveliness_observer: Arc<dyn LivelinessObserver>,
 ) -> Result<ExecuteData, ExecuteError> {
     let execute_on_dice = match key.stage.as_ref() {
-        TestStage::Listing(_) => check_cache_listings_experiment(ctx, &key.test_target).await?,
+        TestStage::Listing { .. } => check_cache_listings_experiment(ctx, &key.test_target).await?,
         TestStage::Testing { .. } => false,
     };
     if execute_on_dice {
@@ -929,7 +929,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         let digest_config = dice.global_data().get_digest_config();
 
         let mut action_key_suffix = match &stage {
-            TestStage::Listing(_) => "listing".to_owned(),
+            TestStage::Listing { .. } => "listing".to_owned(),
             TestStage::Testing { testcases, .. } => testcases.join(" "),
         };
         if action_key_suffix.len() > MAX_SUFFIX_LEN {
@@ -959,9 +959,9 @@ impl<'b> BuckTestOrchestrator<'b> {
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
         let command_exec_result = match stage {
-            TestStage::Listing(listing) => {
+            TestStage::Listing { suite } => {
                 let start = TestDiscoveryStart {
-                    suite_name: listing.clone(),
+                    suite_name: suite.clone(),
                 };
                 let (result, cached) = events
                     .span_async(start, async move {
@@ -978,7 +978,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                             ControlFlow::Break(result) => (result, true),
                         };
                         let end = TestDiscoveryEnd {
-                            suite_name: listing.clone(),
+                            suite_name: suite.clone(),
                             command_report: Some(
                                 result
                                     .report
@@ -1136,7 +1136,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                 .buck_error_context_anyhow("Error accessing executor config")?,
         };
 
-        if let TestStage::Listing(_) = &stage {
+        if let TestStage::Listing { .. } = &stage {
             return Ok(Cow::Borrowed(executor_config));
         }
 
@@ -1169,7 +1169,7 @@ impl<'b> BuckTestOrchestrator<'b> {
 
         // Caching is enabled only for listings
         let (cache_uploader, cache_checker) = match stage {
-            TestStage::Listing(_) => (cache_uploader, cache_checker),
+            TestStage::Listing { .. } => (cache_uploader, cache_checker),
             TestStage::Testing { .. } => (
                 Arc::new(NoOpCacheUploader {}) as _,
                 Arc::new(NoOpCommandOptionalExecutor {}) as _,
