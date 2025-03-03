@@ -100,7 +100,7 @@ public class APKModuleGraph<BuildTargetType extends Comparable<BuildTargetType>>
             return mapBuilder.build();
           });
 
-  private APKModule rootAPKModule = new APKModule(APKModule.ROOT_APKMODULE_NAME);
+  private APKModule rootAPKModule = APKModule.of(APKModule.ROOT_APKMODULE_NAME);
 
   private final DirectedAcyclicGraph<APKModule> graph;
 
@@ -605,7 +605,7 @@ public class APKModuleGraph<BuildTargetType extends Comparable<BuildTargetType>>
         }
         hashedSharedModuleSet.add(moduleName);
       }
-      APKModule module = new APKModule(moduleName);
+      APKModule module = APKModule.of(moduleName);
       combinedModuleHashToModuleMap.put(ImmutableSet.copyOf(moduleCover), module);
     }
 
