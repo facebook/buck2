@@ -18,7 +18,7 @@ load(
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
-load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_swift_interface_anon_targets(
         ctx: AnalysisContext,
@@ -47,7 +47,7 @@ def compile_swiftinterface_common(
         category,
         additional_compiled_pcm):
     apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    swift_toolchain = apple_toolchain.swift_toolchain_info
+    swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
     cmd = cmd_args(swift_toolchain.compiler)
     cmd.add(partial_cmd)
     cmd.add(get_sdk_flags(ctx))
@@ -103,7 +103,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         uncompiled_module_info_name = uncompiled_sdk_module_info.module_name
         apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-        swift_toolchain = apple_toolchain.swift_toolchain_info
+        swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
 
         expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(
             cmd_args(swift_toolchain.sdk_path),

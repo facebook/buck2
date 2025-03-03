@@ -26,6 +26,7 @@ load(
     "SwiftPCMUncompiledInfo",
 )
 load("@prelude//apple/swift:swift_swiftinterface_compilation.bzl", "compile_swiftinterface_common")
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//apple/swift:swift_types.bzl", "FrameworkImplicitSearchPathInfo", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
@@ -184,7 +185,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
     # Therefore, we always return providers for both Implicit and Explicit modules, if SDK modules are available.
     # This approach is safe and won't trigger compilation of swiftinterfaces or pcm modules,
     # as no upper-level targets will depend on the artifacts from these compilations.
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
     if is_sdk_modules_provided(swift_toolchain):
         return get_swift_framework_anonymous_targets(ctx, get_prebuilt_apple_framework_providers)
     else:

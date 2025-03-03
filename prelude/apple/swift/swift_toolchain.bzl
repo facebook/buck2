@@ -5,12 +5,11 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftObjectFormat", "SwiftToolchainInfo")
 
 def get_swift_toolchain_info(ctx: AnalysisContext) -> SwiftToolchainInfo:
     if hasattr(ctx.attrs, "_apple_toolchain"):
-        return ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+        return ctx.attrs._apple_toolchain[SwiftToolchainInfo]
     else:
         return ctx.attrs._swift_macro_toolchain[SwiftToolchainInfo]
 
