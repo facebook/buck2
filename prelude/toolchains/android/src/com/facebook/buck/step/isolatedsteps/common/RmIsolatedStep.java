@@ -26,7 +26,7 @@ import java.util.StringJoiner;
 
 /** Removes a path if it exists. */
 @BuckStyleValue
-public abstract class RmIsolatedStep extends IsolatedStep {
+public abstract class RmIsolatedStep implements IsolatedStep {
 
   abstract RelPath getPath();
 

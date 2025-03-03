@@ -23,7 +23,7 @@ import java.io.IOException;
 
 /** Creates a symlink from a desired path to an existing path. */
 @BuckStyleValue
-public abstract class SymlinkIsolatedStep extends IsolatedStep {
+public abstract class SymlinkIsolatedStep implements IsolatedStep {
 
   abstract RelPath getExistingPath();
 

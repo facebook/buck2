@@ -25,7 +25,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Command used to compile java libraries with a variety of ways to handle dependencies. */
-public class JavacStep extends IsolatedStep {
+public class JavacStep implements IsolatedStep {
 
   private final JavacPipelineState state;
   private final BuildTargetValue invokingRule;

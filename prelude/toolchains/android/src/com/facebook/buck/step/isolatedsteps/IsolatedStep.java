@@ -17,15 +17,15 @@ import java.io.IOException;
  * Isolated step - build rule's step that is isolated from the buck core data structures as an
  * action graph.
  */
-public abstract class IsolatedStep {
+public interface IsolatedStep {
 
   /**
    * @return a short name/description for the command, such as "javac". Should fit on one line.
    */
-  public abstract String getShortName();
+  String getShortName();
 
-  public abstract StepExecutionResult executeIsolatedStep(IsolatedExecutionContext context)
+  StepExecutionResult executeIsolatedStep(IsolatedExecutionContext context)
       throws IOException, InterruptedException;
 
-  public abstract String getIsolatedStepDescription(IsolatedExecutionContext context);
+  String getIsolatedStepDescription(IsolatedExecutionContext context);
 }

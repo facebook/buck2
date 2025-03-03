@@ -42,7 +42,7 @@ import java.util.TreeMap;
  * an archive containing the file within a directory.
  */
 @BuckStyleValue
-public abstract class ZipIsolatedStep extends IsolatedStep {
+public abstract class ZipIsolatedStep implements IsolatedStep {
 
   abstract AbsPath getRootPath();
 

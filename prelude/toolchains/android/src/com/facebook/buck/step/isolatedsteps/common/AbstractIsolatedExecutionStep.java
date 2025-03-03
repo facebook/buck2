@@ -20,7 +20,7 @@ import java.io.IOException;
  * #executeIsolatedStep(IsolatedExecutionContext)}. This facilitates the creation of an anonymous
  * implementation of {@link IsolatedStep}.
  */
-public abstract class AbstractIsolatedExecutionStep extends IsolatedStep {
+public abstract class AbstractIsolatedExecutionStep implements IsolatedStep {
 
   private final String description;
 
