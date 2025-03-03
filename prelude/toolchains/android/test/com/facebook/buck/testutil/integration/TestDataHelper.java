@@ -29,7 +29,7 @@ public class TestDataHelper {
   private static final Splitter JAVA_PACKAGE_SPLITTER = Splitter.on('.');
 
   private static final String TEST_DIRECTORY =
-      new File("xplat/toolchains/android/sdk/test").getAbsolutePath();
+      new File("toolchains/android/test").getAbsolutePath();
 
   private static final String TESTDATA_DIRECTORY_NAME = "testdata";
 
@@ -54,7 +54,7 @@ public class TestDataHelper {
     // If we're running this test in IJ, then this path doesn't exist. Fall back to one that does
     if (!Files.exists(result)) {
       result =
-          Paths.get("xplat/toolchains/android/sdk/test")
+          Paths.get("fbcode/buck2/prelude/toolchains/android/test")
               .resolve(testCaseClass.getPackage().getName().replace('.', '/'))
               .resolve("testdata");
     }

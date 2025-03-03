@@ -44,7 +44,7 @@ public class ExoResourcesRewriterTest {
   @Before
   public void setUp() {
     testDataDir = TestDataHelper.getTestDataDirectory(this).resolve("aapt_dump");
-    apkPath = testDataDir.resolve(APK_NAME);
+    apkPath = testDataDir.resolve(APK_NAME).toAbsolutePath();
   }
 
   @Test
