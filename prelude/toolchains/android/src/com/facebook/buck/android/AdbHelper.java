@@ -306,11 +306,12 @@ public class AdbHelper implements AndroidDevicesHelper {
             String sdk = device.getProperty("ro.build.version.sdk");
             boolean isEmulator = device.isEmulator();
             deviceInfos.add(
-                AndroidDeviceInfo.of(
+                new AndroidDeviceInfo(
                     locale,
                     abi,
                     buildFingerprint,
                     dpi,
+                    AndroidDeviceInfo.DensityClass.forPhysicalDensity(dpi),
                     sdk,
                     isEmulator,
                     device.getInstallerMethodName()));
@@ -400,7 +401,7 @@ public class AdbHelper implements AndroidDevicesHelper {
         "install_device_build_fingerprint",
         toCommaList(infos, AndroidDeviceInfo::getBuildFingerprint));
     map.put("install_device_densities", toCommaList(infos, i -> i.getDensity().toString()));
-    map.put("install_device_dpi", toCommaList(infos, AndroidDeviceInfo::getDpi));
+    map.put("install_device_dpi", toCommaList(infos, AndroidDeviceInfo::getDotsPerInch));
     map.put("install_device_sdk", toCommaList(infos, AndroidDeviceInfo::getSdk));
     map.put("install_device_is_emulator", toCommaList(infos, i -> String.valueOf(i.isEmulator())));
 

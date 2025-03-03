@@ -145,14 +145,14 @@ class AndroidInstallerManager implements InstallCommand {
           .ifPresent(
               assets ->
                   pathAndHashBuilder.add(
-                      IsolatedExopackageInfo.IsolatedExopackagePathAndHash.of(
+                      new IsolatedExopackageInfo.IsolatedExopackagePathAndHash(
                           assets, androidArtifacts.getResourcesExopackageInfoAssetsHash().get())));
       androidArtifacts
           .getResourcesExopackageInfoRes()
           .ifPresent(
               res ->
                   pathAndHashBuilder.add(
-                      IsolatedExopackageInfo.IsolatedExopackagePathAndHash.of(
+                      new IsolatedExopackageInfo.IsolatedExopackagePathAndHash(
                           res, androidArtifacts.getResourcesExopackageInfoResHash().get())));
       ImmutableList<IsolatedExopackageInfo.IsolatedExopackagePathAndHash> exopackageResources =
           pathAndHashBuilder.build();
@@ -163,31 +163,34 @@ class AndroidInstallerManager implements InstallCommand {
           || nativeLibraryExopackageInfoDirectory.isPresent()
           || nativeLibraryExopackageInfoMetadata.isPresent()
           || !exopackageResources.isEmpty()) {
-        IsolatedExopackageInfo.Builder builder = IsolatedExopackageInfo.builder();
         Preconditions.checkState(
             secondaryDexExopackageInfoDirectory.isPresent()
                 == secondaryDexExopackageInfoMetadata.isPresent());
-        secondaryDexExopackageInfoDirectory.ifPresent(
-            directory ->
-                builder.setDexInfo(
-                    IsolatedExopackageInfo.IsolatedDexInfo.of(
-                        secondaryDexExopackageInfoMetadata.get(), directory)));
+        Optional<IsolatedExopackageInfo.IsolatedDexInfo> dexInfo =
+            secondaryDexExopackageInfoDirectory.map(
+                directory ->
+                    new IsolatedExopackageInfo.IsolatedDexInfo(
+                        secondaryDexExopackageInfoMetadata.get(), directory));
 
         Preconditions.checkState(
             nativeLibraryExopackageInfoDirectory.isPresent()
                 == nativeLibraryExopackageInfoMetadata.isPresent());
-        nativeLibraryExopackageInfoDirectory.ifPresent(
-            directory ->
-                builder.setNativeLibsInfo(
-                    IsolatedExopackageInfo.IsolatedNativeLibsInfo.of(
-                        nativeLibraryExopackageInfoMetadata.get(), directory)));
+        Optional<IsolatedExopackageInfo.IsolatedNativeLibsInfo> nativeLibsInfo =
+            nativeLibraryExopackageInfoDirectory.map(
+                absPath ->
+                    new IsolatedExopackageInfo.IsolatedNativeLibsInfo(
+                        nativeLibraryExopackageInfoMetadata.get(), absPath));
 
+        Optional<IsolatedExopackageInfo.IsolatedResourcesInfo> resourcesInfo;
         if (!exopackageResources.isEmpty()) {
-          builder.setResourcesInfo(
-              IsolatedExopackageInfo.IsolatedResourcesInfo.of(exopackageResources));
+          resourcesInfo =
+              Optional.of(new IsolatedExopackageInfo.IsolatedResourcesInfo(exopackageResources));
+        } else {
+          resourcesInfo = Optional.empty();
         }
 
-        isolatedExopackageInfo = Optional.of(builder.build());
+        isolatedExopackageInfo =
+            Optional.of(new IsolatedExopackageInfo(dexInfo, nativeLibsInfo, resourcesInfo));
       }
       AndroidInstall androidInstaller =
           new AndroidInstall(
