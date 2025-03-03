@@ -11,7 +11,13 @@ def get_swift_toolchain_info(ctx: AnalysisContext) -> SwiftToolchainInfo:
     if hasattr(ctx.attrs, "_apple_toolchain"):
         return ctx.attrs._apple_toolchain[SwiftToolchainInfo]
     else:
-        return ctx.attrs._swift_macro_toolchain[SwiftToolchainInfo]
+        return ctx.attrs._swift_toolchain[SwiftToolchainInfo]
+
+def get_swift_toolchain_info_dep(ctx: AnalysisContext) -> Dependency:
+    if hasattr(ctx.attrs, "_apple_toolchain"):
+        return ctx.attrs._apple_toolchain
+    else:
+        return ctx.attrs._swift_toolchain
 
 def traverse_sdk_modules_graph(
         swift_sdk_module_name_to_deps: dict[str, Dependency],

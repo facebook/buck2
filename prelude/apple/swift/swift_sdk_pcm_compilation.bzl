@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset")
 load(
@@ -13,6 +12,7 @@ load(
     "extract_and_merge_clang_debug_infos",
 )
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info_dep")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_shared_pcm_compilation_args(module_name: str) -> cmd_args:
@@ -107,7 +107,7 @@ def get_swift_sdk_pcm_anon_targets(
             "enable_cxx_interop": enable_cxx_interop,
             "name": module_dep.label,
             "swift_cxx_args": swift_cxx_args,
-            "_apple_toolchain": ctx.attrs._apple_toolchain,
+            "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
         })
         for module_dep in uncompiled_sdk_deps
     ]
@@ -130,8 +130,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             ]
 
         module_name = uncompiled_sdk_module_info.module_name
-        apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-        swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
+        swift_toolchain = ctx.attrs._swift_toolchain[SwiftToolchainInfo]
         cmd = cmd_args(swift_toolchain.compiler)
         cmd.add(uncompiled_sdk_module_info.partial_cmd)
         cmd.add(get_sdk_flags(ctx))
@@ -156,7 +155,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
             cmd_args(swift_toolchain.sdk_path),
             cmd_args(swift_toolchain.resource_dir),
-            cmd_args(apple_toolchain.platform_path),
+            cmd_args(swift_toolchain.platform_path),
             uncompiled_sdk_module_info.input_relative_path,
         )
         pcm_output = ctx.actions.declare_output(module_name + ".pcm")
@@ -273,6 +272,6 @@ _swift_sdk_pcm_compilation = rule(
         "dep": attrs.dep(),
         "enable_cxx_interop": attrs.bool(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
-        "_apple_toolchain": attrs.dep(),
+        "_swift_toolchain": attrs.dep(),
     },
 )
