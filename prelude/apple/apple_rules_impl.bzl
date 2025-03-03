@@ -248,14 +248,12 @@ extra_attributes = {
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
         # which requires setting up separate platform-specific aliases with the correct constraints.
         "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "platform_path": attrs.option(attrs.source(), default = None),
         "sdk_modules": attrs.list(attrs.exec_dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "swift_ide_test_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
         "swiftc": attrs.exec_dep(providers = [RunInfo]),
-        # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
-        #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_platform_path": attrs.option(attrs.string(), default = None),
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),

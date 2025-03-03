@@ -27,6 +27,7 @@ SwiftToolchainInfo = provider(
         "mk_swift_comp_db": provider_field(RunInfo),
         "mk_swift_interface": provider_field(cmd_args),
         "object_format": provider_field(SwiftObjectFormat),
+        "platform_path": provider_field([Artifact, str, None]),
         "resource_dir": provider_field([Artifact, None]),
         "runtime_run_paths": provider_field(list[str]),
         "sdk_path": provider_field([Artifact, str, None]),
