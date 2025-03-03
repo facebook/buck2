@@ -104,7 +104,7 @@ public class KosabiStubgenStepsBuilder {
               kotlinCDAnalytics));
 
       steps.add(
-          ZipIsolatedStep.of(
+          new ZipIsolatedStep(
               buildCellRootPath,
               stubsZip.getPath(),
               ImmutableSet.of(),

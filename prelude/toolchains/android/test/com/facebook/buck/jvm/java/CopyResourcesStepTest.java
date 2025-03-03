@@ -47,11 +47,11 @@ public class CopyResourcesStepTest {
 
     List<IsolatedStep> expected =
         ImmutableList.of(
-            MkdirIsolatedStep.of(target1.getParent()),
-            SymlinkIsolatedStep.of(
+            new MkdirIsolatedStep(target1.getParent()),
+            new SymlinkIsolatedStep(
                 RelPath.get("android/java/src/com/facebook/base/data.json"), target1),
-            MkdirIsolatedStep.of(target.getParent()),
-            SymlinkIsolatedStep.of(
+            new MkdirIsolatedStep(target.getParent()),
+            new SymlinkIsolatedStep(
                 RelPath.get("android/java/src/com/facebook/common/util/data.json"), target));
     assertEquals(expected, steps);
   }
@@ -81,11 +81,11 @@ public class CopyResourcesStepTest {
 
     List<IsolatedStep> expected =
         ImmutableList.of(
-            MkdirIsolatedStep.of(target1.getParent()),
-            SymlinkIsolatedStep.of(
+            new MkdirIsolatedStep(target1.getParent()),
+            new SymlinkIsolatedStep(
                 RelPath.get("android/java/src/com/facebook/base/data.json"), target1),
-            MkdirIsolatedStep.of(target.getParent()),
-            SymlinkIsolatedStep.of(
+            new MkdirIsolatedStep(target.getParent()),
+            new SymlinkIsolatedStep(
                 RelPath.get("android/java/src/com/facebook/common/util/data.json"), target));
     assertEquals(expected, steps);
   }
@@ -117,11 +117,11 @@ public class CopyResourcesStepTest {
 
     List<IsolatedStep> expected =
         ImmutableList.of(
-            MkdirIsolatedStep.of(target1.getParent()),
-            SymlinkIsolatedStep.of(
+            new MkdirIsolatedStep(target1.getParent()),
+            new SymlinkIsolatedStep(
                 RelPath.get("android/java/src/com/facebook/base/data.json"), target1),
-            MkdirIsolatedStep.of(target.getParent()),
-            SymlinkIsolatedStep.of(
+            new MkdirIsolatedStep(target.getParent()),
+            new SymlinkIsolatedStep(
                 RelPath.get("android/java/src/com/facebook/common/util/data.json"), target));
     assertEquals(expected, steps);
   }
