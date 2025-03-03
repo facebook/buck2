@@ -38,7 +38,8 @@ public class KaptStep extends KotlincStep {
       ImmutableList<String> extraArguments,
       CompilerOutputPaths outputPaths,
       RelPath configuredBuckOut,
-      KotlinCDAnalytics kotlinCDAnalytics) {
+      KotlinCDAnalytics kotlinCDAnalytics,
+      String languageVersion) {
     super(
         invokingRule,
         outputDirectory,
@@ -61,7 +62,8 @@ public class KaptStep extends KotlincStep {
         ImmutableList.of(),
         Optional.empty(),
         KotlincMode.NonIncremental.INSTANCE,
-        kotlinCDAnalytics);
+        kotlinCDAnalytics,
+        languageVersion);
   }
 
   @Override

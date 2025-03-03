@@ -156,6 +156,7 @@ public class KotlinExtraParamsSerializer {
         kotlinExtraParams.getShouldUseStandaloneKosabi(),
         Optional.of(kotlinExtraParams.getIncrementalStateDir())
             .filter(s -> !s.isEmpty())
-            .map(AbsPathSerializer::deserialize));
+            .map(AbsPathSerializer::deserialize),
+        kotlinExtraParams.getLanguageVersion());
   }
 }

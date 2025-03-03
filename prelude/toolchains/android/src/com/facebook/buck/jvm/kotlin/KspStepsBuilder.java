@@ -80,7 +80,8 @@ public class KspStepsBuilder {
       String moduleName,
       Optional<String> jvmTarget,
       ImmutableList<String> extraKotlincArguments,
-      KotlinCDAnalytics kotlinCDAnalytics) {
+      KotlinCDAnalytics kotlinCDAnalytics,
+      String languageVersion) {
 
     ImmutableList<ResolvedJavacPluginProperties> kspAnnotationProcessors =
         getKspAnnotationProcessors(getAnnotationProcessors(annotationProcessorParams));
@@ -157,7 +158,7 @@ public class KspStepsBuilder {
               kspCachesOutput,
               kspOutput,
               jvmTarget,
-              KotlinCDModelHelper.getLanguageVersion(extraKotlincArguments),
+              languageVersion,
               getJvmDefaultMode(extraKotlincArguments),
               kotlinCDAnalytics);
       steps.add(ksp2Step);
@@ -313,9 +314,7 @@ public class KspStepsBuilder {
     ImmutableList.Builder<String> kspTriggerBuilder = ImmutableList.builder();
     kspTriggerBuilder
         .addAll(getKspPluginsArgs(resolvedKotlinCompilerPlugins, kotlinPluginGeneratedOutFullPath))
-        .add(PLUGIN, Joiner.on(",").join(kspPluginOptionsBuilder.build()))
-        // force K1 for KSP1
-        .add("-language-version=1.9");
+        .add(PLUGIN, Joiner.on(",").join(kspPluginOptionsBuilder.build()));
 
     kspTriggerBuilder.add(MODULE_NAME).add(moduleName);
 

@@ -76,6 +76,7 @@ public class KotlincStep extends IsolatedStep {
   private final Optional<AbsPath> depTrackerPath;
   private final KotlincMode kotlincMode;
   private final KotlinCDAnalytics kotlinCDAnalytics;
+  @Nullable private final String languageVersion;
 
   KotlincStep(
       BuildTargetValue invokingRule,
@@ -99,7 +100,8 @@ public class KotlincStep extends IsolatedStep {
       ImmutableList<IsolatedStep> postKotlinCompilationFailureSteps,
       Optional<AbsPath> depTrackerPath,
       KotlincMode kotlincMode,
-      KotlinCDAnalytics kotlinCDAnalytics) {
+      KotlinCDAnalytics kotlinCDAnalytics,
+      @Nullable String languageVersion) {
     this.invokingRule = invokingRule;
     this.outputDirectory = outputDirectory;
     this.sourceFilePaths = sourceFilePaths;
@@ -122,6 +124,7 @@ public class KotlincStep extends IsolatedStep {
     this.depTrackerPath = depTrackerPath;
     this.kotlincMode = kotlincMode;
     this.kotlinCDAnalytics = kotlinCDAnalytics;
+    this.languageVersion = languageVersion;
   }
 
   @Override
@@ -140,8 +143,7 @@ public class KotlincStep extends IsolatedStep {
             context.createSubContext(stdout, stderr, Optional.of(verbosity))) {
 
       KotlinCDLoggingContext loggingContext =
-          KotlinCDLoggingContextFactory.create(
-              this, getLanguageVersion(compilerOptions), kotlincMode);
+          KotlinCDLoggingContextFactory.create(this, languageVersion, kotlincMode);
       int declaredDepsBuildResult =
           kotlinc.buildWithClasspath(
               firstOrderContext,
@@ -282,26 +284,16 @@ public class KotlincStep extends IsolatedStep {
               + ruleCellRoot.resolve(getKotlinTempDepFilePath(reportDirPath)));
     }
 
-    String lastMentionedLanguageVersion = null;
     if (!extraArguments.isEmpty()) {
       for (String extraArgument : extraArguments) {
-        if (extraArgument.startsWith(LANGUAGE_VERSION_ARG)) {
-          lastMentionedLanguageVersion =
-              extraArgument.substring(LANGUAGE_VERSION_ARG.length(), extraArgument.length());
-        } else if (!extraArgument.isEmpty()) {
+        if (!extraArgument.isEmpty()) {
           builder.add(extraArgument);
         }
       }
     }
 
-    // This is used due to builds that Smartglasses have that are shipped to AOSP
-    // Once we have our supported AOSP versions on a later Kotlin version, we can remove this
-    // AOSP 12 uses Kotlin 1.4.2 => https://fburl.com/code/94fkfr6r
-    if (lastMentionedLanguageVersion != null) {
-      // Kotlinc 1.6+ can properly recognize `-language-version` flag
-      if (lastMentionedLanguageVersion.compareTo("1.6") >= 0) {
-        builder.add(LANGUAGE_VERSION_ARG + lastMentionedLanguageVersion);
-      }
+    if (languageVersion != null) {
+      builder.add(LANGUAGE_VERSION_ARG + languageVersion);
     }
 
     if (context.getVerbosity().shouldUseVerbosityFlagIfAvailable()
@@ -313,25 +305,7 @@ public class KotlincStep extends IsolatedStep {
       }
     }
 
-    if (invokingRule.isSourceOnlyAbi()) {
-      // Kosabi does not support K2 yet, so we force K1 to be used.
-      // This will guarantee that we run K1 since compiler only cares about the last defined value
-      // for a param.
-      builder.add(LANGUAGE_VERSION_ARG + "1.9");
-    }
-
     return builder.build();
-  }
-
-  private static @Nullable String getLanguageVersion(ImmutableList<String> options) {
-    for (int i = options.size() - 1; i >= 0; i--) {
-      String option = options.get(i);
-      if (option.startsWith(LANGUAGE_VERSION_ARG)) {
-        return option.substring(LANGUAGE_VERSION_ARG.length());
-      }
-    }
-
-    return null;
   }
 
   protected void configureSourceOnlyOptions(ImmutableList.Builder<String> builder) {

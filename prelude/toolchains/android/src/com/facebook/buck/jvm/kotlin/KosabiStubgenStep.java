@@ -80,7 +80,8 @@ public class KosabiStubgenStep extends KotlincStep {
         postKotlinCompilationFailureSteps,
         depTrackerPath,
         KotlincMode.NonIncremental.INSTANCE,
-        kotlinCDAnalytics);
+        kotlinCDAnalytics,
+        CompilerPluginUtils.K1LANGUAGE_VERSION);
     this.stubgenDir = stubgenDir;
   }
 

@@ -36,6 +36,8 @@ public abstract class KotlinExtraParams implements CompileToJarStepFactory.Extra
 
   public abstract ImmutableList<String> getExtraKotlincArguments();
 
+  public abstract String getLanguageVersion();
+
   public abstract ImmutableMap<AbsPath, ImmutableMap<String, String>>
       getResolvedKotlinCompilerPlugins();
 
@@ -102,13 +104,15 @@ public abstract class KotlinExtraParams implements CompileToJarStepFactory.Extra
       boolean shouldKotlincRunViaBuildToolsApi,
       boolean shouldKotlincRunIncrementally,
       boolean shouldUseStandaloneKosabi,
-      Optional<AbsPath> incrementalStateDir) {
+      Optional<AbsPath> incrementalStateDir,
+      String languageVersion) {
     return ImmutableKotlinExtraParams.ofImpl(
         extraClassPaths,
         standardLibraryClassPath,
         annotationProcessingClassPath,
         annotationProcessingTool,
         extraKotlincArguments,
+        languageVersion,
         kotlinCompilerPlugins,
         kosabiPluginOptions,
         kosabiJvmAbiGenEarlyTerminationMessagePrefix,

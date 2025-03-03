@@ -30,6 +30,7 @@ private static final long serialVersionUID = 0L;
     jvmAbiGenPlugin_ = "";
     depTrackerPlugin_ = "";
     incrementalStateDir_ = "";
+    languageVersion_ = "";
   }
 
   @java.lang.Override
@@ -199,6 +200,12 @@ private static final long serialVersionUID = 0L;
             java.lang.String s = input.readStringRequireUtf8();
 
             incrementalStateDir_ = s;
+            break;
+          }
+          case 186: {
+            java.lang.String s = input.readStringRequireUtf8();
+
+            languageVersion_ = s;
             break;
           }
           default: {
@@ -866,6 +873,40 @@ private static final long serialVersionUID = 0L;
     }
   }
 
+  public static final int LANGUAGEVERSION_FIELD_NUMBER = 23;
+  private volatile java.lang.Object languageVersion_;
+  /**
+   * <code>string languageVersion = 23;</code>
+   */
+  public java.lang.String getLanguageVersion() {
+    java.lang.Object ref = languageVersion_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      languageVersion_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string languageVersion = 23;</code>
+   */
+  public com.google.protobuf.ByteString
+      getLanguageVersionBytes() {
+    java.lang.Object ref = languageVersion_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      languageVersion_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -948,6 +989,9 @@ private static final long serialVersionUID = 0L;
     }
     if (!getIncrementalStateDirBytes().isEmpty()) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 22, incrementalStateDir_);
+    }
+    if (!getLanguageVersionBytes().isEmpty()) {
+      com.google.protobuf.GeneratedMessageV3.writeString(output, 23, languageVersion_);
     }
     unknownFields.writeTo(output);
   }
@@ -1063,6 +1107,9 @@ private static final long serialVersionUID = 0L;
     if (!getIncrementalStateDirBytes().isEmpty()) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(22, incrementalStateDir_);
     }
+    if (!getLanguageVersionBytes().isEmpty()) {
+      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(23, languageVersion_);
+    }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1119,6 +1166,8 @@ private static final long serialVersionUID = 0L;
         != other.getShouldKotlincRunIncrementally()) return false;
     if (!getIncrementalStateDir()
         .equals(other.getIncrementalStateDir())) return false;
+    if (!getLanguageVersion()
+        .equals(other.getLanguageVersion())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -1191,6 +1240,8 @@ private static final long serialVersionUID = 0L;
         getShouldKotlincRunIncrementally());
     hash = (37 * hash) + INCREMENTALSTATEDIR_FIELD_NUMBER;
     hash = (53 * hash) + getIncrementalStateDir().hashCode();
+    hash = (37 * hash) + LANGUAGEVERSION_FIELD_NUMBER;
+    hash = (53 * hash) + getLanguageVersion().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1390,6 +1441,8 @@ private static final long serialVersionUID = 0L;
 
       incrementalStateDir_ = "";
 
+      languageVersion_ = "";
+
       return this;
     }
 
@@ -1457,6 +1510,7 @@ private static final long serialVersionUID = 0L;
       result.shouldKotlincRunViaBuildToolsApi_ = shouldKotlincRunViaBuildToolsApi_;
       result.shouldKotlincRunIncrementally_ = shouldKotlincRunIncrementally_;
       result.incrementalStateDir_ = incrementalStateDir_;
+      result.languageVersion_ = languageVersion_;
       result.bitField0_ = to_bitField0_;
       onBuilt();
       return result;
@@ -1600,6 +1654,10 @@ private static final long serialVersionUID = 0L;
       }
       if (!other.getIncrementalStateDir().isEmpty()) {
         incrementalStateDir_ = other.incrementalStateDir_;
+        onChanged();
+      }
+      if (!other.getLanguageVersion().isEmpty()) {
+        languageVersion_ = other.languageVersion_;
         onChanged();
       }
       this.mergeUnknownFields(other.unknownFields);
@@ -2995,6 +3053,75 @@ private static final long serialVersionUID = 0L;
   checkByteStringIsUtf8(value);
       
       incrementalStateDir_ = value;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object languageVersion_ = "";
+    /**
+     * <code>string languageVersion = 23;</code>
+     */
+    public java.lang.String getLanguageVersion() {
+      java.lang.Object ref = languageVersion_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        languageVersion_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string languageVersion = 23;</code>
+     */
+    public com.google.protobuf.ByteString
+        getLanguageVersionBytes() {
+      java.lang.Object ref = languageVersion_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        languageVersion_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string languageVersion = 23;</code>
+     */
+    public Builder setLanguageVersion(
+        java.lang.String value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  
+      languageVersion_ = value;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string languageVersion = 23;</code>
+     */
+    public Builder clearLanguageVersion() {
+      
+      languageVersion_ = getDefaultInstance().getLanguageVersion();
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string languageVersion = 23;</code>
+     */
+    public Builder setLanguageVersionBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) {
+    throw new NullPointerException();
+  }
+  checkByteStringIsUtf8(value);
+      
+      languageVersion_ = value;
       onChanged();
       return this;
     }

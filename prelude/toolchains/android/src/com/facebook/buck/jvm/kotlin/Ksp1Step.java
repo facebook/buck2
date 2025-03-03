@@ -70,7 +70,9 @@ public class Ksp1Step extends KotlincStep {
         ImmutableList.of(),
         Optional.empty(),
         KotlincMode.NonIncremental.INSTANCE,
-        kotlinCDAnalytics);
+        kotlinCDAnalytics,
+        // force K1 for KSP1
+        CompilerPluginUtils.K1LANGUAGE_VERSION);
   }
 
   @Override

@@ -74,6 +74,7 @@ def create_jar_artifact_kotlincd(
         extra_kotlinc_arguments: list,
         incremental: bool,
         enable_used_classes: bool,
+        language_version: str,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
@@ -158,6 +159,7 @@ def create_jar_artifact_kotlincd(
         actual_abi_generation_mode = actual_abi_generation_mode,
         should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
         incremental_state_dir = incremental_state_dir,
+        language_version = language_version,
     )
 
     library_command_builder = command_builder(
@@ -210,6 +212,7 @@ def create_jar_artifact_kotlincd(
             actual_abi_generation_mode = actual_abi_generation_mode,
             should_kotlinc_run_incrementally = False,
             incremental_state_dir = None,
+            language_version = language_version,
         )
         abi_command_builder = command_builder(
             kotlin_extra_params = kotlin_extra_params,
@@ -269,7 +272,8 @@ def _encode_kotlin_extra_params(
         should_use_jvm_abi_gen: bool,
         actual_abi_generation_mode: AbiGenerationMode,
         should_kotlinc_run_incrementally: bool,
-        incremental_state_dir: Artifact | None):
+        incremental_state_dir: Artifact | None,
+        language_version: str):
     kosabiPluginOptionsMap = {}
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
@@ -303,6 +307,7 @@ def _encode_kotlin_extra_params(
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
+        languageVersion = language_version,
     )
 
 def _command_builder(

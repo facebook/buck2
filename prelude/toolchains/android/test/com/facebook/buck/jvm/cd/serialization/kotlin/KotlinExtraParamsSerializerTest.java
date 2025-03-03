@@ -77,7 +77,8 @@ public class KotlinExtraParamsSerializerTest {
             false,
             false,
             false,
-            Optional.empty());
+            Optional.empty(),
+            "");
 
     KotlinExtraParams actual =
         KotlinExtraParamsSerializer.deserialize(

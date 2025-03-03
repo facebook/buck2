@@ -66,6 +66,7 @@ message KotlinExtraParams {
   bool shouldKotlincRunViaBuildToolsApi = 20;
   bool shouldKotlincRunIncrementally = 21;
   string incrementalStateDir = 22;
+  string languageVersion = 23;
 }
 
 message PluginParams {

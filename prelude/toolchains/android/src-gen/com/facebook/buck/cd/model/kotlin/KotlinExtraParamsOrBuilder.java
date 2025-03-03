@@ -291,4 +291,14 @@ public interface KotlinExtraParamsOrBuilder extends
    */
   com.google.protobuf.ByteString
       getIncrementalStateDirBytes();
+
+  /**
+   * <code>string languageVersion = 23;</code>
+   */
+  java.lang.String getLanguageVersion();
+  /**
+   * <code>string languageVersion = 23;</code>
+   */
+  com.google.protobuf.ByteString
+      getLanguageVersionBytes();
 }

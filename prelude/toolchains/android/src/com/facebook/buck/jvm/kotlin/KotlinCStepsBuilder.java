@@ -55,7 +55,8 @@ public class KotlinCStepsBuilder {
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
       RelPath outputDirectory,
       ImmutableList<AbsPath> classpathSnapshots,
-      KotlinCDAnalytics kotlinCDAnalytics) {
+      KotlinCDAnalytics kotlinCDAnalytics,
+      String languageVersion) {
     ImmutableList.Builder<String> extraArguments =
         getKotlincExtraArguments(
             buildCellRootPath,
@@ -98,7 +99,8 @@ public class KotlinCStepsBuilder {
                 extraParams,
                 Optional.ofNullable(actionMetadata),
                 classpathSnapshots),
-            kotlinCDAnalytics);
+            kotlinCDAnalytics,
+            languageVersion);
     steps.add(kotlincStep);
 
     if (kotlinClassesDir != null) {

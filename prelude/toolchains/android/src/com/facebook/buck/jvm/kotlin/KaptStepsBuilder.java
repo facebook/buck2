@@ -109,8 +109,9 @@ public class KaptStepsBuilder {
       String moduleName,
       KotlinCDAnalytics kotlinCDAnalytics,
       ImmutableSortedSet.Builder<RelPath> sourceWithStubsAndKaptAndKspOutputBuilder,
-      ImmutableSortedSet.Builder<RelPath> sourceWithStubsAndKaptOutputBuilder) {
-    if (!isKaptSupportedForCurrentKotlinLanguageVersion(extraKotlincArguments)) {
+      ImmutableSortedSet.Builder<RelPath> sourceWithStubsAndKaptOutputBuilder,
+      String kotlinLanguageVersion) {
+    if (!isKaptSupportedForCurrentKotlinLanguageVersion(kotlinLanguageVersion)) {
       return;
     }
 
@@ -209,7 +210,7 @@ public class KaptStepsBuilder {
             .add(LIGHT_ANALYSIS + "true") // TODO: Provide value as argument
             .add(CORRECT_ERROR_TYPES + "true");
 
-    if (isKapt4SupportedForCurrentKotlinLanguageVersion(extraKotlincArguments)) {
+    if (isKapt4SupportedForCurrentKotlinLanguageVersion(kotlinLanguageVersion)) {
       kaptPluginOptionsBuilder.add(KAPT_USE_K2 + "true");
     }
 
@@ -230,13 +231,13 @@ public class KaptStepsBuilder {
             .add(moduleName);
 
     // Use kapt4 or kapt3 base on language version is 1.9 or 2.0+
-    if (isKapt4SupportedForCurrentKotlinLanguageVersion(extraKotlincArguments)) {
+    if (isKapt4SupportedForCurrentKotlinLanguageVersion(kotlinLanguageVersion)) {
       // Notice K2 and KAPT4 can no longer use K1 DI plugin, so we no longer pass it
       // What it miss is the DI plugin's analysis part, which is needed BEFORE annotation
       // processing, the main KotlincStep still get k2 DI transformation plugin
       // Because of that, KAPT+DI should be avoided and migrate to KSP+DI ASAP,
       // and modules who still use KAPT+DI must turn off k2 and fallback to k1 and kapt3.
-      annotationProcessingOptionsBuilder.add(getKapt4Flag(extraKotlincArguments));
+      annotationProcessingOptionsBuilder.add(getKapt4Flag(kotlinLanguageVersion));
       annotationProcessingOptionsBuilder.addAll(
           getOtherPluginsRequiredForKapt4(
               resolvedKotlinCompilerPlugins, kotlinPluginGeneratedOutFullPath));
@@ -259,7 +260,8 @@ public class KaptStepsBuilder {
             annotationProcessingOptionsBuilder.build(),
             compilerOutputPaths,
             configuredBuckOut,
-            kotlinCDAnalytics));
+            kotlinCDAnalytics,
+            kotlinLanguageVersion));
 
     steps.add(
         CopyIsolatedStep.forDirectory(
@@ -298,22 +300,21 @@ public class KaptStepsBuilder {
     javacSourceBuilder.add(kaptGenOutput);
   }
 
-  private static String getKapt4Flag(ImmutableList<String> extraKotlincArguments) {
-    if (KotlinCDModelHelper.getLanguageVersion(extraKotlincArguments).compareTo("2.1") < 0) {
+  private static String getKapt4Flag(String kotlinLanguageVersion) {
+    if (kotlinLanguageVersion.compareTo("2.1") < 0) {
       return KOTLINC_KAPT_USE_USE_KAPT4_OLD;
     }
 
     return KOTLINC_KAPT_USE_K2;
   }
 
-  public static boolean isKaptSupportedForCurrentKotlinLanguageVersion(
-      ImmutableList<String> extraKotlincArguments) {
+  public static boolean isKaptSupportedForCurrentKotlinLanguageVersion(String languageVersion) {
     // Newer Java versions removed a constructor from the Java JDK that KAPT relies on. The issue
     // was fixed on Kotlin 1.6 (https://youtrack.jetbrains.com/issue/KT-47583)
     //
     // Once we have our supported AOSP versions on a later Kotlin version, we can remove this.
     // AOSP 12 uses Kotlin 1.4.2 => https://fburl.com/code/94fkfr6r
-    return KotlinCDModelHelper.getLanguageVersion(extraKotlincArguments).compareTo("1.6") >= 0;
+    return languageVersion != null && languageVersion.compareTo("1.6") >= 0;
   }
 
   /**
@@ -321,8 +322,8 @@ public class KaptStepsBuilder {
    * shall use [k2=False] which ensure they get [-language-version=1.9] and fail the condition here.
    */
   public static boolean isKapt4SupportedForCurrentKotlinLanguageVersion(
-      ImmutableList<String> extraKotlincArguments) {
-    return KotlinCDModelHelper.getLanguageVersion(extraKotlincArguments).compareTo("2.0") >= 0;
+      String kotlinLanguageVersion) {
+    return kotlinLanguageVersion.compareTo("2.0") >= 0;
   }
 
   static ImmutableList<ResolvedJavacPluginProperties> getKaptAnnotationProcessors(

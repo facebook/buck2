@@ -15,31 +15,12 @@ import com.facebook.buck.jvm.cd.command.BaseJarCommand
 import com.facebook.buck.jvm.cd.command.BuildMode
 import com.facebook.buck.jvm.cd.serialization.kotlin.KotlinExtraParamsSerializer
 import java.util.Optional
-import java.util.regex.Pattern
 
 class BuildKotlinCommand(
     val kotlinExtraParams: KotlinExtraParams,
     val baseJarCommand: BaseJarCommand,
     val buildMode: BuildMode,
 ) {
-
-  val LANGUAGE_VERSION_REGEX: Pattern = Pattern.compile("-language-version=\\d+\\.\\d+")
-
-  fun getCompilerVersion(): String {
-    return getLanguageVersion(kotlinExtraParams.extraKotlincArguments)
-  }
-
-  fun getLanguageVersion(args: List<String>): String {
-    for (arg in args) {
-      val matcher = LANGUAGE_VERSION_REGEX.matcher(arg)
-      if (matcher.matches()) {
-        val splitArg = arg.split("=").dropLastWhile { it.isBlank() }
-        check(splitArg.size == 2)
-        return splitArg[1]
-      }
-    }
-    return "1.9"
-  }
 
   companion object {
     fun fromProto(model: ProtoBuildCommand, scratchDir: Optional<RelPath>): BuildKotlinCommand {
