@@ -19,7 +19,7 @@ public class BuildTargetValueSerializerTest {
   @Test
   public void serializeDeserialize() {
     BuildTargetValue expected =
-        new BuildTargetValue(
+        BuildTargetValue.of(
             com.facebook.buck.cd.model.java.BuildTargetValue.Type.LIBRARY,
             "fully_qualified_name",
             "fe3a39b8");

@@ -53,7 +53,7 @@ public class JavacStepTest {
   @Before
   public void setUp() {
     target = "//foo:bar";
-    buildTargetValue = new BuildTargetValue(Type.LIBRARY, target);
+    buildTargetValue = BuildTargetValue.of(Type.LIBRARY, target);
     configuredBuckOut = RelPath.get("buck-out/v2");
     fakeJavac = new FakeJavac();
   }
