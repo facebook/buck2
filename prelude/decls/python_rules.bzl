@@ -360,7 +360,6 @@ python_library = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "licenses": attrs.list(attrs.source(), default = []),
-            "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
