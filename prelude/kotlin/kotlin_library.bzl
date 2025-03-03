@@ -428,6 +428,11 @@ def build_kotlin_library(
             )
             return java_lib
         elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
+            expect(
+                ctx.attrs._java_toolchain[JavaToolchainInfo].javac_protocol == "javacd",
+                "Kotlin compiler mode: kotlincd and java compiler mode: {} don't match.".format(ctx.attrs._java_toolchain[JavaToolchainInfo].javac_protocol) +
+                "\nHint: If you have a Java toolchain with a custom javac, you should also provide a custom kotlinc for your Kotlin toolchain.",
+            )
             source_level, target_level = get_java_version_attributes(ctx)
             extra_arguments = cmd_args(
                 ctx.attrs.extra_arguments,
