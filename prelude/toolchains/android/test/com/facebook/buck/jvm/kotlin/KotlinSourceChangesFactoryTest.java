@@ -9,16 +9,15 @@
 
 package com.facebook.buck.jvm.kotlin;
 
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlinSourceChanges;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -28,13 +27,13 @@ public class KotlinSourceChangesFactoryTest {
 
   @Before
   public void setUp() {
-    mockActionMetadata = EasyMock.createMock(ActionMetadata.class);
+    mockActionMetadata = mock(ActionMetadata.class);
   }
 
   @Test
   public void when_file_addition_then_added_to_modified_files() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<Path, String>() {
               {
                 put(Paths.get("A.jar"), "1");
@@ -44,8 +43,8 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<Path, String>() {
               {
                 put(Paths.get("A.jar"), "1");
@@ -53,7 +52,6 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    replay(mockActionMetadata);
 
     KotlinSourceChanges sourceChanges = KotlinSourceChangesFactory.create(mockActionMetadata);
 
@@ -67,8 +65,8 @@ public class KotlinSourceChangesFactoryTest {
 
   @Test
   public void when_file_change_then_added_to_modified_files() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<Path, String>() {
               {
                 put(Paths.get("A.jar"), "1");
@@ -78,8 +76,8 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<Path, String>() {
               {
                 put(Paths.get("A.jar"), "1");
@@ -89,7 +87,6 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    replay(mockActionMetadata);
 
     KotlinSourceChanges sourceChanges = KotlinSourceChangesFactory.create(mockActionMetadata);
 
@@ -103,8 +100,8 @@ public class KotlinSourceChangesFactoryTest {
 
   @Test
   public void when_file_removal_then_added_to_removed_files() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<Path, String>() {
               {
                 put(Paths.get("A.jar"), "1");
@@ -112,8 +109,8 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<Path, String>() {
               {
                 put(Paths.get("A.jar"), "1");
@@ -123,7 +120,6 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    replay(mockActionMetadata);
 
     KotlinSourceChanges sourceChanges = KotlinSourceChangesFactory.create(mockActionMetadata);
 

@@ -9,9 +9,9 @@
 
 package com.facebook.buck.jvm.kotlin;
 
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
@@ -21,7 +21,6 @@ import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 import com.google.common.collect.ImmutableList;
 import java.util.HashMap;
 import java.util.Optional;
-import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -33,21 +32,19 @@ public class KotlincModeFactoryTest {
 
   @Before
   public void setUp() {
-    mockKotlinExtraParams = EasyMock.createMock(KotlinExtraParams.class);
-    mockActionMetadata = EasyMock.createMock(ActionMetadata.class);
+    mockKotlinExtraParams = mock(KotlinExtraParams.class);
+    mockActionMetadata = mock(ActionMetadata.class);
     absPath = AbsPath.get("/");
     relPath = RelPath.get("");
 
-    expect(mockActionMetadata.getPreviousDigest()).andReturn(new HashMap<>());
-    expect(mockActionMetadata.getCurrentDigest()).andReturn(new HashMap<>());
-    replay(mockActionMetadata);
+    when(mockActionMetadata.getPreviousDigest()).thenReturn(new HashMap<>());
+    when(mockActionMetadata.getCurrentDigest()).thenReturn(new HashMap<>());
   }
 
   @Test
   public void when_sourceOnly_then_nonIncremental() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(true);
-    expect(mockKotlinExtraParams.shouldKotlincRunIncrementally()).andReturn(true);
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.shouldKotlincRunIncrementally()).thenReturn(true);
 
     KotlincMode kotlincMode =
         KotlincModeFactory.create(
@@ -64,9 +61,8 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_not_shouldKotlincRunViaBuildToolsApi_then_nonIncremental() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(false);
-    expect(mockKotlinExtraParams.shouldKotlincRunIncrementally()).andReturn(true);
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(false);
+    when(mockKotlinExtraParams.shouldKotlincRunIncrementally()).thenReturn(true);
 
     KotlincMode kotlincMode =
         KotlincModeFactory.create(
@@ -83,9 +79,8 @@ public class KotlincModeFactoryTest {
 
   @Test
   public void when_not_shouldKotlincRunIncrementally_then_nonIncremental() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(true);
-    expect(mockKotlinExtraParams.shouldKotlincRunIncrementally()).andReturn(false);
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.shouldKotlincRunIncrementally()).thenReturn(false);
 
     KotlincMode kotlincMode =
         KotlincModeFactory.create(
@@ -102,11 +97,10 @@ public class KotlincModeFactoryTest {
 
   @Test(expected = IllegalStateException.class)
   public void when_incrementalStateDir_empty_then_error() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(true);
-    expect(mockKotlinExtraParams.shouldKotlincRunIncrementally()).andReturn(true);
-    expect(mockKotlinExtraParams.getIncrementalStateDir()).andReturn(Optional.of(AbsPath.get("/")));
-    expect(mockKotlinExtraParams.getKotlincWorkingDir()).andReturn(Optional.empty());
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.shouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
 
     KotlincModeFactory.create(
         false,
@@ -120,11 +114,10 @@ public class KotlincModeFactoryTest {
 
   @Test(expected = IllegalStateException.class)
   public void when_metadata_null_then_error() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(true);
-    expect(mockKotlinExtraParams.shouldKotlincRunIncrementally()).andReturn(true);
-    expect(mockKotlinExtraParams.getIncrementalStateDir()).andReturn(Optional.of(AbsPath.get("/")));
-    expect(mockKotlinExtraParams.getKotlincWorkingDir()).andReturn(Optional.empty());
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.shouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
 
     KotlincModeFactory.create(
         false,
@@ -139,13 +132,11 @@ public class KotlincModeFactoryTest {
   @Test
   public void
       when_shouldKotlincRunIncrementally_and_incrementalStateDir_isPresent_then_incremental() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(true);
-    expect(mockKotlinExtraParams.shouldKotlincRunIncrementally()).andReturn(true);
-    expect(mockKotlinExtraParams.getIncrementalStateDir()).andReturn(Optional.of(AbsPath.get("/")));
-    expect(mockKotlinExtraParams.getKotlincWorkingDir()).andReturn(Optional.of(AbsPath.get("/")));
-    expect(mockKotlinExtraParams.getJvmAbiGenWorkingDir()).andReturn(Optional.of(AbsPath.get("/")));
-
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.shouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getJvmAbiGenWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
 
     KotlincMode kotlincMode =
         KotlincModeFactory.create(

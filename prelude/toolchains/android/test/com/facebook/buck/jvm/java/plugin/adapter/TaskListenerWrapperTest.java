@@ -9,29 +9,27 @@
 
 package com.facebook.buck.jvm.java.plugin.adapter;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
 import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
-import org.easymock.EasyMock;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(CompilerTreeApiTestRunner.class)
 public class TaskListenerWrapperTest {
-  private final TaskListener innerListener = EasyMock.createMock(TaskListener.class);
+  private final TaskListener innerListener = mock(TaskListener.class);
 
   @Test
   public void testChainsToInnerOnStart() {
     TaskListenerWrapper wrapper = new TaskListenerWrapper(innerListener);
     TaskEvent e = new TaskEvent(TaskEvent.Kind.PARSE);
 
-    innerListener.started(e);
-
-    EasyMock.replay(innerListener);
-
     wrapper.started(e);
 
-    EasyMock.verify(innerListener);
+    verify(innerListener).started(e);
   }
 
   @Test
@@ -39,13 +37,9 @@ public class TaskListenerWrapperTest {
     TaskListenerWrapper wrapper = new TaskListenerWrapper(innerListener);
     TaskEvent e = new TaskEvent(TaskEvent.Kind.PARSE);
 
-    innerListener.finished(e);
-
-    EasyMock.replay(innerListener);
-
     wrapper.finished(e);
 
-    EasyMock.verify(innerListener);
+    verify(innerListener).finished(e);
   }
 
   @Test

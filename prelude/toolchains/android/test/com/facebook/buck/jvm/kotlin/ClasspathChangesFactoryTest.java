@@ -9,16 +9,15 @@
 
 package com.facebook.buck.jvm.kotlin;
 
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.ClasspathChanges;
 import com.google.common.collect.ImmutableList;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -28,14 +27,14 @@ public class ClasspathChangesFactoryTest {
 
   @Before
   public void setUp() {
-    mockActionMetadata = EasyMock.createMock(ActionMetadata.class);
+    mockActionMetadata = mock(ActionMetadata.class);
   }
 
   @Test
   public void
       when_currentDigest_larger_then_previousDigest_then_ToBeComputedByIncrementalCompiler() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "1");
@@ -43,8 +42,8 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "1");
@@ -52,7 +51,6 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    replay(mockActionMetadata);
 
     ClasspathChanges classpathChanges =
         ClasspathChangesFactory.create(mockActionMetadata, ImmutableList.of());
@@ -63,8 +61,8 @@ public class ClasspathChangesFactoryTest {
   @Test
   public void
       when_currentDigest_smaller_then_previousDigest_then_ToBeComputedByIncrementalCompiler() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "1");
@@ -72,8 +70,8 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "1");
@@ -81,7 +79,6 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    replay(mockActionMetadata);
 
     ClasspathChanges classpathChanges =
         ClasspathChangesFactory.create(mockActionMetadata, ImmutableList.of());
@@ -91,8 +88,8 @@ public class ClasspathChangesFactoryTest {
 
   @Test
   public void when_currentDigest_changed_then_ToBeComputedByIncrementalCompiler() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "4");
@@ -100,8 +97,8 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "1");
@@ -109,7 +106,6 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    replay(mockActionMetadata);
 
     ClasspathChanges classpathChanges =
         ClasspathChangesFactory.create(mockActionMetadata, ImmutableList.of());
@@ -119,8 +115,8 @@ public class ClasspathChangesFactoryTest {
 
   @Test
   public void when_currentDigest_not_changed_then_NoChanges() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "1");
@@ -128,8 +124,8 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.jar"), "1");
@@ -137,7 +133,6 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    replay(mockActionMetadata);
 
     ClasspathChanges classpathChanges =
         ClasspathChangesFactory.create(mockActionMetadata, ImmutableList.of());
@@ -147,8 +142,8 @@ public class ClasspathChangesFactoryTest {
 
   @Test
   public void when_no_jar_NoChanges() {
-    expect(mockActionMetadata.getCurrentDigest())
-        .andReturn(
+    when(mockActionMetadata.getCurrentDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.class"), "1");
@@ -156,8 +151,8 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "3");
               }
             });
-    expect(mockActionMetadata.getPreviousDigest())
-        .andReturn(
+    when(mockActionMetadata.getPreviousDigest())
+        .thenReturn(
             new HashMap<>() {
               {
                 put(Paths.get("a.class"), "4");
@@ -165,7 +160,6 @@ public class ClasspathChangesFactoryTest {
                 put(Paths.get("c.sh"), "6");
               }
             });
-    replay(mockActionMetadata);
 
     ClasspathChanges classpathChanges =
         ClasspathChangesFactory.create(mockActionMetadata, ImmutableList.of());

@@ -9,14 +9,13 @@
 
 package com.facebook.buck.jvm.kotlin;
 
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.kotlin.buildtools.BuildToolsKotlinc;
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
-import org.easymock.EasyMock;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -26,13 +25,12 @@ public class InMemoryKotlincFactoryTest {
 
   @Before
   public void setUp() {
-    mockKotlinExtraParams = EasyMock.createMock(KotlinExtraParams.class);
+    mockKotlinExtraParams = mock(KotlinExtraParams.class);
   }
 
   @Test
   public void when_shouldKotlincRunViaBuildToolsApi_then_BuildToolsKotlinc() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(true);
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(true);
 
     Kotlinc kotlinc = InMemoryKotlincFactory.create(mockKotlinExtraParams);
 
@@ -41,8 +39,7 @@ public class InMemoryKotlincFactoryTest {
 
   @Test
   public void when_not_shouldKotlincRunViaBuildToolsApi_then_JarBackedReflectedKotlinc() {
-    expect(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).andReturn(false);
-    replay(mockKotlinExtraParams);
+    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(false);
 
     Kotlinc kotlinc = InMemoryKotlincFactory.create(mockKotlinExtraParams);
 

@@ -16,10 +16,9 @@ import com.facebook.buck.core.filesystems.RelPath;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import java.io.File;
-import org.easymock.EasyMockSupport;
 import org.junit.Test;
 
-public class Jsr199JavacTest extends EasyMockSupport {
+public class Jsr199JavacTest {
   private static final RelPath PATH_TO_SRCS_LIST = RelPath.get("srcs_list");
   public static final ImmutableSortedSet<RelPath> SOURCE_FILES =
       ImmutableSortedSet.orderedBy(RelPath.comparator()).add(RelPath.get("foobar.java")).build();
