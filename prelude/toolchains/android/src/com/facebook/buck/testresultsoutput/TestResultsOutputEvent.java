@@ -9,12 +9,10 @@
 
 package com.facebook.buck.testresultsoutput;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonValue;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.Optional;
 
 /**
@@ -25,37 +23,12 @@ import java.util.Optional;
  * instead of using the thrift structs directly to avoid the need for a dependency on fbcode.
  */
 public class TestResultsOutputEvent {
-  private static ObjectMapper mapper = new ObjectMapper();
+  private static final JsonFactory jsonFactory = new JsonFactory();
 
   /** Represents a test event, which can be either a start or finish event. */
-  @JsonInclude(Include.NON_NULL)
   public static class TestEvent {
     public StartEvent start;
     public FinishEvent finish;
-
-    /**
-     * Creates a new test event from a start event.
-     *
-     * @param start the start event
-     * @return the new test event
-     */
-    public static TestEvent fromStartEvent(StartEvent start) {
-      TestEvent event = new TestEvent();
-      event.start = start;
-      return event;
-    }
-
-    /**
-     * Creates a new test event from a finish event.
-     *
-     * @param finish the finish event
-     * @return the new test event
-     */
-    public static TestEvent fromFinishEvent(FinishEvent finish) {
-      TestEvent event = new TestEvent();
-      event.finish = finish;
-      return event;
-    }
   }
 
   /** Represents a start event for a test. */
@@ -75,10 +48,18 @@ public class TestResultsOutputEvent {
      * Serializes this start event to a JSON byte array.
      *
      * @return the JSON byte array
-     * @throws JsonProcessingException if there is an error serializing the event
+     * @throws IOException if there is an error serializing the event
      */
-    public byte[] toJsonBytes() throws JsonProcessingException {
-      return mapper.writeValueAsBytes(TestEvent.fromStartEvent(this));
+    public byte[] toJsonBytes() throws IOException {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      try (JsonGenerator generator = jsonFactory.createGenerator(outputStream)) {
+        generator.writeStartObject();
+        generator.writeObjectFieldStart("start");
+        generator.writeStringField("name", name);
+        generator.writeEndObject();
+        generator.writeEndObject();
+      }
+      return outputStream.toByteArray();
     }
   }
 
@@ -104,20 +85,17 @@ public class TestResultsOutputEvent {
      *
      * @return the integer value of the status
      */
-    @JsonValue
-    public int value() {
+    public int getValue() {
       return value;
     }
   };
 
   /** Represents a finish event for a test. */
-  @JsonInclude(Include.NON_NULL)
   public static class FinishEvent {
     public String name;
     public TestStatus status;
 
     /** The time at which the test ended, in milliseconds since Unix epoch. */
-    @JsonProperty("ended_time")
     public long endedTime;
 
     /** The duration of the test, in milliseconds since the start of the test. */
@@ -148,10 +126,24 @@ public class TestResultsOutputEvent {
      * Serializes this finish event to a JSON byte array.
      *
      * @return the JSON byte array
-     * @throws JsonProcessingException if there is an error serializing the event
+     * @throws IOException if there is an error serializing the event
      */
-    public byte[] toJsonBytes() throws JsonProcessingException {
-      return mapper.writeValueAsBytes(TestEvent.fromFinishEvent(this));
+    public byte[] toJsonBytes() throws IOException {
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      try (JsonGenerator generator = jsonFactory.createGenerator(outputStream)) {
+        generator.writeStartObject();
+        generator.writeObjectFieldStart("finish");
+        generator.writeStringField("name", name);
+        generator.writeNumberField("status", status.getValue());
+        generator.writeNumberField("duration", duration);
+        if (message != null) {
+          generator.writeStringField("message", message);
+        }
+        generator.writeNumberField("ended_time", endedTime);
+        generator.writeEndObject();
+        generator.writeEndObject();
+      }
+      return outputStream.toByteArray();
     }
   }
 }

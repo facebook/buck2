@@ -12,7 +12,6 @@ package com.facebook.buck.testresultsoutput;
 import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.FinishEvent;
 import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.StartEvent;
 import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.TestStatus;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -98,7 +97,7 @@ public class TestResultsOutputSender implements AutoCloseable {
     byte[] serialized;
     try {
       serialized = startEvent.toJsonBytes();
-    } catch (JsonProcessingException e) {
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
@@ -127,7 +126,7 @@ public class TestResultsOutputSender implements AutoCloseable {
     byte[] serialized;
     try {
       serialized = finishEvent.toJsonBytes();
-    } catch (JsonProcessingException e) {
+    } catch (IOException e) {
       throw new RuntimeException(e);
     }
 
