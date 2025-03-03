@@ -25,7 +25,7 @@ import java.nio.file.Path;
  * prebuilt jar with bootstrap toolchain - When we add a jar to the classpath that is not a part of
  * the build graph (ex. kotlin-stdlib.jar)
  */
-public class ClasspathSnapshotGeneratorStep implements IsolatedStep {
+public class ClasspathSnapshotGeneratorStep extends IsolatedStep {
   private final Path inputJarPath;
   private final Path outputSnapshotPath;
   private final SnapshotGranularity snapshotGranularity;

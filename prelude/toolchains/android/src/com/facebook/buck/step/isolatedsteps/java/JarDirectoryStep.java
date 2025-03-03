@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /** Creates a JAR file from a collection of directories/ZIP/JAR files. */
-public class JarDirectoryStep implements IsolatedStep {
+public class JarDirectoryStep extends IsolatedStep {
 
   private final JarParameters parameters;
 

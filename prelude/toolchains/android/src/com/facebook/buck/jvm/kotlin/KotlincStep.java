@@ -42,7 +42,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Kotlin compile Step */
-public class KotlincStep implements IsolatedStep {
+public class KotlincStep extends IsolatedStep {
   private static final Logger LOG = Logger.get(KotlincStep.class);
 
   private static final String CLASSPATH_FLAG = "-classpath";

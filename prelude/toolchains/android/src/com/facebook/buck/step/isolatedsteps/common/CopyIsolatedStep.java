@@ -24,7 +24,7 @@ import java.util.StringJoiner;
 
 /** Copy IsolatedStep */
 @BuckStyleValue
-public abstract class CopyIsolatedStep implements IsolatedStep {
+public abstract class CopyIsolatedStep extends IsolatedStep {
 
   abstract Path getSource();
 
