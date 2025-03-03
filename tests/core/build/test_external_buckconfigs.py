@@ -8,6 +8,7 @@
 # pyre-strict
 
 import json
+import os
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +16,7 @@ from typing import Optional
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden
+from buck2.tests.e2e_util.helper.golden import golden_replace_temp_path
 from buck2.tests.e2e_util.helper.utils import filter_events, read_invocation_record
 
 
@@ -271,6 +272,7 @@ async def test_log_external_configs(buck: Buck) -> None:
         # Our tests inject file_watcher to external configs in test setup stage
         ExternalConfigsLog(
             descriptor="buck2.file_watcher = fs_hash_crawler",
+            origin=buck._env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"],
         ),
         ExternalConfigsLog(
             descriptor="my_mode.bcfg",
@@ -290,8 +292,10 @@ async def test_log_external_configs(buck: Buck) -> None:
 
     for s, e in zip(external_configs, expected):
         assert s.descriptor == e.descriptor
-        if s.origin != "":
-            assert s.origin == e.origin
+        if s.origin and e.origin:
+            assert (
+                e.origin == s.origin
+            ), f"Expected origin '{e.origin}', but got '{s.origin}'"
 
 
 @buck_test()
@@ -312,7 +316,9 @@ async def test_log_external_configs_json(buck: Buck) -> None:
     )
     external_configs = [json.loads(e) for e in external_configs]
 
-    golden(
+    tmp_path = os.path.dirname(buck._env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"])
+    golden_replace_temp_path(
         output=json.dumps(external_configs, sort_keys=True, indent=2),
         rel_path="events.golden.json",
+        tmp_path=tmp_path,
     )

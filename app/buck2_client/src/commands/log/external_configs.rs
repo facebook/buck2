@@ -10,6 +10,7 @@
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
+use buck2_data::GlobalExternalConfig;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
 use serde::Serialize;
@@ -20,6 +21,7 @@ use crate::commands::log::transform_format;
 use crate::commands::log::LogCommandOutputFormat;
 use crate::commands::log::LogCommandOutputFormatWithWriter;
 
+const CLI: &str = "cli";
 /// Display the values and origins of external configs for a selected command.
 ///
 /// Buckconfigs are computed by joining together values from various inputs (repo, well-known directories, CLI flags). Each of these is
@@ -96,6 +98,7 @@ struct ExternalConfigFileEntry<'a> {
 
 fn write_config_value<'a>(
     config_value: &'a buck2_data::ConfigValue,
+    origin_path: &'a str,
     mut log_writer: &mut LogCommandOutputFormatWithWriter,
 ) -> buck2_error::Result<()> {
     let external_config = ExternalConfigValueEntry {
@@ -103,11 +106,7 @@ fn write_config_value<'a>(
         key: &config_value.key,
         value: &config_value.value,
         cell: config_value.cell.as_deref(),
-        origin: if config_value.is_cli {
-            Some("cli")
-        } else {
-            None
-        },
+        origin: Some(origin_path),
     };
 
     match &mut log_writer {
@@ -138,12 +137,19 @@ fn write_config_value<'a>(
 }
 
 fn write_config_values(
-    configs: &[buck2_data::ConfigValue],
+    global_external_config: &GlobalExternalConfig,
     mut log_writer: &mut LogCommandOutputFormatWithWriter,
 ) -> buck2_error::Result<()> {
-    configs
+    global_external_config
+        .values
         .iter()
-        .try_for_each(|config_value| write_config_value(config_value, &mut log_writer))
+        .try_for_each(|config_value| {
+            write_config_value(
+                config_value,
+                &global_external_config.origin_path,
+                &mut log_writer,
+            )
+        })
 }
 
 fn write_config_file(
@@ -181,7 +187,11 @@ fn log_external_configs(
             use buck2_data::config_file::Data as CData;
             match &component.data {
                 Some(Data::ConfigValue(config_value)) => {
-                    write_config_value(config_value, &mut log_writer)?;
+                    assert!(
+                        config_value.is_cli,
+                        "Only false for configs coming from global external configs which have their origin set below"
+                    );
+                    write_config_value(config_value, CLI, &mut log_writer)?;
                 }
                 Some(Data::ConfigFile(config_file)) => config_file
                     .data
@@ -190,12 +200,12 @@ fn log_external_configs(
                     .try_for_each(|data| match data {
                         CData::ProjectRelativePath(p) => write_config_file(&p, &mut log_writer),
                         CData::GlobalExternalConfig(external_config_values) => {
-                            write_config_values(&external_config_values.values, &mut log_writer)
+                            write_config_values(external_config_values, &mut log_writer)
                         }
                     })?,
 
                 Some(Data::GlobalExternalConfigFile(external_config_file)) => {
-                    write_config_values(&external_config_file.values, &mut log_writer)?
+                    write_config_values(external_config_file, &mut log_writer)?
                 }
                 _ => {}
             }

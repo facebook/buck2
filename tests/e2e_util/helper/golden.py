@@ -145,3 +145,12 @@ def golden_replace_cfg_hash(*, output: str, rel_path: str) -> None:
         output=_replace_cfg_hash(output),
         rel_path=rel_path,
     )
+
+
+def golden_replace_temp_path(*, output: str, rel_path: str, tmp_path: str) -> None:
+    # Escaping backslashes are needed for windows paths
+    tmp_path_escaped = tmp_path.replace("\\", "\\\\")
+    golden(
+        output=output.replace(tmp_path_escaped, "tmp-path").replace("\\\\", "/"),
+        rel_path=rel_path,
+    )
