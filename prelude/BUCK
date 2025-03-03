@@ -46,6 +46,7 @@ prelude.filegroup(
     srcs = {
         "": ":files",
         "android/constraints/BUCK.v2": ":copy_android_constraint",
+        "rust/tools/attrs.bzl": "//rust/tools:attrs.bzl",
     },
     visibility = ["PUBLIC"],
 )
