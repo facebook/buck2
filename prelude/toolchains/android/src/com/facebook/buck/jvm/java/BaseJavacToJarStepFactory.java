@@ -43,7 +43,7 @@ public class BaseJavacToJarStepFactory extends BaseCompileToJarStepFactory<JavaE
       RelPath kotlinClassesDir) {
 
     CompilerOutputPaths outputPath = compilerOutputPathsValue.getByType(invokingRule.getType());
-    if (extraParams.isAddAnnotationPath()) {
+    if (extraParams.getAddAnnotationPath()) {
       addAnnotationGenFolderStep(steps, outputPath.getAnnotationPath());
     }
 

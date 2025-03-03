@@ -35,7 +35,7 @@ public class BuildTargetValueSerializer {
    */
   public static BuildTargetValue deserialize(
       com.facebook.buck.cd.model.java.BuildTargetValue buildTargetValue) {
-    return BuildTargetValue.of(
+    return new BuildTargetValue(
         buildTargetValue.getType(), buildTargetValue.getFullyQualifiedName());
   }
 }
