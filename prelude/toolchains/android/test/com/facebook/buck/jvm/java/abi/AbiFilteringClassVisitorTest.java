@@ -9,10 +9,9 @@
 
 package com.facebook.buck.jvm.java.abi;
 
-import static org.easymock.EasyMock.createMock;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
-import static org.easymock.EasyMock.verify;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -27,7 +26,7 @@ public class AbiFilteringClassVisitorTest {
 
   @Before
   public void setUp() {
-    mockVisitor = createMock(ClassVisitor.class);
+    mockVisitor = mock(ClassVisitor.class);
     filteringVisitor =
         new AbiFilteringClassVisitor(mockVisitor, ImmutableList.of(), ImmutableSet.of(), false);
   }
@@ -129,32 +128,29 @@ public class AbiFilteringClassVisitorTest {
 
   @Test
   public void testAlwaysVisitsClassNode() {
-    visitClass(mockVisitor, "Foo");
-    replay(mockVisitor);
     visitClass(filteringVisitor, "Foo");
-    verify(mockVisitor);
+    verifyVisitClass(mockVisitor, "Foo");
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
   public void testIncludesInnerClassEntryForClassItself() {
-    visitClass(mockVisitor, "Foo$Inner");
-    mockVisitor.visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PUBLIC);
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo$Inner");
     filteringVisitor.visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PUBLIC);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo$Inner");
+    verify(mockVisitor).visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PUBLIC);
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
   public void testIncludesInnerClassEntryForInnerClass() {
-    visitClass(mockVisitor, "Foo");
-    mockVisitor.visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PUBLIC);
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo");
     filteringVisitor.visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PUBLIC);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo");
+    verify(mockVisitor).visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PUBLIC);
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
@@ -163,69 +159,67 @@ public class AbiFilteringClassVisitorTest {
         new AbiFilteringClassVisitor(
             mockVisitor, ImmutableList.of(), ImmutableSet.of("Bar$Inner"), false);
 
-    visitClass(mockVisitor, "Foo");
-    mockVisitor.visitInnerClass("Bar$Inner", "Bar", "Inner", Opcodes.ACC_PUBLIC);
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo");
     filteringVisitor.visitInnerClass("Bar$Inner", "Bar", "Inner", Opcodes.ACC_PUBLIC);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo");
+    verify(mockVisitor).visitInnerClass("Bar$Inner", "Bar", "Inner", Opcodes.ACC_PUBLIC);
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
   public void testExcludesInnerClassEntryForUnreferencedOtherClassInnerClass() {
-    visitClass(mockVisitor, "Foo");
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo");
     filteringVisitor.visitInnerClass("Bar$Inner", "Bar", "Inner", Opcodes.ACC_PUBLIC);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo");
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
   public void testIncludesPrivateInnerClassesForNow() {
-    visitClass(mockVisitor, "Foo");
-    mockVisitor.visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PRIVATE);
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo");
     filteringVisitor.visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PRIVATE);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo");
+    verify(mockVisitor).visitInnerClass("Foo$Inner", "Foo", "Inner", Opcodes.ACC_PRIVATE);
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
   public void testExcludesSyntheticInnerClasses() {
-    visitClass(mockVisitor, "Foo");
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo");
     filteringVisitor.visitInnerClass(
         "Foo$Inner", "Foo", "Inner", Opcodes.ACC_PUBLIC | Opcodes.ACC_SYNTHETIC);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo");
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
   public void testExcludesAnonymousInnerClasses() {
-    visitClass(mockVisitor, "Foo");
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo");
     filteringVisitor.visitInnerClass("Foo$1", null, null, 0);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo");
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   @Test
   public void testExcludesLocalClasses() {
-    visitClass(mockVisitor, "Foo");
-    replay(mockVisitor);
-
     visitClass(filteringVisitor, "Foo");
     filteringVisitor.visitInnerClass("Foo$1Bar", null, "Bar", 0);
-    verify(mockVisitor);
+
+    verifyVisitClass(mockVisitor, "Foo");
+    verifyNoMoreInteractions(mockVisitor);
   }
 
   private static void visitClass(ClassVisitor cv, String name) {
     cv.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, name, null, "java/lang/Object", null);
+  }
+
+  private static void verifyVisitClass(ClassVisitor cv, String name) {
+    verify(cv).visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, name, null, "java/lang/Object", null);
   }
 
   private void testExcludesFieldWithAccess(int access) {
@@ -237,12 +231,10 @@ public class AbiFilteringClassVisitorTest {
   }
 
   private void testFieldWithAccess(int access, boolean shouldInclude) {
-    if (shouldInclude) {
-      expect(mockVisitor.visitField(access, "Foo", "I", null, null)).andReturn(null);
-    }
-    replay(mockVisitor);
     filteringVisitor.visitField(access, "Foo", "I", null, null);
-    verify(mockVisitor);
+    if (shouldInclude) {
+      verify(mockVisitor).visitField(access, "Foo", "I", null, null);
+    }
   }
 
   private void testExcludesMethodWithAccess(int access) {
@@ -262,11 +254,9 @@ public class AbiFilteringClassVisitorTest {
   }
 
   private void testMethodWithAccess(int access, String name, boolean shouldInclude) {
-    if (shouldInclude) {
-      expect(mockVisitor.visitMethod(access, name, "()V", null, null)).andReturn(null);
-    }
-    replay(mockVisitor);
     filteringVisitor.visitMethod(access, name, "()V", null, null);
-    verify(mockVisitor);
+    if (shouldInclude) {
+      verify(mockVisitor).visitMethod(access, name, "()V", null, null);
+    }
   }
 }
