@@ -36,8 +36,8 @@ def remove_files(pattern: str) -> None:
 
 
 def main() -> None:
-    repo_root = subprocess.check_output(["buck", "root"]).decode("utf-8").strip()
-    os.chdir(repo_root + "/xplat/toolchains/android/sdk")
+    repo_root = subprocess.check_output(["hg", "root"]).decode("utf-8").strip()
+    os.chdir(repo_root + "/fbcode/buck2/prelude/toolchains/android")
     remove_files("src-gen/**/proto/*.java")
     remove_files("src-gen/**/model/*.java")
     for file in ls_files_cmd("src/**/*.proto"):
@@ -46,7 +46,7 @@ def main() -> None:
             [
                 "buck",
                 "run",
-                "//xplat/toolchains/android/sdk/tools/protobuf:protoc",
+                "prelude//toolchains/android/tools/protobuf:protoc",
                 "--",
                 "-I=third-party/java/protobuf",
                 "-I=src/com/facebook/buck/cd/resources/proto",
@@ -66,7 +66,7 @@ def main() -> None:
     set_generated_tag("src-gen/**/proto/*.java")
     set_generated_tag("src-gen/**/model/*.java")
     subprocess.run(
-        ["buck", "build", "//xplat/toolchains/android/sdk/src-gen/..."], check=True
+        ["buck", "build", "prelude//toolchains/android/src-gen/..."], check=True
     )
 
 

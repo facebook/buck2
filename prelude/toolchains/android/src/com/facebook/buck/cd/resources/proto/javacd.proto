@@ -14,7 +14,7 @@
 // When modifying this file, please run the following generate command,
 // and include generated code in your commit
 //
-// xplat/toolchains/android/sdk/tools/protobuf/gen.py
+// fbcode/buck2/prelude/toolchains/android/tools/protobuf/gen.py
 //
 //-----------------------
 

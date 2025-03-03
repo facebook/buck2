@@ -15,7 +15,7 @@
 // and include generated code in your commit (How-to
 // https://fburl.com/gdoc/4zvk9n6n)
 //
-// xplat/toolchains/android/sdk/tools/protobuf/gen.py
+// fbcode/buck2/prelude/toolchains/android/tools/protobuf/gen.py
 //
 //-----------------------
 
