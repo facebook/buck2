@@ -49,16 +49,6 @@ public class FileExtensionMatcher implements PathMatcher {
     return extension.equals(Files.getFileExtension(path.toString()));
   }
 
-  @Override
-  public String getGlob() {
-    return "**/*." + extension;
-  }
-
-  @Override
-  public PathOrGlob getPathOrGlob() {
-    return PathOrGlob.glob(getGlob());
-  }
-
   public String getExtension() {
     return extension;
   }

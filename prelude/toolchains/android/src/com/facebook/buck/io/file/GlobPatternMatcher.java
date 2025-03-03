@@ -59,16 +59,6 @@ public class GlobPatternMatcher implements PathMatcher {
     return globPatternMatcher.matches(path);
   }
 
-  @Override
-  public String getGlob() {
-    return globPattern;
-  }
-
-  @Override
-  public PathOrGlob getPathOrGlob() {
-    return PathOrGlob.glob(getGlob());
-  }
-
   /**
    * @return The matcher for paths that start with {@code basePath}.
    */

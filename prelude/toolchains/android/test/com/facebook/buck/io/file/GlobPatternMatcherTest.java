@@ -9,8 +9,6 @@
 
 package com.facebook.buck.io.file;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -29,13 +27,5 @@ public class GlobPatternMatcherTest {
   public void doesNotMatchPathsOutsideOfProvidedBasePath() {
     GlobPatternMatcher matcher = GlobPatternMatcher.of("foo/*");
     assertFalse(matcher.matches(Paths.get("not_relative_too_root")));
-  }
-
-  @Test
-  public void returnsAGlobWhenAskedForPathOrGlob() {
-    GlobPatternMatcher matcher = GlobPatternMatcher.of("foo/*");
-    PathMatcher.PathOrGlob pathOrGlob = matcher.getPathOrGlob();
-    assertTrue(pathOrGlob.isGlob());
-    assertThat(pathOrGlob.getValue(), equalTo("foo/*"));
   }
 }

@@ -9,8 +9,6 @@
 
 package com.facebook.buck.io.file;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -29,13 +27,5 @@ public class FileExtensionMatcherTest {
   public void doesNotMatchPathsWithADifferentExtension() {
     FileExtensionMatcher matcher = FileExtensionMatcher.of("cpp");
     assertFalse(matcher.matches(RelPath.get("foo.java")));
-  }
-
-  @Test
-  public void returnsAGlobWhenAskedForPathOrGlob() {
-    FileExtensionMatcher matcher = FileExtensionMatcher.of("cpp");
-    PathMatcher.PathOrGlob pathOrGlob = matcher.getPathOrGlob();
-    assertTrue(pathOrGlob.isGlob());
-    assertThat(pathOrGlob.getValue(), equalTo("**/*.cpp"));
   }
 }
