@@ -31,20 +31,6 @@ message RelPathMapEntry {
   string value = 2;
 }
 
-message TargetConfigHashBasePathOverride {
-  string path = 1;
-  bool override = 2;
-}
-
-message BuckPaths {
-  string cellName = 1;
-  string buckOut = 2;
-  string configuredBuckOut = 3;
-  bool includeTargetConfigHash = 4;
-  repeated TargetConfigHashBasePathOverride targetConfigHashBasePathOverrides =
-      5;
-}
-
 message PostBuildParams {
   string libraryJar = 1;
   string abiJar = 2;
