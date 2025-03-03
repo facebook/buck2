@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path")
 load("@prelude//apple/swift:swift_pcm_compilation.bzl", "get_compiled_pcm_deps_tset")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")
@@ -18,6 +17,7 @@ load(
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info", "get_swift_toolchain_info_dep")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
 
 def get_swift_interface_anon_targets(
@@ -29,7 +29,7 @@ def get_swift_interface_anon_targets(
             {
                 "dep": d,
                 "name": d.label,
-                "_apple_toolchain": ctx.attrs._apple_toolchain,
+                "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
             },
         )
         for d in uncompiled_sdk_deps
@@ -46,8 +46,7 @@ def compile_swiftinterface_common(
         expanded_swiftinterface_cmd,
         category,
         additional_compiled_pcm):
-    apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
+    swift_toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args(swift_toolchain.compiler)
     cmd.add(partial_cmd)
     cmd.add(get_sdk_flags(ctx))
@@ -102,13 +101,12 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
     def k(sdk_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         uncompiled_module_info_name = uncompiled_sdk_module_info.module_name
-        apple_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-        swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
+        swift_toolchain = ctx.attrs._swift_toolchain[SwiftToolchainInfo]
 
         expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(
             cmd_args(swift_toolchain.sdk_path),
             cmd_args(swift_toolchain.resource_dir),
-            cmd_args(apple_toolchain.platform_path),
+            cmd_args(swift_toolchain.platform_path),
             uncompiled_sdk_module_info.input_relative_path,
         )
 
@@ -153,6 +151,6 @@ _swift_interface_compilation = rule(
     impl = _swift_interface_compilation_impl,
     attrs = {
         "dep": attrs.dep(),
-        "_apple_toolchain": attrs.dep(),
+        "_swift_toolchain": attrs.dep(),
     },
 )
