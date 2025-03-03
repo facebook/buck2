@@ -12,7 +12,6 @@ package com.facebook.buck.step.isolatedsteps.common;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 /**
  * Deletes the directory, if it exists, before creating it. {@link MakeCleanDirectoryIsolatedStep}
@@ -27,8 +26,7 @@ import com.google.common.collect.ImmutableSet;
 public final class MakeCleanDirectoryIsolatedStep {
 
   public static ImmutableList<IsolatedStep> of(RelPath path) {
-    return ImmutableList.of(
-        new RmIsolatedStep(path, true, ImmutableSet.of()), new MkdirIsolatedStep(path));
+    return ImmutableList.of(RmIsolatedStep.of(path, true), MkdirIsolatedStep.of(path));
   }
 
   private MakeCleanDirectoryIsolatedStep() {}

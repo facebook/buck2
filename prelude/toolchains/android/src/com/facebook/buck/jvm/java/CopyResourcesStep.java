@@ -30,8 +30,8 @@ public class CopyResourcesStep {
       RelPath existingPath = entry.getKey();
       RelPath linkPath = entry.getValue();
 
-      steps.add(new MkdirIsolatedStep(linkPath.getParent()));
-      steps.add(new SymlinkIsolatedStep(existingPath, linkPath));
+      steps.add(MkdirIsolatedStep.of(linkPath.getParent()));
+      steps.add(SymlinkIsolatedStep.of(existingPath, linkPath));
     }
     return steps.build();
   }

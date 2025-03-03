@@ -276,7 +276,7 @@ public class KaptStepsBuilder {
             kaptGeneratedOutput, kaptAnnotationGenFolder, CopySourceMode.DIRECTORY_CONTENTS_ONLY));
 
     steps.add(
-        new ZipIsolatedStep(
+        ZipIsolatedStep.of(
             rootCellPath,
             kaptGenOutput.getPath(),
             ImmutableSet.of(),

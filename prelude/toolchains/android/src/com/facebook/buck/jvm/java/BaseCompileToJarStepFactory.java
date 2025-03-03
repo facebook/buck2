@@ -101,15 +101,15 @@ public abstract class BaseCompileToJarStepFactory<T extends CompileToJarStepFact
     steps.addAll(CopyResourcesStep.of(resourcesMap));
 
     if (!emptySources) {
-      steps.add(new MkdirIsolatedStep(outputPaths.getPathToSourcesList().getParent()));
-      steps.add(new MkdirIsolatedStep(outputPaths.getWorkingDirectory()));
+      steps.add(MkdirIsolatedStep.of(outputPaths.getPathToSourcesList().getParent()));
+      steps.add(MkdirIsolatedStep.of(outputPaths.getWorkingDirectory()));
     }
 
     return steps.build();
   }
 
   protected void addJarSetupSteps(JarParameters jarParameters, Builder<IsolatedStep> steps) {
-    steps.add(new MkdirIsolatedStep(jarParameters.getJarPath().getParent()));
+    steps.add(MkdirIsolatedStep.of(jarParameters.getJarPath().getParent()));
   }
 
   void addJarCreationSteps(

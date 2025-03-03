@@ -62,6 +62,6 @@ public class BaseJavacToJarStepFactory extends BaseCompileToJarStepFactory<JavaE
 
   protected void addAnnotationGenFolderStep(
       ImmutableList.Builder<IsolatedStep> steps, RelPath annotationGenFolder) {
-    steps.add(new MkdirIsolatedStep(annotationGenFolder));
+    steps.add(MkdirIsolatedStep.of(annotationGenFolder));
   }
 }
