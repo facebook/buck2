@@ -16,11 +16,11 @@ pub(crate) enum QueryOutputFormatInfo {
     Dot,
     DotCompact,
     Starlark,
-    Html,
+    Html(String),
 }
 
 impl QueryOutputFormatInfo {
-    pub fn from_protobuf_int(value: i32) -> Option<Self> {
+    pub fn from_protobuf_int(value: i32, trace_id: String) -> Option<Self> {
         let value = QueryOutputFormat::from_i32(value)?;
         let res = match value {
             QueryOutputFormat::Default => Self::Default,
@@ -28,7 +28,7 @@ impl QueryOutputFormatInfo {
             QueryOutputFormat::Dot => Self::Dot,
             QueryOutputFormat::DotCompact => Self::DotCompact,
             QueryOutputFormat::Starlark => Self::Starlark,
-            QueryOutputFormat::Html => Self::Html,
+            QueryOutputFormat::Html => Self::Html(trace_id),
         };
         Some(res)
     }

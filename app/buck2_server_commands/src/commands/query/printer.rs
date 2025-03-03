@@ -227,11 +227,12 @@ impl<'a> QueryResultPrinter<'a> {
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: i32,
+        trace_id: String,
     ) -> buck2_error::Result<Self> {
         Self::from_options(
             resolver,
             attributes,
-            QueryOutputFormatInfo::from_protobuf_int(output_format)
+            QueryOutputFormatInfo::from_protobuf_int(output_format, trace_id)
                 .expect("cli should send a valid output_format enum"),
         )
     }
@@ -334,7 +335,7 @@ impl<'a> QueryResultPrinter<'a> {
         print_providers: ShouldPrintProviders<'b, T>,
     ) -> buck2_error::Result<()> {
         match result {
-            QueryEvaluationValue::TargetSet(targets) => match self.output_format {
+            QueryEvaluationValue::TargetSet(targets) => match &self.output_format {
                 QueryOutputFormatInfo::Default => {
                     for target in
                         printable_targets(&targets, print_providers, &self.attributes, call_stack)
@@ -402,7 +403,9 @@ impl<'a> QueryResultPrinter<'a> {
                         &mut output,
                     )?;
                 }
-                QueryOutputFormatInfo::Html => Html::render(targets, &mut output)?,
+                QueryOutputFormatInfo::Html(trace_id) => {
+                    Html::render(targets, &mut output, trace_id.clone()).await?
+                }
                 QueryOutputFormatInfo::DotCompact => {
                     DotCompact::render(
                         &DotTargetGraph {
@@ -450,7 +453,7 @@ impl<'a> QueryResultPrinter<'a> {
                             "dot_compact output for files not implemented yet"
                         ));
                     }
-                    QueryOutputFormatInfo::Html => {
+                    QueryOutputFormatInfo::Html(..) => {
                         return Err(buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Unimplemented,
                             "html output for files not implemented yet"

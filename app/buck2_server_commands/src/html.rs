@@ -23,23 +23,44 @@ pub struct HtmlTargetGraph {
 pub struct Html {}
 
 impl Html {
-    pub(crate) fn render<W: Write, T: QueryTarget>(
+    pub(crate) async fn render<W: Write, T: QueryTarget>(
         graph: TargetSet<T>,
         mut w: W,
+        trace_id: String,
     ) -> buck2_error::Result<()> {
-        // create flatbuffer
-        let html_out;
+        let res;
         #[cfg(fbcode_build)]
         {
-            html_out = output_format(graph)?;
+            use std::io::Cursor;
+
+            use buck2_common::manifold::Bucket;
+            use buck2_common::manifold::ManifoldClient;
+
+            let html_out = output_format(graph)?;
+            let mut cursor = &mut Cursor::new(html_out.as_bytes());
+            let manifold_path = format!("flat/{}-graph.html", trace_id);
+            let manifold = ManifoldClient::new().await?;
+
+            manifold
+                .read_and_upload(
+                    Bucket::EVENT_LOGS,
+                    &manifold_path,
+                    Default::default(),
+                    &mut cursor,
+                )
+                .await?;
+            res = format!(
+                "\nView html in your browser: https://interncache-all.fbcdn.net/manifold/buck2_logs/{} (requires VPN/lighthouse)\n",
+                manifold_path
+            );
         }
         #[cfg(not(fbcode_build))]
         {
-            let _unused = graph;
-            html_out = "Not implemented".to_owned();
+            let _unused = (graph, trace_id);
+            res = "Not implemented".to_owned();
         }
 
-        writeln!(w, "{}", html_out)?;
+        writeln!(w, "{}", res)?;
         Ok(())
     }
 }

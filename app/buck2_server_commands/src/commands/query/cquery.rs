@@ -15,6 +15,7 @@ use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProvide
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::CqueryRequest;
 use buck2_cli_proto::CqueryResponse;
+use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -148,6 +149,7 @@ async fn cquery(
         &cell_resolver,
         &request.output_attributes,
         request.unstable_output_format,
+        request.client_context()?.trace_id.clone(),
     )?;
 
     let CqueryRequest {
