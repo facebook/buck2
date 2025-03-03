@@ -19,7 +19,7 @@ public class InMemoryKotlincFactory {
   private static final Logger LOG = Logger.get(InMemoryKotlincFactory.class);
 
   public static Kotlinc create(KotlinExtraParams extraParams) {
-    if (!extraParams.shouldKotlincRunViaBuildToolsApi()) {
+    if (!extraParams.getShouldKotlincRunViaBuildToolsApi()) {
       LOG.info("Kotlinc implementation used: " + JarBackedReflectedKotlinc.class.getSimpleName());
       return new JarBackedReflectedKotlinc();
     }

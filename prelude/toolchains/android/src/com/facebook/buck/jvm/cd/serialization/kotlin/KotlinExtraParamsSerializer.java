@@ -17,8 +17,8 @@ import com.facebook.buck.jvm.cd.serialization.java.ResolvedJavacOptionsSerialize
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
+import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Marshalling between:
@@ -44,23 +44,19 @@ public class KotlinExtraParamsSerializer {
         .map(AbsPathSerializer::serialize)
         .forEach(builder::addExtraClassPaths);
 
-    builder.setStandardLibraryClassPath(
-        AbsPathSerializer.serialize(kotlinExtraParams.getResolvedStandardLibraryClassPath()));
-    builder.setAnnotationProcessingClassPath(
-        AbsPathSerializer.serialize(kotlinExtraParams.getResolvedAnnotationProcessingClassPath()));
     builder.setAnnotationProcessingTool(
         AnnotationProcessingToolSerializer.serialize(
             kotlinExtraParams.getAnnotationProcessingTool()));
     builder.addAllExtraKotlincArguments(kotlinExtraParams.getExtraKotlincArguments());
 
-    kotlinExtraParams.getResolvedKotlinCompilerPlugins().entrySet().stream()
+    kotlinExtraParams.getKotlinCompilerPlugins().entrySet().stream()
         .forEach(
             entry ->
                 builder.putKotlinCompilerPlugins(
                     entry.getKey().toString(),
                     PluginParams.newBuilder().putAllParams(entry.getValue()).build()));
 
-    kotlinExtraParams.getResolvedKosabiPluginOptionPath().entrySet().stream()
+    kotlinExtraParams.getKosabiPluginOptions().entrySet().stream()
         .forEach(
             entry ->
                 builder.putKosabiPluginOptions(
@@ -69,31 +65,27 @@ public class KotlinExtraParamsSerializer {
         .getKosabiJvmAbiGenEarlyTerminationMessagePrefix()
         .ifPresent(builder::setKosabiJvmAbiGenEarlyTerminationMessagePrefix);
 
-    kotlinExtraParams.getResolvedFriendPaths().stream()
+    kotlinExtraParams.getFriendPaths().stream()
         .map(AbsPathSerializer::serialize)
         .forEach(builder::addFriendPaths);
 
-    kotlinExtraParams.getResolvedKotlinHomeLibraries().stream()
+    kotlinExtraParams.getKotlinHomeLibraries().stream()
         .map(AbsPathSerializer::serialize)
         .forEach(builder::addKotlinHomeLibraries);
 
     kotlinExtraParams.getJvmTarget().ifPresent(builder::setJvmTarget);
 
-    builder.setShouldGenerateAnnotationProcessingStats(
-        kotlinExtraParams.shouldGenerateAnnotationProcessingStats());
     builder.setShouldVerifySourceOnlyAbiConstraints(
-        kotlinExtraParams.shouldVerifySourceOnlyAbiConstraints());
-    builder.setShouldUseJvmAbiGen(kotlinExtraParams.shouldUseJvmAbiGen());
-    builder.setShouldUseStandaloneKosabi(kotlinExtraParams.shouldUseStandaloneKosabi());
+        kotlinExtraParams.getShouldVerifySourceOnlyAbiConstraints());
+    builder.setShouldUseJvmAbiGen(kotlinExtraParams.getShouldUseJvmAbiGen());
+    builder.setShouldUseStandaloneKosabi(kotlinExtraParams.getShouldUseStandaloneKosabi());
     kotlinExtraParams
         .getJvmAbiGenPlugin()
         .map(AbsPathSerializer::serialize)
         .ifPresent(builder::setJvmAbiGenPlugin);
-    builder.setShouldRemoveKotlinCompilerFromClassPath(
-        kotlinExtraParams.shouldRemoveKotlinCompilerFromClassPath());
     builder.setShouldKotlincRunViaBuildToolsApi(
-        kotlinExtraParams.shouldKotlincRunViaBuildToolsApi());
-    builder.setShouldKotlincRunIncrementally(kotlinExtraParams.shouldKotlincRunIncrementally());
+        kotlinExtraParams.getShouldKotlincRunViaBuildToolsApi());
+    builder.setShouldKotlincRunIncrementally(kotlinExtraParams.getShouldKotlincRunIncrementally());
     kotlinExtraParams
         .getIncrementalStateDir()
         .map(AbsPathSerializer::serialize)
@@ -109,7 +101,7 @@ public class KotlinExtraParamsSerializer {
   public static KotlinExtraParams deserialize(
       com.facebook.buck.cd.model.java.ResolvedJavacOptions resolvedJavacOptions,
       com.facebook.buck.cd.model.kotlin.KotlinExtraParams kotlinExtraParams) {
-    return KotlinExtraParams.of(
+    return new KotlinExtraParams(
         kotlinExtraParams.getExtraClassPathsList().stream()
             .map(AbsPathSerializer::deserialize)
             .collect(ImmutableList.toImmutableList()),
@@ -121,33 +113,29 @@ public class KotlinExtraParamsSerializer {
             .collect(ImmutableList.toImmutableList()),
         kotlinExtraParams.getKotlinCompilerPluginsMap().entrySet().stream()
             .collect(
-                Collectors.toMap(
+                ImmutableMap.toImmutableMap(
                     e -> AbsPathSerializer.deserialize(e.getKey()),
                     e -> ImmutableMap.copyOf(e.getValue().getParamsMap()))),
         kotlinExtraParams.getKosabiPluginOptionsMap().entrySet().stream()
             .collect(
-                Collectors.toMap(
-                    e -> e.getKey(), e -> AbsPathSerializer.deserialize(e.getValue()))),
-        kotlinExtraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix().isEmpty()
-            ? Optional.empty()
-            : Optional.of(kotlinExtraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix()),
+                ImmutableMap.toImmutableMap(
+                    Map.Entry::getKey, e -> AbsPathSerializer.deserialize(e.getValue()))),
+        Optional.ofNullable(kotlinExtraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix()),
         kotlinExtraParams.getFriendPathsList().stream()
             .map(AbsPathSerializer::deserialize)
             .collect(ImmutableSortedSet.toImmutableSortedSet(AbsPath.comparator())),
         kotlinExtraParams.getKotlinHomeLibrariesList().stream()
             .map(AbsPathSerializer::deserialize)
-            .collect(ImmutableSortedSet.toImmutableSortedSet(AbsPath.comparator())),
+            .collect(ImmutableSortedSet.toImmutableSortedSet(AbsPath.comparator()))
+            .stream()
+            .collect(ImmutableList.toImmutableList()),
         ResolvedJavacOptionsSerializer.deserialize(resolvedJavacOptions),
-        kotlinExtraParams.getJvmTarget().isEmpty()
-            ? Optional.empty()
-            : Optional.of(kotlinExtraParams.getJvmTarget()),
-        kotlinExtraParams.getShouldGenerateAnnotationProcessingStats(),
+        Optional.ofNullable(kotlinExtraParams.getJvmTarget()),
         kotlinExtraParams.getShouldUseJvmAbiGen(),
         Optional.of(kotlinExtraParams.getJvmAbiGenPlugin())
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),
         kotlinExtraParams.getShouldVerifySourceOnlyAbiConstraints(),
-        kotlinExtraParams.getShouldRemoveKotlinCompilerFromClassPath(),
         Optional.of(kotlinExtraParams.getDepTrackerPlugin())
             .filter(s -> !s.isEmpty())
             .map(AbsPathSerializer::deserialize),

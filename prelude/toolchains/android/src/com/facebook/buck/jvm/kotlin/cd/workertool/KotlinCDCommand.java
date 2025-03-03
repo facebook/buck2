@@ -111,14 +111,14 @@ public class KotlinCDCommand implements JvmCDCommand {
     this.kotlinCDScribeAnalytics = initKotlinCDScribeAnalytics();
     this.postExecutorsFactory =
         PostExecutorsFactory.create(
-            buildKotlinCommand.getKotlinExtraParams().shouldKotlincRunIncrementally());
+            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally());
     cleanupOldPostBuildOutputs();
 
     this.stepsBuilder =
         new KotlinStepsBuilder(
             this.buildKotlinCommand,
             generateActionMetadata(),
-            buildKotlinCommand.getKotlinExtraParams().shouldKotlincRunIncrementally()
+            buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally()
                 ? RelPath.of(postBuildParams.getIncrementalStateDir().resolve(KOTLIN_CLASSES_DIR))
                 : null,
             kotlinCDScribeAnalytics);
@@ -192,7 +192,7 @@ public class KotlinCDCommand implements JvmCDCommand {
         executionPlatform,
         numJavaFiles,
         numKotlinFiles,
-        buildKotlinCommand.getKotlinExtraParams().shouldKotlincRunIncrementally());
+        buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally());
   }
 
   private static long countSourceFiles(
@@ -201,7 +201,7 @@ public class KotlinCDCommand implements JvmCDCommand {
   }
 
   private void cleanupOldPostBuildOutputs() throws IOException {
-    if (!buildKotlinCommand.getKotlinExtraParams().shouldKotlincRunIncrementally()) {
+    if (!buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally()) {
       return;
     }
 

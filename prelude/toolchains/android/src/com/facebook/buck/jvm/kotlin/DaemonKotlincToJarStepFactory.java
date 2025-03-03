@@ -118,7 +118,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       ClasspathUtils classpathUtils =
           new ClasspathUtils(
               buildCellRootPath,
-              extraParams.getResolvedFriendPaths(),
+              extraParams.getFriendPaths(),
               parameters.getClasspathEntries(),
               extraParams.getExtraClassPaths(),
               buildTargetValueExtraParams);
@@ -128,14 +128,13 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       ImmutableList<AbsPath> allClasspaths = classpathUtils.getAllClasspaths(steps);
 
       ImmutableList<AbsPath> classpathSnapshots =
-          extraParams.shouldKotlincRunIncrementally()
+          extraParams.getShouldKotlincRunIncrementally()
               ? getClasspathSnapshots(parameters, steps, buildCellRootPath, allClasspaths)
               : ImmutableList.of();
 
       KosabiPluginOptions kosabiPluginOptions =
           new KosabiPluginOptions(
-              extraParams.getResolvedKosabiPluginOptionPath(),
-              extraParams.shouldUseStandaloneKosabi());
+              extraParams.getKosabiPluginOptions(), extraParams.getShouldUseStandaloneKosabi());
 
       String moduleName = buildTargetValueExtraParams.getModuleName();
       String kotlinPluginGeneratedFullPath =
@@ -153,7 +152,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       JavacPluginParams annotationProcessorParams =
           extraParams.getResolvedJavacOptions().getJavaAnnotationProcessorParams();
 
-      ImmutableList<AbsPath> kotlinHomeLibraries = extraParams.getResolvedKotlinHomeLibraries();
+      ImmutableList<AbsPath> kotlinHomeLibraries = extraParams.getKotlinHomeLibraries();
 
       KaptStepsBuilder.prepareKaptProcessorsIfNeeded(
           extraParams.getAnnotationProcessingTool(),
@@ -162,8 +161,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           steps,
           buildTargetValueExtraParams,
           extraParams.getJvmTarget(),
-          extraParams.getResolvedStandardLibraryClassPath(),
-          extraParams.getResolvedAnnotationProcessingClassPath(),
+          extraParams.getStandardLibraryClassPath(),
+          extraParams.getAnnotationProcessingClassPath(),
           outputDirectory,
           annotationGenFolder,
           javacSourceBuilder,
@@ -179,13 +178,13 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kotlinc,
           compilerOutputPaths,
           buckOut,
-          extraParams.getResolvedKotlinCompilerPlugins(),
+          extraParams.getKotlinCompilerPlugins(),
           kotlinPluginGeneratedFullPath,
           moduleName,
           kotlinCDAnalytics,
           sourceWithStubsAndKaptAndKspOutputBuilder,
           sourceWithStubsAndKaptOutputBuilder,
-          extraParams.getSanitizedLanguageVersion());
+          extraParams.getLanguageVersion());
 
       // minified classpath required for so-abi
       ImmutableList<AbsPath> sourceOnlyAbiClasspath =
@@ -231,7 +230,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               reportsOutput,
               parameters.shouldTrackClassUsage(),
               allClasspaths,
-              extraParams.getResolvedKotlinCompilerPlugins(),
+              extraParams.getKotlinCompilerPlugins(),
               kotlinPluginGeneratedFullPath,
               buildTargetValueExtraParams.getCellRelativeBasePath(),
               annotationProcessorParams,
@@ -249,7 +248,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               extraParams.getJvmTarget(),
               extraParams.getExtraKotlincArguments(),
               kotlinCDAnalytics,
-              extraParams.getSanitizedLanguageVersion());
+              extraParams.getLanguageVersion());
 
       // Avoid running Kotlin source-only builds twice when KSP split invocation happens.
       // If KSP1 processors has invoked previously, we should have sufficient source-only ABI
@@ -293,7 +292,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
 
     ResolvedJavacOptions resolvedJavacOptions = extraParams.getResolvedJavacOptions();
     if (hasKotlinSources
-        && isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getSanitizedLanguageVersion())
+        && isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getLanguageVersion())
         && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
       // Only disable javac annotation processing if KAPT definitely ran.
       resolvedJavacOptions =

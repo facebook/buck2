@@ -67,7 +67,7 @@ public class KotlinCStepsBuilder {
             kotlinPluginGeneratedFullPath,
             moduleName);
 
-    LanguageVersion kotlincLanguageVersion = extraParams.getSanitizedLanguageVersion();
+    LanguageVersion kotlincLanguageVersion = extraParams.getLanguageVersion();
 
     if (invokingRule.isSourceOnlyAbi()) {
       kotlincLanguageVersion = LanguageVersion.Companion.getK1();
@@ -80,7 +80,7 @@ public class KotlinCStepsBuilder {
             sourceWithKSPOutputBuilder.build(),
             pathToSrcsList,
             allClasspaths,
-            extraParams.getResolvedKotlinHomeLibraries(),
+            extraParams.getKotlinHomeLibraries(),
             reportsOutput,
             kotlinc,
             extraArguments.build(),
@@ -93,7 +93,7 @@ public class KotlinCStepsBuilder {
             invokingRule.isSourceOnlyAbi()
                 && kspInvocationStatus == KspStepsBuilder.KSPInvocationStatus.KSP2_INVOKED,
             sourceOnlyAbiClasspath,
-            extraParams.shouldVerifySourceOnlyAbiConstraints(),
+            extraParams.getShouldVerifySourceOnlyAbiConstraints(),
             postKotlinCompilationFailureSteps.build(),
             extraParams.getDepTrackerPlugin(),
             KotlincModeFactory.create(
@@ -129,7 +129,7 @@ public class KotlinCStepsBuilder {
             .add(friendPathsArg)
             .addAll(
                 getKotlinCompilerPluginsArgs(
-                    extraParams.getResolvedKotlinCompilerPlugins(),
+                    extraParams.getKotlinCompilerPlugins(),
                     kotlinPluginGeneratedFullPath,
                     KspStepsBuilder::isNotKspPlugin))
             .add(CompilerPluginUtils.MODULE_NAME)
@@ -165,11 +165,11 @@ public class KotlinCStepsBuilder {
       String kotlinPluginGeneratedFullPath) {
     // Use jvm-abi-gen for the kotlin part of class-abi, in order to get more accurate class-abi.
     // But since it is a kotlinc plugin, we produce it during library build.
-    if (extraParams.shouldUseJvmAbiGen() && invokingRule.isLibraryJar()) {
+    if (extraParams.getShouldUseJvmAbiGen() && invokingRule.isLibraryJar()) {
       final AbsPath jvmAbiPlugin = extraParams.getJvmAbiGenPlugin().orElseThrow();
 
       ImmutableMap<String, String> jvmPluginOptions =
-          extraParams.getResolvedKotlinCompilerPlugins().get(jvmAbiPlugin);
+          extraParams.getKotlinCompilerPlugins().get(jvmAbiPlugin);
       boolean hasOutputDirParam =
           Optional.ofNullable(jvmPluginOptions)
               .map(opts -> opts.containsKey(CompilerPluginUtils.JB_JVM_ABI_OUTPUT_DIR))
@@ -201,7 +201,7 @@ public class KotlinCStepsBuilder {
   // default)
   private static AbsPath getJvmAbiGenOutputPath(
       AbsPath buildCellRootPath, CompilerParameters parameters, KotlinExtraParams extraParams) {
-    if (extraParams.shouldKotlincRunIncrementally()) {
+    if (extraParams.getShouldKotlincRunIncrementally()) {
       return extraParams.getJvmAbiGenWorkingDir().get();
     }
 

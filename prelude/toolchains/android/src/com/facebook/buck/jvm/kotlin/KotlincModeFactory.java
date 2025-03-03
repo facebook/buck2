@@ -31,10 +31,10 @@ public class KotlincModeFactory {
       final KotlinExtraParams extraParams,
       final Optional<ActionMetadata> actionMetadata,
       final ImmutableList<AbsPath> classpathSnapshots) {
-    if (!extraParams.shouldKotlincRunViaBuildToolsApi()) {
+    if (!extraParams.getShouldKotlincRunViaBuildToolsApi()) {
       LOG.info("Non-incremental mode applied: kotlinc_run_via_build_tools_api config disabled");
       return KotlincMode.NonIncremental.INSTANCE;
-    } else if (!extraParams.shouldKotlincRunIncrementally()) {
+    } else if (!extraParams.getShouldKotlincRunIncrementally()) {
       LOG.info("Non-incremental mode applied: incremental property disabled");
       return KotlincMode.NonIncremental.INSTANCE;
     } else if (isSourceOnly) {

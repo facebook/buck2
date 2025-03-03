@@ -54,7 +54,7 @@ public class KosabiStubgenStepsBuilder {
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
       KotlinCDAnalytics kotlinCDAnalytics) {
     ImmutableSortedSet<RelPath> stubsGenOutputPath;
-    if (invokingRule.isSourceOnlyAbi() && extraParams.shouldUseStandaloneKosabi()) {
+    if (invokingRule.isSourceOnlyAbi() && extraParams.getShouldUseStandaloneKosabi()) {
       RelPath stubgenOutputDir = buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs__");
       RelPath stubsOutputZipDir =
           buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs_zip__");
@@ -82,7 +82,7 @@ public class KosabiStubgenStepsBuilder {
               sourceFilePaths,
               pathToSrcsList,
               allClasspaths,
-              extraParams.getResolvedKotlinHomeLibraries(),
+              extraParams.getKotlinHomeLibraries(),
               reportsOutput,
               kotlinc,
               ImmutableList.of(),
@@ -97,7 +97,7 @@ public class KosabiStubgenStepsBuilder {
               "Terminating compilation. We're done with Stubgen.",
               false,
               sourceOnlyAbiClasspath,
-              extraParams.shouldVerifySourceOnlyAbiConstraints(),
+              extraParams.getShouldVerifySourceOnlyAbiConstraints(),
               postKotlinCompilationFailureSteps.build(),
               extraParams.getDepTrackerPlugin(),
               stubgenOutputDir,
