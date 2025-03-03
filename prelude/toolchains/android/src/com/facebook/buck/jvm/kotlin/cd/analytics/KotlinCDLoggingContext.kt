@@ -9,16 +9,14 @@
 
 package com.facebook.buck.jvm.kotlin.cd.analytics
 
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
+
 /** A logging context designed to accumulate data relevant to KotlinCD operations. */
 class KotlinCDLoggingContext(
     val step: StepParam,
-    val languageVersion: String?,
+    val languageVersion: LanguageVersion,
     val kotlincMode: KotlincModeParam?
 ) {
-
-  init {
-    validateLanguageVersion()
-  }
 
   val classpathChangesParam = (kotlincMode as? KotlincModeParam.Incremental)?.classpathChangesParam
 
@@ -28,17 +26,5 @@ class KotlinCDLoggingContext(
 
   fun addExtras(key: String, value: String) {
     _extras.computeIfAbsent(key) { mutableListOf() }.add(value)
-  }
-
-  private fun validateLanguageVersion() {
-    if (languageVersion == null) {
-      return
-    }
-
-    val versionComponents = languageVersion.split(".")
-    require(versionComponents.size in (2..3)) { "Invalid language version: $languageVersion" }
-    require(versionComponents.all { it.toIntOrNull() != null }) {
-      "Invalid language version: $languageVersion"
-    }
   }
 }

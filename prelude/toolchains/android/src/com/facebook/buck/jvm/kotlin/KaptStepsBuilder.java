@@ -21,6 +21,8 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
+import com.facebook.buck.jvm.cd.command.kotlin.KotlinSupportedLanguageVersion;
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
@@ -110,7 +112,7 @@ public class KaptStepsBuilder {
       KotlinCDAnalytics kotlinCDAnalytics,
       ImmutableSortedSet.Builder<RelPath> sourceWithStubsAndKaptAndKspOutputBuilder,
       ImmutableSortedSet.Builder<RelPath> sourceWithStubsAndKaptOutputBuilder,
-      String kotlinLanguageVersion) {
+      LanguageVersion kotlinLanguageVersion) {
     if (!isKaptSupportedForCurrentKotlinLanguageVersion(kotlinLanguageVersion)) {
       return;
     }
@@ -300,21 +302,22 @@ public class KaptStepsBuilder {
     javacSourceBuilder.add(kaptGenOutput);
   }
 
-  private static String getKapt4Flag(String kotlinLanguageVersion) {
-    if (kotlinLanguageVersion.compareTo("2.1") < 0) {
+  private static String getKapt4Flag(LanguageVersion kotlinLanguageVersion) {
+    if (kotlinLanguageVersion.isGreaterOrEqual(KotlinSupportedLanguageVersion.V2_1)) {
       return KOTLINC_KAPT_USE_USE_KAPT4_OLD;
     }
 
     return KOTLINC_KAPT_USE_K2;
   }
 
-  public static boolean isKaptSupportedForCurrentKotlinLanguageVersion(String languageVersion) {
+  public static boolean isKaptSupportedForCurrentKotlinLanguageVersion(
+      LanguageVersion languageVersion) {
     // Newer Java versions removed a constructor from the Java JDK that KAPT relies on. The issue
     // was fixed on Kotlin 1.6 (https://youtrack.jetbrains.com/issue/KT-47583)
     //
     // Once we have our supported AOSP versions on a later Kotlin version, we can remove this.
     // AOSP 12 uses Kotlin 1.4.2 => https://fburl.com/code/94fkfr6r
-    return languageVersion != null && languageVersion.compareTo("1.6") >= 0;
+    return languageVersion.getSupportsLanguageVersion();
   }
 
   /**
@@ -322,8 +325,8 @@ public class KaptStepsBuilder {
    * shall use [k2=False] which ensure they get [-language-version=1.9] and fail the condition here.
    */
   public static boolean isKapt4SupportedForCurrentKotlinLanguageVersion(
-      String kotlinLanguageVersion) {
-    return kotlinLanguageVersion.compareTo("2.0") >= 0;
+      LanguageVersion kotlinLanguageVersion) {
+    return kotlinLanguageVersion.getSupportsK2();
   }
 
   static ImmutableList<ResolvedJavacPluginProperties> getKaptAnnotationProcessors(

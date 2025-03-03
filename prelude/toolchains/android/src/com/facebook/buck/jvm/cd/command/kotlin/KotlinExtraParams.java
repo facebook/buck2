@@ -36,7 +36,15 @@ public abstract class KotlinExtraParams implements CompileToJarStepFactory.Extra
 
   public abstract ImmutableList<String> getExtraKotlincArguments();
 
-  public abstract String getLanguageVersion();
+  public LanguageVersion getSanitizedLanguageVersion() {
+    String languageVersion = getLanguageVersion();
+    if (languageVersion == null) {
+      throw new IllegalStateException("Language version is not set");
+    }
+    return new LanguageVersion(languageVersion);
+  }
+
+  protected abstract String getLanguageVersion();
 
   public abstract ImmutableMap<AbsPath, ImmutableMap<String, String>>
       getResolvedKotlinCompilerPlugins();

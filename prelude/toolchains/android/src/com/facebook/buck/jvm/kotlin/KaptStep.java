@@ -11,6 +11,7 @@ package com.facebook.buck.jvm.kotlin;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
@@ -39,7 +40,7 @@ public class KaptStep extends KotlincStep {
       CompilerOutputPaths outputPaths,
       RelPath configuredBuckOut,
       KotlinCDAnalytics kotlinCDAnalytics,
-      String languageVersion) {
+      LanguageVersion languageVersion) {
     super(
         invokingRule,
         outputDirectory,

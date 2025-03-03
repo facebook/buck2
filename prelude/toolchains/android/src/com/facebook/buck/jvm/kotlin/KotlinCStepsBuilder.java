@@ -15,6 +15,7 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
@@ -55,8 +56,7 @@ public class KotlinCStepsBuilder {
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
       RelPath outputDirectory,
       ImmutableList<AbsPath> classpathSnapshots,
-      KotlinCDAnalytics kotlinCDAnalytics,
-      String languageVersion) {
+      KotlinCDAnalytics kotlinCDAnalytics) {
     ImmutableList.Builder<String> extraArguments =
         getKotlincExtraArguments(
             buildCellRootPath,
@@ -66,6 +66,12 @@ public class KotlinCStepsBuilder {
             friendPathsArg,
             kotlinPluginGeneratedFullPath,
             moduleName);
+
+    LanguageVersion kotlincLanguageVersion = extraParams.getSanitizedLanguageVersion();
+
+    if (invokingRule.isSourceOnlyAbi()) {
+      kotlincLanguageVersion = LanguageVersion.Companion.getK1();
+    }
 
     KotlincStep kotlincStep =
         new KotlincStep(
@@ -100,7 +106,7 @@ public class KotlinCStepsBuilder {
                 Optional.ofNullable(actionMetadata),
                 classpathSnapshots),
             kotlinCDAnalytics,
-            languageVersion);
+            kotlincLanguageVersion);
     steps.add(kotlincStep);
 
     if (kotlinClassesDir != null) {

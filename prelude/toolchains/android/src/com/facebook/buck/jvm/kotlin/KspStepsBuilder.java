@@ -19,6 +19,7 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.core.BuildTargetValueExtraParams;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
@@ -81,7 +82,7 @@ public class KspStepsBuilder {
       Optional<String> jvmTarget,
       ImmutableList<String> extraKotlincArguments,
       KotlinCDAnalytics kotlinCDAnalytics,
-      String languageVersion) {
+      LanguageVersion languageVersion) {
 
     ImmutableList<ResolvedJavacPluginProperties> kspAnnotationProcessors =
         getKspAnnotationProcessors(getAnnotationProcessors(annotationProcessorParams));

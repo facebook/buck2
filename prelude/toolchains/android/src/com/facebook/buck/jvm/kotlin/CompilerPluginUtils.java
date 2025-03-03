@@ -24,8 +24,6 @@ public class CompilerPluginUtils {
   static final String NO_STDLIB = "-no-stdlib";
   static final String VERBOSE = "-verbose";
   static final String JB_JVM_ABI_OUTPUT_DIR = "plugin:org.jetbrains.kotlin.jvm.abi:outputDir";
-  static final String K1LANGUAGE_VERSION = "1.9";
-  static final String LANGUAGE_VERSION_PARAM_SUPPORTED_FROM = "1.6";
   private static final String PLUGIN = "-P";
   private static final String PLUGIN_KOTLIN_DI_KSP_ACTIVE =
       "plugin:com.facebook.kotlin.di:kspActive";

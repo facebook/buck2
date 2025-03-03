@@ -11,6 +11,7 @@ package com.facebook.buck.jvm.kotlin;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
@@ -72,7 +73,7 @@ public class Ksp1Step extends KotlincStep {
         KotlincMode.NonIncremental.INSTANCE,
         kotlinCDAnalytics,
         // force K1 for KSP1
-        CompilerPluginUtils.K1LANGUAGE_VERSION);
+        LanguageVersion.Companion.getK1());
   }
 
   @Override

@@ -66,20 +66,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     return (KotlinExtraParams) extraParams;
   }
 
-  private String getLanguageVersion(KotlinExtraParams extraParams, boolean isSourceOnlyAbi) {
-    String languageVersion = extraParams.getLanguageVersion();
-    // Kotlinc 1.6+ can properly recognize `-language-version` flag
-    if (languageVersion.compareTo(CompilerPluginUtils.LANGUAGE_VERSION_PARAM_SUPPORTED_FROM) < 0) {
-      languageVersion = null;
-    } else if (isSourceOnlyAbi) {
-      // Kosabi does not support K2 yet, so we force K1 to be used.
-      // This will guarantee that we run K1 since compiler only cares about the last defined value
-      // for a param.
-      languageVersion = CompilerPluginUtils.K1LANGUAGE_VERSION;
-    }
-    return languageVersion;
-  }
-
   @Override
   public void createCompileStep(
       RelPath buckOut,
@@ -118,9 +104,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         ImmutableSortedSet.orderedBy(RelPath.comparator()).addAll(sourceFilePaths);
 
     steps.addAll(MakeCleanDirectoryIsolatedStep.of(annotationGenFolder));
-
-    String languageVersion = getLanguageVersion(extraParams, invokingRule.isSourceOnlyAbi());
-
     // Only invoke kotlinc if we have kotlin or src zip files.
     if (hasKotlinSources) {
       RelPath reportsOutput = buildTargetValueExtraParams.getAnnotationPath("__%s_reports__");
@@ -202,7 +185,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kotlinCDAnalytics,
           sourceWithStubsAndKaptAndKspOutputBuilder,
           sourceWithStubsAndKaptOutputBuilder,
-          languageVersion);
+          extraParams.getSanitizedLanguageVersion());
 
       // minified classpath required for so-abi
       ImmutableList<AbsPath> sourceOnlyAbiClasspath =
@@ -266,7 +249,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               extraParams.getJvmTarget(),
               extraParams.getExtraKotlincArguments(),
               kotlinCDAnalytics,
-              languageVersion);
+              extraParams.getSanitizedLanguageVersion());
 
       // Avoid running Kotlin source-only builds twice when KSP split invocation happens.
       // If KSP1 processors has invoked previously, we should have sufficient source-only ABI
@@ -304,14 +287,13 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           postKotlinCompilationFailureSteps,
           outputDirectory,
           classpathSnapshots,
-          kotlinCDAnalytics,
-          languageVersion);
+          kotlinCDAnalytics);
       steps.addAll(postKotlinCompilationSteps.build());
     }
 
     ResolvedJavacOptions resolvedJavacOptions = extraParams.getResolvedJavacOptions();
     if (hasKotlinSources
-        && isKaptSupportedForCurrentKotlinLanguageVersion(languageVersion)
+        && isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getSanitizedLanguageVersion())
         && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
       // Only disable javac annotation processing if KAPT definitely ran.
       resolvedJavacOptions =

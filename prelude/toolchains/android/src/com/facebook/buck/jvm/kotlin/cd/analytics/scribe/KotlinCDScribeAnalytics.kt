@@ -10,6 +10,7 @@
 package com.facebook.buck.jvm.kotlin.cd.analytics.scribe
 
 import com.facebook.buck.core.util.log.Logger
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersionForLogs
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
 import com.facebook.buck.jvm.kotlin.cd.scribe.KotlinCDLogEntry
@@ -57,6 +58,7 @@ constructor(
     }
   }
 
+  @OptIn(LanguageVersionForLogs::class)
   private fun createKotlinCDLogEntry(context: KotlinCDLoggingContext): KotlinCDLogEntry {
     return KotlinCDLogEntry(
         time = Instant.now(clock).epochSecond,
@@ -71,7 +73,7 @@ constructor(
         kotlincMode = context.kotlincMode?.value,
         classpathChanges = context.classpathChangesParam?.value,
         step = context.step.value,
-        languageVersion = context.languageVersion,
+        languageVersion = context.languageVersion.valueForLogs,
         extras = buildJson(context.extras))
   }
 

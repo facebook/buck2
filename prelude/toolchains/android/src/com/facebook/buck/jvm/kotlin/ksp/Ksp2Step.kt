@@ -14,6 +14,7 @@ import com.facebook.buck.core.exceptions.HumanReadableException
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.io.file.GlobPatternMatcher
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 import com.facebook.buck.jvm.core.BuildTargetValue
 import com.facebook.buck.jvm.java.CompilerOutputPaths
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics
@@ -59,7 +60,7 @@ class Ksp2Step(
     private val kspCachesOutput: RelPath,
     private val kspOutput: RelPath,
     private val jvmTarget: Optional<String>,
-    private val languageVersion: String,
+    private val languageVersion: LanguageVersion,
     private val jvmDefaultMode: String,
     private val kotlinCDAnalytics: KotlinCDAnalytics
 ) : IsolatedStep() {
@@ -147,20 +148,20 @@ class Ksp2Step(
               jvmTarget = this@Ksp2Step.jvmTarget.orElse("1.8")
               sourceRoots = sourceFilePathsResolved
               javaSourceRoots = sourceFilePathsResolved
-              languageVersion = this@Ksp2Step.languageVersion
-              apiVersion = this@Ksp2Step.languageVersion
+              languageVersion = this@Ksp2Step.languageVersion.value
+              apiVersion = this@Ksp2Step.languageVersion.value
               libraries = allClasspaths.map { it.toFile() }
               jvmDefaultMode = this@Ksp2Step.jvmDefaultMode
             }
             .build()
 
     logger.info(
-        """Running KSP2 with 
+        """Running KSP2 with
               |processors: ${processorProviders.joinToString(", ") { it::class.java.name }}
               |KSPJvmConfig: [
               |  projectBaseDir = ${kspConfig.projectBaseDir}
               |  classOutputDir = ${kspConfig.classOutputDir}
-              |  kotlinOutputDir = ${kspConfig.kotlinOutputDir}  
+              |  kotlinOutputDir = ${kspConfig.kotlinOutputDir}
               |  javaOutputDir = ${kspConfig.javaOutputDir}
               |  resourceOutputDir = ${kspConfig.resourceOutputDir}
               |  cachesDir = ${kspConfig.cachesDir}

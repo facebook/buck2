@@ -16,6 +16,7 @@ import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
@@ -50,7 +51,6 @@ public class KotlincStep extends IsolatedStep {
   private static final String EXCLUDE_REFLECT = "-no-reflect";
   private static final String X_PLUGIN_ARG = "-Xplugin=";
   private static final String PLUGIN = "-P";
-  private static final String LANGUAGE_VERSION_ARG = "-language-version=";
 
   private static final int EXPECTED_SOURCE_ONLY_ABI_EXIT_CODE = 2;
 
@@ -76,7 +76,7 @@ public class KotlincStep extends IsolatedStep {
   private final Optional<AbsPath> depTrackerPath;
   private final KotlincMode kotlincMode;
   private final KotlinCDAnalytics kotlinCDAnalytics;
-  @Nullable private final String languageVersion;
+  private final LanguageVersion languageVersion;
 
   KotlincStep(
       BuildTargetValue invokingRule,
@@ -101,7 +101,7 @@ public class KotlincStep extends IsolatedStep {
       Optional<AbsPath> depTrackerPath,
       KotlincMode kotlincMode,
       KotlinCDAnalytics kotlinCDAnalytics,
-      @Nullable String languageVersion) {
+      LanguageVersion languageVersion) {
     this.invokingRule = invokingRule;
     this.outputDirectory = outputDirectory;
     this.sourceFilePaths = sourceFilePaths;
@@ -292,8 +292,8 @@ public class KotlincStep extends IsolatedStep {
       }
     }
 
-    if (languageVersion != null) {
-      builder.add(LANGUAGE_VERSION_ARG + languageVersion);
+    if (languageVersion.getSupportsLanguageVersion()) {
+      builder.add(languageVersion.getCompilerArgs());
     }
 
     if (context.getVerbosity().shouldUseVerbosityFlagIfAvailable()

@@ -9,6 +9,7 @@
 
 package com.facebook.buck.jvm.kotlin.cd.analytics.scribe
 
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 import com.facebook.buck.jvm.kotlin.cd.analytics.ClasspathChangesParam
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlincModeParam
@@ -123,7 +124,7 @@ internal class KotlinCDScribeAnalyticsTest {
           KotlincModeParam.Incremental(ClasspathChangesParam.NO_CHANGES),
       extras: Map<String, List<String>> = mapOf()
   ): KotlinCDLoggingContext {
-    val context = KotlinCDLoggingContext(step, languageVersion, kotlincMode)
+    val context = KotlinCDLoggingContext(step, LanguageVersion(languageVersion), kotlincMode)
     extras.forEach { (key, extras) -> extras.forEach { item -> context.addExtras(key, item) } }
     return context
   }

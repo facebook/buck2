@@ -9,20 +9,20 @@
 
 package com.facebook.buck.jvm.kotlin;
 
+import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion;
 import com.facebook.buck.jvm.kotlin.cd.analytics.ClasspathChangesParam;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlincModeParam;
 import com.facebook.buck.jvm.kotlin.cd.analytics.StepParam;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.ClasspathChanges;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
-import javax.annotation.Nullable;
 
 public class KotlinCDLoggingContextFactory {
 
   private KotlinCDLoggingContextFactory() {}
 
   public static KotlinCDLoggingContext create(
-      KotlincStep kotlincStep, @Nullable String languageVersion, KotlincMode kotlincMode) {
+      KotlincStep kotlincStep, LanguageVersion languageVersion, KotlincMode kotlincMode) {
     return new KotlinCDLoggingContext(create(kotlincStep), languageVersion, create(kotlincMode));
   }
 
