@@ -26,7 +26,6 @@ public class BuildTargetValueSerializer {
         com.facebook.buck.cd.model.java.BuildTargetValue.newBuilder();
     builder.setFullyQualifiedName(buildTargetValue.getFullyQualifiedName());
     builder.setType(buildTargetValue.getType());
-    builder.setBuildTargetConfigHash(buildTargetValue.buildTargetConfigHash());
     return builder.build();
   }
 
@@ -37,8 +36,6 @@ public class BuildTargetValueSerializer {
   public static BuildTargetValue deserialize(
       com.facebook.buck.cd.model.java.BuildTargetValue buildTargetValue) {
     return BuildTargetValue.of(
-        buildTargetValue.getType(),
-        buildTargetValue.getFullyQualifiedName(),
-        buildTargetValue.getBuildTargetConfigHash());
+        buildTargetValue.getType(), buildTargetValue.getFullyQualifiedName());
   }
 }

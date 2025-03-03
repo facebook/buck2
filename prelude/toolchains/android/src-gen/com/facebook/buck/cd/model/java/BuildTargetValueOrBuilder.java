@@ -27,14 +27,4 @@ public interface BuildTargetValueOrBuilder extends
    * <code>.javacd.api.v1.BuildTargetValue.Type type = 2;</code>
    */
   com.facebook.buck.cd.model.java.BuildTargetValue.Type getType();
-
-  /**
-   * <code>string buildTargetConfigHash = 3;</code>
-   */
-  java.lang.String getBuildTargetConfigHash();
-  /**
-   * <code>string buildTargetConfigHash = 3;</code>
-   */
-  com.google.protobuf.ByteString
-      getBuildTargetConfigHashBytes();
 }

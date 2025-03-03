@@ -276,7 +276,6 @@ def encode_base_jar_command(
 
     build_target_value = struct(
         fullyQualifiedName = qualified_name,
-        buildTargetConfigHash = label.configured_target().config().hash,
         type = encode_target_type(target_type),
     )
     if javac_tool:

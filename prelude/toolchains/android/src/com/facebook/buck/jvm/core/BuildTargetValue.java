@@ -24,8 +24,6 @@ public abstract class BuildTargetValue {
 
   public abstract String getFullyQualifiedName();
 
-  public abstract String buildTargetConfigHash();
-
   @Value.Derived
   public boolean hasAbiJar() {
     return isSourceAbi() || isSourceOnlyAbi();
@@ -53,12 +51,6 @@ public abstract class BuildTargetValue {
 
   /** Creates {@link BuildTargetValue} */
   public static BuildTargetValue of(Type type, String fullyQualifiedName) {
-    return of(type, fullyQualifiedName, "");
-  }
-
-  /** Creates {@link BuildTargetValue} */
-  public static BuildTargetValue of(
-      Type type, String fullyQualifiedName, String buildTargetConfigHash) {
-    return ImmutableBuildTargetValue.ofImpl(type, fullyQualifiedName, buildTargetConfigHash);
+    return ImmutableBuildTargetValue.ofImpl(type, fullyQualifiedName);
   }
 }

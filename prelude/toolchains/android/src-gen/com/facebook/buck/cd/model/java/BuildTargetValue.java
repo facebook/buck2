@@ -20,7 +20,6 @@ private static final long serialVersionUID = 0L;
   private BuildTargetValue() {
     fullyQualifiedName_ = "";
     type_ = 0;
-    buildTargetConfigHash_ = "";
   }
 
   @java.lang.Override
@@ -59,12 +58,6 @@ private static final long serialVersionUID = 0L;
             type_ = rawValue;
             break;
           }
-          case 26: {
-            java.lang.String s = input.readStringRequireUtf8();
-
-            buildTargetConfigHash_ = s;
-            break;
-          }
           default: {
             if (!parseUnknownField(
                 input, unknownFields, extensionRegistry, tag)) {
@@ -98,6 +91,10 @@ private static final long serialVersionUID = 0L;
   }
 
   /**
+   * <pre>
+   * reserved = 3;
+   * </pre>
+   *
    * Protobuf enum {@code javacd.api.v1.BuildTargetValue.Type}
    */
   public enum Type
@@ -264,40 +261,6 @@ private static final long serialVersionUID = 0L;
     return result == null ? com.facebook.buck.cd.model.java.BuildTargetValue.Type.UNRECOGNIZED : result;
   }
 
-  public static final int BUILDTARGETCONFIGHASH_FIELD_NUMBER = 3;
-  private volatile java.lang.Object buildTargetConfigHash_;
-  /**
-   * <code>string buildTargetConfigHash = 3;</code>
-   */
-  public java.lang.String getBuildTargetConfigHash() {
-    java.lang.Object ref = buildTargetConfigHash_;
-    if (ref instanceof java.lang.String) {
-      return (java.lang.String) ref;
-    } else {
-      com.google.protobuf.ByteString bs = 
-          (com.google.protobuf.ByteString) ref;
-      java.lang.String s = bs.toStringUtf8();
-      buildTargetConfigHash_ = s;
-      return s;
-    }
-  }
-  /**
-   * <code>string buildTargetConfigHash = 3;</code>
-   */
-  public com.google.protobuf.ByteString
-      getBuildTargetConfigHashBytes() {
-    java.lang.Object ref = buildTargetConfigHash_;
-    if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b = 
-          com.google.protobuf.ByteString.copyFromUtf8(
-              (java.lang.String) ref);
-      buildTargetConfigHash_ = b;
-      return b;
-    } else {
-      return (com.google.protobuf.ByteString) ref;
-    }
-  }
-
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -318,9 +281,6 @@ private static final long serialVersionUID = 0L;
     if (type_ != com.facebook.buck.cd.model.java.BuildTargetValue.Type.UNKNOWN.getNumber()) {
       output.writeEnum(2, type_);
     }
-    if (!getBuildTargetConfigHashBytes().isEmpty()) {
-      com.google.protobuf.GeneratedMessageV3.writeString(output, 3, buildTargetConfigHash_);
-    }
     unknownFields.writeTo(output);
   }
 
@@ -336,9 +296,6 @@ private static final long serialVersionUID = 0L;
     if (type_ != com.facebook.buck.cd.model.java.BuildTargetValue.Type.UNKNOWN.getNumber()) {
       size += com.google.protobuf.CodedOutputStream
         .computeEnumSize(2, type_);
-    }
-    if (!getBuildTargetConfigHashBytes().isEmpty()) {
-      size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, buildTargetConfigHash_);
     }
     size += unknownFields.getSerializedSize();
     memoizedSize = size;
@@ -358,8 +315,6 @@ private static final long serialVersionUID = 0L;
     if (!getFullyQualifiedName()
         .equals(other.getFullyQualifiedName())) return false;
     if (type_ != other.type_) return false;
-    if (!getBuildTargetConfigHash()
-        .equals(other.getBuildTargetConfigHash())) return false;
     if (!unknownFields.equals(other.unknownFields)) return false;
     return true;
   }
@@ -375,8 +330,6 @@ private static final long serialVersionUID = 0L;
     hash = (53 * hash) + getFullyQualifiedName().hashCode();
     hash = (37 * hash) + TYPE_FIELD_NUMBER;
     hash = (53 * hash) + type_;
-    hash = (37 * hash) + BUILDTARGETCONFIGHASH_FIELD_NUMBER;
-    hash = (53 * hash) + getBuildTargetConfigHash().hashCode();
     hash = (29 * hash) + unknownFields.hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -514,8 +467,6 @@ private static final long serialVersionUID = 0L;
 
       type_ = 0;
 
-      buildTargetConfigHash_ = "";
-
       return this;
     }
 
@@ -544,7 +495,6 @@ private static final long serialVersionUID = 0L;
       com.facebook.buck.cd.model.java.BuildTargetValue result = new com.facebook.buck.cd.model.java.BuildTargetValue(this);
       result.fullyQualifiedName_ = fullyQualifiedName_;
       result.type_ = type_;
-      result.buildTargetConfigHash_ = buildTargetConfigHash_;
       onBuilt();
       return result;
     }
@@ -599,10 +549,6 @@ private static final long serialVersionUID = 0L;
       }
       if (other.type_ != 0) {
         setTypeValue(other.getTypeValue());
-      }
-      if (!other.getBuildTargetConfigHash().isEmpty()) {
-        buildTargetConfigHash_ = other.buildTargetConfigHash_;
-        onChanged();
       }
       this.mergeUnknownFields(other.unknownFields);
       onChanged();
@@ -743,75 +689,6 @@ private static final long serialVersionUID = 0L;
     public Builder clearType() {
       
       type_ = 0;
-      onChanged();
-      return this;
-    }
-
-    private java.lang.Object buildTargetConfigHash_ = "";
-    /**
-     * <code>string buildTargetConfigHash = 3;</code>
-     */
-    public java.lang.String getBuildTargetConfigHash() {
-      java.lang.Object ref = buildTargetConfigHash_;
-      if (!(ref instanceof java.lang.String)) {
-        com.google.protobuf.ByteString bs =
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        buildTargetConfigHash_ = s;
-        return s;
-      } else {
-        return (java.lang.String) ref;
-      }
-    }
-    /**
-     * <code>string buildTargetConfigHash = 3;</code>
-     */
-    public com.google.protobuf.ByteString
-        getBuildTargetConfigHashBytes() {
-      java.lang.Object ref = buildTargetConfigHash_;
-      if (ref instanceof String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        buildTargetConfigHash_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-    /**
-     * <code>string buildTargetConfigHash = 3;</code>
-     */
-    public Builder setBuildTargetConfigHash(
-        java.lang.String value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  
-      buildTargetConfigHash_ = value;
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string buildTargetConfigHash = 3;</code>
-     */
-    public Builder clearBuildTargetConfigHash() {
-      
-      buildTargetConfigHash_ = getDefaultInstance().getBuildTargetConfigHash();
-      onChanged();
-      return this;
-    }
-    /**
-     * <code>string buildTargetConfigHash = 3;</code>
-     */
-    public Builder setBuildTargetConfigHashBytes(
-        com.google.protobuf.ByteString value) {
-      if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
-      
-      buildTargetConfigHash_ = value;
       onChanged();
       return this;
     }

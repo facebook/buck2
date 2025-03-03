@@ -82,11 +82,10 @@ public abstract class BuildTargetValueExtraParams {
               : Optional.of(matcher.group(8));
     }
     String shortNameAndFlavorPostfix = targetName + flavor.map("#"::concat).orElse("");
-    String buildTargetConfigHash = buildTargetValue.buildTargetConfigHash();
     return of(
         RelPathSerializer.deserialize(basePath),
         flavor.isPresent(),
-        RelPath.get(buildTargetConfigHash).resolve(RelPathSerializer.deserialize(basePath)),
+        RelPathSerializer.deserialize(basePath),
         shortNameAndFlavorPostfix,
         targetName,
         scratchDir);

@@ -91,7 +91,7 @@ enum AbiGenerationMode {
 message BuildTargetValue {
   string fullyQualifiedName = 1;
   Type type = 2;
-  string buildTargetConfigHash = 3;
+  // reserved = 3;
   enum Type {
     UNKNOWN = 0;
     LIBRARY = 1;
