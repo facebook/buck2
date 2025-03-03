@@ -212,7 +212,7 @@ extra_attributes = {
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java_for_android(),
-        "_kotlin_toolchain": toolchains_common.kotlin(),
+        "_kotlin_toolchain": toolchains_common.kotlin_for_android(),
     },
     "android_manifest": {
         "_android_toolchain": toolchains_common.android(),
