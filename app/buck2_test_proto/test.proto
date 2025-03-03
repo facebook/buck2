@@ -24,6 +24,7 @@ message Testing {
 message TestStage {
   message Listing {
     string suite = 1;
+    bool cacheable = 2;
   }
 
   oneof item {

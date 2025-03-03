@@ -55,6 +55,7 @@ pub enum TestStage {
     // Listing the test binary to discover tests.
     Listing {
         suite: String,
+        cacheable: bool,
     },
     // the name of the test(s) that we are running for the suite of a target
     Testing {
@@ -66,7 +67,7 @@ pub enum TestStage {
 impl fmt::Display for TestStage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
-            TestStage::Listing { suite } => write!(f, "Listing({})", suite),
+            TestStage::Listing { suite, .. } => write!(f, "Listing({})", suite),
             TestStage::Testing { suite, testcases } => {
                 write!(f, "Testing({}:[{}])", suite, testcases.join(", "))
             }

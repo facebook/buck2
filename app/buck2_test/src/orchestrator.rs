@@ -559,7 +559,13 @@ async fn prepare_and_execute(
     liveliness_observer: Arc<dyn LivelinessObserver>,
 ) -> Result<ExecuteData, ExecuteError> {
     let execute_on_dice = match key.stage.as_ref() {
-        TestStage::Listing { .. } => check_cache_listings_experiment(ctx, &key.test_target).await?,
+        TestStage::Listing { cacheable, .. } => {
+            if *cacheable {
+                check_cache_listings_experiment(ctx, &key.test_target).await?
+            } else {
+                false
+            }
+        }
         TestStage::Testing { .. } => false,
     };
     if execute_on_dice {
@@ -959,7 +965,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
         let command_exec_result = match stage {
-            TestStage::Listing { suite } => {
+            TestStage::Listing { suite, .. } => {
                 let start = TestDiscoveryStart {
                     suite_name: suite.clone(),
                 };
