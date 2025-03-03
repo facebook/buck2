@@ -12,6 +12,7 @@ package com.facebook.buck.testrunner;
 import com.facebook.buck.test.result.type.ResultType;
 import com.facebook.buck.test.selectors.TestDescription;
 import com.facebook.buck.test.selectors.TestSelector;
+import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -24,6 +25,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
@@ -106,6 +108,17 @@ public final class JUnitRunner extends BaseRunner {
         Request request = Request.runner(suite);
         request = request.filterWith(filter);
         jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
+
+        // testResultsOutputSender will only be present if the environment variable is set to use
+        // TPX Standard Output. In that case, we want to add the listener so the test results JSON
+        // file is written.
+        Optional<TestResultsOutputSender> testResultsOutputSender =
+            TestResultsOutputSender.fromDefaultEnvName();
+        if (testResultsOutputSender.isPresent()) {
+          JUnitTpxStandardOutputListener tpxListener =
+              new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
+          jUnitCore.addListener(tpxListener);
+        }
         jUnitCore.run(request);
       }
       // Combine the results with the tests we filtered out
