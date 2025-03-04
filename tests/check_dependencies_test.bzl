@@ -15,7 +15,7 @@ def _check_dependencies_test(
         target,
         contacts,
         env,
-        labels,
+        labels: list[str],
         deps,
         **kwargs):
     buck2_e2e_test(
@@ -24,6 +24,7 @@ def _check_dependencies_test(
         srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_check_dependencies_template.py": "test_bxl_check_dependencies_template.py"},
         env = env,
         labels = labels,
+        heavyweight_label = "heavyweight8_experimental",
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         use_buck_api = False,

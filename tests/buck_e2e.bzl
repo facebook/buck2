@@ -34,7 +34,8 @@ def buck_e2e_test(
         cfg_modifiers = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None):
+        compatible_with = None,
+        heavyweight_label: str | None = "heavyweight"):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
@@ -46,10 +47,9 @@ def buck_e2e_test(
     for s in skip_for_os:
         if s not in ["darwin", "windows"]:
             fail("Skipped os must be one of darwin or windows, not {}".format(s))
-    labels = list(labels) + [
-        # Running multiple bucks are expensive. This limits tpx to parallelism of 4.
-        "heavyweight",
-    ]
+    labels = list(labels)
+    if heavyweight_label:
+        labels += [heavyweight_label]
     env = env or {}
     env["RUST_BACKTRACE"] = "1"
     env["TEST_EXECUTABLE"] = executable
@@ -198,7 +198,8 @@ def buck2_e2e_test(
         require_nano_prelude = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None):
+        compatible_with = None,
+        heavyweight_label: str | None = "heavyweight"):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -218,6 +219,11 @@ def buck2_e2e_test(
         A full prod archive is distinct from a normal build of buck2 in that it uses a client-only
         binary and additionally makes TPX available. Needed if you want to be able to `buck.test`
         Default is False.
+    heavyweight_label:
+        Running multiple bucks are expensive. This label specifies how many cpu slots each test gets
+        according to heavyweight_label. Default is 4. If set to None, then this label is not set.
+        See different possible values for heavyweight label here:
+        https://www.internalfb.com/wiki/TAE/tpx/Tpx_user_guide/#tests-that-oom-or-time-o.
     """
     kwargs = {
         "base_module": base_module,
@@ -274,6 +280,7 @@ def buck2_e2e_test(
                 # Always run these tests under rust opt build
                 "ovr_config//build_mode:opt",
             ],
+            heavyweight_label = heavyweight_label,
             **kwargs
         )
 
@@ -288,6 +295,7 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
+            heavyweight_label = heavyweight_label,
             **kwargs
         )
 
@@ -300,6 +308,7 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
+            heavyweight_label = heavyweight_label,
             **kwargs
         )
 

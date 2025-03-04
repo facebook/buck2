@@ -53,6 +53,8 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
             *blocklist_args,
             env={
                 "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
+                "BUCK2_RUNTIME_THREADS": "8",
+                "BUCK2_MAX_BLOCKING_THREADS": "8",
             },
         )
         if expect_failure_msg == "":
