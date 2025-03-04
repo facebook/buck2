@@ -116,7 +116,7 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
   override fun rmFiles(dirPath: String, filesToDelete: Iterable<String>) {
     val elapsed: Long = measureTimeMillis {
       for (file in filesToDelete) {
-        executeAdbCommandCatching("shell rm $dirPath/$file", "Failed to delete $dirPath/$file.")
+        executeAdbShellCommandCatching("rm $dirPath/$file", "Failed to delete $dirPath/$file.")
       }
     }
     LOG.info("Deleted ${filesToDelete.count()} files in $dirPath in ${elapsed/1000.0} seconds.")
@@ -188,13 +188,13 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
 
   @Throws(Exception::class)
   override fun mkDirP(dirpath: String) {
-    executeAdbCommandCatching(
-        "shell umask 022 && mkdir -p $dirpath", "Failed to create dir $dirpath.")
+    executeAdbShellCommandCatching(
+        "umask 022 && mkdir -p $dirpath", "Failed to create dir $dirpath.")
   }
 
   @Throws(Exception::class)
   override fun getProperty(name: String): String {
-    return executeAdbCommandCatching("shell getprop $name", "Failed to get property $name.")
+    return executeAdbShellCommandCatching("getprop $name", "Failed to get property $name.")
   }
 
   @Throws(Exception::class)
