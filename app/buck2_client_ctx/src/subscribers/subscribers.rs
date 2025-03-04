@@ -68,6 +68,12 @@ impl EventSubscribers {
         }
     }
 
+    pub(crate) fn handle_should_restart(&mut self) {
+        for subscriber in &mut self.subscribers {
+            subscriber.handle_should_restart();
+        }
+    }
+
     pub(crate) fn error_observers(&self) -> impl Iterator<Item = &dyn ErrorObserver> {
         self.subscribers
             .iter()

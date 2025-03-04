@@ -188,6 +188,7 @@ pub(crate) struct InvocationRecorder {
     daemon_connection_failure: bool,
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
+    should_restart: bool,
     client_metadata: Vec<buck2_data::ClientMetadata>,
     client_errors: Vec<buck2_error::Error>,
     command_errors: Vec<ErrorReport>,
@@ -337,6 +338,7 @@ impl InvocationRecorder {
             concurrent_command_ids: HashSet::new(),
             daemon_connection_failure: false,
             daemon_was_started: None,
+            should_restart: false,
             client_metadata,
             client_errors: Vec::new(),
             command_errors: Vec::new(),
@@ -762,6 +764,7 @@ impl InvocationRecorder {
                 .collect(),
             daemon_connection_failure: Some(self.daemon_connection_failure),
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
+            should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
             errors: errors_report.errors,
             best_error_tag: errors_report.best_error_tag,
@@ -1784,6 +1787,10 @@ impl EventSubscriber for InvocationRecorder {
 
     fn handle_daemon_started(&mut self, daemon_was_started: buck2_data::DaemonWasStartedReason) {
         self.daemon_was_started = Some(daemon_was_started);
+    }
+
+    fn handle_should_restart(&mut self) {
+        self.should_restart = true;
     }
 }
 

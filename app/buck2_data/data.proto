@@ -2106,6 +2106,8 @@ message InvocationRecord {
   // Daemon was started by this command.
   // Unset if the the command connected to existing daemon or did not start one.
   optional DaemonWasStartedReason daemon_was_started = 751;
+  // Set if an event occurred that should trigger a command restart.
+  optional bool should_restart = 752;
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
