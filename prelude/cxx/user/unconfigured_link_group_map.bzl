@@ -32,6 +32,7 @@ registration_spec = RuleRegistrationSpec(
     name = "unconfigured_link_group_map",
     impl = _impl,
     attrs = {
+        "labels": attrs.list(attrs.string(), default = []),
         "link_group_map": attrs.option(link_group_inlined_map_attr(
             root_attr = attrs.option(attrs.label()),
         )),
