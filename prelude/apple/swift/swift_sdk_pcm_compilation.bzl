@@ -73,20 +73,10 @@ def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, swift_toolchain
     # modulemap root.
     if uncompiled_sdk_module_info.is_framework:
         frameworks_dir_path = _remove_path_components_from_right(modulemap_path, 3)
-        expanded_path = expand_relative_prefixed_sdk_path(
-            cmd_args(swift_toolchain_info.sdk_path),
-            cmd_args(swift_toolchain_info.resource_dir),
-            cmd_args(swift_toolchain_info.platform_path),
-            frameworks_dir_path,
-        )
+        expanded_path = expand_relative_prefixed_sdk_path(swift_toolchain_info, frameworks_dir_path)
     else:
         module_root_path = _remove_path_components_from_right(modulemap_path, 1)
-        expanded_path = expand_relative_prefixed_sdk_path(
-            cmd_args(swift_toolchain_info.sdk_path),
-            cmd_args(swift_toolchain_info.resource_dir),
-            cmd_args(swift_toolchain_info.platform_path),
-            module_root_path,
-        )
+        expanded_path = expand_relative_prefixed_sdk_path(swift_toolchain_info, module_root_path)
     cmd.add([
         "-Xcc",
         ("-F" if uncompiled_sdk_module_info.is_framework else "-I"),
@@ -153,9 +143,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         cmd.add(sdk_deps_tset.project_as_args("clang_module_file_flags"))
 
         expanded_modulemap_path_cmd = expand_relative_prefixed_sdk_path(
-            cmd_args(swift_toolchain.sdk_path),
-            cmd_args(swift_toolchain.resource_dir),
-            cmd_args(swift_toolchain.platform_path),
+            swift_toolchain,
             uncompiled_sdk_module_info.input_relative_path,
         )
         pcm_output = ctx.actions.declare_output(module_name + ".pcm")

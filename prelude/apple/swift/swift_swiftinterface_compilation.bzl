@@ -104,9 +104,7 @@ def _swift_interface_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Pr
         swift_toolchain = ctx.attrs._swift_toolchain[SwiftToolchainInfo]
 
         expanded_swiftinterface_cmd = expand_relative_prefixed_sdk_path(
-            cmd_args(swift_toolchain.sdk_path),
-            cmd_args(swift_toolchain.resource_dir),
-            cmd_args(swift_toolchain.platform_path),
+            swift_toolchain,
             uncompiled_sdk_module_info.input_relative_path,
         )
 
