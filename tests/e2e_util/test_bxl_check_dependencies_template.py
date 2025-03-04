@@ -51,6 +51,9 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
             os.environ["VERIFICATION_MODE"],
             *allowlist_args,
             *blocklist_args,
+            env={
+                "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
+            },
         )
         if expect_failure_msg == "":
             await bxl_call
@@ -78,6 +81,9 @@ elif FLAVOR == "audit_dependents_test":
             os.environ["SOURCE_TARGET"],
             "--allowlist_patterns",
             *allow_list,
+            env={
+                "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
+            },
         )
         if expect_failure_msg == "":
             await bxl_call
@@ -101,6 +107,9 @@ elif FLAVOR == "assert_dependencies_test":
             "--target",
             os.environ["TARGET"],
             *dep_list,
+            env={
+                "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
+            },
         )
         if expect_failure_msg == "":
             await bxl_call
