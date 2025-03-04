@@ -15,7 +15,6 @@ from packaging.version import Version
 
 from .idb_target import (
     IdbTarget,
-    managed_simulator_from_stdout,
     managed_simulators_list_from_stdout,
     SimState,
     SimulatorInfo,

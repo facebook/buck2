@@ -9,8 +9,6 @@
 import argparse
 import os
 import pathlib
-import platform
-import shlex
 import zipfile
 from shutil import copy, copytree
 from tempfile import TemporaryDirectory
