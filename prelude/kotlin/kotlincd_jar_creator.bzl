@@ -416,7 +416,7 @@ def _define_kotlincd_action(
     compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
     exe, local_only = prepare_cd_exe(
         qualified_name,
-        java = java_toolchain.graalvm_java[RunInfo] if java_toolchain.use_graalvm_java_for_javacd else java_toolchain.java[RunInfo],
+        java = java_toolchain.java[RunInfo],
         class_loader_bootstrapper = kotlin_toolchain.class_loader_bootstrapper,
         compiler = compiler,
         main_class = kotlin_toolchain.kotlincd_main_class,
