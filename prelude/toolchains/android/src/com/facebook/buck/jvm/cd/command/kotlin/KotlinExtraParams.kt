@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap
 import com.google.common.collect.ImmutableSortedSet
 import java.util.Optional
 
-class KotlinExtraParams(
+data class KotlinExtraParams(
     val extraClassPaths: ImmutableList<AbsPath>,
     val standardLibraryClassPath: AbsPath,
     val annotationProcessingClassPath: AbsPath,
@@ -38,7 +38,7 @@ class KotlinExtraParams(
     val shouldKotlincRunIncrementally: Boolean,
     val shouldUseStandaloneKosabi: Boolean,
     val incrementalStateDir: Optional<AbsPath>,
-    languageVersionString: String
+    private val languageVersionString: String
 ) : CompileToJarStepFactory.ExtraParams {
   val kotlincWorkingDir: Optional<AbsPath> =
       incrementalStateDir.map { dir: AbsPath -> dir.resolve(KOTLINC_WORKING_DIR) }

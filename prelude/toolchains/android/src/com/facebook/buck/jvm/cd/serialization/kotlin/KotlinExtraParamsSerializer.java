@@ -40,6 +40,11 @@ public class KotlinExtraParamsSerializer {
     com.facebook.buck.cd.model.kotlin.KotlinExtraParams.Builder builder =
         com.facebook.buck.cd.model.kotlin.KotlinExtraParams.newBuilder();
 
+    builder.setStandardLibraryClassPath(
+        AbsPathSerializer.serialize(kotlinExtraParams.getStandardLibraryClassPath()));
+    builder.setAnnotationProcessingClassPath(
+        AbsPathSerializer.serialize(kotlinExtraParams.getAnnotationProcessingClassPath()));
+
     kotlinExtraParams.getExtraClassPaths().stream()
         .map(AbsPathSerializer::serialize)
         .forEach(builder::addExtraClassPaths);
@@ -94,6 +99,7 @@ public class KotlinExtraParamsSerializer {
         .getDepTrackerPlugin()
         .map(AbsPathSerializer::serialize)
         .ifPresent(builder::setDepTrackerPlugin);
+    builder.setLanguageVersion(kotlinExtraParams.getLanguageVersion().getValue());
     return builder.build();
   }
 

@@ -15,6 +15,7 @@ import static org.hamcrest.Matchers.is;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
+import com.facebook.buck.jvm.cd.command.kotlin.KotlinSupportedLanguageVersion;
 import com.facebook.buck.jvm.cd.serialization.java.ResolvedJavacOptionsSerializer;
 import com.facebook.buck.jvm.java.JavacLanguageLevelOptions;
 import com.facebook.buck.jvm.java.JavacPluginParams;
@@ -49,7 +50,7 @@ public class KotlinExtraParamsSerializerTest {
         ResolvedJavacOptionsSerializer.serialize(resolvedJavacOptions);
 
     KotlinExtraParams expected =
-        KotlinExtraParams.of(
+        new KotlinExtraParams(
             ImmutableList.of(fsAbsPath("extraClassPath0"), fsAbsPath("extraClassPath1")),
             fsAbsPath("kotlinStdLib"),
             fsAbsPath("annotationProcessingClassPath"),
@@ -65,20 +66,18 @@ public class KotlinExtraParamsSerializerTest {
                 "plugin3", fsAbsPath("plugin3")),
             Optional.of("prefix"),
             fsAbsPathSet("friend0", "friend1"),
-            fsAbsPathSet("homeLib0", "homeLib1"),
+            ImmutableList.copyOf(fsAbsPathSet("homeLib0", "homeLib1")),
             resolvedJavacOptions,
             Optional.of("8"),
             true,
-            true,
             Optional.of(fsAbsPath("jvmAbiGen")),
             true,
-            true,
             Optional.empty(),
             false,
             false,
             false,
             Optional.empty(),
-            "");
+            KotlinSupportedLanguageVersion.V2_0.getValue());
 
     KotlinExtraParams actual =
         KotlinExtraParamsSerializer.deserialize(

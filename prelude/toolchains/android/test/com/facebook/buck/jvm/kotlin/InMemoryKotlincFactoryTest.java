@@ -30,7 +30,7 @@ public class InMemoryKotlincFactoryTest {
 
   @Test
   public void when_shouldKotlincRunViaBuildToolsApi_then_BuildToolsKotlinc() {
-    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
 
     Kotlinc kotlinc = InMemoryKotlincFactory.create(mockKotlinExtraParams);
 
@@ -39,7 +39,7 @@ public class InMemoryKotlincFactoryTest {
 
   @Test
   public void when_not_shouldKotlincRunViaBuildToolsApi_then_JarBackedReflectedKotlinc() {
-    when(mockKotlinExtraParams.shouldKotlincRunViaBuildToolsApi()).thenReturn(false);
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(false);
 
     Kotlinc kotlinc = InMemoryKotlincFactory.create(mockKotlinExtraParams);
 
