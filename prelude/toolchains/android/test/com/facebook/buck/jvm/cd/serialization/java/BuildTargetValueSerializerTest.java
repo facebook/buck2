@@ -20,16 +20,12 @@ public class BuildTargetValueSerializerTest {
   public void serializeDeserialize() {
     BuildTargetValue expected =
         BuildTargetValue.of(
-            com.facebook.buck.cd.model.java.BuildTargetValue.Type.LIBRARY,
-            "fully_qualified_name",
-            "fe3a39b8");
+            com.facebook.buck.cd.model.java.BuildTargetValue.Type.LIBRARY, "fully_qualified_name");
 
     BuildTargetValue actual =
         BuildTargetValueSerializer.deserialize(BuildTargetValueSerializer.serialize(expected));
 
     assertThat(actual.getType(), is(expected.getType()));
     assertThat(actual.getFullyQualifiedName(), is(expected.getFullyQualifiedName()));
-
-    assertThat(actual.buildTargetConfigHash(), is(expected.buildTargetConfigHash()));
   }
 }
