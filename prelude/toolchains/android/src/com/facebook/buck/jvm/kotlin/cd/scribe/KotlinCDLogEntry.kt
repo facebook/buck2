@@ -21,7 +21,7 @@ data class KotlinCDLogEntry(
     val incremental: Boolean,
     val kotlincMode: String?,
     val classpathChanges: String?,
-    val step: String?,
+    val step: String,
     val languageVersion: String?,
     val extras: String?,
 )
