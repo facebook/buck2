@@ -63,7 +63,7 @@ class Ksp2Step(
     private val languageVersion: LanguageVersion,
     private val jvmDefaultMode: String,
     private val kotlinCDAnalytics: KotlinCDAnalytics
-) : IsolatedStep() {
+) : IsolatedStep {
 
   @Throws(IOException::class, InterruptedException::class)
   override fun executeIsolatedStep(context: IsolatedExecutionContext): StepExecutionResult {

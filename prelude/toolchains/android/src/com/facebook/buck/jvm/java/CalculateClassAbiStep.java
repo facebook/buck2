@@ -25,7 +25,7 @@ import java.nio.file.Path;
 import javax.annotation.Nullable;
 
 /** Calculates class abi from the library.jar */
-public class CalculateClassAbiStep extends IsolatedStep {
+public class CalculateClassAbiStep implements IsolatedStep {
 
   private final RelPath binaryJar;
   @Nullable private final RelPath existingAbiJar;

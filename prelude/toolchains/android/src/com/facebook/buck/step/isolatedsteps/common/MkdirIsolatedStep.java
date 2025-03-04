@@ -22,7 +22,7 @@ import java.nio.file.Files;
 
 /** Command that runs equivalent command of {@code mkdir -p} on the specified directory. */
 @BuckStyleValue
-public abstract class MkdirIsolatedStep extends IsolatedStep {
+public abstract class MkdirIsolatedStep implements IsolatedStep {
 
   public abstract RelPath getDirPath();
 
