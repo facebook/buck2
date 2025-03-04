@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import toolchains.android.src.com.facebook.buck.jvm.kotlin.compilerplugins.usedclasses.ClassUsageMerger;
 
 public final class MergingClassUsageFileWriter extends DefaultClassUsageFileWriter {
 
