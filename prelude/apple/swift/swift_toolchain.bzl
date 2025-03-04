@@ -19,7 +19,7 @@ def get_swift_toolchain_info_dep(ctx: AnalysisContext) -> Dependency:
     else:
         return ctx.attrs._swift_toolchain
 
-def traverse_sdk_modules_graph(
+def _traverse_sdk_modules_graph(
         swift_sdk_module_name_to_deps: dict[str, Dependency],
         clang_sdk_module_name_to_deps: dict[str, Dependency],
         sdk_module_dep: Dependency):
@@ -32,7 +32,7 @@ def traverse_sdk_modules_graph(
     # In such case, we need to handle only its deps.
     if uncompiled_sdk_module_info.input_relative_path == None:
         for uncompiled_dep in uncompiled_sdk_module_info.deps:
-            traverse_sdk_modules_graph(swift_sdk_module_name_to_deps, clang_sdk_module_name_to_deps, uncompiled_dep)
+            _traverse_sdk_modules_graph(swift_sdk_module_name_to_deps, clang_sdk_module_name_to_deps, uncompiled_dep)
         return
 
     # return if dep is already in dict
@@ -42,26 +42,31 @@ def traverse_sdk_modules_graph(
         return
 
     for uncompiled_dep in uncompiled_sdk_module_info.deps + uncompiled_sdk_module_info.cxx_deps:
-        traverse_sdk_modules_graph(swift_sdk_module_name_to_deps, clang_sdk_module_name_to_deps, uncompiled_dep)
+        _traverse_sdk_modules_graph(swift_sdk_module_name_to_deps, clang_sdk_module_name_to_deps, uncompiled_dep)
 
     if uncompiled_sdk_module_info.is_swiftmodule:
         swift_sdk_module_name_to_deps[uncompiled_sdk_module_info.module_name] = sdk_module_dep
     else:
         clang_sdk_module_name_to_deps[uncompiled_sdk_module_info.module_name] = sdk_module_dep
 
-def swift_toolchain_impl(ctx):
+def compute_sdk_module_graph(sdk_module_deps: list[Dependency]) -> (dict[str, Dependency], dict[str, Dependency]):
     # All Clang's PCMs need to be compiled with cxx flags of the target that imports them,
     # because of that, we expose `dependency`s of SDK modules,
     # which might be accessed from apple_library/apple_test rules and compiled there.
     uncompiled_swift_sdk_modules_deps = {}
     uncompiled_clang_sdk_modules_deps = {}
 
-    for sdk_module_dep in ctx.attrs.sdk_modules:
-        traverse_sdk_modules_graph(
+    for sdk_module_dep in sdk_module_deps:
+        _traverse_sdk_modules_graph(
             uncompiled_swift_sdk_modules_deps,
             uncompiled_clang_sdk_modules_deps,
             sdk_module_dep,
         )
+
+    return uncompiled_swift_sdk_modules_deps, uncompiled_clang_sdk_modules_deps
+
+def swift_toolchain_impl(ctx):
+    uncompiled_swift_sdk_modules_deps, uncompiled_clang_sdk_modules_deps = compute_sdk_module_graph(ctx.attrs.sdk_modules)
 
     return [
         DefaultInfo(),
