@@ -10,6 +10,34 @@ load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 # This is meant to be Open-source friendly. In our e2e tests, we invoke a variant from
 # tools/build_defs/check_dependencies_test.bzl that passes additional arguments for meta specific allowlist.
 
+def _check_dependencies_test(
+        name,
+        target,
+        contacts,
+        env,
+        labels,
+        deps,
+        **kwargs):
+    buck2_e2e_test(
+        contacts = contacts,
+        name = name,
+        srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_check_dependencies_template.py": "test_bxl_check_dependencies_template.py"},
+        env = env,
+        labels = labels,
+        test_with_compiled_buck2 = False,
+        test_with_deployed_buck2 = True,
+        use_buck_api = False,
+        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
+        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
+        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
+        # target graph.
+        deps = (deps or []) + select({
+            "DEFAULT": [],
+            "ovr_config//:none": [target],
+        }),
+        **kwargs
+    )
+
 def check_dependencies_test(
         name,
         target,
@@ -68,30 +96,21 @@ def check_dependencies_test(
     if mode not in ("allowlist", "blocklist"):
         fail("mode must be one of: allowlist, blocklist")
 
-    buck2_e2e_test(
+    _check_dependencies_test(
         contacts = contacts,
         name = name,
-        srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_check_dependencies_template.py": "test_bxl_check_dependencies_template.py"},
+        target = target,
         env = {
             "ALLOWLIST": allowlist_patterns,
             "BLOCKLIST": blocklist_patterns,
             "BXL_MAIN": bxl_main,
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "FLAVOR": "check_dependencies_test",
             "TARGET": target,
             "VERIFICATION_MODE": mode,
         } | (env or {}),
         labels = ["check_dependencies_test"],
-        test_with_compiled_buck2 = False,
-        test_with_deployed_buck2 = True,
-        use_buck_api = False,
-        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
-        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
-        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
-        # target graph.
-        deps = (deps or []) + select({
-            "DEFAULT": [],
-            "ovr_config//:none": [target],
-        }),
+        deps = deps,
         **kwargs
     )
 
@@ -112,28 +131,19 @@ def assert_dependencies_test(
         target: The target to check dependencies for
         expected_deps: list of expected deps
     """
-    buck2_e2e_test(
+    _check_dependencies_test(
         name = name,
+        target = target,
         contacts = contacts,
-        srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_assert_dependencies_template.py": "test_bxl_assert_dependencies_template.py"},
         env = {
             "BXL_MAIN": "fbcode//buck2/tests/assert_dependencies_test.bxl:test",
             "DEPS": ",".join(expected_deps),
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "FLAVOR": "assert_dependencies_test",
             "TARGET": target,
         },
         labels = ["assert_dependencies_test"],
-        test_with_compiled_buck2 = False,
-        test_with_deployed_buck2 = True,
-        use_buck_api = False,
-        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
-        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
-        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
-        # target graph.
-        deps = (deps or []) + select({
-            "DEFAULT": [],
-            "ovr_config//:none": [target],
-        }),
+        deps = deps,
         **kwargs
     )
 
@@ -158,28 +168,19 @@ def audit_dependents_test(
         allowlist_patter: a regex of patterns that should be allowed for direct dependents of target
         expect_failure_msg: the test is expected to fail with this message regex
     """
-    buck2_e2e_test(
+    _check_dependencies_test(
         name = name,
+        target = target,
         contacts = contacts,
-        srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_audit_dependents_template.py": "test_bxl_audit_dependents_template.py"},
         env = {
             "ALLOWLIST": ",".join(allowlist_patterns) if allowlist_patterns else "",
             "BXL_MAIN": "fbcode//buck2/tests/audit_dependents_test.bxl:test",
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "FLAVOR": "audit_dependents_test",
             "SOURCE_TARGET": source_target,
             "TARGET": target,
         },
         labels = ["audit_dependents_test"],
-        test_with_compiled_buck2 = False,
-        test_with_deployed_buck2 = True,
-        use_buck_api = False,
-        # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
-        # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
-        # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
-        # target graph.
-        deps = (deps or []) + select({
-            "DEFAULT": [],
-            "ovr_config//:none": [target],
-        }),
+        deps = deps,
         **kwargs
     )
