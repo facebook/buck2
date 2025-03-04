@@ -839,7 +839,14 @@ fn failure_reason_for_command_execution(
             impl fmt::Display for OptionalExitCode {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     match self.code {
-                        Some(code) => write!(f, "{}", code),
+                        Some(code) => {
+                            if (i16::MIN as i32) < code && code < (i16::MAX as i32) {
+                                write!(f, "{}", code)
+                            } else {
+                                let code = code as u32;
+                                write!(f, "{} ({:#X})", code, code)
+                            }
+                        }
                         None => write!(f, "<no exit code>"),
                     }
                 }
