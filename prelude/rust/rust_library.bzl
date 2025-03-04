@@ -635,6 +635,7 @@ def _default_providers(
         type = "rustdoc",
         command = [rustdoc_test],
         run_from_project_root = True,
+        use_project_relative_paths = True,
     )
 
     # Always let the user run doctests via `buck2 test :crate[doc]`
