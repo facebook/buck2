@@ -234,6 +234,16 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
     }
   }
 
+  /**
+   * Sometimes installation fails and leaves the root directory in a weird state. Adding a cheap
+   * fix-root at the beginning to make sure all the folders have access permission.
+   */
+  override fun fixRootDir(rootDir: String) {
+    LOG.info("Fixing root dir $rootDir")
+    executeAdbShellCommandCatching(
+        "find $rootDir -type d -exec chmod a+x {} +", "Failed to fix root dir $rootDir.")
+  }
+
   override fun getInstallerMethodName(): String = "adb_installer"
 
   override fun isEmulator(): Boolean {

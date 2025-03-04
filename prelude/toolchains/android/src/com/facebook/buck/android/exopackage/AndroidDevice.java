@@ -70,4 +70,6 @@ public interface AndroidDevice {
   boolean uninstallApkFromDevice(String packageName, boolean keepData) throws Exception;
 
   String getInstallerMethodName();
+
+  default void fixRootDir(String rootDir) {}
 }

@@ -96,6 +96,7 @@ public class ExopackageInstaller {
   public void doInstall(IsolatedApkInfo isolatedApkInfo) throws Exception {
     if (exopackageEnabled()) {
       device.mkDirP(dataRoot.toString());
+      device.fixRootDir(dataRoot.toString());
       ImmutableSortedSet<Path> presentFiles = device.listDirRecursive(dataRoot);
       installMissingExopackageFiles(presentFiles);
       finishExoFileInstallation(presentFiles);
