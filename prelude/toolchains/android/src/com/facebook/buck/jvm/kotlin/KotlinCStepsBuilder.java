@@ -86,7 +86,7 @@ public class KotlinCStepsBuilder {
             extraArguments.build(),
             ImmutableList.of(CompilerPluginUtils.VERBOSE),
             parameters.getOutputPaths(),
-            parameters.shouldTrackClassUsage(),
+            parameters.getShouldTrackClassUsage(),
             buckOut,
             kosabiPluginOptions.getKosabiPlugins(),
             extraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix().orElse(null),

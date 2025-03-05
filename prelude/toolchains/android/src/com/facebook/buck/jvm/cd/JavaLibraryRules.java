@@ -35,17 +35,15 @@ public class JavaLibraryRules {
       AbiGenerationMode abiCompatibilityMode,
       boolean isRequiredForSourceOnlyAbi,
       CompilerOutputPaths compilerOutputPaths) {
-    return CompilerParameters.builder()
-        .setClasspathEntries(compileTimeClasspathPaths)
-        .setClasspathSnapshots(compileTimeClasspathSnapshotPaths)
-        .setSourceFilePaths(javaSrcs)
-        .setOutputPaths(compilerOutputPaths)
-        .setShouldTrackClassUsage(trackClassUsage)
-        .setAbiGenerationMode(abiGenerationMode)
-        .setAbiCompatibilityMode(abiCompatibilityMode)
-        .setSourceOnlyAbiRuleInfoFactory(
-            new DefaultSourceOnlyAbiRuleInfoFactory(
-                fullyQualifiedBuildTargetName, isRequiredForSourceOnlyAbi))
-        .build();
+    return new CompilerParameters(
+        javaSrcs,
+        compileTimeClasspathPaths,
+        compileTimeClasspathSnapshotPaths,
+        compilerOutputPaths,
+        abiGenerationMode,
+        abiCompatibilityMode,
+        trackClassUsage,
+        new DefaultSourceOnlyAbiRuleInfoFactory(
+            fullyQualifiedBuildTargetName, isRequiredForSourceOnlyAbi));
   }
 }

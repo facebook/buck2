@@ -70,16 +70,20 @@ public class JavacStepsBuilder {
     }
 
     CompilerParameters javacParameters =
-        CompilerParameters.builder()
-            .from(parameters)
-            .setClasspathEntries(
-                ImmutableSortedSet.orderedBy(RelPath.comparator())
-                    .add(outputDirectory)
-                    .addAll(extraClassPaths.stream().map(buildCellRootPath::relativize).iterator())
-                    .addAll(declaredClasspathEntries)
-                    .build())
-            .setSourceFilePaths(javaSourceFiles)
-            .build();
+        new CompilerParameters(
+            javaSourceFiles,
+            ImmutableSortedSet.orderedBy(RelPath.comparator())
+                .add(outputDirectory)
+                .addAll(extraClassPaths.stream().map(buildCellRootPath::relativize).iterator())
+                .addAll(declaredClasspathEntries)
+                .build()
+                .asList(),
+            parameters.getClasspathSnapshots(),
+            parameters.getOutputPaths(),
+            parameters.getAbiGenerationMode(),
+            parameters.getAbiCompatibilityMode(),
+            parameters.getShouldTrackClassUsage(),
+            parameters.getSourceOnlyAbiRuleInfoFactory());
 
     // Indicate no annotation processing required from this factory.  It is already handled by the
     // Kotlin factory, when it resolves javac's options.

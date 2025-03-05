@@ -88,7 +88,7 @@ public class KosabiStubgenStepsBuilder {
               ImmutableList.of(),
               ImmutableList.of(VERBOSE),
               parameters.getOutputPaths(),
-              parameters.shouldTrackClassUsage(),
+              parameters.getShouldTrackClassUsage(),
               buckOut,
               allKosabiPluginOptionPath.entrySet().stream()
                   .filter(

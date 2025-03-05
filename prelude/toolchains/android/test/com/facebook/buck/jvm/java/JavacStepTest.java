@@ -14,6 +14,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.junit.Assert.assertTrue;
 
+import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.cd.model.java.BuildTargetValue.Type;
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -28,7 +29,9 @@ import com.facebook.buck.util.FakeProcess;
 import com.facebook.buck.util.FakeProcessExecutor;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import java.io.File;
 import java.nio.file.Paths;
 import java.util.List;
@@ -49,6 +52,7 @@ public class JavacStepTest {
   private BuildTargetValue buildTargetValue;
   private RelPath configuredBuckOut;
   private FakeJavac fakeJavac;
+  private CompilerParameters compilerParameters;
 
   @Before
   public void setUp() {
@@ -56,6 +60,16 @@ public class JavacStepTest {
     buildTargetValue = new BuildTargetValue(Type.LIBRARY, target);
     configuredBuckOut = RelPath.get("buck-out/v2");
     fakeJavac = new FakeJavac();
+    compilerParameters =
+        new CompilerParameters(
+            ImmutableSortedSet.of(),
+            ImmutableList.of(),
+            ImmutableMap.of(),
+            getCompilerOutputPaths(),
+            AbiGenerationMode.CLASS,
+            AbiGenerationMode.CLASS,
+            false,
+            null);
   }
 
   @Test
@@ -69,7 +83,7 @@ public class JavacStepTest {
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
-            CompilerParameters.builder().setOutputPaths(getCompilerOutputPaths()).build(),
+            compilerParameters,
             null,
             null);
 
@@ -98,7 +112,7 @@ public class JavacStepTest {
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
-            CompilerParameters.builder().setOutputPaths(getCompilerOutputPaths()).build(),
+            compilerParameters,
             null,
             null);
 
@@ -139,7 +153,7 @@ public class JavacStepTest {
             configuredBuckOut,
             getCompilerOutputPathsValue(),
             classpathChecker,
-            CompilerParameters.builder().setOutputPaths(getCompilerOutputPaths()).build(),
+            compilerParameters,
             null,
             null);
 
@@ -168,7 +182,7 @@ public class JavacStepTest {
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
-            CompilerParameters.builder().setOutputPaths(getCompilerOutputPaths()).build(),
+            compilerParameters,
             null,
             null);
 
@@ -206,7 +220,7 @@ public class JavacStepTest {
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
-            CompilerParameters.builder().setOutputPaths(getCompilerOutputPaths()).build(),
+            compilerParameters,
             null,
             null);
 

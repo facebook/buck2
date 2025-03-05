@@ -135,7 +135,7 @@ public class JavacPipelineState implements AutoCloseable {
                   compilerParameters.getSourceFilePaths(),
                   outputPaths.getPathToSourcesList(),
                   outputPaths.getWorkingDirectory(),
-                  compilerParameters.shouldTrackClassUsage(),
+                  compilerParameters.getShouldTrackClassUsage(),
                   abiJarParameters,
                   libraryJarParameters,
                   compilerParameters.getAbiGenerationMode(),
