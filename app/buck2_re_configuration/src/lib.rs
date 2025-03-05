@@ -144,7 +144,6 @@ mod fbcode {
         pub respect_file_symlinks: bool,
 
         // Thrift settings
-        pub execute_over_thrift: bool,
         pub execution_concurrency_limit: i32,
         pub engine_tier: Option<String>,
         pub engine_host: Option<String>,
@@ -336,12 +335,6 @@ mod fbcode {
                     })?
                     .unwrap_or(RolloutPercentage::never())
                     .roll(),
-                execute_over_thrift: legacy_config
-                    .parse(BuckconfigKeyRef {
-                        section: BUCK2_RE_CLIENT_CFG_SECTION,
-                        property: "execute_over_thrift",
-                    })?
-                    .unwrap_or(true),
                 execution_concurrency_limit: legacy_config
                     .parse(BuckconfigKeyRef {
                         section: BUCK2_RE_CLIENT_CFG_SECTION,

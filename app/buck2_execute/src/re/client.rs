@@ -461,10 +461,6 @@ impl RemoteExecutionClientImpl {
                     static_metadata.action_cache_connection_count;
                 re_client_config.action_cache_client_config.address =
                     static_metadata.action_cache_address.clone();
-                re_client_config.execution_client_config.connection_count =
-                    static_metadata.engine_connection_count;
-                re_client_config.execution_client_config.address =
-                    static_metadata.engine_address.clone();
 
                 let mut embedded_cas_daemon_config = EmbeddedCASDaemonClientCfg {
                     connection_count: static_metadata.cas_connection_count,
@@ -737,8 +733,6 @@ impl RemoteExecutionClientImpl {
                     .to_owned();
 
                 re_client_config.disable_fallocate = static_metadata.disable_fallocate;
-
-                re_client_config.execute_over_thrift = Some(static_metadata.execute_over_thrift);
 
                 re_client_config
                     .thrift_execution_client_config
