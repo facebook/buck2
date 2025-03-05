@@ -100,7 +100,7 @@ async fn build_action_no_redirect(
     cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
 ) -> buck2_error::Result<ActionOutputs> {
-    let materialized_inputs = {
+    let ensured_inputs = {
         let inputs = action.inputs()?;
 
         let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
@@ -158,7 +158,7 @@ async fn build_action_no_redirect(
         ctx,
         cancellation,
         &executor,
-        materialized_inputs,
+        ensured_inputs,
         action,
         target_rule_type_name,
     );
@@ -187,13 +187,12 @@ async fn build_action_inner(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
     executor: &BuckActionExecutor,
-    materialized_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
+    ensured_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     action: &Arc<RegisteredAction>,
     target_rule_type_name: Option<String>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
-    let (execute_result, command_reports) = executor
-        .execute(materialized_inputs, action, cancellation)
-        .await;
+    let (execute_result, command_reports) =
+        executor.execute(ensured_inputs, action, cancellation).await;
 
     let allow_omit_details = execute_result.is_ok();
 
