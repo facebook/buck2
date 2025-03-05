@@ -30,8 +30,8 @@ public class ResolvedJavacOptionsSerializer {
 
     Optional<String> bootclasspath = options.getBootclasspath();
     bootclasspath.ifPresent(builder::setBootclasspath);
-    builder.setDebug(options.isDebug());
-    builder.setVerbose(options.isVerbose());
+    builder.setDebug(options.getDebug());
+    builder.setVerbose(options.getVerbose());
 
     ImmutableList<RelPath> bootclasspathList = options.getBootclasspathList();
     bootclasspathList.stream()
@@ -65,7 +65,7 @@ public class ResolvedJavacOptionsSerializer {
             .map(RelPathSerializer::deserialize)
             .collect(ImmutableList.toImmutableList());
 
-    return ResolvedJavacOptions.of(
+    return new ResolvedJavacOptions(
         toOptionalString(options.getBootclasspath()),
         bootclasspathList,
         JavacLanguageLevelOptionsSerializer.deserialize(options.getLanguageLevelOptions()),
@@ -73,7 +73,7 @@ public class ResolvedJavacOptionsSerializer {
         options.getVerbose(),
         JavacPluginParamsSerializer.deserialize(options.getJavaAnnotationProcessorParams()),
         JavacPluginParamsSerializer.deserialize(options.getStandardJavacPluginParams()),
-        options.getExtraArgumentsList());
+        ImmutableList.copyOf(options.getExtraArgumentsList()));
   }
 
   private static Optional<String> toOptionalString(String value) {

@@ -239,7 +239,7 @@ public class JavacStepTest {
   }
 
   private static ResolvedJavacOptions getResolvedJavacOptions(@Nullable String classpath) {
-    return ResolvedJavacOptions.of(
+    return new ResolvedJavacOptions(
         Optional.ofNullable(classpath),
         ImmutableList.of() /* bootclasspathList */,
         JavacLanguageLevelOptions.DEFAULT,
