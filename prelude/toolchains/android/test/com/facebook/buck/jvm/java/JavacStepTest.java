@@ -242,12 +242,13 @@ public class JavacStepTest {
   }
 
   private static CompilerOutputPaths getCompilerOutputPaths() {
-    return CompilerOutputPaths.builder()
-        .setClassesDir(RelPath.get("classesDir"))
-        .setOutputJarDirPath(RelPath.get("outputJarDirPath"))
-        .setAnnotationPath(RelPath.get("annotationPath"))
-        .setPathToSourcesList(RelPath.get("pathToSourcesList"))
-        .setWorkingDirectory(RelPath.get("workingDirectory"))
-        .build();
+    return new CompilerOutputPaths(
+        RelPath.get("classesDir"),
+        RelPath.get("outputJarDirPath"),
+        Optional.empty(),
+        RelPath.get("annotationPath"),
+        RelPath.get("pathToSourcesList"),
+        RelPath.get("workingDirectory"),
+        Optional.empty());
   }
 }

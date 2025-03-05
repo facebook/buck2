@@ -56,21 +56,18 @@ public class CompilerOutputPathsSerializer {
 
   public static CompilerOutputPaths deserialize(
       OutputPathsValue.OutputPaths outputPaths, Optional<RelPath> tmpDir) {
-    return CompilerOutputPaths.builder()
-        .setClassesDir(toRelPath(outputPaths.getClassesDir()))
-        .setOutputJarDirPath(toRelPath(outputPaths.getOutputJarDirPath()))
-        .setAbiJarPath(toOptionalRelPath(outputPaths.getAbiJarPath()))
-        .setAnnotationPath(toRelPath(outputPaths.getAnnotationPath()))
-        .setPathToSourcesList(
-            outputPaths.getPathToSourcesList().isEmpty()
-                ? tmpDir.map(p -> p.resolveRel("__srcs__")).get()
-                : toRelPath(outputPaths.getPathToSourcesList()))
-        .setWorkingDirectory(
-            outputPaths.getWorkingDirectory().isEmpty()
-                ? tmpDir.get()
-                : toRelPath(outputPaths.getWorkingDirectory()))
-        .setOutputJarPath(toOptionalRelPath(outputPaths.getOutputJarPath()))
-        .build();
+    return new CompilerOutputPaths(
+        toRelPath(outputPaths.getClassesDir()),
+        toRelPath(outputPaths.getOutputJarDirPath()),
+        toOptionalRelPath(outputPaths.getAbiJarPath()),
+        toRelPath(outputPaths.getAnnotationPath()),
+        outputPaths.getPathToSourcesList().isEmpty()
+            ? tmpDir.map(p -> p.resolveRel("__srcs__")).get()
+            : toRelPath(outputPaths.getPathToSourcesList()),
+        outputPaths.getWorkingDirectory().isEmpty()
+            ? tmpDir.get()
+            : toRelPath(outputPaths.getWorkingDirectory()),
+        toOptionalRelPath(outputPaths.getOutputJarPath()));
   }
 
   private static RelPath toRelPath(String relPath) {

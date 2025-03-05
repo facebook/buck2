@@ -125,7 +125,7 @@ class Ksp2Step(
                 if (invokingRule.isSourceOnlyAbi)
                     GlobPatternMatcher.of("**/kosabi_stub.android.**.kt")
                 else null,
-            workingDirectory = Optional.of(outputPaths.getWorkingDirectory().getPath()),
+            workingDirectory = Optional.of(outputPaths.workingDirectory.getPath()),
             invokingRule = invokingRule,
             logger = logger,
         )
