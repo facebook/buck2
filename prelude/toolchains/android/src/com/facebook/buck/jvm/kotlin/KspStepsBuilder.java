@@ -103,7 +103,7 @@ public class KspStepsBuilder {
       return kspInvocationStatus;
     }
 
-    steps.add(MkdirIsolatedStep.of(outputDirectory));
+    steps.add(new MkdirIsolatedStep(outputDirectory));
     // KSP folders
     RelPath kspClassesOutput = buildTargetValueExtraParams.getAnnotationPath("__%s_ksp_classes__");
     RelPath kspKotlinOutput =
@@ -210,7 +210,7 @@ public class KspStepsBuilder {
             kspClassesOutput, kspAnnotationGenFolder, CopySourceMode.DIRECTORY_CONTENTS_ONLY));
 
     steps.add(
-        ZipIsolatedStep.of(
+        new ZipIsolatedStep(
             rootPath,
             kspGenOutput.getPath(),
             ImmutableSet.of(),
