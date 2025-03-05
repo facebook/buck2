@@ -45,6 +45,8 @@ use crate::target::TargetInfo;
 use crate::Crate;
 use crate::Dep;
 
+const CLIENT_METADATA_RUST_PROJECT: &str = "--client-metadata=id=rust-project";
+
 pub(crate) fn to_json_project(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
@@ -194,7 +196,7 @@ pub(crate) fn to_json_project(
                 program: "buck".to_owned(),
                 args: vec![
                     "build".to_owned(),
-                    "-c=client.id=rust-project".to_owned(),
+                    CLIENT_METADATA_RUST_PROJECT.to_owned(),
                     "{label}".to_owned(),
                 ],
                 cwd: project_root.to_owned(),
@@ -204,7 +206,7 @@ pub(crate) fn to_json_project(
                 program: "buck".to_owned(),
                 args: vec![
                     "test".to_owned(),
-                    "-c=client.id=rust-project".to_owned(),
+                    CLIENT_METADATA_RUST_PROJECT.to_owned(),
                     "{label}".to_owned(),
                     "--".to_owned(),
                     "{test_id}".to_owned(),
