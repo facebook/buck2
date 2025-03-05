@@ -78,7 +78,7 @@ mod serialize_action_kind {
     where
         S: Serializer,
     {
-        let k = crate::ActionKind::from_i32(*value).ok_or_else(|| {
+        let k = crate::ActionKind::try_from(*value).map_err(|_| {
             serde::ser::Error::custom(format!("Invalid ActionKind enum value: {}", value))
         })?;
         k.serialize(serializer)

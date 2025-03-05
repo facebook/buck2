@@ -174,10 +174,10 @@ async fn build(
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
 
     let final_artifact_materializations =
-        Materializations::from_i32(request.final_artifact_materializations)
+        Materializations::try_from(request.final_artifact_materializations)
             .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
-    let final_artifact_uploads = Uploads::from_i32(request.final_artifact_uploads)
+    let final_artifact_uploads = Uploads::try_from(request.final_artifact_uploads)
         .with_buck_error_context(|| "Invalid final_artifact_uploads")
         .unwrap();
 

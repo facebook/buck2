@@ -783,7 +783,7 @@ impl<Req> StreamingCommandOptions<Req> for QueryCommandOptions {
         match self.profile_mode {
             None => Ok(StarlarkProfilerConfiguration::None),
             Some(mode) => {
-                let mode = buck2_cli_proto::ProfileMode::from_i32(mode)
+                let mode = buck2_cli_proto::ProfileMode::try_from(mode)
                     .internal_error("invalid profile mode enum value")?;
                 Ok(StarlarkProfilerConfiguration::ProfileLoading(
                     proto_to_profile_mode(mode),
@@ -1238,7 +1238,7 @@ impl DaemonApi for BuckdServer {
         let res: buck2_error::Result<_> = try {
             let path = Path::new(&path);
             let format_proto =
-                buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::from_i32(inner.format)
+                buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::try_from(inner.format)
                     .buck_error_context("Invalid DICE dump format")?;
 
             self.0

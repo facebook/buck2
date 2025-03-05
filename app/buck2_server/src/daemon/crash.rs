@@ -12,11 +12,9 @@ use buck2_cli_proto::GenericResponse;
 use buck2_cli_proto::UnstableCrashRequest;
 
 pub(crate) fn crash(req: UnstableCrashRequest) -> buck2_error::Result<GenericResponse> {
-    let crash_type = CrashType::from_i32(req.crash_type).ok_or(buck2_error::buck2_error!(
-        buck2_error::ErrorTag::Tier0,
-        "{}",
-        "bad request"
-    ))?;
+    let crash_type = CrashType::try_from(req.crash_type).map_err(|_| {
+        buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "{}", "bad request")
+    })?;
     match crash_type {
         CrashType::Panic => {
             panic!("explicitly requested panic (via unstable_crash)");

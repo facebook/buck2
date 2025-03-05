@@ -232,8 +232,8 @@ impl CommandReproducer {
             Self::CacheQuery(..) => "cache_query".to_owned(),
             Self::CacheHit(cache) => {
                 let cache_type = cache.cache_type;
-                match buck2_data::CacheHitType::from_i32(cache_type) {
-                    Some(buck2_data::CacheHitType::RemoteDepFileCache) => {
+                match buck2_data::CacheHitType::try_from(cache_type) {
+                    Ok(buck2_data::CacheHitType::RemoteDepFileCache) => {
                         "re_dep_file_cache".to_owned()
                     }
                     _ => "cache".to_owned(),

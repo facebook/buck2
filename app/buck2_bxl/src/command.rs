@@ -267,11 +267,11 @@ impl BxlServerCommand {
     /// Creates a materialization context from request parameters.
     /// This context determines how artifacts will be materialized and uploaded.
     fn create_materialization_context(&self) -> MaterializationAndUploadContext {
-        let materializations = Materializations::from_i32(self.req.final_artifact_materializations)
+        let materializations = Materializations::try_from(self.req.final_artifact_materializations)
             .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
 
-        let uploads = Uploads::from_i32(self.req.final_artifact_uploads)
+        let uploads = Uploads::try_from(self.req.final_artifact_uploads)
             .with_buck_error_context(|| "Invalid final_artifact_uploads")
             .unwrap();
 

@@ -272,11 +272,11 @@ mod fbcode {
                     Some(Data::Command(..)) => true,
                     Some(Data::ActionExecution(a)) => {
                         a.failed
-                            || match ActionExecutionKind::from_i32(a.execution_kind) {
+                            || match ActionExecutionKind::try_from(a.execution_kind) {
                                 // Those kinds are not used in downstreams
-                                Some(ActionExecutionKind::Simple) => false,
-                                Some(ActionExecutionKind::Deferred) => false,
-                                Some(ActionExecutionKind::NotSet) => false,
+                                Ok(ActionExecutionKind::Simple) => false,
+                                Ok(ActionExecutionKind::Deferred) => false,
+                                Ok(ActionExecutionKind::NotSet) => false,
                                 _ => true,
                             }
                     }

@@ -192,7 +192,7 @@ fn log_critical_path(
                     }
 
                     critical_path.execution_kind = Some(
-                        buck2_data::ActionExecutionKind::from_i32(action_execution.execution_kind)
+                        buck2_data::ActionExecutionKind::try_from(action_execution.execution_kind)
                             .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                             .as_str_name(),
                     );

@@ -182,7 +182,7 @@ async fn cquery(
 
     let profile_mode = request
         .profile_mode
-        .map(|i| buck2_cli_proto::ProfileMode::from_i32(i).internal_error("Invalid profile mode"))
+        .map(|i| buck2_cli_proto::ProfileMode::try_from(i).internal_error("Invalid profile mode"))
         .transpose()?;
 
     let (query_result, universes) = QUERY_FRONTEND

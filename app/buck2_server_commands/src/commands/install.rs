@@ -878,8 +878,8 @@ async fn send_file(
                 installer_log: install_log.to_owned(),
             }
             .into();
-            let category_tag = if let Some(category) =
-                buck2_install_proto::ErrorCategory::from_i32(error_detail.category)
+            let category_tag = if let Ok(category) =
+                buck2_install_proto::ErrorCategory::try_from(error_detail.category)
             {
                 match category {
                     buck2_install_proto::ErrorCategory::Unspecified => ErrorTag::InstallerUnknown,

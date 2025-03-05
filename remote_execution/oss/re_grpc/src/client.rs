@@ -680,12 +680,12 @@ impl REClient {
                 let meta =
                     ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
 
-                let stage = match execution_stage::Value::from_i32(meta.stage) {
-                    Some(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                    Some(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                    Some(execution_stage::Value::Queued) => Stage::QUEUED,
-                    Some(execution_stage::Value::Executing) => Stage::EXECUTING,
-                    Some(execution_stage::Value::Completed) => Stage::COMPLETED,
+                let stage = match execution_stage::Value::try_from(meta.stage) {
+                    Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+                    Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+                    Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+                    Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+                    Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
                     _ => Stage::UNKNOWN,
                 };
 

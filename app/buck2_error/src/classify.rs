@@ -243,7 +243,7 @@ impl ErrorLike for buck2_data::ErrorReport {
         best_tag(self.tags.iter().filter_map(|t| {
             // This should never be `None`, but with weak prost types,
             // it is safer to just ignore incorrect integers.
-            ErrorTag::from_i32(*t)
+            ErrorTag::try_from(*t).ok()
         }))
     }
 

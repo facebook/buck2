@@ -42,7 +42,7 @@ pub fn get_last_command_execution_kind(
                 cache_hit_type,
                 ..
             })) => {
-                match buck2_data::CacheHitType::from_i32(*cache_hit_type).unwrap() {
+                match buck2_data::CacheHitType::try_from(*cache_hit_type).unwrap() {
                     // ActionCache is 0, so this should be backwards compatible
                     buck2_data::CacheHitType::ActionCache => LastCommandExecutionKind::Cached,
                     buck2_data::CacheHitType::RemoteDepFileCache => {

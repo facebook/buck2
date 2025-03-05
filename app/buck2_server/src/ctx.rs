@@ -344,7 +344,7 @@ impl<'a> ServerCommandContext<'a> {
             .as_ref()
             .map(|opts| opts.execution_strategy)
             .map_or(ExecutionStrategy::LocalOnly, |strategy| {
-                ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
+                ExecutionStrategy::try_from(strategy).expect("execution strategy should be valid")
             });
 
         let skip_cache_read = self
@@ -457,10 +457,10 @@ impl ServerCommandContext<'_> {
                 .await?
             {
                 if !self.config_overrides.is_empty() {
-                    let config_type_str = |c| match ConfigType::from_i32(c) {
-                        Some(ConfigType::Value) => "--config",
-                        Some(ConfigType::File) => "--config-file",
-                        None => "",
+                    let config_type_str = |c| match ConfigType::try_from(c) {
+                        Ok(ConfigType::Value) => "--config",
+                        Ok(ConfigType::File) => "--config-file",
+                        Err(_) => "",
                     };
                     warn!(
                         "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",

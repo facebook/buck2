@@ -398,7 +398,7 @@ pub(crate) fn create_formatter(
     request: &TargetsRequest,
     other: &targets_request::Other,
 ) -> buck2_error::Result<Arc<dyn TargetFormatter>> {
-    let output_format = OutputFormat::from_i32(request.output_format)
+    let output_format = OutputFormat::try_from(request.output_format)
         .internal_error("Invalid value of `output_format`")?;
 
     let target_call_stacks = request.client_context()?.target_call_stacks;
@@ -420,7 +420,7 @@ pub(crate) fn create_formatter(
         OutputFormat::Stats => Ok(Arc::new(StatsFormat)),
         OutputFormat::Text => Ok(Arc::new(TargetNameFormat {
             target_call_stacks,
-            target_hash_graph_type: TargetHashGraphType::from_i32(other.target_hash_graph_type)
+            target_hash_graph_type: TargetHashGraphType::try_from(other.target_hash_graph_type)
                 .expect("buck cli should send valid target hash graph type"),
         })),
         OutputFormat::Json | OutputFormat::JsonLines => Ok(Arc::new(JsonFormat {

@@ -1392,7 +1392,8 @@ impl InvocationRecorder {
         &mut self,
         file_watcher: &FileWatcherStart,
     ) -> buck2_error::Result<()> {
-        self.file_watcher = FileWatcherProvider::from_i32(file_watcher.provider)
+        self.file_watcher = FileWatcherProvider::try_from(file_watcher.provider)
+            .ok()
             .map(|p| p.as_str_name().to_owned());
         Ok(())
     }
@@ -1661,7 +1662,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
             .tags
             .iter()
             .copied()
-            .filter_map(buck2_data::error::ErrorTag::from_i32)
+            .filter_map(|v| buck2_data::error::ErrorTag::try_from(v).ok())
             .map(|t| t.as_str_name().to_owned())
             .collect(),
         best_tag: Some(best_tag),

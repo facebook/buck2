@@ -48,14 +48,14 @@ pub fn starlark_profiler_configuration_from_request(
     req: &buck2_cli_proto::ProfileRequest,
     project_root: &ProjectRoot,
 ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
-    let profiler_proto = buck2_cli_proto::ProfileMode::from_i32(req.profile_mode)
+    let profiler_proto = buck2_cli_proto::ProfileMode::try_from(req.profile_mode)
         .buck_error_context("Invalid profiler")?;
 
     let profile_mode = proto_to_profile_mode(profiler_proto);
 
     match req.profile_opts.as_ref().expect("Missing profile opts") {
         ProfileOpts::TargetProfile(opts) => {
-            let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
+            let action = buck2_cli_proto::target_profile::Action::try_from(opts.action)
                 .buck_error_context("Invalid action")?;
             Ok(match (action, opts.recursive) {
                 (buck2_cli_proto::target_profile::Action::Loading, false) => {

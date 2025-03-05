@@ -396,12 +396,12 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
 }
 
 fn display_file_watcher(provider: i32) -> &'static str {
-    match buck2_data::FileWatcherProvider::from_i32(provider) {
-        Some(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
-        Some(buck2_data::FileWatcherProvider::RustNotify) => "notify",
-        Some(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
-        Some(buck2_data::FileWatcherProvider::EdenFs) => "EdenFS",
-        None => "unknown mechanism",
+    match buck2_data::FileWatcherProvider::try_from(provider) {
+        Ok(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
+        Ok(buck2_data::FileWatcherProvider::RustNotify) => "notify",
+        Ok(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
+        Ok(buck2_data::FileWatcherProvider::EdenFs) => "EdenFS",
+        Err(_) => "unknown mechanism",
     }
 }
 
@@ -479,7 +479,7 @@ pub fn display_executor_stage(
     let label = match stage {
         Stage::Prepare(..) => "prepare",
         Stage::CacheQuery(cache_query) => {
-            match buck2_data::CacheType::from_i32(cache_query.cache_type).unwrap() {
+            match buck2_data::CacheType::try_from(cache_query.cache_type).unwrap() {
                 buck2_data::CacheType::ActionCache => "re_action_cache",
                 buck2_data::CacheType::RemoteDepFileCache => "re_dep_file_cache",
             }

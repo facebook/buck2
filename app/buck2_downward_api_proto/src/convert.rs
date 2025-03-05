@@ -67,7 +67,7 @@ impl TryInto<Level> for proto::LogLevel {
         use proto::log_level::Value;
 
         let proto::LogLevel { value } = self;
-        let value = Value::from_i32(value).buck_error_context("Invalid `value`")?;
+        let value = Value::try_from(value).buck_error_context("Invalid `value`")?;
 
         Ok(match value {
             Value::NotSet => {

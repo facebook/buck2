@@ -1095,7 +1095,7 @@ async fn daemon_connect_error(
         let tags: Vec<ErrorTag> = error_report
             .tags
             .into_iter()
-            .filter_map(buck2_error::ErrorTag::from_i32)
+            .filter_map(|v| buck2_error::ErrorTag::try_from(v).ok())
             .collect();
         let daemon_error = buck2_error::Error::new(
             error_report.message.clone(),

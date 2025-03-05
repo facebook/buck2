@@ -207,7 +207,7 @@ impl TryFrom<i32> for TestStatus {
     type Error = anyhow::Error;
 
     fn try_from(s: i32) -> Result<Self, Self::Error> {
-        let s = buck2_test_proto::TestStatus::from_i32(s).context("Invalid `status`")?;
+        let s = buck2_test_proto::TestStatus::try_from(s).context("Invalid `status`")?;
 
         Ok(match s {
             buck2_test_proto::TestStatus::NotSet => {

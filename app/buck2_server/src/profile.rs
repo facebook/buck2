@@ -143,7 +143,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
             .expect("Target profile not populated")
         {
             ProfileOpts::TargetProfile(opts) => {
-                let action = buck2_cli_proto::target_profile::Action::from_i32(opts.action)
+                let action = buck2_cli_proto::target_profile::Action::try_from(opts.action)
                     .buck_error_context("Invalid action")?;
 
                 let profile_data = generate_profile(
