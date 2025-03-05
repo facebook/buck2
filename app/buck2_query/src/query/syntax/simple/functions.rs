@@ -594,6 +594,28 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Tests of specified targets.
+    ///
+    /// Returns the test targets associated with the targets from the given [*target expressions*](#target-expression).
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "testsof(set(//buck2/dice/dice:dice //buck2/app/buck2:buck2))"
+    ///
+    /// //buck2/dice/dice:dice-unittest
+    /// //buck2/app/buck2:buck2-unittest
+    /// ```
+    /// returns the tests associated with both `//buck2/dice/dice:dice` and `//buck2/app/buck2:buck2`.
+    ///
+    /// To obtain all the tests associated with the target and its dependencies,
+    /// you can combine the `testsof()` function with the [`deps()`](#deps) function.
+    ///
+    /// For example:
+    /// ```text
+    /// $ buck2 uquery "testsof(deps(//buck2/app/buck2:buck2))"
+    /// ```
+    /// first finds the transitive closure of `//buck2/app/buck2:buck2`,
+    /// and then lists all the tests associated with the targets in this transitive closure.
     async fn testsof(&self, env: &Env, targets: TargetSet<Env::Target>) -> QueryFuncResult<Env> {
         Ok(self.implementation.testsof(env, &targets).await?.into())
     }
