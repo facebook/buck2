@@ -65,35 +65,26 @@ public class JarParametersSerializer {
    */
   public static JarParameters deserialize(
       com.facebook.buck.cd.model.java.JarParameters jarParameters) {
-    JarParameters.Builder builder = JarParameters.builder();
-
-    builder.setHashEntries(jarParameters.getHashEntries());
-    builder.setMergeManifests(jarParameters.getMergeManifests());
-    builder.setJarPath(RelPathSerializer.deserialize(jarParameters.getJarPath()));
-    builder.setRemoveEntryPredicate(
-        RemoveClassesPatternsMatcherSerializer.deserialize(
-            jarParameters.getRemoveEntryPredicate()));
-    builder.setEntriesToJar(
-        jarParameters.getEntriesToJarList().stream()
-            .map(RelPathSerializer::deserialize)
-            .collect(ImmutableSortedSet.toImmutableSortedSet(RelPath.comparator())));
-    builder.setOverrideEntriesToJar(
-        jarParameters.getOverrideEntriesToJarList().stream()
-            .map(RelPathSerializer::deserialize)
-            .collect(ImmutableSortedSet.toImmutableSortedSet(RelPath.comparator())));
-
-    String mainClass = jarParameters.getMainClass();
-    if (!mainClass.isEmpty()) {
-      builder.setMainClass(mainClass);
-    }
-    builder.setManifestFile(
+    Optional<String> mainClass =
+        Optional.of(jarParameters.getMainClass()).filter(s -> !s.isEmpty());
+    Optional<RelPath> manifestFile =
         Optional.of(jarParameters.getManifestFile())
             .filter(s -> !s.isEmpty())
-            .map(RelPathSerializer::deserialize));
+            .map(RelPathSerializer::deserialize);
 
-    builder.setDuplicatesLogLevel(
+    return new JarParameters(
+        jarParameters.getHashEntries(),
+        jarParameters.getMergeManifests(),
+        RelPathSerializer.deserialize(jarParameters.getJarPath()),
+        RemoveClassesPatternsMatcherSerializer.deserialize(jarParameters.getRemoveEntryPredicate()),
+        jarParameters.getEntriesToJarList().stream()
+            .map(RelPathSerializer::deserialize)
+            .collect(ImmutableSortedSet.toImmutableSortedSet(RelPath.comparator())),
+        jarParameters.getOverrideEntriesToJarList().stream()
+            .map(RelPathSerializer::deserialize)
+            .collect(ImmutableSortedSet.toImmutableSortedSet(RelPath.comparator())),
+        mainClass,
+        manifestFile,
         LogLevelSerializer.deserialize(jarParameters.getDuplicatesLogLevel()));
-
-    return builder.build();
   }
 }

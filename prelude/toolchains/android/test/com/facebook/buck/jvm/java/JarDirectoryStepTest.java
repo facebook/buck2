@@ -52,6 +52,7 @@ import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+import java.util.logging.Level;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -73,14 +74,17 @@ public class JarDirectoryStepTest {
 
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(RelPath.get("output.jar"))
-                .setEntriesToJar(
-                    toRelPathSortedSet(
-                        RelPath.of(first.getFileName()), RelPath.of(second.getFileName())))
-                .setMainClass(Optional.of("com.example.Main"))
-                .setMergeManifests(true)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                RelPath.get("output.jar"),
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(
+                    RelPath.of(first.getFileName()), RelPath.of(second.getFileName())),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.of("com.example.Main"),
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
     int returnCode = executeStep(step, zipup);
 
     assertEquals(0, returnCode);
@@ -101,12 +105,16 @@ public class JarDirectoryStepTest {
 
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(RelPath.get("output.jar"))
-                .setEntriesToJar(toRelPathSortedSet(RelPath.of(zip.getFileName())))
-                .setMainClass(Optional.of("com.example.MissingMain"))
-                .setMergeManifests(true)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                RelPath.get("output.jar"),
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(RelPath.of(zip.getFileName())),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.of("com.example.MissingMain"),
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
 
     try {
       executeStep(step, zipup);
@@ -132,14 +140,17 @@ public class JarDirectoryStepTest {
 
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(RelPath.get("output.jar"))
-                .setEntriesToJar(
-                    toRelPathSortedSet(
-                        RelPath.of(first.getFileName()), RelPath.of(second.getFileName())))
-                .setMainClass(Optional.of("com.example.Main"))
-                .setMergeManifests(true)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                RelPath.get("output.jar"),
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(
+                    RelPath.of(first.getFileName()), RelPath.of(second.getFileName())),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.of("com.example.Main"),
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
 
     int returnCode = executeStep(step, zipup);
 
@@ -181,12 +192,16 @@ public class JarDirectoryStepTest {
     RelPath output = RelPath.get("output.jar");
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(output)
-                .setEntriesToJar(toRelPathSortedSet(RelPath.get("input.jar")))
-                .setManifestFile(Optional.of(RelPath.get("manifest")))
-                .setMergeManifests(true)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                output,
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(RelPath.get("input.jar")),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.empty() /* mainClass */,
+                Optional.of(RelPath.get("manifest")),
+                Level.INFO));
 
     int returnCode = executeStep(step, tmp);
     assertEquals(0, returnCode);
@@ -211,11 +226,16 @@ public class JarDirectoryStepTest {
 
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(RelPath.get("output.jar"))
-                .setEntriesToJar(toRelPathSortedSet(RelPath.get("")))
-                .setMergeManifests(true)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                RelPath.get("output.jar"),
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(RelPath.get("")),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.empty() /* mainClass */,
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
     int returnCode = executeStep(step, zipup);
 
     assertEquals(0, returnCode);
@@ -295,14 +315,16 @@ public class JarDirectoryStepTest {
 
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(RelPath.get("output.jar"))
-                .setEntriesToJar(toRelPathSortedSet(RelPath.of(first.getFileName())))
-                .setMainClass(Optional.of("com.example.Main"))
-                .setMergeManifests(true)
-                .setRemoveEntryPredicate(
-                    new RemoveClassesPatternsMatcher(ImmutableSet.of(Pattern.compile(".*2.*"))))
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                RelPath.get("output.jar"),
+                new RemoveClassesPatternsMatcher(ImmutableSet.of(Pattern.compile(".*2.*"))),
+                toRelPathSortedSet(RelPath.of(first.getFileName())),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.of("com.example.Main"),
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
 
     int returnCode = executeStep(step, zipup);
     assertEquals(0, returnCode);
@@ -326,16 +348,18 @@ public class JarDirectoryStepTest {
 
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(RelPath.get("output.jar"))
-                .setEntriesToJar(toRelPathSortedSet(RelPath.of(first.getFileName())))
-                .setMainClass(Optional.of("com.example.A"))
-                .setMergeManifests(true)
-                .setRemoveEntryPredicate(
-                    new RemoveClassesPatternsMatcher(
-                        ImmutableSet.of(
-                            Pattern.compile("com.example.B"), Pattern.compile("com.example.C"))))
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                RelPath.get("output.jar"),
+                new RemoveClassesPatternsMatcher(
+                    ImmutableSet.of(
+                        Pattern.compile("com.example.B"), Pattern.compile("com.example.C"))),
+                toRelPathSortedSet(RelPath.of(first.getFileName())),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.of("com.example.A"),
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
 
     int returnCode = executeStep(step, zipup);
     assertEquals(0, returnCode);
@@ -359,11 +383,16 @@ public class JarDirectoryStepTest {
     RelPath outputJar = RelPath.get("output.jar");
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(outputJar)
-                .setEntriesToJar(toRelPathSortedSet(RelPath.get("")))
-                .setMergeManifests(true)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                outputJar,
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(RelPath.get("")),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.empty() /* mainClass */,
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
     int returnCode = executeStep(step, zipup);
     assertEquals(0, returnCode);
 
@@ -443,11 +472,16 @@ public class JarDirectoryStepTest {
     AbsPath output = folder.newFile("output.jar");
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(dir.relativize(output))
-                .setEntriesToJar(toRelPathSortedSet(dir.relativize(dir), dir.relativize(inputJar)))
-                .setMergeManifests(true)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                true /* mergeManifests */,
+                dir.relativize(output),
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(dir.relativize(dir), dir.relativize(inputJar)),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.empty() /* mainClass */,
+                Optional.empty() /* manifestFile */,
+                Level.INFO));
 
     int returnCode = executeStep(step, dir);
     assertEquals(0, returnCode);
@@ -499,13 +533,16 @@ public class JarDirectoryStepTest {
     RelPath output = RelPath.get("example.jar");
     JarDirectoryStep step =
         new JarDirectoryStep(
-            JarParameters.builder()
-                .setJarPath(output)
-                .setEntriesToJar(toRelPathSortedSet(tmp.relativize(originalJar)))
-                .setManifestFile(Optional.of(tmp.relativize(manifestFile)))
-                .setMergeManifests(mergeEntries)
-                .setRemoveEntryPredicate(RemoveClassesPatternsMatcher.EMPTY)
-                .build());
+            new JarParameters(
+                false /* hashEntries */,
+                mergeEntries,
+                output,
+                RemoveClassesPatternsMatcher.EMPTY,
+                toRelPathSortedSet(tmp.relativize(originalJar)),
+                ImmutableSortedSet.of() /* overrideEntriesToJar */,
+                Optional.empty() /* mainClass */,
+                Optional.of(tmp.relativize(manifestFile)),
+                Level.INFO));
 
     executeStep(step, tmp);
 
