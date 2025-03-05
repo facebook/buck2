@@ -113,7 +113,7 @@ public class JavacPipelineState implements AutoCloseable {
       ProcessExecutor processExecutor = firstOrderContext.getProcessExecutor();
 
       JavacExecutionContext javacExecutionContext =
-          ImmutableJavacExecutionContext.ofImpl(
+          new JavacExecutionContext(
               stderr,
               firstOrderContext.getClassLoaderCache(),
               verbosity,

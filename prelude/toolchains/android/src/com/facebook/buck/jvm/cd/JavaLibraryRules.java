@@ -44,7 +44,7 @@ public class JavaLibraryRules {
         .setAbiGenerationMode(abiGenerationMode)
         .setAbiCompatibilityMode(abiCompatibilityMode)
         .setSourceOnlyAbiRuleInfoFactory(
-            DefaultSourceOnlyAbiRuleInfoFactory.of(
+            new DefaultSourceOnlyAbiRuleInfoFactory(
                 fullyQualifiedBuildTargetName, isRequiredForSourceOnlyAbi))
         .build();
   }
