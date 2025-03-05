@@ -21,17 +21,14 @@ import com.facebook.buck.core.exceptions.DependencyStack;
 import com.facebook.buck.core.exceptions.ExceptionWithContext;
 import com.facebook.buck.core.exceptions.ExceptionWithHumanReadableMessage;
 import com.facebook.buck.core.exceptions.HumanReadableException;
-import com.facebook.buck.core.exceptions.HumanReadableExceptionAugmentor;
 import com.facebook.buck.core.exceptions.WrapsException;
 import com.facebook.buck.util.ErrorLogger.DeconstructedException;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.io.IOException;
 import java.nio.channels.ClosedByInterruptException;
 import java.nio.file.FileSystemLoopException;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.hamcrest.Matchers;
 import org.junit.Test;
@@ -168,51 +165,6 @@ public class ErrorLoggerTest {
   }
 
   @Test
-  public void addsErrorMessageAugmentations() {
-    String rawMessage =
-        linesToText(
-            "\u001B[1mmain.cpp:1:13: \u001B[0m\u001B[0;1;31merror: \u001B[0m\u001B[1mexpected"
-                + " '}'\u001B[0m",
-            "int main() {",
-            "\u001B[0;1;32m            ^",
-            "\u001B[0m\u001B[1mmain.cpp:1:12: \u001B[0m\u001B[0;1;30mnote: \u001B[0mto match this"
-                + " '{'\u001B[0m",
-            "int main() {",
-            "\u001B[0;1;32m           ^",
-            "\u001B[0m1 error generated.");
-    String expected = linesToText(rawMessage, "    context", "Try adding '}'!");
-
-    LoggedErrors errors =
-        logException(new TestException(new HumanReadableException(rawMessage), "context"));
-    assertNull(errors.userVisibleInternal);
-    assertEquals(expected, errors.userVisible);
-  }
-
-  @Test
-  public void addsErrorMessageAugmentationsToInternalErrors() {
-    String rawMessage =
-        linesToText(
-            "\u001B[1mmain.cpp:1:13: \u001B[0m\u001B[0;1;31merror: \u001B[0m\u001B[1mexpected"
-                + " '}'\u001B[0m",
-            "int main() {",
-            "\u001B[0;1;32m            ^",
-            "\u001B[0m\u001B[1mmain.cpp:1:12: \u001B[0m\u001B[0;1;30mnote: \u001B[0mto match this"
-                + " '{'\u001B[0m",
-            "int main() {",
-            "\u001B[0;1;32m           ^",
-            "\u001B[0m1 error generated.");
-    LoggedErrors errors =
-        logException(new TestException(new RuntimeException(rawMessage), "context"));
-    assertNull(errors.userVisible);
-    assertThat(
-        errors.userVisibleInternal,
-        Matchers.containsString("java.lang.RuntimeException: " + rawMessage));
-    assertThat(
-        errors.userVisibleInternal,
-        Matchers.containsString(linesToText("    context", "Try adding '}'!")));
-  }
-
-  @Test
   public void testInterruptedException() {
     LoggedErrors errors =
         logException(new TestException(new InterruptedException("This has been interrupted.")));
@@ -285,8 +237,7 @@ public class ErrorLoggerTest {
                 "a little context"));
 
     assertThat(
-        deconstructed.getAugmentedErrorWithContext(
-            "    ", new HumanReadableExceptionAugmentor(ImmutableMap.of())),
+        deconstructed.getErrorWithContext("    "),
         Matchers.allOf(
             Matchers.containsString("java.io.IOException: okay"),
             Matchers.containsString("    a little more context"),
@@ -314,10 +265,7 @@ public class ErrorLoggerTest {
                 assertNull(result.verbose);
                 result.verbose = e;
               }
-            },
-            new HumanReadableExceptionAugmentor(
-                ImmutableMap.of(
-                    Pattern.compile("main.cpp:1:13: error: expected ('}')"), "Try adding $1!")))
+            })
         .logException(e);
     assertTrue(result.userVisibleInternal == null ^ result.userVisible == null);
     assertNotNull(result.verbose);

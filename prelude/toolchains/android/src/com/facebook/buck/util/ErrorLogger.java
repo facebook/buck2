@@ -12,13 +12,11 @@ package com.facebook.buck.util;
 import com.facebook.buck.core.exceptions.ExceptionWithContext;
 import com.facebook.buck.core.exceptions.ExceptionWithHumanReadableMessage;
 import com.facebook.buck.core.exceptions.HumanReadableException;
-import com.facebook.buck.core.exceptions.HumanReadableExceptionAugmentor;
 import com.facebook.buck.core.exceptions.WrapsException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import java.io.IOException;
 import java.nio.channels.ClosedByInterruptException;
@@ -51,7 +49,6 @@ public class ErrorLogger {
   }
 
   private final LogImpl logger;
-  private final HumanReadableExceptionAugmentor errorAugmentor;
 
   /** Prints the stacktrace as formatted by an ErrorLogger. */
   public static String getUserFriendlyMessage(Throwable e) {
@@ -70,15 +67,13 @@ public class ErrorLogger {
 
               @Override
               public void logVerbose(Throwable e) {}
-            },
-            new HumanReadableExceptionAugmentor(ImmutableMap.of()))
+            })
         .logException(e);
     return builder.toString();
   }
 
-  public ErrorLogger(LogImpl logger, HumanReadableExceptionAugmentor errorAugmentor) {
+  public ErrorLogger(LogImpl logger) {
     this.logger = logger;
-    this.errorAugmentor = errorAugmentor;
   }
 
   /**
@@ -169,8 +164,7 @@ public class ErrorLogger {
      * Creates the user-friendly exception with context, masked stack trace (if not suppressed), and
      * with augmentations.
      */
-    public String getAugmentedErrorWithContext(
-        String indent, HumanReadableExceptionAugmentor errorAugmentor) {
+    public String getErrorWithContext(String indent) {
       StringBuilder messageBuilder = new StringBuilder();
       // TODO(cjhopman): Based on verbosity, get the stacktrace here instead of just the message.
       messageBuilder.append(getMessage(false));
@@ -179,7 +173,7 @@ public class ErrorLogger {
         messageBuilder.append(System.lineSeparator());
         messageBuilder.append(context.get());
       }
-      return errorAugmentor.getAugmentedError(messageBuilder.toString());
+      return messageBuilder.toString();
     }
   }
 
@@ -255,7 +249,7 @@ public class ErrorLogger {
   }
 
   private void logUserVisible(DeconstructedException deconstructed) {
-    String augmentedError = deconstructed.getAugmentedErrorWithContext("    ", errorAugmentor);
+    String augmentedError = deconstructed.getErrorWithContext("    ");
     if (deconstructed.isUserError()) {
       logger.logUserVisible(augmentedError);
     } else {
