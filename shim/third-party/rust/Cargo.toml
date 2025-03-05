@@ -156,10 +156,10 @@ pin-project = "0.4.29"
 plist = "0.5"
 pretty_assertions = "1.2.1"
 proc-macro2 = { version = "1.0.70", features = ["span-locations"] }
-prost = "0.11.9"
-prost-build = "0.11.9"
-prost-derive = "0.11.9"
-prost-types = "0.11.9"
+prost = "0.12"
+prost-build = "0.12"
+prost-derive = "0.12"
+prost-types = "0.12"
 protoc-bin-vendored = "3.0.0"
 psutil = "3.2"
 quote = "1.0.3"
@@ -210,12 +210,12 @@ textwrap = { version = "0.11", features = ["term_size"] }
 thiserror = "1.0.36"
 threadpool = "1.8.1"
 tokio = { version = "1.25.0", features = ["full", "test-util", "tracing"] }
-tokio-rustls = { package = "tokio-rustls", version = "0.24.0", features = ["dangerous_configuration"] }
+tokio-rustls = { package = "tokio-rustls", version = "0.24.1", features = ["dangerous_configuration"] }
 tokio-stream = { version = "0.1.14", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
 tokio-util = { version = "0.6", features = ["full"] }
 toml = "0.5"
-tonic = { version = "0.9.2", features = ["tls", "tls-webpki-roots"] }
-tonic-build = { version = "0.9.2", features = ["prost", "cleanup-markdown"] }
+tonic = { version = "0.10.2", features = ["tls", "tls-webpki-roots"] }
+tonic-build = { version = "0.10.2", features = ["prost", "cleanup-markdown"] }
 tower = "0.4"
 tower-layer = "0.3.1"
 tower-service = "0.3.2"
