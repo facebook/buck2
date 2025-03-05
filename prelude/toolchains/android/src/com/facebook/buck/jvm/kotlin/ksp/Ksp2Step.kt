@@ -74,23 +74,20 @@ class Ksp2Step(
         return when (exitCode) {
           KotlinSymbolProcessing.ExitCode.OK -> StepExecutionResults.SUCCESS
           KotlinSymbolProcessing.ExitCode.PROCESSING_ERROR ->
-              StepExecutionResult.builder()
-                  .setExitCode(StepExecutionResults.ERROR_EXIT_CODE)
-                  .setStderr(stderr.getContentsAsString(StandardCharsets.UTF_8))
-                  .build()
+              StepExecutionResult(
+                  StepExecutionResults.ERROR_EXIT_CODE,
+                  Optional.of(stderr.getContentsAsString(StandardCharsets.UTF_8)))
         }
       } catch (e: LinkageError) {
-        return StepExecutionResult.Builder()
-            .setStderr(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327")
-            .setExitCode(StepExecutionResults.ERROR_EXIT_CODE)
-            .build()
+        return StepExecutionResult(
+            StepExecutionResults.ERROR_EXIT_CODE,
+            Optional.of(
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327"))
       } catch (e: Throwable) {
-        return StepExecutionResult.Builder()
-            .setStderr(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}")
-            .setExitCode(StepExecutionResults.ERROR_EXIT_CODE)
-            .build()
+        return StepExecutionResult(
+            StepExecutionResults.ERROR_EXIT_CODE,
+            Optional.of(
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}"))
       }
     }
   }

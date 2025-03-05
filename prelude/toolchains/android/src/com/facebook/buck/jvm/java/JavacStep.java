@@ -107,13 +107,12 @@ public class JavacStep implements IsolatedStep {
   public final StepExecutionResult executeIsolatedStep(IsolatedExecutionContext context)
       throws IOException, InterruptedException {
 
-    StepExecutionResult.Builder builder = StepExecutionResult.builder();
-
+    int exitCode;
+    Optional<String> stderr = Optional.empty();
     try {
       ResolvedJavac.Invocation invocation =
           state.getJavacInvocation(compilerOutputPathsValue, context, configuredBuckOut);
 
-      int exitCode;
       if (invokingRule.isSourceAbi()) {
         exitCode = invocation.buildSourceAbiJar();
       } else if (invokingRule.isSourceOnlyAbi()) {
@@ -121,10 +120,9 @@ public class JavacStep implements IsolatedStep {
       } else {
         exitCode = invocation.buildClasses();
       }
-      builder.setExitCode(exitCode);
 
       if (exitCode != StepExecutionResults.SUCCESS_EXIT_CODE) {
-        builder.setStderr(state.getStderrContents());
+        stderr = Optional.of(state.getStderrContents());
       }
 
     } finally {
@@ -133,7 +131,7 @@ public class JavacStep implements IsolatedStep {
       }
     }
 
-    return builder.build();
+    return new StepExecutionResult(exitCode, stderr);
   }
 
   @VisibleForTesting

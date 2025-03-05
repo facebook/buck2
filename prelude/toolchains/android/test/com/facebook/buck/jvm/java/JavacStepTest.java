@@ -127,10 +127,8 @@ public class JavacStepTest {
     assertThat(
         result,
         equalTo(
-            StepExecutionResult.builder()
-                .setExitCode(StepExecutionResults.ERROR_EXIT_CODE)
-                .setStderr(Optional.of("javac stderr\n"))
-                .build()));
+            new StepExecutionResult(
+                StepExecutionResults.ERROR_EXIT_CODE, Optional.of("javac stderr\n"))));
   }
 
   @Test

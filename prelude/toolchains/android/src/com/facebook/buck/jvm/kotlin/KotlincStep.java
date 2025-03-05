@@ -207,10 +207,7 @@ public class KotlincStep implements IsolatedStep {
                   configuredBuckOut);
         }
       }
-      return StepExecutionResult.builder()
-          .setExitCode(declaredDepsBuildResult)
-          .setStderr(returnedStderr)
-          .build();
+      return new StepExecutionResult(declaredDepsBuildResult, returnedStderr);
     } catch (IOException | InterruptedException e) {
       throw new RuntimeException(e);
     }

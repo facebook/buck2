@@ -15,7 +15,6 @@ import com.facebook.buck.core.exceptions.WrapsException;
 import com.facebook.buck.step.StepExecutionResult;
 import com.facebook.buck.util.string.MoreStrings;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -27,7 +26,7 @@ public class StepFailedException extends Exception implements WrapsException, Ex
   private final String description;
   private final OptionalInt exitCode;
 
-  /** Callers should use {@link #createForFailingStepWithExitCode} unless in a unit test. */
+  /** Callers should use {@link #createForFailingIsolatedStepWithExitCode} unless in a unit test. */
   private StepFailedException(
       Throwable cause, IsolatedStep step, String description, OptionalInt exitCode) {
     super(cause);
@@ -39,32 +38,6 @@ public class StepFailedException extends Exception implements WrapsException, Ex
   @Override
   public String getMessage() {
     return getCause().getMessage() + System.lineSeparator() + "  " + getContext().get();
-  }
-
-  /** Creates a StepFailedException based on a StepExecutionResult. */
-  public static StepFailedException createForFailingStepWithExitCode(
-      IsolatedStep step,
-      String descriptionForStep,
-      boolean isTruncateFailingCommandEnabled,
-      StepExecutionResult executionResult) {
-    int exitCode = executionResult.getExitCode();
-    StringBuilder errorMessage = new StringBuilder();
-    errorMessage.append(String.format("Command failed with exit code %d.", exitCode));
-    ImmutableList<String> executedCommand = executionResult.getExecutedCommand();
-    if (!executedCommand.isEmpty()) {
-      appendToErrorMessage(
-          errorMessage, "command", executedCommand.toString(), isTruncateFailingCommandEnabled);
-    }
-
-    executionResult
-        .getStderr()
-        .ifPresent(stderr -> appendToErrorMessage(errorMessage, "stderr", stderr, false));
-
-    return new StepFailedException(
-        getHumanReadableException(executionResult, errorMessage.toString()),
-        step,
-        descriptionForStep,
-        OptionalInt.of(exitCode));
   }
 
   /** Creates a StepFailedException based on a StepExecutionResult. */
