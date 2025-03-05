@@ -13,6 +13,7 @@ import com.facebook.buck.cd.model.java.ResolvedJavacOptions;
 import com.facebook.buck.jvm.java.JavacPluginParams;
 import com.facebook.buck.jvm.java.ResolvedJavacPluginProperties;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import java.util.List;
 
 /** {@link JavacPluginParams} to protobuf serializer */
@@ -45,13 +46,12 @@ class JavacPluginParamsSerializer {
    */
   public static JavacPluginParams deserialize(
       ResolvedJavacOptions.JavacPluginParams javacPluginParams) {
-    JavacPluginParams.Builder builder = JavacPluginParams.builder();
-    builder.setParameters(javacPluginParams.getParametersList());
-    builder.setPluginProperties(toPluginProperties(javacPluginParams.getPluginPropertiesList()));
-    return builder.build();
+    return new JavacPluginParams(
+        toPluginProperties(javacPluginParams.getPluginPropertiesList()),
+        ImmutableSortedSet.copyOf(javacPluginParams.getParametersList()));
   }
 
-  private static Iterable<ResolvedJavacPluginProperties> toPluginProperties(
+  private static ImmutableList<ResolvedJavacPluginProperties> toPluginProperties(
       List<ResolvedJavacOptions.ResolvedJavacPluginProperties> pluginPropertiesList) {
     ImmutableList.Builder<ResolvedJavacPluginProperties> builder =
         ImmutableList.builderWithExpectedSize(pluginPropertiesList.size());

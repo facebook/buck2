@@ -35,9 +35,7 @@ class JavacLanguageLevelOptionsSerializer {
    */
   public static JavacLanguageLevelOptions deserialize(
       ResolvedJavacOptions.JavacLanguageLevelOptions javacLanguageLevelOptions) {
-    return JavacLanguageLevelOptions.builder()
-        .setSourceLevel(javacLanguageLevelOptions.getSourceLevel())
-        .setTargetLevel(javacLanguageLevelOptions.getTargetLevel())
-        .build();
+    return new JavacLanguageLevelOptions(
+        javacLanguageLevelOptions.getSourceLevel(), javacLanguageLevelOptions.getTargetLevel());
   }
 }

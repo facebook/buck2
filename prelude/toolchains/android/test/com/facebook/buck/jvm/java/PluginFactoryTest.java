@@ -20,7 +20,6 @@ import com.facebook.buck.util.ClassLoaderCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
-import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -71,9 +70,8 @@ public class PluginFactoryTest {
         PluginFactory factory2 = new PluginFactory(baseClassLoader, classLoaderCache)) {
 
       JavacPluginParams pluginParams =
-          JavacPluginParams.builder()
-              .setPluginProperties(List.of(controlPluginGroup, variablePluginGroup))
-              .build();
+          new JavacPluginParams(
+              ImmutableList.of(controlPluginGroup, variablePluginGroup), ImmutableSortedSet.of());
       ClassLoader classLoader1 = factory1.getClassLoaderForProcessorGroups(pluginParams, rootPath);
       ClassLoader classLoader2 = factory2.getClassLoaderForProcessorGroups(pluginParams, rootPath);
       return classLoader1 == classLoader2;
