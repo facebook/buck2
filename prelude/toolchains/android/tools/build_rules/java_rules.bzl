@@ -30,6 +30,9 @@ OPEN_JDK_COMPILER_ARGS = [
     "--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
 ]
 
+_RUN_AS_BUNDLE_LABEL = "run_as_bundle"
+_FDB_DEBUG_LABEL = "fdb:target:android"
+
 def _append_and_get_uniq_deps(kwargs, key, new_deps):
     return list(collections.uniq(list(kwargs.get(key, [])) + new_deps))
 
@@ -241,6 +244,17 @@ def _shallow_dict_copy_without_key(table, key_to_omit):
     """Returns a shallow copy of dict with key_to_omit omitted."""
     return {key: table[key] for key in table if key != key_to_omit}
 
+def kotlin_test(**kwargs):
+    extra_labels = [_RUN_AS_BUNDLE_LABEL, _FDB_DEBUG_LABEL]
+
+    kwargs = _add_labels(**kwargs)
+    kwargs = add_os_labels(**kwargs)
+    kwargs["labels"] += extra_labels
+
+    kwargs = _add_kotlin_deps(**kwargs)
+
+    fb_native.kotlin_test(**kwargs)
+
 def java_test(
         name,
         vm_args = None,
@@ -258,7 +272,7 @@ def java_test(
       **kwargs: kwargs
     """
 
-    extra_labels = ["run_as_bundle", "fdb:target:android"]
+    extra_labels = [_RUN_AS_BUNDLE_LABEL, _FDB_DEBUG_LABEL]
 
     # Windows command line is short and running a bundle with many tests can cause problems
     # We fix this by running bundles of max 100 tests
