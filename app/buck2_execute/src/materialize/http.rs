@@ -49,7 +49,7 @@ pub enum Checksum {
 }
 
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Environment)]
+#[buck2(tag = Input)]
 enum DownloadFileError {
     #[error("Must pass in at least one checksum (e.g. `sha1 = ...`)")]
     MissingChecksum,
