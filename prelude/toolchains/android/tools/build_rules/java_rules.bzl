@@ -86,10 +86,18 @@ def _set_versioned_java_srcs(**kwargs):
     kwargs["srcs"] = kwargs.get("srcs", []) + versioned_srcs
     return kwargs
 
+def _add_kotlin_deps(**kwargs):
+    kwargs["deps"] = kwargs.pop("deps", []) + [
+        "fbsource//xplat/toolchains/android/sdk/third-party/java/kotlin:annotations",
+        "fbsource//xplat/toolchains/android/sdk/third-party/java/kotlin:kotlin-stdlib",
+    ]
+    return kwargs
+
 def buck_kotlin_library(name, **kwargs):
     kwargs = _maybe_add_java_version(**kwargs)
     kwargs = _set_buck2_java_toolchain(**kwargs)
     kwargs = _set_buck2_kotlin_toolchain(**kwargs)
+    kwargs = _add_kotlin_deps(**kwargs)
     return fb_native.kotlin_library(
         name = name,
         **kwargs
