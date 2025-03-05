@@ -9,66 +9,66 @@
 
 package com.facebook.buck.util;
 
-import com.facebook.buck.core.util.immutables.BuckStyleValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Optional;
 
 /** Value type passed to {@link ProcessExecutor} to launch a process. */
-@BuckStyleValue
-public abstract class ProcessExecutorParams {
+public class ProcessExecutorParams {
+
+  private final ImmutableList<String> command;
+  private final Optional<ImmutableMap<String, String>> environment;
+  private final Optional<Path> directory;
+
+  public ProcessExecutorParams(ImmutableList<String> command) {
+    this(command, Optional.empty(), Optional.empty());
+  }
+
+  public ProcessExecutorParams(
+      ImmutableList<String> command,
+      Optional<ImmutableMap<String, String>> environment,
+      Optional<Path> directory) {
+    this.command = command;
+    this.environment = environment;
+    this.directory = directory;
+  }
 
   public static ProcessExecutorParams ofCommand(String... args) {
-    return builder().addCommand(args).build();
+    return new ProcessExecutorParams(ImmutableList.copyOf(args));
   }
 
   /** The command and arguments to launch. */
-  public abstract ImmutableList<String> getCommand();
+  public ImmutableList<String> getCommand() {
+    return command;
+  }
 
   /** If present, the current working directory for the launched process. */
-  public abstract Optional<Path> getDirectory();
+  public Optional<Path> getDirectory() {
+    return directory;
+  }
 
   /**
    * If present, the map of environment variables used for the launched process. Otherwise, inherits
    * the current process's environment.
    */
-  public abstract Optional<ImmutableMap<String, String>> getEnvironment();
-
-  /**
-   * If present, redirects stdout for the process to this location. Otherwise, opens a pipe for
-   * stdout.
-   */
-  public abstract Optional<ProcessBuilder.Redirect> getRedirectInput();
-
-  /**
-   * If present, redirects stdin for the process to this location. Otherwise, opens a pipe for
-   * stdin.
-   */
-  public abstract Optional<ProcessBuilder.Redirect> getRedirectOutput();
-
-  /**
-   * If present, redirects stderr for the process to this location. Otherwise, opens a pipe for
-   * stderr.
-   */
-  public abstract Optional<ProcessBuilder.Redirect> getRedirectError();
-
-  /*
-   * If true, redirects stderr for the process to stdout.
-   */
-  public abstract Optional<Boolean> getRedirectErrorStream();
-
-  public ProcessExecutorParams withRedirectError(ProcessBuilder.Redirect redirectError) {
-    return builder().from(this).setRedirectError(redirectError).build();
+  public Optional<ImmutableMap<String, String>> getEnvironment() {
+    return environment;
   }
 
-  public ProcessExecutorParams withEnvironment(ImmutableMap<String, String> environment) {
-    return builder().from(this).setEnvironment(environment).build();
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ProcessExecutorParams that = (ProcessExecutorParams) o;
+    return Objects.equals(command, that.command)
+        && Objects.equals(environment, that.environment)
+        && Objects.equals(directory, that.directory);
   }
 
-  public static Builder builder() {
-    return new Builder();
+  @Override
+  public int hashCode() {
+    return Objects.hash(command, environment, directory);
   }
-
-  public static class Builder extends ImmutableProcessExecutorParams.Builder {}
 }

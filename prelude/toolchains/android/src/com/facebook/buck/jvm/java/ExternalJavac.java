@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -164,11 +165,10 @@ public class ExternalJavac {
           LOG.info("Running javac command: %s", command);
           try {
             ProcessExecutorParams params =
-                ProcessExecutorParams.builder()
-                    .setCommand(command)
-                    .setEnvironment(context.getEnvironment())
-                    .setDirectory(context.getRuleCellRoot().getPath())
-                    .build();
+                new ProcessExecutorParams(
+                    command,
+                    Optional.of(context.getEnvironment()),
+                    Optional.of(context.getRuleCellRoot().getPath()));
             ProcessExecutor processExecutor = context.getProcessExecutor();
             ProcessExecutor.Result result = processExecutor.launchAndExecute(params);
             return result.getExitCode();

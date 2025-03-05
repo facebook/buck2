@@ -110,18 +110,6 @@ public class DefaultProcessExecutor implements ProcessExecutor {
       pb.environment().clear();
       pb.environment().putAll(params.getEnvironment().get());
     }
-    if (params.getRedirectInput().isPresent()) {
-      pb.redirectInput(params.getRedirectInput().get());
-    }
-    if (params.getRedirectOutput().isPresent()) {
-      pb.redirectOutput(params.getRedirectOutput().get());
-    }
-    if (params.getRedirectError().isPresent()) {
-      pb.redirectError(params.getRedirectError().get());
-    }
-    if (params.getRedirectErrorStream().isPresent()) {
-      pb.redirectErrorStream(params.getRedirectErrorStream().get());
-    }
     Process process = pb.start();
     return new LaunchedProcessImpl(process, pb.command());
   }
