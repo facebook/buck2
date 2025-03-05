@@ -7,7 +7,6 @@
 
 """Module containing java macros."""
 
-load("@bazel_skylib//lib:collections.bzl", "collections")
 load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 load("@fbsource//tools/build_defs/features:feature_decorator.bzl", "consume_feature")
 load("@prelude//:native.bzl", "native")
@@ -32,22 +31,6 @@ OPEN_JDK_COMPILER_ARGS = [
 
 _RUN_AS_BUNDLE_LABEL = "run_as_bundle"
 _FDB_DEBUG_LABEL = "fdb:target:android"
-
-def _append_and_get_uniq_deps(kwargs, key, new_deps):
-    return list(collections.uniq(list(kwargs.get(key, [])) + new_deps))
-
-def _add_immutables(deps_arg, **kwargs):
-    kwargs[deps_arg] = _append_and_get_uniq_deps(kwargs, deps_arg, [
-        "prelude//toolchains/android/src/com/facebook/buck/core/util/immutables:immutables",
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/errorprone:error-prone-annotations",
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/immutables:immutables",
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/guava:guava",
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/jsr:jsr305",
-    ])
-    kwargs["plugins"] = _append_and_get_uniq_deps(kwargs, "plugins", [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/immutables:processor",
-    ])
-    return kwargs
 
 def _maybe_add_java_version(**kwargs):
     if "source" not in kwargs and "target" not in kwargs and "java_version" not in kwargs:
@@ -228,18 +211,6 @@ def third_party_aar(
 def buck_prebuilt_jar(name, **kwargs):
     return toolchain_prebuilt_jar(name = name, **kwargs)
 
-def java_immutables_library(name, **kwargs):
-    return buck_java_library(
-        name = name,
-        **_add_immutables("deps", **kwargs)
-    )
-
-def kotlin_immutables_library(name, **kwargs):
-    return buck_kotlin_library(
-        name = name,
-        **_add_immutables("deps", **kwargs)
-    )
-
 def _shallow_dict_copy_without_key(table, key_to_omit):
     """Returns a shallow copy of dict with key_to_omit omitted."""
     return {key: table[key] for key in table if key != key_to_omit}
@@ -259,8 +230,6 @@ def java_test(
         name,
         vm_args = None,
         run_test_separately = False,
-        has_immutable_types = False,
-        # deps, provided_deps and plugins are handled in kwargs so that immutables can be handled there
         **kwargs):
     """java_test wrapper that provides sensible defaults for buck tests.
 
@@ -268,7 +237,6 @@ def java_test(
       name: name
       vm_args: vm_args
       run_test_separately: run_test_separately
-      has_immutable_types: has_immutable_types
       **kwargs: kwargs
     """
 
@@ -281,9 +249,6 @@ def java_test(
 
     if run_test_separately:
         extra_labels.append("serialize")
-
-    if has_immutable_types:
-        kwargs = _add_immutables("deps", **kwargs)
 
     if "deps" in kwargs:
         deps = kwargs["deps"]
