@@ -119,7 +119,7 @@ class Ksp2Step(
     // Expand source paths
     val sourceFilePathsExpanded =
         getExpandedSourcePathsOrThrow(
-            ruleCellRoot = context.getRuleCellRoot(),
+            ruleCellRoot = context.ruleCellRoot,
             kotlinSourceFilePaths = sourceFilePaths,
             ignoredPathMatcher =
                 if (invokingRule.isSourceOnlyAbi)

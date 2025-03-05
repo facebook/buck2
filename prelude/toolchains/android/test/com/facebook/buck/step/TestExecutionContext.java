@@ -14,8 +14,8 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.testutil.TestConsole;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.FakeProcessExecutor;
+import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
-import java.nio.file.Paths;
 
 public class TestExecutionContext {
 
@@ -27,21 +27,17 @@ public class TestExecutionContext {
   // in each test case.
   private static final ClassLoaderCache testClassLoaderCache = new ClassLoaderCache();
 
-  public static IsolatedExecutionContext.Builder newBuilder() {
-    AbsPath rootPath = AbsPath.of(Paths.get(".").toAbsolutePath()).normalize();
-    return IsolatedExecutionContext.builder()
-        .setConsole(new TestConsole())
-        .setEnvironment(EnvVariablesProvider.getSystemEnv())
-        .setClassLoaderCache(testClassLoaderCache)
-        .setProcessExecutor(new FakeProcessExecutor())
-        .setRuleCellRoot(rootPath);
-  }
-
-  public static IsolatedExecutionContext newInstance() {
-    return newBuilder().build();
-  }
-
   public static IsolatedExecutionContext newInstance(AbsPath root) {
-    return newBuilder().setRuleCellRoot(root).build();
+    return newInstance(root, new FakeProcessExecutor());
+  }
+
+  public static IsolatedExecutionContext newInstance(
+      AbsPath rootPath, ProcessExecutor processExecutor) {
+    return new IsolatedExecutionContext(
+        testClassLoaderCache,
+        new TestConsole(),
+        processExecutor,
+        rootPath,
+        EnvVariablesProvider.getSystemEnv());
   }
 }

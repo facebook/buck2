@@ -91,10 +91,8 @@ public class JavacStepTest {
 
     AbsPath rootPath = tmp.getRoot();
     IsolatedExecutionContext executionContext =
-        TestExecutionContext.newBuilder()
-            .setProcessExecutor(new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()))
-            .setRuleCellRoot(rootPath)
-            .build();
+        TestExecutionContext.newInstance(
+            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
     StepExecutionResult result = step.executeIsolatedStep(executionContext);
 
     // Note that we don't include stderr in the step result on success.
@@ -120,10 +118,8 @@ public class JavacStepTest {
 
     AbsPath rootPath = tmp.getRoot();
     IsolatedExecutionContext executionContext =
-        TestExecutionContext.newBuilder()
-            .setProcessExecutor(new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()))
-            .setRuleCellRoot(rootPath)
-            .build();
+        TestExecutionContext.newInstance(
+            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
     StepExecutionResult result = step.executeIsolatedStep(executionContext);
 
     // JavacStep itself writes stdout to the console on error; we expect the Build class to write
@@ -161,10 +157,8 @@ public class JavacStepTest {
 
     AbsPath rootPath = tmp.getRoot();
     IsolatedExecutionContext executionContext =
-        TestExecutionContext.newBuilder()
-            .setProcessExecutor(new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()))
-            .setRuleCellRoot(rootPath)
-            .build();
+        TestExecutionContext.newInstance(
+            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
     StepExecutionResult result = step.executeIsolatedStep(executionContext);
 
     assertThat(result, equalTo(StepExecutionResults.SUCCESS));
@@ -190,10 +184,8 @@ public class JavacStepTest {
 
     AbsPath rootPath = tmp.getRoot();
     IsolatedExecutionContext executionContext =
-        TestExecutionContext.newBuilder()
-            .setProcessExecutor(new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()))
-            .setRuleCellRoot(rootPath)
-            .build();
+        TestExecutionContext.newInstance(
+            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
 
     String description = step.getIsolatedStepDescription(executionContext);
     List<String> options =
@@ -227,9 +219,8 @@ public class JavacStepTest {
     FakeProcess fakeJavacProcess = new FakeProcess(1, "javac stdout\n", "javac stderr\n");
 
     IsolatedExecutionContext executionContext =
-        TestExecutionContext.newBuilder()
-            .setProcessExecutor(new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()))
-            .build();
+        TestExecutionContext.newInstance(
+            tmp.getRoot(), new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
     thrown.expectMessage("Bootstrap classpath /no-such-dir contains no valid entries");
     step.executeIsolatedStep(executionContext);
   }
