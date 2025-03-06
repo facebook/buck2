@@ -248,7 +248,6 @@ impl LocalExecutor {
                                 &self.artifact_fs,
                                 self.materializer.as_ref(),
                                 request,
-                                FileToMaterialize::All,
                             )
                             .await?;
                             buck2_error::Ok(())
@@ -969,11 +968,6 @@ async fn check_inputs(
     }
 }
 
-pub enum FileToMaterialize {
-    All,
-    Match(String),
-}
-
 /// Materialize all output artifact for CommandExecutionRequest.
 ///
 /// Note that the outputs could be from the previous run of the same command if cleanup on the action was not performed.
@@ -984,7 +978,6 @@ pub async fn materialize_build_outputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-    files_to_materialize: FileToMaterialize,
 ) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
     let mut paths = vec![];
 
@@ -993,14 +986,7 @@ pub async fn materialize_build_outputs(
             CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: _,
-            } => match files_to_materialize {
-                FileToMaterialize::All => paths.push(artifact_fs.resolve_build(path)),
-                FileToMaterialize::Match(ref pattern) => {
-                    if path.path().as_str().contains(pattern) {
-                        paths.push(artifact_fs.resolve_build(path));
-                    }
-                }
-            },
+            } => paths.push(artifact_fs.resolve_build(path)),
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
     }

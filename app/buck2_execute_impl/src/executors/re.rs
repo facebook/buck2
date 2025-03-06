@@ -79,8 +79,8 @@ pub struct ReExecutor {
     pub re_resource_units: Option<i64>,
     pub paranoid: Option<ParanoidDownloader>,
     pub materialize_failed_inputs: bool,
+    pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
-    pub unstable_materialize_failed_action_outputs: Option<String>,
 }
 
 impl ReExecutor {
@@ -378,7 +378,7 @@ impl PreparedCommandExecutor for ReExecutor {
             exit_code,
             &self.artifact_fs,
             self.materialize_failed_inputs,
-            self.unstable_materialize_failed_action_outputs.clone(),
+            self.materialize_failed_outputs,
             additional_message,
         )
         .boxed()

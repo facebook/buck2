@@ -13,7 +13,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import json_get, random_string
+from buck2.tests.e2e_util.helper.utils import filter_events, json_get, random_string
 
 
 @buck_test(data_dir="materialize_inputs_for_failed_actions")
@@ -75,38 +75,22 @@ async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
         buck.build(
             "//:action_fail",
             "--remote-only",
-            "--no-remote-cache",
-            "--unstable-materialize-failed-action-outputs=json",
-            "-c",
-            f"test.cache_buster={random_string()}",
+            "--materialize-failed-outputs",
         ),
     )
 
-    log = (await buck.log("show")).stdout.strip().splitlines()
-
-    found_action_error = False
-
-    for line in log:
-        # Inspect failed output
-        materialized_outputs_for_failed = json_get(
-            line,
-            "Event",
-            "data",
-            "Instant",
-            "data",
-            "ActionError",
-            "last_command",
-            "details",
-            "command_kind",
-            "command",
-            "RemoteCommand",
-            "materialized_outputs_for_failed_actions",
-        )
-
-        if materialized_outputs_for_failed:
-            found_action_error = True
-            assert len(materialized_outputs_for_failed) == 1
-            materialized_outputs_for_failed[0].endswith("json")
-
-    if not found_action_error:
-        raise AssertionError("Did not find relevant ActionError")
+    materialized = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "ActionError",
+        "last_command",
+        "details",
+        "command_kind",
+        "command",
+        "RemoteCommand",
+        "materialized_outputs_for_failed_actions",
+    )
+    assert len(materialized) == 1 and len(materialized[0]) == 2

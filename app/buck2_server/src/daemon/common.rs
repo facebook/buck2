@@ -96,12 +96,12 @@ pub struct CommandExecutorFactory {
     worker_pool: Arc<WorkerPool>,
     paranoid: Option<ParanoidDownloader>,
     materialize_failed_inputs: bool,
+    materialize_failed_outputs: bool,
     /// Cache permission checks per command.
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
     local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
-    unstable_materialize_failed_action_outputs: Option<String>,
 }
 
 impl CommandExecutorFactory {
@@ -121,10 +121,10 @@ impl CommandExecutorFactory {
         worker_pool: Arc<WorkerPool>,
         paranoid: Option<ParanoidDownloader>,
         materialize_failed_inputs: bool,
+        materialize_failed_outputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
         memory_tracker: Option<Arc<MemoryTracker>>,
         hybrid_execution_memory_limit_gibibytes: Option<u64>,
-        unstable_materialize_failed_action_outputs: Option<String>,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new(
             re_connection
@@ -149,11 +149,11 @@ impl CommandExecutorFactory {
             worker_pool,
             paranoid,
             materialize_failed_inputs,
+            materialize_failed_outputs,
             cache_upload_permission_checker,
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
             local_actions_throttle,
-            unstable_materialize_failed_action_outputs,
         }
     }
 
@@ -240,10 +240,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
                     paranoid: self.paranoid.dupe(),
                     materialize_failed_inputs: self.materialize_failed_inputs,
+                    materialize_failed_outputs: self.materialize_failed_outputs,
                     dependencies: dependencies.to_vec(),
-                    unstable_materialize_failed_action_outputs: self
-                        .unstable_materialize_failed_action_outputs
-                        .clone(),
                 }
             };
 
