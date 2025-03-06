@@ -120,20 +120,8 @@ class AndroidInstall {
         }
         logger.info(String.format("Attempting install of %s", apkInfo.getApkPath()));
         Instant start = Instant.now();
-        Set<AndroidDeviceInfo> androidDeviceInfos =
-            adbHelper.installApk(
-                apkInfo,
-                exopackageInfo,
-                rootPath,
-                installViaSd,
-                /* quiet= */ false,
-                installId.getValue());
-        logger.info(
-            String.format(
-                "Install of %s finished in %d seconds",
-                apkInfo.getApkPath().getFileName(),
-                Duration.between(start, Instant.now()).getSeconds()));
 
+        Set<AndroidDeviceInfo> androidDeviceInfos = adbHelper.getAndroidDeviceInfo(apkInfo);
         for (AndroidDeviceInfo deviceInfo : androidDeviceInfos) {
           Map<String, String> infoMap =
               Map.ofEntries(
@@ -146,6 +134,22 @@ class AndroidInstall {
                   entry("density", deviceInfo.getDensity().toString()));
           deviceInfos.add(infoMap);
         }
+        for (AndroidDeviceInfo deviceInfo : androidDeviceInfos) {
+          adbHelper.throwIfIncompatibleAbi(deviceInfo, apkInfo);
+        }
+
+        adbHelper.installApk(
+            apkInfo,
+            exopackageInfo,
+            rootPath,
+            installViaSd,
+            /* quiet= */ false,
+            installId.getValue());
+        logger.info(
+            String.format(
+                "Install of %s finished in %d seconds",
+                apkInfo.getApkPath().getFileName(),
+                Duration.between(start, Instant.now()).getSeconds()));
 
         if (cliOptions.run || cliOptions.activity != null || cliOptions.intentUri != null) {
           adbHelper.startActivityForIsolatedApk(

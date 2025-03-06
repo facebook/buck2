@@ -9,9 +9,11 @@
 
 package com.facebook.buck.android.exopackage;
 
+import com.facebook.buck.android.IsolatedApkInfo;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import java.io.Closeable;
+import java.util.Set;
 
 /**
  * AndroidDevicesHelper provides a way to interact with multiple devices as AndroidDevices (rather
@@ -43,4 +45,7 @@ public interface AndroidDevicesHelper extends Closeable {
 
   /** Uninstall apk from all matching devices. */
   void uninstallApp(String packageName, boolean shouldKeepUserData) throws InterruptedException;
+
+  Set<AndroidDeviceInfo> getAndroidDeviceInfo(IsolatedApkInfo isolatedApkInfo)
+      throws InterruptedException;
 }

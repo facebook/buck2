@@ -273,7 +273,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     return executorService;
   }
 
-  public Set<AndroidDeviceInfo> installApk(
+  public void installApk(
       IsolatedApkInfo isolatedApkInfo,
       Optional<IsolatedExopackageInfo> optionalIsolatedExopackageInfo,
       AbsPath rootPath,
@@ -287,6 +287,21 @@ public class AdbHelper implements AndroidDevicesHelper {
         Optional.ofNullable(EnvVariablesProvider.getSystemEnv().get("BUCK2_UUID"));
 
     AtomicBoolean success = new AtomicBoolean();
+
+    if (optionalIsolatedExopackageInfo.isPresent()) {
+      IsolatedExopackageInfo isolatedExopackageInfo = optionalIsolatedExopackageInfo.get();
+      installApkExopackageWithRetries(
+          rootPath, isolatedExopackageInfo, isolatedApkInfo, packageName, quiet, buck2BuildUuid);
+    } else {
+      installApkDirectly(
+          installViaSd, quiet, isolatedApkInfo, fullyQualifiedName, packageName, buck2BuildUuid);
+    }
+    success.set(true);
+  }
+
+  @Override
+  public Set<AndroidDeviceInfo> getAndroidDeviceInfo(IsolatedApkInfo isolatedApkInfo)
+      throws InterruptedException {
     Set<AndroidDeviceInfo> deviceInfos = new HashSet<>();
 
     adbCall(
@@ -298,9 +313,8 @@ public class AdbHelper implements AndroidDevicesHelper {
             // exopackage install when the app was already installed in the device.
             String abi = device.getProperty("ro.product.cpu.abi");
             Set<String> abiList =
-                new HashSet<String>(
+                new HashSet<>(
                     Arrays.asList(device.getProperty("ro.product.cpu.abilist").split(",")));
-            throwIfIncompatibleAbi(getDeviceAbis(abi, abiList), isolatedApkInfo);
             String locale = getDeviceLocale(device);
             String buildFingerprint = device.getProperty("ro.build.fingerprint");
             String dpi = getDeviceDpi(device);
@@ -310,6 +324,7 @@ public class AdbHelper implements AndroidDevicesHelper {
                 new AndroidDeviceInfo(
                     locale,
                     abi,
+                    abiList,
                     buildFingerprint,
                     dpi,
                     AndroidDeviceInfo.DensityClass.forPhysicalDensity(dpi),
@@ -324,21 +339,13 @@ public class AdbHelper implements AndroidDevicesHelper {
           return true;
         },
         true);
-
-    if (optionalIsolatedExopackageInfo.isPresent()) {
-      IsolatedExopackageInfo isolatedExopackageInfo = optionalIsolatedExopackageInfo.get();
-      installApkExopackageWithRetries(
-          rootPath, isolatedExopackageInfo, isolatedApkInfo, packageName, quiet, buck2BuildUuid);
-    } else {
-      installApkDirectly(
-          installViaSd, quiet, isolatedApkInfo, fullyQualifiedName, packageName, buck2BuildUuid);
-    }
-    success.set(true);
     return deviceInfos;
   }
 
-  private void throwIfIncompatibleAbi(Set<String> abis, IsolatedApkInfo isolatedApkInfo)
+  public void throwIfIncompatibleAbi(
+      AndroidDeviceInfo androidDeviceInfo, IsolatedApkInfo isolatedApkInfo)
       throws IncompatibleAbiException {
+    Set<String> abis = getDeviceAbis(androidDeviceInfo.getAbi(), androidDeviceInfo.getAbiList());
     File apk = isolatedApkInfo.getApkPath().toFile();
     Set<String> apkAbis = getApkAbis(apk);
     if (!apkAbis.isEmpty() && Sets.intersection(abis, apkAbis).isEmpty()) {

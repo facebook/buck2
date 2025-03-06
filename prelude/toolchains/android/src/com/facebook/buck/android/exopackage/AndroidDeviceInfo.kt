@@ -13,6 +13,7 @@ package com.facebook.buck.android.exopackage
 data class AndroidDeviceInfo(
     val locale: String,
     val abi: String,
+    val abiList: Set<String>,
     val buildFingerprint: String,
     val dotsPerInch: String,
     val density: DensityClass,
