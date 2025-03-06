@@ -1,6 +1,21 @@
 load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "buck_java_library")
 
 buck_java_library(
+    name = "buck2-worker-model",
+    srcs = glob(["**/worker/model/**/*.java"]),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = [
+        "fbsource//xplat/toolchains/android/sdk/third-party/java/jakarta.annotation-api:jakarta.annotation-api",
+    ],
+    exported_deps = [
+        "fbsource//xplat/toolchains/android/sdk/third-party/java/grpc:remote-apis",
+    ],
+)
+
+buck_java_library(
     name = "installer-proto",
     srcs = glob(["**/install/model/**/*.java"]),
     visibility = ["PUBLIC"],
