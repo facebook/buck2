@@ -28,7 +28,6 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::execute::dice_data::CommandExecutorResponse;
 use buck2_build_api::actions::execute::dice_data::DiceHasCommandExecutor;
 use buck2_build_api::actions::execute::dice_data::GetReClient;
-use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -1387,20 +1386,10 @@ impl<'b> BuckTestOrchestrator<'b> {
             .map(|(path, create)| CommandExecutionOutput::TestPath { path, create })
             .collect();
         let digest_config = dice.global_data().get_digest_config();
-        let add_dot_buckconfig_to_re_command = dice
-            .per_transaction_data()
-            .get_run_action_knobs()
-            .add_empty_dot_buckconfig_to_re_commands;
         let mut request = CommandExecutionRequest::new(
             vec![],
             cmd,
-            CommandExecutionPaths::new(
-                inputs,
-                outputs,
-                fs,
-                digest_config,
-                add_dot_buckconfig_to_re_command,
-            )?,
+            CommandExecutionPaths::new(inputs, outputs, fs, digest_config)?,
             env,
         );
         request = request
@@ -1502,10 +1491,6 @@ impl<'b> BuckTestOrchestrator<'b> {
         default_timeout: Duration,
     ) -> anyhow::Result<PreparedLocalResourceSetupContext> {
         let digest_config = dice.global_data().get_digest_config();
-        let add_dot_buckconfig_to_re_command = dice
-            .per_transaction_data()
-            .get_run_action_knobs()
-            .add_empty_dot_buckconfig_to_re_commands;
 
         let inputs = dice
             .try_compute_join(context.input_artifacts, |dice, group| {
@@ -1516,13 +1501,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             .into_iter()
             .map(|group_values| CommandExecutionInput::Artifact(Box::new(group_values)))
             .collect();
-        let paths = CommandExecutionPaths::new(
-            inputs,
-            indexset![],
-            fs,
-            digest_config,
-            add_dot_buckconfig_to_re_command,
-        )?;
+        let paths = CommandExecutionPaths::new(inputs, indexset![], fs, digest_config)?;
         let mut execution_request =
             CommandExecutionRequest::new(vec![], context.cmd, paths, Default::default());
         execution_request =

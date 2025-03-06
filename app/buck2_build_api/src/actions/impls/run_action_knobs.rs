@@ -24,10 +24,6 @@ pub struct RunActionKnobs {
     /// for network actions (download_file, cas_artifact). Used to support offline
     /// builds.
     pub use_network_action_output_cache: bool,
-
-    /// Whether to add an empty .buckconfig file to RE commands. This is needed to safely
-    /// kill this behavior.
-    pub add_empty_dot_buckconfig_to_re_commands: bool,
 }
 
 pub trait HasRunActionKnobs {

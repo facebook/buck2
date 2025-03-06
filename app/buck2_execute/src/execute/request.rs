@@ -11,7 +11,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
@@ -26,7 +25,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::buck2_error;
 use derive_more::Display;
 use dupe::Dupe;
@@ -42,7 +40,6 @@ use starlark_map::sorted_set::SortedSet;
 use super::dep_file_digest::DepFileDigest;
 use crate::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use crate::digest_config::DigestConfig;
-use crate::directory::insert_entry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionImmutableDirectory;
 use crate::execute::environment_inheritance::EnvironmentInheritance;
@@ -218,7 +215,6 @@ impl CommandExecutionPaths {
         outputs: IndexSet<CommandExecutionOutput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
-        add_empty_dot_buckconfig: bool,
     ) -> buck2_error::Result<Self> {
         let mut builder = inputs_directory(&inputs, fs)?;
 
@@ -244,16 +240,6 @@ impl CommandExecutionPaths {
                 Ok((resolved.into_path(), output_type))
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
-
-        if add_empty_dot_buckconfig {
-            insert_entry(
-                &mut builder,
-                ProjectRelativePath::unchecked_new(".buckconfig"),
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
-                    digest_config.cas_digest_config(),
-                ))),
-            )?;
-        }
 
         let input_directory = builder.fingerprint(digest_config.as_directory_serializer());
 

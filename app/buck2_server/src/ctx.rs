@@ -372,10 +372,6 @@ impl<'a> ServerCommandContext<'a> {
                 .daemon
                 .use_network_action_output_cache,
             eager_dep_files,
-            add_empty_dot_buckconfig_to_re_commands: self
-                .base_context
-                .daemon
-                .add_empty_dot_buckconfig_to_re_commands,
         };
 
         let concurrency = self

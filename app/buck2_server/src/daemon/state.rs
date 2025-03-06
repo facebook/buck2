@@ -150,10 +150,6 @@ pub struct DaemonStateData {
     /// Whether or not to hash all commands
     pub hash_all_commands: bool,
 
-    /// Whether to add an empty .buckconfig file to RE commands. This is needed to safely
-    /// kill this behavior.
-    pub add_empty_dot_buckconfig_to_re_commands: bool,
-
     /// Whether to consult the offline-cache buck-out dir for network action
     /// outputs prior to running them. If no cached output exists, the action
     /// (download_file, cas_artifact) will execute normally.
@@ -570,13 +566,6 @@ impl DaemonState {
                 .unwrap_or_else(RolloutPercentage::never)
                 .roll();
 
-            let add_empty_dot_buckconfig_to_re_commands = root_config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "add_empty_dot_buckconfig_to_re_commands",
-                })?
-                .unwrap_or(true);
-
             let use_network_action_output_cache = root_config
                 .parse(BuckconfigKeyRef {
                     section: "buck2",
@@ -658,7 +647,6 @@ impl DaemonState {
                 forkserver,
                 scribe_sink,
                 hash_all_commands,
-                add_empty_dot_buckconfig_to_re_commands,
                 use_network_action_output_cache,
                 disk_state_options,
                 start_time: std::time::Instant::now(),
