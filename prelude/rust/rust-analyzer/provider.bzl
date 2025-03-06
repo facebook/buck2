@@ -27,7 +27,7 @@ RustAnalyzerInfo = provider(
         # The list of recursive rust dependencies for this target, including proc macros. Useful for
         # identifying the targets needing to be collected into Rust Analyzer's crate graph. Notably,
         # excludes rust dependencies that are used in build tools (e.g. build scripts).
-        "transitive_target_set": set[TargetLabel],
+        "transitive_target_set": set[ConfiguredTargetLabel],
     },
 )
 
@@ -52,8 +52,8 @@ def _compute_rust_deps(
 
 def _compute_transitive_target_set(
         ctx: AnalysisContext,
-        first_order_deps: list[Dependency]) -> set[TargetLabel]:
-    transitive_targets = set([ctx.label.raw_target()])
+        first_order_deps: list[Dependency]) -> set[ConfiguredTargetLabel]:
+    transitive_targets = set([ctx.label.configured_target()])
     for dep in first_order_deps:
         target_sets = dep.get(RustAnalyzerInfo).transitive_target_set
         for target_set in target_sets:
