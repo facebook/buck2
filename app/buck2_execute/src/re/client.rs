@@ -1485,7 +1485,8 @@ mod tests {
         let v = vec![1, 2, 3];
         let addr = v.as_ptr() as usize;
         let mut it = chunks(v, 3);
-        assert_eq!(it.next().unwrap().as_ptr() as usize, addr);
+        let first = it.next().unwrap();
+        assert_eq!(first.as_ptr() as usize, addr);
         assert_eq!(it.next(), None);
     }
 
