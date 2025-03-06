@@ -22,7 +22,6 @@ def parse_arguments() -> Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dest", type=str, required=True)
     parser.add_argument("-s", "--sources", nargs="+", type=str, required=True)
-    parser.add_argument("--dummy-output", type=str, required=False)
     return parser.parse_args()
 
 
@@ -52,9 +51,6 @@ def main() -> None:
     directories = args.sources
 
     Path(destination).mkdir(parents=True, exist_ok=True)
-    if args.dummy_output:
-        # For dummy output, create a file to avoid empty output for buck2
-        Path(args.dummy_output).touch()
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [
