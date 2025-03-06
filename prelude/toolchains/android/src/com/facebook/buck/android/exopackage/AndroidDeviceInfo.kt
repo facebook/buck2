@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-package com.facebook.buck.android
+package com.facebook.buck.android.exopackage
 
 /** Information gathered from a device during buck install. */
 data class AndroidDeviceInfo(
