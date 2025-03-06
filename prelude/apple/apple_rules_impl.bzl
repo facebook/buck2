@@ -205,7 +205,7 @@ extra_attributes = {
         "swift_toolchain": attrs.option(attrs.toolchain_dep(), default = None),
         "version": attrs.option(attrs.string(), default = None),
         "xcode_build_version": attrs.option(attrs.string(), default = None),
-        "xcode_version": attrs.option(attrs.string(), default = None),
+        "xcode_version": attrs.string(),
         "xctest": attrs.exec_dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
