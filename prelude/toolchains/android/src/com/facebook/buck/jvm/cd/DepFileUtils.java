@@ -33,6 +33,9 @@ public class DepFileUtils {
     if (jarToJarDirMapPath.isPresent()) {
       jarToJarDirMap =
           Files.readAllLines(jarToJarDirMapPath.get()).stream()
+              // TODO(ianc) fix this, we shouldn't be adding the same jar to the classpath multiple
+              // times
+              .distinct()
               .map(line -> line.split(" "))
               .collect(ImmutableMap.toImmutableMap(x -> Paths.get(x[0]), x -> Paths.get(x[1])));
     } else {
