@@ -13,7 +13,6 @@ fb_native.command_alias(
         "linux": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-linux-x86_64",
         "macos": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-osx-x86_64",
     },
-    visibility = ["PUBLIC"],
 )
 
 fb_native.command_alias(
