@@ -23,7 +23,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
-use fs4::FileExt;
 use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::stream;
@@ -94,7 +93,7 @@ impl BuckdLifecycleLock {
                 "locking buckd lifecycle",
                 Duration::from_millis(5),
                 Duration::from_millis(100),
-                || async { Ok(fileref.try_lock_exclusive()?) },
+                || async { Ok(fs4::FileExt::try_lock_exclusive(fileref)?) },
             )
             .await?;
 
@@ -129,8 +128,7 @@ impl BuckdLifecycleLock {
 
 impl Drop for BuckdLifecycleLock {
     fn drop(&mut self) {
-        self.lock_file
-            .unlock()
+        fs4::FileExt::unlock(&self.lock_file)
             .expect("Unexpected failure to unlock buckd.lifecycle file.")
     }
 }

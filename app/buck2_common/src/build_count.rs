@@ -15,7 +15,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_data::ParsedTargetPatterns;
 use buck2_error::BuckErrorContext;
-use fs4::FileExt;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -135,7 +134,7 @@ impl BuildCountManager {
             Duration::from_millis(5),
             Duration::from_millis(100),
             timeout,
-            || async { buck2_error::Ok(fileref.try_lock_exclusive()?) },
+            || async { buck2_error::Ok(fs4::FileExt::try_lock_exclusive(fileref)?) },
         )
         .await?;
         Ok(FileLockGuard { file })
@@ -193,8 +192,7 @@ struct FileLockGuard {
 
 impl Drop for FileLockGuard {
     fn drop(&mut self) {
-        self.file
-            .unlock()
+        fs4::FileExt::unlock(&self.file)
             .expect("Unexpected failure to release a lock file for build count");
     }
 }
