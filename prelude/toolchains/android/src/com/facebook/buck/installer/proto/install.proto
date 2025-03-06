@@ -10,17 +10,6 @@
 // Copied from fbcode/buck2/install_proto/install.proto
 // (https://fburl.com/code/y9zjtzvn)
 
-//----------------------------------------------
-//  Generate command
-//----------------------------------------------
-//
-// When modifying this file, please run the following generate command,
-// and include generated code in your commit
-//
-// xplat/toolchains/android/sdk/tools/protobuf/gen.py
-//
-//-----------------------
-
 syntax = "proto3";
 
 option java_multiple_files = true;
