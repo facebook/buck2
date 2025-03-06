@@ -437,10 +437,6 @@ def get_manifest(
         android_packageable_info: AndroidPackageableInfo,
         manifest_entries: dict,
         should_replace_application_id_placeholders: bool) -> Artifact:
-    robolectric_manifest = getattr(ctx.attrs, "robolectric_manifest", None)
-    if robolectric_manifest:
-        return robolectric_manifest
-
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if ctx.attrs.manifest:
         expect(getattr(ctx.attrs, "manifest_skeleton", None) == None, "Only one of manifest and manifest_skeleton should be declared")
