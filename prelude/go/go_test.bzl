@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -24,7 +25,7 @@ load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "link")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name")
-load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
+load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def _gen_test_main(
         ctx: AnalysisContext,
@@ -55,7 +56,7 @@ def is_subpackage_of(other_pkg_name: str, pkg_name: str) -> bool:
     return pkg_name == other_pkg_name or other_pkg_name.startswith(pkg_name + "/")
 
 def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_name = go_attr_pkg_name(ctx)
 
     deps = ctx.attrs.deps
@@ -93,7 +94,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
         with_tests = True,
-        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs.cgo_enabled),
+        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
     )
 
     if coverage_mode != None:

@@ -129,7 +129,7 @@ def _cgo_enabled_arg():
     return {
         "cgo_enabled": attrs.option(attrs.bool(), default = None, doc = """
     Analog of CGO_ENABLED env-var, applies to this target and its dependencies.
-    If None `go_toolchain.default_cgo_enabled` value will be applied.
+    If None it will depend on the availability of CXX toolchain.
 """),
     }
 
