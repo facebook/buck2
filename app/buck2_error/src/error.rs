@@ -158,22 +158,22 @@ impl Error {
             .filter(|tag| !tag_is_generic(tag))
             .collect();
 
-        let source_location = if let Some(type_name) = self.source_location().type_name() {
-            // If type name available, include it and exclude source location.
-            Some(type_name.to_owned())
-        } else if !non_generic_tags.is_empty() {
-            // Exclude source location if there are non-generic tags.
-            None
+        let (source_location, key_tags) = if !non_generic_tags.is_empty() {
+            (None, non_generic_tags)
         } else {
             // Only include source location if there are no non-generic tags.
-            Some(self.source_location().to_string())
-        };
+            let source_location = if let Some(type_name) = self.source_location().type_name() {
+                // If type name available, include it and exclude source location.
+                Some(type_name.to_owned())
+            } else {
+                Some(self.source_location().to_string())
+            };
 
-        let key_tags = if !non_generic_tags.is_empty() {
-            non_generic_tags
-        } else {
-            // Only include generic tags if there are no non-generic tags. Always exclude hidden tags.
-            tags.into_iter().filter(|tag| !tag_is_hidden(tag)).collect()
+            (
+                source_location,
+                // Only include generic tags if there are no non-generic tags. Always exclude hidden tags.
+                tags.into_iter().filter(|tag| !tag_is_hidden(tag)).collect(),
+            )
         };
 
         let key_tags = key_tags.into_iter().map(|tag| tag.as_str_name().to_owned());
@@ -396,13 +396,6 @@ mod tests {
             crate::ErrorTag::AnyActionExecution,
             crate::ErrorTag::ReInternal,
         ]);
-        assert_eq!(
-            err.category_key(),
-            format!(
-                "{}:{}",
-                err.source_location().type_name().unwrap(),
-                "RE_INTERNAL"
-            )
-        );
+        assert_eq!(err.category_key(), format!("RE_INTERNAL"));
     }
 }

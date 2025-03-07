@@ -331,7 +331,7 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
     )
     record = read_invocation_record(record_path)
     category_key = record["best_error_category_key"]
-    assert category_key == "RemoteExecutionError:RE_NOT_FOUND:UNKNOWN"
+    assert category_key == "RE_NOT_FOUND:UNKNOWN"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
         in res.stderr
