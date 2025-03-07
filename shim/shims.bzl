@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@prelude//utils:buckconfig.bzl", "read_bool")
 load("@prelude//utils:selects.bzl", "selects")
 # @lint-ignore-every FBCODEBZLADDLOADS
 
@@ -146,7 +147,7 @@ def cpp_library(
         propagated_pp_flags = (),
         **kwargs):
     base_path = native.package_name()
-    oss_depends_on_folly = read_config("oss_depends_on", "folly", False)
+    oss_depends_on_folly = read_bool("oss_depends_on", "folly", False)
     header_base_path = base_path
     if oss_depends_on_folly and header_base_path.startswith("folly"):
         header_base_path = header_base_path.replace("folly/", "", 1)
@@ -212,7 +213,7 @@ def cpp_unittest(
     _unused = (supports_static_listing, allocator, owner, labels, emails, extract_helper_lib, compiler_specific_flags, default_strip_mode)  # @unused
     if test_main != None:
         deps = deps + [test_main]
-    elif read_config("oss", "folly_cxx_tests", True):
+    elif read_bool("oss", "folly_cxx_tests", True):
         deps = deps + CPP_FOLLY_UNITTEST_DEPS
     else:
         deps = deps + CPP_UNITTEST_DEPS
