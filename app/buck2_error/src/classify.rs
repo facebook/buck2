@@ -77,7 +77,6 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::InternalError => rank!(tier0),
         ErrorTag::DaemonWontDieFromKill => rank!(tier0),
         ErrorTag::GrpcResponseMessageTooLarge => rank!(tier0),
-        ErrorTag::ClientGrpc => rank!(tier0),
         ErrorTag::ReUnknownTcode => rank!(tier0),
         ErrorTag::ReCancelled => rank!(tier0),
         ErrorTag::ReUnknown => rank!(tier0),
@@ -167,7 +166,12 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
 
         ErrorTag::Input => rank!(input),
 
-        // Unspecified errors
+        // Generic tags, these can represent:
+        // - Tags not specific enough to determine infra vs user categorization.
+        // - Tags not specific enough to usefully disambiguate category keys.
+        // - Something that isn't actually an error.
+        // - A phase of the build.
+        ErrorTag::ClientGrpc => rank!(unspecified),
         ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
         ErrorTag::IoNotFound => rank!(unspecified),
@@ -198,24 +202,7 @@ pub fn tag_is_generic(tag: &ErrorTag) -> bool {
     if tag_is_hidden(tag) {
         return true;
     }
-    match tag {
-        ErrorTag::MaterializationError => true,
-        ErrorTag::UnusedDefaultTag => true,
-        ErrorTag::UnexpectedNone => true,
-        ErrorTag::Http => true,
-        ErrorTag::IoBrokenPipe => true,
-        ErrorTag::IoSystem => true,
-        ErrorTag::IoSource => true,
-        ErrorTag::IoNotFound => true,
-        ErrorTag::IoPermissionDenied => true,
-        ErrorTag::IoTimeout => true,
-        ErrorTag::IoEden => true,
-        ErrorTag::StarlarkError => true,
-        ErrorTag::Analysis => true,
-        ErrorTag::AnyActionExecution => true,
-        ErrorTag::ClientGrpc => true,
-        _ => false,
-    }
+    category_and_rank(*tag).0.is_none()
 }
 
 /// Hidden tags only used internally, for categorization.
