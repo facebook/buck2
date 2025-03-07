@@ -27,8 +27,8 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     env["GODEBUG"] = "installgoroot=all"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-    if cgo_enabled and cxx_toolchain != None:
+    if cgo_enabled and CxxToolchainInfo in ctx.attrs._cxx_toolchain:
+        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
         c_compiler = cxx_toolchain.c_compiler_info
         cflags = cmd_args(c_compiler.compiler_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
         cflags.add(cmd_args(get_target_sdk_version_flags(ctx), delimiter = "\t"))
