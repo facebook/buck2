@@ -27,7 +27,8 @@
     load_changed/0,
     setup_state/0,
     output_dir/0,
-    priv_dir/0
+    priv_dir/0,
+    test_node/0
 ]).
 
 %% @doc start a test-node with random name and shortname
@@ -131,6 +132,13 @@ push_module(Module) ->
             do_cast({load_module, Module});
         false ->
             ok
+    end.
+
+-spec test_node() -> node() | undefined.
+test_node() ->
+    case global:whereis_name(ct_daemon_runner:name(node())) of
+        undefined -> undefined;
+        Pid -> erlang:node(Pid)
     end.
 
 %% call abstraction:
