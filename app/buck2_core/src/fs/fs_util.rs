@@ -43,6 +43,9 @@ impl IoError {
             self.into()
         }
     }
+    pub fn inner_error(self) -> io::Error {
+        self.e
+    }
 }
 
 #[derive(buck2_error::Error, Debug)]
