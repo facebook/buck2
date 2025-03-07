@@ -1834,39 +1834,44 @@ private static final long serialVersionUID = 0L;
     boolean getSupportsAbiGenerationFromSource();
 
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>bool runsOnJavaOnly = 4;</code>
+     */
+    boolean getRunsOnJavaOnly();
+
+    /**
+     * <code>repeated string processorNames = 5;</code>
      */
     java.util.List<java.lang.String>
         getProcessorNamesList();
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>repeated string processorNames = 5;</code>
      */
     int getProcessorNamesCount();
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>repeated string processorNames = 5;</code>
      */
     java.lang.String getProcessorNames(int index);
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>repeated string processorNames = 5;</code>
      */
     com.google.protobuf.ByteString
         getProcessorNamesBytes(int index);
 
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     java.util.List<java.lang.String>
         getClasspathList();
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     int getClasspathCount();
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     java.lang.String getClasspath(int index);
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     com.google.protobuf.ByteString
         getClasspathBytes(int index);
@@ -1876,7 +1881,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
     int getPathParamsCount();
     /**
@@ -1884,7 +1889,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
     boolean containsPathParams(
         java.lang.String key);
@@ -1899,7 +1904,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
     java.util.Map<java.lang.String, java.lang.String>
     getPathParamsMap();
@@ -1908,7 +1913,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
 
     java.lang.String getPathParamsOrDefault(
@@ -1919,27 +1924,27 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
 
     java.lang.String getPathParamsOrThrow(
         java.lang.String key);
 
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     java.util.List<java.lang.String>
         getArgumentsList();
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     int getArgumentsCount();
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     java.lang.String getArguments(int index);
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     com.google.protobuf.ByteString
         getArgumentsBytes(int index);
@@ -2001,29 +2006,34 @@ private static final long serialVersionUID = 0L;
               supportsAbiGenerationFromSource_ = input.readBool();
               break;
             }
-            case 34: {
-              java.lang.String s = input.readStringRequireUtf8();
-              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
-                processorNames_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000008;
-              }
-              processorNames_.add(s);
+            case 32: {
+
+              runsOnJavaOnly_ = input.readBool();
               break;
             }
             case 42: {
               java.lang.String s = input.readStringRequireUtf8();
               if (!((mutable_bitField0_ & 0x00000010) != 0)) {
-                classpath_ = new com.google.protobuf.LazyStringArrayList();
+                processorNames_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000010;
+              }
+              processorNames_.add(s);
+              break;
+            }
+            case 50: {
+              java.lang.String s = input.readStringRequireUtf8();
+              if (!((mutable_bitField0_ & 0x00000020) != 0)) {
+                classpath_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000020;
               }
               classpath_.add(s);
               break;
             }
-            case 50: {
-              if (!((mutable_bitField0_ & 0x00000020) != 0)) {
+            case 58: {
+              if (!((mutable_bitField0_ & 0x00000040) != 0)) {
                 pathParams_ = com.google.protobuf.MapField.newMapField(
                     PathParamsDefaultEntryHolder.defaultEntry);
-                mutable_bitField0_ |= 0x00000020;
+                mutable_bitField0_ |= 0x00000040;
               }
               com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
               pathParams__ = input.readMessage(
@@ -2032,11 +2042,11 @@ private static final long serialVersionUID = 0L;
                   pathParams__.getKey(), pathParams__.getValue());
               break;
             }
-            case 58: {
+            case 66: {
               java.lang.String s = input.readStringRequireUtf8();
-              if (!((mutable_bitField0_ & 0x00000040) != 0)) {
+              if (!((mutable_bitField0_ & 0x00000080) != 0)) {
                 arguments_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000040;
+                mutable_bitField0_ |= 0x00000080;
               }
               arguments_.add(s);
               break;
@@ -2056,13 +2066,13 @@ private static final long serialVersionUID = 0L;
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000008) != 0)) {
+        if (((mutable_bitField0_ & 0x00000010) != 0)) {
           processorNames_ = processorNames_.getUnmodifiableView();
         }
-        if (((mutable_bitField0_ & 0x00000010) != 0)) {
+        if (((mutable_bitField0_ & 0x00000020) != 0)) {
           classpath_ = classpath_.getUnmodifiableView();
         }
-        if (((mutable_bitField0_ & 0x00000040) != 0)) {
+        if (((mutable_bitField0_ & 0x00000080) != 0)) {
           arguments_ = arguments_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -2079,7 +2089,7 @@ private static final long serialVersionUID = 0L;
     protected com.google.protobuf.MapField internalGetMapField(
         int number) {
       switch (number) {
-        case 6:
+        case 7:
           return internalGetPathParams();
         default:
           throw new RuntimeException(
@@ -2122,65 +2132,74 @@ private static final long serialVersionUID = 0L;
       return supportsAbiGenerationFromSource_;
     }
 
-    public static final int PROCESSORNAMES_FIELD_NUMBER = 4;
+    public static final int RUNSONJAVAONLY_FIELD_NUMBER = 4;
+    private boolean runsOnJavaOnly_;
+    /**
+     * <code>bool runsOnJavaOnly = 4;</code>
+     */
+    public boolean getRunsOnJavaOnly() {
+      return runsOnJavaOnly_;
+    }
+
+    public static final int PROCESSORNAMES_FIELD_NUMBER = 5;
     private com.google.protobuf.LazyStringList processorNames_;
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>repeated string processorNames = 5;</code>
      */
     public com.google.protobuf.ProtocolStringList
         getProcessorNamesList() {
       return processorNames_;
     }
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>repeated string processorNames = 5;</code>
      */
     public int getProcessorNamesCount() {
       return processorNames_.size();
     }
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>repeated string processorNames = 5;</code>
      */
     public java.lang.String getProcessorNames(int index) {
       return processorNames_.get(index);
     }
     /**
-     * <code>repeated string processorNames = 4;</code>
+     * <code>repeated string processorNames = 5;</code>
      */
     public com.google.protobuf.ByteString
         getProcessorNamesBytes(int index) {
       return processorNames_.getByteString(index);
     }
 
-    public static final int CLASSPATH_FIELD_NUMBER = 5;
+    public static final int CLASSPATH_FIELD_NUMBER = 6;
     private com.google.protobuf.LazyStringList classpath_;
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     public com.google.protobuf.ProtocolStringList
         getClasspathList() {
       return classpath_;
     }
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     public int getClasspathCount() {
       return classpath_.size();
     }
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     public java.lang.String getClasspath(int index) {
       return classpath_.get(index);
     }
     /**
-     * <code>repeated string classpath = 5;</code>
+     * <code>repeated string classpath = 6;</code>
      */
     public com.google.protobuf.ByteString
         getClasspathBytes(int index) {
       return classpath_.getByteString(index);
     }
 
-    public static final int PATHPARAMS_FIELD_NUMBER = 6;
+    public static final int PATHPARAMS_FIELD_NUMBER = 7;
     private static final class PathParamsDefaultEntryHolder {
       static final com.google.protobuf.MapEntry<
           java.lang.String, java.lang.String> defaultEntry =
@@ -2211,7 +2230,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
 
     public boolean containsPathParams(
@@ -2231,7 +2250,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
 
     public java.util.Map<java.lang.String, java.lang.String> getPathParamsMap() {
@@ -2242,7 +2261,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
 
     public java.lang.String getPathParamsOrDefault(
@@ -2258,7 +2277,7 @@ private static final long serialVersionUID = 0L;
      * Appears to only be used for the internal NullSafe.
      * </pre>
      *
-     * <code>map&lt;string, string&gt; pathParams = 6;</code>
+     * <code>map&lt;string, string&gt; pathParams = 7;</code>
      */
 
     public java.lang.String getPathParamsOrThrow(
@@ -2272,29 +2291,29 @@ private static final long serialVersionUID = 0L;
       return map.get(key);
     }
 
-    public static final int ARGUMENTS_FIELD_NUMBER = 7;
+    public static final int ARGUMENTS_FIELD_NUMBER = 8;
     private com.google.protobuf.LazyStringList arguments_;
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     public com.google.protobuf.ProtocolStringList
         getArgumentsList() {
       return arguments_;
     }
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     public int getArgumentsCount() {
       return arguments_.size();
     }
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     public java.lang.String getArguments(int index) {
       return arguments_.get(index);
     }
     /**
-     * <code>repeated string arguments = 7;</code>
+     * <code>repeated string arguments = 8;</code>
      */
     public com.google.protobuf.ByteString
         getArgumentsBytes(int index) {
@@ -2324,20 +2343,23 @@ private static final long serialVersionUID = 0L;
       if (supportsAbiGenerationFromSource_ != false) {
         output.writeBool(3, supportsAbiGenerationFromSource_);
       }
+      if (runsOnJavaOnly_ != false) {
+        output.writeBool(4, runsOnJavaOnly_);
+      }
       for (int i = 0; i < processorNames_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, processorNames_.getRaw(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, processorNames_.getRaw(i));
       }
       for (int i = 0; i < classpath_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, classpath_.getRaw(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, classpath_.getRaw(i));
       }
       com.google.protobuf.GeneratedMessageV3
         .serializeStringMapTo(
           output,
           internalGetPathParams(),
           PathParamsDefaultEntryHolder.defaultEntry,
-          6);
+          7);
       for (int i = 0; i < arguments_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, arguments_.getRaw(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, arguments_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -2359,6 +2381,10 @@ private static final long serialVersionUID = 0L;
       if (supportsAbiGenerationFromSource_ != false) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(3, supportsAbiGenerationFromSource_);
+      }
+      if (runsOnJavaOnly_ != false) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBoolSize(4, runsOnJavaOnly_);
       }
       {
         int dataSize = 0;
@@ -2384,7 +2410,7 @@ private static final long serialVersionUID = 0L;
             .setValue(entry.getValue())
             .build();
         size += com.google.protobuf.CodedOutputStream
-            .computeMessageSize(6, pathParams__);
+            .computeMessageSize(7, pathParams__);
       }
       {
         int dataSize = 0;
@@ -2415,6 +2441,8 @@ private static final long serialVersionUID = 0L;
           != other.getDoesNotAffectAbi()) return false;
       if (getSupportsAbiGenerationFromSource()
           != other.getSupportsAbiGenerationFromSource()) return false;
+      if (getRunsOnJavaOnly()
+          != other.getRunsOnJavaOnly()) return false;
       if (!getProcessorNamesList()
           .equals(other.getProcessorNamesList())) return false;
       if (!getClasspathList()
@@ -2443,6 +2471,9 @@ private static final long serialVersionUID = 0L;
       hash = (37 * hash) + SUPPORTSABIGENERATIONFROMSOURCE_FIELD_NUMBER;
       hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
           getSupportsAbiGenerationFromSource());
+      hash = (37 * hash) + RUNSONJAVAONLY_FIELD_NUMBER;
+      hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+          getRunsOnJavaOnly());
       if (getProcessorNamesCount() > 0) {
         hash = (37 * hash) + PROCESSORNAMES_FIELD_NUMBER;
         hash = (53 * hash) + getProcessorNamesList().hashCode();
@@ -2570,7 +2601,7 @@ private static final long serialVersionUID = 0L;
       protected com.google.protobuf.MapField internalGetMapField(
           int number) {
         switch (number) {
-          case 6:
+          case 7:
             return internalGetPathParams();
           default:
             throw new RuntimeException(
@@ -2581,7 +2612,7 @@ private static final long serialVersionUID = 0L;
       protected com.google.protobuf.MapField internalGetMutableMapField(
           int number) {
         switch (number) {
-          case 6:
+          case 7:
             return internalGetMutablePathParams();
           default:
             throw new RuntimeException(
@@ -2620,13 +2651,15 @@ private static final long serialVersionUID = 0L;
 
         supportsAbiGenerationFromSource_ = false;
 
+        runsOnJavaOnly_ = false;
+
         processorNames_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000008);
-        classpath_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000010);
+        classpath_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000020);
         internalGetMutablePathParams().clear();
         arguments_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000080);
         return this;
       }
 
@@ -2658,21 +2691,22 @@ private static final long serialVersionUID = 0L;
         result.canReuseClassLoader_ = canReuseClassLoader_;
         result.doesNotAffectAbi_ = doesNotAffectAbi_;
         result.supportsAbiGenerationFromSource_ = supportsAbiGenerationFromSource_;
-        if (((bitField0_ & 0x00000008) != 0)) {
+        result.runsOnJavaOnly_ = runsOnJavaOnly_;
+        if (((bitField0_ & 0x00000010) != 0)) {
           processorNames_ = processorNames_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000008);
+          bitField0_ = (bitField0_ & ~0x00000010);
         }
         result.processorNames_ = processorNames_;
-        if (((bitField0_ & 0x00000010) != 0)) {
+        if (((bitField0_ & 0x00000020) != 0)) {
           classpath_ = classpath_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000010);
+          bitField0_ = (bitField0_ & ~0x00000020);
         }
         result.classpath_ = classpath_;
         result.pathParams_ = internalGetPathParams();
         result.pathParams_.makeImmutable();
-        if (((bitField0_ & 0x00000040) != 0)) {
+        if (((bitField0_ & 0x00000080) != 0)) {
           arguments_ = arguments_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000040);
+          bitField0_ = (bitField0_ & ~0x00000080);
         }
         result.arguments_ = arguments_;
         result.bitField0_ = to_bitField0_;
@@ -2733,10 +2767,13 @@ private static final long serialVersionUID = 0L;
         if (other.getSupportsAbiGenerationFromSource() != false) {
           setSupportsAbiGenerationFromSource(other.getSupportsAbiGenerationFromSource());
         }
+        if (other.getRunsOnJavaOnly() != false) {
+          setRunsOnJavaOnly(other.getRunsOnJavaOnly());
+        }
         if (!other.processorNames_.isEmpty()) {
           if (processorNames_.isEmpty()) {
             processorNames_ = other.processorNames_;
-            bitField0_ = (bitField0_ & ~0x00000008);
+            bitField0_ = (bitField0_ & ~0x00000010);
           } else {
             ensureProcessorNamesIsMutable();
             processorNames_.addAll(other.processorNames_);
@@ -2746,7 +2783,7 @@ private static final long serialVersionUID = 0L;
         if (!other.classpath_.isEmpty()) {
           if (classpath_.isEmpty()) {
             classpath_ = other.classpath_;
-            bitField0_ = (bitField0_ & ~0x00000010);
+            bitField0_ = (bitField0_ & ~0x00000020);
           } else {
             ensureClasspathIsMutable();
             classpath_.addAll(other.classpath_);
@@ -2758,7 +2795,7 @@ private static final long serialVersionUID = 0L;
         if (!other.arguments_.isEmpty()) {
           if (arguments_.isEmpty()) {
             arguments_ = other.arguments_;
-            bitField0_ = (bitField0_ & ~0x00000040);
+            bitField0_ = (bitField0_ & ~0x00000080);
           } else {
             ensureArgumentsIsMutable();
             arguments_.addAll(other.arguments_);
@@ -2873,41 +2910,67 @@ private static final long serialVersionUID = 0L;
         return this;
       }
 
+      private boolean runsOnJavaOnly_ ;
+      /**
+       * <code>bool runsOnJavaOnly = 4;</code>
+       */
+      public boolean getRunsOnJavaOnly() {
+        return runsOnJavaOnly_;
+      }
+      /**
+       * <code>bool runsOnJavaOnly = 4;</code>
+       */
+      public Builder setRunsOnJavaOnly(boolean value) {
+        
+        runsOnJavaOnly_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>bool runsOnJavaOnly = 4;</code>
+       */
+      public Builder clearRunsOnJavaOnly() {
+        
+        runsOnJavaOnly_ = false;
+        onChanged();
+        return this;
+      }
+
       private com.google.protobuf.LazyStringList processorNames_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureProcessorNamesIsMutable() {
-        if (!((bitField0_ & 0x00000008) != 0)) {
+        if (!((bitField0_ & 0x00000010) != 0)) {
           processorNames_ = new com.google.protobuf.LazyStringArrayList(processorNames_);
-          bitField0_ |= 0x00000008;
+          bitField0_ |= 0x00000010;
          }
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public com.google.protobuf.ProtocolStringList
           getProcessorNamesList() {
         return processorNames_.getUnmodifiableView();
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public int getProcessorNamesCount() {
         return processorNames_.size();
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public java.lang.String getProcessorNames(int index) {
         return processorNames_.get(index);
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public com.google.protobuf.ByteString
           getProcessorNamesBytes(int index) {
         return processorNames_.getByteString(index);
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public Builder setProcessorNames(
           int index, java.lang.String value) {
@@ -2920,7 +2983,7 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public Builder addProcessorNames(
           java.lang.String value) {
@@ -2933,7 +2996,7 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public Builder addAllProcessorNames(
           java.lang.Iterable<java.lang.String> values) {
@@ -2944,16 +3007,16 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public Builder clearProcessorNames() {
         processorNames_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000010);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string processorNames = 4;</code>
+       * <code>repeated string processorNames = 5;</code>
        */
       public Builder addProcessorNamesBytes(
           com.google.protobuf.ByteString value) {
@@ -2969,39 +3032,39 @@ private static final long serialVersionUID = 0L;
 
       private com.google.protobuf.LazyStringList classpath_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureClasspathIsMutable() {
-        if (!((bitField0_ & 0x00000010) != 0)) {
+        if (!((bitField0_ & 0x00000020) != 0)) {
           classpath_ = new com.google.protobuf.LazyStringArrayList(classpath_);
-          bitField0_ |= 0x00000010;
+          bitField0_ |= 0x00000020;
          }
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public com.google.protobuf.ProtocolStringList
           getClasspathList() {
         return classpath_.getUnmodifiableView();
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public int getClasspathCount() {
         return classpath_.size();
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public java.lang.String getClasspath(int index) {
         return classpath_.get(index);
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public com.google.protobuf.ByteString
           getClasspathBytes(int index) {
         return classpath_.getByteString(index);
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public Builder setClasspath(
           int index, java.lang.String value) {
@@ -3014,7 +3077,7 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public Builder addClasspath(
           java.lang.String value) {
@@ -3027,7 +3090,7 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public Builder addAllClasspath(
           java.lang.Iterable<java.lang.String> values) {
@@ -3038,16 +3101,16 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public Builder clearClasspath() {
         classpath_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000020);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string classpath = 5;</code>
+       * <code>repeated string classpath = 6;</code>
        */
       public Builder addClasspathBytes(
           com.google.protobuf.ByteString value) {
@@ -3092,7 +3155,7 @@ private static final long serialVersionUID = 0L;
        * Appears to only be used for the internal NullSafe.
        * </pre>
        *
-       * <code>map&lt;string, string&gt; pathParams = 6;</code>
+       * <code>map&lt;string, string&gt; pathParams = 7;</code>
        */
 
       public boolean containsPathParams(
@@ -3112,7 +3175,7 @@ private static final long serialVersionUID = 0L;
        * Appears to only be used for the internal NullSafe.
        * </pre>
        *
-       * <code>map&lt;string, string&gt; pathParams = 6;</code>
+       * <code>map&lt;string, string&gt; pathParams = 7;</code>
        */
 
       public java.util.Map<java.lang.String, java.lang.String> getPathParamsMap() {
@@ -3123,7 +3186,7 @@ private static final long serialVersionUID = 0L;
        * Appears to only be used for the internal NullSafe.
        * </pre>
        *
-       * <code>map&lt;string, string&gt; pathParams = 6;</code>
+       * <code>map&lt;string, string&gt; pathParams = 7;</code>
        */
 
       public java.lang.String getPathParamsOrDefault(
@@ -3139,7 +3202,7 @@ private static final long serialVersionUID = 0L;
        * Appears to only be used for the internal NullSafe.
        * </pre>
        *
-       * <code>map&lt;string, string&gt; pathParams = 6;</code>
+       * <code>map&lt;string, string&gt; pathParams = 7;</code>
        */
 
       public java.lang.String getPathParamsOrThrow(
@@ -3163,7 +3226,7 @@ private static final long serialVersionUID = 0L;
        * Appears to only be used for the internal NullSafe.
        * </pre>
        *
-       * <code>map&lt;string, string&gt; pathParams = 6;</code>
+       * <code>map&lt;string, string&gt; pathParams = 7;</code>
        */
 
       public Builder removePathParams(
@@ -3186,7 +3249,7 @@ private static final long serialVersionUID = 0L;
        * Appears to only be used for the internal NullSafe.
        * </pre>
        *
-       * <code>map&lt;string, string&gt; pathParams = 6;</code>
+       * <code>map&lt;string, string&gt; pathParams = 7;</code>
        */
       public Builder putPathParams(
           java.lang.String key,
@@ -3202,7 +3265,7 @@ private static final long serialVersionUID = 0L;
        * Appears to only be used for the internal NullSafe.
        * </pre>
        *
-       * <code>map&lt;string, string&gt; pathParams = 6;</code>
+       * <code>map&lt;string, string&gt; pathParams = 7;</code>
        */
 
       public Builder putAllPathParams(
@@ -3214,39 +3277,39 @@ private static final long serialVersionUID = 0L;
 
       private com.google.protobuf.LazyStringList arguments_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureArgumentsIsMutable() {
-        if (!((bitField0_ & 0x00000040) != 0)) {
+        if (!((bitField0_ & 0x00000080) != 0)) {
           arguments_ = new com.google.protobuf.LazyStringArrayList(arguments_);
-          bitField0_ |= 0x00000040;
+          bitField0_ |= 0x00000080;
          }
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public com.google.protobuf.ProtocolStringList
           getArgumentsList() {
         return arguments_.getUnmodifiableView();
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public int getArgumentsCount() {
         return arguments_.size();
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public java.lang.String getArguments(int index) {
         return arguments_.get(index);
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public com.google.protobuf.ByteString
           getArgumentsBytes(int index) {
         return arguments_.getByteString(index);
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public Builder setArguments(
           int index, java.lang.String value) {
@@ -3259,7 +3322,7 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public Builder addArguments(
           java.lang.String value) {
@@ -3272,7 +3335,7 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public Builder addAllArguments(
           java.lang.Iterable<java.lang.String> values) {
@@ -3283,16 +3346,16 @@ private static final long serialVersionUID = 0L;
         return this;
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public Builder clearArguments() {
         arguments_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000080);
         onChanged();
         return this;
       }
       /**
-       * <code>repeated string arguments = 7;</code>
+       * <code>repeated string arguments = 8;</code>
        */
       public Builder addArgumentsBytes(
           com.google.protobuf.ByteString value) {

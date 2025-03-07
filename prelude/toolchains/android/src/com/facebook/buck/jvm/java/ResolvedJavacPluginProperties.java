@@ -29,6 +29,7 @@ public class ResolvedJavacPluginProperties {
   private final boolean canReuseClassLoader;
   private final boolean doesNotAffectAbi;
   private final boolean supportsAbiGenerationFromSource;
+  private final boolean runsOnJavaOnly;
   private final ImmutableSortedSet<String> processorNames;
 
   private final ImmutableList<String> arguments;
@@ -41,6 +42,7 @@ public class ResolvedJavacPluginProperties {
       boolean canReuseClassLoader,
       boolean doesNotAffectAbi,
       boolean supportsAbiGenerationFromSource,
+      boolean runsOnJavaOnly,
       ImmutableSortedSet<String> processorNames,
       ImmutableList<RelPath> classpath,
       ImmutableMap<String, RelPath> pathParams,
@@ -48,6 +50,7 @@ public class ResolvedJavacPluginProperties {
     this.canReuseClassLoader = canReuseClassLoader;
     this.doesNotAffectAbi = doesNotAffectAbi;
     this.supportsAbiGenerationFromSource = supportsAbiGenerationFromSource;
+    this.runsOnJavaOnly = runsOnJavaOnly;
     this.processorNames = processorNames;
     this.classpath = classpath;
     this.pathParams = pathParams;
@@ -64,6 +67,10 @@ public class ResolvedJavacPluginProperties {
 
   public boolean getSupportAbiGenerationFromSource() {
     return supportsAbiGenerationFromSource;
+  }
+
+  public boolean getRunsOnJavaOnly() {
+    return runsOnJavaOnly;
   }
 
   public ImmutableSortedSet<String> getProcessorNames() {

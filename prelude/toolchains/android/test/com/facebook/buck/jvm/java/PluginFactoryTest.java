@@ -51,6 +51,7 @@ public class PluginFactoryTest {
             true /* canReuseClassLoader */, // control can always reuse
             false /* doesNotAffectAbi */,
             false /* supportsAbiGenerationFromSource */,
+            false /* runsOnJavaOnly */,
             ImmutableSortedSet.of("controlPlugin"),
             ImmutableList.of(controlClasspath),
             ImmutableMap.of() /* pathParams */,
@@ -61,6 +62,7 @@ public class PluginFactoryTest {
             canReuseClasspath,
             false /* doesNotAffectAbi */,
             false /* supportsAbiGenerationFromSource */,
+            false /* runsOnJavaOnly */,
             ImmutableSortedSet.of("variablePlugin"),
             ImmutableList.of(variableClasspath),
             ImmutableMap.of() /* pathParams */,

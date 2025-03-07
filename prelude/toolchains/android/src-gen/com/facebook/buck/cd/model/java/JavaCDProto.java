@@ -154,7 +154,7 @@ public final class JavaCDProto {
       "sDir\030\001 \001(\t\022\030\n\020outputJarDirPath\030\002 \001(\t\022\022\n\n" +
       "abiJarPath\030\003 \001(\t\022\026\n\016annotationPath\030\004 \001(\t" +
       "\022\031\n\021pathToSourcesList\030\005 \001(\t\022\030\n\020workingDi" +
-      "rectory\030\006 \001(\t\022\025\n\routputJarPath\030\007 \001(\t\"\275\007\n" +
+      "rectory\030\006 \001(\t\022\025\n\routputJarPath\030\007 \001(\t\"\325\007\n" +
       "\024ResolvedJavacOptions\022\025\n\rbootclasspath\030\001" +
       " \001(\t\022\031\n\021bootclasspathList\030\002 \003(\t\022[\n\024langu" +
       "ageLevelOptions\030\003 \001(\0132=.javacd.api.v1.Re" +
@@ -170,39 +170,40 @@ public final class JavaCDProto {
       "JavacPluginParams\022\022\n\nparameters\030\001 \003(\t\022[\n" +
       "\020pluginProperties\030\002 \003(\0132A.javacd.api.v1." +
       "ResolvedJavacOptions.ResolvedJavacPlugin" +
-      "Properties\032\327\002\n\035ResolvedJavacPluginProper" +
+      "Properties\032\357\002\n\035ResolvedJavacPluginProper" +
       "ties\022\033\n\023canReuseClassLoader\030\001 \001(\010\022\030\n\020doe" +
       "sNotAffectAbi\030\002 \001(\010\022\'\n\037supportsAbiGenera" +
-      "tionFromSource\030\003 \001(\010\022\026\n\016processorNames\030\004" +
-      " \003(\t\022\021\n\tclasspath\030\005 \003(\t\022e\n\npathParams\030\006 " +
-      "\003(\0132Q.javacd.api.v1.ResolvedJavacOptions" +
-      ".ResolvedJavacPluginProperties.PathParam" +
-      "sEntry\022\021\n\targuments\030\007 \003(\t\0321\n\017PathParamsE" +
-      "ntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\363\003\n" +
-      "\rJarParameters\022\023\n\013hashEntries\030\001 \001(\010\022\026\n\016m" +
-      "ergeManifests\030\002 \001(\010\022\017\n\007jarPath\030\003 \001(\t\022W\n\024" +
-      "removeEntryPredicate\030\004 \001(\01329.javacd.api." +
-      "v1.JarParameters.RemoveClassesPatternsMa" +
-      "tcher\022\024\n\014entriesToJar\030\005 \003(\t\022\034\n\024overrideE" +
-      "ntriesToJar\030\006 \003(\t\022\021\n\tmainClass\030\007 \001(\t\022\024\n\014" +
-      "manifestFile\030\010 \001(\t\022A\n\022duplicatesLogLevel" +
-      "\030\t \001(\0162%.javacd.api.v1.JarParameters.Log" +
-      "Level\0320\n\034RemoveClassesPatternsMatcher\022\020\n" +
-      "\010patterns\030\001 \003(\t\"y\n\010LogLevel\022\013\n\007UNKNOWN\020\000" +
-      "\022\007\n\003OFF\020\001\022\n\n\006SEVERE\020\002\022\013\n\007WARNING\020\003\022\010\n\004IN" +
-      "FO\020\004\022\n\n\006CONFIG\020\005\022\010\n\004FINE\020\006\022\t\n\005FINER\020\007\022\n\n" +
-      "\006FINEST\020\010\022\007\n\003ALL\020\t\"\350\001\n\rResolvedJavac\022C\n\r" +
-      "externalJavac\030\001 \001(\0132*.javacd.api.v1.Reso" +
-      "lvedJavac.ExternalJavacH\000\022?\n\013jsr199Javac" +
-      "\030\002 \001(\0132(.javacd.api.v1.ResolvedJavac.JSR" +
-      "199JavacH\000\0329\n\rExternalJavac\022\021\n\tshortName" +
-      "\030\001 \001(\t\022\025\n\rcommandPrefix\030\002 \003(\t\032\r\n\013JSR199J" +
-      "avacB\007\n\005javac*=\n\tBuildMode\022\032\n\026BUILD_MODE" +
-      "_UNSPECIFIED\020\000\022\013\n\007LIBRARY\020\001\022\007\n\003ABI\020\002*f\n\021" +
-      "AbiGenerationMode\022\013\n\007UNKNOWN\020\000\022\t\n\005CLASS\020" +
-      "\001\022\n\n\006SOURCE\020\002\022\034\n\030MIGRATING_TO_SOURCE_ONL" +
-      "Y\020\003\022\017\n\013SOURCE_ONLY\020\004B0\n\037com.facebook.buc" +
-      "k.cd.model.javaB\013JavaCDProtoP\001b\006proto3"
+      "tionFromSource\030\003 \001(\010\022\026\n\016runsOnJavaOnly\030\004" +
+      " \001(\010\022\026\n\016processorNames\030\005 \003(\t\022\021\n\tclasspat" +
+      "h\030\006 \003(\t\022e\n\npathParams\030\007 \003(\0132Q.javacd.api" +
+      ".v1.ResolvedJavacOptions.ResolvedJavacPl" +
+      "uginProperties.PathParamsEntry\022\021\n\targume" +
+      "nts\030\010 \003(\t\0321\n\017PathParamsEntry\022\013\n\003key\030\001 \001(" +
+      "\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\363\003\n\rJarParameters\022\023" +
+      "\n\013hashEntries\030\001 \001(\010\022\026\n\016mergeManifests\030\002 " +
+      "\001(\010\022\017\n\007jarPath\030\003 \001(\t\022W\n\024removeEntryPredi" +
+      "cate\030\004 \001(\01329.javacd.api.v1.JarParameters" +
+      ".RemoveClassesPatternsMatcher\022\024\n\014entries" +
+      "ToJar\030\005 \003(\t\022\034\n\024overrideEntriesToJar\030\006 \003(" +
+      "\t\022\021\n\tmainClass\030\007 \001(\t\022\024\n\014manifestFile\030\010 \001" +
+      "(\t\022A\n\022duplicatesLogLevel\030\t \001(\0162%.javacd." +
+      "api.v1.JarParameters.LogLevel\0320\n\034RemoveC" +
+      "lassesPatternsMatcher\022\020\n\010patterns\030\001 \003(\t\"" +
+      "y\n\010LogLevel\022\013\n\007UNKNOWN\020\000\022\007\n\003OFF\020\001\022\n\n\006SEV" +
+      "ERE\020\002\022\013\n\007WARNING\020\003\022\010\n\004INFO\020\004\022\n\n\006CONFIG\020\005" +
+      "\022\010\n\004FINE\020\006\022\t\n\005FINER\020\007\022\n\n\006FINEST\020\010\022\007\n\003ALL" +
+      "\020\t\"\350\001\n\rResolvedJavac\022C\n\rexternalJavac\030\001 " +
+      "\001(\0132*.javacd.api.v1.ResolvedJavac.Extern" +
+      "alJavacH\000\022?\n\013jsr199Javac\030\002 \001(\0132(.javacd." +
+      "api.v1.ResolvedJavac.JSR199JavacH\000\0329\n\rEx" +
+      "ternalJavac\022\021\n\tshortName\030\001 \001(\t\022\025\n\rcomman" +
+      "dPrefix\030\002 \003(\t\032\r\n\013JSR199JavacB\007\n\005javac*=\n" +
+      "\tBuildMode\022\032\n\026BUILD_MODE_UNSPECIFIED\020\000\022\013" +
+      "\n\007LIBRARY\020\001\022\007\n\003ABI\020\002*f\n\021AbiGenerationMod" +
+      "e\022\013\n\007UNKNOWN\020\000\022\t\n\005CLASS\020\001\022\n\n\006SOURCE\020\002\022\034\n" +
+      "\030MIGRATING_TO_SOURCE_ONLY\020\003\022\017\n\013SOURCE_ON" +
+      "LY\020\004B0\n\037com.facebook.buck.cd.model.javaB" +
+      "\013JavaCDProtoP\001b\006proto3"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -282,7 +283,7 @@ public final class JavaCDProto {
     internal_static_javacd_api_v1_ResolvedJavacOptions_ResolvedJavacPluginProperties_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_javacd_api_v1_ResolvedJavacOptions_ResolvedJavacPluginProperties_descriptor,
-        new java.lang.String[] { "CanReuseClassLoader", "DoesNotAffectAbi", "SupportsAbiGenerationFromSource", "ProcessorNames", "Classpath", "PathParams", "Arguments", });
+        new java.lang.String[] { "CanReuseClassLoader", "DoesNotAffectAbi", "SupportsAbiGenerationFromSource", "RunsOnJavaOnly", "ProcessorNames", "Classpath", "PathParams", "Arguments", });
     internal_static_javacd_api_v1_ResolvedJavacOptions_ResolvedJavacPluginProperties_PathParamsEntry_descriptor =
       internal_static_javacd_api_v1_ResolvedJavacOptions_ResolvedJavacPluginProperties_descriptor.getNestedTypes().get(0);
     internal_static_javacd_api_v1_ResolvedJavacOptions_ResolvedJavacPluginProperties_PathParamsEntry_fieldAccessorTable = new

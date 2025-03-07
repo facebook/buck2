@@ -56,6 +56,7 @@ public class AnnotationProcessorFactoryTest {
             canReuseClasspath,
             false /* doesNotAffectAbi */,
             false /* supportsAbiGenerationFromSource */,
+            false /* runsOnJavaOnly */,
             ImmutableSortedSet.of(annotationProcessor),
             ImmutableList.of(classpath),
             ImmutableMap.of() /* pathParams */,

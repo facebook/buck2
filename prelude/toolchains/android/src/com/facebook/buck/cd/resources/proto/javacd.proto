@@ -145,11 +145,12 @@ message ResolvedJavacOptions {
     bool canReuseClassLoader = 1;
     bool doesNotAffectAbi = 2;
     bool supportsAbiGenerationFromSource = 3;
-    repeated string processorNames = 4;
-    repeated string classpath = 5;
+    bool runsOnJavaOnly = 4;
+    repeated string processorNames = 5;
+    repeated string classpath = 6;
     // Appears to only be used for the internal NullSafe.
-    map<string, string> pathParams = 6;
-    repeated string arguments = 7;
+    map<string, string> pathParams = 7;
+    repeated string arguments = 8;
   }
 }
 

@@ -36,6 +36,7 @@ class ResolvedJavacPluginPropertiesSerializer {
     builder.setDoesNotAffectAbi(pluginProperties.getDoesNotAffectAbi());
     builder.setSupportsAbiGenerationFromSource(
         pluginProperties.getSupportAbiGenerationFromSource());
+    builder.setRunsOnJavaOnly(pluginProperties.getRunsOnJavaOnly());
     for (String processorName : pluginProperties.getProcessorNames()) {
       builder.addProcessorNames(processorName);
     }
@@ -60,6 +61,7 @@ class ResolvedJavacPluginPropertiesSerializer {
         pluginProperties.getCanReuseClassLoader(),
         pluginProperties.getDoesNotAffectAbi(),
         pluginProperties.getSupportsAbiGenerationFromSource(),
+        pluginProperties.getRunsOnJavaOnly(),
         ImmutableSortedSet.copyOf(pluginProperties.getProcessorNamesList()),
         pluginProperties.getClasspathList().stream()
             .map(RelPathSerializer::deserialize)
