@@ -724,8 +724,14 @@ module "{}" {{
             filename_prefix = "export{}_".format(group_name),
         )
 
+    include_args = []
     for header in headers:
-        args.extend(["-include", paths.join(header.namespace, header.name)])
+        include_args.extend(["-include", paths.join(header.namespace, header.name)])
+
+    file_name = ".header_unit_headers"
+    headers_argsfile, _ = ctx.actions.write(file_name, cmd_args(include_args, quote = "shell"), allow_args = True)
+
+    args.extend([cmd_args(headers_argsfile, format = "@{}")])
     args.extend(["-xc++-user-header", "-fmodule-header"])
     args.extend(["-fmodule-name={}".format(module_name)])
     args.extend(["-Xclang", cmd_args(input_header, format = "-fmodules-embed-file={}")])
