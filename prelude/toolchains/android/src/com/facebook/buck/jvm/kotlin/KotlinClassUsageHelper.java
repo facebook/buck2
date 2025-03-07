@@ -20,12 +20,14 @@ import com.facebook.buck.util.json.ObjectMappers;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import toolchains.android.src.com.facebook.buck.jvm.kotlin.compilerplugins.usedclasses.ClassUsageMerger;
 
 /**
  * Java used-class optimization directly inject FileManager into javac process. However, that is no
@@ -46,7 +48,7 @@ public class KotlinClassUsageHelper {
     Path kotlinGeneralClassUsageReportPath =
         ruleCellRoot.resolve(getKotlinTempDepFilePath(reportDirPath)).getPath();
     ImmutableMap<Path, Map<Path, Integer>> classUsages =
-        readJsonBasedClassUsageReport(kotlinGeneralClassUsageReportPath);
+        readNdJsonBasedClassUsageReport(kotlinGeneralClassUsageReportPath);
 
     // merge kapt generated class usage report file if it exist
     Path kaptClassUsageReportPath =
@@ -78,6 +80,28 @@ public class KotlinClassUsageHelper {
     }
 
     return ObjectMappers.readValue(path, new TypeReference<>() {});
+  }
+
+  /** Read a class usage report that is in desired ndJson format already */
+  @VisibleForTesting
+  static ImmutableMap<Path, Map<Path, Integer>> readNdJsonBasedClassUsageReport(Path path)
+      throws IOException {
+    if (!Files.exists(path)) {
+      return ImmutableMap.of();
+    }
+
+    Map<Path, Map<Path, Integer>> resultMap = new HashMap<>();
+    try (BufferedReader reader = Files.newBufferedReader(path)) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        Map<Path, Map<Path, Integer>> classUsageMap =
+            ObjectMappers.readValue(line, new TypeReference<>() {});
+
+        resultMap = ClassUsageMerger.mergeClassUsageMaps(resultMap, classUsageMap);
+      }
+    }
+
+    return ImmutableMap.copyOf(resultMap);
   }
 
   /**

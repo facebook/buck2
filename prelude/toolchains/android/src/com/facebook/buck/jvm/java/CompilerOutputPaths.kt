@@ -45,7 +45,7 @@ data class CompilerOutputPaths(
      */
     @JvmStatic
     fun getKotlinTempDepFilePath(reportDirPath: RelPath): RelPath {
-      return reportDirPath.resolveRel("kotlin-used-classes-tmp.json")
+      return reportDirPath.resolveRel("kotlin-used-classes-tmp.ndjson")
     }
 
     /** Returns a path to a file that contains files accessed by KAPT in Kotlin compilation */

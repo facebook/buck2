@@ -20,6 +20,7 @@ import com.facebook.buck.util.environment.Platform;
 import com.facebook.buck.util.json.ObjectMappers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -56,6 +57,22 @@ public class KotlinClassUsageHelperTest {
     assertEquals(
         ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)),
         KotlinClassUsageHelper.readJsonBasedClassUsageReport(kotlinTempDepPath.getPath()));
+  }
+
+  @Test
+  public void testReadNdJsonDepFile() throws IOException {
+    AbsPath kotlinTempDepPath =
+        generateDummyKotlinTempFile(
+            "dummy.json",
+            ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(FOO_TEST_FILE_NAME), 1)),
+            ImmutableMap.of(TEST_JAR_PATH, Map.of(Paths.get(BAR_TEST_FILE_NAME), 1)));
+
+    assertEquals(
+        ImmutableMap.of(
+            TEST_JAR_PATH,
+            Map.of(Paths.get(FOO_TEST_FILE_NAME), 1, Paths.get(BAR_TEST_FILE_NAME), 1)),
+        com.facebook.buck.jvm.kotlin.KotlinClassUsageHelper.readNdJsonBasedClassUsageReport(
+            kotlinTempDepPath.getPath()));
   }
 
   @Test
@@ -117,10 +134,18 @@ public class KotlinClassUsageHelperTest {
   }
 
   private AbsPath generateDummyKotlinTempFile(
-      String fileName, ImmutableMap<Path, Map<Path, Integer>> dummyClassUsageJson)
+      String fileName, ImmutableMap<Path, Map<Path, Integer>>... dummyClassUsagesJson)
       throws IOException {
     AbsPath kotlinTempFile = tmp.newFile(fileName);
-    ObjectMappers.WRITER.writeValue(kotlinTempFile.toFile(), dummyClassUsageJson);
+
+    try (FileWriter writer = new FileWriter(kotlinTempFile.toFile(), true)) {
+      for (ImmutableMap<Path, Map<Path, Integer>> dummyClassUsageJson : dummyClassUsagesJson) {
+        String json = ObjectMappers.WRITER.writeValueAsString(dummyClassUsageJson);
+        writer.write(json);
+        writer.write("\n");
+      }
+    }
+
     return kotlinTempFile;
   }
 
