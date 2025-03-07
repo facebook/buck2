@@ -598,7 +598,7 @@ def compile_cxx(
     return objects
 
 def _compiler_supports_header_units(compiler_info: typing.Any):
-    return (compiler_info.compiler_type == "clang" and
+    return ("clang" in compiler_info.compiler_type and
             compiler_info.supports_two_phase_compilation)
 
 def _get_module_name(ctx: AnalysisContext, group_name: str) -> str:
