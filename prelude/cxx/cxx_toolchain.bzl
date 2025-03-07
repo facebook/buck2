@@ -74,6 +74,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
+        supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation,
     )
     objcxx_info = ObjcxxCompilerInfo(
         compiler = cxx_compiler,
@@ -289,6 +290,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
         "strip": dep_type(providers = [RunInfo]),
         "supports_distributed_thinlto": attrs.bool(default = False),
+        "supports_two_phase_compilation": attrs.bool(default = False),
         # Darwin only: the deployment target to use for this build
         "target_sdk_version": attrs.option(attrs.string(), default = None),
         "thin_lto_premerger_enabled": attrs.bool(default = False),
