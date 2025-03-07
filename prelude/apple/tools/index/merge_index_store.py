@@ -48,7 +48,15 @@ def merge_directories(source: str, destination: str) -> None:
 def main() -> None:
     args = parse_arguments()
     destination = args.dest
-    directories = args.sources
+
+    directories = []
+    for source in args.sources:
+        if source.startswith("@"):
+            with open(source[1:]) as f:
+                for line in f.readlines():
+                    directories.append(line.strip())
+        else:
+            directories.append(source)
 
     Path(destination).mkdir(parents=True, exist_ok=True)
 

@@ -58,11 +58,19 @@ def _merge_index_store(ctx: AnalysisContext, index_stores: list[Artifact] | Tran
 
     cmd = cmd_args([merge_index_store_tool])
     cmd.add(["--dest", merged_index_store.as_output()])
-    cmd.add(["--sources"])
+
+    txt_args = cmd_args()
     if isinstance(index_stores, list):
-        cmd.add(index_stores)
+        txt_args.add(index_stores)
     else:
-        cmd.add(index_stores.project_as_args("args"))
+        txt_args.add(index_stores.project_as_args("args"))
+
+    argsfile_path = merge_output_dir_name + ".files.txt"
+    argsfile = ctx.actions.write(argsfile_path, txt_args)
+    argsfile = cmd_args(argsfile, format = "@{}", hidden = txt_args)
+
+    cmd.add(["--sources"])
+    cmd.add(argsfile)
 
     # use prefer_remote = True here, it would have two following advantages
     # 1. Each bucket will perform a merge on RE,  which will fully utilize the high-speed network for materalizaion
