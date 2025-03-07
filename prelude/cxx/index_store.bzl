@@ -40,17 +40,13 @@ def _get_merge_index_store_tool(ctx: AnalysisContext) -> RunInfo | None:
         return None
     return apple_toolchain[AppleToolchainInfo].merge_index_store
 
-def _merge_index_store(ctx: AnalysisContext, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str | None = None) -> Artifact | None:
+def _merge_index_store(ctx: AnalysisContext, merge_index_store_tool: RunInfo, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str | None = None) -> Artifact | None:
     if isinstance(index_stores, list):
         if len(index_stores) == 0:
             return None
 
         if len(index_stores) == 1:
             return index_stores[0]
-
-    merge_index_store_tool = _get_merge_index_store_tool(ctx)
-    if merge_index_store_tool == None:
-        return None
 
     if merge_output_dir_name == None:
         merge_output_dir_name = paths.join("__indexstore__", ctx.attrs.name, "index_store")
@@ -85,24 +81,34 @@ def _gather_deps_index_store_tsets(deps: list[Dependency]) -> list[IndexStoreTSe
     return [info.tset for info in deps_indexstore_infos]
 
 def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_target_index_stores: list[Artifact], deps: list[Dependency]) -> (dict[str, list[Provider]], IndexStoreInfo):
-    merged_index_store = _merge_index_store(ctx, current_target_index_stores)
+    merge_index_store_tool = _get_merge_index_store_tool(ctx)
 
-    deps_indexstore_tsets = _gather_deps_index_store_tsets(deps)
-    if merged_index_store:
-        index_store_tset = ctx.actions.tset(IndexStoreTSet, value = merged_index_store, children = deps_indexstore_tsets)
+    if merge_index_store_tool:
+        merged_index_store = _merge_index_store(ctx, merge_index_store_tool, current_target_index_stores)
+
+        deps_indexstore_tsets = _gather_deps_index_store_tsets(deps)
+        if merged_index_store:
+            index_store_tset = ctx.actions.tset(IndexStoreTSet, value = merged_index_store, children = deps_indexstore_tsets)
+        else:
+            index_store_tset = ctx.actions.tset(IndexStoreTSet, children = deps_indexstore_tsets)
+        merged_full_index_store = _merge_index_store(ctx, merge_index_store_tool, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
+
+        sub_targets = {
+            # Create a subtarget foo//bar:baz[full-index-store] that builds and merges
+            # the index stores from foo//bar:baz plus all its transitive dependencies.
+            "full-index-store": [DefaultInfo(default_output = merged_full_index_store)],
+            # Create a subtarget foo//bar:baz[index-store] that builds the
+            # index store for foo//bar:baz.
+            "index-store": [DefaultInfo(default_output = merged_index_store)],
+        }
+
+        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset)
     else:
-        index_store_tset = ctx.actions.tset(IndexStoreTSet, children = deps_indexstore_tsets)
-    merged_full_index_store = _merge_index_store(ctx, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
+        sub_targets = {
+            "full-index-store": [DefaultInfo(default_output = None)],
+            "index-store": [DefaultInfo(default_output = None)],
+        }
 
-    sub_targets = {
-        # Create a subtarget foo//bar:baz[full-index-store] that builds and merges
-        # the index stores from foo//bar:baz plus all its transitive dependencies.
-        "full-index-store": [DefaultInfo(default_output = merged_full_index_store)],
-        # Create a subtarget foo//bar:baz[index-store] that builds the
-        # index store for foo//bar:baz.
-        "index-store": [DefaultInfo(default_output = merged_index_store)],
-    }
-
-    index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset)
+        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = ctx.actions.tset(IndexStoreTSet))
 
     return (sub_targets, index_store_info)
