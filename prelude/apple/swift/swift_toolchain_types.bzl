@@ -30,6 +30,7 @@ SwiftToolchainInfo = provider(
         "platform_path": provider_field([Artifact, str, None]),
         "resource_dir": provider_field([Artifact, None]),
         "runtime_run_paths": provider_field(list[str]),
+        "sdk_module_path_prefixes": provider_field(dict[str, Artifact]),
         "sdk_path": provider_field([Artifact, str, None]),
         "supports_relative_resource_dir": provider_field(bool),
         "swift_experimental_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
