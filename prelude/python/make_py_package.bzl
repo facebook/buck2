@@ -440,6 +440,10 @@ def _debuginfo_subtarget(
         if type(name) == type(()):
             for_shared_libs.append((name[1], (artifact, name[0], name[2])))
         else:
+            if len(name) == 0:
+                # This is external debug information, most likely coming from execution
+                # platform, skip packaging them because they are not important.
+                continue
             other.append((artifact, name))
     out = gen_shared_libs_action(
         actions = ctx.actions,
