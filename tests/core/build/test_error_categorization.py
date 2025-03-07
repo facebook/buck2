@@ -223,7 +223,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
 
     assert invocation_record["best_error_tag"] == "SERVER_PANICKED"
     category_key = invocation_record["best_error_category_key"]
-    assert category_key.startswith("CLIENT_GRPC:SERVER_PANICKED")
+    assert category_key.startswith("SERVER_PANICKED")
 
     # TODO dump stack trace on windows
     if not is_running_on_windows():
@@ -270,13 +270,13 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     if is_running_on_windows():
         # TODO get windows to dump a stack trace
         assert "buckd stderr is empty" in error["message"]
-        assert category_key == "CLIENT_GRPC:SERVER_STDERR_EMPTY"
+        assert category_key == "SERVER_STDERR_EMPTY"
         assert invocation_record["best_error_tag"] == "SERVER_STDERR_EMPTY"
     else:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]
         assert "*** Signal 6 (SIGABRT)" in error["message"]
-        assert category_key.startswith("CLIENT_GRPC:SERVER_STDERR_UNKNOWN")
+        assert category_key.startswith("SERVER_STDERR_UNKNOWN")
         assert invocation_record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
 
     # TODO dump stack trace on mac and windows
@@ -331,10 +331,7 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
     )
     record = read_invocation_record(record_path)
     category_key = record["best_error_category_key"]
-    assert (
-        category_key
-        == "RemoteExecutionError:MATERIALIZATION_ERROR:RE_NOT_FOUND:UNKNOWN"
-    )
+    assert category_key == "RemoteExecutionError:RE_NOT_FOUND:UNKNOWN"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
         in res.stderr

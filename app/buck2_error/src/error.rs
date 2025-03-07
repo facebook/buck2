@@ -169,10 +169,14 @@ impl Error {
             Some(self.source_location().to_string())
         };
 
-        let key_tags = tags
-            .into_iter()
-            .filter(|tag| !tag_is_hidden(tag))
-            .map(|tag| tag.as_str_name().to_owned());
+        let key_tags = if !non_generic_tags.is_empty() {
+            non_generic_tags
+        } else {
+            // Only include generic tags if there are no non-generic tags. Always exclude hidden tags.
+            tags.into_iter().filter(|tag| !tag_is_hidden(tag)).collect()
+        };
+
+        let key_tags = key_tags.into_iter().map(|tag| tag.as_str_name().to_owned());
 
         let context_key_values = self.iter_context().filter_map(|kind| match kind {
             ContextValue::Key(val) => Some(val.to_string()),
@@ -378,13 +382,26 @@ mod tests {
         let err: crate::Error = TestError.into();
         assert_eq!(err.category_key(), "TestError");
 
-        let err = err.tag([crate::ErrorTag::Analysis]);
+        let err = err.clone().tag([crate::ErrorTag::Analysis]);
         assert_eq!(
             err.category_key(),
             format!(
                 "{}:{}",
                 err.source_location().type_name().unwrap(),
                 "ANALYSIS"
+            )
+        );
+
+        let err = err.clone().tag([
+            crate::ErrorTag::AnyActionExecution,
+            crate::ErrorTag::ReInternal,
+        ]);
+        assert_eq!(
+            err.category_key(),
+            format!(
+                "{}:{}",
+                err.source_location().type_name().unwrap(),
+                "RE_INTERNAL"
             )
         );
     }
