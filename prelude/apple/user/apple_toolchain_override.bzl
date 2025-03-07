@@ -36,7 +36,6 @@ def _apple_toolchain_override_impl(ctx: AnalysisContext) -> list[Provider]:
             momc = base.momc,
             objdump = base.objdump,
             platform_path = base.platform_path,
-            prelude_rpaths = base.prelude_rpaths,
             sdk_build_version = base.sdk_build_version,
             sdk_name = base.sdk_name,
             sdk_path = base.sdk_path,

@@ -7,7 +7,6 @@
 
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version", "version_is_greater")
-load(":apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 def _rpath_flags_for_paths(paths: list[str]) -> list[str]:
     return ["-Wl,-rpath," + p for p in paths]
@@ -95,9 +94,6 @@ def _swift_lib_rpaths(ctx: AnalysisContext, platform: str) -> list[str]:
         return []
 
 def get_rpath_flags_for_apple_binary(ctx: AnalysisContext) -> list[str]:
-    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].prelude_rpaths:
-        return []
-
     platform = _get_platform_name(ctx)
     if _is_mac_binary(platform):
         if ctx.attrs.application_extension:
@@ -110,9 +106,6 @@ def get_rpath_flags_for_apple_binary(ctx: AnalysisContext) -> list[str]:
         return _swift_lib_rpaths(ctx, platform) + _IOS_BINARY_RPATHS
 
 def get_rpath_flags_for_library(ctx: AnalysisContext) -> list[str]:
-    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].prelude_rpaths:
-        return []
-
     platform = _get_platform_name(ctx)
     if _is_mac_binary(platform):
         return _swift_lib_rpaths(ctx, platform) + _MACOS_LIBRARY_RPATHS
@@ -120,9 +113,6 @@ def get_rpath_flags_for_library(ctx: AnalysisContext) -> list[str]:
         return _swift_lib_rpaths(ctx, platform) + _IOS_LIBRARY_RPATHS
 
 def get_rpath_flags_for_tests(ctx: AnalysisContext) -> list[str]:
-    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].prelude_rpaths:
-        return []
-
     platform = _get_platform_name(ctx)
     if _is_mac_binary(platform):
         return _swift_lib_rpaths(ctx, platform) + _MACOS_TEST_RPATHS
