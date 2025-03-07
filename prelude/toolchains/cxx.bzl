@@ -124,6 +124,10 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     else:
         llvm_link = None
 
+    supports_two_phase_compilation = False
+    if hasattr(ctx.attrs, "supports_two_phase_compilation"):
+        supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation
+
     return [
         DefaultInfo(),
         CxxToolchainInfo(
@@ -174,7 +178,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
                 compiler_type = cxx_tools_info.compiler_type,
-                supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation,
+                supports_two_phase_compilation = supports_two_phase_compilation,
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
