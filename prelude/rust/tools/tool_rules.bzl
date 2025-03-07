@@ -20,7 +20,11 @@ def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args("--sysroot="),  # We do not need a sysroot here, and not all platforms we support have one available (e.g. mips64-unknown-linux-gnuabi64)
     ]
 
-    ctx.actions.run(cmd, category = "rustc_cfg")
+    env = {}
+    if toolchain_info.rust_target_path != None:
+        env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
+
+    ctx.actions.run(cmd, category = "rustc_cfg", env = env)
 
     return [DefaultInfo(default_output = out)]
 

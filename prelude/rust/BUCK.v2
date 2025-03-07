@@ -1,0 +1,10 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+source_listing()
+
+prelude = native
+
+prelude.export_file(
+    name = "custom-targets",
+    visibility = ["PUBLIC"],
+)

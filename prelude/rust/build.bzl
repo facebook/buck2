@@ -639,6 +639,9 @@ def rust_compile(
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
             rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))
 
+    if toolchain_info.rust_target_path != None:
+        emit_op.env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
+
     invoke = _rustc_invoke(
         ctx = ctx,
         compile_ctx = compile_ctx,

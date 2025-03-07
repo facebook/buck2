@@ -43,6 +43,8 @@ rust_toolchain_attrs = {
     # Rustc flags, except that they are applied on the command line after the
     # target's rustc flags
     "extra_rustc_flags": provider_field(list[typing.Any], default = []),
+    # Path to search for custom target .json files
+    "rust_target_path": provider_field(Dependency | None, default = None),
     # Flags applied only on check builds
     "rustc_check_flags": provider_field(list[typing.Any], default = []),
     # Extra flags when building binaries
