@@ -160,7 +160,6 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::StarlarkNativeInput => rank!(input),
         ErrorTag::Visibility => rank!(input),
         ErrorTag::HttpClient => rank!(input),
-        ErrorTag::Analysis => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
         ErrorTag::Unimplemented => rank!(input),
         ErrorTag::InstallerInput => rank!(input),
@@ -184,11 +183,13 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::TestExecutor => rank!(unspecified),
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::DownloadFileHeadRequest => rank!(unspecified),
-        ErrorTag::Install => rank!(unspecified),
-        ErrorTag::AnyActionExecution => rank!(unspecified),
         ErrorTag::StarlarkError => rank!(unspecified),
         ErrorTag::UnexpectedNone => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
+        // Build phases
+        ErrorTag::Analysis => rank!(unspecified),
+        ErrorTag::Install => rank!(unspecified),
+        ErrorTag::AnyActionExecution => rank!(unspecified),
     }
 }
 
