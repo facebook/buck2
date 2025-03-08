@@ -1287,8 +1287,10 @@ def _get_merged_linkables_for_platform(
             cxx_toolchain = cxx_toolchain,
         )
         link_args = [link_args]
+        if ctx.attrs.native_library_merge_linker_args_all:
+            link_args += [LinkArgs(flags = ctx.attrs.native_library_merge_linker_args_all)]
         if soname in merge_linker_args:
-            link_args += [LinkArgs(infos = [LinkInfo(pre_flags = merge_linker_args[soname])])]
+            link_args += [LinkArgs(flags = merge_linker_args[soname])]
 
         shared_lib = create_shared_lib(
             ctx,
