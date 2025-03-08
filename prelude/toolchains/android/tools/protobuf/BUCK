@@ -12,6 +12,7 @@ fb_native.command_alias(
     platform_exe = {
         "linux": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-linux-x86_64",
         "macos": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-osx-x86_64",
+        "windows": "fbsource//third-party/java/com/google/protobuf/protoc:protoc-windows-x86_64",
     },
 )
 
