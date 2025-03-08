@@ -2,7 +2,7 @@
 
 Bxl allows integrators to write Starlark snippets that introspect the buck2
 graph, and perform various operations on them within Starlark to accomplish
-complex operations, as previously proposed in [bxl RFC](../bxl.md))
+complex operations, as previously proposed in [bxl RFC](../bxl))
 
 This document is intended at discussing the aspects of build and actions
 declaration of a bxl function in more details, and proposed changes to deferred
