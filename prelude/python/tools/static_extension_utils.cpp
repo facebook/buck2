@@ -182,7 +182,7 @@ static PyMethodDef StaticExtensionLoaderType_methods[] = {
 static PyType_Slot StaticExtensionLoader_slots[] = {
     {Py_tp_doc, (void*)StaticExtensionLoader_doc},
     {Py_tp_methods, StaticExtensionLoaderType_methods},
-    {0, 0}};
+    {}};
 
 static PyType_Spec StaticExtensionLoader_spec = {
     "static_extension_utils.StaticExtensionLoader",
