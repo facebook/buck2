@@ -14,6 +14,7 @@ pub(crate) mod emit_event;
 pub(crate) mod errorconsole;
 pub mod event_log;
 pub mod get;
+pub(crate) mod health_check_subscriber;
 pub(crate) mod observer;
 pub mod re_log;
 pub mod recorder;
