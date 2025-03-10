@@ -29,7 +29,7 @@ pub(crate) struct HealthCheckContext {
     pub branched_from_revision: Option<String>,
 
     /// Denotes if this command is seeing cache miss without any file changes.
-    pub has_excess_cache_misses: Option<bool>,
+    pub has_excess_cache_misses: bool,
 
     /// Configurations for health check experiments.
     pub experiment_configurations: Option<buck2_data::SystemInfo>,

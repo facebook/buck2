@@ -60,7 +60,7 @@ impl HealthCheckClient {
     }
 
     pub async fn update_excess_cache_misses(&mut self, has_excess_cache_misses: bool) {
-        self.health_check_context.has_excess_cache_misses = Some(has_excess_cache_misses);
+        self.health_check_context.has_excess_cache_misses = has_excess_cache_misses;
         self.try_update_warm_revision_check().await;
     }
 
