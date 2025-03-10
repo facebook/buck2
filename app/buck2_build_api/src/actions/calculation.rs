@@ -19,6 +19,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
 use buck2_common::events::HasEvents;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
@@ -52,6 +53,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use tracing::debug;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::error::ActionError;
 use crate::actions::error_handler::ActionErrorHandlerError;
 use crate::actions::error_handler::ActionSubErrorResult;
@@ -271,7 +273,11 @@ async fn build_action_inner(
 
             let last_command = commands.last().cloned();
 
-            let error_diagnostics = try_run_error_handler(action.dupe(), last_command.as_ref());
+            let error_diagnostics = try_run_error_handler(
+                action.dupe(),
+                last_command.as_ref(),
+                ctx.get_artifact_fs().await,
+            );
 
             let e = ActionError::new(
                 e,
@@ -388,12 +394,28 @@ async fn build_action_inner(
 fn try_run_error_handler(
     action: Arc<RegisteredAction>,
     last_command: Option<&buck2_data::CommandExecution>,
+    artifact_fs: buck2_error::Result<ArtifactFs>,
 ) -> Option<ActionErrorDiagnostics> {
     use buck2_data::action_error_diagnostics::Data;
+
+    fn create_error(
+        e: buck2_error::Error,
+    ) -> (
+        Option<ActionErrorDiagnostics>,
+        buck2_data::ActionErrorHandlerExecutionEnd,
+    ) {
+        (
+            Some(ActionErrorDiagnostics {
+                data: Some(Data::HandlerInvocationError(format!("{:#}", e))),
+            }),
+            buck2_data::ActionErrorHandlerExecutionEnd {},
+        )
+    }
 
     match action.action.error_handler() {
         Some(error_handler) => {
             let dispatcher = get_dispatcher();
+
             dispatcher
                 .clone()
                 .span(buck2_data::ActionErrorHandlerExecutionStart {}, || {
@@ -404,8 +426,23 @@ fn try_run_error_handler(
                     eval.set_print_handler(&print);
                     eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-                    let error_handler_ctx =
-                        StarlarkActionErrorContext::new_from_command_execution(last_command);
+                    let artifact_fs = match artifact_fs {
+                        Ok(fs) => fs,
+                        Err(e) => return create_error(e),
+                    };
+
+                    let outputs_artifacts = match action
+                        .action
+                        .failed_action_output_artifacts(&artifact_fs, &heap)
+                    {
+                        Ok(v) => v,
+                        Err(e) => return create_error(e),
+                    };
+
+                    let error_handler_ctx = StarlarkActionErrorContext::new_from_command_execution(
+                        last_command,
+                        outputs_artifacts,
+                    );
 
                     let error_handler_result = eval.eval_function(
                         error_handler.value(),
