@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_data::buck_event::Data::*;
+use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_health_check::health_check_client::HealthCheckClient;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -50,6 +51,26 @@ impl HealthCheckSubscriber {
                 }
                 _ => {}
             },
+            SpanEnd(end) => {
+                match end
+                    .data
+                    .as_ref()
+                    .buck_error_context("Missing `data` in SpanEnd")?
+                {
+                    buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
+                        if let Some(merge_base) = file_watcher
+                            .stats
+                            .as_ref()
+                            .and_then(|stats| stats.branched_from_revision.as_ref())
+                        {
+                            self.health_check_client
+                                .update_branched_from_revision(&merge_base)
+                                .await;
+                        }
+                    }
+                    _ => {}
+                }
+            }
             _ => {}
         }
         Ok(())
