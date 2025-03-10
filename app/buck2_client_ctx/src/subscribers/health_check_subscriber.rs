@@ -71,6 +71,21 @@ impl HealthCheckSubscriber {
                     _ => {}
                 }
             }
+            Instant(instant) => {
+                use buck2_data::instant_event::Data::*;
+                match instant
+                    .data
+                    .as_ref()
+                    .buck_error_context("Missing `data` in `Instant`")?
+                {
+                    SystemInfo(system_info) => {
+                        self.health_check_client
+                            .update_experiment_configurations(&system_info)
+                            .await;
+                    }
+                    _ => {}
+                }
+            }
             _ => {}
         }
         Ok(())
