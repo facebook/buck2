@@ -189,6 +189,26 @@ if not running_on_windows() and not running_on_mac():
             rel_path="fixtures/test_stderr_could_not_produce_error_diagnostics.golden.txt",
         )
 
+    build_report_test(
+        "test_action_fail_error_handler_with_output_remote_only",
+        ["//fail_action:fail_error_handler_with_output", "--remote-only"],
+    )
+
+    build_report_test(
+        "test_action_fail_error_handler_with_output_local_only",
+        ["//fail_action:fail_error_handler_with_output", "--local-only"],
+    )
+
+    build_report_test(
+        "test_action_fail_error_handler_output_not_written_remote_only",
+        ["//fail_action:fail_error_handler_output_not_written", "--remote-only"],
+    )
+
+    build_report_test(
+        "test_action_fail_error_handler_output_not_written_local_only",
+        ["//fail_action:fail_error_handler_output_not_written", "--local-only"],
+    )
+
 
 build_report_test(
     "test_analysis_fail",
