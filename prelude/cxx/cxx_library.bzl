@@ -61,6 +61,7 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "ArchiveContentsType",
     "ArchiveLinkable",
     "FrameworksLinkable",  # @unused Used as a type
     "LibOutputStyle",
@@ -1612,16 +1613,18 @@ def _static_library(
     # object files instead of the originating objects.
     object_external_debug_info = []
     if linker_type == LinkerType("darwin"):
-        if archive.external_objects:
-            # On Darwin, when using virtual archives, object files are passed
-            # to the linker directly between --start-lib --end-lib flags to
-            # achieve archive semantics without creating the archive. Providing
-            # the archive artifact as an input here is unnecessary.
+        if archive.archive_contents_type == ArchiveContentsType("virtual"):
+            # If using thin archives or passing archives --start-lib --end-lib style (virtual), we only need to provide the underlying objects
+            object_external_debug_info.extend(archive.external_objects)
+        elif archive.archive_contents_type == ArchiveContentsType("thin"):
+            # If passing the archive to the linker conventionally, we need to provide both the thin archive
+            # and the underlying object files if using thin archives
+            object_external_debug_info.append(archive.artifact)
             object_external_debug_info.extend(archive.external_objects)
         else:
-            # For normal archives, we just need to provide the archive artifact
+            # And only the archive if using regular archives
             object_external_debug_info.append(archive.artifact)
-    elif objects_have_external_debug_info:
+    elif archive.archive_contents_type == ArchiveContentsType("thin") and objects_have_external_debug_info:
         object_external_debug_info.extend(objects)
 
     all_external_debug_info = make_artifact_tset(
@@ -1639,7 +1642,7 @@ def _static_library(
             unstripped = archive.artifact,
             object_files = objects,
             bitcode_bundle = bitcode_bundle,
-            other = archive.external_objects,
+            other = (archive.external_objects if archive.archive_contents_type == ArchiveContentsType("thin") else []),
             sub_targets = {},
         ),
         LinkInfo(

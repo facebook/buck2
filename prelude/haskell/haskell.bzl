@@ -99,6 +99,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "Archive",
+    "ArchiveContentsType",
     "ArchiveLinkable",
     "LibOutputStyle",
     "LinkArgs",
@@ -611,7 +612,7 @@ def _build_haskell_lib(
         # (but would that work with Template Haskell?)
         archive = make_archive(ctx, lib_short_path, objfiles)
         lib = archive.artifact
-        libs = [lib] + archive.external_objects
+        libs = [lib] + (archive.external_objects if archive.archive_contents_type == ArchiveContentsType("thin") else [])
         link_infos = LinkInfos(
             default = LinkInfo(
                 linkables = [

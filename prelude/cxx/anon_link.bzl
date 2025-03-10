@@ -21,6 +21,7 @@ load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
     "Archive",
+    "ArchiveContentsType",
     "ArchiveLinkable",
     "DepMetadata",
     "LinkArgs",
@@ -38,7 +39,11 @@ load(
 def _serialize_linkable(linkable):
     if isinstance(linkable, ArchiveLinkable):
         return ("archive", (
-            (linkable.archive.artifact, linkable.archive.external_objects),
+            (
+                linkable.archive.artifact,
+                linkable.archive.external_objects,
+                linkable.archive.archive_contents_type.value,
+            ),
             linkable.link_whole,
             linkable.linker_type.value,
             linkable.supports_lto,
@@ -107,11 +112,12 @@ def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
     typ, payload = linkable
 
     if typ == "archive":
-        (artifact, external_objects), link_whole, linker_type, supports_lto = payload
+        (artifact, external_objects, archive_contents_type), link_whole, linker_type, supports_lto = payload
         return ArchiveLinkable(
             archive = Archive(
                 artifact = artifact,
                 external_objects = external_objects,
+                archive_contents_type = ArchiveContentsType(archive_contents_type),
             ),
             link_whole = link_whole,
             linker_type = LinkerType(linker_type),
@@ -223,6 +229,7 @@ ANON_ATTRS = {
                                             # Archive
                                             attrs.source(),  # archive
                                             attrs.list(attrs.source()),  # external_objects
+                                            attrs.enum(ArchiveContentsType.values()),  # archive_contents_type
                                         ),
                                         attrs.bool(),  # link_whole
                                         attrs.enum(LinkerType.values()),  # linker_type

@@ -13,14 +13,12 @@
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
 load(":native_common.bzl", "native_common")
-
-ArchiveContents = ["normal", "thin"]
 
 ArchiverProviderType = ["bsd", "gnu", "llvm", "windows", "windows_clang"]
 
@@ -963,7 +961,7 @@ cxx_toolchain = prelude_rule(
     attrs = (
         cxx_common.raw_headers_as_headers_mode_arg() |
         {
-            "archive_contents": attrs.enum(ArchiveContents, default = "normal"),
+            "archive_contents": attrs.enum(ArchiveContentsType.values(), default = "normal"),
             "archiver": attrs.source(),
             "archiver_flags": attrs.list(attrs.arg(), default = []),
             "archiver_type": attrs.enum(ArchiverProviderType),

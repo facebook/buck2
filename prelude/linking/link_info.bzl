@@ -32,8 +32,15 @@ ExtraLinkerOutputs = record(
     providers = field(dict[str, list[DefaultInfo]], {}),
 )
 
+ArchiveContentsType = enum(
+    "normal",  # The static archive itself contains a symbol table and compressed object files
+    "thin",  # The static archive only has a symbol table and refers to object files elsewhere on disk
+    "virtual",  # Object files are passed directly to the linker between --start-lib --end-lib flags to indicate archive semantics, and a normal static archive is used by actions that request the archive itself
+)
+
 # Represents an archive (.a file)
 Archive = record(
+    archive_contents_type = field(ArchiveContentsType, default = ArchiveContentsType("normal")),
     artifact = field(Artifact),
     # For a thin archive, this contains all the referenced .o files
     external_objects = field(list[Artifact], []),
@@ -247,7 +254,7 @@ def _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable: LinkableT
 # Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     if isinstance(linkable, ArchiveLinkable):
-        if linkable.linker_type == LinkerType("darwin") and linkable.archive.external_objects:
+        if linkable.archive.archive_contents_type == ArchiveContentsType("virtual"):
             if not linkable.link_whole:
                 args.add("-Wl,--start-lib")
 
@@ -261,10 +268,11 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
         else:
             args.add(linkable.archive.artifact)
 
-        # When using thin archives, object files are implicitly used as inputs
-        # to the link, so make sure track them as inputs so that they're
-        # materialized/tracked properly.
-        args.add(cmd_args(hidden = linkable.archive.external_objects))
+        if linkable.archive.archive_contents_type == ArchiveContentsType("thin"):
+            # When using thin archives, object files are implicitly used as inputs
+            # to the link, so make sure track them as inputs so that they're
+            # materialized/tracked properly.
+            args.add(cmd_args(hidden = linkable.archive.external_objects))
     elif isinstance(linkable, SharedLibLinkable):
         if linkable.link_without_soname:
             args.add(cmd_args(linkable.lib, format = "-L{}", parent = 1))

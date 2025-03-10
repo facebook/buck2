@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo", "LinkerType")
-load("@prelude//linking:link_info.bzl", "Archive")
+load("@prelude//linking:link_info.bzl", "Archive", "ArchiveContentsType")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -149,4 +149,8 @@ def make_archive(
     # TODO(T110378100): We need to scrub the static library (timestamps, permissions, etc) as those are
     # sources of non-determinism. See `ObjectFileScrubbers.createDateUidGidScrubber()` in Buck v1.
 
-    return Archive(artifact = archive, external_objects = objects if thin else [])
+    return Archive(
+        artifact = archive,
+        archive_contents_type = ArchiveContentsType(linker_info.archive_contents),
+        external_objects = objects,
+    )
