@@ -35,9 +35,12 @@ impl EventSubscriber for HealthCheckSubscriber {
 }
 
 impl HealthCheckSubscriber {
-    pub fn new(trace_id: TraceId) -> Box<Self> {
+    pub fn new(
+        trace_id: TraceId,
+        tags_sender: tokio::sync::mpsc::UnboundedSender<Vec<String>>,
+    ) -> Box<Self> {
         Box::new(Self {
-            health_check_client: HealthCheckClient::new(trace_id.to_string()),
+            health_check_client: HealthCheckClient::new(trace_id.to_string(), Some(tags_sender)),
         })
     }
 

@@ -7,6 +7,10 @@
  * of this source tree.
  */
 
+#![allow(dead_code)] // TODO(rajneeshl): Remove this when the channels are ready.
+
+use tokio::sync::mpsc::UnboundedSender;
+
 use crate::health_check_context::HealthCheckContext;
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
@@ -21,10 +25,13 @@ pub struct HealthCheckClient {
     #[cfg(fbcode_build)]
     warm_revision_check: WarmRevisionCheck,
     vpn_check: VpnCheck,
+    // Writer to send tags to be logged to scuba.
+    // TODO(rajneeshl): Make this required when the event_observer reference is removed.
+    tags_sender: Option<UnboundedSender<Vec<String>>>,
 }
 
 impl HealthCheckClient {
-    pub fn new(trace_id: String) -> Self {
+    pub fn new(trace_id: String, tags_sender: Option<UnboundedSender<Vec<String>>>) -> Self {
         Self {
             health_check_context: HealthCheckContext {
                 trace_id,
@@ -33,6 +40,7 @@ impl HealthCheckClient {
             #[cfg(fbcode_build)]
             warm_revision_check: WarmRevisionCheck::new(),
             vpn_check: VpnCheck::new(),
+            tags_sender,
         }
     }
 
@@ -131,7 +139,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let mut client = HealthCheckClient::new("test".to_owned());
+        let mut client = HealthCheckClient::new("test".to_owned(), None);
         client.update_excess_cache_miss(&action_execution_end).await;
         assert!(client.health_check_context.has_excess_cache_misses);
 
@@ -151,7 +159,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let mut client = HealthCheckClient::new("test".to_owned());
+        let mut client = HealthCheckClient::new("test".to_owned(), None);
         client.update_excess_cache_miss(&action_execution_end).await;
         assert!(!client.health_check_context.has_excess_cache_misses);
 

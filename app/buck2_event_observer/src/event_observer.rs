@@ -65,7 +65,7 @@ where
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
             cold_build_detector,
-            health_check_client: Some(HealthCheckClient::new(trace_id.to_string())),
+            health_check_client: Some(HealthCheckClient::new(trace_id.to_string(), None)),
             dice_state: DiceState::new(),
             extra: E::new(),
         }
