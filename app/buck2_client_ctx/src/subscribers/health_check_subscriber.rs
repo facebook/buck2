@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_data::buck_event::Data::*;
 use buck2_events::BuckEvent;
 use buck2_health_check::health_check_client::HealthCheckClient;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -39,8 +40,18 @@ impl HealthCheckSubscriber {
         })
     }
 
-    async fn handle_event(&mut self, _event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
-        // TODO (rajneeshl): Forward relevant events to health check client
+    async fn handle_event(&mut self, event: &Arc<BuckEvent>) -> buck2_error::Result<()> {
+        match event.data() {
+            SpanStart(start) => match &start.data {
+                Some(buck2_data::span_start_event::Data::Command(command)) => {
+                    self.health_check_client
+                        .update_command_data(command.data.clone())
+                        .await;
+                }
+                _ => {}
+            },
+            _ => {}
+        }
         Ok(())
     }
 }
