@@ -402,13 +402,18 @@ pub struct ExecutionResult2 {
     pub execution_details: ExecutionDetails,
 }
 
+pub enum CancellationReason {
+    NotSpecified,
+    ReQueueTimeout,
+}
+
 #[allow(clippy::large_enum_variant)]
 pub enum ExecuteResponse {
     /// A result is available.
     Result(ExecutionResult2),
 
     /// The test run is being cancelled.
-    Cancelled,
+    Cancelled(Option<CancellationReason>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

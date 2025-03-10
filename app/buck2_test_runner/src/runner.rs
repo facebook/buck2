@@ -84,7 +84,7 @@ impl Buck2TestRunner {
 
                 let execution_result = match execution_response {
                     ExecuteResponse::Result(r) => r,
-                    ExecuteResponse::Cancelled => return Ok(TestStatus::OMITTED),
+                    ExecuteResponse::Cancelled(_) => return Ok(TestStatus::OMITTED),
                 };
 
                 let test_result = get_test_result(name, target_handle, execution_result);

@@ -77,3 +77,11 @@ buck2_e2e_test(
         "//remote_execution/client_lib/wrappers/python:py_re_client_lib",  # @autodeps2-fixme-manual
     ],
 )
+
+buck2_e2e_test(
+    name = "test_test_remote_execution",
+    srcs = ["test_test_remote_execution.py"],
+    data = "//buck2/tests/targets:isolated_targets",
+    test_with_deployed_buck2 = False,
+    use_compiled_buck2_client_and_tpx = True,
+)

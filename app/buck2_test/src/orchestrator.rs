@@ -103,6 +103,7 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::request::OutputCreationBehavior;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
+use buck2_execute::execute::result::CommandCancellationReason;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionResult;
@@ -222,7 +223,9 @@ impl<'a> BuckTestOrchestrator<'a> {
         liveliness_observer: Arc<dyn LivelinessObserver>,
     ) -> Result<(), Cancelled> {
         if !liveliness_observer.is_alive().await {
-            return Err(Cancelled);
+            return Err(Cancelled {
+                ..Default::default()
+            });
         }
 
         Ok(())
@@ -570,7 +573,7 @@ async fn prepare_and_execute(
     if execute_on_dice {
         let result = tokio::select! {
             _ = liveliness_observer.while_alive() => {
-                Err(ExecuteError::Cancelled(Cancelled))
+                Err(ExecuteError::Cancelled(Cancelled{..Default::default()}))
             }
             result = prepare_and_execute_dice(ctx, &key) => {
                 result
@@ -597,7 +600,9 @@ async fn prepare_and_execute_dice(
 
     result.map_err(anyhow::Error::from).map_err(|err| {
         if err.downcast_ref::<ExecuteDiceErr>().is_some() {
-            ExecuteError::Cancelled(Cancelled)
+            ExecuteError::Cancelled(Cancelled {
+                ..Default::default()
+            })
         } else {
             ExecuteError::Error(err)
         }
@@ -639,8 +644,15 @@ struct PreparedLocalResourceSetupContext {
     pub env_var_mapping: IndexMap<String, String>,
 }
 
-// A token used to implement From
-struct Cancelled;
+enum CancellationReason {
+    NotSpecified,
+    ReQueueTimeout,
+}
+
+#[derive(Default)]
+struct Cancelled {
+    reason: Option<CancellationReason>,
+}
 
 // NOTE: This doesn't implement Error so that we can't accidentally lose the Cancelled variant.
 #[derive(From)]
@@ -687,7 +699,17 @@ impl<'a> TestOrchestrator for BuckTestOrchestrator<'a> {
 
         match res {
             Ok(r) => Ok(ExecuteResponse::Result(r)),
-            Err(ExecuteError::Cancelled(Cancelled)) => Ok(ExecuteResponse::Cancelled),
+            Err(ExecuteError::Cancelled(cancelled)) => {
+                Ok(ExecuteResponse::Cancelled(match cancelled.reason {
+                    Some(CancellationReason::NotSpecified) => {
+                        Some(buck2_test_api::data::CancellationReason::NotSpecified)
+                    }
+                    Some(CancellationReason::ReQueueTimeout) => {
+                        Some(buck2_test_api::data::CancellationReason::ReQueueTimeout)
+                    }
+                    None => None,
+                }))
+            }
             Err(ExecuteError::Error(e)) => Err(e),
         }
     }
@@ -1084,7 +1106,9 @@ impl<'b> BuckTestOrchestrator<'b> {
             CommandExecutionStatus::WorkerFailure {
                 execution_kind: CommandExecutionKind::LocalWorker { .. },
             } => {
-                return Err(ExecuteError::Cancelled(Cancelled));
+                return Err(ExecuteError::Cancelled(Cancelled {
+                    ..Default::default()
+                }));
             }
             CommandExecutionStatus::Failure { execution_kind }
             | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
@@ -1122,8 +1146,12 @@ impl<'b> BuckTestOrchestrator<'b> {
                 execution_kind,
                 outputs,
             },
-            CommandExecutionStatus::Cancelled => {
-                return Err(ExecuteError::Cancelled(Cancelled));
+            CommandExecutionStatus::Cancelled { reason } => {
+                let reason = reason.map(|reason| match reason {
+                    CommandCancellationReason::NotSpecified => CancellationReason::NotSpecified,
+                    CommandCancellationReason::ReQueueTimeout => CancellationReason::ReQueueTimeout,
+                });
+                return Err(ExecuteError::Cancelled(Cancelled { reason }));
             }
         })
     }
@@ -1589,7 +1617,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             CommandExecutionStatus::Error { error, .. } => {
                 return Err(error.into());
             }
-            CommandExecutionStatus::Cancelled => {
+            CommandExecutionStatus::Cancelled { .. } => {
                 return Err(buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
                     "Local resource setup command cancelled"

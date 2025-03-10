@@ -90,6 +90,16 @@ use crate::re::stats::RemoteExecutionClientStats;
 use crate::re::uploader::UploadStats;
 use crate::re::uploader::Uploader;
 
+pub enum CancellationReason {
+    NotSpecified,
+    ReQueueTimeout,
+}
+
+#[derive(Default)]
+pub struct Cancelled {
+    pub reason: Option<CancellationReason>,
+}
+
 #[derive(Clone, Dupe, Allocative)]
 pub struct RemoteExecutionClient {
     data: Arc<RemoteExecutionClientData>,
@@ -99,7 +109,7 @@ pub struct RemoteExecutionClient {
 #[allow(clippy::large_enum_variant)]
 pub enum ExecuteResponseOrCancelled {
     Response(ExecuteResponse),
-    Cancelled,
+    Cancelled(Cancelled),
 }
 
 #[derive(Allocative)]
@@ -948,7 +958,7 @@ impl RemoteExecutionClientImpl {
         #[allow(clippy::large_enum_variant)]
         enum ResponseOrStateChange {
             Present(ExecuteWithProgressResponse),
-            Cancelled,
+            Cancelled(Cancelled),
         }
 
         /// Wait for either the ExecuteResponse to show up, or a stage change, within a span
@@ -974,7 +984,9 @@ impl RemoteExecutionClientImpl {
 
                         let event = match next.await {
                             futures::future::Either::Left((_dead, _)) => {
-                                return Ok(ResponseOrStateChange::Cancelled);
+                                return Ok(ResponseOrStateChange::Cancelled(Cancelled {
+                                    ..Default::default()
+                                }));
                             }
                             futures::future::Either::Right((event, _)) => match event {
                                 Some(event) => event,
@@ -1002,7 +1014,9 @@ impl RemoteExecutionClientImpl {
                             {
                                 if anticipated_queue_duration.as_secs() >= re_queue_threshold.into()
                                 {
-                                    return Ok(ResponseOrStateChange::Cancelled);
+                                    return Ok(ResponseOrStateChange::Cancelled(Cancelled {
+                                        reason: Some(CancellationReason::ReQueueTimeout),
+                                    }));
                                 }
                             }
 
@@ -1107,8 +1121,8 @@ impl RemoteExecutionClientImpl {
 
             let progress_response = match progress_response {
                 ResponseOrStateChange::Present(r) => r,
-                ResponseOrStateChange::Cancelled => {
-                    return Ok(ExecuteResponseOrCancelled::Cancelled);
+                ResponseOrStateChange::Cancelled(c) => {
+                    return Ok(ExecuteResponseOrCancelled::Cancelled(c));
                 }
             };
 

@@ -255,7 +255,7 @@ where
                     // typically mean the other result asked for cancellation and we're about to
                     // receive the result here, or it could mean we're being asked to cancel by our
                     // caller.
-                    CommandExecutionStatus::Cancelled => true,
+                    CommandExecutionStatus::Cancelled { .. } => true,
                     // If the execution is successful, use the result.
                     CommandExecutionStatus::Success { .. } => false,
                     // Retry commands that failed (i.e. exit 1) only if we're instructed to do so.
@@ -369,7 +369,7 @@ where
             // But if the first result was a cancelled result then we definitely don't want that.
             if matches!(
                 &primary_res.report.status,
-                CommandExecutionStatus::Cancelled
+                CommandExecutionStatus::Cancelled { .. }
             ) {
                 std::mem::swap(&mut primary_res, &mut secondary_res);
             }

@@ -313,7 +313,14 @@ message ExecutionDetails {
   optional buck.data.CommandExecutionKind execution_kind = 1;
 }
 
-message Cancelled {}
+enum CancellationReason {
+  NOT_SPECIFIED = 0;
+  RE_QUEUE_TIMEOUT = 1;
+}
+
+message Cancelled {
+  optional CancellationReason reason = 1;
+}
 
 message ExecuteResponse2 {
   oneof response {
