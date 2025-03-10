@@ -94,3 +94,15 @@ async def test_materialize_outputs_for_failed_actions(buck: Buck) -> None:
         "materialized_outputs_for_failed_actions",
     )
     assert len(materialized) == 1 and len(materialized[0]) == 2
+
+
+@buck_test(data_dir="materialize_outputs_for_failed_actions")
+async def test_undeclared_outputs_to_materialize_will_fail(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:undeclared_output",
+            "--remote-only",
+            "--no-remote-cache",
+        ),
+        stderr_regex="marked to be materialized on failure but is not declared as an output of the action",
+    )

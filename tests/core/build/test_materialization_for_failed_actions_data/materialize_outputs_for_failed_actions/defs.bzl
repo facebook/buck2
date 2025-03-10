@@ -16,7 +16,6 @@ def _action_fail(ctx):
             out1.as_output(),
             out2.as_output(),
         ),
-        env = {"cache_buster": ctx.attrs.cache_buster},
         category = "test",
     )
     return [DefaultInfo(default_outputs = [out1, out2])]
@@ -24,6 +23,26 @@ def _action_fail(ctx):
 action_fail = rule(
     impl = _action_fail,
     attrs = {
-        "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
+    },
+)
+
+def _undeclared_output(ctx):
+    declared = ctx.actions.declare_output("failed_action.json")
+    undeclared = ctx.actions.declare_output("failed_action.txt")
+    ctx.actions.run(
+        cmd_args(
+            "python3",
+            "-c",
+            "import sys; sys.exit(1)",
+            declared.as_output(),
+        ),
+        category = "test",
+        outputs_for_error_handler = [undeclared.as_output()],
+    )
+    return [DefaultInfo(default_outputs = [declared])]
+
+undeclared_output = rule(
+    impl = _undeclared_output,
+    attrs = {
     },
 )

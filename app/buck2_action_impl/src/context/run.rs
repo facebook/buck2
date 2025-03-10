@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -31,6 +32,7 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use either::Either;
+use gazebo::prelude::SliceClonedExt;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
 use starlark::environment::MethodsBuilder;
@@ -39,6 +41,7 @@ use starlark::starlark_module;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::UnpackList;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
 use starlark::values::none::NoneType;
 use starlark::values::typing::StarlarkCallable;
@@ -80,6 +83,10 @@ pub(crate) enum RunActionError {
         "Recursion limit exceeded when visiting artifacts: do you have a cycle in your inputs or outputs?"
     )]
     ArtifactVisitRecursionLimitExceeded,
+    #[error(
+        "`{}` was marked to be materialized on failure but is not declared as an output of the action.", .path 
+    )]
+    FailedActionArtifactNotDeclared { path: String },
 }
 
 #[starlark_module]
@@ -134,7 +141,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     globs. Any mounts globs specified will not be bind mounted
     ///     from the host.
     ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
-    ///    * `remote_execution_policy`: refer to TExecutionPolicy.
+    ///     * `remote_execution_policy`: refer to TExecutionPolicy.
+    ///  * `outputs_for_error_handler`: Output files to be provided by action error handler the event of failure
+    ///     * The output must also be declared as an output of the action
+    ///     * Nothing will be provided if left empty (Which is the default)
     ///
     /// When actions execute, they'll do so from the root of the repository. As they execute,
     /// actions have exclusive access to their output directory.
@@ -200,6 +210,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
         >,
+        #[starlark(require = named, default = UnpackListOrTuple::default())]
+        outputs_for_error_handler: UnpackListOrTuple<&'v StarlarkOutputArtifact<'v>>,
     ) -> starlark::Result<NoneType> {
         struct RunCommandArtifactVisitor {
             inner: SimpleCommandLineArtifactVisitor,
@@ -362,6 +374,20 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         }
         let heap = eval.heap();
 
+        for o in outputs_for_error_handler.items.iter() {
+            let to_materialize = o.artifact()?.as_output();
+            if !artifacts.outputs.contains(&to_materialize) {
+                return Err(buck2_error::Error::from(
+                    RunActionError::FailedActionArtifactNotDeclared {
+                        path: o.to_string(),
+                    },
+                )
+                .into());
+            }
+        }
+
+        let outputs_for_error_handler = outputs_for_error_handler.items.cloned();
+
         let starlark_values = heap.alloc_complex(StarlarkRunActionValues {
             exe: heap.alloc_typed(starlark_exe),
             args: heap.alloc_typed(starlark_args),
@@ -373,6 +399,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 category
             },
             identifier: identifier.into_option(),
+            outputs_for_error_handler,
         });
 
         let re_dependencies = remote_execution_dependencies

@@ -331,6 +331,8 @@ pub struct CommandExecutionRequest {
     remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
     /// RE execution policy.
     meta_internal_extra_params: MetaInternalExtraParams,
+    // Failed action outputs to materialize
+    outputs_for_error_handler: Vec<ProjectRelativePathBuf>,
 }
 
 impl CommandExecutionRequest {
@@ -362,6 +364,7 @@ impl CommandExecutionRequest {
             remote_execution_dependencies: Vec::new(),
             remote_execution_custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
+            outputs_for_error_handler: Vec::new(),
         }
     }
 
@@ -553,6 +556,18 @@ impl CommandExecutionRequest {
 
     pub fn remote_execution_dependencies(&self) -> &Vec<RemoteExecutorDependency> {
         &self.remote_execution_dependencies
+    }
+
+    pub fn with_outputs_for_error_handler(
+        mut self,
+        outputs_for_error_handler: Vec<ProjectRelativePathBuf>,
+    ) -> Self {
+        self.outputs_for_error_handler = outputs_for_error_handler;
+        self
+    }
+
+    pub fn outputs_for_error_handler(&self) -> &Vec<ProjectRelativePathBuf> {
+        &self.outputs_for_error_handler
     }
 
     pub fn with_remote_execution_custom_image(

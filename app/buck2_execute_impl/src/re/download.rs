@@ -152,6 +152,7 @@ pub async fn download_action_results<'a>(
                         match materialize_inputs(artifact_fs, materializer, request).await {
                             Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
                             Err(e) => {
+                                // TODO(minglunli): Properly handle this and the error below and add a test for it.
                                 console_message(format!(
                                     "Failed to materialize inputs for failed action: {}",
                                     e

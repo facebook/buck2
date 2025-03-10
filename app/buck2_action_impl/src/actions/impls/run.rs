@@ -23,6 +23,8 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -199,6 +201,7 @@ pub(crate) struct StarlarkRunActionValues<'v> {
     pub(crate) remote_worker: Option<ValueTypedComplex<'v, WorkerInfo<'v>>>,
     pub(crate) category: StringValue<'v>,
     pub(crate) identifier: Option<StringValue<'v>>,
+    pub(crate) outputs_for_error_handler: Vec<StarlarkOutputArtifact<'v>>,
 }
 
 #[derive(Debug, Display, Trace, ProvidesStaticType, NoSerialize, Allocative)]
@@ -212,6 +215,7 @@ pub(crate) struct FrozenStarlarkRunActionValues {
     pub(crate) remote_worker: Option<FrozenValueTyped<'static, FrozenWorkerInfo>>,
     pub(crate) category: FrozenStringValue,
     pub(crate) identifier: Option<FrozenStringValue>,
+    pub(crate) outputs_for_error_handler: Vec<FrozenStarlarkOutputArtifact>,
 }
 
 #[starlark_value(type = "run_action_values")]
@@ -233,6 +237,7 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             remote_worker,
             category,
             identifier,
+            outputs_for_error_handler,
         } = self;
         Ok(FrozenStarlarkRunActionValues {
             exe: FrozenValueTyped::new_err(exe.to_value().freeze(freezer)?)
@@ -244,6 +249,10 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             remote_worker: remote_worker.freeze(freezer)?,
             category: category.freeze(freezer)?,
             identifier: identifier.freeze(freezer)?,
+            outputs_for_error_handler: outputs_for_error_handler
+                .iter()
+                .map(|x| (*x).clone().freeze(freezer))
+                .collect::<FreezeResult<_>>()?,
         })
     }
 }
@@ -623,6 +632,17 @@ impl RunAction {
         // Run actions are assumed to be shared
         let host_sharing_requirements = HostSharingRequirements::Shared(self.inner.weight);
 
+        let outputs_for_error_handler = self
+            .starlark_values
+            .outputs_for_error_handler
+            .iter()
+            .map(|artifact| {
+                artifact
+                    .artifact()
+                    .and_then(|a| a.get_path().resolve(ctx.fs()))
+            })
+            .collect::<buck2_error::Result<Vec<_>>>()?;
+
         let req = prepared_run_action
             .into_command_execution_request()
             .with_prefetch_lossy_stderr(true)
@@ -635,7 +655,8 @@ impl RunAction {
             .with_unique_input_inodes(self.inner.unique_input_inodes)
             .with_remote_execution_dependencies(self.inner.remote_execution_dependencies.clone())
             .with_remote_execution_custom_image(self.inner.remote_execution_custom_image.clone())
-            .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone());
+            .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
+            .with_outputs_for_error_handler(outputs_for_error_handler);
 
         let (dep_file_bundle, req) = if let Some(visitor) = dep_file_visitor {
             let bundle = make_dep_file_bundle(ctx, visitor, cmdline_digest, req.paths())?;
