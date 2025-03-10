@@ -203,7 +203,7 @@ def expand_targets(
         candidate_deps = possible_workspaces[workspace]
         workspace_info = analysis.providers().get(RustAnalyzerInfo)
         if workspace_info:
-            workspace_deps = {t: () for t in workspace_info.transitive_target_set}
+            workspace_deps = {t.raw_target(): () for t in workspace_info.transitive_target_set}
         else:
             workspace_deps = {}
 
