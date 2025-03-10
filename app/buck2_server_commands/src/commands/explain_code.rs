@@ -58,7 +58,8 @@ impl ActionEntry {
         }.expect("Should always be an ActionExecution end event because span ID must match ActionExecution start event.");
         let failed = action_execution.failed;
         let execution_kind =
-            buck2_data::ActionExecutionKind::from_i32(action_execution.execution_kind)
+            buck2_data::ActionExecutionKind::try_from(action_execution.execution_kind)
+                .ok()
                 .map(|v| v.as_str_name().to_owned());
         let input_files_bytes = action_execution.input_files_bytes;
         let affected_by_file_changes = match &action_execution.invalidation_info {
