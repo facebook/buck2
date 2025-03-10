@@ -68,11 +68,18 @@ def _merge_index_store(ctx: AnalysisContext, merge_index_store_tool: RunInfo, in
     cmd.add(["--sources"])
     cmd.add(argsfile)
 
-    # use prefer_remote = True here, it would have two following advantages
-    # 1. Each bucket will perform a merge on RE,  which will fully utilize the high-speed network for materalizaion
-    # and utalize the resource to mergre parallel.
-    # 2. After merging for each bucket, the index store will be smaller, which makes it less to materialize locally
-    # and speeds up the local merge, thus accelerating the overall process.
+    # Merge all the individual index store directories into a single
+    # directory containing all the unit and record files.
+    #
+    # We use `prefer_remote` to maximize the work done on RE, because
+    # we assume that RE hosts have the fastest network connections,
+    # especially if the buck command is running on a local
+    # laptop. There can also be some duplication between index stores,
+    # so we expect the final output to be smaller and less to
+    # download.
+    #
+    # We use `allow_cache_upload` because the output should be
+    # deterministic, so we can reuse results from previous runs.
     ctx.actions.run(cmd, category = "merge_index_store", identifier = merge_output_dir_name, allow_cache_upload = True, prefer_remote = True)
     return merged_index_store
 

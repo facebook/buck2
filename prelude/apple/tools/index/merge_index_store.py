@@ -30,10 +30,38 @@ def merge_directories(source: str, destination: str) -> None:
         print(f"Merging {source} to {destination}", file=sys.stderr)
         if not source.endswith("/"):
             source = source + "/"
-        # Use rsync to copy files from source to destination
-        # shutil.copytree will show file eixst errors when mergeing parallelly
+
+        # Each index store is a directory containing record and unit files.
+        #
+        # $ ls my_index_store
+        # v5/records/93/scope6_var.h-3KOUVOFGN7X93
+        # v5/records/93/ShareViewController.swift-336T0RUILP193
+        # v5/records/95/host_security.h-NRLXTM4VIC95
+        # v5/units/ShareViewController.swift-5TSSN9QOIJ15
+        #
+        # We want a single destination directory containing all the record and unit
+        # files from all the source directories.
+        #
+        # There's no built-in way to merge directories in buck. In Python, there is
+        # `shutil.copytree(source, dest, dirs_exist_ok=True)` but that overwrites
+        # files in the destination when there are multiple sources with the same
+        # file. That's slower.
+        #
+        # Instead, use rsync to merge the directories.
+        #
+        # Use `--no-owner` to ensure the files in the destination directory are
+        # owned by the current user, even if some of the input files were owned by
+        # root.
         result = subprocess.run(
-            ["rsync", "-a", "--ignore-existing", source, destination],
+            [
+                "rsync",
+                "-a",
+                "--ignore-existing",
+                "--no-owner",
+                "--no-group",
+                source,
+                destination,
+            ],
             stderr=subprocess.PIPE,
             text=True,
         )
