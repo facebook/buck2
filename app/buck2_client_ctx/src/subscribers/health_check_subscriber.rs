@@ -83,6 +83,11 @@ impl HealthCheckSubscriber {
                             .update_experiment_configurations(&system_info)
                             .await;
                     }
+                    TargetPatterns(target_patterns) => {
+                        self.health_check_client
+                            .update_parsed_target_patterns(&target_patterns)
+                            .await;
+                    }
                     _ => {}
                 }
             }
