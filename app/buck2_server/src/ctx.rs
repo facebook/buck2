@@ -646,9 +646,16 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             })?
             .or(Some(10));
 
+        let re_cancel_on_estimated_queue_time_exceeds_s =
+            root_config.parse::<u32>(BuckconfigKeyRef {
+                section: "build",
+                property: "remote_execution_cancel_on_estimated_queue_time_exceeds_s",
+            })?;
+
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
+            re_cancel_on_estimated_queue_time_exceeds_s,
         };
 
         let host_sharing_broker =
