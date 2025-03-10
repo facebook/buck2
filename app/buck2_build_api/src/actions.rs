@@ -62,7 +62,10 @@ use indexmap::indexmap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use remote_execution::TActionResult2;
+use starlark::values::dict::DictType;
+use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::ValueOfUnchecked;
 use static_assertions::_core::ops::Deref;
 
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
@@ -72,6 +75,8 @@ use crate::actions::execute::error::ExecuteError;
 use crate::actions::impls::run_action_knobs::RunActionKnobs;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 
 pub mod artifact;
 pub mod box_slice_set;
@@ -163,6 +168,15 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     /// error handler
     fn error_handler(&self) -> Option<OwnedFrozenValue> {
         None
+    }
+
+    fn failed_action_output_artifacts<'v>(
+        &self,
+        _artifact_fs: &ArtifactFs,
+        _heap: &'v Heap,
+    ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
+    {
+        Ok(ValueOfUnchecked::new(starlark::values::Value::new_none()))
     }
 
     // TODO this probably wants more data for execution, like printing a short_name and the target

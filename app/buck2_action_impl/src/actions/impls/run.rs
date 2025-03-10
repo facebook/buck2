@@ -23,6 +23,8 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ArtifactGroupValues;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::FrozenStarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
@@ -42,6 +44,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
+use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
@@ -71,6 +74,7 @@ use indexmap::IndexSet;
 use itertools::Itertools;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
+use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
@@ -81,6 +85,7 @@ use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
+use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
@@ -863,6 +868,44 @@ impl Action for RunAction {
 
     fn error_handler(&self) -> Option<OwnedFrozenValue> {
         self.error_handler.clone()
+    }
+
+    fn failed_action_output_artifacts<'v>(
+        &self,
+        artifact_fs: &ArtifactFs,
+        heap: &'v Heap,
+    ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
+    {
+        let mut artifact_value_dict =
+            Vec::with_capacity(self.starlark_values.outputs_for_error_handler.len());
+
+        for x in self.starlark_values.outputs_for_error_handler.iter() {
+            let artifact = (*x.artifact()?).dupe().ensure_bound()?.into_artifact();
+            let path = artifact.get_path().resolve(artifact_fs)?;
+
+            let abs = artifact_fs.fs().resolve(&path);
+            // Check if the output file specified exists. We will return an error if it doesn't
+            if !fs_util::try_exists(&abs)? {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Output '{}' defined for error handler does not exist. This is likely due to file not being created, please ensure the action would produce an output",
+                    &path
+                ));
+            }
+
+            let artifact_value = StarlarkArtifactValue::new(
+                artifact.dupe(),
+                path.to_owned(),
+                artifact_fs.fs().dupe(),
+            );
+            let artifact = StarlarkArtifact::new(artifact);
+
+            artifact_value_dict.push((artifact, artifact_value));
+        }
+
+        Ok(heap
+            .alloc_typed_unchecked(AllocDict(artifact_value_dict))
+            .cast())
     }
 
     async fn execute(
