@@ -41,13 +41,24 @@ load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:lazy.bzl", "lazy")
 load(":thin_link_record_defs.bzl", "ArchiveMemberOptimizationPlan", "ArchiveOptimizationPlan", "BitcodeMergeState", "ObjectFileOptimizationPlan")
 
-_BitcodeLinkData = record(
+_EagerBitcodeLinkData = record(
     name = str,
     initial_object = Artifact,
     bc_file = Artifact,
     plan = Artifact,
     opt_object = Artifact,
     merged_bc = field([Artifact, None]),
+)
+
+_LazyBitcodeLinkData = record(
+    name = str,
+    initial_object = Artifact,
+    bc_file = Artifact,
+    plan = Artifact,
+    opt_object = Artifact,
+    merged_bc = field([Artifact, None]),
+    archive_start = bool,
+    archive_end = bool,
 )
 
 _ArchiveLinkData = record(
@@ -68,14 +79,15 @@ _DynamicLibraryLinkData = record(
 )
 
 _DataType = enum(
-    "bitcode",
+    "eager_bitcode",
+    "lazy_bitcode",
     "archive",
     "dynamic_library",
 )
 
 _IndexLinkData = record(
     data_type = _DataType,
-    link_data = field([_BitcodeLinkData, _ArchiveLinkData, _DynamicLibraryLinkData]),
+    link_data = field([_LazyBitcodeLinkData, _EagerBitcodeLinkData, _ArchiveLinkData, _DynamicLibraryLinkData]),
 )
 
 def cxx_darwin_dist_link(
@@ -198,14 +210,47 @@ def cxx_darwin_dist_link(
                         plan_outputs.append(merged_bc_output.as_output())
 
                     data = _IndexLinkData(
-                        data_type = _DataType("bitcode"),
-                        link_data = _BitcodeLinkData(
+                        data_type = _DataType("eager_bitcode"),
+                        link_data = _EagerBitcodeLinkData(
                             name = name,
                             initial_object = obj,
                             bc_file = bc_output,
                             plan = plan_output,
                             opt_object = opt_output,
                             merged_bc = merged_bc_output,
+                        ),
+                    )
+                    unsorted_index_link_data.append(data)
+                    plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
+
+                # Can't load `read_bool` here because it will cause circular load.
+                # TODO(T217088553): Remove config read below when measurements have been made:
+
+            elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects and read_root_config("user", "enable_virtual_archives_for_distributed_thin_lto", "false") in ("True", "true"):
+                for virtual_archive_index, obj in enumerate(linkable.archive.external_objects):
+                    name = name_for_obj(link_name, obj)
+                    bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
+                    plan_output = ctx.actions.declare_output(name + ".opt.plan")
+                    opt_output = ctx.actions.declare_output(name + ".opt.o")
+                    merged_bc_output = None
+                    if premerger_enabled:
+                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
+                        plan_outputs.append(merged_bc_output.as_output())
+
+                    # The first member in a non force loaded virtual archive gets --start-lib prended on the command line
+                    archive_start = (not linkable.link_whole) and virtual_archive_index == 0
+                    archive_end = (not linkable.link_whole) and virtual_archive_index == len(linkable.archive.external_objects) - 1
+                    data = _IndexLinkData(
+                        data_type = _DataType("lazy_bitcode"),
+                        link_data = _LazyBitcodeLinkData(
+                            name = name,
+                            initial_object = obj,
+                            bc_file = bc_output,
+                            plan = plan_output,
+                            opt_object = opt_output,
+                            merged_bc = merged_bc_output,
+                            archive_start = archive_start,
+                            archive_end = archive_end,
                         ),
                     )
                     unsorted_index_link_data.append(data)
@@ -284,8 +329,10 @@ def cxx_darwin_dist_link(
         object_files = []
         dynamic_libraries = []
         for link_data in input_list:
-            if link_data.data_type == _DataType("bitcode"):
+            if link_data.data_type == _DataType("eager_bitcode"):
                 object_files.append(link_data)
+            elif link_data.data_type == _DataType("lazy_bitcode"):
+                regular_archives.append(link_data)
             elif link_data.data_type == _DataType("archive"):
                 if link_data.link_data.link_whole:
                     force_loaded_archives.append(link_data)
@@ -310,19 +357,26 @@ def cxx_darwin_dist_link(
             for idx, artifact in enumerate(sorted_index_link_data):
                 link_data = artifact.link_data
 
-                if artifact.data_type == _DataType("bitcode"):
+                if artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
+                    if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_start:
+                        index_args_out.add("-Wl,--start-lib")
+
                     index_args_out.add(link_data.initial_object)
-                    eager_object_file_record = {
+
+                    if artifact.data_type == _DataType("lazy_bitcode") and link_data.archive_end:
+                        index_args_out.add("-Wl,--end-lib")
+
+                    object_file_record = {
                         "input_object_file_path": link_data.initial_object,
                         "output_index_shard_file_path": outputs[link_data.bc_file].as_output(),
                         "output_plan_file_path": outputs[link_data.plan].as_output(),
-                        "record_type": "EAGER",
+                        "record_type": "OBJECT_FILE",
                         "starlark_array_index": idx,
                     }
                     if premerger_enabled:
-                        eager_object_file_record["output_premerged_bitcode_file_path"] = outputs[link_data.merged_bc].as_output()
+                        object_file_record["output_premerged_bitcode_file_path"] = outputs[link_data.merged_bc].as_output()
 
-                    index_meta_records_out.append(eager_object_file_record)
+                    index_meta_records_out.append(object_file_record)
 
                 elif artifact.data_type == _DataType("archive"):
                     manifest = artifacts[link_data.manifest].read_json()
@@ -347,8 +401,8 @@ def cxx_darwin_dist_link(
                             "input_object_file_path": obj,
                             "output_index_shards_directory_path": outputs[link_data.indexes_dir].as_output(),
                             "output_plan_file_path": outputs[link_data.plan].as_output(),
-                            "record_type": "LAZY",
-                            "starlark_array_index": idx,
+                            "record_type": "ARCHIVE_MEMBER",
+                            "starlark_array_index": idx,  # Each object shares the same index in the stalark array pointing to the archive link data
                         }
                         if premerger_enabled:
                             lazy_object_file_record["output_premerged_bitcode_directory_path"] = outputs[link_data.merged_bc_dir].as_output()
@@ -481,7 +535,7 @@ def cxx_darwin_dist_link(
             # loaded by the indexing phase, or is absorbed by another module,
             # there is no point optimizing it.
             if not optimization_plan.loaded_by_linker or not optimization_plan.is_bitcode or optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
-                ctx.actions.write(outputs[opt_object], "")
+                ctx.actions.write(outputs[opt_object].as_output(), "")
                 return
 
             opt_cmd = cmd_args(lto_opt)
@@ -596,7 +650,7 @@ def cxx_darwin_dist_link(
 
     for artifact in sorted_index_link_data:
         link_data = artifact.link_data
-        if artifact.data_type == _DataType("bitcode"):
+        if artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
             dynamic_optimize(
                 name = link_data.name,
                 initial_object = link_data.initial_object,
@@ -627,7 +681,7 @@ def cxx_darwin_dist_link(
         for idx, artifact in enumerate(sorted_index_link_data):
             if artifact.data_type == _DataType("dynamic_library"):
                 append_linkable_args(link_args, artifact.link_data.linkable)
-            elif artifact.data_type == _DataType("bitcode"):
+            elif artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
                 if idx in non_lto_objects:
                     opt_objects.append(artifact.link_data.initial_object)
                 else:
@@ -692,7 +746,7 @@ def cxx_darwin_dist_link(
     native_object_files_required_for_dsym_creation = []
     for artifact in sorted_index_link_data:
         # Without reading dynamic output, we cannot know if a given artifact represents bitcode to be included in LTO, or a native object file already (some inputs to a dthin-lto link are still native object files). We just include both the initial object (that may or may not be bitcode) and the produced bitcode file. dsym-util will only ever need one or the other, we just need to matieralize both.
-        if artifact.data_type == _DataType("bitcode"):
+        if artifact.data_type == _DataType("eager_bitcode") or artifact.data_type == _DataType("lazy_bitcode"):
             native_object_files_required_for_dsym_creation.append(artifact.link_data.initial_object)
             native_object_files_required_for_dsym_creation.append(artifact.link_data.opt_object)
         elif artifact.data_type == _DataType("archive"):
