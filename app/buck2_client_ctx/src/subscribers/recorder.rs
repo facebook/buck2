@@ -61,6 +61,7 @@ use gazebo::prelude::VecExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
@@ -213,6 +214,8 @@ pub(crate) struct InvocationRecorder {
     materialization_files: u64,
     previous_uuid_with_mismatched_config: Option<String>,
     file_watcher: Option<String>,
+    health_check_tags_receiver: Option<UnboundedReceiver<Vec<String>>>,
+    health_check_tags: HashSet<String>,
 }
 
 struct ErrorsReport {
@@ -237,6 +240,7 @@ impl InvocationRecorder {
         restarted_trace_id: Option<TraceId>,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         client_metadata: Vec<buck2_data::ClientMetadata>,
+        health_check_tags_receiver: Option<UnboundedReceiver<Vec<String>>>,
     ) -> Self {
         Self {
             fb,
@@ -370,6 +374,8 @@ impl InvocationRecorder {
             materialization_files: 0,
             previous_uuid_with_mismatched_config: None,
             file_watcher: None,
+            health_check_tags_receiver,
+            health_check_tags: HashSet::new(),
         }
     }
 
@@ -642,6 +648,8 @@ impl InvocationRecorder {
             if is_vpn_enabled() {
                 self.tags.push("vpn_enabled".to_owned());
             }
+            self.try_read_health_check_tags(); // Empty the queue so far.
+            self.tags.extend(self.health_check_tags.iter().cloned());
         }
 
         let mut metadata = Self::default_metadata();
@@ -851,6 +859,20 @@ impl InvocationRecorder {
             }
         }
         event
+    }
+
+    fn try_read_health_check_tags(&mut self) {
+        // The sender may have sent multiple tag messages since the recorder and health checker don't necessarily run at the same frequency.
+        // We should not make assumptions about order of sender/receiver drop since the health checker is a BuckEvent subscriber as well.
+
+        // We do have the slight chance that health_check_client reports something after the recorder is dropped.
+        // Presently, since the health checks run at every snapshot, the likelihood of missing tags should be low.
+        // If we want to ensure that all reports are flushed, we might need to implement an end-of-messages marker.
+        if let Some(tags_receiver) = self.health_check_tags_receiver.as_mut() {
+            while let Ok(tags) = tags_receiver.try_recv() {
+                self.health_check_tags.extend(tags);
+            }
+        }
     }
 
     // Collects client-side state and data, suitable for telemetry.
@@ -1365,6 +1387,7 @@ impl InvocationRecorder {
                 self.active_networks_kinds.insert(stat.network_kind.into());
             }
         }
+        self.try_read_health_check_tags();
 
         Ok(())
     }
@@ -1851,6 +1874,7 @@ pub(crate) fn try_get_invocation_recorder(
     sanitized_argv: Vec<String>,
     representative_config_flags: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
+    health_check_tags_receiver: Option<UnboundedReceiver<Vec<String>>>,
 ) -> buck2_error::Result<Box<InvocationRecorder>> {
     let write_to_path = opts
         .unstable_write_invocation_record
@@ -1895,6 +1919,7 @@ pub(crate) fn try_get_invocation_recorder(
             .iter()
             .map(ClientMetadata::to_proto)
             .collect(),
+        health_check_tags_receiver,
     );
     Ok(Box::new(recorder))
 }

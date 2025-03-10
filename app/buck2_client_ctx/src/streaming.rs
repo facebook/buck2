@@ -61,7 +61,7 @@ fn default_subscribers<T: StreamingCommand>(
         Err(_) => None,
     };
 
-    let (health_check_tags_sender, _health_check_tags_receiver) =
+    let (health_check_tags_sender, health_check_tags_receiver) =
         tokio::sync::mpsc::unbounded_channel();
 
     subscribers.push(get_console_with_root(
@@ -100,6 +100,7 @@ fn default_subscribers<T: StreamingCommand>(
         cmd.sanitize_argv(ctx.argv.clone()).argv,
         representative_config_flags,
         log_size_counter_bytes,
+        Some(health_check_tags_receiver),
     )?;
     recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
     subscribers.push(recorder);

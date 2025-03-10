@@ -148,6 +148,7 @@ impl<'a> ClientCommandContext<'a> {
             std::env::args().collect(),
             Vec::new(),
             None,
+            None,
         )?;
 
         recorder.update_metadata_from_client_metadata(&self.client_metadata);
