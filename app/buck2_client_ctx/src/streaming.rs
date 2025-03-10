@@ -38,6 +38,7 @@ use crate::subscribers::get::try_get_build_graph_stats;
 use crate::subscribers::get::try_get_build_id_writer;
 use crate::subscribers::get::try_get_event_log_subscriber;
 use crate::subscribers::get::try_get_re_log_subscriber;
+use crate::subscribers::health_check_subscriber::HealthCheckSubscriber;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscribers::EventSubscribers;
@@ -59,6 +60,10 @@ fn default_subscribers<T: StreamingCommand>(
         Ok(paths) => Some(paths.build_count_dir()),
         Err(_) => None,
     };
+
+    let (health_check_tags_sender, _health_check_tags_receiver) =
+        tokio::sync::mpsc::unbounded_channel();
+
     subscribers.push(get_console_with_root(
         ctx.trace_id.dupe(),
         console_opts.console_type,
@@ -99,6 +104,10 @@ fn default_subscribers<T: StreamingCommand>(
     recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
     subscribers.push(recorder);
 
+    subscribers.push(HealthCheckSubscriber::new(
+        ctx.trace_id.dupe(),
+        health_check_tags_sender,
+    ));
     subscribers.extend(cmd.extra_subscribers());
     Ok(EventSubscribers::new(subscribers))
 }
