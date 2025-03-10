@@ -52,12 +52,13 @@ impl HealthCheckSubscriber {
                 _ => {}
             },
             SpanEnd(end) => {
+                use buck2_data::span_end_event::Data::*;
                 match end
                     .data
                     .as_ref()
                     .buck_error_context("Missing `data` in SpanEnd")?
                 {
-                    buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
+                    FileWatcher(file_watcher) => {
                         if let Some(merge_base) = file_watcher
                             .stats
                             .as_ref()
@@ -67,6 +68,11 @@ impl HealthCheckSubscriber {
                                 .update_branched_from_revision(&merge_base)
                                 .await;
                         }
+                    }
+                    ActionExecution(action_execution_end) => {
+                        self.health_check_client
+                            .update_excess_cache_miss(action_execution_end)
+                            .await;
                     }
                     _ => {}
                 }
