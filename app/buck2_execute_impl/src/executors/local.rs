@@ -974,7 +974,7 @@ async fn check_inputs(
 /// The above is useful when executing incremental actions first remotely and then locally.
 /// In that case output from remote execution which is incremental state should be materialized prior local execution.
 /// Such incremental state in fact serves as the input while being output as well.
-pub async fn materialize_build_outputs(
+pub(crate) async fn materialize_build_outputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,

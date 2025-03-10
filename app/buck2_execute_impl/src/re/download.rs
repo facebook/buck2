@@ -178,6 +178,16 @@ pub async fn download_action_results<'a>(
                         None
                     }
                 }
+            } else if !request.outputs_for_error_handler().is_empty() {
+                match materializer
+                    .ensure_materialized(request.outputs_for_error_handler().to_vec())
+                    .await
+                {
+                    Ok(()) => Some(request.outputs_for_error_handler().to_vec()),
+                    // Do nothing here, handle file not materialized/doesn't exit case in the error handler.
+                    // This way local/remote behavior would be consistent and errors are handled at the same place
+                    Err(_) => None,
+                }
             } else {
                 None
             };

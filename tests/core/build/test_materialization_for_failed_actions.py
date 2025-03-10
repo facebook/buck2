@@ -106,3 +106,38 @@ async def test_undeclared_outputs_to_materialize_will_fail(buck: Buck) -> None:
         ),
         stderr_regex="marked to be materialized on failure but is not declared as an output of the action",
     )
+
+
+@buck_test(data_dir="materialize_outputs_for_failed_actions")
+async def test_materialize_outputs_defined_by_run_action(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:action_fail",
+            "--remote-only",
+            "--no-remote-cache",
+        ),
+    )
+
+    materialized = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "ActionError",
+        "last_command",
+        "details",
+        "command_kind",
+        "command",
+        "RemoteCommand",
+        "materialized_outputs_for_failed_actions",
+    )
+
+    found_action_error = False
+    if materialized:
+        found_action_error = True
+        assert len(materialized[0]) == 1
+        materialized[0][0].endswith("failed_action.json")
+
+    if not found_action_error:
+        raise AssertionError("Did not find relevant ActionError")

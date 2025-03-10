@@ -17,6 +17,7 @@ def _action_fail(ctx):
             out2.as_output(),
         ),
         category = "test",
+        outputs_for_error_handler = [out1.as_output()],
     )
     return [DefaultInfo(default_outputs = [out1, out2])]
 
