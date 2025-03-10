@@ -22,6 +22,7 @@ import com.facebook.buck.jvm.java.JarDumper;
 import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import com.facebook.buck.jvm.kotlin.testutil.compiler.KotlinTestCompiler;
+import com.facebook.buck.util.environment.EnvVariablesProvider;
 import com.facebook.buck.util.environment.Platform;
 import com.facebook.buck.util.unarchive.ArchiveFormat;
 import com.facebook.buck.util.unarchive.ExistingFileMode;
@@ -101,6 +102,14 @@ public class StubJarTest {
         .toArray(new Object[][] {});
   }
 
+  public boolean isKotlin21() {
+    return EnvVariablesProvider.getSystemEnv().get("KOTLIN_VERSION").equals("2.1.0");
+  }
+
+  public boolean isKotlin20() {
+    return EnvVariablesProvider.getSystemEnv().get("KOTLIN_VERSION").equals("2.0.20");
+  }
+
   private static final ImmutableSortedSet<Path> EMPTY_CLASSPATH = ImmutableSortedSet.of();
 
   @Rule public TemporaryFolder temp = new TemporaryFolder();
@@ -144,6 +153,18 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\"})";
     tester
         .setSourceFile("A.kt", "package com.example.buck open class A {}")
         .addExpectedStub(
@@ -154,11 +175,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -253,6 +270,26 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0016\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008J\\u0006\\u0010\\u0006\\u001a\\u00020\\u0007\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"someOtherMethod\", \"\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0016\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008J\\u0006\\u0010\\u0006\\u001a\\u00020\\u0007\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"someOtherMethod\", \"\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -269,15 +306,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0016\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008J\\u0006\\u0010\\u0006\\u001a\\u00020\\u0007\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
-                + " \"someOtherMethod\", \"\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -326,6 +355,24 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008J\\u0008\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0001\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"getPublishedString\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008J\\u0008\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0001\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"getPublishedString\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -343,14 +390,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008J\\u0008\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0001\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
-                + " \"getPublishedString\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -401,6 +441,24 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u000e\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0087\\u0008\\u00a2\\u0006\\u0002\\u0008\\u0006\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"someOtherName\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u000e\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0087\\u0008\\u00a2\\u0006\\u0002\\u0008\\u0006\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"someOtherName\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -417,14 +475,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u000e\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0087\\u0008\\u00a2\\u0006\\u0002\\u0008\\u0006\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
-                + " \"someOtherName\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -470,6 +521,24 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0013\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0086\\u0008\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"str\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0013\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0086\\u0008\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"str\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -485,14 +554,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0012\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0000\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0013\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0086\\u0008\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
-                + " \"str\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -583,6 +645,8 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 = "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=3, xi=176)";
+    String metadata20 = "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)";
     tester
         .setSourceFile(
             "A.kt",
@@ -602,7 +666,7 @@ public class StubJarTest {
             "  // compiled from: A.kt",
             "  OUTERCLASS com/example/buck/AKt test (I)Lkotlin/jvm/functions/Function0;",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
+            isKotlin21() ? metadata21 : metadata20,
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/AKt$test$1 null null",
             "",
@@ -671,6 +735,20 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=3, xi=176, d1={\"\\u0000\\u000c\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0008\\u0010\\u0000\\u001a\\u00020\\u00012\\u0006\\u0010\\u0002\\u001a\\u00020\\u0003H\\n"
+            + "\"}, d2={\"<anonymous>\", \"\", \"it\", \"\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176, d1={\"\\u0000\\u000c\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0008\\u0010\\u0000\\u001a\\u00020\\u00012\\u0006\\u0010\\u0002\\u001a\\u00020\\u0003H\\n"
+            + "\"}, d2={\"<anonymous>\", \"\", \"it\", \"\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -697,12 +775,7 @@ public class StubJarTest {
             "  @Lkotlin/coroutines/jvm/internal/DebugMetadata;(f=\"A.kt\", l={}, i={}, s={}, n={},"
                 + " m=\"invokeSuspend\", c=\"com.example.buck.AKt$test$1\")",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176, d1={\"\\u0000\\u000c\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0002\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0008\\u0010\\u0000\\u001a\\u00020\\u00012\\u0006\\u0010\\u0002\\u001a\\u00020\\u0003H\\n"
-                + "\"}, d2={\"<anonymous>\", \"\", \"it\", \"\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/AKt$test$1 null null",
             "",
@@ -861,6 +934,8 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 = "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=3, xi=176)";
+    String metadata20 = "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)";
     tester
         .setSourceFile(
             "A.kt",
@@ -883,7 +958,7 @@ public class StubJarTest {
             "  // compiled from: A.kt",
             "  OUTERCLASS com/example/buck/AKt test (I)Lkotlin/jvm/functions/Function1;",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
+            isKotlin21() ? metadata21 : metadata20,
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/AKt$test$1 null null",
             "  // access flags 0x19",
@@ -961,7 +1036,7 @@ public class StubJarTest {
             "  // compiled from: A.kt",
             "  OUTERCLASS com/example/buck/AKt$test$1 invoke (I)Lkotlin/jvm/functions/Function1;",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
+            isKotlin21() ? metadata21 : metadata20,
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/AKt$test$1 null null",
             "  // access flags 0x19",
@@ -1043,6 +1118,26 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0016\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0004\\u001a\\u00020\\u0005J\\u0006\\u0010\\u0006\\u001a\\u00020\\u0007\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"someOtherMethod\", \"\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0016\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0004\\u001a\\u00020\\u0005J\\u0006\\u0010\\u0006\\u001a\\u00020\\u0007\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
+            + " \"someOtherMethod\", \"\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -1059,15 +1154,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0016\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0004\\u001a\\u00020\\u0005J\\u0006\\u0010\\u0006\\u001a\\u00020\\u0007\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"getString\", \"\","
-                + " \"someOtherMethod\", \"\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -1095,6 +1182,28 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0014\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000b\\n"
+            + "\\u0002\\u0008\\u0007\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R&\\u0010\\u0006\\u001a\\u00020\\u00052\\u0006\\u0010\\u0004\\u001a\\u00020\\u00058\\u00c6\\u0002@\\u00c6\\u0002X\\u0086\\u000e\\u00a2\\u0006\\u000c\\u001a\\u0004\\u0008\\u0007\\u0010\\u0008\\\"\\u0004\\u0008\\u0009\\u0010\\n"
+            + "R&\\u0010\\u000b\\u001a\\u00020\\u00052\\u0006\\u0010\\u0004\\u001a\\u00020\\u00058\\u00c6\\u0002@\\u00c6\\u0002X\\u0086\\u000e\\u00a2\\u0006\\u000c\\u001a\\u0004\\u0008\\u000b\\u0010\\u0008\\\"\\u0004\\u0008\\u000c\\u0010\\n"
+            + "\"}, d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"value\", \"\","
+            + " \"someProperty\", \"getSomeProperty\", \"()Z\", \"setSomeProperty\", \"(Z)V\","
+            + " \"isAProperty\", \"setAProperty\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0014\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000b\\n"
+            + "\\u0002\\u0008\\u0007\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R&\\u0010\\u0006\\u001a\\u00020\\u00052\\u0006\\u0010\\u0004\\u001a\\u00020\\u00058\\u00c6\\u0002@\\u00c6\\u0002X\\u0086\\u000e\\u00a2\\u0006\\u000c\\u001a\\u0004\\u0008\\u0007\\u0010\\u0008\\\"\\u0004\\u0008\\u0009\\u0010\\n"
+            + "R&\\u0010\\u000b\\u001a\\u00020\\u00052\\u0006\\u0010\\u0004\\u001a\\u00020\\u00058\\u00c6\\u0002@\\u00c6\\u0002X\\u0086\\u000e\\u00a2\\u0006\\u000c\\u001a\\u0004\\u0008\\u000b\\u0010\\u0008\\\"\\u0004\\u0008\\u000c\\u0010\\n"
+            + "\"}, d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"value\", \"\","
+            + " \"someProperty\", \"getSomeProperty\", \"()Z\", \"setSomeProperty\", \"(Z)V\","
+            + " \"isAProperty\", \"setAProperty\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -1115,16 +1224,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0014\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u000b\\n"
-                + "\\u0002\\u0008\\u0007\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R&\\u0010\\u0006\\u001a\\u00020\\u00052\\u0006\\u0010\\u0004\\u001a\\u00020\\u00058\\u00c6\\u0002@\\u00c6\\u0002X\\u0086\\u000e\\u00a2\\u0006\\u000c\\u001a\\u0004\\u0008\\u0007\\u0010\\u0008\\\"\\u0004\\u0008\\u0009\\u0010\\n"
-                + "R&\\u0010\\u000b\\u001a\\u00020\\u00052\\u0006\\u0010\\u0004\\u001a\\u00020\\u00058\\u00c6\\u0002@\\u00c6\\u0002X\\u0086\\u000e\\u00a2\\u0006\\u000c\\u001a\\u0004\\u0008\\u000b\\u0010\\u0008\\\"\\u0004\\u0008\\u000c\\u0010\\n"
-                + "\"}, d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"value\", \"\","
-                + " \"someProperty\", \"getSomeProperty\", \"()Z\", \"setSomeProperty\", \"(Z)V\","
-                + " \"isAProperty\", \"setAProperty\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -1218,6 +1318,22 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=2, xi=48, d1={\"\\u0000\\n"
+            + "\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0002\\u0018\\u0002\\u001a\\r"
+            + "\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u0002H\\u0086\\u0008\"},"
+            + " d2={\"getString\", \"\", \"Lcom/example/buck/A;\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=2, xi=48, d1={\"\\u0000\\n"
+            + "\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0002\\u0018\\u0002\\u001a\\r"
+            + "\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u0002H\\u0086\\u0008\"},"
+            + " d2={\"getString\", \"\", \"Lcom/example/buck/A;\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -1243,13 +1359,7 @@ public class StubJarTest {
             "",
             "  // compiled from: B.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=2, xi=48, d1={\"\\u0000\\n"
-                + "\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0002\\u0018\\u0002\\u001a\\r"
-                + "\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u0002H\\u0086\\u0008\"},"
-                + " d2={\"getString\", \"\", \"Lcom/example/buck/A;\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x19",
             "  public final static getString(Lcom/example/buck/A;)Ljava/lang/String;",
@@ -1295,7 +1405,9 @@ public class StubJarTest {
             "  // compiled from: B.kt",
             "  OUTERCLASS com/example/buck/BKt getString (Lcom/example/buck/A;)Ljava/lang/String;",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
+            isKotlin21()
+                ? "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=3, xi=176)"
+                : "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/BKt$getString$1 null null",
             "",
@@ -1381,6 +1493,32 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u001e\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0002\\u0018\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J'\\u0010\\u0004\\u001a\\u00020\\u00052\\u0019\\u0008\\u0002\\u0010\\u0006\\u001a\\u0013\\u0012\\u0004\\u0012\\u00020\\u0008\\u0012\\u0004\\u0012\\u00020\\u00050\\u0007\\u00a2\\u0006\\u0002\\u0008\\u0009H\\u0086\\u0008\\u00f8\\u0001\\u0000\\u0082\\u0002\\u0007\\n"
+            + "\\u0005\\u0008\\u009920\\u0001\"}, d2={\"Lcom/example/buck/A;\", \"\", \"<init>\","
+            + " \"()V\", \"someMethod\", \"\", \"function\", \"Lkotlin/Function1;\", \"\","
+            + " \"Lkotlin/ExtensionFunctionType;\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u001e\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0002\\u0018\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J'\\u0010\\u0004\\u001a\\u00020\\u00052\\u0019\\u0008\\u0002\\u0010\\u0006\\u001a\\u0013\\u0012\\u0004\\u0012\\u00020\\u0008\\u0012\\u0004\\u0012\\u00020\\u00050\\u0007\\u00a2\\u0006\\u0002\\u0008\\u0009H\\u0086\\u0008\\u00f8\\u0001\\u0000\\u0082\\u0002\\u0007\\n"
+            + "\\u0005\\u0008\\u009920\\u0001\"}, d2={\"Lcom/example/buck/A;\", \"\", \"<init>\","
+            + " \"()V\", \"someMethod\", \"\", \"function\", \"Lkotlin/Function1;\", \"\","
+            + " \"Lkotlin/ExtensionFunctionType;\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -1398,18 +1536,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u001e\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u0002\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0002\\u0018\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J'\\u0010\\u0004\\u001a\\u00020\\u00052\\u0019\\u0008\\u0002\\u0010\\u0006\\u001a\\u0013\\u0012\\u0004\\u0012\\u00020\\u0008\\u0012\\u0004\\u0012\\u00020\\u00050\\u0007\\u00a2\\u0006\\u0002\\u0008\\u0009H\\u0086\\u0008\\u00f8\\u0001\\u0000\\u0082\\u0002\\u0007\\n"
-                + "\\u0005\\u0008\\u009920\\u0001\"}, d2={\"Lcom/example/buck/A;\", \"\","
-                + " \"<init>\", \"()V\", \"someMethod\", \"\", \"function\","
-                + " \"Lkotlin/Function1;\", \"\", \"Lkotlin/ExtensionFunctionType;\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -1507,7 +1634,9 @@ public class StubJarTest {
             "  OUTERCLASS com/example/buck/A someMethod$default"
                 + " (Lcom/example/buck/A;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)V",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
+            isKotlin21()
+                ? "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=3, xi=176)"
+                : "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/A$someMethod$1 null null",
             "",
@@ -1592,6 +1721,40 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=2, xi=48, d1={\"\\u0000\\n"
+            + "\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0002\\u0018\\u0002\\u001a\\r"
+            + "\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u0002H\\u0086\\u0008\"},"
+            + " d2={\"useSomeInterface\", \"\", \"Lcom/example/buck/A;\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=2, xi=48, d1={\"\\u0000\\n"
+            + "\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0002\\u0018\\u0002\\u001a\\r"
+            + "\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u0002H\\u0086\\u0008\"},"
+            + " d2={\"useSomeInterface\", \"\", \"Lcom/example/buck/A;\"})";
+    String innerMetadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=176, d1={\"\\u0000\\u000f\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002*\\u0001\\u0000\\u0008\\n"
+            + "\\u0018\\u00002\\u00020\\u0001J\\u0008\\u0010\\u0002\\u001a\\u00020\\u0003H\\u0016\"},"
+            + " d2={\"com/example/buck/BKt$useSomeInterface$1\","
+            + " \"Lcom/example/buck/A$SomeInterface;\", \"someMethod\", \"\"})";
+    String innerMetadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=176, d1={\"\\u0000\\u000f\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002*\\u0001\\u0000\\u0008\\n"
+            + "\\u0018\\u00002\\u00020\\u0001J\\u0008\\u0010\\u0002\\u001a\\u00020\\u0003H\\u0016\"},"
+            + " d2={\"com/example/buck/BKt$useSomeInterface$1\","
+            + " \"Lcom/example/buck/A$SomeInterface;\", \"someMethod\", \"\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -1621,13 +1784,7 @@ public class StubJarTest {
             "",
             "  // compiled from: B.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=2, xi=48, d1={\"\\u0000\\n"
-                + "\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0002\\n"
-                + "\\u0002\\u0018\\u0002\\u001a\\r"
-                + "\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u0002H\\u0086\\u0008\"},"
-                + " d2={\"useSomeInterface\", \"\", \"Lcom/example/buck/A;\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x19",
             "  public final static useSomeInterface(Lcom/example/buck/A;)V",
@@ -1668,14 +1825,7 @@ public class StubJarTest {
             "  // compiled from: B.kt",
             "  OUTERCLASS com/example/buck/BKt useSomeInterface (Lcom/example/buck/A;)V",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=176, d1={\"\\u0000\\u000f\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0002*\\u0001\\u0000\\u0008\\n"
-                + "\\u0018\\u00002\\u00020\\u0001J\\u0008\\u0010\\u0002\\u001a\\u00020\\u0003H\\u0016\"},"
-                + " d2={\"com/example/buck/BKt$useSomeInterface$1\","
-                + " \"Lcom/example/buck/A$SomeInterface;\", \"someMethod\", \"\"})",
+            isKotlin21() ? innerMetadata21 : innerMetadata20,
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/BKt$useSomeInterface$1 null null",
             "",
@@ -1726,6 +1876,52 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001:\\u0001\\u0004B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/B;\", \"\", \"<init>\", \"()V\", \"C\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001:\\u0001\\u0004B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/B;\", \"\", \"<init>\", \"()V\", \"C\"})";
+    String innerMetadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0010\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008\"},"
+            + " d2={\"Lcom/example/buck/B$C;\", \"\", \"<init>\", \"()V\", \"useSomeInterface\","
+            + " \"\"})";
+    String innerMetadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0010\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008\"},"
+            + " d2={\"Lcom/example/buck/B$C;\", \"\", \"<init>\", \"()V\", \"useSomeInterface\","
+            + " \"\"})";
+    String innerInnerMetadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=176, d1={\"\\u0000\\u000f\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002*\\u0001\\u0000\\u0008\\n"
+            + "\\u0018\\u00002\\u00020\\u0001J\\u0008\\u0010\\u0002\\u001a\\u00020\\u0003H\\u0016\"},"
+            + " d2={\"com/example/buck/B$C$useSomeInterface$1\","
+            + " \"Lcom/example/buck/A$SomeInterface;\", \"someMethod\", \"Lcom/example/buck/A;\"})";
+    String innerInnerMetadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=176, d1={\"\\u0000\\u000f\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002*\\u0001\\u0000\\u0008\\n"
+            + "\\u0018\\u00002\\u00020\\u0001J\\u0008\\u0010\\u0002\\u001a\\u00020\\u0003H\\u0016\"},"
+            + " d2={\"com/example/buck/B$C$useSomeInterface$1\","
+            + " \"Lcom/example/buck/A$SomeInterface;\", \"someMethod\", \"Lcom/example/buck/A;\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -1758,11 +1954,7 @@ public class StubJarTest {
             "",
             "  // compiled from: B.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001:\\u0001\\u0004B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
-                + " d2={\"Lcom/example/buck/B;\", \"\", \"<init>\", \"()V\", \"C\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "  // access flags 0x9",
             "  public static INNERCLASS com/example/buck/B$C com/example/buck/B C",
             "",
@@ -1777,13 +1969,7 @@ public class StubJarTest {
             "",
             "  // compiled from: B.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0010\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0009\\u0010\\u0004\\u001a\\u00020\\u0005H\\u0086\\u0008\"},"
-                + " d2={\"Lcom/example/buck/B$C;\", \"\", \"<init>\", \"()V\","
-                + " \"useSomeInterface\", \"\"})",
+            isKotlin21() ? innerMetadata21 : innerMetadata20,
             "  // access flags 0x9",
             "  public static INNERCLASS com/example/buck/B$C com/example/buck/B C",
             "",
@@ -1829,15 +2015,7 @@ public class StubJarTest {
             "  // compiled from: B.kt",
             "  OUTERCLASS com/example/buck/B$C useSomeInterface ()V",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=176, d1={\"\\u0000\\u000f\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0018\\u0002*\\u0001\\u0000\\u0008\\n"
-                + "\\u0018\\u00002\\u00020\\u0001J\\u0008\\u0010\\u0002\\u001a\\u00020\\u0003H\\u0016\"},"
-                + " d2={\"com/example/buck/B$C$useSomeInterface$1\","
-                + " \"Lcom/example/buck/A$SomeInterface;\", \"someMethod\","
-                + " \"Lcom/example/buck/A;\"})",
+            isKotlin21() ? innerInnerMetadata21 : innerInnerMetadata20,
             "  // access flags 0x9",
             "  public static INNERCLASS com/example/buck/B$C com/example/buck/B C",
             "  // access flags 0x19",
@@ -1899,6 +2077,34 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=2, xi=48, d1={\"\\u0000\\u0018\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0009\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\u001a(\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u00022\\u0006\\u0010\\u0003\\u001a\\u00020\\u00042\\u000e\\u0008\\u0008\\u0010\\u0005\\u001a\\u0008\\u0012\\u0004\\u0012\\u00020\\u00010\\u0006H\\u0086\\u0008\\u00f8\\u0001\\u0000\\u001a"
+            + " \\u0010\\u0007\\u001a\\u00020\\u0001*\\u00020\\u00022\\u0006\\u0010\\u0003\\u001a\\u00020\\u00042\\u000c\\u0010\\u0005\\u001a\\u0008\\u0012\\u0004\\u0012\\u00020\\u00010\\u0006\\u0082\\u0002\\u0007\\n"
+            + "\\u0005\\u0008\\u009920\\u0001\"}, d2={\"postDelayed\", \"\","
+            + " \"Lcom/example/buck/A;\", \"delay\", \"\", \"block\", \"Lkotlin/Function0;\","
+            + " \"postDelayedNotInlined\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=2, xi=48, d1={\"\\u0000\\u0018\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0002\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0010\\u0009\\n"
+            + "\\u0000\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0000\\u001a(\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u00022\\u0006\\u0010\\u0003\\u001a\\u00020\\u00042\\u000e\\u0008\\u0008\\u0010\\u0005\\u001a\\u0008\\u0012\\u0004\\u0012\\u00020\\u00010\\u0006H\\u0086\\u0008\\u00f8\\u0001\\u0000\\u001a"
+            + " \\u0010\\u0007\\u001a\\u00020\\u0001*\\u00020\\u00022\\u0006\\u0010\\u0003\\u001a\\u00020\\u00042\\u000c\\u0010\\u0005\\u001a\\u0008\\u0012\\u0004\\u0012\\u00020\\u00010\\u0006\\u0082\\u0002\\u0007\\n"
+            + "\\u0005\\u0008\\u009920\\u0001\"}, d2={\"postDelayed\", \"\","
+            + " \"Lcom/example/buck/A;\", \"delay\", \"\", \"block\", \"Lkotlin/Function0;\","
+            + " \"postDelayedNotInlined\"})";
     tester
         .setSourceFile(
             "A.java",
@@ -1927,19 +2133,7 @@ public class StubJarTest {
             "",
             "  // compiled from: B.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=2, xi=48, d1={\"\\u0000\\u0018\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0002\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0010\\u0009\\n"
-                + "\\u0000\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0000\\u001a(\\u0010\\u0000\\u001a\\u00020\\u0001*\\u00020\\u00022\\u0006\\u0010\\u0003\\u001a\\u00020\\u00042\\u000e\\u0008\\u0008\\u0010\\u0005\\u001a\\u0008\\u0012\\u0004\\u0012\\u00020\\u00010\\u0006H\\u0086\\u0008\\u00f8\\u0001\\u0000\\u001a"
-                + " \\u0010\\u0007\\u001a\\u00020\\u0001*\\u00020\\u00022\\u0006\\u0010\\u0003\\u001a\\u00020\\u00042\\u000c\\u0010\\u0005\\u001a\\u0008\\u0012\\u0004\\u0012\\u00020\\u00010\\u0006\\u0082\\u0002\\u0007\\n"
-                + "\\u0005\\u0008\\u009920\\u0001\"}, d2={\"postDelayed\", \"\","
-                + " \"Lcom/example/buck/A;\", \"delay\", \"\", \"block\", \"Lkotlin/Function0;\","
-                + " \"postDelayedNotInlined\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x19",
             "  // signature"
@@ -2007,7 +2201,9 @@ public class StubJarTest {
             "  // compiled from: B.kt",
             "  OUTERCLASS com/example/buck/BKt null",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
+            isKotlin21()
+                ? "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=3, xi=176)"
+                : "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=3, xi=176)",
             "  // access flags 0x19",
             "  public final static INNERCLASS com/example/buck/BKt$sam$i$java_lang_Runnable$0 null"
                 + " null",
@@ -4057,6 +4253,40 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String innerMetadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0008\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0008\\u001a\\u00020\\u0009R\\u0014\\u0010\\u0004\\u001a\\u00020\\u0005X\\u0086D\\u00a2\\u0006\\u0008\\n"
+            + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
+            + " d2={\"Lcom/example/buck/A$B;\", \"\", \"<init>\", \"()V\", \"count\", \"\","
+            + " \"getCount\", \"()I\", \"foo\", \"\"})";
+    String innerMetadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0008\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0008\\u001a\\u00020\\u0009R\\u0014\\u0010\\u0004\\u001a\\u00020\\u0005X\\u0086D\\u00a2\\u0006\\u0008\\n"
+            + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
+            + " d2={\"Lcom/example/buck/A$B;\", \"\", \"<init>\", \"()V\", \"count\", \"\","
+            + " \"getCount\", \"()I\", \"foo\", \"\"})";
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001:\\u0001\\u0004B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"B\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001:\\u0001\\u0004B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"B\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -4077,16 +4307,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u0008\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u0002\\u0008\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0008\\u001a\\u00020\\u0009R\\u0014\\u0010\\u0004\\u001a\\u00020\\u0005X\\u0086D\\u00a2\\u0006\\u0008\\n"
-                + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
-                + " d2={\"Lcom/example/buck/A$B;\", \"\", \"<init>\", \"()V\", \"count\", \"\","
-                + " \"getCount\", \"()I\", \"foo\", \"\"})",
+            isKotlin21() ? innerMetadata21 : innerMetadata20,
             "  // access flags 0x1A",
             "  private final static INNERCLASS com/example/buck/A$B com/example/buck/A B",
             "",
@@ -4107,11 +4328,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001:\\u0001\\u0004B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"B\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "  // access flags 0x1A",
             "  private final static INNERCLASS com/example/buck/A$B com/example/buck/A B",
             "",
@@ -5444,6 +5661,26 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0014\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0008\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R\\u0011\\u0010\\u0004\\u001a\\u00020\\u0005\\u00a2\\u0006\\u0008\\n"
+            + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"}, d2={\"Lcom/example/buck/A;\","
+            + " \"\", \"<init>\", \"()V\", \"r\", \"Ljava/lang/Runnable;\", \"getR\","
+            + " \"()Ljava/lang/Runnable;\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0014\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0008\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R\\u0011\\u0010\\u0004\\u001a\\u00020\\u0005\\u00a2\\u0006\\u0008\\n"
+            + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"}, d2={\"Lcom/example/buck/A;\","
+            + " \"\", \"<init>\", \"()V\", \"r\", \"Ljava/lang/Runnable;\", \"getR\","
+            + " \"()Ljava/lang/Runnable;\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -5461,15 +5698,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0014\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0008\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R\\u0011\\u0010\\u0004\\u001a\\u00020\\u0005\\u00a2\\u0006\\u0008\\n"
-                + "\\u0000\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"r\","
-                + " \"Ljava/lang/Runnable;\", \"getR\", \"()Ljava/lang/Runnable;\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -5550,6 +5779,20 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0010\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0004\\u001a\\u00020\\u0005\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"method\", \"\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0010\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0004\\u001a\\u00020\\u0005\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"method\", \"\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -5567,12 +5810,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0010\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u0002\\u0008\\u0016\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0006\\u0010\\u0004\\u001a\\u00020\\u0005\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"method\", \"\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
@@ -7300,6 +7538,22 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0006\\u0008\\u00c6\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0009\\u0008\\u0002\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R\\u001c\\u0010\\u0004\\u001a\\u00020\\u00018\\u0006X\\u0087\\u0004\\u00a2\\u0006\\u000e\\n"
+            + "\\u0000\\u0012\\u0004\\u0008\\u0005\\u0010\\u0003\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
+            + " d2={\"Lcom/example/buck/Obj;\", \"\", \"<init>\", \"()V\", \"prop\","
+            + " \"getProp$annotations\", \"getProp\", \"()Ljava/lang/Object;\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0006\\u0008\\u00c6\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0009\\u0008\\u0002\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R\\u001c\\u0010\\u0004\\u001a\\u00020\\u00018\\u0006X\\u0087\\u0004\\u00a2\\u0006\\u000e\\n"
+            + "\\u0000\\u0012\\u0004\\u0008\\u0005\\u0010\\u0003\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
+            + " d2={\"Lcom/example/buck/Obj;\", \"\", \"<init>\", \"()V\", \"prop\","
+            + " \"getProp$annotations\", \"getProp\", \"()Ljava/lang/Object;\"})";
     tester
         .setSourceFile(
             "Obj.kt",
@@ -7315,13 +7569,7 @@ public class StubJarTest {
             "",
             "  // compiled from: Obj.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u000c\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0006\\u0008\\u00c6\\u0002\\u0018\\u00002\\u00020\\u0001B\\u0009\\u0008\\u0002\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003R\\u001c\\u0010\\u0004\\u001a\\u00020\\u00018\\u0006X\\u0087\\u0004\\u00a2\\u0006\\u000e\\n"
-                + "\\u0000\\u0012\\u0004\\u0008\\u0005\\u0010\\u0003\\u001a\\u0004\\u0008\\u0006\\u0010\\u0007\"},"
-                + " d2={\"Lcom/example/buck/Obj;\", \"\", \"<init>\", \"()V\", \"prop\","
-                + " \"getProp$annotations\", \"getProp\", \"()Ljava/lang/Object;\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x19",
             "  public final static Lcom/example/buck/Obj; INSTANCE",
@@ -7356,6 +7604,26 @@ public class StubJarTest {
     }
 
     tester = new Tester(Language.KOTLIN);
+    String metadata21 =
+        "  @Lkotlin/Metadata;(mv={2, 1, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0002\\u0008\\u0002\\n"
+            + "\\u0002\\u0010\\u000b\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0012\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0007J\\u001a\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0007\\u001a\\u00020\\u0008\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"testFunc\", \"\","
+            + " \"str\", \"b\", \"\"})";
+    String metadata20 =
+        "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
+            + "\\u0002\\u0018\\u0002\\n"
+            + "\\u0002\\u0010\\u0000\\n"
+            + "\\u0002\\u0008\\u0003\\n"
+            + "\\u0002\\u0010\\u000e\\n"
+            + "\\u0002\\u0008\\u0002\\n"
+            + "\\u0002\\u0010\\u000b\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0012\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0007J\\u001a\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0007\\u001a\\u00020\\u0008\"},"
+            + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"testFunc\", \"\","
+            + " \"str\", \"b\", \"\"})";
     tester
         .setSourceFile(
             "A.kt",
@@ -7374,15 +7642,7 @@ public class StubJarTest {
             "",
             "  // compiled from: A.kt",
             "",
-            "  @Lkotlin/Metadata;(mv={2, 0, 0}, k=1, xi=48, d1={\"\\u0000\\u0018\\n"
-                + "\\u0002\\u0018\\u0002\\n"
-                + "\\u0002\\u0010\\u0000\\n"
-                + "\\u0002\\u0008\\u0003\\n"
-                + "\\u0002\\u0010\\u000e\\n"
-                + "\\u0002\\u0008\\u0002\\n"
-                + "\\u0002\\u0010\\u000b\\u0018\\u00002\\u00020\\u0001B\\u0007\\u00a2\\u0006\\u0004\\u0008\\u0002\\u0010\\u0003J\\u0012\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u0005H\\u0007J\\u001a\\u0010\\u0004\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0006\\u001a\\u00020\\u00052\\u0008\\u0008\\u0002\\u0010\\u0007\\u001a\\u00020\\u0008\"},"
-                + " d2={\"Lcom/example/buck/A;\", \"\", \"<init>\", \"()V\", \"testFunc\", \"\","
-                + " \"str\", \"b\", \"\"})",
+            isKotlin21() ? metadata21 : metadata20,
             "",
             "  // access flags 0x1",
             "  public <init>()V",
