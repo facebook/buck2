@@ -286,6 +286,7 @@ object MixedCompilationUtil {
             kFun.static = method.hasModifier(JvmModifier.STATIC)
             kFun.private = method.hasModifier(JvmModifier.PRIVATE)
             kFun.abstract = method.hasModifier(JvmModifier.ABSTRACT)
+            kFun.isFinal = method.hasModifier(JvmModifier.FINAL)
             kFun.isConstructor = method.isConstructor
             kFun.typeVariableList = typeParameters
             kFun.annotations = method.getKAnnotations()

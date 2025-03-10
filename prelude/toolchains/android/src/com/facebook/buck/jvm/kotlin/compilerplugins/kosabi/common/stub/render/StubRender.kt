@@ -163,6 +163,8 @@ private fun KFunStub.renderFunction(isOpen: Boolean = true): FunSpec {
             addModifiers(KModifier.OPERATOR)
           } else if (abstract) {
             addModifiers(KModifier.ABSTRACT)
+          } else if (isFinal) {
+            addModifiers(KModifier.FINAL)
           } else if (isOpen) {
             addModifiers(KModifier.OPEN)
           }

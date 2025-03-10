@@ -24,6 +24,7 @@ open class KFunStub(val name: String, val namedArgs: List<NamedArg>) {
   var abstract: Boolean = false
   var isConstructor: Boolean = false
   var isOperator: Boolean = false
+  var isFinal: Boolean = false
   var annotations: List<KAnnotation> = emptyList()
   // Boolean: isSuper, super else this
   // List<NamedArg>: constructor parameters name and value
