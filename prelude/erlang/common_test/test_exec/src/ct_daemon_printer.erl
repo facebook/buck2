@@ -59,6 +59,9 @@ print_result(Name, {error, {_TestId, {timetrap, TimeoutValue}}}) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
     io:format("Test timed out after ~p ms~n", [TimeoutValue]),
     fail;
+print_result(Name, {error, {_TestId, {Reason, Stacktrace}}}) ->
+    io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
+    print_error(Name, error, Reason, Stacktrace);
 print_result(Name, Unstructured) ->
     io:format("~ts ~ts~n", [?CROSS_MARK, Name]),
     io:format("unable to format failure reason, please report.~n"),
