@@ -9,6 +9,7 @@
 # * Update `../common/ocaml/interop/rust-toolchain` (one instance)
 #   * NOTE: You may have to change this ocaml file in a follow up commit as ocamlrep
 #     has a dependency on buck2 git trunk.
+# * Update `../monarch/rust-toolchain` (one instance)
 
 # @rustc_version: rustc 1.84.0-nightly (b19329a37 2024-11-21)
 channel = "nightly-2024-11-22"
