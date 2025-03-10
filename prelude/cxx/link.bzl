@@ -22,12 +22,12 @@ load(
     "LinkerType",
 )
 load(
-    "@prelude//cxx/dist_lto:darwin_dist_lto.bzl",
-    "cxx_darwin_dist_link",
-)
-load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
     "cxx_gnu_dist_link",
+)
+load(
+    "@prelude//cxx/dist_lto/darwin:dist_lto.bzl",
+    "cxx_darwin_dist_link",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_action_execution_attributes")
 load(

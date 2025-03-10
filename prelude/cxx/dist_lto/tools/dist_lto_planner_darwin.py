@@ -21,6 +21,7 @@ Starlark code holds a representation of each input object file or archive in mem
 # pyre-unsafe
 
 import argparse
+import dataclasses
 import json
 import os
 import os.path
@@ -134,6 +135,49 @@ class Archive:
     output_index_shards_directory_path: str
     output_premerged_bitcode_directory_path: Optional[str]
     output_plan_file_path: str
+
+
+@dataclass
+class ObjectFileOptimizationPlan:
+    """A structure holding the information required to optimize and codegen a single bitcode object file passed
+    directly to the link"""
+
+    # A list of indices into the sorted_index_link_data starlark array
+    # that identify other bitcode files this bitcode file imports from,
+    # and thus should be optimized along side
+    imports: list[int]
+    # The same as the imports list above, but for when a bitcode file imports
+    # from another bitcode file passed to the link within a static archive.
+    # dynamic_output restrictions prevent Buck from acting upon individual
+    # members of the archive, so the entire archive contents must be acted upon.
+    archive_imports: list[int]
+    is_bitcode: bool
+    merge_state: Optional[BitcodeMergeState]
+    loaded_by_linker: bool
+
+
+@dataclass
+class ArchiveMemberOptimizationPlan:
+    """A structure holding the information required to optimize and codegen a single bitcode file passed to the link as part of a static archive"""
+
+    is_bitcode: bool
+    path: str  # The buck-out relative path to the extracted archive member
+    imports: list[int]  # Described above in the ObjectFileOptimizationPlan definition
+    archive_imports: list[
+        int
+    ]  # Described above in the ObjectFileOptimizationPlan definition
+    index_shard_file_path: Optional[str]
+    loaded_by_linker: bool
+    merge_state: Optional[BitcodeMergeState]
+    merged_bitcode_path: Optional[str]
+
+
+@dataclass
+class ArchiveOptimizationPlan:
+    """A structure holding the information required to optimize and codegen bitcode object files in static archive"""
+
+    object_plans: list[ArchiveMemberOptimizationPlan]
+    base_dir: str
 
 
 BITCODE_SUFFIX = ".thinlto.bc"
@@ -344,6 +388,7 @@ def main(argv):
                 "is_bc": True,
             }
 
+            merge_state = None
             if premerger_enabled:
                 merged_bitcode_path = original_bitcode_to_merged_bitcode_path_mapping[
                     path
@@ -355,28 +400,33 @@ def main(argv):
                 if merge_state == BitcodeMergeState.ABSORBED:
                     absorbed_source_files.add(path)
                 plan["merge_state"] = merge_state.value
+
+            plan = ObjectFileOptimizationPlan(
+                imports=imports_list,
+                archive_imports=archives_list,
+                merge_state=merge_state,
+                is_bitcode=True,
+                loaded_by_linker=_input_bitcode_file_path_is_loaded_by_linker(path),
+            )
         else:
             non_lto_objects[data.starlark_array_index] = 1
             with open(final_sharded_index_output_path, "w"):
                 pass
-            plan = {
-                "is_bc": False,
-            }
+
+            plan = ObjectFileOptimizationPlan(
+                imports=[],
+                archive_imports=[],
+                merge_state=None,
+                is_bitcode=False,
+                loaded_by_linker=True,
+            )
 
         with open(data.output_plan_file_path, "w") as planout:
-            json.dump(plan, planout, sort_keys=True)
+            json.dump(dataclasses.asdict(plan), planout, sort_keys=True)
 
     # Generate plans for each achive
     for archive in archive_records_map.values():
-        # For archives, we must produce a plan that provides Starlark enough
-        # information about how to launch a dynamic opt for each object file
-        # in the archive.
-        archive_plan = {}
-
-        # This is convenient to store, since it's difficult for Starlark to
-        # calculate it.
-        archive_plan["base_dir"] = os.path.dirname(archive.output_plan_file_path)
-        object_plans = []
+        object_plans: list[ArchiveMemberOptimizationPlan] = []
         output_path = archive.output_index_shards_directory_path
         os.makedirs(output_path, exist_ok=True)
         if premerger_enabled:
@@ -402,19 +452,10 @@ def main(argv):
                     else:
                         imports_list.append(object_file_record.starlark_array_index)
 
-                object_plan = {
-                    "is_bc": True,
-                    "path": obj,
-                    "imports": imports_list,
-                    "archive_imports": archives_list,
-                    "bitcode_file": os.path.join(
-                        output_path, os.path.basename(bc_file)
-                    ),
-                }
+                loaded_by_linker = _input_bitcode_file_path_is_loaded_by_linker(obj)
 
-                if not _input_bitcode_file_path_is_loaded_by_linker(obj):
-                    object_plan["not_loaded_by_linker"] = True
-
+                merge_state = None
+                merged_bitcode_path = None
                 if premerger_enabled:
                     merged_bc_file = original_bitcode_to_merged_bitcode_path_mapping[
                         obj
@@ -422,22 +463,46 @@ def main(argv):
                     merge_state = read_merged_bitcode_file(merged_bc_file)
                     if merge_state == BitcodeMergeState.ABSORBED:
                         absorbed_source_files.add(obj)
-                    object_plan["merge_state"] = merge_state.value
-                    object_plan["merged_bitcode_path"] = merged_bc_file
+                    merged_bitcode_path = merged_bc_file
 
-                object_plans.append(object_plan)
+                object_plans.append(
+                    ArchiveMemberOptimizationPlan(
+                        is_bitcode=True,
+                        path=obj,
+                        imports=imports_list,
+                        archive_imports=archives_list,
+                        index_shard_file_path=os.path.join(
+                            output_path, os.path.basename(bc_file)
+                        ),
+                        loaded_by_linker=loaded_by_linker,
+                        merge_state=merge_state,
+                        merged_bitcode_path=merged_bitcode_path,
+                    )
+                )
             else:
                 object_plans.append(
-                    {
-                        "is_bc": False,
-                        "path": obj,
-                        "merge_state": BitcodeMergeState.STANDALONE.value,
-                    }
+                    ArchiveMemberOptimizationPlan(
+                        is_bitcode=False,
+                        path=obj,
+                        imports=[],
+                        archive_imports=[],
+                        index_shard_file_path=None,
+                        # The native object file might not actually be loaded by the linker,
+                        # but it doesn't matter. The point of this field is to avoid optimizing + codegening
+                        # a bitcode file that won't be loaded anyways, but this is already a native
+                        # object file, there is no work to avoid doing.
+                        loaded_by_linker=True,
+                        merge_state=None,  # Native object files don't participate in merging
+                        merged_bitcode_path=None,
+                    )
                 )
 
-        archive_plan["objects"] = object_plans
+        archive_plan = ArchiveOptimizationPlan(
+            object_plans=object_plans,
+            base_dir=os.path.dirname(archive.output_plan_file_path),
+        )
         with open(archive.output_plan_file_path, "w") as planout:
-            json.dump(archive_plan, planout, sort_keys=True)
+            json.dump(dataclasses.asdict(archive_plan), planout, sort_keys=True)
 
     # Dump the set of input object files that were already native object files instead of bitcode
     with open(args.link_plan, "w") as outfile:
