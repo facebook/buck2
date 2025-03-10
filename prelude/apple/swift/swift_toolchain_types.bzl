@@ -29,7 +29,6 @@ SwiftToolchainInfo = provider(
         "object_format": provider_field(SwiftObjectFormat),
         "platform_path": provider_field([Artifact, str, None]),
         "resource_dir": provider_field([Artifact, None]),
-        "runtime_run_paths": provider_field(list[str]),
         "sdk_module_path_prefixes": provider_field(dict[str, Artifact]),
         "sdk_path": provider_field([Artifact, str, None]),
         "supports_relative_resource_dir": provider_field(bool),

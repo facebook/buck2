@@ -80,7 +80,6 @@ def swift_toolchain_impl(ctx):
             object_format = SwiftObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format else SwiftObjectFormat("object"),
             platform_path = ctx.attrs.platform_path,
             resource_dir = ctx.attrs.resource_dir,
-            runtime_run_paths = ctx.attrs.runtime_run_paths,
             sdk_module_path_prefixes = ctx.attrs.sdk_module_path_prefixes,
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
             supports_relative_resource_dir = ctx.attrs.supports_relative_resource_dir,

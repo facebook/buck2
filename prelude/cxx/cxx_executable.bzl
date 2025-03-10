@@ -325,10 +325,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     frameworks_linkable = apple_create_frameworks_linkable(ctx)
     swiftmodule_linkable = impl_params.swiftmodule_linkable
 
-    # `apple_binary()` / `cxx_binary()` _itself_ cannot contain Swift, so it does not
-    # _directly_ contribute a Swift runtime linkable
-    swift_runtime_linkable = None
-
     # Link group libs.
     link_group_libs = {}
 
@@ -352,7 +348,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             link_strategy,
             swiftmodule_linkable,
             prefer_stripped = impl_params.prefer_stripped_objects,
-            swift_runtime_linkable = swift_runtime_linkable,
         )
     else:
         reduced_linkable_graph = reduce_linkable_graph(linkable_graph)
@@ -531,7 +526,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
         # for the resolved nodes in the graph.
         # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-        additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swiftmodule_linkable, swift_runtime_linkable)
+        additional_links = apple_get_link_info_by_deduping_link_infos(ctx, filtered_links, frameworks_linkable, swiftmodule_linkable)
         if additional_links:
             filtered_links.append(additional_links)
 

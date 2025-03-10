@@ -142,19 +142,11 @@ SwiftmoduleLinkable = record(
     swiftmodules = field(ArtifactTSet, ArtifactTSet()),
 )
 
-# Represents the Swift runtime as a linker input.
-SwiftRuntimeLinkable = record(
-    # Only store whether the runtime is required, so that linker flags
-    # are only materialized _once_ (no duplicates) on the link line.
-    runtime_required = field(bool, False),
-)
-
 LinkableTypes = [
     ArchiveLinkable,
     SharedLibLinkable,
     ObjectsLinkable,
     FrameworksLinkable,
-    SwiftRuntimeLinkable,
     SwiftmoduleLinkable,
 ]
 
@@ -289,7 +281,6 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
         else:
             args.add(linkable.objects)
     elif isinstance(linkable, FrameworksLinkable) or \
-         isinstance(linkable, SwiftRuntimeLinkable) or \
          isinstance(linkable, SwiftmoduleLinkable):
         # These flags are handled separately so they can be deduped.
         #
@@ -455,7 +446,6 @@ MergedLinkInfo = provider(fields = [
     # structure, based on the link-style.
     "frameworks",  # dict[LinkStrategy, FrameworksLinkable | None]
     "swiftmodules",  # dict[LinkStrategy, SwiftmoduleLinkable | None]
-    "swift_runtime",  # dict[LinkStrategy, SwiftRuntimeLinkable | None]
 ])
 
 # A map of linkages to all possible output styles it supports.
@@ -498,8 +488,7 @@ def create_merged_link_info(
         # Link info to always propagate from exported deps.
         exported_deps: list[MergedLinkInfo] = [],
         frameworks_linkable: [FrameworksLinkable, None] = None,
-        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> MergedLinkInfo:
+        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None) -> MergedLinkInfo:
     """
     Create a `MergedLinkInfo` provider.
     """
@@ -507,7 +496,6 @@ def create_merged_link_info(
     infos = {}
     external_debug_info = {}
     frameworks = {}
-    swift_runtime = {}
     swiftmodules = {}
 
     # We don't know how this target will be linked, so we generate the possible
@@ -519,7 +507,6 @@ def create_merged_link_info(
         children = []
         external_debug_info_children = []
         framework_linkables = []
-        swift_runtime_linkables = []
         swiftmodule_linkables = []
 
         # When we're being linked statically, we also need to export all private
@@ -535,9 +522,6 @@ def create_merged_link_info(
             swiftmodule_linkables.append(swiftmodule_linkable)
             swiftmodule_linkables += [dep_info.swiftmodules[link_strategy] for dep_info in exported_deps]
 
-            swift_runtime_linkables.append(swift_runtime_linkable)
-            swift_runtime_linkables += [dep_info.swift_runtime[link_strategy] for dep_info in exported_deps]
-
             for dep_info in deps:
                 # The inherited link infos no longer guarantees that a tset will be available for
                 # all link strategies. Protect against missing infos
@@ -550,7 +534,6 @@ def create_merged_link_info(
 
                 framework_linkables.append(dep_info.frameworks[link_strategy])
                 swiftmodule_linkables.append(dep_info.swiftmodules[link_strategy])
-                swift_runtime_linkables.append(dep_info.swift_runtime[link_strategy])
 
         # We always export link info for exported deps.
         for dep_info in exported_deps:
@@ -562,7 +545,6 @@ def create_merged_link_info(
                 external_debug_info_children.append(value)
 
         frameworks[link_strategy] = merge_framework_linkables(framework_linkables)
-        swift_runtime[link_strategy] = merge_swift_runtime_linkables(swift_runtime_linkables)
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, swiftmodule_linkables)
 
         if actual_output_style in link_infos:
@@ -588,7 +570,6 @@ def create_merged_link_info(
         _infos = infos,
         _external_debug_info = external_debug_info,
         frameworks = frameworks,
-        swift_runtime = swift_runtime,
         swiftmodules = swiftmodules,
     )
 
@@ -603,7 +584,6 @@ def create_merged_link_info_for_propagation(
     merged = {}
     merged_external_debug_info = {}
     frameworks = {}
-    swift_runtime = {}
     swiftmodules = {}
     for link_strategy in LinkStrategy:
         merged[link_strategy] = ctx.actions.tset(
@@ -616,13 +596,12 @@ def create_merged_link_info_for_propagation(
             children = filter(None, [x._external_debug_info.get(link_strategy) for x in xs]),
         )
         frameworks[link_strategy] = merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
-        swift_runtime[link_strategy] = merge_swift_runtime_linkables([x.swift_runtime[link_strategy] for x in xs])
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, [x.swiftmodules[link_strategy] for x in xs])
+
     return MergedLinkInfo(
         _infos = merged,
         _external_debug_info = merged_external_debug_info,
         frameworks = frameworks,
-        swift_runtime = swift_runtime,
         swiftmodules = swiftmodules,
     )
 
@@ -902,12 +881,6 @@ def legacy_output_style_to_link_style(output_style: LibOutputStyle) -> LinkStyle
     elif output_style == LibOutputStyle("pic_archive"):
         return LinkStyle("static_pic")
     fail("unrecognized output_style {}".format(output_style))
-
-def merge_swift_runtime_linkables(linkables: list[[SwiftRuntimeLinkable, None]]) -> SwiftRuntimeLinkable:
-    for linkable in linkables:
-        if linkable and linkable.runtime_required:
-            return SwiftRuntimeLinkable(runtime_required = True)
-    return SwiftRuntimeLinkable(runtime_required = False)
 
 def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> FrameworksLinkable:
     unique_framework_names = {}

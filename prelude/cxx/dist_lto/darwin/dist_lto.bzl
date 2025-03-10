@@ -30,7 +30,6 @@ load(
     "LinkedObject",
     "ObjectsLinkable",
     "SharedLibLinkable",  # @unused Used as a type
-    "SwiftRuntimeLinkable",  # @unused Used as a type
     "SwiftmoduleLinkable",  # @unused Used as a type
     "append_linkable_args",
     "map_to_link_infos",
@@ -315,7 +314,7 @@ def cxx_darwin_dist_link(
                     link_data = _DynamicLibraryLinkData(linkable = linkable),
                 )
                 unsorted_index_link_data.append(data)
-            elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftRuntimeLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+            elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable):
                 # These linkables are handled separately for flag deduplication purposes, as in append_linkable_args:
                 # https://www.internalfb.com/code/fbsource/[c6d2c820b394]/fbcode/buck2/prelude/linking/link_info.bzl?lines=271-278
                 pass
