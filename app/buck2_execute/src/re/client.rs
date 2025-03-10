@@ -958,7 +958,8 @@ impl RemoteExecutionClientImpl {
             previous_stage: Stage,
             report_stage: re_stage::Stage,
             manager: &mut CommandExecutionManager,
-            re_max_queue_time: Option<Duration>,
+            re_fallback_on_estimated_queue_time_exceeds_duration: Option<Duration>,
+            re_cancel_on_estimated_queue_time_exceeds_s: Option<u32>,
         ) -> anyhow::Result<ResponseOrStateChange> {
             executor_stage_async(
                 buck2_data::ReStage {
@@ -991,14 +992,26 @@ impl RemoteExecutionClientImpl {
                             return Ok(ResponseOrStateChange::Present(event));
                         }
 
-                        // TODO: This should be one block up?
-                        if let Some(re_max_queue_time) = re_max_queue_time {
-                            if let Some(info) = event.metadata.task_info {
-                                let est = u64::try_from(info.estimated_queue_time_ms)
-                                    .context("estimated_queue_time_ms from RE is negative")?;
-                                let queue_time = Duration::from_millis(est);
+                        if let Some(info) = event.metadata.task_info {
+                            let est = u64::try_from(info.estimated_queue_time_ms)
+                                .context("estimated_queue_time_ms from RE is negative")?;
+                            let anticipated_queue_duration = Duration::from_millis(est);
 
-                                if queue_time > re_max_queue_time {
+                            if let Some(re_queue_threshold) =
+                                re_cancel_on_estimated_queue_time_exceeds_s
+                            {
+                                if anticipated_queue_duration.as_secs() >= re_queue_threshold.into()
+                                {
+                                    return Ok(ResponseOrStateChange::Cancelled);
+                                }
+                            }
+
+                            if let Some(re_acceptable_anticipated_queue_duration) =
+                                re_fallback_on_estimated_queue_time_exceeds_duration
+                            {
+                                if anticipated_queue_duration
+                                    > re_acceptable_anticipated_queue_duration
+                                {
                                     manager.on_result_delayed();
                                 }
                             }
@@ -1088,6 +1101,7 @@ impl RemoteExecutionClientImpl {
                 ),
                 manager,
                 re_max_queue_time,
+                knobs.re_cancel_on_estimated_queue_time_exceeds_s,
             )
             .await?;
 
