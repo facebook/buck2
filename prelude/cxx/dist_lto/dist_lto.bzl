@@ -161,7 +161,7 @@ def cxx_gnu_dist_link(
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     lto_planner = cxx_toolchain.internal_tools.dist_lto.planner[LinkerType("gnu")]
     lto_opt = cxx_toolchain.internal_tools.dist_lto.opt[LinkerType("gnu")]
-    lto_prepare = cxx_toolchain.internal_tools.dist_lto.prepare
+    lto_prepare = cxx_toolchain.internal_tools.dist_lto.prepare[LinkerType("gnu")]
     lto_copy = cxx_toolchain.internal_tools.dist_lto.copy
 
     PREPEND_ARCHIVE_NAMES = [

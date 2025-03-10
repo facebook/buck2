@@ -154,7 +154,7 @@ def cxx_darwin_dist_link(
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     lto_planner = cxx_toolchain.internal_tools.dist_lto.planner[LinkerType("darwin")]
     lto_opt = cxx_toolchain.internal_tools.dist_lto.opt[LinkerType("darwin")]
-    lto_prepare = cxx_toolchain.internal_tools.dist_lto.prepare
+    lto_prepare = cxx_toolchain.internal_tools.dist_lto.prepare[LinkerType("darwin")]
     lto_copy = cxx_toolchain.internal_tools.dist_lto.copy
 
     unsorted_index_link_data = []

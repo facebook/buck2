@@ -146,7 +146,7 @@ RcCompilerInfo = provider(fields = _compiler_fields)
 DistLtoToolsInfo = provider(fields = dict(
     planner = dict[LinkerType, RunInfo],
     opt = dict[LinkerType, RunInfo],
-    prepare = RunInfo,
+    prepare = dict[LinkerType, RunInfo],
     copy = RunInfo,
 ))
 

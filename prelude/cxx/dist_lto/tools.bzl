@@ -19,7 +19,10 @@ def _impl(ctx):
                 LinkerType(linker_type): opt[RunInfo]
                 for linker_type, opt in ctx.attrs.opt.items()
             },
-            prepare = ctx.attrs.prepare[RunInfo],
+            prepare = {
+                LinkerType(linker_type): prepare[RunInfo]
+                for linker_type, prepare in ctx.attrs.prepare.items()
+            },
             copy = ctx.attrs.copy[RunInfo],
         ),
     ]
@@ -36,6 +39,9 @@ dist_lto_tools = rule(
             key = attrs.enum(LinkerType.values()),
             value = attrs.dep(providers = [RunInfo]),
         ),
-        "prepare": attrs.dep(providers = [RunInfo]),
+        "prepare": attrs.dict(
+            key = attrs.enum(LinkerType.values()),
+            value = attrs.dep(providers = [RunInfo]),
+        ),
     },
 )

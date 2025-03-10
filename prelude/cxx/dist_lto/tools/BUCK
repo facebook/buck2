@@ -32,8 +32,14 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
-    name = "dist_lto_prepare",
-    main = "dist_lto_prepare.py",
+    name = "dist_lto_prepare_gnu",
+    main = "dist_lto_prepare_gnu.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "dist_lto_prepare_darwin",
+    main = "dist_lto_prepare_darwin.py",
     visibility = ["PUBLIC"],
 )
 
@@ -54,7 +60,10 @@ dist_lto_tools(
         "darwin": ":dist_lto_planner_darwin",
         "gnu": ":dist_lto_planner_gnu",
     },
-    prepare = ":dist_lto_prepare",
+    prepare = {
+        "darwin": ":dist_lto_prepare_darwin",
+        "gnu": ":dist_lto_prepare_gnu",
+    },
     visibility = ["PUBLIC"],
 )
 
