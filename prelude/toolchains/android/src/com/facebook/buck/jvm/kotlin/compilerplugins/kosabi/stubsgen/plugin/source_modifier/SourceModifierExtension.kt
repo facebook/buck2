@@ -423,13 +423,13 @@ private fun KtClassOrObject.creatorCompanionObject() =
 private const val WRITETOPARCEL = "writeToParcel"
 private val writeToParcelFun =
     """
-  |  override fun $WRITETOPARCEL(parcel: Parcel, flags: Int) {}
+  |  override final fun $WRITETOPARCEL(parcel: Parcel, flags: Int) {}
 """
         .trimMargin()
 
 private const val DESCRIBECONTENTS = "describeContents"
 private val describeContentsFun =
     """
-  |  override fun $DESCRIBECONTENTS(): Int { return TODO() }
+  |  override final fun $DESCRIBECONTENTS(): Int { return TODO() }
 """
         .trimMargin()
