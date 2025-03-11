@@ -99,7 +99,7 @@ def _select_simulator_spec(
     for runtime in runtimes:
         device_type = _compatible_device_type_from_runtime(runtime, device)
         if device_type:
-            return SimulatorSpec(runtime.name, device_type)
+            return SimulatorSpec(f"iOS {runtime.version}", device_type)
     raise RuntimeError(
         "No Xcode simctl compatible iOS runtime and device available. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
     )
