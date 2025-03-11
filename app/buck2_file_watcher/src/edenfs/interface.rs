@@ -417,7 +417,7 @@ impl EdenFsFileWatcher {
             .ignore_specs
             .get(&cell_path.cell())
             // This shouldn't ever really happen. However, because of the bugs caused by just
-            // storing the `CellResolver` in the watcher permanantly, sometimes it can, so we just
+            // storing the `CellResolver` in the watcher permanently, sometimes it can, so we just
             // default to not ignoring the file in that case
             .map_or(false, |ignore| ignore.is_match(cell_path.path()));
 
