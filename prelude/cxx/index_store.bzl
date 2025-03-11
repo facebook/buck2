@@ -40,13 +40,11 @@ def _get_merge_index_store_tool(ctx: AnalysisContext) -> RunInfo | None:
         return None
     return apple_toolchain[AppleToolchainInfo].merge_index_store
 
-def _merge_index_store(ctx: AnalysisContext, merge_index_store_tool: RunInfo, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str | None = None) -> Artifact:
+def _merge_index_store(ctx: AnalysisContext, merge_index_store_tool: RunInfo, index_stores: list[Artifact] | TransitiveSet, merge_output_dir_name: str) -> Artifact:
     if isinstance(index_stores, list):
         if len(index_stores) == 1:
             return index_stores[0]
 
-    if merge_output_dir_name == None:
-        merge_output_dir_name = paths.join("__indexstore__", ctx.attrs.name, "index_store")
     merged_index_store = ctx.actions.declare_output(merge_output_dir_name)
 
     cmd = cmd_args([merge_index_store_tool])
@@ -88,7 +86,7 @@ def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_tar
     merge_index_store_tool = _get_merge_index_store_tool(ctx)
 
     if merge_index_store_tool:
-        merged_index_store = _merge_index_store(ctx, merge_index_store_tool, current_target_index_stores)
+        merged_index_store = _merge_index_store(ctx, merge_index_store_tool, current_target_index_stores, paths.join("__indexstore__", ctx.attrs.name, "index_store"))
 
         deps_indexstore_tsets = _gather_deps_index_store_tsets(deps)
         index_store_tset = ctx.actions.tset(IndexStoreTSet, value = merged_index_store, children = deps_indexstore_tsets)
