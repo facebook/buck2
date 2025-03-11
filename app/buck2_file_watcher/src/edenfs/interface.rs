@@ -21,8 +21,8 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use buck2_data::FileWatcherEventType as Type;
 use buck2_data::FileWatcherKind as Kind;
@@ -76,6 +76,7 @@ pub(crate) struct EdenFsFileWatcher {
     #[allocative(skip)]
     position: RwLock<JournalPosition>,
     cells: CellResolver,
+    project_root: ProjectRoot,
     ignore_specs: HashMap<CellName, IgnoreSet>,
     mergebase: RwLock<Option<MergebaseDetails>>,
     last_mergebase: RwLock<Option<MergebaseDetails>>,
@@ -114,6 +115,7 @@ impl EdenFsFileWatcher {
             eden_root,
             position: RwLock::new(JournalPosition::default()),
             cells,
+            project_root: project_root.clone(),
             ignore_specs,
             mergebase: RwLock::new(None),
             last_mergebase: RwLock::new(None),
@@ -379,20 +381,23 @@ impl EdenFsFileWatcher {
         event: Type,
         path: &[u8],
     ) -> buck2_error::Result<()> {
-        let path_buf = PathBuf::from(str::from_utf8(path)?);
+        let eden_rel_path = PathBuf::from(str::from_utf8(path)?);
 
         // If the path is invalid, then walk up all the way until you find a valid dir to
         // invalidate listings. We don't need to invalidate the file itself, as we can't
         // read invalid files.
 
-        let (relative_path, kind, event) = match ProjectRelativePath::new(&path_buf) {
+        let (eden_rel_path, kind, event) = match ForwardRelativePath::new(&eden_rel_path) {
             Ok(path) => (path, kind, event),
             Err(_) => {
                 // If we error out here then we might miss other changes. This seems like
                 // it shouldn't happen, since the empty path should always be a valid path.
-                let path = find_first_valid_parent(&path_buf)
+                let path = find_first_valid_parent(&eden_rel_path)
                     .with_buck_error_context(|| {
-                        format!("Invalid path had no valid parent: `{}`", path_buf.display())
+                        format!(
+                            "Invalid path had no valid parent: `{}`",
+                            eden_rel_path.display()
+                        )
                     })
                     .unwrap();
 
@@ -401,9 +406,11 @@ impl EdenFsFileWatcher {
             }
         };
 
+        let abs_path = self.eden_root.join(&eden_rel_path);
+        let project_rel_path = self.project_root.relativize(&abs_path)?;
         let cell_path = self
             .cells
-            .get_cell_path(relative_path)
+            .get_cell_path(&project_rel_path)
             .buck_error_context("Failed to convert path to cell.")?;
 
         let ignore = self

@@ -206,10 +206,9 @@ async def test_edenfs_changes_in_subproject(buck: Buck) -> None:
     )
     required = [
         FileWatcherEvent(
-            # this is a bug, the path should be relative to root project, i.e. cell//abc
             FileWatcherEventType.CREATE,
             FileWatcherKind.FILE,
-            "cell//subproject/abc",
+            "cell//abc",
         ),
     ]
     verify_results(results, required)

@@ -10,7 +10,7 @@
 use std::path::Path;
 use std::str;
 
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_data::FileWatcherKind;
 use edenfs::Dtype;
 
@@ -26,11 +26,11 @@ pub(crate) fn bytes_to_string_or_unknown(bytes: &[u8]) -> &str {
     str::from_utf8(bytes).ok().unwrap_or("unknown")
 }
 
-pub(crate) fn find_first_valid_parent(mut path: &Path) -> Option<&ProjectRelativePath> {
+pub(crate) fn find_first_valid_parent(mut path: &Path) -> Option<&ForwardRelativePath> {
     loop {
         path = path.parent()?;
 
-        match ProjectRelativePath::new(path) {
+        match ForwardRelativePath::new(path) {
             Ok(path) => return Some(path),
             Err(_) => {}
         }
