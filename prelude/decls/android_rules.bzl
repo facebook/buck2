@@ -38,6 +38,8 @@ ResourceCompressionMode = ["disabled", "enabled", "enabled_strings_only", "enabl
 
 SdkProguardType = ["default", "optimized", "none"]
 
+# @oss-disable[end= ]: GatoradeMode = ["full"]
+
 android_aar = prelude_rule(
     name = "android_aar",
     docs = """
@@ -116,7 +118,7 @@ android_aar = prelude_rule(
             "build_config_values_file": attrs.option(attrs.source(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            # @oss-disable[end= ]: "enable_gatorade": attrs.bool(default = False),
+            # @oss-disable[end= ]: "enable_gatorade": attrs.option(attrs.enum(GatoradeMode), default = None),
             "enable_relinker": attrs.bool(default = False),
             "excluded_java_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
@@ -216,7 +218,7 @@ android_binary = prelude_rule(
             "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),
             "duplicate_resource_whitelist": attrs.option(attrs.source(), default = None),
             "enable_bootstrap_dexes": attrs.bool(default = False),
-            # @oss-disable[end= ]: "enable_gatorade": attrs.bool(default = False),
+            # @oss-disable[end= ]: "enable_gatorade": attrs.option(attrs.enum(GatoradeMode), default = None),
             "enable_relinker": attrs.bool(default = False),
             "exopackage_modes": attrs.list(attrs.enum(ExopackageMode), default = []),
             "extra_no_compress_asset_extensions": attrs.list(attrs.string(), default = []),
@@ -454,7 +456,7 @@ android_bundle = prelude_rule(
             "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),
             "duplicate_resource_whitelist": attrs.option(attrs.source(), default = None),
             "enable_bootstrap_dexes": attrs.bool(default = False),
-            # @oss-disable[end= ]: "enable_gatorade": attrs.bool(default = False),
+            # @oss-disable[end= ]: "enable_gatorade": attrs.option(attrs.enum(GatoradeMode), default = None),
             "enable_relinker": attrs.bool(default = False),
             "exopackage_modes": attrs.list(attrs.enum(ExopackageMode), default = []),
             "extra_no_compress_asset_extensions": attrs.list(attrs.string(), default = []),
