@@ -103,7 +103,7 @@ public class InstallerServer {
   private void stopServer() {
     if (this.grpcServer != null && !this.grpcServer.isTerminated()) {
       try {
-        this.grpcServer.shutdown().awaitTermination();
+        this.grpcServer.shutdown().awaitTermination(5, TimeUnit.SECONDS);
         if (!this.grpcServer.isTerminated()) {
           this.grpcServer.shutdownNow();
         }

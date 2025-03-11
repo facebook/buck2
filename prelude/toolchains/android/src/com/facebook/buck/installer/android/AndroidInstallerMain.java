@@ -39,7 +39,9 @@ public class AndroidInstallerMain {
     try {
       parser.parseArgument(args);
       Logger.getLogger("").addHandler(getFileHandler(options.getLogPath()));
-      installer.run(options, getLogger());
+      Logger logger = getLogger();
+      installer.run(options, logger);
+      logger.info("server shutdown, exiting");
       System.exit(0);
     } catch (CmdLineException e) {
       System.out.println(e.getMessage());
