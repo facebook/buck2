@@ -9,7 +9,8 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Tuple
+from pathlib import Path
+from typing import Optional, Tuple
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.helper.utils import filter_events
@@ -79,8 +80,10 @@ class FileWatcherEvent:
 #     }
 #  }
 #
-async def get_file_watcher_events(buck: Buck) -> Tuple[bool, list[FileWatcherEvent]]:
-    await buck.targets("root//:")
+async def get_file_watcher_events(
+    buck: Buck, target_pattern: str = "root//:", rel_cwd: Optional[Path] = None
+) -> Tuple[bool, list[FileWatcherEvent]]:
+    await buck.targets(target_pattern, rel_cwd=rel_cwd)
     filtered_events = await filter_events(
         buck,
         "Event",
@@ -90,6 +93,7 @@ async def get_file_watcher_events(buck: Buck) -> Tuple[bool, list[FileWatcherEve
         "FileWatcher",
         "stats",
         "events",
+        rel_cwd=rel_cwd,
     )
 
     file_watcher_events: list[FileWatcherEvent] = []
@@ -112,6 +116,7 @@ async def get_file_watcher_events(buck: Buck) -> Tuple[bool, list[FileWatcherEve
         "FileWatcher",
         "stats",
         "fresh_instance",
+        rel_cwd=rel_cwd,
     )
 
     return fresh_instance[0], file_watcher_events
