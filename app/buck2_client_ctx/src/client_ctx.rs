@@ -300,11 +300,11 @@ impl<'a> ClientCommandContext<'a> {
         })
     }
 
-    pub fn log_download_method(&self) -> LogDownloadMethod {
-        self.immediate_config
-            .daemon_startup_config()
-            .unwrap()
+    pub fn log_download_method(&self) -> buck2_error::Result<LogDownloadMethod> {
+        Ok(self
+            .immediate_config
+            .daemon_startup_config()?
             .log_download_method
-            .clone()
+            .clone())
     }
 }

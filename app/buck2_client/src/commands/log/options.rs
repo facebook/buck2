@@ -125,7 +125,7 @@ impl EventLogOptions {
 
         // Delete the file on failure.
         let temp_path = TempPath::new_path(temp_path);
-        let (command_name, command) = match ctx.log_download_method() {
+        let (command_name, command) = match ctx.log_download_method()? {
             LogDownloadMethod::Manifold => {
                 let args = [
                     "get",
