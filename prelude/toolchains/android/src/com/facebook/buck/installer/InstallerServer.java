@@ -29,18 +29,21 @@ import java.util.logging.Level;
 import java.util.logging.Logger; // NOPMD
 
 public class InstallerServer {
-  public InstallerServer(InstallCommand installer, Logger logger, int tcpPort)
-      throws IOException, InterruptedException {
+  Server grpcServer;
+  Logger logger;
+
+  public InstallerServer(InstallCommand installer, Logger logger, int tcpPort) {
     SettableFuture<Unit> isDone = SettableFuture.create();
+    this.logger = logger;
     InstallerService installerService = new InstallerService(installer, isDone, logger);
-    Server grpcServer = buildServer(installerService, logger, tcpPort);
+    this.grpcServer = buildServer(installerService, logger, tcpPort);
     Futures.addCallback(
         isDone,
         new FutureCallback<>() {
           @Override
           public void onSuccess(Unit unit) {
             logger.info("Installer Server shutting down...");
-            stopServer(grpcServer);
+            stopServer();
           }
 
           @Override
@@ -56,22 +59,24 @@ public class InstallerServer {
                 () -> {
                   // Use stderr here since the logger may have been reset by its JVM shutdown hook.
                   System.err.println("*** shutting down gRPC server since JVM is shutting down");
-                  stopServer(grpcServer);
+                  stopServer();
                   System.err.println("*** server shut down");
                 }));
+  }
 
-    grpcServer.start();
+  public void run() throws IOException, InterruptedException {
+    this.grpcServer.start();
 
     do {
       try {
         if (!isParentAlive()) {
           logger.info("Parent process has been killed, shutting down");
-          stopServer(grpcServer);
+          stopServer();
         }
       } catch (Exception e) {
         logger.log(Level.SEVERE, "Error checking parent process liveness", e);
       }
-    } while (!grpcServer.awaitTermination(10, TimeUnit.SECONDS));
+    } while (!this.grpcServer.awaitTermination(10, TimeUnit.SECONDS));
   }
 
   /** Build an installer server at requested {@code TCP}. */
@@ -95,15 +100,15 @@ public class InstallerServer {
   }
 
   /** Shuts down installer server. */
-  private void stopServer(Server grpcServer) {
-    if (grpcServer != null && !grpcServer.isTerminated()) {
+  private void stopServer() {
+    if (this.grpcServer != null && !this.grpcServer.isTerminated()) {
       try {
-        grpcServer.shutdown().awaitTermination();
-        if (!grpcServer.isTerminated()) {
-          grpcServer.shutdownNow();
+        this.grpcServer.shutdown().awaitTermination();
+        if (!this.grpcServer.isTerminated()) {
+          this.grpcServer.shutdownNow();
         }
       } catch (InterruptedException e) {
-        grpcServer.shutdownNow();
+        this.grpcServer.shutdownNow();
       }
     }
   }

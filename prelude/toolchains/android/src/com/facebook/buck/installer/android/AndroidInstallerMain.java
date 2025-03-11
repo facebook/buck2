@@ -63,6 +63,8 @@ public class AndroidInstallerMain {
       throws IOException, InterruptedException {
     AndroidInstallerManager androidInstallerManager = new AndroidInstallerManager(logger, options);
     /** Starts the GRPC Server */
-    new InstallerServer(androidInstallerManager, logger, options.getTcpPort());
+    InstallerServer server =
+        new InstallerServer(androidInstallerManager, logger, options.getTcpPort());
+    server.run();
   }
 }
