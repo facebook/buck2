@@ -70,4 +70,9 @@ public class AnnotationProcessorUtils {
     return !prop.getProcessorNames().isEmpty()
         && Iterables.getFirst(prop.getProcessorNames(), "").startsWith(KSP_PROCESSOR_NAME_PREFIX);
   }
+
+  /** Java only processors that run on Javac instead of KotlinC for java files in mix modules */
+  public static boolean isRunsOnJavaOnlyProcessor(ResolvedJavacPluginProperties prop) {
+    return prop.getRunsOnJavaOnly();
+  }
 }

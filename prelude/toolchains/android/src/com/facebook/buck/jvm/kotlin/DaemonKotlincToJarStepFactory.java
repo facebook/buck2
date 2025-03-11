@@ -33,6 +33,7 @@ import com.facebook.buck.jvm.java.JarParameters;
 import com.facebook.buck.jvm.java.JavacPluginParams;
 import com.facebook.buck.jvm.java.ResolvedJavac;
 import com.facebook.buck.jvm.java.ResolvedJavacOptions;
+import com.facebook.buck.jvm.java.ResolvedJavacPluginProperties;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
@@ -294,9 +295,11 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     if (hasKotlinSources
         && isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getLanguageVersion())
         && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
-      // Only disable javac annotation processing if KAPT definitely ran.
+      // Most of the time, KotlinC have ran annotation processing,
+      // so only run "java on mix" processors (very uncommon) on Javac
       resolvedJavacOptions =
-          resolvedJavacOptions.withJavaAnnotationProcessorParams(JavacPluginParams.EMPTY);
+          resolvedJavacOptions.withJavaAnnotationProcessorParams(
+              getRunsOnJavaOnlyProcessors(resolvedJavacOptions));
     }
 
     JavacStepsBuilder.prepareJavaCompilationIfNeeded(
@@ -341,5 +344,25 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         kotlinClassesDir);
     steps.add(
         new JarDirectoryStep(abiJarParameters == null ? libraryJarParameters : abiJarParameters));
+  }
+
+  /**
+   * Retrieve Java only processors. They should run on javac even in kotlin modules. This means they
+   * would only take effect on java files in mix modules
+   */
+  static JavacPluginParams getRunsOnJavaOnlyProcessors(ResolvedJavacOptions resolvedJavacOptions) {
+    JavacPluginParams javaAnnotationProcessorParams =
+        resolvedJavacOptions.getJavaAnnotationProcessorParams();
+    ImmutableList<ResolvedJavacPluginProperties> filteredPluginProperties =
+        javaAnnotationProcessorParams.getPluginProperties().stream()
+            .filter(AnnotationProcessorUtils::isRunsOnJavaOnlyProcessor)
+            .collect(ImmutableList.toImmutableList());
+    // See https://fburl.com/diff/d1msdqm8
+    // If pluginProperties is empty, make sure parameters is empty too, or javac will complain
+    if (filteredPluginProperties.isEmpty()) {
+      return JavacPluginParams.EMPTY;
+    }
+    return new JavacPluginParams(
+        filteredPluginProperties, javaAnnotationProcessorParams.getParameters());
   }
 }

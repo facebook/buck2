@@ -13,6 +13,7 @@ import static com.facebook.buck.jvm.java.CompilerOutputPaths.getKAPTDepFilePath;
 import static com.facebook.buck.jvm.java.JavaPaths.SRC_ZIP;
 import static com.facebook.buck.jvm.kotlin.AnnotationProcessorUtils.encodeOptions;
 import static com.facebook.buck.jvm.kotlin.AnnotationProcessorUtils.isKSPProcessor;
+import static com.facebook.buck.jvm.kotlin.AnnotationProcessorUtils.isRunsOnJavaOnlyProcessor;
 import static com.facebook.buck.jvm.kotlin.AnnotationProcessorUtils.urlToFile;
 import static com.facebook.buck.jvm.kotlin.CompilerPluginUtils.MODULE_NAME;
 import static com.facebook.buck.jvm.kotlin.CompilerPluginUtils.getKotlinCompilerPluginsArgs;
@@ -332,7 +333,7 @@ public class KaptStepsBuilder {
   static ImmutableList<ResolvedJavacPluginProperties> getKaptAnnotationProcessors(
       ImmutableList<ResolvedJavacPluginProperties> annotationProcessors) {
     return annotationProcessors.stream()
-        .filter(prop -> !isKSPProcessor(prop))
+        .filter(prop -> !isKSPProcessor(prop) && !isRunsOnJavaOnlyProcessor(prop))
         .collect(ImmutableList.toImmutableList());
   }
 
