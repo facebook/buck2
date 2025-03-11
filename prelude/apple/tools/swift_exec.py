@@ -127,6 +127,8 @@ def main():
         f"{os.getcwd()}=.",
     ]
 
+    command = _process_skip_incremental_outputs(command)
+
     result = subprocess.run(
         command,
         stdout=subprocess.PIPE,
@@ -156,6 +158,45 @@ def main():
         _remove_swiftinterface_module_prefixes(command)
 
     sys.exit(result.returncode)
+
+
+_SKIP_INCREMENTAL_OUTPUTS_ARG = "-skip-incremental-outputs"
+
+
+def _process_skip_incremental_outputs(command):
+    if _SKIP_INCREMENTAL_OUTPUTS_ARG not in command:
+        return command
+
+    command.remove(_SKIP_INCREMENTAL_OUTPUTS_ARG)
+
+    output_file_map = command[command.index("-output-file-map") + 1]
+    output_dir = os.path.dirname(os.path.dirname(output_file_map))
+
+    module_swiftdeps = (
+        f"{output_dir}/__swift_incremental__/swiftdeps/module-build-record.priors"
+    )
+    output_file_map_content = {
+        "": {
+            "swift-dependencies": module_swiftdeps,
+        },
+    }
+
+    swift_files = [f for f in command if f.endswith(".swift")]
+    for swift_file in swift_files:
+        file_name = swift_file.split("/")[-1]
+        output_artifact = f"{output_dir}/__swift_incremental__/objects/{file_name}.o"
+        swiftdeps_artifact = (
+            f"{output_dir}/__swift_incremental__/swiftdeps/{file_name}.swiftdeps"
+        )
+        output_file_map_content[swift_file] = {
+            "object": output_artifact,
+            "swift-dependencies": swiftdeps_artifact,
+        }
+
+    with open(output_file_map, "w") as f:
+        json.dump(output_file_map_content, f, indent=2)
+
+    return command
 
 
 if __name__ == "__main__":
