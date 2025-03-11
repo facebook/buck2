@@ -7,7 +7,9 @@
 
 # pyre-strict
 
+import os
 import subprocess
+from pathlib import Path
 
 from buck2.tests.core.common.io.file_watcher import (
     FileWatcherEvent,
@@ -180,4 +182,34 @@ async def test_edenfs_files_report_on_fresh_instance(buck: Buck) -> None:
 
     is_fresh_instance, results = await get_file_watcher_events(buck)
     assert is_fresh_instance
+    verify_results(results, required)
+
+
+@buck_test(
+    setup_eden=True,
+    # the test has subproject and creates buck-out in subproject,
+    # when we setup eden we assume that buck-out is in project root dir
+    # and redirect only that buck-out and not buck-out in subproject.
+    # So, ignore soft errors that buck-out isn't redirected
+    allow_soft_errors=True,
+)
+async def test_edenfs_changes_in_subproject(buck: Buck) -> None:
+    cwd = Path("subproject")
+    await buck.targets("cell//:", rel_cwd=cwd)
+
+    path = os.path.join(buck.cwd, "subproject", "abc")
+    with open(path, "a"):
+        pass
+
+    _, results = await get_file_watcher_events(
+        buck, target_pattern="cell//:", rel_cwd=cwd
+    )
+    required = [
+        FileWatcherEvent(
+            # this is a bug, the path should be relative to root project, i.e. cell//abc
+            FileWatcherEventType.CREATE,
+            FileWatcherKind.FILE,
+            "cell//subproject/abc",
+        ),
+    ]
     verify_results(results, required)
