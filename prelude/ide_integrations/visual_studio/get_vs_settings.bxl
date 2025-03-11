@@ -36,15 +36,14 @@ def _get_all_header_files(attrs: dict):
 # e.g., fbsource//xplat/QNNPACK:operators
 def _get_headers_and_sources(attrs):
     headers_dict = {h: True for h in _get_all_header_files(attrs)}
-    sources_dict = {s: True for s in attrs["srcs"]}
+    sources_dict = attrs["srcs"]
 
     def is_header(filename):
         return suffix(filename) in ["h", "hh", "hpp", "hxx", "hm", "inl", "inc", "ipp", "xsd"]
 
     headers_list = [h for h in headers_dict if h not in sources_dict or is_header(h)]
-    sources_list = [s for s in sources_dict if s not in headers_dict or not is_header(s)]
-
-    return headers_list, sources_list
+    sources_dict = {s: o for s, o in sources_dict.items() if s not in headers_dict or not is_header(s)}
+    return headers_list, sources_dict
 
 def _unescape_arg(arg):
     if arg.startswith("\\-\\-"):
