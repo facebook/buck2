@@ -49,11 +49,11 @@ use crate::edenfs::sapling::SaplingGetStatusResult;
 use crate::edenfs::sapling::SaplingStatus;
 use crate::edenfs::utils::bytes_to_string_or_unknown;
 use crate::edenfs::utils::dtype_into_file_watcher_kind;
+use crate::edenfs::utils::find_first_valid_parent;
 use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 use crate::stats::MAX_FILE_CHANGE_RECORDS;
-use crate::utils::find_first_valid_parent;
 
 #[derive(Debug, buck2_error::Error)]
 pub(crate) enum EdenFsWatcherError {

@@ -34,12 +34,12 @@ use watchman_client::prelude::FileType;
 use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
-use crate::utils::find_first_valid_parent;
 use crate::watchman::core::SyncableQuery;
 use crate::watchman::core::SyncableQueryProcessor;
 use crate::watchman::core::WatchmanEvent;
 use crate::watchman::core::WatchmanEventType;
 use crate::watchman::core::WatchmanKind;
+use crate::watchman::utils::find_first_valid_parent;
 
 struct WatchmanQueryProcessor {
     // FIXME(JakobDegen): Storing these values statically is completely broken. See
