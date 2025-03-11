@@ -36,12 +36,15 @@ use buck2_cli_proto::InstallRequest;
 use buck2_cli_proto::InstallResponse;
 use buck2_common::client_utils::get_channel_tcp;
 use buck2_common::file_ops::FileDigest;
+use buck2_common::manifold::Bucket;
+use buck2_common::manifold::ManifoldClient;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
@@ -49,6 +52,7 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::name::TargetName;
 use buck2_data::InstallEventInfoEnd;
@@ -56,6 +60,7 @@ use buck2_data::InstallEventInfoStart;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::Tier;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
@@ -453,6 +458,13 @@ async fn handle_install_request<'a>(
 ) -> buck2_error::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
 
+    let log_filename = format!(
+        "installer_{}_{}.log",
+        get_timestamp_as_string()?,
+        calculate_hash(&install_request_data.installer_label.target().name())
+    );
+    let log_path = install_log_dir.join(FileName::unchecked_new(&log_filename));
+    let log_path_string = log_path.to_string();
     let (artifacts_ready, install_result) = ctx
         .try_compute2(
             |ctx| {
@@ -473,20 +485,13 @@ async fn handle_install_request<'a>(
                     // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
                     let tcp_port = get_random_tcp_port()?;
 
-                    let installer_log_filename = format!(
-                        "{}/installer_{}_{}.log",
-                        install_log_dir,
-                        get_timestamp_as_string()?,
-                        calculate_hash(&install_request_data.installer_label.target().name())
-                    );
-
                     let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
 
                     installer_run_args.extend(vec![
                         "--tcp-port".to_owned(),
                         tcp_port.to_string(),
                         "--log-path".to_owned(),
-                        installer_log_filename.to_owned(),
+                        log_path_string.to_owned(),
                     ]);
 
                     build_launch_installer(
@@ -503,7 +508,7 @@ async fn handle_install_request<'a>(
                         client,
                         artifact_fs,
                         install_request_data,
-                        installer_log_filename,
+                        log_path_string,
                     );
 
                     buck2_error::Ok(installer.install(files_rx).await)
@@ -541,7 +546,31 @@ async fn handle_install_request<'a>(
         duration: install_duration.try_into().ok(),
         device_metadata,
     });
+
+    if result
+        .as_ref()
+        .is_err_and(|e| e.get_tier() != Some(Tier::Input))
+    {
+        match upload_installer_logs(&log_path).await {
+            Ok(url) => {
+                return result
+                    .map_err(|err| err.context(format!("See installer logs at: {}", url)));
+            }
+            Err(err) => {
+                let _unused = soft_error!("installer_log_upload_failed", err.clone());
+            }
+        };
+    }
     result
+}
+
+async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result<String> {
+    let manifold = ManifoldClient::new().await?;
+    let trace_id: &str = &get_dispatcher().trace_id().to_string();
+    let manifold_filename = format!("flat/{}.log", trace_id);
+    manifold
+        .upload_file(log_path, manifold_filename, Bucket::INSTALLER_LOGS)
+        .await
 }
 
 async fn send_install_info(
