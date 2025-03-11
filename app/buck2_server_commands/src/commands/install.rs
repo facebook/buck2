@@ -112,7 +112,7 @@ pub enum InstallError {
     /// Errors from external installer process, may represent infra errors or input errors (ex. no device).
     /// Tagging as input errors in the absence of a way for installers to report infra errors.
     #[error(
-        "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`\n. More details can be found at `{installer_log}`"
+        "Installer failed to process file ready request for `{install_id}`. Artifact: `{artifact}` located at `{path}`. Error message: `{err}`\n."
     )]
     #[buck2(input)]
     ProcessingFileReadyFailure {
@@ -120,7 +120,6 @@ pub enum InstallError {
         artifact: String,
         path: AbsNormPathBuf,
         err: String,
-        installer_log: String,
     },
 
     #[error("Installer failed for `{install_id}` with `{err}`")]
@@ -368,7 +367,6 @@ struct ConnectedInstaller<'a> {
     client: InstallerClient<Channel>,
     artifact_fs: ArtifactFs,
     install_request_data: &'a InstallRequestData<'a>,
-    installer_log_filename: String,
     device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
     installer_ready: Instant,
 }
@@ -378,13 +376,11 @@ impl<'a> ConnectedInstaller<'a> {
         client: InstallerClient<Channel>,
         artifact_fs: ArtifactFs,
         install_request_data: &'a InstallRequestData<'a>,
-        installer_log_filename: String,
     ) -> Self {
         Self {
             client,
             artifact_fs,
             install_request_data,
-            installer_log_filename,
             device_metadata: Arc::new(Mutex::new(Vec::new())),
             installer_ready: Instant::now(),
         }
@@ -441,7 +437,6 @@ impl<'a> ConnectedInstaller<'a> {
                     file,
                     &self.artifact_fs,
                     self.client.clone(),
-                    self.installer_log_filename.to_owned(),
                     self.device_metadata.dupe(),
                 )
             })
@@ -504,12 +499,8 @@ async fn handle_install_request<'a>(
                     let client: InstallerClient<Channel> = connect_to_installer(tcp_port).await?;
                     let artifact_fs = ctx.get_artifact_fs().await?;
 
-                    let installer = ConnectedInstaller::new(
-                        client,
-                        artifact_fs,
-                        install_request_data,
-                        log_path_string,
-                    );
+                    let installer =
+                        ConnectedInstaller::new(client, artifact_fs, install_request_data);
 
                     buck2_error::Ok(installer.install(files_rx).await)
                 }
@@ -552,16 +543,15 @@ async fn handle_install_request<'a>(
         .is_err_and(|e| e.get_tier() != Some(Tier::Input))
     {
         match upload_installer_logs(&log_path).await {
-            Ok(url) => {
-                return result
-                    .map_err(|err| err.context(format!("See installer logs at: {}", url)));
-            }
+            Ok(url) => result.map_err(|err| err.context(format!("See installer logs at: {}", url))),
             Err(err) => {
                 let _unused = soft_error!("installer_log_upload_failed", err.clone());
+                result.map_err(|err| err.context(format!("See installer logs at: {}", log_path)))
             }
-        };
+        }
+    } else {
+        result
     }
-    result
 }
 
 async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result<String> {
@@ -809,7 +799,6 @@ async fn send_file(
     file: FileResult,
     artifact_fs: &ArtifactFs,
     mut client: InstallerClient<Channel>,
-    install_log: String,
     device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
 ) -> buck2_error::Result<()> {
     let install_id = file.install_id;
@@ -872,7 +861,6 @@ async fn send_file(
                         artifact: name,
                         path: path.to_owned(),
                         err: status.message().to_owned(),
-                        installer_log: install_log.to_owned(),
                     }
                     .into()),
                     end,
@@ -889,7 +877,6 @@ async fn send_file(
                     "Received install id: {} doesn't match with the sent one: {}",
                     response.install_id, &install_id
                 ),
-                installer_log: install_log.to_owned(),
             }
             .into());
         }
@@ -904,7 +891,6 @@ async fn send_file(
                 artifact: name.to_owned(),
                 path: path.to_owned(),
                 err: error_detail.message,
-                installer_log: install_log.to_owned(),
             }
             .into();
             let category_tag = if let Ok(category) =
