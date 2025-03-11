@@ -42,8 +42,4 @@ async def test_check_anon_ouput_artifact(buck: Buck) -> None:
 
 @buck_test()
 async def test_pass_string_to_arg_attr(buck: Buck) -> None:
-    # TODO(ianc) Fix this in next diff
-    await expect_failure(
-        buck.bxl("//anon_bxl.bxl:eval_of_anon_with_arg_bxl"),
-        stderr_regex="Expected value of type `resolved_macro`, got value with type `string`",
-    )
+    await buck.bxl("//anon_bxl.bxl:eval_of_anon_with_arg_bxl")

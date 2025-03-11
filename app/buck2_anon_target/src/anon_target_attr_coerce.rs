@@ -143,13 +143,21 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                     Err(AnonTargetCoercionError::type_error("artifact", value).into())
                 }
             }
-            AttrTypeInner::Arg(_) => match ResolvedStringWithMacros::from_value(value) {
-                Some(resolved_macro) => match resolved_macro.configured_macros() {
-                    Some(configured_macros) => Ok(AnonTargetAttr::Arg(configured_macros.clone())),
-                    None => Err(AnonTargetCoercionError::ArgNotAnonTargetCompatible.into()),
-                },
-                None => Err(AnonTargetCoercionError::type_error("resolved_macro", value).into()),
-            },
+            AttrTypeInner::Arg(_) => {
+                if let Some(resolved_macro) = ResolvedStringWithMacros::from_value(value) {
+                    match resolved_macro.configured_macros() {
+                        Some(configured_macros) => {
+                            Ok(AnonTargetAttr::Arg(configured_macros.clone()))
+                        }
+                        None => Err(AnonTargetCoercionError::ArgNotAnonTargetCompatible.into()),
+                    }
+                } else if let Some(s) = value.unpack_str() {
+                    // It's fine to use a string for attrs.arg()
+                    Ok(AnonTargetAttr::String(StringLiteral(ctx.intern_str(s))))
+                } else {
+                    Err(AnonTargetCoercionError::type_error("resolved_macro", value).into())
+                }
+            }
             AttrTypeInner::Label(_) => {
                 if let Some(label) = StarlarkProvidersLabel::from_value(value) {
                     Ok(AnonTargetAttr::Label(label.label().dupe()))
