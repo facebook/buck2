@@ -51,7 +51,7 @@ async def test_build_output(buck: Buck) -> None:
         "targets",
         "interpreter",
         "buildfiles",
-        "TARGETS.v2",
+        "TARGETS",
     )
 
     result = await buck.build_without_report(
