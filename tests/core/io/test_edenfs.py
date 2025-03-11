@@ -197,8 +197,38 @@ async def test_edenfs_changes_in_subproject(buck: Buck) -> None:
     cwd = Path("subproject")
     await buck.targets("cell//:", rel_cwd=cwd)
 
-    path = os.path.join(buck.cwd, "subproject", "abc")
-    with open(path, "a"):
+    with open(buck.cwd / "subproject" / "abc", "a"):
+        pass
+
+    _, results = await get_file_watcher_events(
+        buck, target_pattern="cell//:", rel_cwd=cwd
+    )
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE,
+            FileWatcherKind.FILE,
+            "cell//abc",
+        ),
+    ]
+    verify_results(results, required)
+
+
+@buck_test(
+    setup_eden=True,
+    # the test has subproject and creates buck-out in subproject,
+    # when we setup eden we assume that buck-out is in project root dir
+    # and redirect only that buck-out and not buck-out in subproject.
+    # So, ignore soft errors that buck-out isn't redirected
+    allow_soft_errors=True,
+)
+async def test_edenfs_changes_outside_subproject(buck: Buck) -> None:
+    cwd = Path("subproject")
+    await buck.targets("cell//:", rel_cwd=cwd)
+
+    with open(buck.cwd / "subproject" / "abc", "a"):
+        pass
+
+    with open(buck.cwd / "cde", "a"):
         pass
 
     _, results = await get_file_watcher_events(

@@ -407,7 +407,11 @@ impl EdenFsFileWatcher {
         };
 
         let abs_path = self.eden_root.join(&eden_rel_path);
-        let project_rel_path = self.project_root.relativize(&abs_path)?;
+        let project_rel_path = match self.project_root.relativize(&abs_path) {
+            Ok(path) => path,
+            // we ignore any changes that are not relative to the project root
+            Err(_) => return Ok(()),
+        };
         let cell_path = self
             .cells
             .get_cell_path(&project_rel_path)
