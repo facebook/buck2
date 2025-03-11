@@ -68,8 +68,8 @@ async def expect_exec_count(buck: Buck, n: int) -> None:
     assert len(out) == n, "unexpected actions: %s" % (out,)
 
 
-async def filter_events(buck: Buck, *args):
-    log = (await buck.log("show")).stdout.strip().splitlines()
+async def filter_events(buck: Buck, *args, rel_cwd: typing.Optional[Path] = None):
+    log = (await buck.log("show", rel_cwd=rel_cwd)).stdout.strip().splitlines()
     found = []
     for line in log:
         e = json_get(line, *args)
