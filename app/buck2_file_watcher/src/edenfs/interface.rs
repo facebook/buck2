@@ -20,6 +20,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
@@ -62,13 +63,16 @@ pub(crate) enum EdenFsWatcherError {
     #[buck2(tag = Input)]
     #[error("Eden mount point is not UTF-8")]
     Utf8,
+    #[buck2(tag = Input)]
+    #[error("Eden mount point is not absolute normalized path")]
+    NotAbsNormPath,
 }
 
 #[derive(Allocative)]
 pub(crate) struct EdenFsFileWatcher {
     manager: EdenConnectionManager,
     mount_point: Vec<u8>,
-    root: String,
+    eden_root: AbsNormPathBuf,
     #[allocative(skip)]
     position: RwLock<JournalPosition>,
     cells: CellResolver,
@@ -92,7 +96,10 @@ impl EdenFsFileWatcher {
                 .ok_or(EdenFsWatcherError::NoEden)?;
 
         let mount_point = manager.get_mount_point();
-        let root = String::from_utf8(mount_point.clone()).map_err(|_| EdenFsWatcherError::Utf8)?;
+        let eden_root =
+            String::from_utf8(mount_point.clone()).map_err(|_| EdenFsWatcherError::Utf8)?;
+        let eden_root = AbsNormPathBuf::new(eden_root.into())
+            .map_err(|_| EdenFsWatcherError::NotAbsNormPath)?;
 
         let mergebase_with = root_config
             .get(BuckconfigKeyRef {
@@ -104,7 +111,7 @@ impl EdenFsFileWatcher {
         Ok(Self {
             manager,
             mount_point,
-            root,
+            eden_root,
             position: RwLock::new(JournalPosition::default()),
             cells,
             ignore_specs,
@@ -443,7 +450,7 @@ impl EdenFsFileWatcher {
         to: Option<String>,
     ) -> buck2_error::Result<bool> {
         // limit results to MAX_FILE_CHANGE_RECORDS
-        match get_status(&self.root, &from, to, MAX_FILE_CHANGE_RECORDS)
+        match get_status(&self.eden_root, &from, to, MAX_FILE_CHANGE_RECORDS)
             .await
             .buck_error_context("Failed to get Sapling status.")?
         {
@@ -582,7 +589,7 @@ impl EdenFsFileWatcher {
     async fn update_mergebase(&self, to: &str) -> buck2_error::Result<bool> {
         if let Some(mergebase_with) = &self.mergebase_with {
             // Compute new mergebase.
-            let mergebase = get_mergebase(&self.root, &to, mergebase_with)
+            let mergebase = get_mergebase(&self.eden_root, &to, mergebase_with)
                 .await
                 .buck_error_context("Failed to get mergebase")?;
             let last_mergebase = self.mergebase.read().await.clone();
