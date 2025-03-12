@@ -648,7 +648,7 @@ impl StatefulSuperConsoleImpl {
             action_id,
             reason,
             command,
-            ..
+            error_diagnostics,
         } = display::display_action_error(
             error,
             TargetDisplayOptions::for_console(display_platform),
@@ -672,6 +672,29 @@ impl StatefulSuperConsoleImpl {
 
         if let Some(command) = command {
             lines_for_command_details(&command, self.verbosity, &mut lines);
+        }
+
+        if let Some(error_diagnostics) = error_diagnostics {
+            match error_diagnostics.data.as_ref().unwrap() {
+                buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
+                    let sub_errors = &sub_errors.sub_errors;
+                    if !sub_errors.is_empty() {
+                        for sub_error in sub_errors {
+                            if let Some(message) = &sub_error.message {
+                                lines.push(Line::from_iter([Span::new_styled_lossy(
+                                    format!("[{}] {}", sub_error.category, message)
+                                        .with(Color::DarkCyan),
+                                )]));
+                            }
+                        }
+                    }
+                }
+                buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
+                    lines.push(Line::from_iter([Span::new_styled_lossy(
+                        error.to_owned().with(Color::DarkRed),
+                    )]));
+                }
+            };
         }
 
         self.super_console.emit(Lines(lines));
