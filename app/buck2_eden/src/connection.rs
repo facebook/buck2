@@ -150,6 +150,10 @@ impl EdenConnectionManager {
             .to_vec()
     }
 
+    pub fn get_mount_point_path(&self) -> &AbsPath {
+        self.connector.mount.0.as_ref()
+    }
+
     pub fn get_proj_relative_path(&self) -> &ForwardRelativePath {
         self.project_root.as_ref()
     }

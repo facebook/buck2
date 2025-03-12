@@ -20,6 +20,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
+use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -63,9 +64,6 @@ pub(crate) enum EdenFsWatcherError {
     #[error("Failed to connect to EdenFS")]
     NoEden,
     #[buck2(tag = Input)]
-    #[error("Eden mount point is not UTF-8")]
-    Utf8,
-    #[buck2(tag = Input)]
     #[error("Eden mount point is not absolute normalized path")]
     NotAbsNormPath,
 }
@@ -101,10 +99,9 @@ impl EdenFsFileWatcher {
                 .ok_or(EdenFsWatcherError::NoEden)?;
 
         let mount_point = manager.get_mount_point();
-        let eden_root =
-            String::from_utf8(mount_point.clone()).map_err(|_| EdenFsWatcherError::Utf8)?;
-        let eden_root = AbsNormPathBuf::new(eden_root.into())
-            .map_err(|_| EdenFsWatcherError::NotAbsNormPath)?;
+        let eden_root = AbsNormPath::new(manager.get_mount_point_path())
+            .map_err(|_| EdenFsWatcherError::NotAbsNormPath)?
+            .to_owned();
         let project_root = manager.get_proj_relative_path().to_owned();
 
         let mergebase_with = root_config
