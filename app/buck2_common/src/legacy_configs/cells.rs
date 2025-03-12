@@ -137,7 +137,7 @@ impl ExternalBuckconfigData {
 
                 let mut parser = LegacyConfigParser::new();
                 if parser
-                    .parse_file(&local_config, None, false, file_ops)
+                    .parse_file(&local_config, None, true, file_ops)
                     .await
                     .is_ok()
                 {

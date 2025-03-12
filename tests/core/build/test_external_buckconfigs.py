@@ -47,6 +47,7 @@ async def test_external_buckconfigs(buck: Buck) -> None:
         with open(buck.cwd / ".buckconfig.local", "w") as localconfig:
             localconfig.write("[local_section]\n")
             localconfig.write("local_key = local_value\n")
+            localconfig.write("<file:included.bcfg>\n")
         await buck.build(
             "@root//mode/my_mode",
             "//:test",
@@ -90,18 +91,27 @@ async def test_external_buckconfigs(buck: Buck) -> None:
         and not external_path_config_value["is_cli"]
     )
 
-    # Next comes the buckconfig.local values
+    # Next comes the values from the buckconfig.local file (which may include other files https://fburl.com/wd54jnpu)
     local_path_configs = external_configs[1]["data"]["GlobalExternalConfigFile"]
-    assert len(local_path_configs["values"]) == 1
+    assert len(local_path_configs["values"]) == 2
     assert local_path_configs["origin_path"] == ".buckconfig.local"
-    local_config_value = local_path_configs["values"][0]
+    # Note that buck parses configfiles ordered by section: https://fburl.com/rnzlt05n
+    # That's why, we first have the values from the included file,
+    included_config_value = local_path_configs["values"][0]
+    assert (
+        included_config_value["section"] == "included_section"
+        and included_config_value["key"] == "included_key"
+        and included_config_value["value"] == "included_value"
+        and not included_config_value["is_cli"]
+    )
+    # The second one is for the values in the .buckconfig.local file
+    local_config_value = local_path_configs["values"][1]
     assert (
         local_config_value["section"] == "local_section"
         and local_config_value["key"] == "local_key"
         and local_config_value["value"] == "local_value"
         and not local_config_value["is_cli"]
     )
-
     # The rest matches the same order provided by the above buck command
     # i.e. modefile, command line config flag, followed by the config file
 
