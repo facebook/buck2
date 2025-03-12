@@ -1771,6 +1771,8 @@ message FileWatcherStats {
   optional FreshInstance fresh_instance_data = 9;
   // Timestamp in seconds of the 'Branched From Revision' commit
   optional uint64 branched_from_revision_timestamp = 11;
+  // Version of eden if available
+  optional string eden_version = 12;
 }
 
 message FreshInstance {
