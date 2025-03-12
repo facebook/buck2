@@ -323,7 +323,6 @@ def encode_base_jar_command(
         resolvedJavacOptions = resolved_java_options,
         jarParameters = jar_parameters,
         pathToClasses = output_paths.jar.as_output(),
-        rootOutput = output_paths.jar_parent.as_output(),
         annotationsPath = output_paths.annotations.as_output(),
     )
 
