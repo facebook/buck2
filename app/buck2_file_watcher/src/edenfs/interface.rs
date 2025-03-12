@@ -81,6 +81,7 @@ pub(crate) struct EdenFsFileWatcher {
     mergebase: RwLock<Option<MergebaseDetails>>,
     last_mergebase: RwLock<Option<MergebaseDetails>>,
     mergebase_with: Option<String>,
+    eden_version: RwLock<Option<String>>,
 }
 
 impl EdenFsFileWatcher {
@@ -120,6 +121,7 @@ impl EdenFsFileWatcher {
             mergebase: RwLock::new(None),
             last_mergebase: RwLock::new(None),
             mergebase_with,
+            eden_version: RwLock::new(None),
         })
     }
 
@@ -145,7 +147,7 @@ impl EdenFsFileWatcher {
         *position = result.toPosition;
 
         let mut file_change_tracker = FileChangeTracker::new();
-        let base_stats = self.base_file_watcher_stats().await;
+        let base_stats = self.base_file_watcher_stats().await?;
         let mut stats = FileWatcherStats::new(base_stats, result.changes.len());
         let mut large_or_unknown_change = false;
         for change in result.changes {
@@ -566,7 +568,7 @@ impl EdenFsFileWatcher {
         // Get mergebase state
         let last_mergebase_info = self.last_mergebase.read().await.clone();
         let mergebase_info = self.mergebase.read().await.clone();
-        let base_stats = self.base_file_watcher_stats().await;
+        let base_stats = self.base_file_watcher_stats().await?;
         let mut base_stats = buck2_data::FileWatcherStats {
             fresh_instance: true,
             watchman_version: None,
@@ -617,17 +619,27 @@ impl EdenFsFileWatcher {
         }
     }
 
-    async fn base_file_watcher_stats(&self) -> buck2_data::FileWatcherStats {
+    async fn base_file_watcher_stats(&self) -> buck2_error::Result<buck2_data::FileWatcherStats> {
+        let eden_version = { self.eden_version.read().await.clone() };
+        let eden_version = if eden_version.is_some() {
+            eden_version.clone()
+        } else {
+            let eden_version = self.manager.get_eden_version().await?;
+            let mut eden_version_lock = self.eden_version.write().await;
+            *eden_version_lock = eden_version.clone();
+            eden_version
+        };
         let mergebase_info = self.mergebase.read().await.clone();
         let mergebase = mergebase_info.as_ref().map(|m| m.mergebase.clone());
         let branched_from_revision_timestamp = mergebase_info.as_ref().map(|m| m.timestamp);
         let branched_from_global_rev = mergebase_info.as_ref().and_then(|m| m.global_rev);
-        buck2_data::FileWatcherStats {
+        Ok(buck2_data::FileWatcherStats {
             branched_from_revision: mergebase,
             branched_from_global_rev,
             branched_from_revision_timestamp,
+            eden_version,
             ..Default::default()
-        }
+        })
     }
 }
 

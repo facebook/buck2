@@ -163,6 +163,7 @@ async def test_edenfs_file_watcher_stats(buck: Buck) -> None:
     assert file_stats["branched_from_revision_timestamp"] is not None
     # we don't have global revision for test repo
     assert file_stats["branched_from_global_rev"] is None
+    assert file_stats["eden_version"] is not None
 
 
 @buck_test(setup_eden=True)
