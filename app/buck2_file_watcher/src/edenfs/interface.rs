@@ -145,7 +145,8 @@ impl EdenFsFileWatcher {
         *position = result.toPosition;
 
         let mut file_change_tracker = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(Default::default(), result.changes.len());
+        let base_stats = self.base_file_watcher_stats().await;
+        let mut stats = FileWatcherStats::new(base_stats, result.changes.len());
         let mut large_or_unknown_change = false;
         for change in result.changes {
             // Once a large or unknown change is detected, we need to invalidate DICE. Therefore,
@@ -565,15 +566,9 @@ impl EdenFsFileWatcher {
         // Get mergebase state
         let last_mergebase_info = self.last_mergebase.read().await.clone();
         let mergebase_info = self.mergebase.read().await.clone();
-        let mergebase = mergebase_info.as_ref().map(|m| m.mergebase.clone());
-        let branched_from_revision_timestamp = mergebase_info.as_ref().map(|m| m.timestamp);
-        let branched_from_global_rev = mergebase_info.as_ref().and_then(|m| m.global_rev);
-
+        let base_stats = self.base_file_watcher_stats().await;
         let mut base_stats = buck2_data::FileWatcherStats {
             fresh_instance: true,
-            branched_from_revision: mergebase.clone(),
-            branched_from_global_rev,
-            branched_from_revision_timestamp,
             watchman_version: None,
             fresh_instance_data: Some(buck2_data::FreshInstance {
                 new_mergebase: last_mergebase_info.is_none()
@@ -581,10 +576,10 @@ impl EdenFsFileWatcher {
                 cleared_dice: true,
                 cleared_dep_files: true,
             }),
-            ..Default::default()
+            ..base_stats
         };
 
-        if let Some(mergebase) = mergebase {
+        if let Some(mergebase) = mergebase_info.map(|m| m.mergebase) {
             let mut tracker = FileChangeTracker::new();
             let mut stats = FileWatcherStats::new(base_stats, 0);
             self.process_sapling_status(&mut tracker, &mut stats, &mergebase, None)
@@ -619,6 +614,19 @@ impl EdenFsFileWatcher {
             // If we have no mergebase_with, return true
             // indicating a large change (i.e. invalidate DICE).
             Ok(true)
+        }
+    }
+
+    async fn base_file_watcher_stats(&self) -> buck2_data::FileWatcherStats {
+        let mergebase_info = self.mergebase.read().await.clone();
+        let mergebase = mergebase_info.as_ref().map(|m| m.mergebase.clone());
+        let branched_from_revision_timestamp = mergebase_info.as_ref().map(|m| m.timestamp);
+        let branched_from_global_rev = mergebase_info.as_ref().and_then(|m| m.global_rev);
+        buck2_data::FileWatcherStats {
+            branched_from_revision: mergebase,
+            branched_from_global_rev,
+            branched_from_revision_timestamp,
+            ..Default::default()
         }
     }
 }
