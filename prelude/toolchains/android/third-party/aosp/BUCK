@@ -1,0 +1,59 @@
+load("@fbsource//xplat/toolchains/android/sdk/tools/build_rules:java_rules.bzl", "buck_java_library", "third_party_jar")
+
+oncall("android_devxx")
+
+APK_BUILDER_SRCS = ["src/com/android/common/sdklib/**/*.java"]
+
+SDK_CONSTANTS_SRCS = ["src/com/android/common/SdkConstants.java"]
+
+buck_java_library(
+    name = "aosp",
+    srcs = glob(
+        ["src/**/*.java"],
+        exclude = APK_BUILDER_SRCS + SDK_CONSTANTS_SRCS,
+    ),
+    extra_arguments = [
+        "--add-exports",
+        "java.base/sun.security.pkcs=ALL-UNNAMED",
+        "--add-exports",
+        "java.base/sun.security.x509=ALL-UNNAMED",
+    ],
+    licenses = [
+        "LICENSE",
+        "NOTICE",
+    ],
+    required_for_source_only_abi = True,
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/third-party:android-annotations",
+        "prelude//toolchains/android/third-party:gson",
+        "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:sdklib",
+        ":sdk_constants",
+    ],
+    exported_deps = [
+        ":sdk_constants",
+    ],
+)
+
+buck_java_library(
+    name = "sdk_constants",
+    srcs = SDK_CONSTANTS_SRCS,
+    licenses = [
+        "LICENSE",
+        "NOTICE",
+    ],
+    required_for_source_only_abi = True,
+    visibility = ["PUBLIC"],
+)
+
+third_party_jar(
+    name = "apksig",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/build/apksig:apksig",
+    sha1 = "d51ecbc4a5b7a2c7832586a4dde18f61d92810a4",
+    url = "mvn:com.android.tools.build:apksig:jar:8.4.0",
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/apk:apk",
+        "prelude//toolchains/android/src/com/facebook/buck/android/bundle:bundle",
+    ],
+)

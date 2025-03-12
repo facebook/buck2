@@ -74,8 +74,8 @@ def _set_versioned_java_srcs(**kwargs):
 
 def _add_kotlin_deps(**kwargs):
     kwargs["deps"] = kwargs.pop("deps", []) + [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/kotlin:annotations",
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/kotlin:kotlin-stdlib",
+        "prelude//toolchains/android/third-party:kotlin-annotations",
+        "prelude//toolchains/android/third-party:kotlin-stdlib",
     ]
     return kwargs
 

@@ -7,10 +7,10 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/...",
         "prelude//toolchains/android/test/com/facebook/buck/...",
     ],
-    deps = ["fbsource//xplat/toolchains/android/sdk/third-party/java/jakarta.annotation-api:jakarta.annotation-api"],
+    deps = ["prelude//toolchains/android/third-party:jakarta.annotation-api"],
     exported_deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/protobuf:protobuf",
         "prelude//toolchains/android/src-gen:cd-model",
+        "prelude//toolchains/android/third-party:protobuf",
     ],
 )
 
@@ -22,12 +22,12 @@ buck_java_library(
         "prelude//toolchains/android/test/com/facebook/buck/...",
     ],
     deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/jakarta.annotation-api:jakarta.annotation-api",
         "prelude//toolchains/android/src-gen:javacd-model",
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
     ],
     exported_deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/protobuf:protobuf",
         "prelude//toolchains/android/src-gen:cd-model",
+        "prelude//toolchains/android/third-party:protobuf",
     ],
 )
 
@@ -40,9 +40,9 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/...",
         "prelude//toolchains/android/test/com/facebook/buck/...",
     ],
-    deps = ["fbsource//xplat/toolchains/android/sdk/third-party/java/jakarta.annotation-api:jakarta.annotation-api"],
+    deps = ["prelude//toolchains/android/third-party:jakarta.annotation-api"],
     exported_deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/protobuf:protobuf",
+        "prelude//toolchains/android/third-party:protobuf",
     ],
 )
 
@@ -54,10 +54,10 @@ buck_java_library(
         "prelude//toolchains/android/test/com/facebook/buck/...",
     ],
     deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/jakarta.annotation-api:jakarta.annotation-api",
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
     ],
     exported_deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/grpc:remote-apis",
+        "prelude//toolchains/android/third-party:remote-apis",
     ],
 )
 
@@ -66,9 +66,9 @@ buck_java_library(
     srcs = glob(["**/install/model/**/*.java"]),
     visibility = ["PUBLIC"],
     deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/jakarta.annotation-api:jakarta.annotation-api",
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
     ],
     exported_deps = [
-        "fbsource//xplat/toolchains/android/sdk/third-party/java/grpc:remote-apis",
+        "prelude//toolchains/android/third-party:remote-apis",
     ],
 )
