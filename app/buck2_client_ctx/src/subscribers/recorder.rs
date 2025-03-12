@@ -1238,7 +1238,9 @@ impl InvocationRecorder {
         &mut self,
         io_provider_info: &buck2_data::IoProviderInfo,
     ) -> buck2_error::Result<()> {
-        self.eden_version = io_provider_info.eden_version.to_owned();
+        if let Some(eden_version) = &io_provider_info.eden_version {
+            self.eden_version = Some(eden_version.to_owned())
+        }
         Ok(())
     }
 
@@ -1407,6 +1409,13 @@ impl InvocationRecorder {
         }
         if let Some(stats) = &file_watcher.stats {
             self.watchman_version = stats.watchman_version.to_owned();
+        }
+        if let Some(eden_version) = file_watcher
+            .stats
+            .as_ref()
+            .and_then(|s| s.eden_version.clone())
+        {
+            self.eden_version = Some(eden_version);
         }
         Ok(())
     }
@@ -1864,6 +1873,7 @@ fn merge_file_watcher_stats(
     a.events.extend(b.events);
     a.incomplete_events_reason = a.incomplete_events_reason.or(b.incomplete_events_reason);
     a.watchman_version = a.watchman_version.or(b.watchman_version);
+    a.eden_version = a.eden_version.or(b.eden_version);
     Some(a)
 }
 
