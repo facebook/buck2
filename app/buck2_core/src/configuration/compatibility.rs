@@ -22,16 +22,21 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
 
 #[derive(Debug, buck2_error::Error)]
 enum CompatibilityErrors {
+    /// Target is immediately incompatible with the configuration.
     #[error("{0:#}")]
     #[buck2(input)]
     TargetIncompatible(IncompatiblePlatformReason),
+    /// Target is compatible but a transitive dependency is not.
+    #[error("{0:#}")]
+    #[buck2(tag = DepOnlyIncompatible)]
+    DepOnlyIncompatible(IncompatiblePlatformReason),
     // We just need this so that the soft error doesn't print a wall of text to stderr
     // TODO(scottcao): Delete this once we are done with migration and made this a hard error
     // everywhere
     #[error(
         "{0:#} does not pass compatibility check (will be error in future) because its transitive dep {1:#}"
     )]
-    #[buck2(input)]
+    #[buck2(tag = DepOnlyIncompatible)]
     DepOnlyIncompatibleSoftError(ConfiguredTargetLabel, IncompatiblePlatformReason),
 }
 
@@ -94,7 +99,14 @@ pub struct IncompatiblePlatformReason {
 
 impl IncompatiblePlatformReason {
     pub fn to_err(&self) -> buck2_error::Error {
-        CompatibilityErrors::TargetIncompatible(self.clone()).into()
+        match self.cause {
+            IncompatiblePlatformReasonCause::UnsatisfiedConfig(_) => {
+                CompatibilityErrors::TargetIncompatible(self.dupe()).into()
+            }
+            IncompatiblePlatformReasonCause::Dependency(_) => {
+                CompatibilityErrors::DepOnlyIncompatible(self.dupe()).into()
+            }
+        }
     }
 
     pub fn to_soft_err(&self) -> buck2_error::Error {
