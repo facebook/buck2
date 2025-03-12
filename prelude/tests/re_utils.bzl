@@ -96,12 +96,6 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     if build_mode_info != None:
         remote_execution_action_key = "{}={}".format(build_mode_info.cell, build_mode_info.mode)
 
-    # HACK: We have some older pinned versions of buck2 out in the wild that don't
-    # support this key; let's conditionally set it for now.
-    kwargs = {}
-    if "remote_execution_dynamic_image" in dir(CommandExecutorConfig):
-        kwargs["remote_execution_dynamic_image"] = re_dynamic_image
-
     default_executor = CommandExecutorConfig(
         local_enabled = local_enabled,
         remote_enabled = True,
@@ -111,8 +105,9 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         remote_execution_action_key = remote_execution_action_key,
         remote_execution_dependencies = re_dependencies,
         remote_execution_resource_units = re_resource_units,
-        **kwargs
+        remote_execution_dynamic_image = re_dynamic_image,
     )
+
     listing_executor = default_executor
     if listing_capabilities:
         listing_executor = CommandExecutorConfig(
@@ -123,6 +118,6 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
             remote_cache_enabled = remote_cache_enabled,
             remote_execution_action_key = remote_execution_action_key,
             remote_execution_resource_units = re_resource_units,
-            **kwargs
+            remote_execution_dynamic_image = re_dynamic_image,
         )
     return default_executor, {"listing": listing_executor}
