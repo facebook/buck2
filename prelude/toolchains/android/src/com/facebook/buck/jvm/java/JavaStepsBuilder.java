@@ -115,7 +115,6 @@ public class JavaStepsBuilder implements BuildCommandStepsBuilder {
   private void maybeAddMakeMissingOutputStep(
       BaseJarCommand command, LibraryStepsBuilder javaCompileStepsBuilder) {
 
-    javaCompileStepsBuilder.addMakeMissingOutputsStep(
-        command.getRootOutput(), command.getAnnotationPath());
+    javaCompileStepsBuilder.addMakeMissingOutputsStep(command.getAnnotationPath());
   }
 }

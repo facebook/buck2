@@ -108,8 +108,7 @@ public class KotlinStepsBuilder implements BuildCommandStepsBuilder {
         kotlinExtraParams,
         kotlinClassesDir);
 
-    libraryStepsBuilder.addMakeMissingOutputsStep(
-        baseJarCommand.getRootOutput(), baseJarCommand.getAnnotationPath());
+    libraryStepsBuilder.addMakeMissingOutputsStep(baseJarCommand.getAnnotationPath());
 
     return libraryStepsBuilder.buildIsolatedSteps();
   }

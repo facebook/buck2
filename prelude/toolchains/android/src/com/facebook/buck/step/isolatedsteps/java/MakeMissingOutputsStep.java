@@ -21,12 +21,10 @@ import java.io.IOException;
 /** Make Missing Output directories step. */
 public class MakeMissingOutputsStep extends AbstractIsolatedExecutionStep {
 
-  private final RelPath rootOutput;
   private final RelPath annotationsPath;
 
-  public MakeMissingOutputsStep(RelPath rootOutput, RelPath annotationsPath) {
+  public MakeMissingOutputsStep(RelPath annotationsPath) {
     super("make_missing_outputs");
-    this.rootOutput = rootOutput;
     this.annotationsPath = annotationsPath;
   }
 
@@ -34,9 +32,6 @@ public class MakeMissingOutputsStep extends AbstractIsolatedExecutionStep {
   public StepExecutionResult executeIsolatedStep(IsolatedExecutionContext context)
       throws IOException {
     AbsPath root = context.getRuleCellRoot();
-    if (!ProjectFilesystemUtils.exists(root, rootOutput.getPath())) {
-      ProjectFilesystemUtils.mkdirs(root, rootOutput.getPath());
-    }
     if (!ProjectFilesystemUtils.exists(root, annotationsPath.getPath())) {
       ProjectFilesystemUtils.mkdirs(root, annotationsPath.getPath());
     }

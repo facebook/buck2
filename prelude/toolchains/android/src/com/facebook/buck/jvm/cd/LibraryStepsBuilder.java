@@ -26,7 +26,7 @@ import javax.annotation.Nullable;
 /** Builder that creates library jar steps. */
 public interface LibraryStepsBuilder extends CompileStepsBuilder {
 
-  void addMakeMissingOutputsStep(RelPath rootOutput, RelPath annotationsPath);
+  void addMakeMissingOutputsStep(RelPath annotationsPath);
 
   void addBuildStepsForLibrary(
       AbiGenerationMode abiCompatibilityMode,

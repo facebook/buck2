@@ -35,8 +35,8 @@ class DefaultLibraryStepsBuilder<T extends CompileToJarStepFactory.ExtraParams>
   }
 
   @Override
-  public void addMakeMissingOutputsStep(RelPath rootOutput, RelPath annotationsPath) {
-    stepsBuilder.add(new MakeMissingOutputsStep(rootOutput, annotationsPath));
+  public void addMakeMissingOutputsStep(RelPath annotationsPath) {
+    stepsBuilder.add(new MakeMissingOutputsStep(annotationsPath));
   }
 
   @Override
