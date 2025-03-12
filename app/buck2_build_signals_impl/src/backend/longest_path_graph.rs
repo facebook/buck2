@@ -31,20 +31,20 @@ use crate::NodeKey;
 /// potential savings in addition to the critical path.
 pub(crate) struct LongestPathGraphBackend {
     builder: buck2_error::Result<GraphBuilder<NodeKey, NodeData>>,
-    top_level_analysis: Vec<VisibilityEdge>,
+    top_level_targets: Vec<TopLevelTarget>,
 }
 
 /// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
-struct VisibilityEdge {
-    node: NodeKey,
-    makes_visible: Vec<NodeKey>,
+struct TopLevelTarget {
+    analysis: NodeKey,
+    artifacts: Vec<NodeKey>,
 }
 
 impl LongestPathGraphBackend {
     pub(crate) fn new() -> Self {
         Self {
             builder: Ok(GraphBuilder::new()),
-            top_level_analysis: Vec::new(),
+            top_level_targets: Vec::new(),
         }
     }
 }
@@ -92,9 +92,9 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         analysis: NodeKey,
         artifacts: impl IntoIterator<Item = NodeKey>,
     ) {
-        self.top_level_analysis.push(VisibilityEdge {
-            node: analysis,
-            makes_visible: artifacts.into_iter().collect(),
+        self.top_level_targets.push(TopLevelTarget {
+            analysis,
+            artifacts: artifacts.into_iter().collect(),
         })
     }
 
@@ -105,9 +105,9 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
             let mut n = 0;
 
-            for visibility in &self.top_level_analysis {
-                let analysis = &visibility.node;
-                let artifacts = &visibility.makes_visible;
+            for top_level_target in &self.top_level_targets {
+                let analysis = &top_level_target.analysis;
+                let artifacts = &top_level_target.artifacts;
 
                 let analysis = match keys.get(analysis) {
                     Some(k) => k,
