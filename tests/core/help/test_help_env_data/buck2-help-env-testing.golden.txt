@@ -57,6 +57,7 @@ BUCK_LOG                                String
 BUCK_NO_INTERACTIVE_CONSOLE             String
 BUCK_OFFLINE_BUILD                      String
 BUCK_PARANOID                           bool
+BUCK_WRAPPER_START_TIME                 u64
 CI                                      bool                  false
 COMPLETION_VERIFY_LOCKFILE              String
 DICE_DETECT_CYCLES_UNSTABLE             DetectCycles

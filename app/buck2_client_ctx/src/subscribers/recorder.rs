@@ -25,6 +25,7 @@ use buck2_cli_proto::command_result;
 use buck2_common::build_count::BuildCount;
 use buck2_common::build_count::BuildCountManager;
 use buck2_common::convert::ProstDurationExt;
+use buck2_core::buck2_env;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
@@ -55,6 +56,7 @@ use buck2_events::BuckEvent;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use buck2_wrapper_common::invocation_id::TraceId;
+use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::VecExt;
@@ -662,6 +664,8 @@ impl InvocationRecorder {
             command_end: self.command_end.take(),
             command_duration: self.command_duration.take(),
             client_walltime: self.start_time.elapsed().try_into().ok(),
+            wrapper_start_time: buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
+                .unwrap_or(None),
             re_session_id: self.re_session_id.take().unwrap_or_default(),
             re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
             persistent_cache_mode: self.persistent_cache_mode.clone(),

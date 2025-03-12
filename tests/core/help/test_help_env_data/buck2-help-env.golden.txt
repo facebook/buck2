@@ -33,6 +33,7 @@ BUCK_LOG                                String
 BUCK_NO_INTERACTIVE_CONSOLE             String
 BUCK_OFFLINE_BUILD                      String
 BUCK_PARANOID                           bool
+BUCK_WRAPPER_START_TIME                 u64
 CI                                      bool                  false
 DICE_DETECT_CYCLES_UNSTABLE             DetectCycles
 ENFORCE_DISPATCHER_SET                  bool                  false

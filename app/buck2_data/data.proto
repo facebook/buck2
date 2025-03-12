@@ -2225,6 +2225,9 @@ message InvocationRecord {
 
   // CASd persistent cache mode used by the RE client
   optional string persistent_cache_mode = 245;
+
+  // The start time measured by the wrapper (Most accurate start_time we track)
+  optional uint64 wrapper_start_time = 246;
 }
 
 // Record event sent directly to scribe.

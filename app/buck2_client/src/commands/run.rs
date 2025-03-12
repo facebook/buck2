@@ -38,6 +38,7 @@ use buck2_common::argv::SanitizedArgv;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
+use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
 
@@ -169,6 +170,7 @@ impl StreamingCommand for RunCommand {
         // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
         std::env::remove_var(BUCK2_WRAPPER_ENV_VAR);
         std::env::remove_var(BUCK_WRAPPER_UUID_ENV_VAR);
+        std::env::remove_var(BUCK_WRAPPER_START_TIME_ENV_VAR);
 
         if let Some(file_path) = self.command_args_file {
             let mut output = File::create(&file_path).with_buck_error_context(|| {
