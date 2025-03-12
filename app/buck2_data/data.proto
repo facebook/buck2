@@ -562,6 +562,13 @@ message CriticalPathEntry2 {
   }
 }
 
+message TopLevelTargetCriticalPath {
+  // The relevant target.
+  ConfiguredTargetLabel target = 1;
+  // The duration of the full critical path for this target.
+  google.protobuf.Duration duration = 2;
+}
+
 // Sent once per build.
 message BuildGraphExecutionInfo {
   // The actions that made up the critical path, in chronological order.
@@ -582,6 +589,8 @@ message BuildGraphExecutionInfo {
   optional string command_name = 8;
   // The isolation dir
   optional string isolation_dir = 9;
+  // The critical path for top level targets
+  repeated TopLevelTargetCriticalPath top_level_targets = 10;
 }
 
 // An event capturing information from the test discovery phase.

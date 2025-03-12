@@ -298,3 +298,43 @@ async def test_critical_path_action_digest(buck: Buck) -> None:
                 has_action_digest = True
 
     assert has_action_digest
+
+
+@buck_test()
+async def test_critical_path_top_level_targets(buck: Buck) -> None:
+    await buck.build("//:step_1", "//:step_2", "//:step_3", "--no-remote-cache")
+
+    build_graph_info = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "BuildGraphInfo",
+    )
+
+    build_graph_info = build_graph_info[0]
+    top_level_targets = build_graph_info["top_level_targets"]
+
+    # Sort by duration.
+    top_level_targets = sorted(top_level_targets, key=lambda x: x["duration_us"])
+    (t0, t1, t2) = [x["target"]["label"]["name"] for x in top_level_targets]
+    (d0, d1, d2) = [x["duration_us"] for x in top_level_targets]
+
+    assert t0 == "step_1"
+    assert t1 == "step_2"
+    assert t2 == "step_3"
+    assert d0 <= d1
+    assert d1 <= d2
+
+    # The duration should match the relevant build steps:
+    total_duration = sum(
+        x["total_duration_us"]
+        for x in build_graph_info["critical_path2"]
+        if len(
+            {"GenericEntry", "ComputeCriticalPath", "FinalMaterialization"}
+            & x["entry"].keys()
+        )
+        == 0
+    )
+    assert total_duration == d2

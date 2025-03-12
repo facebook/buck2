@@ -405,6 +405,7 @@ where
             critical_path,
             num_nodes,
             num_edges,
+            top_level_targets,
         } = self.backend.finish()?;
 
         let elapsed_compute_critical_path = now.elapsed();
@@ -527,6 +528,13 @@ where
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let top_level_targets = top_level_targets.try_map(|(key, duration)| {
+            buck2_error::Ok(buck2_data::TopLevelTargetCriticalPath {
+                target: Some(key.as_proto()),
+                duration: Some((*duration).try_into()?),
+            })
+        })?;
+
         instant_event(buck2_data::BuildGraphExecutionInfo {
             critical_path: Vec::new(),
             critical_path2,
@@ -536,6 +544,7 @@ where
             num_nodes,
             num_edges,
             backend_name: Some(T::name().to_string()),
+            top_level_targets,
         });
         Ok(())
     }
@@ -634,6 +643,8 @@ pub(crate) struct BuildInfo {
     critical_path: Vec<(NodeKey, NodeData, Option<Duration>)>,
     num_nodes: u64,
     num_edges: u64,
+    /// Critical path for top level targets
+    top_level_targets: Vec<(ConfiguredTargetLabel, Duration)>,
 }
 
 #[derive(Clone)]

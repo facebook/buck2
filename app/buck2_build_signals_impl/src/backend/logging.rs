@@ -69,6 +69,7 @@ impl BuildListenerBackend for LoggingBackend {
             critical_path: Vec::new(),
             num_nodes: 0,
             num_edges: 0,
+            top_level_targets: Default::default(),
         })
     }
 

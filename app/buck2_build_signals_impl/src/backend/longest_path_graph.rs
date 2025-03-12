@@ -173,9 +173,50 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 .buck_error_context("Duration `as_micros()` exceeds u64")
         })?;
 
-        let (critical_path, critical_path_cost, replacement_durations) =
+        let (critical_path, critical_path_cost, replacement_durations, critical_path_accessor) =
             compute_critical_path_potentials(&graph, &durations)
                 .buck_error_context("Error computing critical path potentials")?;
+
+        let critical_path_for_top_level_targets = self
+            .top_level_targets
+            .iter()
+            .filter_map(|t| {
+                let max_cost = (|| {
+                    let (path_cost, _critical_path) = t
+                        .artifacts
+                        .iter()
+                        .map(|a| {
+                            let idx = keys.get(a).with_buck_error_context(|| {
+                                format!("Cannot find artifact: {}", a)
+                            })?;
+                            critical_path_accessor
+                                .critical_path_for_vertex(idx)
+                                .with_buck_error_context(|| {
+                                    format!("Invalid index for artifact: {}", a)
+                                })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .max_by_key(|p| p.0)
+                        .buck_error_context("No critical path")?;
+
+                    buck2_error::Result::Ok(Duration::from_micros(path_cost.runtime))
+                })();
+
+                let max_cost = match max_cost {
+                    Ok(max_cost) => max_cost,
+                    Err(e) => {
+                        // This would happen if we're given a target at the top
+                        // level but then its DICE node never gets computed.
+                        // This may happen if the command was e.g. cancelled.
+                        tracing::debug!("No critical path for target {}: {:#}", t.target, e);
+                        return None;
+                    }
+                };
+
+                Some((t.target.dupe(), max_cost))
+            })
+            .collect::<Vec<_>>();
 
         drop(durations);
 
@@ -206,6 +247,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             critical_path,
             num_nodes: graph.vertices_count() as _,
             num_edges: graph.edges_count() as _,
+            top_level_targets: critical_path_for_top_level_targets,
         })
     }
 
