@@ -313,7 +313,7 @@ impl EdenFsFileWatcher {
                 LargeChangeNotification::commitTransition(commit_transition) => {
                     let from = hex::encode(&commit_transition.from);
                     let to = hex::encode(&commit_transition.to);
-                    self.process_commit_transition(tracker, stats, from, to)
+                    self.process_commit_transition(tracker, stats, &from, &to)
                         .await
                         .buck_error_context("Failed to process commit transition.")?
                 }
@@ -457,8 +457,8 @@ impl EdenFsFileWatcher {
         &self,
         tracker: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
-        from: String,
-        to: Option<String>,
+        from: &str,
+        to: Option<&str>,
     ) -> buck2_error::Result<bool> {
         // limit results to MAX_FILE_CHANGE_RECORDS
         match get_status(&self.eden_root, &from, to, MAX_FILE_CHANGE_RECORDS)
@@ -516,8 +516,8 @@ impl EdenFsFileWatcher {
         &self,
         tracker: &mut FileChangeTracker,
         stats: &mut FileWatcherStats,
-        from: String,
-        to: String,
+        from: &str,
+        to: &str,
     ) -> buck2_error::Result<bool> {
         if self
             .update_mergebase(&to)
@@ -528,7 +528,7 @@ impl EdenFsFileWatcher {
             Ok(true)
         } else {
             // Mergebase has not changed - compute status
-            self.process_sapling_status(tracker, stats, from, Some(to))
+            self.process_sapling_status(tracker, stats, &from, Some(to))
                 .await
         }
     }
@@ -587,7 +587,7 @@ impl EdenFsFileWatcher {
         if let Some(mergebase) = mergebase {
             let mut tracker = FileChangeTracker::new();
             let mut stats = FileWatcherStats::new(base_stats, 0);
-            self.process_sapling_status(&mut tracker, &mut stats, mergebase, None)
+            self.process_sapling_status(&mut tracker, &mut stats, &mergebase, None)
                 .await?;
             Ok((stats, dice))
         } else {
