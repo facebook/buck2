@@ -22,7 +22,9 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::soft_error;
 use buck2_data::FileWatcherEventType as Type;
 use buck2_data::FileWatcherKind as Kind;
@@ -76,7 +78,8 @@ pub(crate) struct EdenFsFileWatcher {
     #[allocative(skip)]
     position: RwLock<JournalPosition>,
     cells: CellResolver,
-    project_root: ProjectRoot,
+    // The project root, relative to the eden mount point
+    project_root: ForwardRelativePathBuf,
     ignore_specs: HashMap<CellName, IgnoreSet>,
     mergebase: RwLock<Option<MergebaseDetails>>,
     last_mergebase: RwLock<Option<MergebaseDetails>>,
@@ -102,6 +105,7 @@ impl EdenFsFileWatcher {
             String::from_utf8(mount_point.clone()).map_err(|_| EdenFsWatcherError::Utf8)?;
         let eden_root = AbsNormPathBuf::new(eden_root.into())
             .map_err(|_| EdenFsWatcherError::NotAbsNormPath)?;
+        let project_root = manager.get_proj_relative_path().to_owned();
 
         let mergebase_with = root_config
             .get(BuckconfigKeyRef {
@@ -116,7 +120,7 @@ impl EdenFsFileWatcher {
             eden_root,
             position: RwLock::new(JournalPosition::default()),
             cells,
-            project_root: project_root.clone(),
+            project_root,
             ignore_specs,
             mergebase: RwLock::new(None),
             last_mergebase: RwLock::new(None),
@@ -409,15 +413,14 @@ impl EdenFsFileWatcher {
             }
         };
 
-        let abs_path = self.eden_root.join(&eden_rel_path);
-        let project_rel_path = match self.project_root.relativize(&abs_path) {
-            Ok(path) => path,
+        let project_rel_path = match eden_rel_path.strip_prefix(&self.project_root) {
+            Ok(path) => <&ProjectRelativePath>::from(path),
             // we ignore any changes that are not relative to the project root
             Err(_) => return Ok(()),
         };
         let cell_path = self
             .cells
-            .get_cell_path(&project_rel_path)
+            .get_cell_path(project_rel_path)
             .buck_error_context("Failed to convert path to cell.")?;
 
         let ignore = self

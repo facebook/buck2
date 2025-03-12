@@ -22,6 +22,7 @@ use buck2_core;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -147,6 +148,10 @@ impl EdenConnectionManager {
             .as_os_str()
             .as_encoded_bytes()
             .to_vec()
+    }
+
+    pub fn get_proj_relative_path(&self) -> &ForwardRelativePath {
+        self.project_root.as_ref()
     }
 
     /// Converts project relative paths to values that are suitable for passing to Eden requests
