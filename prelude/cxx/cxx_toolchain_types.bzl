@@ -207,6 +207,7 @@ CxxToolchainInfo = provider(
         "cuda_dep_tracking_mode": provider_field(typing.Any, default = None),
         "cvtres_compiler_info": provider_field(typing.Any, default = None),
         "cxx_compiler_info": provider_field(typing.Any, default = None),
+        "cxx_error_handler": provider_field(typing.Any, default = None),
         "dumpbin_toolchain_path": provider_field(typing.Any, default = None),
         "gcno_files": provider_field(typing.Any, default = None),
         "header_mode": provider_field(typing.Any, default = None),
@@ -286,7 +287,8 @@ def cxx_toolchain_infos(
         remap_cwd = False,
         optimization_compiler_flags_EXPERIMENTAL = [],
         objc_compiler_info = None,
-        objcxx_compiler_info = None):
+        objcxx_compiler_info = None,
+        cxx_error_handler = None):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -344,6 +346,7 @@ def cxx_toolchain_infos(
         target_sdk_version = target_sdk_version,
         use_dep_files = use_dep_files,
         use_distributed_thinlto = use_distributed_thinlto,
+        cxx_error_handler = cxx_error_handler,
     )
 
     # Provide placeholder mappings, used primarily by cxx_genrule.
