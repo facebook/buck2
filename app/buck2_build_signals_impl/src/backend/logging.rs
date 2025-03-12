@@ -10,6 +10,7 @@
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::QuickUnstableE2eData;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::span::SpanId;
@@ -58,7 +59,7 @@ impl BuildListenerBackend for LoggingBackend {
 
     fn process_top_level_target(
         &mut self,
-        _analysis: NodeKey,
+        _analysis: ConfiguredTargetLabel,
         _artifacts: impl IntoIterator<Item = NodeKey>,
     ) {
     }

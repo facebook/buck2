@@ -599,7 +599,7 @@ where
         top_level: TopLevelTargetSignal,
     ) -> buck2_error::Result<()> {
         self.backend.process_top_level_target(
-            NodeKey::AnalysisKey(AnalysisKey(top_level.label)),
+            top_level.label,
             top_level.artifacts.map(|k| match k {
                 ResolvedArtifactGroupBuildSignalsKey::BuildKey(b) => NodeKey::BuildKey(b.clone()),
                 ResolvedArtifactGroupBuildSignalsKey::EnsureTransitiveSetProjectionKey(e) => {

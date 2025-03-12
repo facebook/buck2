@@ -9,10 +9,12 @@
 
 use std::time::Duration;
 
+use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_core::soft_error;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
@@ -36,7 +38,7 @@ pub(crate) struct LongestPathGraphBackend {
 
 /// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
 struct TopLevelTarget {
-    analysis: NodeKey,
+    target: ConfiguredTargetLabel,
     artifacts: Vec<NodeKey>,
 }
 
@@ -89,11 +91,11 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
     fn process_top_level_target(
         &mut self,
-        analysis: NodeKey,
+        target: ConfiguredTargetLabel,
         artifacts: impl IntoIterator<Item = NodeKey>,
     ) {
         self.top_level_targets.push(TopLevelTarget {
-            analysis,
+            target,
             artifacts: artifacts.into_iter().collect(),
         })
     }
@@ -106,10 +108,11 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             let mut n = 0;
 
             for top_level_target in &self.top_level_targets {
-                let analysis = &top_level_target.analysis;
+                // This is a bit wasteful, but transient and the volume is small.
+                let analysis = NodeKey::AnalysisKey(AnalysisKey(top_level_target.target.dupe()));
                 let artifacts = &top_level_target.artifacts;
 
-                let analysis = match keys.get(analysis) {
+                let analysis = match keys.get(&analysis) {
                     Some(k) => k,
                     None => continue, // Nothing depends on this,
                 };
