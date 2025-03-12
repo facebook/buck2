@@ -139,6 +139,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::DaemonIsBusy => rank!(input),
         ErrorTag::DaemonPreempted => rank!(input),
         ErrorTag::ConfigureAttr => rank!(input),
+        ErrorTag::DepOnlyIncompatible => rank!(input),
         ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
         ErrorTag::IoNotConnected => rank!(input), // This typically means eden is not mounted
         ErrorTag::IoExecutableFileBusy => rank!(input),
