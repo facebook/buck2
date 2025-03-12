@@ -542,13 +542,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             [d.shared_library_info for d in impl_params.extra_link_roots]
         )
     elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink"):
-        for d in link_deps + impl_params.extra_link_roots:
-            if d.linkable_graph == None:
-                continue
-            preferred_linkage = d.linkable_graph.nodes.value.linkable.preferred_linkage
+        for linkable_node in linkable_graph.nodes.traverse():
+            preferred_linkage = linkable_node.linkable.preferred_linkage
             output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
             if output_style == LibOutputStyle("shared_lib"):
-                shlib_deps.append(d.shared_library_info)
+                shlib_deps.append(merge_shared_libraries(ctx.actions, node = linkable_node.linkable.shared_libs))
 
     shlib_info = merge_shared_libraries(ctx.actions, deps = shlib_deps)
 
