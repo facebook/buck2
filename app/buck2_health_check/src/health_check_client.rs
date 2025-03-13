@@ -9,7 +9,7 @@
 
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the channels are ready.
 
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::Sender;
 
 use crate::health_check_context::HealthCheckContext;
 #[cfg(fbcode_build)]
@@ -27,11 +27,11 @@ pub struct HealthCheckClient {
     vpn_check: VpnCheck,
     // Writer to send tags to be logged to scuba.
     // TODO(rajneeshl): Make this required when the event_observer reference is removed.
-    tags_sender: Option<UnboundedSender<Vec<String>>>,
+    tags_sender: Option<Sender<Vec<String>>>,
 }
 
 impl HealthCheckClient {
-    pub fn new(trace_id: String, tags_sender: Option<UnboundedSender<Vec<String>>>) -> Self {
+    pub fn new(trace_id: String, tags_sender: Option<Sender<Vec<String>>>) -> Self {
         Self {
             health_check_context: HealthCheckContext {
                 trace_id,

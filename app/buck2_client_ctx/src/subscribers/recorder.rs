@@ -63,7 +63,7 @@ use gazebo::prelude::VecExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
 use termwiz::istty::IsTty;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::Receiver;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::client_metadata::ClientMetadata;
@@ -216,7 +216,7 @@ pub(crate) struct InvocationRecorder {
     materialization_files: u64,
     previous_uuid_with_mismatched_config: Option<String>,
     file_watcher: Option<String>,
-    health_check_tags_receiver: Option<UnboundedReceiver<Vec<String>>>,
+    health_check_tags_receiver: Option<Receiver<Vec<String>>>,
     health_check_tags: HashSet<String>,
 }
 
@@ -242,7 +242,7 @@ impl InvocationRecorder {
         restarted_trace_id: Option<TraceId>,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         client_metadata: Vec<buck2_data::ClientMetadata>,
-        health_check_tags_receiver: Option<UnboundedReceiver<Vec<String>>>,
+        health_check_tags_receiver: Option<Receiver<Vec<String>>>,
     ) -> Self {
         Self {
             fb,
@@ -1888,7 +1888,7 @@ pub(crate) fn try_get_invocation_recorder(
     sanitized_argv: Vec<String>,
     representative_config_flags: Vec<String>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-    health_check_tags_receiver: Option<UnboundedReceiver<Vec<String>>>,
+    health_check_tags_receiver: Option<Receiver<Vec<String>>>,
 ) -> buck2_error::Result<Box<InvocationRecorder>> {
     let write_to_path = opts
         .unstable_write_invocation_record

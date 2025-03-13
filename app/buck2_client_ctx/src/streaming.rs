@@ -43,6 +43,7 @@ use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscribers::EventSubscribers;
 
+const HEALTH_CHECK_CHANNEL_SIZE: usize = 100;
 fn default_subscribers<T: StreamingCommand>(
     cmd: &T,
     matches: BuckArgMatches<'_>,
@@ -57,7 +58,7 @@ fn default_subscribers<T: StreamingCommand>(
     let log_size_counter_bytes = Some(Arc::new(AtomicU64::new(0)));
 
     let (health_check_tags_sender, health_check_tags_receiver) =
-        tokio::sync::mpsc::unbounded_channel();
+        tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
 
     subscribers.push(get_console_with_root(
         ctx.trace_id.dupe(),
