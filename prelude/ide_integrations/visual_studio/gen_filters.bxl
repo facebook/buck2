@@ -29,7 +29,7 @@ def _get_common_directory(paths) -> str:
 
 def _get_file_filter_map(vs_settings: dict) -> dict:
     filters = {}
-    files = vs_settings["Headers"] + vs_settings["Sources"]
+    files = vs_settings["Headers"] + vs_settings["Sources"].keys()
 
     # Handle paths that start with "buck-out"(exported files) separately since these file
     # don't have any common dir with the others and would make the hierarchy really nested

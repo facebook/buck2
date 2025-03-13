@@ -165,7 +165,7 @@ def get_mode_config_path(mode_name):
 def get_root_path_relative_to(target_label):
     # Workaround: "".split("/") returns [""], which is not expected.
     if not target_label.package:
-        return "../.."
+        return "../../"
 
     # + 1 for the hash layer of directory and + 1 more for cell
     return "../" * (len(target_label.package.split("/")) + 2)

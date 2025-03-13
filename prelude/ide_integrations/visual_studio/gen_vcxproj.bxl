@@ -49,12 +49,13 @@ def _gen_headers(headers):
     ], indent_level = 1)
 
 def _gen_sources(sources):
-    return h("ItemGroup", [
-        h("ClCompile", None, {
+    source_entries = [
+        h("ClCompile", [h("BuckObjSubTarget", object, indent_level = 3)], {
             "Include": cmd_args("$(RepoRoot)\\", source, delimiter = ""),
         }, indent_level = 2)
-        for source in sources
-    ], indent_level = 1)
+        for source, object in sources.items()
+    ]
+    return h("ItemGroup", source_entries, indent_level = 1)
 
 def _gen_import_mode_configs(vs_settings: dict, target):
     imports = []
@@ -117,6 +118,26 @@ def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, b
         "",
         sources,
         "",
+        h(
+            "Target",
+            [
+                h(
+                    "Exec",
+                    None,
+                    {
+                        "Command": "$(vs_buck_build_command)[objects][%(ClCompile.BuckObjSubTarget)] $(ExtraBuckOptions)",
+                        "WorkingDirectory": "$(RepoRoot)",
+                    },
+                    indent_level = 2,
+                ),
+            ],
+            {
+                "Condition": "\'@(ClCompile)\' != \'\'",
+                "DependsOnTargets": "SelectClCompile",
+                "Name": "ClCompile",
+            },
+            indent_level = 1,
+        ),
         """
     <ImportGroup Label="ExtensionTargets" />
 </Project>""",
