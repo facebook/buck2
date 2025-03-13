@@ -10,6 +10,7 @@
 
 import json
 import platform
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -133,4 +134,26 @@ async def test_buck_out_is_cache_dir(buck: Buck) -> None:
         (Path(root.stdout.strip()) / "buck-out" / "v2" / "CACHEDIR.TAG")
         .read_text(encoding="utf-8")
         .startswith("Signature: 8a477f597d28d172789f06886806bc55")
+    )
+
+
+@buck_test()
+async def test_prev_daemon_dir(buck: Buck) -> None:
+    await buck.targets(":")  # Start a daemon
+    await buck.kill()
+    await buck.targets(":")  # Start another daemon
+    daemon_dir = Path((await buck.debug("daemon-dir")).stdout.strip())
+
+    def extract_pid(stderr_path: Path) -> int:
+        pid = [
+            re.match(r".* PID: (\d+)", line)
+            for line in stderr_path.read_text().splitlines()
+        ]
+        pid = list(filter(None, pid))
+        assert len(pid) == 1, pid[0]
+        return int(pid[0].group(1))
+
+    # check logs contain buckd pid and don't match
+    assert extract_pid(daemon_dir / "buckd.stderr") != extract_pid(
+        daemon_dir / "prev/buckd.stderr"
     )

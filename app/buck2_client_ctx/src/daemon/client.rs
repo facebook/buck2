@@ -20,6 +20,7 @@ use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_core::fs::paths::file_name::FileName;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
@@ -79,6 +80,7 @@ pub struct BuckdLifecycleLock {
 
 impl BuckdLifecycleLock {
     const BUCKD_LIFECYCLE: &'static str = "buckd.lifecycle";
+    const BUCKD_PREV_DIR: &'static str = "prev";
 
     pub async fn lock_with_timeout(
         daemon_dir: DaemonDir,
@@ -104,7 +106,19 @@ impl BuckdLifecycleLock {
     }
 
     /// Remove everything except `buckd.lifecycle` file which is the lock file.
-    pub fn clean_daemon_dir(&self) -> buck2_error::Result<()> {
+    /// If `keep_prev` is true, backup previous daemon logs to `prev` dir for debugging.
+    pub fn clean_daemon_dir(&self, keep_prev: bool) -> buck2_error::Result<()> {
+        let prev_daemon_dir = self
+            .daemon_dir
+            .path
+            .join(FileName::new(Self::BUCKD_PREV_DIR).unwrap());
+        if keep_prev {
+            if prev_daemon_dir.is_dir() {
+                fs_util::remove_dir_all(&prev_daemon_dir)?;
+            }
+            fs_util::create_dir_all(&prev_daemon_dir)?;
+        }
+
         let mut seen_lifecycle = false;
         for p in fs_util::read_dir(&self.daemon_dir.path)? {
             let p = p?;
@@ -112,7 +126,15 @@ impl BuckdLifecycleLock {
                 seen_lifecycle = true;
                 continue;
             }
-            fs_util::remove_all(p.path())?;
+            if keep_prev {
+                if p.file_name() != Self::BUCKD_PREV_DIR {
+                    let file_name = p.file_name();
+                    let file_name = FileName::from_os_string(&file_name)?;
+                    fs_util::rename(p.path(), prev_daemon_dir.join(file_name))?;
+                }
+            } else {
+                fs_util::remove_all(p.path())?;
+            }
         }
         if !seen_lifecycle {
             // Self-check.

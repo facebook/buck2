@@ -300,7 +300,7 @@ impl<'a> BuckdLifecycle<'a> {
     }
 
     fn clean_daemon_dir(&self) -> buck2_error::Result<()> {
-        self.lock.clean_daemon_dir()
+        self.lock.clean_daemon_dir(true)
     }
 
     async fn start_server(&self) -> buck2_error::Result<()> {
