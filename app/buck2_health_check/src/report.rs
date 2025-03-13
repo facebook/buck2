@@ -7,6 +7,8 @@
  * of this source tree.
  */
 
+use crate::interface::HealthCheckType;
+
 /// Severity of the issue reported by a health check.
 pub enum Severity {
     Info,
@@ -24,7 +26,7 @@ pub enum Remediation {
 /// Report to be displayed to the user on the console.
 pub struct DisplayReport {
     /// The health check that generated this report.
-    pub health_check_name: String,
+    pub health_check_type: HealthCheckType,
 
     /// The severity of the issue reported by the health check.
     pub severity: Severity,

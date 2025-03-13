@@ -32,6 +32,7 @@ use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
+use buck2_health_check::interface::HealthCheckType;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -54,16 +55,7 @@ use crate::subscribers::system_warning::vpn_enabled_msg;
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
-#[derive(Eq, PartialEq, Hash)]
-enum SystemWarningTypes {
-    MemoryPressure,
-    LowDiskSpace,
-    SlowDownloadSpeed,
-    VpnEnabled,
-    StableRevision,
-}
-
-static ELAPSED_SYSTEM_WARNING_MAP: Lazy<Mutex<HashMap<SystemWarningTypes, (Instant, u64)>>> =
+static ELAPSED_HEALTH_CHECK_MAP: Lazy<Mutex<HashMap<HealthCheckType, (Instant, u64)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn now_display() -> impl Display {
@@ -104,12 +96,9 @@ macro_rules! echo {
 }
 
 // Report only if at least double time has passed since reporting interval
-fn echo_system_warning_exponential(
-    warning: SystemWarningTypes,
-    msg: &str,
-) -> buck2_error::Result<()> {
+fn echo_system_warning_exponential(warning: HealthCheckType, msg: &str) -> buck2_error::Result<()> {
     if let Some((last_reported, every_x)) =
-        ELAPSED_SYSTEM_WARNING_MAP.lock().unwrap().get_mut(&warning)
+        ELAPSED_HEALTH_CHECK_MAP.lock().unwrap().get_mut(&warning)
     {
         let now = Instant::now();
         let elapsed = now.duration_since(*last_reported);
@@ -130,26 +119,26 @@ enum TtyMode {
 }
 
 fn init_remaining_system_warning_count() {
-    ELAPSED_SYSTEM_WARNING_MAP
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::MemoryPressure, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
+        .insert(HealthCheckType::MemoryPressure, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::LowDiskSpace, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
+        .insert(HealthCheckType::LowDiskSpace, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::SlowDownloadSpeed, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
+        .insert(HealthCheckType::SlowDownloadSpeed, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::VpnEnabled, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
+        .insert(HealthCheckType::VpnEnabled, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::StableRevision, (Instant::now(), 1));
+        .insert(HealthCheckType::StableRevision, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.
@@ -635,7 +624,7 @@ where
                         check_memory_pressure_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
-                            SystemWarningTypes::MemoryPressure,
+                            HealthCheckType::MemoryPressure,
                             &system_memory_exceeded_msg(&memory_pressure),
                         )?;
                     }
@@ -643,14 +632,14 @@ where
                         check_remaining_disk_space_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
-                            SystemWarningTypes::LowDiskSpace,
+                            HealthCheckType::LowDiskSpace,
                             &low_disk_space_msg(&low_disk_space),
                         )?;
                     }
                     if let Some(client) = &self.observer().health_check_client {
                         if client.is_vpn_check_enabled() && is_vpn_enabled() {
                             echo_system_warning_exponential(
-                                SystemWarningTypes::VpnEnabled,
+                                HealthCheckType::VpnEnabled,
                                 &vpn_enabled_msg(),
                             )?;
                         }
@@ -658,7 +647,7 @@ where
                         if let Some(targets_not_on_stable) = client.check_stable_revision() {
                             for message in stable_revision_msg(&targets_not_on_stable) {
                                 echo_system_warning_exponential(
-                                    SystemWarningTypes::StableRevision,
+                                    HealthCheckType::StableRevision,
                                     &message,
                                 )?;
                             }
