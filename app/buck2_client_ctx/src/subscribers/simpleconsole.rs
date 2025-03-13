@@ -39,6 +39,7 @@ use dupe::Dupe;
 use once_cell::sync::Lazy;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::Receiver;
 
 use crate::subscribers::emit_event::emit_event_if_relevant;
@@ -156,7 +157,6 @@ pub struct SimpleConsole<E> {
     action_errors: Vec<buck2_data::ActionError>,
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
-    #[allow(unused)] // TODO(rajneeshl): Use this field to read health check reports.
     health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
 }
 
@@ -569,6 +569,34 @@ where
         self.notify_printed();
         Ok(())
     }
+
+    pub(crate) fn try_recv_health_check_display_reports(&mut self) -> Option<Vec<DisplayReport>> {
+        if let Some(receiver) = self.health_check_reports_receiver.as_mut() {
+            let mut reports = Vec::new();
+            loop {
+                match receiver.try_recv() {
+                    Ok(report) => reports.extend(report),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        // If the sender has been dropped, remove the receiver so that we can avoid trying again.
+                        self.health_check_reports_receiver = None;
+                        break;
+                    }
+                }
+            }
+            if !reports.is_empty() {
+                return Some(reports);
+            }
+        }
+        None
+    }
+
+    fn echo_health_check_warning(&self, report: &DisplayReport) -> buck2_error::Result<()> {
+        if let Some(warning) = &report.warning {
+            echo_system_warning_exponential(&report.health_check_type, &warning.to_string())?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -622,6 +650,13 @@ where
     async fn tick(&mut self, _: &Tick) -> buck2_error::Result<()> {
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.expect_spans;
+
+            for report in self
+                .try_recv_health_check_display_reports()
+                .unwrap_or_default()
+            {
+                self.echo_health_check_warning(&report)?;
+            }
 
             let mut roots = self.observer().spans().iter_roots();
             let sample_event = roots.next();
