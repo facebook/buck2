@@ -98,9 +98,12 @@ macro_rules! echo {
 }
 
 // Report only if at least double time has passed since reporting interval
-fn echo_system_warning_exponential(warning: HealthCheckType, msg: &str) -> buck2_error::Result<()> {
+fn echo_system_warning_exponential(
+    warning: &HealthCheckType,
+    msg: &str,
+) -> buck2_error::Result<()> {
     if let Some((last_reported, every_x)) =
-        ELAPSED_HEALTH_CHECK_MAP.lock().unwrap().get_mut(&warning)
+        ELAPSED_HEALTH_CHECK_MAP.lock().unwrap().get_mut(warning)
     {
         let now = Instant::now();
         let elapsed = now.duration_since(*last_reported);
@@ -655,7 +658,7 @@ where
                         check_memory_pressure_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
-                            HealthCheckType::MemoryPressure,
+                            &HealthCheckType::MemoryPressure,
                             &system_memory_exceeded_msg(&memory_pressure),
                         )?;
                     }
@@ -663,14 +666,14 @@ where
                         check_remaining_disk_space_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
-                            HealthCheckType::LowDiskSpace,
+                            &HealthCheckType::LowDiskSpace,
                             &low_disk_space_msg(&low_disk_space),
                         )?;
                     }
                     if let Some(client) = &self.observer().health_check_client {
                         if client.is_vpn_check_enabled() && is_vpn_enabled() {
                             echo_system_warning_exponential(
-                                HealthCheckType::VpnEnabled,
+                                &HealthCheckType::VpnEnabled,
                                 &vpn_enabled_msg(),
                             )?;
                         }
@@ -678,7 +681,7 @@ where
                         if let Some(targets_not_on_stable) = client.check_stable_revision() {
                             for message in stable_revision_msg(&targets_not_on_stable) {
                                 echo_system_warning_exponential(
-                                    HealthCheckType::StableRevision,
+                                    &HealthCheckType::StableRevision,
                                     &message,
                                 )?;
                             }
