@@ -134,6 +134,7 @@ pub struct SuperConsoleState {
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole<DebugEventObserverExtra>,
     config: SuperConsoleConfig,
+    active_warnings: Option<Vec<DisplayReport>>,
 }
 
 impl SuperConsoleState {
@@ -196,6 +197,7 @@ impl<'s> Component for BuckRootComponent<'s> {
             .as_ref()
             .map(|s| &s.1);
         let system_info = self.state.simple_console.observer.system_info();
+        let health_check_reports = self.state.active_warnings.as_ref();
         let health_check_client = self
             .state
             .simple_console
@@ -208,6 +210,7 @@ impl<'s> Component for BuckRootComponent<'s> {
                     last_snapshot,
                     system_info,
                     health_check_client,
+                    health_check_reports,
                 },
                 mode,
             )?;
@@ -416,6 +419,7 @@ impl SuperConsoleState {
                 health_check_reports_receiver,
             ),
             config,
+            active_warnings: None,
         })
     }
 
@@ -769,8 +773,18 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
+    fn try_update_active_warnings(&mut self) {
+        let reports = self
+            .state
+            .simple_console
+            .try_recv_health_check_display_reports();
+        if reports.is_some() {
+            self.state.active_warnings = reports;
+        }
+    }
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
         self.state.current_tick = tick.dupe();
+        self.try_update_active_warnings();
         self.super_console
             .render(&BuckRootComponent {
                 header: &self.header,
