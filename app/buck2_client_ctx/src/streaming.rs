@@ -59,6 +59,8 @@ fn default_subscribers<T: StreamingCommand>(
 
     let (health_check_tags_sender, health_check_tags_receiver) =
         tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
+    let (health_check_display_reports_sender, health_check_display_reports_receiver) =
+        tokio::sync::mpsc::channel(HEALTH_CHECK_CHANNEL_SIZE);
 
     subscribers.push(get_console_with_root(
         ctx.trace_id.dupe(),
@@ -68,6 +70,7 @@ fn default_subscribers<T: StreamingCommand>(
         None,
         T::COMMAND_NAME,
         console_opts.superconsole_config(),
+        Some(health_check_display_reports_receiver),
     )?);
 
     if let Some(event_log) = try_get_event_log_subscriber(cmd, ctx, log_size_counter_bytes.clone())?
@@ -103,6 +106,7 @@ fn default_subscribers<T: StreamingCommand>(
     subscribers.push(HealthCheckSubscriber::new(
         ctx.trace_id.dupe(),
         health_check_tags_sender,
+        health_check_display_reports_sender,
     ));
     subscribers.extend(cmd.extra_subscribers());
     Ok(EventSubscribers::new(subscribers))

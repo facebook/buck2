@@ -60,7 +60,7 @@ where
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
-            health_check_client: Some(HealthCheckClient::new(trace_id.to_string(), None)),
+            health_check_client: Some(HealthCheckClient::new(trace_id.to_string(), None, None)),
             dice_state: DiceState::new(),
             extra: E::new(),
         }

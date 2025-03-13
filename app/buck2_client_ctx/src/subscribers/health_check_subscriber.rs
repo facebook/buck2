@@ -15,6 +15,7 @@ use buck2_data::buck_event::Data::*;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_health_check::health_check_client::HealthCheckClient;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use tokio::sync::mpsc::Sender;
 
@@ -36,9 +37,17 @@ impl EventSubscriber for HealthCheckSubscriber {
 }
 
 impl HealthCheckSubscriber {
-    pub fn new(trace_id: TraceId, tags_sender: Sender<Vec<String>>) -> Box<Self> {
+    pub fn new(
+        trace_id: TraceId,
+        tags_sender: Sender<Vec<String>>,
+        display_reports_sender: Sender<Vec<DisplayReport>>,
+    ) -> Box<Self> {
         Box::new(Self {
-            health_check_client: HealthCheckClient::new(trace_id.to_string(), Some(tags_sender)),
+            health_check_client: HealthCheckClient::new(
+                trace_id.to_string(),
+                Some(tags_sender),
+                Some(display_reports_sender),
+            ),
         })
     }
 

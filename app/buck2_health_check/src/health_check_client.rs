@@ -15,6 +15,7 @@ use crate::health_check_context::HealthCheckContext;
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
+use crate::report::DisplayReport;
 
 /// This client maintains the context and make requests to the health check server.
 pub struct HealthCheckClient {
@@ -28,10 +29,16 @@ pub struct HealthCheckClient {
     // Writer to send tags to be logged to scuba.
     // TODO(rajneeshl): Make this required when the event_observer reference is removed.
     tags_sender: Option<Sender<Vec<String>>>,
+    // Writer to send health check reports to be displayed to the user.
+    display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
 }
 
 impl HealthCheckClient {
-    pub fn new(trace_id: String, tags_sender: Option<Sender<Vec<String>>>) -> Self {
+    pub fn new(
+        trace_id: String,
+        tags_sender: Option<Sender<Vec<String>>>,
+        display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
+    ) -> Self {
         Self {
             health_check_context: HealthCheckContext {
                 trace_id,
@@ -41,6 +48,7 @@ impl HealthCheckClient {
             warm_revision_check: WarmRevisionCheck::new(),
             vpn_check: VpnCheck::new(),
             tags_sender,
+            display_reports_sender,
         }
     }
 
@@ -139,7 +147,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let mut client = HealthCheckClient::new("test".to_owned(), None);
+        let mut client = HealthCheckClient::new("test".to_owned(), None, None);
         client.update_excess_cache_miss(&action_execution_end).await;
         assert!(client.health_check_context.has_excess_cache_misses);
 
@@ -159,7 +167,7 @@ mod tests {
             }),
             ..Default::default()
         };
-        let mut client = HealthCheckClient::new("test".to_owned(), None);
+        let mut client = HealthCheckClient::new("test".to_owned(), None, None);
         client.update_excess_cache_miss(&action_execution_end).await;
         assert!(!client.health_check_context.has_excess_cache_misses);
 

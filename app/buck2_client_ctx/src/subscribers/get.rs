@@ -12,8 +12,10 @@ use std::sync::Arc;
 
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
+use tokio::sync::mpsc::Receiver;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::common::ui::ConsoleType;
@@ -38,6 +40,7 @@ pub fn get_console_with_root(
     replay_speed: Option<f64>,
     command_name: &str,
     config: SuperConsoleConfig,
+    _health_check_display_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
 ) -> buck2_error::Result<Box<dyn EventSubscriber>> {
     match console_type {
         ConsoleType::Simple => Ok(Box::new(
