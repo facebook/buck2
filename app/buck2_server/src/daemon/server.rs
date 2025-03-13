@@ -146,6 +146,9 @@ impl DaemonShutdown {
     /// As we might be processing a `kill()` (or other) request, we cannot wait for the server to actually
     /// shutdown (as it will wait for current requests to finish), so this returns immediately.
     fn start_shutdown(&self, reason: buck2_data::DaemonShutdown, timeout: Option<Duration>) {
+        // It would be better to pass reason to be logged later in a more structured way, but this can't be done via
+        // the existing graceful (not forced) shutdown mechanism (serve_with_incoming_shutdown), so logging here instead.
+        tracing::warn!("triggered shutdown: {}", reason.reason);
         crate::active_commands::broadcast_shutdown(&reason);
 
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
@@ -1527,6 +1530,11 @@ fn server_shutdown_signal(
 async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duration: Duration) {
     // this restarts the timer everytime there is a new command
     while (timeout(duration, command_receiver.next()).await).is_ok() {}
+
+    tracing::warn!(
+        "inactivity timeout elapsed ({:?}), shutting down server",
+        duration
+    );
 }
 
 async fn certs_validation_background_job(cert_state: CertState) {

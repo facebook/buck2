@@ -354,7 +354,7 @@ impl DaemonCommand {
             let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
 
             tracing::info!("Listening.");
-
+            // `tracing::info` statements after this is dropped are not logged by default due to `[daemon_listener]=info` filter.
             drop(span_guard);
 
             let daemon_constraints =
@@ -390,12 +390,12 @@ impl DaemonCommand {
 
             select! {
                 res = buckd_server => {
-                    tracing::info!("server shutdown");
+                    tracing::warn!("server shutdown");
                     res
                 }
                 reason = shutdown_future => {
                     let reason = reason.as_deref().unwrap_or("no reason available");
-                    tracing::info!("server forced shutdown: {}", reason);
+                    tracing::warn!("server forced shutdown: {}", reason);
                     Ok(())
                 },
             }
