@@ -37,6 +37,7 @@ public class JavaCDMain {
       command.maybeWriteClassAbi();
       command.maybeWriteAbiDir();
       command.maybeWriteDepFile();
+      command.maybeWriteUsedJarsFile();
     } catch (CmdLineException e) {
       System.exit(1);
     }
