@@ -109,7 +109,7 @@ impl HealthCheckClient {
     pub fn check_stable_revision(&self) -> Option<&[String]> {
         #[cfg(fbcode_build)]
         {
-            self.warm_revision_check.run()
+            self.warm_revision_check.targets_not_on_stable()
         }
         #[cfg(not(fbcode_build))]
         {
