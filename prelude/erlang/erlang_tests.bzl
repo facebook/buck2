@@ -74,7 +74,7 @@ def erlang_tests_macro(
 
     if not property_tests:
         first_suite = suites[0]
-        prop_target = generate_file_map_target(first_suite, "property_test")
+        prop_target = generate_file_map_target(first_suite, None, "property_test")
         if prop_target:
             property_tests = [prop_target]
 
@@ -91,7 +91,7 @@ def erlang_tests_macro(
         # check if there is a data folder and add it as resource if existing
         data_dir_name = "{}_data".format(suite_name)
         suite_resource = target_resources
-        data_target = generate_file_map_target(suite, data_dir_name)
+        data_target = generate_file_map_target(suite, prefix, data_dir_name)
         if data_target:
             suite_resource = [target for target in target_resources]
             suite_resource.append(data_target)
@@ -367,14 +367,18 @@ def link_output(
     link_spec[ctx.attrs.suite.basename] = ctx.attrs.suite
     return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec)
 
-def generate_file_map_target(suite: str, dir_name: str) -> str:
+def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str:
     suite_dir = paths.dirname(suite)
     suite_name = paths.basename(suite)
     files = glob([paths.join(suite_dir, dir_name, "**")])
+    if prefix != None:
+        target_suffix = "{}_{}".format(prefix, suite_name)
+    else:
+        target_suffix = suite_name
     if len(files):
         # generate target for data dir
         file_mapping(
-            name = "{}-{}".format(dir_name, suite_name),
+            name = "{}-{}".format(dir_name, target_suffix),
             mapping = preserve_structure(
                 path = paths.join(suite_dir, dir_name),
             ),
