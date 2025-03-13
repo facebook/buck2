@@ -543,6 +543,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         )
     elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink"):
         for linkable_node in linkable_graph.nodes.traverse():
+            if linkable_node.linkable == None:
+                continue
             preferred_linkage = linkable_node.linkable.preferred_linkage
             output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
             if output_style == LibOutputStyle("shared_lib"):
