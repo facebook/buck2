@@ -14,7 +14,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
@@ -292,7 +291,6 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
     ) -> buck2_error::Result<Self> {
         let mut builder = Self::console_builder();
         if let Some(stream) = stream {
@@ -308,7 +306,6 @@ impl StatefulSuperConsole {
             expect_spans,
             replay_speed,
             config,
-            build_count_dir,
         )
     }
 
@@ -319,7 +316,6 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
     ) -> buck2_error::Result<Option<Self>> {
         match Self::console_builder()
             .build()
@@ -334,7 +330,6 @@ impl StatefulSuperConsole {
                 expect_spans,
                 replay_speed,
                 config,
-                build_count_dir,
             )?)),
         }
     }
@@ -347,19 +342,11 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
     ) -> buck2_error::Result<Self> {
         let header = format!("Command: {}.", command_name);
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
-            state: SuperConsoleState::new(
-                replay_speed,
-                trace_id,
-                verbosity,
-                expect_spans,
-                config,
-                build_count_dir,
-            )?,
+            state: SuperConsoleState::new(replay_speed, trace_id, verbosity, expect_spans, config)?,
             super_console,
             verbosity,
         }))
@@ -430,17 +417,11 @@ impl SuperConsoleState {
         verbosity: Verbosity,
         expect_spans: bool,
         config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
     ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
             time_speed: TimeSpeed::new(replay_speed)?,
-            simple_console: SimpleConsole::with_tty(
-                trace_id,
-                verbosity,
-                expect_spans,
-                build_count_dir,
-            ),
+            simple_console: SimpleConsole::with_tty(trace_id, verbosity, expect_spans),
             config,
         })
     }
@@ -1047,7 +1028,6 @@ mod tests {
             None,
             None,
             Default::default(),
-            None,
         )
         .unwrap();
 
@@ -1117,7 +1097,6 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
-            None,
         )?;
 
         console
@@ -1279,7 +1258,6 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
-            None,
         )?;
 
         console.handle_tailer_stderr("some stderr output").await?;

@@ -10,7 +10,6 @@
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -39,30 +38,18 @@ pub fn get_console_with_root(
     replay_speed: Option<f64>,
     command_name: &str,
     config: SuperConsoleConfig,
-    build_count_dir: Option<AbsNormPathBuf>,
 ) -> buck2_error::Result<Box<dyn EventSubscriber>> {
     match console_type {
         ConsoleType::Simple => Ok(Box::new(
-            SimpleConsole::<NoopEventObserverExtra>::autodetect(
-                trace_id,
-                verbosity,
-                expect_spans,
-                build_count_dir,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::autodetect(trace_id, verbosity, expect_spans),
         )),
         ConsoleType::SimpleNoTty => Ok(Box::new(
-            SimpleConsole::<NoopEventObserverExtra>::without_tty(
-                trace_id,
-                verbosity,
-                expect_spans,
-                build_count_dir,
-            ),
+            SimpleConsole::<NoopEventObserverExtra>::without_tty(trace_id, verbosity, expect_spans),
         )),
         ConsoleType::SimpleTty => Ok(Box::new(SimpleConsole::<NoopEventObserverExtra>::with_tty(
             trace_id,
             verbosity,
             expect_spans,
-            build_count_dir,
         ))),
         ConsoleType::Super => Ok(Box::new(StatefulSuperConsole::new_with_root_forced(
             trace_id,
@@ -72,7 +59,6 @@ pub fn get_console_with_root(
             replay_speed,
             None,
             config,
-            build_count_dir,
         )?)),
         ConsoleType::Auto => {
             match StatefulSuperConsole::new_with_root(
@@ -82,7 +68,6 @@ pub fn get_console_with_root(
                 expect_spans,
                 replay_speed,
                 config,
-                build_count_dir.clone(),
             )? {
                 Some(super_console) => Ok(Box::new(super_console)),
                 None => Ok(Box::new(
@@ -90,7 +75,6 @@ pub fn get_console_with_root(
                         trace_id,
                         verbosity,
                         expect_spans,
-                        build_count_dir,
                     ),
                 )),
             }

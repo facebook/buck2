@@ -62,10 +62,7 @@ impl ReplayCommand {
             let work = async {
                 let (replayer, invocation) =
                     Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;
-                let build_count_dir = match ctx.paths() {
-                    Ok(paths) => Some(paths.build_count_dir()),
-                    Err(_) => None,
-                };
+
                 let console = get_console_with_root(
                     invocation.trace_id,
                     console_opts.console_type,
@@ -74,7 +71,6 @@ impl ReplayCommand {
                     speed,
                     "(replay)", // Could be better
                     console_opts.superconsole_config(),
-                    build_count_dir,
                 )?;
 
                 let res = EventsCtx::new(EventSubscribers::new(vec![console]))

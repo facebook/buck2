@@ -10,14 +10,12 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_health_check::health_check_client::HealthCheckClient;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
-use crate::cold_build_detector::ColdBuildDetector;
 use crate::debug_events::DebugEventsState;
 use crate::dice_state::DiceState;
 use crate::progress::BuildProgressStateTracker;
@@ -37,7 +35,6 @@ pub struct EventObserver<E> {
     session_info: SessionInfo,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
-    pub cold_build_detector: Option<ColdBuildDetector>,
     pub health_check_client: Option<HealthCheckClient>,
     dice_state: DiceState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
@@ -49,8 +46,7 @@ impl<E> EventObserver<E>
 where
     E: EventObserverExtra,
 {
-    pub fn new(trace_id: TraceId, build_count_dir: Option<AbsNormPathBuf>) -> Self {
-        let cold_build_detector = build_count_dir.map(ColdBuildDetector::new);
+    pub fn new(trace_id: TraceId) -> Self {
         Self {
             span_tracker: BuckEventSpanTracker::new(),
             action_stats: ActionStats::default(),
@@ -64,7 +60,6 @@ where
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
-            cold_build_detector,
             health_check_client: Some(HealthCheckClient::new(trace_id.to_string(), None)),
             dice_state: DiceState::new(),
             extra: E::new(),
@@ -115,9 +110,6 @@ where
                                 .as_ref()
                                 .and_then(|stats| stats.branched_from_revision.as_ref())
                             {
-                                if let Some(cold_build_detector) = &mut self.cold_build_detector {
-                                    cold_build_detector.update_merge_base(&merge_base).await?;
-                                }
                                 if let Some(health_check_client) = &mut self.health_check_client {
                                     health_check_client
                                         .update_branched_from_revision(&merge_base)
@@ -178,11 +170,6 @@ where
                             }
                         }
                         TargetPatterns(tag) => {
-                            if let Some(cold_build_detector) = &mut self.cold_build_detector {
-                                cold_build_detector
-                                    .update_parsed_target_patterns(tag)
-                                    .await?;
-                            }
                             if let Some(client) = &mut self.health_check_client {
                                 client.update_parsed_target_patterns(tag).await;
                             }
