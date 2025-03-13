@@ -21,7 +21,7 @@ LinkerInfo = provider(
         "archiver_reads_inputs": provider_field(bool, default = True),
         "archiver_supports_argfiles": provider_field(typing.Any, default = None),
         "archiver_type": provider_field(typing.Any, default = None),
-        "archive_contents": provider_field(typing.Any, default = None),
+        "archive_contents": provider_field(typing.Any, default = "normal"),
         "archive_objects_locally": provider_field(typing.Any, default = None),
         "archive_symbol_table": provider_field(bool, default = True),
         # "archiver_platform",
