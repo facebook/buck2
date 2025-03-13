@@ -524,7 +524,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         DdmPreferences.setTimeOut(60000);
         // If the APEX is not present, we will install it.
         // If the APEX is already installed, we will update it.
-        device.installPackage(apexPath, false, "--apex", "--force-non-staged");
+        device.installPackage(apexPath, false, "--apex");
         System.err.println(String.format("APEX installed: %s.", apexPath));
       }
     }
