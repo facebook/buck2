@@ -193,6 +193,8 @@ pub(crate) enum Edition {
     #[default]
     #[serde(rename = "2021")]
     Edition2021,
+    #[serde(rename = "2024")]
+    Edition2024,
 }
 
 /// An optional set of Rust files that comprise the crate.
