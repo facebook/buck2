@@ -984,7 +984,6 @@ swift_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        # @unsorted-dict-items
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -994,13 +993,14 @@ swift_toolchain = prelude_rule(
             "runtime_paths_for_bundling": attrs.list(attrs.string(), default = []),
             "runtime_paths_for_linking": attrs.list(attrs.string(), default = []),
             "sdk_path": attrs.source(),
+            "supports_explicit_module_debug_serialization": attrs.bool(default = False),
             "supports_relative_resource_dir": attrs.bool(default = False),
+            "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
             "swift_stdlib_tool": attrs.option(attrs.source(), default = None),
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
+            "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
             "swiftc": attrs.source(),
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
-            "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
-            "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
             "_library_interface_uses_swiftinterface": attrs.bool(default = select({
                 "DEFAULT": False,
                 "config//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
