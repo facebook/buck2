@@ -11,7 +11,6 @@
 
 use std::cell::RefCell;
 use std::io::Write;
-use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -64,7 +63,6 @@ use starlark::values::ValueTyped;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
-use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
@@ -483,21 +481,7 @@ impl<'v> BxlContext<'v> {
             .as_ref()
             .take_artifacts()
             .into_iter()
-            .map(|ensured_artifact_type| match ensured_artifact_type {
-                EnsuredArtifactOrGroup::Artifact(artifact) => {
-                    let as_artifact = artifact.as_artifact();
-                    let bound_artifact = as_artifact.get_bound_artifact()?;
-                    let associated_artifacts = as_artifact.get_associated_artifacts();
-
-                    Ok(associated_artifacts
-                        .iter()
-                        .flat_map(|v| v.iter())
-                        .cloned()
-                        .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
-                        .collect::<Vec<_>>())
-                }
-                EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
-            })
+            .map(|ensured_artifact| ensured_artifact.into_artifact_groups())
             .flatten_ok()
             .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
 

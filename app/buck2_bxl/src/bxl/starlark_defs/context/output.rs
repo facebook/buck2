@@ -9,6 +9,7 @@
 
 use std::cell::RefCell;
 use std::io::Write;
+use std::iter;
 use std::ops::DerefMut;
 use std::rc::Rc;
 
@@ -104,6 +105,26 @@ pub(crate) struct OutputStream {
 pub(crate) enum EnsuredArtifactOrGroup {
     Artifact(EnsuredArtifact),
     ArtifactGroup(ArtifactGroup),
+}
+
+impl EnsuredArtifactOrGroup {
+    pub(crate) fn into_artifact_groups(self) -> buck2_error::Result<Vec<ArtifactGroup>> {
+        match self {
+            EnsuredArtifactOrGroup::Artifact(artifact) => {
+                let as_artifact = artifact.as_artifact();
+                let bound_artifact = as_artifact.get_bound_artifact()?;
+                let associated_artifacts = as_artifact.get_associated_artifacts();
+
+                Ok(associated_artifacts
+                    .iter()
+                    .flat_map(|v| v.iter())
+                    .cloned()
+                    .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
+                    .collect::<Vec<_>>())
+            }
+            EnsuredArtifactOrGroup::ArtifactGroup(group) => Ok(vec![group]),
+        }
+    }
 }
 
 impl OutputStream {
