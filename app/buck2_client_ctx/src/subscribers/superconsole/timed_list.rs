@@ -302,6 +302,7 @@ mod tests {
             Verbosity::default(),
             false,
             timed_list_state,
+            None,
         )
         .unwrap();
         state.simple_console.observer.span_tracker = span_tracker;
@@ -484,6 +485,7 @@ mod tests {
                 max_lines: 2,
                 ..Default::default()
             },
+            None,
         )?;
 
         state.time_speed = fake_time_speed();

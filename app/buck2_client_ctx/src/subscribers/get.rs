@@ -10,6 +10,7 @@
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_health_check::report::DisplayReport;
@@ -40,19 +41,30 @@ pub fn get_console_with_root(
     replay_speed: Option<f64>,
     command_name: &str,
     config: SuperConsoleConfig,
-    _health_check_display_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    health_check_display_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
 ) -> buck2_error::Result<Box<dyn EventSubscriber>> {
     match console_type {
         ConsoleType::Simple => Ok(Box::new(
-            SimpleConsole::<NoopEventObserverExtra>::autodetect(trace_id, verbosity, expect_spans),
+            SimpleConsole::<NoopEventObserverExtra>::autodetect(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_display_reports_receiver,
+            ),
         )),
         ConsoleType::SimpleNoTty => Ok(Box::new(
-            SimpleConsole::<NoopEventObserverExtra>::without_tty(trace_id, verbosity, expect_spans),
+            SimpleConsole::<NoopEventObserverExtra>::without_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_display_reports_receiver,
+            ),
         )),
         ConsoleType::SimpleTty => Ok(Box::new(SimpleConsole::<NoopEventObserverExtra>::with_tty(
             trace_id,
             verbosity,
             expect_spans,
+            health_check_display_reports_receiver,
         ))),
         ConsoleType::Super => Ok(Box::new(StatefulSuperConsole::new_with_root_forced(
             trace_id,
@@ -62,22 +74,29 @@ pub fn get_console_with_root(
             replay_speed,
             None,
             config,
+            health_check_display_reports_receiver,
         )?)),
         ConsoleType::Auto => {
-            match StatefulSuperConsole::new_with_root(
-                trace_id.dupe(),
-                command_name,
-                verbosity,
-                expect_spans,
-                replay_speed,
-                config,
-            )? {
-                Some(super_console) => Ok(Box::new(super_console)),
+            match StatefulSuperConsole::console_builder()
+                .build()
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+            {
+                Some(sc) => Ok(Box::new(StatefulSuperConsole::new(
+                    command_name,
+                    trace_id,
+                    sc,
+                    verbosity,
+                    expect_spans,
+                    replay_speed,
+                    config,
+                    health_check_display_reports_receiver,
+                )?)),
                 None => Ok(Box::new(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
                         trace_id,
                         verbosity,
                         expect_spans,
+                        health_check_display_reports_receiver,
                     ),
                 )),
             }

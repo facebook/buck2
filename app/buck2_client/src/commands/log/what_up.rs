@@ -73,6 +73,7 @@ impl WhatUpCommand {
                     max_lines: 1000000,
                     ..Default::default()
                 },
+                None,
             )?;
             let mut first_timestamp = None;
             // Ignore any events that are truncated, hence unreadable

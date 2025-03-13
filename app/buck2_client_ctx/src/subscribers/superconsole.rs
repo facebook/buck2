@@ -29,6 +29,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
 use buck2_events::BuckEvent;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -46,6 +47,7 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 pub(crate) use superconsole::SuperConsole;
+use tokio::sync::mpsc::Receiver;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::subscribers::emit_event::emit_event_if_relevant;
@@ -291,6 +293,7 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
         let mut builder = Self::console_builder();
         if let Some(stream) = stream {
@@ -306,32 +309,8 @@ impl StatefulSuperConsole {
             expect_spans,
             replay_speed,
             config,
+            health_check_reports_receiver,
         )
-    }
-
-    pub(crate) fn new_with_root(
-        trace_id: TraceId,
-        command_name: &str,
-        verbosity: Verbosity,
-        expect_spans: bool,
-        replay_speed: Option<f64>,
-        config: SuperConsoleConfig,
-    ) -> buck2_error::Result<Option<Self>> {
-        match Self::console_builder()
-            .build()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
-        {
-            None => Ok(None),
-            Some(sc) => Ok(Some(Self::new(
-                command_name,
-                trace_id,
-                sc,
-                verbosity,
-                expect_spans,
-                replay_speed,
-                config,
-            )?)),
-        }
     }
 
     pub(crate) fn new(
@@ -342,11 +321,19 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
         let header = format!("Command: {}.", command_name);
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
-            state: SuperConsoleState::new(replay_speed, trace_id, verbosity, expect_spans, config)?,
+            state: SuperConsoleState::new(
+                replay_speed,
+                trace_id,
+                verbosity,
+                expect_spans,
+                config,
+                health_check_reports_receiver,
+            )?,
             super_console,
             verbosity,
         }))
@@ -417,11 +404,17 @@ impl SuperConsoleState {
         verbosity: Verbosity,
         expect_spans: bool,
         config: SuperConsoleConfig,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
             time_speed: TimeSpeed::new(replay_speed)?,
-            simple_console: SimpleConsole::with_tty(trace_id, verbosity, expect_spans),
+            simple_console: SimpleConsole::with_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_reports_receiver,
+            ),
             config,
         })
     }
@@ -1028,6 +1021,7 @@ mod tests {
             None,
             None,
             Default::default(),
+            None,
         )
         .unwrap();
 
@@ -1097,6 +1091,7 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
+            None,
         )?;
 
         console
@@ -1258,6 +1253,7 @@ mod tests {
             true,
             Default::default(),
             Default::default(),
+            None,
         )?;
 
         console.handle_tailer_stderr("some stderr output").await?;

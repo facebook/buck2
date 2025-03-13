@@ -33,11 +33,13 @@ use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
 use buck2_health_check::interface::HealthCheckType;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
+use tokio::sync::mpsc::Receiver;
 
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -151,13 +153,20 @@ pub struct SimpleConsole<E> {
     action_errors: Vec<buck2_data::ActionError>,
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
+    #[allow(unused)] // TODO(rajneeshl): Use this field to read health check reports.
+    health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
 }
 
 impl<E> SimpleConsole<E>
 where
     E: EventObserverExtra,
 {
-    pub(crate) fn with_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn with_tty(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    ) -> Self {
         init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
@@ -167,10 +176,16 @@ where
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
+            health_check_reports_receiver,
         }
     }
 
-    pub(crate) fn without_tty(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn without_tty(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    ) -> Self {
         init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
@@ -180,14 +195,30 @@ where
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
+            health_check_reports_receiver,
         }
     }
 
     /// Create a SimpleConsole that auto detects whether it has a TTY or not.
-    pub(crate) fn autodetect(trace_id: TraceId, verbosity: Verbosity, expect_spans: bool) -> Self {
+    pub(crate) fn autodetect(
+        trace_id: TraceId,
+        verbosity: Verbosity,
+        expect_spans: bool,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    ) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(trace_id, verbosity, expect_spans),
-            false => Self::without_tty(trace_id, verbosity, expect_spans),
+            true => Self::with_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_reports_receiver,
+            ),
+            false => Self::without_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_reports_receiver,
+            ),
         }
     }
 
