@@ -85,7 +85,6 @@ def encode_target_type(target_type: TargetType) -> str:
     fail()
 
 OutputPaths = record(
-    jar_parent = Artifact,
     jar = Artifact,
     classes = Artifact,
     annotations = Artifact,
@@ -112,10 +111,8 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
-    jar_parent = declare_prefixed_output(actions, prefix, "jar", dir = True)
     return OutputPaths(
-        jar_parent = jar_parent,
-        jar = jar_parent.project("{}.jar".format(label.name)),
+        jar = declare_prefixed_output(actions, prefix, "jar/{}.jar".format(label.name)),
         classes = declare_prefixed_output(actions, prefix, "__classes__", dir = True),
         annotations = declare_prefixed_output(actions, prefix, "__gen__", dir = True),
     )
@@ -123,7 +120,7 @@ def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: La
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
     paths = struct(
         classesDir = paths.classes.as_output(),
-        outputJarDirPath = paths.jar_parent.as_output(),
+        outputJarDirPath = cmd_args(paths.jar.as_output(), parent = 1),
         annotationPath = paths.annotations.as_output(),
         outputJarPath = paths.jar.as_output(),
     )
@@ -332,7 +329,7 @@ def setup_dep_files(
         cmd: cmd_args,
         post_build_params: dict,
         classpath_jars_tag: ArtifactTag,
-        used_classes_json_outputs: list[Artifact],
+        used_classes_json_outputs: list[cmd_args],
         used_jars_json_output: Artifact,
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
         hidden = ["artifact"]) -> cmd_args:
@@ -341,10 +338,7 @@ def setup_dep_files(
     new_cmd_args = []
     new_cmd_hidden = []
     new_cmd_args.append(cmd)
-    post_build_params["usedClasses"] = [
-        used_classes_json.as_output()
-        for used_classes_json in used_classes_json_outputs
-    ]
+    post_build_params["usedClasses"] = used_classes_json_outputs
     post_build_params["depFile"] = classpath_jars_tag.tag_artifacts(dep_file.as_output())
     post_build_params["usedJarsFile"] = used_jars_json_output.as_output()
 

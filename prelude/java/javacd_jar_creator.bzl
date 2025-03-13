@@ -311,8 +311,8 @@ def _define_javacd_action(
                 hidden = [dep.abi_as_dir for dep in abi_as_dir_deps]
             elif compiling_deps_tset:
                 abi_to_abi_dir_map = compiling_deps_tset.project_as_args("abi_to_abi_dir")
-        used_classes_json_outputs = [output_paths.jar_parent.project("used-classes.json")]
-        used_jars_json_output = output_paths.jar_parent.project("used-jars.json")
+        used_classes_json_outputs = [cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1)]
+        used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json")
         args = setup_dep_files(
             actions,
             actions_identifier,

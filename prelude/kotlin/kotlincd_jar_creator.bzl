@@ -98,7 +98,7 @@ def create_jar_artifact_kotlincd(
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
         class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", dir = True)
-        jvm_abi_gen = output_paths.jar_parent.project("jvm-abi-gen.jar")
+        jvm_abi_gen = cmd_args(output_paths.jar.as_output(), format = "{}/jvm-abi-gen.jar", parent = 1)
         should_use_jvm_abi_gen = True
     else:
         class_abi_jar = None
@@ -390,7 +390,7 @@ def _define_kotlincd_action(
         srcs: list[Artifact],
         should_create_class_abi: bool,
         class_abi_jar: [Artifact, None],
-        jvm_abi_gen: [Artifact, None],
+        jvm_abi_gen: [cmd_args, None],
         class_abi_output_dir: [Artifact, None],
         optional_dirs: list[OutputArtifact],
         track_class_usage: bool,
@@ -434,7 +434,7 @@ def _define_kotlincd_action(
         post_build_params["shouldCreateClassAbi"] = True
         post_build_params["libraryJar"] = output_paths.jar.as_output()
         post_build_params["abiJar"] = class_abi_jar.as_output()
-        post_build_params["jvmAbiGen"] = jvm_abi_gen.as_output()
+        post_build_params["jvmAbiGen"] = jvm_abi_gen
         post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
 
     if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
@@ -451,10 +451,10 @@ def _define_kotlincd_action(
     used_jars_json_output = None
     if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
         used_classes_json_outputs = [
-            output_paths.jar_parent.project("used-classes.json"),
-            output_paths.jar_parent.project("kotlin-used-classes.json"),
+            cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1),
+            cmd_args(output_paths.jar.as_output(), format = "{}/kotlin-used-classes.json", parent = 1),
         ]
-        used_jars_json_output = output_paths.jar_parent.project("used-jars.json")
+        used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json")
         args = setup_dep_files(
             actions,
             actions_identifier,
