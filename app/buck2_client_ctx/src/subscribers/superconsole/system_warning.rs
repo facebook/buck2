@@ -8,7 +8,6 @@
  */
 
 use buck2_error::conversion::from_any_with_tag;
-use buck2_health_check::health_check_client::HealthCheckClient;
 use buck2_health_check::report::DisplayReport;
 use crossterm::style::Color;
 use crossterm::style::Stylize;
@@ -21,17 +20,13 @@ use superconsole::Span;
 
 use crate::subscribers::system_warning::check_memory_pressure_snapshot;
 use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
-use crate::subscribers::system_warning::is_vpn_enabled;
 use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
-use crate::subscribers::system_warning::vpn_enabled_msg;
 
 /// This component is used to display system warnings for a command e.g. memory pressure, low disk space etc.
 pub(crate) struct SystemWarningComponent<'a> {
     pub(crate) last_snapshot: Option<&'a buck2_data::Snapshot>,
     pub(crate) system_info: &'a buck2_data::SystemInfo,
-    // TODO(rajneeshl) : Deprecate this reference of health_check_client and use the reports instead.
-    pub(crate) health_check_client: Option<&'a HealthCheckClient>,
     pub(crate) health_check_reports: Option<&'a Vec<DisplayReport>>,
 }
 
@@ -65,11 +60,6 @@ impl<'a> Component for SystemWarningComponent<'a> {
             check_remaining_disk_space_snapshot(self.last_snapshot, self.system_info)
         {
             lines.push(warning_styled(&low_disk_space_msg(&low_disk_space))?);
-        }
-        if let Some(health_check_client) = self.health_check_client {
-            if health_check_client.is_vpn_check_enabled() && is_vpn_enabled() {
-                lines.push(warning_styled(&vpn_enabled_msg())?);
-            }
         }
         if let Some(reports) = self.health_check_reports {
             for report in reports {

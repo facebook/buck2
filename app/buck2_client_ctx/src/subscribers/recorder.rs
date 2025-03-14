@@ -75,7 +75,6 @@ use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::system_warning::check_download_speed;
 use crate::subscribers::system_warning::check_memory_pressure;
 use crate::subscribers::system_warning::check_remaining_disk_space;
-use crate::subscribers::system_warning::is_vpn_enabled;
 
 pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
     // buck2_rss is the resident set size observed by daemon (exluding subprocesses).
@@ -646,9 +645,6 @@ impl InvocationRecorder {
                 self.concurrent_commands,
             ) {
                 self.tags.push("slow_network_speed_ui_only".to_owned());
-            }
-            if is_vpn_enabled() {
-                self.tags.push("vpn_enabled".to_owned());
             }
             self.try_read_health_check_tags(); // Empty the queue so far.
             self.tags.extend(self.health_check_tags.iter().cloned());

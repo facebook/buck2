@@ -26,7 +26,6 @@ pub(crate) struct LowDiskSpace {
 
 pub const SYSTEM_MEMORY_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_mem_remediation";
 pub const DISK_REMEDIATION_LINK: &str = ": https://fburl.com/buck2_disk_remediation";
-pub const VPN_ENABLED_LINK: &str = ": https://fburl.com/buck2_vpn_enabled";
 
 pub(crate) fn system_memory_exceeded_msg(memory_pressure: &MemoryPressureHigh) -> String {
     format!(
@@ -50,17 +49,6 @@ pub(crate) fn low_disk_space_msg(low_disk_space: &LowDiskSpace) -> String {
             ""
         } else {
             DISK_REMEDIATION_LINK
-        }
-    )
-}
-
-pub(crate) fn vpn_enabled_msg() -> String {
-    format!(
-        "For optimal build speed, consider disconnecting from VPN{}",
-        if is_open_source() {
-            ""
-        } else {
-            VPN_ENABLED_LINK
         }
     )
 }
@@ -161,15 +149,4 @@ fn inner_check_download_speed(
     } else {
         None
     }
-}
-
-pub(crate) fn is_vpn_enabled() -> bool {
-    if !cfg!(target_os = "macos") {
-        // TODO(rajneeshl): Add support for Windows
-        return false;
-    }
-
-    // Brittle check based on Cisco client's current behaviour.
-    // Small section copied from https://fburl.com/code/g7ttsdz3
-    std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists()
 }

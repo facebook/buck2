@@ -198,18 +198,11 @@ impl<'s> Component for BuckRootComponent<'s> {
             .map(|s| &s.1);
         let system_info = self.state.simple_console.observer.system_info();
         let health_check_reports = self.state.active_warnings.as_ref();
-        let health_check_client = self
-            .state
-            .simple_console
-            .observer()
-            .health_check_client
-            .as_ref();
         {
             draw.draw(
                 &SystemWarningComponent {
                     last_snapshot,
                     system_info,
-                    health_check_client,
                     health_check_reports,
                 },
                 mode,
