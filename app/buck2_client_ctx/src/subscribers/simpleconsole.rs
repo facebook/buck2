@@ -50,7 +50,6 @@ use crate::subscribers::system_warning::check_memory_pressure_snapshot;
 use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::is_vpn_enabled;
 use crate::subscribers::system_warning::low_disk_space_msg;
-use crate::subscribers::system_warning::stable_revision_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 use crate::subscribers::system_warning::vpn_enabled_msg;
 
@@ -711,15 +710,6 @@ where
                                 &HealthCheckType::VpnEnabled,
                                 &vpn_enabled_msg(),
                             )?;
-                        }
-
-                        if let Some(targets_not_on_stable) = client.check_stable_revision() {
-                            for message in stable_revision_msg(&targets_not_on_stable) {
-                                echo_system_warning_exponential(
-                                    &HealthCheckType::StableRevision,
-                                    &message,
-                                )?;
-                            }
                         }
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();
