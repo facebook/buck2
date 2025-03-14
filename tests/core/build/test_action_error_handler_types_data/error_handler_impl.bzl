@@ -27,3 +27,18 @@ def error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
         ))
 
     return categories
+
+def _does_not_use_error_handler_impl(ctx: AnalysisContext):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        cmd_args(["python3", "-c", "import sys\nsys.exit(1)"], hidden = out.as_output()),
+        category = "test_failure",
+        error_handler = error_handler_impl,
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+does_not_use_error_handler = rule(
+    impl = _does_not_use_error_handler_impl,
+    attrs = {},
+)

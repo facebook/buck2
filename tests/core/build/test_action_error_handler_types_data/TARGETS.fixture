@@ -1,0 +1,5 @@
+load(":error_handler_impl.bzl", "does_not_use_error_handler")
+
+does_not_use_error_handler(
+    name = "does_not_use_error_handler",
+)
