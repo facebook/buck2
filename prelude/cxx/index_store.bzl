@@ -28,6 +28,8 @@ IndexStoreInfo = provider(
     fields = {
         # The name of the target.
         "name": provider_field(str),
+        # All the swift index stores as a tset.
+        "swift_tset": provider_field(IndexStoreTSet),
         # A tset (transitive set) with this target's index store and the index store
         # of all the dependencies as children.
         "tset": provider_field(IndexStoreTSet),
@@ -82,32 +84,49 @@ def _gather_deps_index_store_tsets(deps: list[Dependency]) -> list[IndexStoreTSe
     deps_indexstore_infos = filter(None, [dep.get(IndexStoreInfo) for dep in deps])
     return [info.tset for info in deps_indexstore_infos]
 
-def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_target_index_stores: list[Artifact], deps: list[Dependency]) -> (dict[str, list[Provider]], IndexStoreInfo):
+def _gather_deps_swift_index_store_tsets(deps: list[Dependency]) -> list[IndexStoreTSet]:
+    deps_indexstore_infos = filter(None, [dep.get(IndexStoreInfo) for dep in deps])
+    return [info.swift_tset for info in deps_indexstore_infos]
+
+def create_index_store_subtargets_and_provider(ctx: AnalysisContext, current_target_index_stores: list[Artifact], swift_index_stores: list[Artifact], deps: list[Dependency]) -> (dict[str, list[Provider]], IndexStoreInfo):
     merge_index_store_tool = _get_merge_index_store_tool(ctx)
 
     if merge_index_store_tool:
-        merged_index_store = _merge_index_store(ctx, merge_index_store_tool, current_target_index_stores, paths.join("__indexstore__", ctx.attrs.name, "index_store"))
+        # To create the index store for this target, we merge all the individual file target stores.
+        target_index_store = _merge_index_store(ctx, merge_index_store_tool, current_target_index_stores, paths.join("__indexstore__", ctx.attrs.name, "index_store"))
 
-        deps_indexstore_tsets = _gather_deps_index_store_tsets(deps)
-        index_store_tset = ctx.actions.tset(IndexStoreTSet, value = merged_index_store, children = deps_indexstore_tsets)
-        merged_full_index_store = _merge_index_store(ctx, merge_index_store_tool, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
+        # To create the full index store, we need to merge the index store for this target with the
+        # index store from all our transitive dependencies.
+        index_store_tset = ctx.actions.tset(IndexStoreTSet, value = target_index_store, children = _gather_deps_index_store_tsets(deps))
+        full_index_store = _merge_index_store(ctx, merge_index_store_tool, index_store_tset, paths.join("__indexstore__", ctx.attrs.name, "full_index_stores"))
+
+        # The index store for all the Swift files in this target.
+        target_swift_index_store = _merge_index_store(ctx, merge_index_store_tool, swift_index_stores, paths.join("__swiftindexstore__", ctx.attrs.name, "swift_index_stores"))
+
+        # The full Swift index index store is created by merging the Swift index store for this target,
+        # plus the Swift index store from all our transitive dependencies.
+        swift_index_store_tset = ctx.actions.tset(IndexStoreTSet, value = target_swift_index_store, children = _gather_deps_swift_index_store_tsets(deps))
+        full_swift_index_store = _merge_index_store(ctx, merge_index_store_tool, swift_index_store_tset, paths.join("__swiftfullindexstore__", ctx.attrs.name, "full_index_stores"))
 
         sub_targets = {
             # Create a subtarget foo//bar:baz[full-index-store] that builds and merges
             # the index stores from foo//bar:baz plus all its transitive dependencies.
-            "full-index-store": [DefaultInfo(default_output = merged_full_index_store)],
+            "full-index-store": [DefaultInfo(default_output = full_index_store)],
+            # Merged index store for all files compiled by swiftc.
+            "full-swift-index-store": [DefaultInfo(default_output = full_swift_index_store)],
             # Create a subtarget foo//bar:baz[index-store] that builds the
             # index store for foo//bar:baz.
-            "index-store": [DefaultInfo(default_output = merged_index_store)],
+            "index-store": [DefaultInfo(default_output = target_index_store)],
         }
 
-        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset)
+        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = index_store_tset, swift_tset = swift_index_store_tset)
     else:
         sub_targets = {
             "full-index-store": [DefaultInfo(default_output = None)],
+            "full-swift-index-store": [DefaultInfo(default_output = None)],
             "index-store": [DefaultInfo(default_output = None)],
         }
 
-        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = ctx.actions.tset(IndexStoreTSet))
+        index_store_info = IndexStoreInfo(name = ctx.attrs.name, tset = ctx.actions.tset(IndexStoreTSet), swift_tset = ctx.actions.tset(IndexStoreTSet))
 
     return (sub_targets, index_store_info)

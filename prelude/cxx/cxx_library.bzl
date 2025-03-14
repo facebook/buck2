@@ -789,13 +789,18 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():
         sub_targets[additional_subtarget] = subtarget_providers
 
-    # Index store from swift compile
-    index_stores = impl_params.index_stores if impl_params.index_stores else []
+    index_stores = []
+    swift_index_stores = []
+    if impl_params.index_stores:
+        # Index store from swift compile
+        index_stores.extend(impl_params.index_stores)
+        swift_index_stores.extend(impl_params.index_stores)
 
     # Index stores from cxx compile. We only generate the index store for pic
     if compiled_srcs.pic:
         index_stores.extend(compiled_srcs.pic.index_stores)
-    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, non_exported_deps + exported_deps)
+
+    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, non_exported_deps + exported_deps)
     sub_targets.update(index_store_subtargets)
     providers.append(index_store_info)
 

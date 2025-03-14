@@ -223,11 +223,15 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             sanitizer_runtime_providers.append(CxxSanitizerRuntimeInfo(runtime_files = cxx_output.sanitizer_runtime_files))
 
         index_stores = []
+        swift_index_stores = []
+
         if swift_compile:
+            swift_index_stores.append(swift_compile.index_store)
             index_stores.append(swift_compile.index_store)
+
         index_stores.extend(cxx_output.index_stores)
 
-        index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, non_exported_deps + exported_deps)
+        index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, non_exported_deps + exported_deps)
         cxx_output.sub_targets.update(index_store_subtargets)
 
         validation_specs = get_attrs_validation_specs(ctx)
