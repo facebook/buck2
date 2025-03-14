@@ -104,6 +104,9 @@ impl HealthCheckSubscriber {
                             .update_parsed_target_patterns(&target_patterns)
                             .await;
                     }
+                    Snapshot(snapshot) => {
+                        self.health_check_client.run_checks(snapshot).await?;
+                    }
                     _ => {}
                 }
             }
