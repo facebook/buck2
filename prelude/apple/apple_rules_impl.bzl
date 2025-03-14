@@ -169,6 +169,7 @@ extra_attributes = {
         "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
     } | apple_common.skip_universal_resource_dedupe_arg(),
     "apple_spm_package": apple_spm_package_extra_attrs(),
+    "apple_test": constraint_overrides.attributes,
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have
