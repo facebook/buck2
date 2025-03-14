@@ -17,6 +17,7 @@ import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 import com.google.common.collect.ImmutableList;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 public class KotlincModeFactory {
   private static final Logger LOG = Logger.get(KotlincModeFactory.class);
@@ -52,11 +53,6 @@ public class KotlincModeFactory {
                   () ->
                       new IllegalStateException(
                           "incremental_state_dir/kotlinc_working_dir is not created"));
-      AbsPath jvmAbiGenWorkingDir =
-          extraParams
-              .getJvmAbiGenWorkingDir()
-              .orElseThrow(
-                  () -> new IllegalStateException("jvm_abi_gen_working_dir is not created"));
       ActionMetadata metadata =
           actionMetadata.orElseThrow(
               () -> new IllegalStateException("actionMetadata is not created"));
@@ -69,7 +65,18 @@ public class KotlincModeFactory {
           KotlinSourceChangesFactory.create(),
           ClasspathChangesFactory.create(metadata, classpathSnapshots),
           incrementalStateDir.resolve(kotlinClassUsageFile.getFileName()),
-          jvmAbiGenWorkingDir);
+          getJvmAbiGenWorkingDir(
+              extraParams.getShouldUseJvmAbiGen(), extraParams.getJvmAbiGenWorkingDir()));
     }
+  }
+
+  private static @Nullable AbsPath getJvmAbiGenWorkingDir(
+      boolean shouldUseJvmAbiGen, Optional<AbsPath> jvmAbiGenWorkingDir) {
+    if (!shouldUseJvmAbiGen) {
+      return null;
+    }
+
+    return jvmAbiGenWorkingDir.orElseThrow(
+        () -> new IllegalStateException("jvm_abi_gen_working_dir is not created"));
   }
 }

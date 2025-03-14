@@ -59,12 +59,16 @@ internal class JvmCompilationConfigurationFactory(
                         forceNonIncrementalMode(true)
                       }
 
-                      if (mode.jvmAbiGenWorkingDir.toFile().exists().not()) {
+                      // targets with abi_generation_mode = "source_only" do not use jvm-abi-gen for
+                      // class abi generation so the directory is never created
+                      val jvmAbiGenWorkingDir = mode.jvmAbiGenWorkingDir
+                      if (jvmAbiGenWorkingDir != null &&
+                          jvmAbiGenWorkingDir.toFile().exists().not()) {
                         LOG.info(
-                            "Non-incremental compilation will be performed: ${mode.jvmAbiGenWorkingDir.fileName} not found")
+                            "Non-incremental compilation will be performed: ${jvmAbiGenWorkingDir.fileName} not found")
                         kotlinCDLoggingContext.addExtras(
                             JvmCompilationConfigurationFactory::class.java.simpleName,
-                            "Non-incremental compilation will be performed: ${mode.jvmAbiGenWorkingDir.fileName} not found")
+                            "Non-incremental compilation will be performed: ${jvmAbiGenWorkingDir.fileName} not found")
                         forceNonIncrementalMode(true)
                       }
 

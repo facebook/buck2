@@ -163,7 +163,7 @@ internal class JvmCompilationConfigurationFactoryTest {
   }
 
   @Test
-  fun `when classpath changes can not be detected, incremental mode is forced`() {
+  fun `when classpath changes can not be detected, non-incremental mode is forced`() {
     jvmCompilationConfigurationFactory.create(
         createFakeIncrementalKotlincMode(ClasspathChanges.Unknown))
 
@@ -181,6 +181,15 @@ internal class JvmCompilationConfigurationFactoryTest {
         createFakeIncrementalKotlincMode(kotlinDepFile = noExistingFile))
 
     verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration)
+        .forceNonIncrementalMode(true)
+  }
+
+  @Test
+  fun `when jvmAbiGen output is null, non-incremental mode is forced`() {
+    jvmCompilationConfigurationFactory.create(
+        createFakeIncrementalKotlincMode(jvmAbiGenWorkingDir = null))
+
+    verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration, never())
         .forceNonIncrementalMode(true)
   }
 
@@ -206,7 +215,7 @@ internal class JvmCompilationConfigurationFactoryTest {
   private fun createFakeIncrementalKotlincMode(
       classpathChanges: ClasspathChanges = createFakeClasspathChanges(),
       kotlinDepFile: AbsPath = createExistingFileMock(),
-      jvmAbiGenWorkingDir: AbsPath = createExistingFileMock()
+      jvmAbiGenWorkingDir: AbsPath? = createExistingFileMock()
   ): KotlincMode.Incremental {
     val rootProjectDir = AbsPath.get("/home/root")
     val buildDir = AbsPath.get("/home/root/buildDir")
