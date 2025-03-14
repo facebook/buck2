@@ -12,7 +12,6 @@ use std::time::Instant;
 
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
-use buck2_health_check::health_check_client::HealthCheckClient;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
@@ -35,7 +34,6 @@ pub struct EventObserver<E> {
     session_info: SessionInfo,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
-    pub health_check_client: Option<HealthCheckClient>,
     dice_state: DiceState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
@@ -60,7 +58,6 @@ where
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
-            health_check_client: Some(HealthCheckClient::new(trace_id.to_string(), None, None)),
             dice_state: DiceState::new(),
             extra: E::new(),
         }
@@ -77,14 +74,6 @@ where
             use buck2_data::buck_event::Data::*;
 
             match event.data() {
-                SpanStart(start) => match &start.data {
-                    Some(buck2_data::span_start_event::Data::Command(command)) => {
-                        if let Some(client) = &mut self.health_check_client {
-                            client.update_command_data(command.data.clone()).await;
-                        }
-                    }
-                    _ => {}
-                },
                 SpanEnd(end) => {
                     use buck2_data::span_end_event::Data::*;
 
@@ -95,28 +84,8 @@ where
                     {
                         ActionExecution(action_execution_end) => {
                             self.action_stats.update(action_execution_end);
-                            let has_excess_cache_misses = self.action_stats.excess_cache_misses > 0;
-                            if has_excess_cache_misses {
-                                if let Some(health_check_client) = &mut self.health_check_client {
-                                    health_check_client
-                                        .update_excess_cache_misses(has_excess_cache_misses)
-                                        .await;
-                                }
-                            }
                         }
-                        buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
-                            if let Some(merge_base) = file_watcher
-                                .stats
-                                .as_ref()
-                                .and_then(|stats| stats.branched_from_revision.as_ref())
-                            {
-                                if let Some(health_check_client) = &mut self.health_check_client {
-                                    health_check_client
-                                        .update_branched_from_revision(&merge_base)
-                                        .await;
-                                }
-                            }
-                        }
+
                         _ => {}
                     }
                 }
@@ -161,17 +130,6 @@ where
                         TagEvent(tags) => {
                             if tags.tags.contains(&"which-dice:Legacy".to_owned()) {
                                 self.session_info.legacy_dice = true;
-                            }
-                        }
-                        SystemInfo(system_info) => {
-                            self.system_info = system_info.clone();
-                            if let Some(client) = &mut self.health_check_client {
-                                client.update_experiment_configurations(system_info).await;
-                            }
-                        }
-                        TargetPatterns(tag) => {
-                            if let Some(client) = &mut self.health_check_client {
-                                client.update_parsed_target_patterns(tag).await;
                             }
                         }
                         DiceStateSnapshot(dice) => {
