@@ -17,6 +17,7 @@ package com.facebook
 import com.facebook.asm.AbiClassBuilder
 import com.facebook.asm.FilterInnerClassesVisitor
 import com.facebook.asm.InnerClassesCollectingVisitor
+import com.facebook.asm.KotlinMetadataRemover
 import com.facebook.stub.MixedCompilationUtil.convertGeneratedJavaSourcesToKotlin
 import java.io.File
 import kotlinx.coroutines.TimeoutCancellationException
@@ -236,6 +237,8 @@ class JvmAbiAnalysisHandlerExtension(compilerConfiguration: CompilerConfiguratio
           outputs.add(AbiOutput(file, it.sourceFiles, it.asByteArray()))
         }
 
+    removeKotlinMetadataForJavaKStubClasses(outputs)
+
     // Clean up generated KStubs after abi generation.
     cleanupGeneratedJavaKStubs()
 
@@ -244,7 +247,6 @@ class JvmAbiAnalysisHandlerExtension(compilerConfiguration: CompilerConfiguratio
     // from inline functions
     // todo: implement correct removal
     // removeUnneededClasses(outputs)
-
     val messageCollector =
         compilerConfiguration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY)
             ?: PrintingMessageCollector(System.err, MessageRenderer.PLAIN_FULL_PATHS, false)
@@ -272,6 +274,18 @@ class JvmAbiAnalysisHandlerExtension(compilerConfiguration: CompilerConfiguratio
     }
 
     return null
+  }
+
+  private fun removeKotlinMetadataForJavaKStubClasses(outputs: Iterable<AbiOutput>) {
+    val javaKStubClassNames = javaKStubs.map { it.name.replace(".kt", "") }
+    outputs.forEach { output ->
+      val className = output.classData()?.classId?.relativeClassName?.asString()
+      javaKStubClassNames
+          .firstOrNull { it == className }
+          ?.let {
+            output.transform { writer -> KotlinMetadataRemover(Opcodes.API_VERSION, writer) }
+          }
+    }
   }
 
   /** Removes private or local classes from outputs */
