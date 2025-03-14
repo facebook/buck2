@@ -149,6 +149,14 @@ impl HealthCheckClient {
                     display_reports.push(display_report);
                 }
             }
+            if let Some(report) = self.vpn_check.run() {
+                if let Some(tag) = report.tag {
+                    tags.push(tag);
+                }
+                if let Some(display_report) = report.display_report {
+                    display_reports.push(display_report);
+                }
+            }
             self.send_tags(tags);
             self.send_display_reports(display_reports);
         }
