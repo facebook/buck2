@@ -65,6 +65,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
         ErrorTag::InstallerEnvironment => rank!(environment),
+        ErrorTag::IoNotConnected => rank!(environment), // This typically means eden is not mounted
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -139,7 +140,6 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ConfigureAttr => rank!(input),
         ErrorTag::DepOnlyIncompatible => rank!(input),
         ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
-        ErrorTag::IoNotConnected => rank!(input), // This typically means eden is not mounted
         ErrorTag::IoExecutableFileBusy => rank!(input),
         ErrorTag::IoStorageFull => rank!(input),
         ErrorTag::IoPermissionDenied => rank!(input),
