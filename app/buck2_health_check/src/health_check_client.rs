@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
-#![allow(dead_code)] // TODO(rajneeshl): Remove this when the channels are ready.
+#![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
+use buck2_core::soft_error;
+use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::Sender;
 
 use crate::health_check_context::HealthCheckContext;
@@ -127,6 +129,76 @@ impl HealthCheckClient {
             self.warm_revision_check
                 .try_compute_targets_not_on_stable(&self.health_check_context)
                 .await;
+        }
+    }
+
+    pub async fn run_checks(
+        &mut self,
+        _snapshot: &buck2_data::Snapshot,
+    ) -> buck2_error::Result<()> {
+        #[cfg(fbcode_build)]
+        {
+            let mut tags: Vec<String> = Vec::new();
+            let mut display_reports: Vec<DisplayReport> = Vec::new();
+
+            if let Some(report) = self.warm_revision_check.run() {
+                if let Some(tag) = report.tag {
+                    tags.push(tag);
+                }
+                if let Some(display_report) = report.display_report {
+                    display_reports.push(display_report);
+                }
+            }
+            self.send_tags(tags);
+            self.send_display_reports(display_reports);
+        }
+        Ok(())
+    }
+
+    fn send_tags(&mut self, tags: Vec<String>) {
+        if tags.is_empty() {
+            // Since tags are aggregated and written to logs only once, we don't need to publish empty lists.
+            return;
+        }
+        if let Some(tags_sender) = &mut self.tags_sender {
+            match tags_sender.try_send(tags) {
+                Err(TrySendError::Closed(_)) => {
+                    // If the receiver is dropped, drop the sender to stop sending next time.
+                    self.tags_sender = None;
+                }
+                _ => {
+                    // No error or TrySendError::Full
+                    // If the channel is full, skip sending these tags rather than OOMing due to huge buffers.
+                }
+            }
+        }
+    }
+
+    fn send_display_reports(&mut self, display_reports: Vec<DisplayReport>) {
+        // Even if there are no reports, publish an empty list to signify that we have run the health checks.
+
+        // TODO(rajneeshl): Move this description of reporting to a HealthCheck trait when that is ready.
+        // There are 3 ways a health check can report back to the console:
+        // All OK: With a valid DisplayReport with `warning` field being None.
+        // User warning: With a valid DisplayReport with `warning` field set to user message and remediation.
+        // Cannot run: When a health check cannot run it will return an empty Report e.g. target-specific checks.
+
+        if let Some(display_reports_sender) = &mut self.display_reports_sender {
+            match display_reports_sender.try_send(display_reports) {
+                Err(TrySendError::Closed(_)) => {
+                    // If the receiver is dropped, drop the sender to stop sending next time.
+                    self.display_reports_sender = None;
+                }
+                Err(TrySendError::Full(_)) => {
+                    // If the channel is full, skip sending these reports rather than OOMing due to huge buffers.
+                    let _ignored = soft_error!(
+                        "health_check_report_publish_error",
+                        buck2_error::buck2_error!(buck2_error::ErrorTag::ClientGrpc, "Buffer full while publishing health check reports"),
+                        quiet: true
+                    );
+                }
+                _ => {}
+            }
         }
     }
 }
