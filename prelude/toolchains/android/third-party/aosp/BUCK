@@ -1,4 +1,4 @@
-load("@fbsource//xplat/toolchains/android/sdk/tools/build_rules:java_rules.bzl", "buck_java_library", "third_party_jar")
+load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "buck_java_library", "third_party_jar")
 
 oncall("android_devxx")
 
