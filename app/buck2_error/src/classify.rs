@@ -93,6 +93,11 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ReUnavailable => rank!(tier0),
         ErrorTag::ReDataLoss => rank!(tier0),
         ErrorTag::ReUnauthenticated => rank!(tier0),
+        ErrorTag::ReCasArtifactWrongNumberOfInputs => rank!(tier0),
+        ErrorTag::ReCasArtifactWrongNumberOfOutputs => rank!(tier0),
+        ErrorTag::ReCasArtifactGetDigestExpirationError => rank!(tier0),
+        ErrorTag::ReCasArtifactInvalidExpiration => rank!(tier0),
+
         ErrorTag::IoConnectionAborted => rank!(tier0),
         ErrorTag::IoTimeout => rank!(tier0),
         ErrorTag::IoEdenMountNotReady => rank!(tier0),
