@@ -71,8 +71,6 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ServerStackOverflow => rank!(tier0),
         ErrorTag::ServerPanicked => rank!(tier0),
         ErrorTag::ServerSegv => rank!(tier0),
-        ErrorTag::DaemonStateInitFailed => rank!(tier0),
-        ErrorTag::DaemonConnect => rank!(tier0),
         ErrorTag::ServerStderrUnknown => rank!(tier0),
         ErrorTag::InternalError => rank!(tier0),
         ErrorTag::DaemonWontDieFromKill => rank!(tier0),
@@ -192,6 +190,8 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::UnexpectedNone => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
         // Build phases
+        ErrorTag::DaemonStateInitFailed => rank!(unspecified),
+        ErrorTag::DaemonConnect => rank!(unspecified),
         ErrorTag::Analysis => rank!(unspecified),
         ErrorTag::Install => rank!(unspecified),
         ErrorTag::AnyActionExecution => rank!(unspecified),

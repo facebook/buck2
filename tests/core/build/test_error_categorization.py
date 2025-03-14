@@ -248,7 +248,7 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["daemon_connection_failure"] is True
     assert record["daemon_was_started"] is None
 
-    assert record["best_error_tag"] == "DAEMON_CONNECT"
+    assert record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
 
 
 @buck_test()
