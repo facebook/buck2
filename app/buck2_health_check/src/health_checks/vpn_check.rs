@@ -13,6 +13,14 @@ use buck2_core::soft_error;
 use regex::Regex;
 
 use crate::health_check_context::HealthCheckContext;
+use crate::report::DisplayReport;
+use crate::report::Remediation;
+use crate::report::Report;
+use crate::report::Severity;
+use crate::report::Warning;
+
+pub const REMEDIATION_LINK: &str = "https://fburl.com/buck2_vpn_enabled";
+pub const TAG: &str = "vpn_enabled";
 
 /// Check if the user is on VPN.
 pub(crate) struct VpnCheck {
@@ -23,6 +31,15 @@ pub(crate) struct VpnCheck {
 impl VpnCheck {
     pub(crate) fn new() -> Self {
         Self { can_run: None }
+    }
+
+    pub(crate) fn run(&self) -> Option<Report> {
+        let is_vpn_enabled = Self::is_vpn_enabled();
+
+        Some(Report {
+            display_report: self.generate_display_report(is_vpn_enabled),
+            tag: is_vpn_enabled.then(|| TAG.to_owned()),
+        })
     }
 
     pub(crate) fn can_run(&self) -> bool {
@@ -64,6 +81,32 @@ impl VpnCheck {
                 Some(false)
             }
         };
+    }
+
+    fn generate_display_report(&self, is_vpn_enabled: bool) -> Option<DisplayReport> {
+        self.can_run().then(|| DisplayReport {
+            health_check_type: crate::interface::HealthCheckType::VpnEnabled,
+            warning: self.generate_warning(is_vpn_enabled),
+        })
+    }
+
+    fn generate_warning(&self, is_vpn_enabled: bool) -> Option<Warning> {
+        is_vpn_enabled.then(|| Warning {
+            severity: Severity::Warning,
+            message: "For optimal build speed, consider disconnecting from VPN".to_owned(),
+            remediation: Some(Remediation::Link(REMEDIATION_LINK.to_owned())),
+        })
+    }
+
+    fn is_vpn_enabled() -> bool {
+        if !cfg!(target_os = "macos") {
+            // TODO(rajneeshl): Add support for Windows
+            return false;
+        }
+
+        // Brittle check based on Cisco client's current behaviour.
+        // Small section copied from https://fburl.com/code/g7ttsdz3
+        std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists()
     }
 }
 
