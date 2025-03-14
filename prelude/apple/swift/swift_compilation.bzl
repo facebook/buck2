@@ -339,7 +339,6 @@ def compile_swift(
         private_compiled_underlying_pcm,
         exported_compiled_underlying_pcm,
         module_name,
-        exported_headers,
         private_objc_modulemap_pp_info,
         exported_objc_modulemap_pp_info,
         extra_search_paths_flags,
@@ -351,12 +350,6 @@ def compile_swift(
         return (None, swift_interface_info)
 
     toolchain = get_swift_toolchain_info(ctx)
-
-    if ctx.attrs.serialize_debugging_options and exported_headers:
-        # We cannot use VFS overlays with Buck2, so we have to disable
-        # serializing debugging options for mixed libraries to debug successfully
-        warning("Mixed libraries cannot serialize debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
-
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
 
@@ -743,10 +736,16 @@ def _compile_with_argsfile(
     # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
     return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile})
 
-def _get_serialize_debugging_options_attr_value(ctx: AnalysisContext):
-    if ctx.attrs.serialize_debugging_options == None:
-        return True
-    return ctx.attrs.serialize_debugging_options
+def _get_serialize_debugging_options(ctx: AnalysisContext, uses_explicit_modules: bool):
+    if ctx.attrs.serialize_debugging_options == False:
+        return False
+
+    if uses_explicit_modules:
+        # If the toolchain supports explicit modules we can
+        # enable, regardless if this is a mixed library or not
+        return get_swift_toolchain_info(ctx).supports_explicit_module_debug_serialization
+
+    return True
 
 def _get_shared_flags(
         ctx: AnalysisContext,
@@ -755,7 +754,6 @@ def _get_shared_flags(
         private_module: SwiftCompiledModuleInfo | None,
         public_module: SwiftCompiledModuleInfo | None,
         module_name: str,
-        objc_headers: list[CHeader],
         private_modulemap_pp_info: CPreprocessor | None,
         public_modulemap_pp_info: CPreprocessor | None,
         extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
@@ -839,8 +837,7 @@ def _get_shared_flags(
     if ctx.attrs.enable_cxx_interop:
         cmd.add(["-cxx-interoperability-mode=default"])
 
-    serialize_debugging_options = _get_serialize_debugging_options_attr_value(ctx) and (not explicit_modules_enabled) and (not objc_headers)
-    if serialize_debugging_options:
+    if _get_serialize_debugging_options(ctx, explicit_modules_enabled):
         cmd.add([
             "-Xfrontend",
             "-serialize-debugging-options",
