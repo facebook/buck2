@@ -115,6 +115,8 @@ def main():
     command += [
         "-file-prefix-map",
         f"{os.getcwd()}/=",
+        "-file-prefix-map",
+        f"{os.getcwd()}=.",
     ]
 
     # Apply a coverage prefix map for the current directory
