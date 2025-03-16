@@ -678,7 +678,7 @@ async def test_exit_when_different_state(buck: Buck) -> None:
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -721,7 +721,7 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -766,7 +766,7 @@ async def test_exit_when_preemptible_on_different_state(
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
