@@ -19,13 +19,17 @@ import subprocess
 import sys
 
 import tempfile
-from typing import List
+from typing import cast, List, Protocol
 
 CSS_LINK = '<link href="dist/App.css" rel="stylesheet" />'
 JS_SCRIPT = '<script src="dist/App.js"></script>'
 
 
-rm_rf = functools.partial(shutil.rmtree, ignore_errors=True)
+class RmtreeProtocol(Protocol):
+    def __call__(self, path: str, *, ignore_errors: bool) -> None: ...
+
+
+rm_rf = functools.partial(cast(RmtreeProtocol, shutil.rmtree), ignore_errors=True)
 print_err = functools.partial(print, file=sys.stderr)
 glob_r = functools.partial(glob.glob, recursive=True)
 
