@@ -728,7 +728,7 @@ module "{}" {{
     for header in headers:
         include_args.extend(["-include", paths.join(header.namespace, header.name)])
 
-    file_name = ".header_unit_headers"
+    file_name = "{}.header_unit_headers".format(group_name)
     headers_argsfile, _ = ctx.actions.write(file_name, cmd_args(include_args, quote = "shell"), allow_args = True)
 
     args.extend([cmd_args(headers_argsfile, format = "@{}")])
