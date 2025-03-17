@@ -13,6 +13,7 @@ pub mod configuration_info;
 pub mod constraint_setting_info;
 pub mod constraint_value_info;
 pub mod default_info;
+pub mod dep_only_incompatible_info;
 pub mod execution_platform_info;
 pub mod execution_platform_registration_info;
 pub mod external_runner_test_info;
