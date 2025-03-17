@@ -44,6 +44,10 @@ pub fn ci_identifiers()
             "skycastle_workflow_alias",
             buck2_env!("SKYCASTLE_WORKFLOW_ALIAS", applicability = internal)?,
         ),
+        (
+            "sandcastle_type",
+            buck2_env!("SANDCASTLE_TYPE", applicability = internal)?,
+        ),
     ]
     .into_iter())
 }

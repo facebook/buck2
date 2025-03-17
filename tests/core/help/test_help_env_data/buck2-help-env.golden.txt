@@ -43,6 +43,7 @@ SANDCASTLE_ALIAS                        String
 SANDCASTLE_ID                           String
 SANDCASTLE_JOB_INFO                     String
 SANDCASTLE_SCHEDULE_TYPE                String
+SANDCASTLE_TYPE                         String
 SCHEDULE_TYPE                           String
 SKYCASTLE_WORKFLOW_ALIAS                String
 SKYCASTLE_WORKFLOW_RUN_ID               String
