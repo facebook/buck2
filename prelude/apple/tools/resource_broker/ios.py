@@ -119,17 +119,12 @@ async def _list_managed_simulators(simulator_manager: str) -> List[IdbTarget]:
     )
 
 
-def normalize_ios_version(ios_version: str) -> str:
+def normalize_ios_version(ios_version: str) -> Version:
     # iOS version should be in the format "iOS 17.2.0" or "iOS 17.2"
     if not ios_version.startswith("iOS "):
         raise Exception(f"Expected iOS version to start with 'iOS ', got {ios_version}")
-    version = ios_version.split(" ")[1]
-    major_version = version.split(".")[0]
-    minor_version = version.split(".")[1]
-    patch_version = 0
-    if len(version.split(".")) == 3:
-        patch_version = version.split(".")[2]
-    return f"{major_version}.{minor_version}.{patch_version}"
+
+    return Version(ios_version.split(" ")[1])
 
 
 def choose_simulators(
@@ -141,7 +136,10 @@ def choose_simulators(
     filtered_simulators = filter(
         lambda s: (
             (
-                normalize_ios_version(s.os_version) == normalize_ios_version(os_version)
+                normalize_ios_version(s.os_version).major
+                == normalize_ios_version(os_version).major
+                and normalize_ios_version(s.os_version).minor
+                == normalize_ios_version(os_version).minor
                 if os_version
                 else True
             )
