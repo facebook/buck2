@@ -108,21 +108,6 @@ impl HealthCheckClient {
         self.try_update_warm_revision_check().await;
     }
 
-    pub fn check_stable_revision(&self) -> Option<&[String]> {
-        #[cfg(fbcode_build)]
-        {
-            self.warm_revision_check.targets_not_on_stable()
-        }
-        #[cfg(not(fbcode_build))]
-        {
-            None
-        }
-    }
-
-    pub fn is_vpn_check_enabled(&self) -> bool {
-        self.vpn_check.can_run()
-    }
-
     async fn try_update_warm_revision_check(&mut self) {
         #[cfg(fbcode_build)]
         {
