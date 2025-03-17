@@ -585,6 +585,8 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     dumpbin_toolchain_path = get_cxx_toolchain_info(ctx).dumpbin_toolchain_path
                     if dumpbin_toolchain_path != None:
                         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, shared_lib.output, dumpbin_toolchain_path)
+                    if shared_lib.dwp != None:
+                        sub_targets["dwp"] = [DefaultInfo(default_output = shared_lib.dwp)]
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[output_style] = out
