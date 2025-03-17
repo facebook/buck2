@@ -85,6 +85,7 @@ def erlang_tests_macro(
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
         (suite_name, _ext) = paths.split_extension(paths.basename(suite))
+        suite_name = normalize_suite_name(suite_name)
         if not suite_name.endswith("_SUITE"):
             fail("erlang_tests target only accept suite as input, found " + suite_name)
 
@@ -108,6 +109,9 @@ def erlang_tests_macro(
             property_tests = property_tests,
             **common_attributes
         )
+
+def normalize_suite_name(suite_name: str) -> str:
+    return suite_name.replace(":", "_")
 
 def erlang_test_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchains = select_toolchains(ctx)
@@ -370,7 +374,10 @@ def link_output(
 def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str:
     suite_dir = paths.dirname(suite)
     suite_name = paths.basename(suite)
-    files = glob([paths.join(suite_dir, dir_name, "**")])
+    if is_target(suite):
+        files = []
+    else:
+        files = glob([paths.join(suite_dir, dir_name, "**")])
     if prefix != None:
         target_suffix = "{}_{}".format(prefix, suite_name)
     else:
@@ -385,6 +392,13 @@ def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> s
         )
         return ":{}-{}".format(dir_name, suite_name)
     return ""
+
+def is_target(suite: str) -> bool:
+    if suite.startswith(":"):
+        return True
+    if suite.find("//") != -1:
+        return True
+    return False
 
 def get_re_executor_from_props(ctx: AnalysisContext) -> [CommandExecutorConfig, None]:
     """
