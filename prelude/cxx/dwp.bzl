@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":debug.bzl", "SplitDebugMode")
@@ -60,7 +59,8 @@ def dwp(
         # link line and extract all inputs from that, which is a bit of an
         # overspecification.
         referenced_objects: [ArgLike, list[Artifact]],
-        name_suffix: str = "") -> Artifact:
+        name_suffix: str = "",
+        local_only: bool = False) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp")
     run_dwp_action(
@@ -71,9 +71,6 @@ def dwp(
         category_suffix,
         referenced_objects,
         output,
-        # dwp produces ELF files on the same size scale as the corresponding @obj.
-        # The files are a concatenation of input DWARF debug info.
-        # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
-        local_only = link_cxx_binary_locally(ctx),
+        local_only = local_only,
     )
     return output
