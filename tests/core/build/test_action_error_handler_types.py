@@ -25,5 +25,4 @@ async def test_output_when_no_error_handler_used(buck: Buck) -> None:
         buck.build("//:does_not_use_error_handler"),
     )
 
-    # TODO(ianc) This shouldn't be in stderr, it's just noise.
-    assert "Action sub-errors produced by error handlers: <empty>" in failure.stderr
+    assert "Action sub-errors produced by error handlers: <empty>" not in failure.stderr

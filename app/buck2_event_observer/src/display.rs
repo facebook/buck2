@@ -726,8 +726,8 @@ impl<'a> ActionErrorDisplay<'a> {
             match error_diagnostics.data.as_ref().unwrap() {
                 buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
                     let sub_errors = &sub_errors.sub_errors;
-                    let mut all_sub_errors = String::new();
                     if !sub_errors.is_empty() {
+                        let mut all_sub_errors = String::new();
                         for sub_error in sub_errors {
                             let mut sub_error_line = String::new();
 
@@ -739,11 +739,11 @@ impl<'a> ActionErrorDisplay<'a> {
                             // TODO(@wendyy) - handle locations later
                             writeln!(all_sub_errors, "- {}", sub_error_line).unwrap();
                         }
+                        append_stream(
+                            "\nAction sub-errors produced by error handlers",
+                            &all_sub_errors,
+                        );
                     }
-                    append_stream(
-                        "\nAction sub-errors produced by error handlers",
-                        &all_sub_errors,
-                    );
                 }
                 buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
                     append_stream("\nCould not produce error diagnostics", error);
