@@ -689,8 +689,8 @@ transitions = {
     "go_library": go_library_transition,
     "go_stdlib": go_stdlib_transition,
     "go_test": go_test_transition,
-    "python_binary": constraint_overrides.transition,
-    "python_test": constraint_overrides.transition,
+    "python_binary": constraint_overrides.python_transition,
+    "python_test": constraint_overrides.python_transition,
     "sh_test": constraint_overrides.transition,
 }
 
