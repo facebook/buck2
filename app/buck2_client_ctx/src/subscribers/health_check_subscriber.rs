@@ -81,7 +81,7 @@ impl HealthCheckSubscriber {
                     }
                     ActionExecution(action_execution_end) => {
                         self.health_check_client
-                            .update_excess_cache_miss(action_execution_end)
+                            .update_excess_cache_misses(action_execution_end)
                             .await;
                     }
                     _ => {}

@@ -77,7 +77,10 @@ impl HealthCheckClient {
         self.try_update_warm_revision_check().await;
     }
 
-    pub async fn update_excess_cache_miss(&mut self, action_end: &buck2_data::ActionExecutionEnd) {
+    pub async fn update_excess_cache_misses(
+        &mut self,
+        action_end: &buck2_data::ActionExecutionEnd,
+    ) {
         // Action stats are currently only used for cache misses. If we need more data, store an aggregated action stats.
         if self.health_check_context.has_excess_cache_misses {
             // If we already know that we have excess cache misses, we don't need updates again.
@@ -89,12 +92,6 @@ impl HealthCheckClient {
                 self.try_update_warm_revision_check().await;
             }
         }
-    }
-
-    // TODO(rajneeshl): Deprecate this behavior. Merge with `update_excess_cache_miss` instead.
-    pub async fn update_excess_cache_misses(&mut self, has_excess_cache_misses: bool) {
-        self.health_check_context.has_excess_cache_misses = has_excess_cache_misses;
-        self.try_update_warm_revision_check().await;
     }
 
     pub async fn update_experiment_configurations(
@@ -213,11 +210,15 @@ mod tests {
             ..Default::default()
         };
         let mut client = HealthCheckClient::new("test".to_owned(), None, None);
-        client.update_excess_cache_miss(&action_execution_end).await;
+        client
+            .update_excess_cache_misses(&action_execution_end)
+            .await;
         assert!(client.health_check_context.has_excess_cache_misses);
 
         // Second update should not change the value.
-        client.update_excess_cache_miss(&action_execution_end).await;
+        client
+            .update_excess_cache_misses(&action_execution_end)
+            .await;
         assert!(client.health_check_context.has_excess_cache_misses);
 
         Ok(())
@@ -233,7 +234,9 @@ mod tests {
             ..Default::default()
         };
         let mut client = HealthCheckClient::new("test".to_owned(), None, None);
-        client.update_excess_cache_miss(&action_execution_end).await;
+        client
+            .update_excess_cache_misses(&action_execution_end)
+            .await;
         assert!(!client.health_check_context.has_excess_cache_misses);
 
         Ok(())
