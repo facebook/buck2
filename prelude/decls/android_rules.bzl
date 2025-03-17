@@ -122,7 +122,7 @@ android_aar = prelude_rule(
             "enable_relinker": attrs.bool(default = False),
             "excluded_java_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
-            "extra_kotlinc_arguments": attrs.list(attrs.string(), default = []),
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
@@ -746,7 +746,7 @@ android_library = prelude_rule(
                 List of additional arguments to pass into the Java compiler. These
                  arguments follow the ones specified in `.buckconfig`.
             """),
-            "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None, doc = """
@@ -1426,7 +1426,7 @@ robolectric_test = prelude_rule(
                 Robolectric only runs in offline mode with buck. Specify the relative
                  directory containing all the jars Robolectric uses at runtime.
             """),
-            "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
