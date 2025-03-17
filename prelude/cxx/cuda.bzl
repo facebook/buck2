@@ -52,11 +52,18 @@ def cuda_compile(
         # - Plain dump of the dryrun output.
         # - Envvars to run the NVCC sub-commands with.
         # - A dependency graph of the NVCC sub-commands.
+        # TODO: Convert these to dynamic_output so that they can be used for
+        # actually generating the distributed actions.
         nvcc_dryrun_dump = ctx.actions.declare_output(
             cuda_compile_info.output_prefix,
             "{}.dryrun_dump".format(cuda_compile_info.filename),
         )
         cmd.add(["-_NVCC_DRYRUN_DUMP_OUT_", nvcc_dryrun_dump.as_output()])
+        nvcc_dryrun_env = ctx.actions.declare_output(
+            cuda_compile_info.output_prefix,
+            "{}.env".format(cuda_compile_info.filename),
+        )
+        cmd.add(["-_NVCC_DRYRUN_ENV_OUT_", nvcc_dryrun_env.as_output()])
         ctx.actions.run(
             cmd,
             category = "cuda_compile_prepare",
