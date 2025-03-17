@@ -9,15 +9,26 @@
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_core::cells::name::CellName;
+use buck2_core::cells::CellAliasResolver;
+use buck2_core::cells::CellResolver;
+use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern_type::TargetPatternExtra;
+use buck2_util::arc_str::ArcStr;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
+use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
+use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
+use starlark::values::list::ListRef;
 use starlark::values::list::ListType;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
+use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
 
@@ -62,5 +73,43 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
         Ok(DepOnlyIncompatibleInfo {
             custom_soft_errors: custom_soft_errors.as_unchecked().cast(),
         })
+    }
+}
+
+pub type DepOnlyIncompatibleCustomSoftErrors =
+    SmallMap<ArcStr, Box<[ParsedPattern<TargetPatternExtra>]>>;
+
+impl FrozenDepOnlyIncompatibleInfo {
+    pub fn custom_soft_errors(
+        &self,
+        root_cell: CellName,
+        cell_resolver: &CellResolver,
+        cell_alias_resolver: &CellAliasResolver,
+    ) -> buck2_error::Result<DepOnlyIncompatibleCustomSoftErrors> {
+        let custom_soft_errors: SmallMap<_, Box<[_]>> =
+            DictRef::from_value(self.custom_soft_errors.get().to_value())
+                .expect("Internal error: expected to be a dict")
+                .iter()
+                .map(|(k, v)| {
+                    let k = ArcStr::from(k.to_value().to_str());
+                    let mut target_patterns = Vec::new();
+                    for target_pattern in ListRef::from_value(v)
+                        .expect("Internal error: expected to be a list")
+                        .iter()
+                    {
+                        let target_pattern = target_pattern.to_value().to_str();
+                        target_patterns.push(ParsedPattern::parse_precise(
+                            &target_pattern,
+                            root_cell.dupe(),
+                            &cell_resolver,
+                            &cell_alias_resolver,
+                        )?);
+                    }
+                    let v: Box<[_]> = target_patterns.into();
+                    Ok((k, v.into()))
+                })
+                .collect::<buck2_error::Result<_>>()?;
+
+        Ok(custom_soft_errors)
     }
 }

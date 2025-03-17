@@ -14,6 +14,9 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::dep_only_incompatible_info::DepOnlyIncompatibleCustomSoftErrors;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::dep_only_incompatible_info::FrozenDepOnlyIncompatibleInfo;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
 use buck2_build_api::transition::TRANSITION_CALCULATION;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
@@ -72,6 +75,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::rule::RuleIncomingTransition;
 use buck2_node::visibility::VisibilityError;
+use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
@@ -1158,11 +1162,24 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                 ) {
                     if check_error_on_incompatible_dep(ctx, target.unconfigured_label()).await? {
                         return Err(reason.to_err().into());
-                    } else {
-                        soft_error!(
-                            "dep_only_incompatible_version_two", reason.to_soft_err().into(),
-                            quiet: false,
-                        )?;
+                    }
+                    soft_error!(
+                        "dep_only_incompatible_version_two", reason.to_soft_err().into(),
+                        quiet: false,
+                    )?;
+                    if let Some(custom_soft_errors) = get_dep_only_incompatible_custom_soft_error(
+                        ctx,
+                        target.unconfigured_label(),
+                    )
+                    .await?
+                    {
+                        for custom_soft_error in custom_soft_errors {
+                            soft_error!(
+                                &custom_soft_error,
+                                reason.to_soft_err().into(),
+                                quiet: true,
+                            )?;
+                        }
                     }
                 }
             }
@@ -1253,6 +1270,70 @@ async fn check_target_enabled_for_config(
     }
 
     Ok(false)
+}
+
+async fn get_dep_only_incompatible_custom_soft_error(
+    ctx: &mut DiceComputations<'_>,
+    target_label: &TargetLabel,
+) -> buck2_error::Result<Option<Vec<ArcStr>>> {
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    struct GetDepOnlyIncompatibleInfo;
+
+    #[async_trait]
+    impl Key for GetDepOnlyIncompatibleInfo {
+        type Value = buck2_error::Result<Option<Arc<DepOnlyIncompatibleCustomSoftErrors>>>;
+
+        async fn compute(
+            &self,
+            mut ctx: &mut DiceComputations,
+            _cancellation: &CancellationContext,
+        ) -> Self::Value {
+            let cell_resolver = ctx.get_cell_resolver().await?;
+            let root_cell = cell_resolver.root_cell();
+            let alias_resolver = ctx.get_cell_alias_resolver(root_cell).await?;
+            let root_conf = ctx.get_legacy_root_config_on_dice().await?;
+            let Some(target) = root_conf.view(&mut ctx).parse::<String>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "dep_only_incompatible_info",
+            })?
+            else {
+                return Ok(None);
+            };
+            let target =
+                ProvidersLabel::parse(&target, root_cell.dupe(), &cell_resolver, &alias_resolver)?;
+            let providers = ctx.get_configuration_analysis_result(&target).await?;
+            let dep_only_incompatible_info = providers
+                .provider_collection()
+                .builtin_provider::<FrozenDepOnlyIncompatibleInfo>()
+                .unwrap();
+            let result = dep_only_incompatible_info.custom_soft_errors(
+                root_cell,
+                &cell_resolver,
+                &alias_resolver,
+            )?;
+            Ok(Some(Arc::new(result)))
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            match (x, y) {
+                (Ok(x), Ok(y)) => x == y,
+                _ => false,
+            }
+        }
+    }
+
+    let Some(custom_soft_errors) = ctx.compute(&GetDepOnlyIncompatibleInfo).await?? else {
+        return Ok(None);
+    };
+    let mut soft_error_categories = Vec::new();
+    for (soft_error_category, patterns) in custom_soft_errors.iter() {
+        for pattern in patterns.iter() {
+            if pattern.matches(target_label) {
+                soft_error_categories.push(soft_error_category.dupe());
+            }
+        }
+    }
+    Ok(Some(soft_error_categories))
 }
 
 #[allow(unused)]
