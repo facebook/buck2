@@ -122,7 +122,10 @@ def buck_e2e_test(
         labels += ci.remove_labels(ci.windows(ci.opt()))
 
     metadata = {}
-    metadata["buck.cfg_modifiers"] = cfg_modifiers
+    metadata["buck.cfg_modifiers"] = cfg_modifiers + buck2_modifiers() + [
+        # Always run these tests under rust opt build
+        "ovr_config//build_mode:opt",
+    ]
 
     python_pytest(
         name = name,
@@ -276,10 +279,6 @@ def buck2_e2e_test(
             executable = exe,
             skip_for_os = skip_for_os,
             deps = deps,
-            cfg_modifiers = buck2_modifiers() + [
-                # Always run these tests under rust opt build
-                "ovr_config//build_mode:opt",
-            ],
             heavyweight_label = heavyweight_label,
             **kwargs
         )
