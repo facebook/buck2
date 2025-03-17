@@ -26,7 +26,7 @@ pub struct HealthCheckClient {
     // TODO(rajneeshl): These are temporary hacks to call health checks directly from client.
     // Move these to the health check server when it is ready.
     #[cfg(fbcode_build)]
-    warm_revision_check: WarmRevisionCheck,
+    warm_revision_check: Option<WarmRevisionCheck>,
     vpn_check: VpnCheck,
     // Writer to send tags to be logged to scuba.
     // TODO(rajneeshl): Make this required when the event_observer reference is removed.
@@ -47,7 +47,7 @@ impl HealthCheckClient {
                 ..Default::default()
             },
             #[cfg(fbcode_build)]
-            warm_revision_check: WarmRevisionCheck::new(),
+            warm_revision_check: WarmRevisionCheck::new().ok(),
             vpn_check: VpnCheck::new(),
             tags_sender,
             display_reports_sender,
@@ -108,9 +108,11 @@ impl HealthCheckClient {
     async fn try_update_warm_revision_check(&mut self) {
         #[cfg(fbcode_build)]
         {
-            self.warm_revision_check
-                .try_compute_targets_not_on_stable(&self.health_check_context)
-                .await;
+            if let Some(check) = &mut self.warm_revision_check {
+                check
+                    .try_compute_targets_not_on_stable(&self.health_check_context)
+                    .await;
+            }
         }
     }
 
@@ -123,7 +125,12 @@ impl HealthCheckClient {
             let mut tags: Vec<String> = Vec::new();
             let mut display_reports: Vec<DisplayReport> = Vec::new();
 
-            if let Some(report) = self.warm_revision_check.run() {
+            if let Some(report) = self
+                .warm_revision_check
+                .as_ref()
+                .map(|check| check.run())
+                .flatten()
+            {
                 if let Some(tag) = report.tag {
                     tags.push(tag);
                 }
