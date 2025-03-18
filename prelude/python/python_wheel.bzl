@@ -350,6 +350,7 @@ python_wheel = rule(
         resources = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         rpaths = attrs.list(attrs.string(), default = []),
         support_future_python_versions = attrs.bool(default = False),
+        labels = attrs.list(attrs.string(), default = []),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _patchelf = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:patchelf")),
         _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
