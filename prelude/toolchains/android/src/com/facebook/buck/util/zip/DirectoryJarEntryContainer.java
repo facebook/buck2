@@ -9,16 +9,23 @@
 
 package com.facebook.buck.util.zip;
 
+import static com.google.common.base.Suppliers.memoize;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
+
+import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.file.MorePaths;
 import com.facebook.buck.io.pathformat.PathFormatter;
 import com.facebook.buck.util.function.ThrowingSupplier;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.jar.Manifest;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -31,9 +38,14 @@ class DirectoryJarEntryContainer implements JarEntryContainer {
 
   private final Path directory;
   private final String owner;
-  private Stream<Path> directoryPathStream;
 
-  public DirectoryJarEntryContainer(Path directory) {
+  private Supplier<List<FileJarEntry>> entriesSupplier;
+
+  DirectoryJarEntryContainer(AbsPath absPath) {
+    this(absPath.getPath());
+  }
+
+  DirectoryJarEntryContainer(Path directory) {
     this.directory = directory;
     this.owner = directory.toString();
   }
@@ -52,38 +64,123 @@ class DirectoryJarEntryContainer implements JarEntryContainer {
     }
   }
 
+  public List<FileJarEntry> getEntries() {
+    return getEntriesSupplier().get();
+  }
+
   @Override
-  public Stream<JarEntrySupplier> stream() throws IOException {
-    this.directoryPathStream = Files.walk(directory, FileVisitOption.FOLLOW_LINKS);
-    return directoryPathStream
-        .map(
-            path -> {
-              String relativePath =
-                  PathFormatter.pathWithUnixSeparators(MorePaths.relativize(directory, path));
-
-              if (relativePath.isEmpty()) {
-                return null;
-              }
-
-              ThrowingSupplier<InputStream, IOException> inputStreamSupplier;
-              if (Files.isDirectory(path)) {
-                relativePath += '/';
-                inputStreamSupplier = () -> null;
-              } else {
-                inputStreamSupplier = () -> Files.newInputStream(path);
-              }
-
-              return new JarEntrySupplier(
-                  new CustomZipEntry(relativePath), owner, inputStreamSupplier);
-            })
-        .filter(Objects::nonNull)
-        .sorted(Comparator.comparing(entrySupplier -> entrySupplier.getEntry().getName()));
+  public Stream<JarEntrySupplier> stream() {
+    return getEntries().stream().map(JarEntrySupplier.class::cast);
   }
 
   @Override
   public void close() {
-    if (directoryPathStream != null) {
-      directoryPathStream.close();
+    entriesSupplier = null;
+  }
+
+  private Supplier<List<FileJarEntry>> getEntriesSupplier() {
+    Supplier<List<FileJarEntry>> localSupplier = entriesSupplier;
+    if (localSupplier == null) {
+      entriesSupplier =
+          localSupplier =
+              memoize(
+                  () -> {
+                    try (Stream<Path> directoryStream =
+                        Files.walk(directory, FileVisitOption.FOLLOW_LINKS)) {
+                      return directoryStream
+                          .map(this::createFileJarEntry)
+                          .filter(Objects::nonNull)
+                          .sorted(comparing(FileJarEntry::getName))
+                          .collect(toList());
+                    } catch (IOException e) {
+                      throw new UncheckedIOException(e);
+                    }
+                  });
+    }
+    return localSupplier;
+  }
+
+  private FileJarEntry createFileJarEntry(final Path path) {
+    final String relativePath =
+        PathFormatter.pathWithUnixSeparators(MorePaths.relativize(directory, path));
+    if (relativePath.isEmpty()) {
+      return null;
+    }
+    return FileJarEntry.of(relativePath, owner, path);
+  }
+
+  /**
+   * Represents a JAR entry that originates from a file. The entry name is relative to its
+   * container.
+   */
+  static class FileJarEntry extends JarEntrySupplier {
+
+    static FileJarEntry of(final String entryName, final String owner, final Path file) {
+      try {
+        final boolean directory = Files.isDirectory(file);
+        final long fileSize = directory ? 0 : Files.size(file);
+        return new FileJarEntry(entryName, owner, file, fileSize, directory);
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+
+    private final Path file;
+    private final long fileSize;
+    private final boolean directory;
+
+    public FileJarEntry(
+        final String entryName,
+        final String owner,
+        final Path file,
+        final long fileSize,
+        final boolean directory) {
+      super(new CustomZipEntry(directory ? entryName + '/' : entryName), owner, null);
+      this.file = file;
+      this.fileSize = fileSize;
+      this.directory = directory;
+    }
+
+    public long getFileSize() {
+      return fileSize;
+    }
+
+    public boolean isDirectory() {
+      return directory;
+    }
+
+    String getName() {
+      return getEntry().getName();
+    }
+
+    @Override
+    public ThrowingSupplier<InputStream, IOException> getInputStreamSupplier() {
+      if (file == null || directory) {
+        return () -> null;
+      }
+      return () -> Files.newInputStream(file);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      final FileJarEntry that = (FileJarEntry) o;
+      return Objects.equals(getName(), that.getName());
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getName());
+    }
+
+    @Override
+    public String toString() {
+      return getName();
     }
   }
 }

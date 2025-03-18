@@ -9,12 +9,14 @@
 
 package com.facebook.buck.util.zip;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Optional.ofNullable;
+import static java.util.stream.Collectors.toList;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.java.RemoveClassesPatternsMatcher;
 import com.facebook.buck.util.PatternsMatcher;
-import com.google.common.base.Preconditions;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -67,68 +68,97 @@ public class JarBuilderMain {
   private boolean concatJars = false;
 
   public static void main(String[] args) throws IOException {
-    JarBuilderMain main = new JarBuilderMain();
-    CmdLineParser parser = new CmdLineParser(main);
+    System.exit(run(args));
+  }
+
+  /** Prevent {@link System#exit(int)} execution so it can be used in unit tests. */
+  @VisibleForTesting
+  static int run(String... args) throws IOException {
+    JarBuilderMain jarBuilderMain = new JarBuilderMain();
+    CmdLineParser parser = new CmdLineParser(jarBuilderMain);
     try {
       parser.parseArgument(args);
-      main.run();
-      System.exit(0);
+      jarBuilderMain.build();
     } catch (CmdLineException e) {
       System.err.println(e.getMessage());
       parser.printUsage(System.err);
-      System.exit(1);
+      return 1;
     }
+    return 0;
   }
 
-  private void run() throws IOException {
+  private void build() throws IOException {
+
     final AbsPath root = AbsPath.of(Paths.get(".").normalize().toAbsolutePath());
-    final Stream<AbsPath> entriesToJar =
-        Files.readAllLines(Paths.get(entriesToJarFilePath)).stream()
-            .map(path -> root.resolve(Paths.get(path)));
-
-    final Stream<AbsPath> overrideEntriesToJar =
-        overrideEntriesToJarFilePath != null
-            ? Files.readAllLines(Paths.get(overrideEntriesToJarFilePath)).stream()
-                .map(path -> root.resolve(Paths.get(path)))
-            : Stream.empty();
-
+    final Path outputFile = root.resolve(output).getPath();
+    final List<AbsPath> entriesToJar = readEntriesToJar(root, entriesToJarFilePath);
+    final List<AbsPath> overrideEntriesToJar = readEntriesToJar(root, overrideEntriesToJarFilePath);
     final JarBuilder jarBuilder = concatJars ? new ConcatJarBuilder() : new JarBuilder();
 
     jarBuilder
-        .setEntriesToJar(entriesToJar)
-        .setOverrideEntriesToJar(overrideEntriesToJar)
         .setMainClass(mainClass)
-        .setManifestFiles(
-            manifestFiles.stream()
-                .map(file -> root.resolve(file).getPath())
-                .collect(Collectors.toList()))
+        .setManifestFiles(getManifestFiles(root, manifestFiles))
         .setShouldMergeManifests(mergeManifests)
         .setShouldHashEntries(hashEntries)
-        .setAppendJar(ofNullable(appendJar).map(Path::of).orElse(null));
+        .setAppendJar(ofNullable(appendJar).map(Path::of).orElse(null))
+        .setRemoveEntryPredicate(getRemoveEntryPredicate())
+        .setEntriesToJar(getEntriesToJar(entriesToJar, concatJars))
+        .setOverrideEntriesToJar(overrideEntriesToJar)
+        .createJarFile(outputFile);
+  }
 
-    if (blocklistPatternsFilePath != null) {
-      ImmutableSet<Pattern> blocklistPatterns =
-          Files.readAllLines(Paths.get(blocklistPatternsFilePath)).stream()
+  private List<AbsPath> getEntriesToJar(List<AbsPath> entriesToJar, boolean concatJars) {
+    if (!concatJars) {
+      return entriesToJar;
+    }
+    return new DirectoryJarBuilder(
+            () -> new JarBuilder().setRemoveEntryPredicate(getRemoveEntryPredicate()))
+        .buildJars(entriesToJar)
+        .join();
+  }
+
+  private Predicate<? super CustomZipEntry> getRemoveEntryPredicate() {
+    if (blocklistPatternsFilePath == null) {
+      return null;
+    }
+    checkState(
+        blocklistPatternsMatcher != null,
+        "Must specify `--blocklist-patterns-matcher` if `--blocklist-patterns` is set!");
+    try {
+      final ImmutableSet<Pattern> blocklistPatterns =
+          readNonEmptyLines(blocklistPatternsFilePath)
               .map(Pattern::compile)
               .collect(ImmutableSet.toImmutableSet());
-      Preconditions.checkState(
-          blocklistPatternsMatcher != null,
-          "Must specify `--blocklist-patterns-matcher` if `--blocklist-patterns` is set!");
-      Predicate<? super CustomZipEntry> removeEntryPredicate;
-      if (blocklistPatternsMatcher.equals("substring")) {
-        removeEntryPredicate =
-            entry -> new PatternsMatcher(blocklistPatterns).substringMatches(entry.getName());
-      } else if (blocklistPatternsMatcher.equals("remove_classes_patterns_matcher")) {
-        removeEntryPredicate = new RemoveClassesPatternsMatcher(blocklistPatterns, true);
-      } else {
-        throw new RuntimeException(
-            "`--blocklist-patterns-matcher` must be either `substring` or"
-                + " `remove_classes_patterns_matcher`");
+
+      if ("substring".equals(blocklistPatternsMatcher)) {
+        return entry -> new PatternsMatcher(blocklistPatterns).substringMatches(entry.getName());
+      } else if ("remove_classes_patterns_matcher".equals(blocklistPatternsMatcher)) {
+        return new RemoveClassesPatternsMatcher(blocklistPatterns, true);
       }
-
-      jarBuilder.setRemoveEntryPredicate(removeEntryPredicate);
+      throw new RuntimeException(
+          "`--blocklist-patterns-matcher` must be either `substring` or"
+              + " `remove_classes_patterns_matcher`");
+    } catch (IOException e) {
+      throw new RuntimeException(
+          String.format("failed to read blocklistPatternsFilePath: %s", blocklistPatternsFilePath),
+          e);
     }
+  }
 
-    jarBuilder.createJarFile(root.resolve(output).getPath());
+  private List<Path> getManifestFiles(final AbsPath root, final List<String> files) {
+    return files.stream().map(file -> root.resolve(file).getPath()).collect(toList());
+  }
+
+  private List<AbsPath> readEntriesToJar(final AbsPath root, final String path) throws IOException {
+    if (path == null) {
+      return List.of();
+    }
+    return readNonEmptyLines(path).map(root::resolve).collect(toList());
+  }
+
+  private Stream<String> readNonEmptyLines(final String path) throws IOException {
+    return Files.readAllLines(Paths.get(path)).stream()
+        .map(String::trim)
+        .filter(Predicate.not(String::isEmpty));
   }
 }

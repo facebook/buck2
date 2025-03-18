@@ -49,6 +49,8 @@ import javax.annotation.Nullable;
 
 public class JarBuilder {
 
+  private static final Predicate<? super CustomZipEntry> NO_FILTER = entry -> false;
+
   private interface ResourceMergeStrategy {
     byte[] merge(Set<String> files);
 
@@ -146,7 +148,7 @@ public class JarBuilder {
   private boolean shouldMergeManifests;
   private boolean shouldHashEntries;
   private Path appendJar;
-  private Predicate<? super CustomZipEntry> removeEntryPredicate = entry -> false;
+  private Predicate<? super CustomZipEntry> removeEntryPredicate = NO_FILTER;
   private List<Path> manifestFiles = List.of();
   private final List<JarEntryContainer> sourceContainers = new ArrayList<>();
   private final List<JarEntryContainer> overrideSourceContainers = new ArrayList<>();
@@ -252,8 +254,8 @@ public class JarBuilder {
   }
 
   public JarBuilder setRemoveEntryPredicate(
-      Predicate<? super CustomZipEntry> removeEntryPredicate) {
-    this.removeEntryPredicate = removeEntryPredicate;
+      @Nullable Predicate<? super CustomZipEntry> removeEntryPredicate) {
+    this.removeEntryPredicate = removeEntryPredicate != null ? removeEntryPredicate : NO_FILTER;
     return this;
   }
 
