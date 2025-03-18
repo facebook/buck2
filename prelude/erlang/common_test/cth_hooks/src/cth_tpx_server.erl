@@ -29,36 +29,50 @@
 
 -type handle() :: pid().
 
+-type state() :: cth_tpx:shared_state().
+
+-type call_reqs() ::
+    get
+    | {modify, fun((state()) -> {term(), state()})}.
+
 
 %% ---- PUBLIC API ---------
--spec start_link(InitialState :: term()) -> handle().
+-spec start_link(InitialState :: state()) -> handle().
 start_link(InitialState) ->
     {ok, Handle} = gen_server:start_link(?MODULE, InitialState, []),
     Handle.
 
--spec get(Handle :: handle()) -> CurrentState :: term().
+-spec get(Handle :: handle()) -> CurrentState :: state().
 get(Handle) ->
-    gen_server:call(Handle, get, 6000).
+    call(Handle, get).
 
--spec modify(Handle :: handle(), Fun :: fun((State) -> {A, State})) -> A.
+-spec modify(Handle :: handle(), Fun :: fun((state()) -> {A, state()})) -> A.
 modify(Handle, Fun) ->
-    gen_server:call(Handle, {modify, Fun}, 6000).
+    call(Handle, {modify, Fun}).
 
 
 %% ---- gen_server callbacks ----------
 
--spec init(InitialState :: State) -> {ok, State}.
+-spec call(Handle :: handle(), Req :: call_reqs()) -> dynamic().
+call(Handle, Req) ->
+    gen_server:call(Handle, Req, 6000).
+
+-spec init(InitialState :: state()) -> {ok, state()}.
 init(InitialState) ->
     {ok, InitialState}.
 
+-spec handle_call
+    (Req :: call_reqs(), From :: term(), State :: state()) -> {reply, Reply :: term(), NewState :: state()}.
 handle_call(get, _From, State) ->
     {reply, State, State};
 handle_call({modify, Fun}, _From, State) ->
     {A, NewState} = Fun(State),
     {reply, A, NewState}.
 
+-spec handle_cast(Request :: term(), State :: term()) -> {noreply, NewState :: term()}.
 handle_cast(_, State) ->
     {noreply, State}.
 
+-spec handle_info(Info :: term(), State :: term()) -> {noreply, NewState :: term()}.
 handle_info(_, State) ->
     {noreply, State}.

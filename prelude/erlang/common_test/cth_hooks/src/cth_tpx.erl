@@ -44,6 +44,10 @@
 %%            Types
 %% -----------------------------------------------------------------------------
 
+-export_type([
+    shared_state/0
+]).
+
 -type tree_node() :: cth_tpx_test_tree:tree_node().
 
 -record(state, {
