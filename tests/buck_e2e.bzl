@@ -7,6 +7,7 @@
 
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode_macros//build_defs:python.bzl", "python")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
@@ -122,10 +123,7 @@ def buck_e2e_test(
         labels += ci.remove_labels(ci.windows(ci.opt()))
 
     metadata = {}
-    metadata["buck.cfg_modifiers"] = cfg_modifiers + buck2_modifiers() + [
-        # Always run these tests under rust opt build
-        "ovr_config//build_mode:opt",
-    ]
+    metadata["buck.cfg_modifiers"] = cfg_modifiers
 
     python_pytest(
         name = name,
@@ -279,6 +277,10 @@ def buck2_e2e_test(
             executable = exe,
             skip_for_os = skip_for_os,
             deps = deps,
+            cfg_modifiers = buck2_modifiers() + [
+                # Always run these tests under rust opt build
+                "ovr_config//build_mode:opt",
+            ],
             heavyweight_label = heavyweight_label,
             **kwargs
         )
@@ -295,6 +297,7 @@ def buck2_e2e_test(
             skip_for_os = skip_for_os,
             deps = deps,
             heavyweight_label = heavyweight_label,
+            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
 
@@ -308,6 +311,7 @@ def buck2_e2e_test(
             skip_for_os = skip_for_os,
             deps = deps,
             heavyweight_label = heavyweight_label,
+            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
 
