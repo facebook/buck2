@@ -21,7 +21,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_incompatible_target_skipping(buck: Buck) -> None:
     # incompatible target should be skipped when a package
     result = await buck.build("//:")
-    assert "Skipping target incompatible node `root//:incompatible (" in result.stderr
+    assert "Skipped 1 incompatible targets:" in result.stderr
+    assert "root//:incompatible (" in result.stderr
     # when explicitly requested, it should be a failure
     await expect_failure(buck.build("//:incompatible"))
     # should be a failure if it's both explicitly requested and part of a package/recursive pattern

@@ -386,8 +386,8 @@ async def test_stress_runs(buck: Buck) -> None:
 if not is_deployed_buck2():
 
     @buck_test(inplace=False, data_dir="testsof")
+    @env("BUCK_LOG", "buck2_test::command=debug")
     async def test_target_compatibility(buck: Buck) -> None:
-        # This excludes some tests
         out = await buck.test(
             "//...",
             "--target-platforms",

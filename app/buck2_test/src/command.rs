@@ -1034,7 +1034,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             let node = match node {
                 MaybeCompatible::Incompatible(reason) => {
                     if skippable {
-                        eprintln!("{}", reason.skipping_message(label.target()));
+                        //TODO: add aggregated error message
+                        tracing::debug!("{}", reason.skipping_message(label.target()));
                         return ControlFlow::Continue(vec![]);
                     } else {
                         return ControlFlow::Break(vec![BuildEvent::new_configured(

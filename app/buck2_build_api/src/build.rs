@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -33,6 +34,7 @@ use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::FutureExt;
 use itertools::Itertools;
+use starlark_map::small_set::SmallSet;
 use tokio::sync::Mutex;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -117,6 +119,7 @@ impl BuildTargetResult {
         >::new();
         let mut other_errors = BTreeMap::<_, Vec<_>>::new();
         let mut build_failed = false;
+        let mut incompatible_targets = SmallSet::new();
 
         while let Some(event) = stream.next().await {
             let ConfiguredBuildEvent { variant, label } = match event {
@@ -129,6 +132,7 @@ impl BuildTargetResult {
             };
             match variant {
                 ConfiguredBuildEventVariant::SkippedIncompatible => {
+                    incompatible_targets.insert(label.target().dupe());
                     res.entry((*label).dupe()).or_insert(None);
                 }
                 ConfiguredBuildEventVariant::Prepared {
@@ -249,6 +253,12 @@ impl BuildTargetResult {
             })
             .collect();
 
+        if !incompatible_targets.is_empty() {
+            console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
+                incompatible_targets.iter(),
+            ));
+        }
+
         Ok(Self {
             configured: res,
             other_errors,
@@ -366,7 +376,7 @@ async fn build_configured_label_inner<'a>(
         let providers = match ctx.get().get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
                 return if opts.skippable {
-                    console_message(reason.skipping_message(providers_label.target()));
+                    tracing::debug!("{}", reason.skipping_message(providers_label.target()));
                     Ok(
                         futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
                             label: providers_label.dupe(),
