@@ -51,7 +51,7 @@ enum BxlResultError {
     Allocative,
     Trace
 )]
-#[display("bx.Error({})", StarlarkStr::repr(&format!("{:?}", err)))]
+#[display("bxl.Error({})", StarlarkStr::repr(&format!("{:?}", err)))]
 pub(crate) struct StarlarkError {
     err: buck2_error::Error,
 }
