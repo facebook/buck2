@@ -167,4 +167,6 @@ def run_worker_commands(
         worker_command,
         category = category.replace("-", "_"),
         identifier = identifier,
+        # Handshake seems more prone to failure when running locally, so workaround by running remotely where possible.
+        prefer_remote = True,
     )
