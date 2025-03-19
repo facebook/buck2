@@ -12,6 +12,7 @@ use buck2_build_api_derive::internal_provider;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::error::validate_logview_category;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_util::arc_str::ArcStr;
@@ -70,6 +71,18 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
             DictType<&'v str, ListType<&'v str>>,
         >,
     ) -> starlark::Result<DepOnlyIncompatibleInfo<'v>> {
+        let custom_soft_errors_dict = DictRef::from_value(custom_soft_errors.to_value())
+            .ok_or_else(|| {
+                starlark::Error::from(anyhow::anyhow!("Expected dict via type checking"))
+                    .into_internal_error()
+            })?;
+        for category in custom_soft_errors_dict.keys() {
+            let category = category.to_value().unpack_str().ok_or_else(|| {
+                starlark::Error::from(anyhow::anyhow!("Expected string via type checking"))
+                    .into_internal_error()
+            })?;
+            validate_logview_category(category)?;
+        }
         Ok(DepOnlyIncompatibleInfo {
             custom_soft_errors: custom_soft_errors.as_unchecked().cast(),
         })

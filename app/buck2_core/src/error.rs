@@ -171,7 +171,7 @@ pub fn handle_soft_error(
     loc: (&'static str, u32, u32),
     options: StructuredErrorOptions,
 ) -> Result<buck2_error::Error, buck2_error::Error> {
-    validate_category(category)?;
+    validate_logview_category(category)?;
 
     if cfg!(test) {
         // When running unit tests of `buck2_core` crate, all errors are hard errors.
@@ -298,7 +298,7 @@ enum InvalidSoftError {
 }
 
 /// A category must be a-z with no consecutive underscores. Or we raise an error.
-fn validate_category(category: &str) -> buck2_error::Result<()> {
+pub fn validate_logview_category(category: &str) -> buck2_error::Result<()> {
     let mut allow_underscore = false;
     for &x in category.as_bytes() {
         if x.is_ascii_lowercase() {
@@ -366,15 +366,15 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_validate_category() {
-        assert_matches!(validate_category("valid"), Ok(_));
-        assert_matches!(validate_category("a_valid_category"), Ok(_));
-        assert_matches!(validate_category(""), Err(_));
-        assert_matches!(validate_category("Invalid_because_capital"), Err(_));
-        assert_matches!(validate_category("some_1number"), Err(_));
-        assert_matches!(validate_category("two__underscore"), Err(_));
-        assert_matches!(validate_category("a-dash"), Err(_));
-        assert_matches!(validate_category("_leading_underscore"), Err(_));
-        assert_matches!(validate_category("trailing_underscore_"), Err(_));
+    fn test_validate_logview_category() {
+        assert_matches!(validate_logview_category("valid"), Ok(_));
+        assert_matches!(validate_logview_category("a_valid_category"), Ok(_));
+        assert_matches!(validate_logview_category(""), Err(_));
+        assert_matches!(validate_logview_category("Invalid_because_capital"), Err(_));
+        assert_matches!(validate_logview_category("some_1number"), Err(_));
+        assert_matches!(validate_logview_category("two__underscore"), Err(_));
+        assert_matches!(validate_logview_category("a-dash"), Err(_));
+        assert_matches!(validate_logview_category("_leading_underscore"), Err(_));
+        assert_matches!(validate_logview_category("trailing_underscore_"), Err(_));
     }
 }
