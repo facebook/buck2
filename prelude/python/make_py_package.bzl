@@ -724,7 +724,7 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources: lis
         if rule != "":
             msg += "Hidden srcs/resources for {}\n".format(rule)
         else:
-            msg += "Source files:\n"
+            msg += "Debug instructions:\n"
             msg += "Find the reason this file was included with `buck2 cquery 'allpaths({}, owner(%s))' <file paths>`\n".format(current_target.raw_target())
         for resource in sorted(resources):
             msg += "  {}\n".format(resource)
