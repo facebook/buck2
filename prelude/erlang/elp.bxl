@@ -98,13 +98,12 @@ def _elp_config(ctx):
 
     # Load the prelude targets first, so if we are working in the prelude they will be overwritten
     # by included or deps targets, and processed in ELP
-    all = [("prelude", tgt) for tgt in ctx.cquery().kind("^erlang_app$", ctx.configured_targets("prelude//erlang/..."))]
-    all += [("app", tgt) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", ctx.configured_targets(included_targets))]
+    all = {tgt.label: ("prelude", tgt) for tgt in ctx.cquery().kind("^erlang_app$", ctx.configured_targets("prelude//erlang/..."))}
+    all.update({tgt.label: ("app", tgt) for tgt in ctx.cquery().kind("^(erlang_app|erlang_test)$", ctx.configured_targets(included_targets))})
     if ctx.cli_args.deps_targets:
-        all += [("dep", tgt) for tgt in ctx.cquery().kind("^erlang_app$", ctx.configured_targets(ctx.cli_args.deps_targets))]
+        all.update({tgt.label: ("dep", tgt) for tgt in ctx.cquery().kind("^erlang_app$", ctx.configured_targets(ctx.cli_args.deps_targets))})
     result = {}
-    for (typ, target) in all:
-        label = target.label
+    for label, (typ, target) in all.items():
         label_name = label.raw_target()
 
         includes_map = {}
