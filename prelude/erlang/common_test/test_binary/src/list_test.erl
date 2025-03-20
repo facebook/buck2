@@ -9,6 +9,7 @@
 
 -module(list_test).
 -compile(warn_missing_spec).
+-eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
 

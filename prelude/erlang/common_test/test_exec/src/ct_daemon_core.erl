@@ -12,6 +12,7 @@
 %%% % @format
 
 -module(ct_daemon_core).
+-eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("common/include/buck_ct_records.hrl").

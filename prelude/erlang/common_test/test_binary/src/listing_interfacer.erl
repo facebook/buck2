@@ -11,7 +11,7 @@
 %% for high level, see https://www.internalfb.com/code/fbsource/[0101a07bcb98bf8dbed51f55b7b5e4ab8346130f]/fbcode/testinfra/tpx/tpx-buck/src/listing/test_xml.rs?lines=39-55). for
 %% code implementation.
 -module(listing_interfacer).
--typing([eqwalzier]).
+-eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
 -export([produce_xml_file/2, test_case_constructor/2]).

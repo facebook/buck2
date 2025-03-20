@@ -1,4 +1,5 @@
 -module(test_info).
+-eqwalizer(ignore).
 
 -export([load_from_file/1, write_to_file/2]).
 -include_lib("common/include/buck_ct_records.hrl").

@@ -11,6 +11,7 @@
 %% communicates the result to the test runner.
 
 -module(ct_runner).
+-eqwalizer(ignore).
 
 -behavior(gen_server).
 

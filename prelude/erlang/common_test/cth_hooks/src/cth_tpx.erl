@@ -7,6 +7,7 @@
 
 %% % @format
 -module(cth_tpx).
+-eqwalizer(ignore).
 
 %% Callbacks
 -export([id/1]).

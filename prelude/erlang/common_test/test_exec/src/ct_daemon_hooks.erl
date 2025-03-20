@@ -14,6 +14,7 @@
 
 -module(ct_daemon_hooks).
 -compile(warn_missing_spec_all).
+-eqwalizer(ignore).
 
 -behaviour(gen_server).
 
