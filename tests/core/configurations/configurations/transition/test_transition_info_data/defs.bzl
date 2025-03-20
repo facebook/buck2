@@ -5,6 +5,20 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+def _sanity_check_transition_info_provider():
+    def _transition(_platform):
+        pass
+
+    i = TransitionInfo(
+        impl = _transition,
+    )
+
+    # FIXME(JakobDegen): Bug
+    if hasattr(i, "impl"):
+        fail("Has `impl` attr")
+
+_sanity_check_transition_info_provider()
+
 def _constraint_override_impl(ctx):
     c = ctx.attrs.constraint_to_add[ConstraintValueInfo]
 
