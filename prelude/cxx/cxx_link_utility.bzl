@@ -204,17 +204,7 @@ def cxx_sanitizer_runtime_arguments(
             runtime_rpath.add(runtime_shared_lib_rpath)
 
         return CxxSanitizerRuntimeArguments(
-            extra_link_args = [
-                runtime_rpath,
-                # Add rpaths in case the binary gets bundled and the app bundle is expected to be standalone.
-                # Not all transitive callers have `CxxPlatformInfo`, so just add both iOS and macOS rpaths.
-                # There's no downsides to having both, except dyld would check in both locations (and it won't
-                # find anything for the non-current platform).
-                "-Wl,-rpath,@loader_path/Frameworks",  # iOS
-                "-Wl,-rpath,@executable_path/Frameworks",  # iOS
-                "-Wl,-rpath,@loader_path/../Frameworks",  # macOS
-                "-Wl,-rpath,@executable_path/../Frameworks",  # macOS
-            ],
+            extra_link_args = [runtime_rpath],
             sanitizer_runtime_files = runtime_files,
         )
 
