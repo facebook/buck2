@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _APPLE_BUILD_MODES = "APPLE_BUILD_MODES", _BUILD_MODE = "BUILD_MODE", _get_build_mode = "get_build_mode", _get_build_mode_debug = "get_build_mode_debug", _get_build_mode_release = "get_build_mode_release")
+# @oss-disable[end= ]: load("@prelude//platforms/apple/meta_only:build_mode.bzl", _APPLE_BUILD_MODES = "APPLE_BUILD_MODES", _BUILD_MODE = "BUILD_MODE", _REMAPPED_BUILD_MODES = "REMAPPED_BUILD_MODES", _get_build_mode = "get_build_mode", _get_build_mode_debug = "get_build_mode_debug", _get_build_mode_release = "get_build_mode_release")
 
 BUILD_MODE_DEBUG = "debug" # @oss-enable
 BUILD_MODE_PROFILE = "profile" # @oss-enable
@@ -13,6 +13,10 @@ BUILD_MODE_RELEASE = "release" # @oss-enable
 
 APPLE_BUILD_MODES = [BUILD_MODE_DEBUG, BUILD_MODE_PROFILE, BUILD_MODE_RELEASE] # @oss-enable
 # @oss-disable[end= ]: APPLE_BUILD_MODES = _APPLE_BUILD_MODES
+
+# 1:1 mapping of build mode to canonical (supported/default) apple build modes
+REMAPPED_BUILD_MODES = {} # @oss-enable
+# @oss-disable[end= ]: REMAPPED_BUILD_MODES = _REMAPPED_BUILD_MODES
 
 BUILD_MODE = struct( # @oss-enable
     DEBUG = BUILD_MODE_DEBUG, # @oss-enable
