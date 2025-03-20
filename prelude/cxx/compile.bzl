@@ -791,7 +791,7 @@ def _precompile_single_cxx(
 
     ctx.actions.run(
         cmd,
-        category = "cxx_precompile",
+        category = "cxx_modules_precompile",
         identifier = identifier,
         dep_files = action_dep_files,
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
