@@ -222,10 +222,7 @@ def cxx_darwin_dist_link(
                     unsorted_index_link_data.append(data)
                     plan_outputs.extend([bc_output.as_output(), plan_output.as_output()])
 
-                # Can't load `read_bool` here because it will cause circular load.
-                # TODO(T217088553): Remove config read below when measurements have been made:
-
-            elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects and read_root_config("user", "enable_virtual_archives_for_distributed_thin_lto", "false") in ("True", "true"):
+            elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects:
                 for virtual_archive_index, obj in enumerate(linkable.archive.external_objects):
                     name = name_for_obj(link_name, obj)
                     bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
