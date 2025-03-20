@@ -37,6 +37,12 @@ filegroup(
 )
 ```
 
+## `$(location_exec //path/to:target)`
+
+Identical to `$(location //path/to:target)`, but the configuration is
+transitioned to the execution platform. This can be useful when using `genrule`
+to wrap another build system with buck.
+
 ## `$(source relative/path/to/source)`
 
 Expands to the location of the specified source. The difference with using

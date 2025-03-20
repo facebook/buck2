@@ -226,6 +226,7 @@ The path macros vary along two axes:
 Specifically:
 
 - `$location`: `DefaultInfo` path source, inherits configuration
+- `$location_exec`: `DefaultInfo` path source, exec platform configuration
 - `$exe`: `RunInfo` path source, exec platform configuration
 - `$exe_target`: `RunInfo` path source, inherits configuration
 
