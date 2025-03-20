@@ -10,7 +10,7 @@ def _equals(expected, actual, msg = None):
         if msg == None:
             fail("expected: {}, got: {}".format(expected, actual))
         else:
-            fail("{}: expected: {}, got: {}{}".format(msg, expected, actual))
+            fail("{}: expected: {}, got: {}".format(msg, expected, actual))
 
 def _true(condition, msg = None):
     if not condition:
