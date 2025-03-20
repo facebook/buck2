@@ -66,12 +66,10 @@ BXL scripts can query the [action graph](#action-graph),
 
 ## Cell
 
-The directory tree of one or more Buck2 [packages](#package). A Buck2 build can
-involve multiple cells. The cell root always contains a
-[.buckconfig](#buckconfig), although the presence of a .buckconfig file doesn't
-in itself define a cell. Rather, the cells involved in a build are defined at
-the time Buck2 is invoked; they are specified in the .buckconfig for the Buck
-[project](#project).
+Originally intented to allow for migration of repositories with different setups
+into one monorepo.The cell root always contains a [.buckconfig](#buckconfig),
+although the presence of a .buckconfig file doesn't in itself define a cell.
+Cells are specified in the .buckconfig for the Buck [project](#project).
 
 ## Configuration
 
