@@ -172,11 +172,14 @@ impl FileDigest {
 
         enum Digest {
             Sha1,
+            Sha256,
             Blake3Keyed,
         }
 
         let digest = if config.as_cas_digest_config().allows_sha1() {
             Digest::Sha1
+        } else if config.as_cas_digest_config().allows_sha256() {
+            Digest::Sha256
         } else if config.as_cas_digest_config().allows_blake3_keyed() {
             Digest::Blake3Keyed
         } else {
@@ -196,6 +199,10 @@ impl FileDigest {
                 .ok()
                 .flatten()
                 .and_then(|v| RawDigest::parse_sha1(&v).ok()),
+            Digest::Sha256 => xattr::get(file.as_maybe_relativized(), "user.sha256")
+                .ok()
+                .flatten()
+                .and_then(|v| RawDigest::parse_sha256(&v).ok()),
             // NOTE: Eden returns *keyed* blake3 in user.blake3, so we use that.
             Digest::Blake3Keyed => xattr::get(file.as_maybe_relativized(), "user.blake3")
                 .ok()
