@@ -155,7 +155,10 @@ pub struct UnrecognizedMacro {
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
 pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
-    Location(P),
+    Location {
+        label: P,
+        exec_dep: bool,
+    },
     /// Represents both $(exe) and $(exe_target) usages.
     Exe {
         label: P,
@@ -184,9 +187,15 @@ impl MacroBase<ConfiguredProvidersLabel> {
     ) -> buck2_error::Result<()> {
         // macros can't reference repo inputs (they only reference the outputs of other targets)
         match self {
-            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
-                traversal.dep(l)
-            }
+            MacroBase::UserKeyedPlaceholder(box (_, l, _)) => traversal.dep(l),
+            MacroBase::Location {
+                label,
+                exec_dep: true,
+            } => traversal.exec_dep(label),
+            MacroBase::Location {
+                label,
+                exec_dep: false,
+            } => traversal.dep(label),
             MacroBase::Exe {
                 label,
                 exec_dep: true,
@@ -213,9 +222,14 @@ impl MacroBase<ProvidersLabel> {
         ctx: &dyn AttrConfigurationContext,
     ) -> buck2_error::Result<ConfiguredMacro> {
         Ok(match self {
-            UnconfiguredMacro::Location(target) => {
-                ConfiguredMacro::Location(ctx.configure_target(target))
-            }
+            UnconfiguredMacro::Location { label, exec_dep } => ConfiguredMacro::Location {
+                label: if *exec_dep {
+                    ctx.configure_exec_target(label)?
+                } else {
+                    ctx.configure_target(label)
+                },
+                exec_dep: *exec_dep,
+            },
             UnconfiguredMacro::Exe { label, exec_dep } => ConfiguredMacro::Exe {
                 label: if *exec_dep {
                     ctx.configure_exec_target(label)?
@@ -250,9 +264,15 @@ impl MacroBase<ProvidersLabel> {
         pkg: PackageLabel,
     ) -> buck2_error::Result<()> {
         match self {
-            MacroBase::Location(l) | MacroBase::UserKeyedPlaceholder(box (_, l, _)) => {
-                traversal.dep(l)
-            }
+            MacroBase::UserKeyedPlaceholder(box (_, l, _)) => traversal.dep(l),
+            MacroBase::Location {
+                label,
+                exec_dep: true,
+            } => traversal.exec_dep(label),
+            MacroBase::Location {
+                label,
+                exec_dep: false,
+            } => traversal.dep(label),
             MacroBase::Exe {
                 label,
                 exec_dep: true,
@@ -296,7 +316,18 @@ impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
         // TODO: this should re-escape values in the args that need to be escaped to have returned that arg (it's not possible
         // to tell where there were unnecessary escapes and it's not worth tracking that).
         match self {
-            MacroBase::Location(l) => write!(f, "location {}", l),
+            MacroBase::Location { label, exec_dep } => {
+                write!(
+                    f,
+                    "{} {}",
+                    if *exec_dep {
+                        "location_exec"
+                    } else {
+                        "location"
+                    },
+                    label
+                )
+            }
             MacroBase::Exe { label, exec_dep } => {
                 write!(
                     f,

@@ -89,8 +89,9 @@ impl AttrTypeCoerce for ArgAttrType {
                 }) => {
                     let part = match macro_type.as_ref() {
                         "location" | "location-platform" if args.len() == 1 => {
-                            UnconfiguredMacro::new_location(ctx, args)?
+                            UnconfiguredMacro::new_location(ctx, args, false)?
                         }
+                        "location_exec" => UnconfiguredMacro::new_location(ctx, args, true)?,
                         "exe" => UnconfiguredMacro::new_exe(ctx, args, true)?,
                         "exe_target" => UnconfiguredMacro::new_exe(ctx, args, false)?,
                         "source" => UnconfiguredMacro::new_source(ctx, args)?,
@@ -137,10 +138,12 @@ pub trait UnconfiguredMacroExt {
     fn new_location(
         ctx: &dyn AttrCoercionContext,
         args: Vec<String>,
+        exec_dep: bool,
     ) -> buck2_error::Result<UnconfiguredMacro> {
-        Ok(UnconfiguredMacro::Location(get_single_target_arg(
-            args, ctx,
-        )?))
+        Ok(UnconfiguredMacro::Location {
+            label: get_single_target_arg(args, ctx)?,
+            exec_dep,
+        })
     }
 
     fn new_exe(
@@ -299,13 +302,18 @@ mod tests {
     #[test]
     fn test_location() -> buck2_error::Result<()> {
         let ctx = coercion_ctx();
-        let location = UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()])?;
+        let location =
+            UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()], false)?;
         let deps = location.get_deps()?.map(|t| t.to_string());
         assert_eq!(vec!["root//some:target".to_owned()], deps);
 
         let configured = location.configure(&configuration_ctx())?;
 
-        if let MacroBase::Location(target) = &configured {
+        if let MacroBase::Location {
+            label: target,
+            exec_dep: false,
+        } = &configured
+        {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(smallset![target.dupe()], info.deps);

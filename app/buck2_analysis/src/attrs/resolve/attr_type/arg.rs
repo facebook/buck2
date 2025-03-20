@@ -127,8 +127,9 @@ fn resolve_configured_macro<'v>(
     pkg: PackageLabel,
 ) -> buck2_error::Result<ResolvedMacro<'v>> {
     match configured_macro {
-        ConfiguredMacro::Location(target) => {
-            let providers_value = ctx.get_dep(target)?;
+        ConfiguredMacro::Location { label, .. } => {
+            // Don't need to consider exec_dep as it already was applied when configuring the label.
+            let providers_value = ctx.get_dep(label)?;
             Ok(ResolvedMacro::Location(
                 providers_value.as_ref().default_info()?,
             ))
