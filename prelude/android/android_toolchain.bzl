@@ -57,7 +57,6 @@ AndroidToolchainInfo = provider(
         "p7zip": provider_field(typing.Any, default = None),
         "package_meta_inf_version_files": provider_field(typing.Any, default = None),
         "package_strings_as_assets": provider_field(typing.Any, default = None),
-        "prebuilt_aar_resources_have_low_priority": provider_field(typing.Any, default = None),
         "proguard_config": provider_field(typing.Any, default = None),
         "proguard_jar": provider_field(typing.Any, default = None),
         "proguard_max_heap_size": provider_field(typing.Any, default = None),
