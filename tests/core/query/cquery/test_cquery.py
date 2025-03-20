@@ -269,7 +269,9 @@ async def test_disabling_of_execution_platforms(buck: Buck) -> None:
 
 @buck_test(data_dir="deps_query")
 async def test_declared_deps_query(buck: Buck) -> None:
-    # TODO(ianc) This should fail
-    await buck.cquery(
-        "root//:declared_deps",
+    await expect_failure(
+        buck.cquery(
+            "root//:declared_deps",
+        ),
+        stderr_regex="Invalid target pattern `\\$declared_deps` is not allowed",
     )
