@@ -328,6 +328,34 @@ mod tests {
     }
 
     #[test]
+    fn test_location_exec() -> buck2_error::Result<()> {
+        let ctx = coercion_ctx();
+        let location =
+            UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()], true)?;
+        let deps = location.get_deps()?.map(|t| t.to_string());
+        assert_eq!(vec!["root//some:target".to_owned()], deps);
+        assert_eq!("location_exec root//some:target", &location.to_string());
+
+        let config_ctx = configuration_ctx();
+        let configured = location.configure(&config_ctx)?;
+
+        if let MacroBase::Location { label, .. } = &configured {
+            let mut info = ConfiguredAttrInfoForTests::new();
+            configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
+            assert_eq!(label.cfg(), config_ctx.exec_cfg()?.cfg());
+            assert_eq!(smallset![label.dupe()], info.execution_deps);
+            assert_eq!(smallset![], info.deps);
+        } else {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected Location"
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn test_exe() -> buck2_error::Result<()> {
         let ctx = coercion_ctx();
         let exe = UnconfiguredMacro::new_exe(&ctx, vec!["//some:target".to_owned()], true)?;
