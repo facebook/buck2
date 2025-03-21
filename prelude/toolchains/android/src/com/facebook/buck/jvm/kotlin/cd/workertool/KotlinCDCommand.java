@@ -28,7 +28,7 @@ import com.facebook.buck.jvm.kotlin.KotlinStepsBuilder;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDNoopAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.scribe.KotlinCDScribeAnalytics;
-import com.facebook.buck.jvm.kotlin.cd.scribe.LoggerCatKotlinCDScribeLogger;
+import com.facebook.buck.jvm.kotlin.cd.logger.LoggerCatKotlinCDScribeLogger;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriter;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PostExecutorsFactory;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriter;

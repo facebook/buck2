@@ -13,8 +13,8 @@ import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersionForLogs
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
-import com.facebook.buck.jvm.kotlin.cd.scribe.KotlinCDLogger
-import com.facebook.buck.jvm.kotlin.cd.scribe.model.KotlinCDLogEntry
+import com.facebook.buck.jvm.kotlin.cd.logger.KotlinCDLogger
+import com.facebook.buck.jvm.kotlin.cd.logger.model.KotlinCDLogEntry
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
