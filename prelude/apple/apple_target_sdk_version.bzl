@@ -7,11 +7,13 @@
 
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version")
 
+# Taken from SDKSettings.json[VersionMap][iOSMac_macOS]
 _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "13.0": "10.15",  # Catalina
     "13.1": "10.15",
     "13.2": "10.15.1",
     "13.3": "10.15.2",
+    "13.3.1": "10.15.3",
     "13.4": "10.15.4",
     "13.5": "10.15.5",
     "13.6": "10.15.5",  # Xcode reported 10.15
@@ -46,6 +48,8 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "18.0": "15.0",  # Sequoia
     "18.1": "15.1",
     "18.2": "15.2",
+    "18.3": "15.3",
+    "18.4": "15.4",
 }
 
 _SDK_NAME_TO_PLATFORM_NAME_OVERRIDE_MAP = {
