@@ -878,6 +878,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
                     # We don't want to propagate shared interaces across shared library boundaries.
                     shared_interface_info = None if preferred_linkage == Linkage("shared") else create_shared_interface_info(ctx, exported_symbol_outputs, []),
+                    stub = getattr(ctx.attrs, "stub", False),
                 ),
                 excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
             ),
