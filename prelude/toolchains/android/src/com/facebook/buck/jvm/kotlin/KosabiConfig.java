@@ -16,8 +16,6 @@ public abstract class KosabiConfig {
   public static final String PROPERTY_KOSABI_SOURCE_MODIFIER_PLUGIN =
       "kosabi_source_modifier_plugin";
   public static final String PROPERTY_KOSABI_JVM_ABI_GEN_PLUGIN = "kosabi_jvm_abi_gen_plugin";
-  public static final String PROPERTY_KOSABI_JVM_ABI_GEN_EARLY_TERMINATION_MESSAGE_PREFIX =
-      "kosabi_jvm_abi_gen_early_termination_message_perfix";
 
   public static final String PROPERTY_KOSABI_STANDALONE = "kosabi_standalone";
 }
