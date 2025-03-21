@@ -1325,14 +1325,16 @@ async fn get_dep_only_incompatible_custom_soft_error(
     let Some(custom_soft_errors) = ctx.compute(&GetDepOnlyIncompatibleInfo).await?? else {
         return Ok(None);
     };
-    let mut soft_error_categories = Vec::new();
-    for (soft_error_category, patterns) in custom_soft_errors.iter() {
-        for pattern in patterns.iter() {
-            if pattern.matches(target_label) {
-                soft_error_categories.push(soft_error_category.dupe());
+    let soft_error_categories: Vec<_> = custom_soft_errors
+        .iter()
+        .filter_map(|(soft_error_category, rollout_patterns)| {
+            if rollout_patterns.matches(target_label) {
+                Some(soft_error_category.dupe())
+            } else {
+                None
             }
-        }
-    }
+        })
+        .collect();
     Ok(Some(soft_error_categories))
 }
 

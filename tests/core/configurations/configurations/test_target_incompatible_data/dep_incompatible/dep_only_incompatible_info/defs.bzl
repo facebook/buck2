@@ -18,3 +18,26 @@ dep_only_incompatible_info = rule(
     },
     is_configuration_rule = True,
 )
+
+def _impl_with_exclusions(ctx: AnalysisContext) -> list[Provider]:
+    custom_soft_errors = {
+        category: DepOnlyIncompatibleRollout(
+            target_patterns = v["target_patterns"],
+            exclusions = v.get("exclusions", []),
+        )
+        for category, v in ctx.attrs.custom_soft_errors.items()
+    }
+    return [
+        DefaultInfo(),
+        DepOnlyIncompatibleInfo(
+            custom_soft_errors = custom_soft_errors,
+        ),
+    ]
+
+dep_only_incompatible_info_with_exclusions = rule(
+    impl = _impl_with_exclusions,
+    attrs = {
+        "custom_soft_errors": attrs.dict(attrs.string(), attrs.dict(attrs.string(), attrs.list(attrs.string()))),
+    },
+    is_configuration_rule = True,
+)
