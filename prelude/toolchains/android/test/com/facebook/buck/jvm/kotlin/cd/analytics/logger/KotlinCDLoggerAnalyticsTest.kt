@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-package com.facebook.buck.jvm.kotlin.cd.analytics.scribe
+package com.facebook.buck.jvm.kotlin.cd.analytics.logger
 
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersion
 import com.facebook.buck.jvm.kotlin.cd.analytics.ClasspathChangesParam
@@ -26,7 +26,7 @@ import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 
-internal class KotlinCDScribeAnalyticsTest {
+internal class KotlinCDLoggerAnalyticsTest {
 
   private val kotlinCDLogger: KotlinCDLogger = mock()
 
@@ -130,7 +130,7 @@ internal class KotlinCDScribeAnalyticsTest {
   }
 
   private fun createFakeKotlinCDAnalytics(buildUuid: String? = DEFAULT_BUILDUUID) =
-      KotlinCDScribeAnalytics(
+      KotlinCDLoggerAnalytics(
           kotlinCDLogger = kotlinCDLogger,
           buildUuid = buildUuid,
           target = TARGET,

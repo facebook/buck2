@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-package com.facebook.buck.jvm.kotlin.cd.analytics.scribe
+package com.facebook.buck.jvm.kotlin.cd.analytics.logger
 
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.cd.command.kotlin.LanguageVersionForLogs
@@ -19,7 +19,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
-class KotlinCDScribeAnalytics
+class KotlinCDLoggerAnalytics
 @JvmOverloads
 constructor(
     private val kotlinCDLogger: KotlinCDLogger,
@@ -86,6 +86,6 @@ constructor(
   }
 
   companion object {
-    private val LOG: Logger = Logger.get(KotlinCDScribeAnalytics::class.java)
+    private val LOG: Logger = Logger.get(KotlinCDLoggerAnalytics::class.java)
   }
 }
