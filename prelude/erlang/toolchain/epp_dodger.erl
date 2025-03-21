@@ -72,6 +72,7 @@
 %% function definition. Likewise with attributes `-?m(...'.
 
 -module(epp_dodger).
+-eqwalizer(ignore).
 
 -export([parse_file/1, quick_parse_file/1, parse_file/2,
 	 quick_parse_file/2, parse/1, quick_parse/1, parse/2,

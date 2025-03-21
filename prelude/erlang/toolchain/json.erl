@@ -22,6 +22,7 @@
 %% % @format
 %%
 -module(json).
+-eqwalizer(ignore).
 
 -dialyzer(no_improper_lists).
 

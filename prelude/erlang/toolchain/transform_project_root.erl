@@ -7,6 +7,7 @@
 
 %% % @format
 -module(transform_project_root).
+-eqwalizer(ignore).
 
 -export([parse_transform/2]).
 
