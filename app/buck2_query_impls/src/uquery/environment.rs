@@ -61,12 +61,14 @@ use tracing::warn;
 type ArcCellPath = Arc<CellPath>;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum QueryLiteralResolutionError {
     #[error("literal `{0}` missing in pre-resolved literals")]
     LiteralMissing(String),
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum RBuildFilesError {
     #[error("no parent found for the file `{0}`")]
     ParentDoesNotExist(ArcCellPath),
@@ -566,7 +568,7 @@ async fn split_universe_files<'c>(
         let buildfile_names_for_file =
             buildfile_names_by_cell.get(&file.cell()).ok_or_else(|| {
                 buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "{}",
                     RBuildFilesError::CellMissingBuildFileNames(file.cell()).to_string()
                 )

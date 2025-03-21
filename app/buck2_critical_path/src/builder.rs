@@ -20,6 +20,7 @@ use crate::types::VertexId;
 use crate::types::VertexKeys;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tier0)]
 pub enum PushError<K: Display> {
     #[error("duplicate key: {key}")]
     DuplicateKey { key: K },

@@ -40,6 +40,7 @@ use starlark::values::Value;
 use crate::CfgConstructor;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum RegisterCfgConstructorError {
     #[error("`set_cfg_constructor()` can only be called from the repository root `PACKAGE` file")]
     NotPackageRoot,

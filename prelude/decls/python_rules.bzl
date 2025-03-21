@@ -274,6 +274,7 @@ python_binary = prelude_rule(
                  dependencies of these rules.
             """),
         } |
+        python_common.version_selections_arg() |
         python_common.preload_deps_arg() |
         python_common.package_style_arg() |
         python_common.linker_flags_arg() |
@@ -284,7 +285,6 @@ python_binary = prelude_rule(
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
@@ -357,11 +357,9 @@ python_library = prelude_rule(
         python_common.exclude_deps_from_merged_linking_arg() |
         {
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "licenses": attrs.list(attrs.source(), default = []),
-            "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
@@ -450,6 +448,7 @@ python_test = prelude_rule(
                 other rules used by the tests in this rule's sources.
             """),
         } |
+        python_common.version_selections_arg() |
         buck.test_rule_timeout_ms() |
         python_common.package_style_arg() |
         python_common.preload_deps_arg() |
@@ -462,7 +461,6 @@ python_test = prelude_rule(
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
             "contacts": attrs.list(attrs.string(), default = []),
-            "cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),

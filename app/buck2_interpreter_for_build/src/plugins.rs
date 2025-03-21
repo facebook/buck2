@@ -82,6 +82,7 @@ impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PluginKindError {
     #[error("Plugin kind has not yet been assigned to a global")]
     NotBound,

@@ -12,13 +12,11 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args_typed;
-use buck2_core::package::PackageLabel;
 use buck2_core::pattern::package::PackagePredicate;
 use buck2_core::pattern::pattern::ParsedPatternPredicate;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -27,9 +25,13 @@ use dice::InjectedKey;
 use dice::Key;
 use dice::ProjectionKey;
 use dupe::Dupe;
+use ref_cast::RefCast;
 use starlark::eval::ProfileMode;
 
+use crate::dice::starlark_provider::StarlarkEvalKind;
 use crate::starlark_profiler::mode::StarlarkProfileMode;
+use crate::starlark_profiler::profiler::StarlarkProfiler;
+use crate::starlark_profiler::profiler::StarlarkProfilerOptVal;
 
 /// Global profiling configuration.
 #[derive(PartialEq, Eq, Clone, Debug, Allocative)]
@@ -160,15 +162,16 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
     Debug,
     derive_more::Display,
     Clone,
-    Dupe,
     Eq,
     PartialEq,
     Hash,
-    Allocative
+    Allocative,
+    RefCast
 )]
-struct StarlarkProfileModeForAnalysisKey(ConfiguredTargetLabel);
+#[repr(transparent)]
+struct StarlarkProfileModeForKind(StarlarkEvalKind);
 
-impl ProjectionKey for StarlarkProfileModeForAnalysisKey {
+impl ProjectionKey for StarlarkProfileModeForKind {
     type DeriveFromKey = StarlarkProfilerConfigurationResolvedKey;
 
     type Value = buck2_error::Result<StarlarkProfileMode>;
@@ -180,62 +183,32 @@ impl ProjectionKey for StarlarkProfileModeForAnalysisKey {
     ) -> buck2_error::Result<StarlarkProfileMode> {
         match &**(configuration.as_ref().map_err(|e| e.dupe())?) {
             StarlarkProfilerConfigurationResolved::None => Ok(StarlarkProfileMode::None),
-            StarlarkProfilerConfigurationResolved::ProfileLastLoading(..) => {
-                Ok(StarlarkProfileMode::None)
+            StarlarkProfilerConfigurationResolved::ProfileLastLoading(mode, patterns) => {
+                match &self.0 {
+                    StarlarkEvalKind::LoadBuildFile(v) => {
+                        if patterns.matches(v.dupe()) {
+                            Ok(StarlarkProfileMode::Profile(mode.dupe()))
+                        } else {
+                            Ok(StarlarkProfileMode::None)
+                        }
+                    }
+                    _ => Ok(StarlarkProfileMode::None),
+                }
             }
             StarlarkProfilerConfigurationResolved::ProfileAnalysis(mode, patterns) => {
-                if patterns.matches(self.0.unconfigured()) {
-                    Ok(StarlarkProfileMode::Profile(mode.dupe()))
-                } else {
-                    Ok(StarlarkProfileMode::None)
+                match &self.0 {
+                    StarlarkEvalKind::Analysis(target)
+                        if patterns.matches(target.unconfigured()) =>
+                    {
+                        Ok(StarlarkProfileMode::Profile(mode.dupe()))
+                    }
+                    _ => Ok(StarlarkProfileMode::None),
                 }
             }
-            StarlarkProfilerConfigurationResolved::ProfileBxl(_) => Ok(StarlarkProfileMode::None),
-        }
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
-    }
-}
-
-#[derive(
-    Debug,
-    derive_more::Display,
-    Clone,
-    Dupe,
-    Eq,
-    PartialEq,
-    Hash,
-    Allocative
-)]
-struct StarlarkProfileModeForLoadingKey(PackageLabel);
-
-impl ProjectionKey for StarlarkProfileModeForLoadingKey {
-    type DeriveFromKey = StarlarkProfilerConfigurationResolvedKey;
-    type Value = buck2_error::Result<StarlarkProfileMode>;
-
-    fn compute(
-        &self,
-        derive_from: &buck2_error::Result<Arc<StarlarkProfilerConfigurationResolved>>,
-        _ctx: &DiceProjectionComputations,
-    ) -> Self::Value {
-        match &**(derive_from.as_ref().map_err(|e| e.dupe())?) {
-            StarlarkProfilerConfigurationResolved::None => Ok(StarlarkProfileMode::None),
-            StarlarkProfilerConfigurationResolved::ProfileLastLoading(mode, patterns) => {
-                if patterns.matches(self.0) {
-                    Ok(StarlarkProfileMode::Profile(mode.dupe()))
-                } else {
-                    Ok(StarlarkProfileMode::None)
-                }
-            }
-            StarlarkProfilerConfigurationResolved::ProfileAnalysis(_, _) => {
-                Ok(StarlarkProfileMode::None)
-            }
-            StarlarkProfilerConfigurationResolved::ProfileBxl(_) => Ok(StarlarkProfileMode::None),
+            StarlarkProfilerConfigurationResolved::ProfileBxl(mode) => match &self.0 {
+                StarlarkEvalKind::Bxl(..) => Ok(StarlarkProfileMode::Profile(mode.dupe())),
+                _ => Ok(StarlarkProfileMode::None),
+            },
         }
     }
 
@@ -287,16 +260,24 @@ pub trait SetStarlarkProfilerInstrumentation {
 
 #[async_trait]
 pub trait GetStarlarkProfilerInstrumentation {
-    /// Profile mode for analysis of given target.
-    async fn get_profile_mode_for_analysis(
+    async fn get_starlark_profiler_mode(
         &mut self,
-        target_label: &ConfiguredTargetLabel,
+        eval_kind: &StarlarkEvalKind,
     ) -> buck2_error::Result<StarlarkProfileMode>;
 
-    async fn get_profile_mode_for_loading(
+    async fn get_starlark_profiler(
         &mut self,
-        package_label: PackageLabel,
-    ) -> buck2_error::Result<StarlarkProfileMode>;
+        eval_kind: &StarlarkEvalKind,
+    ) -> buck2_error::Result<StarlarkProfilerOptVal> {
+        let profile_mode = self.get_starlark_profiler_mode(eval_kind).await?;
+        Ok(match profile_mode.profile_mode() {
+            Some(profile_mode) => StarlarkProfilerOptVal::Profiler(StarlarkProfiler::new(
+                profile_mode.dupe(),
+                eval_kind.to_profile_target()?,
+            )),
+            None => StarlarkProfilerOptVal::Disabled,
+        })
+    }
 }
 
 #[async_trait]
@@ -311,29 +292,14 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
 
 #[async_trait]
 impl GetStarlarkProfilerInstrumentation for DiceComputations<'_> {
-    async fn get_profile_mode_for_analysis(
+    async fn get_starlark_profiler_mode(
         &mut self,
-        target_label: &ConfiguredTargetLabel,
+        eval_kind: &StarlarkEvalKind,
     ) -> buck2_error::Result<StarlarkProfileMode> {
         let cfg = self
             .compute_opaque(&StarlarkProfilerConfigurationResolvedKey)
             .await?;
-        Ok(self.projection(
-            &cfg,
-            &StarlarkProfileModeForAnalysisKey(target_label.dupe()),
-        )??)
-    }
 
-    async fn get_profile_mode_for_loading(
-        &mut self,
-        package_label: PackageLabel,
-    ) -> buck2_error::Result<StarlarkProfileMode> {
-        let cfg = self
-            .compute_opaque(&StarlarkProfilerConfigurationResolvedKey)
-            .await?;
-        Ok(self.projection(
-            &cfg,
-            &StarlarkProfileModeForLoadingKey(package_label.dupe()),
-        )??)
+        Ok(self.projection(&cfg, StarlarkProfileModeForKind::ref_cast(eval_kind))??)
     }
 }

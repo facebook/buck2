@@ -97,10 +97,13 @@ def _find_project_and_solve(ctx, target, project_universe = []):
 
 def _find_target_in_universe(ctx, target, project_universe):
     for p in project_universe:
-        cfg_p = ctx.configured_targets(
+        cfg_p = ctx.lazy.configured_target_node(
             p,
             modifiers = configuration_modifiers,
-        )
+        ).catch().resolve()
+        if not (cfg_p.is_ok()) or cfg_p.unwrap() == None:
+            continue
+        cfg_p = cfg_p.unwrap()
         members = cfg_p.resolved_attrs_eager(ctx).include_projects
         for member in members:
             if target.label.raw_target() == member.label.raw_target():

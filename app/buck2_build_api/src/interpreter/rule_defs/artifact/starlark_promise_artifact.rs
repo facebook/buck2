@@ -56,6 +56,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PromiseArtifactError {
     #[error("cannot access {1} on unresolved promise artifact ({0})")]
     MethodUnsupported(StarlarkPromiseArtifact, &'static str),

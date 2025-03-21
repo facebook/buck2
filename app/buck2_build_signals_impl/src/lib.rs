@@ -64,7 +64,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_stream::StreamExt;
 
 use crate::backend::backend::BuildListenerBackend;
-use crate::backend::default::DefaultBackend;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
 
@@ -82,7 +81,7 @@ enum NodeKey {
     PackageListingKey(PackageListingKey),
 
     // This one is not a DICE key.
-    Materialization(BuildArtifact),
+    FinalMaterialization(BuildArtifact),
 
     // Dynamically-typed.
     Dyn(&'static str, BuildSignalsNodeKey),
@@ -135,7 +134,7 @@ impl fmt::Display for NodeKey {
             }
             Self::InterpreterResultsKey(k) => write!(f, "InterpreterResultsKey({})", k),
             Self::PackageListingKey(k) => write!(f, "PackageListingKey({})", k),
-            Self::Materialization(k) => write!(f, "Materialization({})", k),
+            Self::FinalMaterialization(k) => write!(f, "FinalMaterialization({})", k),
             Self::Dyn(name, k) => write!(f, "{name}({k})"),
         }
     }
@@ -322,9 +321,6 @@ impl DeferredBuildSignals for DeferredBuildSignalsImpl {
             CriticalPathBackendName::LongestPathGraph => {
                 start_backend(events, self.receiver, LongestPathGraphBackend::new(), ctx)
             }
-            CriticalPathBackendName::Default => {
-                start_backend(events, self.receiver, DefaultBackend::new(), ctx)
-            }
             CriticalPathBackendName::Logging => start_backend(
                 events.dupe(),
                 self.receiver,
@@ -409,6 +405,7 @@ where
             critical_path,
             num_nodes,
             num_edges,
+            top_level_targets,
         } = self.backend.finish()?;
 
         let elapsed_compute_critical_path = now.elapsed();
@@ -480,10 +477,10 @@ where
                             target: Some(key.0.as_proto().into()),
                         }
                         .into(),
-                        NodeKey::Materialization(key) => {
+                        NodeKey::FinalMaterialization(key) => {
                             let owner = key.key().owner().to_proto().into();
 
-                            buck2_data::critical_path_entry2::Materialization {
+                            buck2_data::critical_path_entry2::FinalMaterialization {
                                 owner: Some(owner),
                                 path: key.get_path().path().to_string(),
                             }
@@ -531,6 +528,13 @@ where
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        let top_level_targets = top_level_targets.try_map(|(key, duration)| {
+            buck2_error::Ok(buck2_data::TopLevelTargetCriticalPath {
+                target: Some(key.as_proto()),
+                duration: Some((*duration).try_into()?),
+            })
+        })?;
+
         instant_event(buck2_data::BuildGraphExecutionInfo {
             critical_path: Vec::new(),
             critical_path2,
@@ -540,6 +544,7 @@ where
             num_nodes,
             num_edges,
             backend_name: Some(T::name().to_string()),
+            top_level_targets,
         });
         Ok(())
     }
@@ -603,7 +608,7 @@ where
         top_level: TopLevelTargetSignal,
     ) -> buck2_error::Result<()> {
         self.backend.process_top_level_target(
-            NodeKey::AnalysisKey(AnalysisKey(top_level.label)),
+            top_level.label,
             top_level.artifacts.map(|k| match k {
                 ResolvedArtifactGroupBuildSignalsKey::BuildKey(b) => NodeKey::BuildKey(b.clone()),
                 ResolvedArtifactGroupBuildSignalsKey::EnsureTransitiveSetProjectionKey(e) => {
@@ -622,7 +627,7 @@ where
         let dep = NodeKey::BuildKey(BuildKey(materialization.artifact.key().dupe()));
 
         self.backend.process_node(
-            NodeKey::Materialization(materialization.artifact),
+            NodeKey::FinalMaterialization(materialization.artifact),
             None,
             materialization.duration,
             std::iter::once(dep),
@@ -638,6 +643,8 @@ pub(crate) struct BuildInfo {
     critical_path: Vec<(NodeKey, NodeData, Option<Duration>)>,
     num_nodes: u64,
     num_edges: u64,
+    /// Critical path for top level targets
+    top_level_targets: Vec<(ConfiguredTargetLabel, Duration)>,
 }
 
 #[derive(Clone)]

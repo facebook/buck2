@@ -19,11 +19,12 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
 use buck2_common::events::HasEvents;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::action_util::get_action_digest;
 use buck2_events::dispatch::async_record_root_spans;
@@ -52,6 +53,7 @@ use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use tracing::debug;
 
+use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::error::ActionError;
 use crate::actions::error_handler::ActionErrorHandlerError;
 use crate::actions::error_handler::ActionSubErrorResult;
@@ -100,7 +102,7 @@ async fn build_action_no_redirect(
     cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
 ) -> buck2_error::Result<ActionOutputs> {
-    let materialized_inputs = {
+    let ensured_inputs = {
         let inputs = action.inputs()?;
 
         let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
@@ -158,7 +160,7 @@ async fn build_action_no_redirect(
         ctx,
         cancellation,
         &executor,
-        materialized_inputs,
+        ensured_inputs,
         action,
         target_rule_type_name,
     );
@@ -187,13 +189,12 @@ async fn build_action_inner(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
     executor: &BuckActionExecutor,
-    materialized_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
+    ensured_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     action: &Arc<RegisteredAction>,
     target_rule_type_name: Option<String>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
-    let (execute_result, command_reports) = executor
-        .execute(materialized_inputs, action, cancellation)
-        .await;
+    let (execute_result, command_reports) =
+        executor.execute(ensured_inputs, action, cancellation).await;
 
     let allow_omit_details = execute_result.is_ok();
 
@@ -272,7 +273,11 @@ async fn build_action_inner(
 
             let last_command = commands.last().cloned();
 
-            let error_diagnostics = try_run_error_handler(action.dupe(), last_command.as_ref());
+            let error_diagnostics = try_run_error_handler(
+                action.dupe(),
+                last_command.as_ref(),
+                ctx.get_artifact_fs().await,
+            );
 
             let e = ActionError::new(
                 e,
@@ -288,15 +293,17 @@ async fn build_action_inner(
                 .get_dispatcher()
                 .instant_event(e.as_proto_event());
 
-            action_result = Err(from_any(e)
-                // Make sure to mark the error as emitted so that it is not printed out to console
-                // again in this command. We still need to keep it around for the build report (and
-                // in the future) other commands
-                .mark_emitted({
-                    let owner = action.owner().dupe();
-                    Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
-                })
-                .into());
+            action_result = Err(
+                from_any_with_tag(e, buck2_error::ErrorTag::AnyActionExecution)
+                    // Make sure to mark the error as emitted so that it is not printed out to console
+                    // again in this command. We still need to keep it around for the build report (and
+                    // in the future) other commands
+                    .mark_emitted({
+                        let owner = action.owner().dupe();
+                        Arc::new(move |f| write!(f, "Failed to build '{}'", owner))
+                    })
+                    .into(),
+            );
 
             error_diagnostics
         }
@@ -346,7 +353,7 @@ async fn build_action_inner(
             queue_duration,
             extra_data: ActionExtraData {
                 execution_kind,
-                target_rule_type_name,
+                target_rule_type_name: target_rule_type_name.clone(),
                 action_digest,
                 invalidation_info: invalidation_info.clone(),
             },
@@ -377,6 +384,7 @@ async fn build_action_inner(
             error_diagnostics,
             input_files_bytes,
             invalidation_info,
+            target_rule_type_name,
         }),
     )
 }
@@ -386,12 +394,28 @@ async fn build_action_inner(
 fn try_run_error_handler(
     action: Arc<RegisteredAction>,
     last_command: Option<&buck2_data::CommandExecution>,
+    artifact_fs: buck2_error::Result<ArtifactFs>,
 ) -> Option<ActionErrorDiagnostics> {
     use buck2_data::action_error_diagnostics::Data;
+
+    fn create_error(
+        e: buck2_error::Error,
+    ) -> (
+        Option<ActionErrorDiagnostics>,
+        buck2_data::ActionErrorHandlerExecutionEnd,
+    ) {
+        (
+            Some(ActionErrorDiagnostics {
+                data: Some(Data::HandlerInvocationError(format!("{:#}", e))),
+            }),
+            buck2_data::ActionErrorHandlerExecutionEnd {},
+        )
+    }
 
     match action.action.error_handler() {
         Some(error_handler) => {
             let dispatcher = get_dispatcher();
+
             dispatcher
                 .clone()
                 .span(buck2_data::ActionErrorHandlerExecutionStart {}, || {
@@ -402,8 +426,23 @@ fn try_run_error_handler(
                     eval.set_print_handler(&print);
                     eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
-                    let error_handler_ctx =
-                        StarlarkActionErrorContext::new_from_command_execution(last_command);
+                    let artifact_fs = match artifact_fs {
+                        Ok(fs) => fs,
+                        Err(e) => return create_error(e),
+                    };
+
+                    let outputs_artifacts = match action
+                        .action
+                        .failed_action_output_artifacts(&artifact_fs, &heap)
+                    {
+                        Ok(v) => v,
+                        Err(e) => return create_error(e),
+                    };
+
+                    let error_handler_ctx = StarlarkActionErrorContext::new_from_command_execution(
+                        last_command,
+                        outputs_artifacts,
+                    );
 
                     let error_handler_result = eval.eval_function(
                         error_handler.value(),
@@ -563,7 +602,9 @@ async fn command_execution_report_to_proto(
 
     let status = match &report.status {
         CommandExecutionStatus::Success { .. } => buck2_data::command_execution::Success {}.into(),
-        CommandExecutionStatus::Cancelled => buck2_data::command_execution::Cancelled {}.into(),
+        CommandExecutionStatus::Cancelled { .. } => {
+            buck2_data::command_execution::Cancelled {}.into()
+        }
         CommandExecutionStatus::Failure { .. } => buck2_data::command_execution::Failure {}.into(),
         CommandExecutionStatus::WorkerFailure { .. } => {
             buck2_data::command_execution::WorkerFailure {}.into()

@@ -110,11 +110,11 @@ impl PackageFileEvalCtx {
             }
         };
 
-        Ok(SuperPackage::new(
+        SuperPackage::new(
             merged_package_values,
             visibility,
             within_view,
             cfg_constructor,
-        ))
+        )
     }
 }

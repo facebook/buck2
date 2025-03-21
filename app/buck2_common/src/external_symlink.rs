@@ -49,7 +49,7 @@ impl ExternalSymlink {
             Ok(string) => string,
             Err(os_string) => {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Found external symlink that's not utf-8. Lossy representation: {}",
                     os_string.to_string_lossy()
                 ));

@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load(":debug.bzl", "SplitDebugMode")
@@ -23,22 +22,15 @@ def run_dwp_action(
         category_suffix: [str, None],
         referenced_objects: [ArgLike, list[Artifact]],
         dwp_output: Artifact,
-        local_only: bool,
-        from_exe = True):
+        local_only: bool):
     dwp = toolchain.binary_utilities_info.dwp
 
-    if from_exe:
-        args = cmd_args(
-            [dwp, "-o", dwp_output.as_output(), "-e", obj],
-            # All object/dwo files referenced in the library/executable are implicitly
-            # processed by dwp.
-            hidden = referenced_objects,
-        )
-    else:
-        args = cmd_args(
-            [dwp, "-o", dwp_output.as_output()],
-        )
-        args.add(referenced_objects)
+    args = cmd_args(
+        [dwp, "-o", dwp_output.as_output(), "-e", obj],
+        # All object/dwo files referenced in the library/executable are implicitly
+        # processed by dwp.
+        hidden = referenced_objects,
+    )
 
     category = "dwp"
     if category_suffix != None:
@@ -68,7 +60,7 @@ def dwp(
         # overspecification.
         referenced_objects: [ArgLike, list[Artifact]],
         name_suffix: str = "",
-        from_exe = True) -> Artifact:
+        local_only: bool = False) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp")
     run_dwp_action(
@@ -79,10 +71,6 @@ def dwp(
         category_suffix,
         referenced_objects,
         output,
-        # dwp produces ELF files on the same size scale as the corresponding @obj.
-        # The files are a concatenation of input DWARF debug info.
-        # Caching dwp has the same issues as caching binaries, so use the same local_only policy.
-        local_only = link_cxx_binary_locally(ctx),
-        from_exe = from_exe,
+        local_only = local_only,
     )
     return output

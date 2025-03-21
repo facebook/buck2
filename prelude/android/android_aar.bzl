@@ -42,8 +42,8 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_native_library_info = get_android_binary_native_library_info(enhancement_ctx, android_packageable_info, deps_by_platform)
     java_packaging_deps.extend([create_java_packaging_dep(
         ctx,
-        lib.library_output.full_library,
-    ) for lib in android_binary_native_library_info.generated_java_code])
+        library_output,
+    ) for library_output in android_binary_native_library_info.generated_java_code])
 
     jars = [dep.jar for dep in java_packaging_deps if dep.jar]
     classes_jar = ctx.actions.declare_output("classes.jar")
@@ -145,6 +145,11 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
             entries,
         ],
     )
+    if ctx.attrs.proguard_config:
+        create_aar_cmd.add([
+            "--proguard_config_file",
+            ctx.attrs.proguard_config,
+        ])
 
     ctx.actions.run(create_aar_cmd, category = "create_aar")
 

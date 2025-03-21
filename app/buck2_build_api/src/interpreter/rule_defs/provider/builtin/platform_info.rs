@@ -26,6 +26,7 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 
@@ -81,20 +82,5 @@ fn platform_info_creator(globals: &mut GlobalsBuilder) {
             label: label.to_value_of_unchecked().cast(),
             configuration: ValueOfUnchecked::<FrozenConfigurationInfo>::new(configuration.value),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use buck2_node::attrs::internal::internal_attrs_platform_info_provider_id;
-
-    use crate::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfoCallable;
-
-    #[test]
-    fn test_platform_info_provider_id_in_internal_attrs_correct() {
-        assert_eq!(
-            internal_attrs_platform_info_provider_id(),
-            PlatformInfoCallable::provider_id()
-        );
     }
 }

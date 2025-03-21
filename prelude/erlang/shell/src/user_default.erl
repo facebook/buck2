@@ -9,6 +9,10 @@
 -module(user_default).
 -wacov(ignore).
 
+-compile(warn_missing_spec_all).
+
+-eqwalizer(ignore).
+
 -export([
     c/1, c/2, c/3,
     l/1

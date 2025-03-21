@@ -14,6 +14,8 @@ use std::fmt::Formatter;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -32,6 +34,7 @@ use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::FutureExt;
 use itertools::Itertools;
+use starlark_map::small_set::SmallSet;
 use tokio::sync::Mutex;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -50,8 +53,8 @@ use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::interpreter::rule_defs::provider::test_provider::TestProvider;
 use crate::keep_going::KeepGoing;
-use crate::materialize::materialize_artifact_group;
-use crate::materialize::MaterializationContext;
+use crate::materialize::materialize_and_upload_artifact_group;
+use crate::materialize::MaterializationAndUploadContext;
 use crate::validation::validation_impl::VALIDATION_IMPL;
 
 mod action_error;
@@ -59,7 +62,7 @@ pub mod build_report;
 mod graph_size;
 
 /// The types of provider to build on the configured providers label
-#[derive(Debug, Clone, Dupe, Allocative)]
+#[derive(Debug, Clone, Dupe, Allocative, PartialEq)]
 pub enum BuildProviderType {
     Default,
     DefaultOther,
@@ -116,6 +119,7 @@ impl BuildTargetResult {
         >::new();
         let mut other_errors = BTreeMap::<_, Vec<_>>::new();
         let mut build_failed = false;
+        let mut incompatible_targets = SmallSet::new();
 
         while let Some(event) = stream.next().await {
             let ConfiguredBuildEvent { variant, label } = match event {
@@ -128,6 +132,7 @@ impl BuildTargetResult {
             };
             match variant {
                 ConfiguredBuildEventVariant::SkippedIncompatible => {
+                    incompatible_targets.insert(label.target().dupe());
                     res.entry((*label).dupe()).or_insert(None);
                 }
                 ConfiguredBuildEventVariant::Prepared {
@@ -180,6 +185,14 @@ impl BuildTargetResult {
                          .as_mut()
                          .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphSize for a skipped target: `{}`", label))?
                          .configured_graph_size = Some(configured_graph_size);
+                }
+                ConfiguredBuildEventVariant::Timeout => {
+                    res.get_mut(label.as_ref())
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {}", label))?
+                         .as_mut()
+                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{}`", label))?
+                         .errors.push(buck2_error::Error::from(BuildDeadlineExpired));
+                    build_failed = true;
                 }
                 ConfiguredBuildEventVariant::Error { err } => {
                     build_failed = true;
@@ -240,6 +253,12 @@ impl BuildTargetResult {
             })
             .collect();
 
+        if !incompatible_targets.is_empty() {
+            console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
+                incompatible_targets.iter(),
+            ));
+        }
+
         Ok(Self {
             configured: res,
             other_errors,
@@ -273,6 +292,8 @@ pub enum ConfiguredBuildEventVariant {
         /// An error that can't be associated with a single artifact.
         err: buck2_error::Error,
     },
+    // This target did not build within the allocated time.
+    Timeout,
 }
 
 /// Events to be accumulated using BuildTargetResult::collect_stream.
@@ -302,6 +323,11 @@ impl BuildEvent {
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = BuildDeadlineExpired)]
+#[error("Build timed out")]
+struct BuildDeadlineExpired;
+
 #[derive(Copy, Clone, Dupe, Debug)]
 pub struct BuildConfiguredLabelOptions {
     pub skippable: bool,
@@ -310,18 +336,20 @@ pub struct BuildConfiguredLabelOptions {
 
 pub async fn build_configured_label<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> BoxStream<'a, ConfiguredBuildEvent> {
     let providers_label = Arc::new(providers_label);
     build_configured_label_inner(
         ctx,
-        materialization,
+        materialization_and_upload,
         providers_label.dupe(),
         providers_to_build,
         opts,
+        timeout_observer,
     )
     .await
     .unwrap_or_else(|e| {
@@ -335,10 +363,11 @@ pub async fn build_configured_label<'a>(
 
 async fn build_configured_label_inner<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     providers_label: Arc<ConfiguredProvidersLabel>,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<BoxStream<'a, ConfiguredBuildEvent>> {
     let artifact_fs = ctx.get().get_artifact_fs().await?;
 
@@ -347,7 +376,7 @@ async fn build_configured_label_inner<'a>(
         let providers = match ctx.get().get_providers(providers_label.as_ref()).await? {
             MaybeCompatible::Incompatible(reason) => {
                 return if opts.skippable {
-                    console_message(reason.skipping_message(providers_label.target()));
+                    tracing::debug!("{}", reason.skipping_message(providers_label.target()));
                     Ok(
                         futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
                             label: providers_label.dupe(),
@@ -469,28 +498,31 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
-    let outputs = outputs
+    let mut outputs = outputs
         .into_iter()
         .enumerate()
         .map({
             |(index, (output, provider_type))| {
-                let materialization = materialization.dupe();
+                let materialization_and_upload = materialization_and_upload.dupe();
                 Either::Left(async move {
-                    let res =
-                        match materialize_artifact_group(&mut ctx.get(), &output, &materialization)
-                            .await
-                        {
-                            Ok(values) => Ok(ProviderArtifacts {
-                                values,
-                                provider_type,
-                            }),
-                            Err(e) => Err(buck2_error::Error::from(e)),
-                        };
+                    let res = match materialize_and_upload_artifact_group(
+                        &mut ctx.get(),
+                        &output,
+                        &materialization_and_upload,
+                    )
+                    .await
+                    {
+                        Ok(values) => Ok(ProviderArtifacts {
+                            values,
+                            provider_type,
+                        }),
+                        Err(e) => Err(buck2_error::Error::from(e)),
+                    };
                     ConfiguredBuildEventExecutionVariant::BuildOutput { index, output: res }
                 })
             }
         })
-        .collect::<FuturesUnordered<_>>();
+        .collect::<Vec<_>>();
 
     let validation_result = {
         let validation_impl = VALIDATION_IMPL.get()?;
@@ -506,13 +538,34 @@ async fn build_configured_label_inner<'a>(
 
     outputs.push(validation_result);
 
-    let outputs = outputs.map({
-        let providers_label = providers_label.dupe();
-        move |result| ConfiguredBuildEvent {
-            label: providers_label.dupe(),
-            variant: ConfiguredBuildEventVariant::Execution(result),
-        }
-    });
+    let outputs = outputs
+        .into_iter()
+        .map(|build| {
+            let providers_label = providers_label.dupe();
+            async move {
+                let build = build.map(ConfiguredBuildEventVariant::Execution);
+
+                let variant = match timeout_observer {
+                    Some(timeout_observer) => {
+                        let alive = timeout_observer
+                            .while_alive()
+                            .map(|()| ConfiguredBuildEventVariant::Timeout);
+                        futures::pin_mut!(alive);
+                        futures::pin_mut!(build);
+                        futures::future::select(alive, build)
+                            .map(|r| r.factor_first().0)
+                            .await
+                    }
+                    None => build.await,
+                };
+
+                ConfiguredBuildEvent {
+                    label: providers_label.dupe(),
+                    variant,
+                }
+            }
+        })
+        .collect::<FuturesUnordered<_>>();
 
     let stream = futures::stream::once(futures::future::ready(ConfiguredBuildEvent {
         label: providers_label.dupe(),

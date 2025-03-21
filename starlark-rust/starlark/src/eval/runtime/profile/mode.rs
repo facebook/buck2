@@ -31,11 +31,15 @@ pub enum ProfileMode {
     HeapSummaryAllocated,
     /// Like heap summary, but information about retained memory after module is frozen.
     HeapSummaryRetained,
-    /// Like heap profile, but writes output comparible with
+    /// Like heap profile, but writes output comparable with
     /// [flamegraph.pl](https://github.com/brendangregg/FlameGraph/blob/master/flamegraph.pl).
     HeapFlameAllocated,
     /// Like heap flame, but information about retained memory after module is frozen.
     HeapFlameRetained,
+    /// HeapSummaryAllocated+HeapFlameAllocated
+    HeapAllocated,
+    /// HeapSummaryRetained+HeapFlameRetained
+    HeapRetained,
     /// The statement profile mode provides information about time spent in each statement.
     Statement,
     /// Code coverage.
@@ -60,11 +64,13 @@ impl Display for ProfileMode {
 }
 
 impl ProfileMode {
-    pub(crate) const ALL: [ProfileMode; 11] = [
+    pub(crate) const ALL: [ProfileMode; 13] = [
         ProfileMode::HeapSummaryAllocated,
         ProfileMode::HeapSummaryRetained,
         ProfileMode::HeapFlameAllocated,
         ProfileMode::HeapFlameRetained,
+        ProfileMode::HeapAllocated,
+        ProfileMode::HeapRetained,
         ProfileMode::Statement,
         ProfileMode::Coverage,
         ProfileMode::Bytecode,
@@ -80,6 +86,8 @@ impl ProfileMode {
             ProfileMode::HeapSummaryRetained => "heap-summary-retained",
             ProfileMode::HeapFlameAllocated => "heap-flame-allocated",
             ProfileMode::HeapFlameRetained => "heap-flame-retained",
+            ProfileMode::HeapAllocated => "heap-allocated",
+            ProfileMode::HeapRetained => "heap-retained",
             ProfileMode::Statement => "statement",
             ProfileMode::Coverage => "coverage",
             ProfileMode::Bytecode => "bytecode",
@@ -94,7 +102,9 @@ impl ProfileMode {
     /// [`FrozenModule::heap_profile`](crate::environment::FrozenModule::heap_profile).
     pub fn requires_frozen_module(&self) -> bool {
         match self {
-            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => true,
+            ProfileMode::HeapSummaryRetained
+            | ProfileMode::HeapFlameRetained
+            | ProfileMode::HeapRetained => true,
             _ => false,
         }
     }

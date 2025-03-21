@@ -21,6 +21,8 @@ use allocative::Allocative;
 use async_condvar_fair::Condvar;
 use async_trait::async_trait;
 use buck2_cli_proto::client_context::PreemptibleWhen;
+use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::soft_error;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
@@ -58,7 +60,11 @@ use tokio::sync::oneshot::error::RecvError;
 use tokio::sync::Mutex;
 use tokio::sync::MutexGuard;
 
+use crate::ctx::LockedPreviousCommandData;
+use crate::experiment_util::get_experiment_tags;
+
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ConcurrencyHandlerError {
     #[error(
         "Recursive invocation of Buck, which is discouraged, but will probably work (using the same state). Trace Ids: {0}. Recursive invocation command: `{1}`"
@@ -341,6 +347,8 @@ impl ConcurrencyHandler {
         exit_when_different_state: bool,
         cancellations: &CancellationContext,
         preemptible: PreemptibleWhen,
+        previous_command_data: Arc<LockedPreviousCommandData>,
+        project_root: &ProjectRoot,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(DiceTransaction) -> Fut,
@@ -377,6 +385,8 @@ impl ConcurrencyHandler {
                                 sanitized_argv,
                                 exit_when_different_state,
                                 preemptible,
+                                previous_command_data,
+                                project_root,
                             )
                         })
                         .await,
@@ -409,6 +419,8 @@ impl ConcurrencyHandler {
         sanitized_argv: Vec<String>,
         exit_when_different_state: bool,
         preemptible: PreemptibleWhen,
+        previous_command_data: Arc<LockedPreviousCommandData>,
+        project_root: &ProjectRoot,
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
@@ -418,6 +430,7 @@ impl ConcurrencyHandler {
         #![allow(clippy::await_holding_invalid_type)]
 
         let trace = event_dispatcher.trace_id().dupe();
+        let current_sanitized_argv = sanitized_argv.clone();
 
         let span = tracing::span!(tracing::Level::DEBUG, "wait_for_others", trace = %trace);
         // FIXME(JakobDegen): Clippy points out that tracing won't know when this future gets
@@ -438,7 +451,7 @@ impl ConcurrencyHandler {
             preempt: Some(preempt_sender),
         };
 
-        let (transaction, tainted) = loop {
+        let (mut transaction, tainted) = loop {
             match &data.dice_status {
                 DiceStatus::Cleanup { future, epoch } => {
                     tracing::debug!("ActiveDice is in cleanup");
@@ -586,6 +599,32 @@ impl ConcurrencyHandler {
             data.previously_tainted = true;
         }
 
+        if transaction
+            .is_injected_external_buckconfig_data_key_set()
+            .await?
+        {
+            let external_configs = transaction.get_injected_external_buckconfig_data().await?;
+            let current_external_and_local_configs: Vec<buck2_data::BuckconfigComponent> =
+                external_configs
+                    .get_buckconfig_components(project_root)
+                    .await;
+
+            let mut previous_command_data = previous_command_data.data.lock().unwrap();
+
+            previous_command_data.process_current_command(
+                event_dispatcher.dupe(),
+                current_external_and_local_configs.clone(),
+                current_sanitized_argv,
+                trace,
+            );
+
+            event_dispatcher.instant_event(buck2_data::TagEvent {
+                tags: get_experiment_tags(&current_external_and_local_configs),
+            });
+            event_dispatcher.instant_event(buck2_data::BuckconfigInputValues {
+                components: current_external_and_local_configs,
+            });
+        }
         // create the on exit drop handler, which will take care of notifying tasks.
         let drop_guard = OnExecExit::new(self.dupe(), command_id, command_data, data)?;
         // This adds the task to the list of all tasks (see ::new impl)
@@ -729,6 +768,8 @@ mod tests {
     use allocative::Allocative;
     use assert_matches::assert_matches;
     use async_trait::async_trait;
+    use buck2_common::legacy_configs::dice::SetLegacyConfigs;
+    use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::is_open_source;
     use buck2_events::create_source_sink_pair;
     use buck2_events::source::ChannelEventSource;
@@ -748,6 +789,7 @@ mod tests {
     use tokio::sync::RwLock;
 
     use super::*;
+    use crate::ctx::LockedPreviousCommandData;
 
     struct NoChanges;
 
@@ -786,15 +828,21 @@ mod tests {
         }
     }
 
+    async fn make_default_dice() -> Arc<Dice> {
+        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let mut updater = dice.updater();
+        drop(updater.set_none_legacy_config_external_data());
+        updater.commit().await;
+        dice
+    }
+
     #[tokio::test]
     async fn nested_invocation_same_transaction() {
         // FIXME: This times out on open source, and we don't know why
         if is_open_source() {
             return;
         }
-
-        let dice = Dice::builder().build(DetectCycles::Enabled);
-
+        let dice = make_default_dice().await;
         let concurrency = ConcurrencyHandler::new(dice);
 
         let traces1 = TraceId::new();
@@ -802,6 +850,8 @@ mod tests {
         let traces3 = TraceId::new();
 
         let barrier = Arc::new(Barrier::new(3));
+
+        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
@@ -818,6 +868,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -834,6 +886,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -850,6 +904,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -860,7 +916,7 @@ mod tests {
 
     #[tokio::test]
     async fn nested_invocation_should_error() {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice);
 
@@ -868,6 +924,7 @@ mod tests {
         let traces2 = TraceId::new();
 
         let barrier = Arc::new(Barrier::new(2));
+        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
@@ -884,6 +941,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         let fut2 = concurrency.enter(
@@ -901,6 +960,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         match futures::future::try_join(fut1, fut2).await {
@@ -913,7 +974,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_same_transaction() {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice);
 
@@ -922,6 +983,8 @@ mod tests {
         let traces3 = TraceId::new();
 
         let barrier = Arc::new(Barrier::new(3));
+
+        let project_root_temp: ProjectRootTemp = ProjectRootTemp::new().unwrap();
 
         let fut1 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces1),
@@ -938,6 +1001,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut2 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces2),
@@ -954,6 +1019,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         let fut3 = concurrency.enter(
             EventDispatcher::null_sink_with_trace(traces3),
@@ -970,6 +1037,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
 
         let (r1, r2, r3) = futures::future::join3(fut1, fut2, fut3).await;
@@ -980,7 +1049,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_different_traceid_blocks() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1019,6 +1088,8 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1044,6 +1115,8 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1071,6 +1144,8 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1097,7 +1172,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1136,6 +1211,8 @@ mod tests {
                         true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1161,6 +1238,8 @@ mod tests {
                         true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1188,6 +1267,8 @@ mod tests {
                         true,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1219,7 +1300,7 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_preemptible() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1258,6 +1339,8 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Always,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1283,6 +1366,8 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1310,6 +1395,8 @@ mod tests {
                         false,
                         CancellationContext::testing(),
                         PreemptibleWhen::Never,
+                        LockedPreviousCommandData::default().into(),
+                        ProjectRootTemp::new().unwrap().path(),
                     )
                     .await
             }
@@ -1376,7 +1463,7 @@ mod tests {
 
         let key = &key;
 
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1413,6 +1500,8 @@ mod tests {
                 false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
             )
             .await?;
 
@@ -1432,6 +1521,8 @@ mod tests {
                 false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
             )
             .await?;
 
@@ -1450,6 +1541,8 @@ mod tests {
                 false,
                 CancellationContext::testing(),
                 PreemptibleWhen::Never,
+                LockedPreviousCommandData::default().into(),
+                ProjectRootTemp::new().unwrap().path(),
             )
             .await?;
 
@@ -1526,7 +1619,7 @@ mod tests {
 
     #[tokio::test]
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
         let concurrency = ConcurrencyHandler::new(dice.dupe());
         let (mut source, sink) = create_source_sink_pair();
         let dispatcher = EventDispatcher::new(TraceId::new(), sink);
@@ -1558,6 +1651,8 @@ mod tests {
                             false,
                             CancellationContext::testing(),
                             PreemptibleWhen::Never,
+                            LockedPreviousCommandData::default().into(),
+                            ProjectRootTemp::new().unwrap().path(),
                         )
                         .await
                 }
@@ -1611,7 +1706,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_thundering_herd() -> buck2_error::Result<()> {
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1633,6 +1728,8 @@ mod tests {
                     false,
                     CancellationContext::testing(),
                     PreemptibleWhen::Never,
+                    LockedPreviousCommandData::default().into(),
+                    ProjectRootTemp::new().unwrap().path(),
                 )
                 .await
         });
@@ -1652,7 +1749,7 @@ mod tests {
             }
         }
 
-        let dice = Dice::builder().build(DetectCycles::Enabled);
+        let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());
 
@@ -1678,6 +1775,7 @@ mod tests {
             on_enter: AtomicBool::new(false),
             allow_exit: AtomicBool::new(false),
         };
+        let project_root_temp = ProjectRootTemp::new().unwrap();
         let fut1 = concurrency.enter(
             EventDispatcher::null(),
             &updater1,
@@ -1690,6 +1788,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         pin_mut!(fut1);
 
@@ -1711,6 +1811,8 @@ mod tests {
             false,
             CancellationContext::testing(),
             PreemptibleWhen::Never,
+            LockedPreviousCommandData::default().into(),
+            project_root_temp.path(),
         );
         pin_mut!(fut2);
 

@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use buck2_common::events::HasEvents;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
@@ -80,7 +80,7 @@ pub(crate) async fn eval_cquery(
     {
         universes_tx_value
             .send(target_universe.dupe())
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .internal_error("Must be open")?;
     }
 
@@ -116,7 +116,7 @@ pub(crate) async fn eval_cquery(
                     let universe = Arc::new(universe);
 
                     if let Some(universes_tx) = universes_tx {
-                        universes_tx.send(universe.dupe()).map_err(from_any).internal_error("Must be open")?;
+                        universes_tx.send(universe.dupe()).map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0)).internal_error("Must be open")?;
                     }
 
                     (

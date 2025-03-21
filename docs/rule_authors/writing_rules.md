@@ -11,11 +11,13 @@ implementing rules that are already defined in Buck1.
 For a list of the API functions available, see the
 [Build APIs](../../api/build).
 
-<!-- prettier-ignore -->
 :::note
-Rules such as `@fbcode_macros//build_defs:native_rules.bzl buck_genrule` are not actually rules, they are _macros_ (Starlark functions that eventually call out the underlying `genrule` _rule_). Macros in Buck2 are mostly compatible with Buck1 and should be written in the same way.
 
-<!-- prettier-ignore -->
+Rules such as `@fbcode_macros//build_defs:native_rules.bzl buck_genrule` are not
+actually rules, they are _macros_ (Starlark functions that eventually call out
+the underlying `genrule` _rule_). Macros in Buck2 are mostly compatible with
+Buck1 and should be written in the same way.
+
 :::
 
 ## Workflow by example
@@ -47,11 +49,14 @@ To add a rule for a language, say `pascal`:
 
 5. Now implement the rules (see the rest of this page).
 
-<!-- prettier-ignore -->
 :::note
-Before merging a diff, it's important that all your Starlark is warning free (if you don't want to set up Buck2 for local development, test it in CI). <FbInternalOnly>If you do set it up locally, see the `README.md` in the root of `fbcode/buck2`. Running `./test.py --lint-only` will confirm your Starlark code is warning free.</FbInternalOnly>
 
-<!-- prettier-ignore -->
+Before merging a diff, it's important that all your Starlark is warning free (if
+you don't want to set up Buck2 for local development, test it in CI).
+<FbInternalOnly>If you do set it up locally, see the `README.md` in the root of
+`fbcode/buck2`. Running `./test.py --lint-only` will confirm your Starlark code
+is warning free.</FbInternalOnly>
+
 :::
 
 ## Concepts and design

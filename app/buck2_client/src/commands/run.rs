@@ -15,11 +15,12 @@ use async_trait::async_trait;
 use buck2_cli_proto::build_request::build_providers;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::BuildRequest;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::command_outcome::CommandOutcome;
 use buck2_client_ctx::common::build::CommonBuildOptions;
-use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -28,14 +29,16 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
+use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
 use buck2_wrapper_common::BUCK_WRAPPER_UUID_ENV_VAR;
 use serde::Serialize;
 
@@ -69,7 +72,7 @@ pub struct RunCommand {
     #[clap(long, group = "exec_options")]
     emit_shell: bool,
 
-    #[clap(name = "TARGET", help = "Target to build and run")]
+    #[clap(name = "TARGET", help = "Target to build and run", value_hint = clap::ValueHint::Other)]
     target: String,
 
     #[clap(
@@ -82,7 +85,7 @@ pub struct RunCommand {
     build_opts: CommonBuildOptions,
 
     #[clap(flatten)]
-    target_cfg: TargetCfgOptions,
+    target_cfg: TargetCfgWithUniverseOptions,
 
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
@@ -97,6 +100,7 @@ impl StreamingCommand for RunCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
@@ -107,7 +111,7 @@ impl StreamingCommand for RunCommand {
                     context: Some(context),
                     // TODO(wendyy): glob patterns should be prohibited, and command should fail before the build event happens.
                     target_patterns: vec![self.target.clone()],
-                    target_cfg: Some(self.target_cfg.target_cfg()),
+                    target_cfg: Some(self.target_cfg.target_cfg.target_cfg()),
                     build_providers: Some(BuildProviders {
                         default_info: build_providers::Action::Skip as i32,
                         run_info: build_providers::Action::Build as i32,
@@ -116,9 +120,11 @@ impl StreamingCommand for RunCommand {
                     response_options: None,
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: Materializations::Materialize as i32,
-                    target_universe: Vec::new(),
-                    output_hashes_file: None,
+                    final_artifact_uploads: Uploads::Never as i32,
+                    target_universe: self.target_cfg.target_universe,
+                    timeout: None, // TODO: maybe it shouild be supported here?
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
@@ -152,12 +158,19 @@ impl StreamingCommand for RunCommand {
         let mut run_args = response.build_targets[0].run_args.clone();
         run_args.extend(self.extra_run_args);
 
-        print_build_succeeded(&console, ctx)?;
+        let extra = if !self.emit_shell {
+            Some(" - starting your binary")
+        } else {
+            None
+        };
+
+        print_build_succeeded(&console, ctx, extra)?;
 
         // Special case for recursive invocations of buck; `BUCK2_WRAPPER` is set by wrapper scripts that execute
         // Buck2. We're not a wrapper script, so we unset it to prevent `run` from inheriting it.
         std::env::remove_var(BUCK2_WRAPPER_ENV_VAR);
         std::env::remove_var(BUCK_WRAPPER_UUID_ENV_VAR);
+        std::env::remove_var(BUCK_WRAPPER_START_TIME_ENV_VAR);
 
         if let Some(file_path) = self.command_args_file {
             let mut output = File::create(&file_path).with_buck_error_context(|| {
@@ -184,7 +197,8 @@ impl StreamingCommand for RunCommand {
             if cfg!(unix) {
                 buck2_client_ctx::println!(
                     "{}",
-                    shlex::try_join(run_args.iter().map(|a| a.as_str())).map_err(from_any)?
+                    shlex::try_join(run_args.iter().map(|a| a.as_str()))
+                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                 )?;
                 return ExitResult::success();
             } else {
@@ -236,13 +250,12 @@ struct CommandArgsFile {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 pub enum RunCommandError {
     #[error("Target `{0}` is not a binary rule (only binary rules can be `run`)")]
     NonBinaryRule(String),
     #[error("`--emit-shell` is not supported on Windows")]
     EmitShellNotSupportedOnWindows,
-    #[error(
-        "`buck2 run` only supports a single target, but multiple targets were requested. Only executing the first one built."
-    )]
+    #[error("`buck2 run` only supports a single target, but multiple targets were requested.")]
     MultipleTargets,
 }

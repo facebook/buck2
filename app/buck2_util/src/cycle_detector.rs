@@ -161,7 +161,7 @@ impl<C: CycleDescriptor> LazyCycleDetectorGuard<C> {
                 match cycle {
                     Ok(e) => Ok(Err(e)),
                     Err(e) => Err(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "error on cycle detector guard receiver for key `{}`: {}", self.key, e))
                 }
             }

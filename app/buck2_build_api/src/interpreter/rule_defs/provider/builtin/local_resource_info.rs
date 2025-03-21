@@ -34,6 +34,7 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTypedComplex;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
@@ -87,7 +88,7 @@ where
         .unpack()?;
     if env_vars.entries.is_empty() {
         return Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Value for `resource_env_vars` field is an empty dictionary: `{}`",
             info.resource_env_vars
         ));
@@ -101,7 +102,7 @@ where
     };
     if setup_is_empty {
         return Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Value for `setup` field is an empty command line: `{}`",
             info.setup
         ));

@@ -14,6 +14,7 @@ use buck2_cli_proto::TestSessionOptions;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::build::CommonBuildOptions;
 use buck2_client_ctx::common::target_cfg::TargetCfgOptions;
+use buck2_client_ctx::common::timeout::CommonTimeoutOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -22,6 +23,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::output_destination_arg::OutputDestinationArg;
@@ -32,7 +34,7 @@ use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_c
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::working_dir::AbsWorkingDir;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use superconsole::Line;
@@ -111,26 +113,7 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(long, group = "re_options", alias = "unstable-force-tests-on-re")]
     unstable_allow_all_tests_on_re: bool,
 
-    // NOTE: the field below is given a different name from the test runner's `timeout` to avoid
-    // confusion between the two parameters.
-    /// How long to execute tests for. If the timeout is exceeded, Buck2 will exit
-    /// as quickly as possible and not run further tests. In-flight tests will be
-    /// cancelled. The test orchestrator will be allowed to shut down gracefully.
-    ///
-    /// The exit code is controlled by the test orchestrator (which normally should report zero for
-    /// this).
-    ///
-    /// The format is a concatenation of time spans (separated by spaces). Each time span is an
-    /// integer number and a suffix.
-    ///
-    /// Relevant supported suffixes: seconds, second, sec, s, minutes, minute, min, m, hours, hour,
-    /// hr, h
-    ///
-    /// For example: `5m 10s`, `500s`.
-    #[clap(long = "overall-timeout")]
-    timeout: Option<humantime::Duration>,
-
-    #[clap(name = "TARGET_PATTERNS", help = "Patterns to test")]
+    #[clap(name = "TARGET_PATTERNS", help = "Patterns to test", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     /// Writes the test executor stdout to the provided path
@@ -184,6 +167,9 @@ If include patterns are present, regardless of whether exclude patterns are pres
     target_cfg: TargetCfgOptions,
 
     #[clap(flatten)]
+    timeout_options: CommonTimeoutOptions,
+
+    #[clap(flatten)]
     common_opts: CommonCommandOptions,
 }
 
@@ -196,6 +182,7 @@ impl StreamingCommand for TestCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         let response = buckd
@@ -219,16 +206,10 @@ impl StreamingCommand for TestCommand {
                         force_use_project_relative_paths: self.unstable_allow_all_tests_on_re,
                         force_run_from_project_root: self.unstable_allow_all_tests_on_re,
                     }),
-                    timeout: self
-                        .timeout
-                        .map(|t| {
-                            let t: std::time::Duration = t.into();
-                            t.try_into()
-                        })
-                        .transpose()
-                        .buck_error_context("Invalid `timeout`")?,
+                    timeout: self.timeout_options.overall_timeout()?,
                     ignore_tests_attribute: self.ignore_tests_attribute,
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )
@@ -283,7 +264,7 @@ impl StreamingCommand for TestCommand {
             line.push(
                 TestCounterColumn::LISTING_FAIL
                     .to_span_from_test_statuses(statuses)
-                    .map_err(from_any)?,
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             );
             line.push(Span::new_unstyled_lossy(". "));
         }
@@ -297,11 +278,14 @@ impl StreamingCommand for TestCommand {
             line.push(
                 column
                     .to_span_from_test_statuses(statuses)
-                    .map_err(from_any)?,
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             );
             line.push(Span::new_unstyled_lossy(". "));
         }
-        line.push(span_from_build_failure_count(build_errors.len()).map_err(from_any)?);
+        line.push(
+            span_from_build_failure_count(build_errors.len())
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
+        );
         eprint_line(&line)?;
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;

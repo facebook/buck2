@@ -103,3 +103,10 @@ def merge_bundle_linker_maps_info(infos: list[AppleBundleLinkerMapInfo]) -> Appl
     return AppleBundleLinkerMapInfo(
         linker_maps = flatten([info.linker_maps for info in infos]),
     )
+
+def get_apple_versioned_macos_bundle_value_primitive(name: str, versioned_macos_bundle: bool) -> bool:
+    # versioned_macos_bundle only makes sense on mac, disregard value otherwise
+    if name == "macosx" or name == "maccatalyst":
+        return versioned_macos_bundle
+    else:
+        return False

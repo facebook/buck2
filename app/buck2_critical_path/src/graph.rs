@@ -236,6 +236,7 @@ impl Graph {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tier0)]
 pub enum TopoSortError {
     #[error("cycle")]
     Cycle,
@@ -257,6 +258,7 @@ impl AddEdges for VertexData<OptionalVertexId> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tier0)]
 pub enum AddEdgesError {
     #[error("overflow")]
     Overflow,

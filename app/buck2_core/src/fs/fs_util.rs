@@ -7,8 +7,9 @@
  * of this source tree.
  */
 
-// We'd love to use fs-err instead, but that code gives bad error messages and doesn't wrap all functions.
-// Various bugs have been raised - if they all get fixed we can migrate.
+/// Buck2 having full control over how FS IO works is beneficial for implementing
+/// IO counters and retry policies that are optimized for Buck2 and the EdenFS
+/// virtualized file system.
 use std::borrow::Cow;
 use std::env;
 use std::fs;
@@ -20,6 +21,7 @@ use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 
+use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use relative_path::RelativePath;
@@ -31,45 +33,18 @@ use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
 use crate::fs::paths::abs_path::AbsPath;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
-
-// https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-
-// "The process cannot access the file because it is being used by another process."
-pub const ERROR_SHARING_VIOLATION: i32 = 32;
-
-fn io_error_kind_tag(e: &io::Error) -> Option<ErrorTag> {
-    'from_kind: {
-        let from_kind = match e.kind() {
-            io::ErrorKind::NotFound => ErrorTag::IoNotFound,
-            io::ErrorKind::PermissionDenied => ErrorTag::IoPermissionDenied,
-            io::ErrorKind::TimedOut => ErrorTag::IoTimeout,
-            io::ErrorKind::ExecutableFileBusy => ErrorTag::IoExecutableFileBusy,
-            io::ErrorKind::BrokenPipe => ErrorTag::IoBrokenPipe,
-            io::ErrorKind::StorageFull => ErrorTag::IoStorageFull,
-            io::ErrorKind::ConnectionAborted => ErrorTag::IoConnectionAborted,
-            _ => break 'from_kind,
-        };
-        return Some(from_kind);
-    }
-
-    if let Some(os_error_code) = e.raw_os_error() {
-        'from_os: {
-            let from_os = match os_error_code {
-                libc::ENOTCONN => ErrorTag::IoNotConnected,
-                libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
-                _ => break 'from_os,
-            };
-            return Some(from_os);
-        }
-
-        if cfg!(windows) && os_error_code == ERROR_SHARING_VIOLATION {
-            return Some(ErrorTag::IoWindowsSharingViolation);
-        }
-    }
-
-    None
-}
+use crate::soft_error;
 
 impl IoError {
+    pub fn new(op: String, e: io::Error) -> Self {
+        Self { op, e }
+    }
+
+    pub fn new_with_path<P: AsRef<AbsPath>>(op: &str, path: P, e: io::Error) -> Self {
+        let op = format!("{}({})", op, P::as_ref(&path).display());
+        Self { op, e }
+    }
+
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
         if self.e.kind() == io::ErrorKind::NotFound {
             buck2_error::Error::from(self).tag([ErrorTag::Input]).into()
@@ -77,11 +52,13 @@ impl IoError {
             self.into()
         }
     }
+    pub fn inner_error(self) -> io::Error {
+        self.e
+    }
 }
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = IoSystem)]
-#[buck2(tag = io_error_kind_tag(&e))]
 #[error("{op}")]
 pub struct IoError {
     op: String,
@@ -89,17 +66,42 @@ pub struct IoError {
     e: io::Error,
 }
 
-macro_rules! make_error {
-    ($val:expr, $context:expr $(,)?) => {{
-        match ($val) {
-            Ok(v) => Ok(v),
-            Err(e) => Err(IoError { op: $context, e }),
-        }
-    }};
+fn is_retryable(err: &io::Error) -> bool {
+    cfg!(target_os = "macos")
+        && (err.kind() == io::ErrorKind::TimedOut
+            || err.kind() == io::ErrorKind::StaleNetworkFileHandle)
 }
 
-macro_rules! make_buck2_error {
-    ($val:expr, $context:expr $(,)?) => {{ ($val).with_buck_error_context(|| $context) }};
+static MAX_IO_ATTEMPTS: u32 = 3;
+
+fn with_retries<T>(mut func: impl FnMut() -> io::Result<T>) -> io::Result<T> {
+    let mut attempts = 0;
+    let mut last_error_kind: Option<std::io::ErrorKind> = None;
+
+    loop {
+        match func() {
+            Ok(v) => {
+                if let Some(err) = last_error_kind {
+                    // Solely for logging, we don't want to error if the value wasn't "thrown"
+                    soft_error!(
+                        "fs_io_succeeded_after_retry",
+                        buck2_error!(buck2_error::ErrorTag::Input, "{}", err.to_string()),
+                        quiet: true
+                    )
+                    .ok();
+                }
+                return Ok(v);
+            }
+            Err(e) if is_retryable(&e) => {
+                last_error_kind = Some(e.kind());
+                attempts += 1;
+                if attempts >= MAX_IO_ATTEMPTS {
+                    return Err(e);
+                }
+            }
+            Err(e) => return Err(e),
+        }
+    }
 }
 
 fn if_exists<T>(r: io::Result<T>) -> io::Result<Option<T>> {
@@ -116,14 +118,13 @@ where
     Q: AsRef<AbsPath>,
 {
     let _guard = IoCounterKey::Symlink.guard();
-    make_buck2_error!(
-        symlink_impl(original.as_ref(), link.as_ref()),
+    symlink_impl(original.as_ref(), link.as_ref()).with_buck_error_context(|| {
         format!(
             "symlink(original={}, link={})",
             original.as_ref().display(),
             link.as_ref().display()
-        ),
-    )
+        )
+    })
 }
 
 #[cfg(unix)]
@@ -143,7 +144,12 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
             // Standard issue on Windows machines, so hint at the resolution, as it is not obvious.
             // Unfortunately this doesn't have an `ErrorKind`, so have to do it with substring matching.
             Err(e) if e.to_string().contains("privilege is not held") => {
-                Err(buck2_error::buck2_error!([], "{}", e.to_string()).context(
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Environment,
+                    "{}",
+                    e.to_string()
+                )
+                .context(
                     "Perhaps you need to turn on 'Developer Mode' in Windows to enable symlinks.",
                 ))
             }
@@ -161,7 +167,10 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
         Cow::Owned(
             link.parent()
                 .ok_or_else(|| {
-                    buck2_error::buck2_error!([], "Expected path with a parent in symlink target")
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Expected path with a parent in symlink target"
+                    )
                 })?
                 .join(original),
         )
@@ -208,26 +217,21 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
 
 pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
     assert_cwd_is_not_set()?;
-    make_buck2_error!(
-        env::set_current_dir(path.as_ref()),
-        format!("set_current_dir({})", P::as_ref(&path).display()),
-    )
+    env::set_current_dir(path.as_ref())
+        .with_buck_error_context(|| format!("set_current_dir({})", P::as_ref(&path).display()))
 }
 
 pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::MkDir.guard();
-    make_error!(
-        fs::create_dir_all(path.as_ref().as_maybe_relativized()),
-        format!("create_dir_all({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::create_dir_all(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("create_dir_all", path, e))
 }
 
 pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::MkDir.guard();
-    make_error!(
-        fs::create_dir(path.as_ref().as_maybe_relativized()),
-        format!("create_dir({})", P::as_ref(&path).display())
-    )
+
+    with_retries(|| fs::create_dir(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("create_dir", path, e))
 }
 
 /// Create directory if not exists.
@@ -236,30 +240,28 @@ pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
 pub fn create_dir_if_not_exists<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let path = path.as_ref();
     let _guard = IoCounterKey::MkDir.guard();
-    make_error!(
-        {
-            let e = match fs::create_dir(path.as_maybe_relativized()) {
-                Ok(()) => return Ok(()),
-                Err(e) => e,
-            };
+    with_retries(|| {
+        let e = match fs::create_dir(path.as_maybe_relativized()) {
+            Ok(()) => return Ok(()),
+            Err(e) => e,
+        };
 
-            match symlink_metadata(path) {
-                Ok(metadata) => {
-                    if metadata.is_dir() {
-                        Ok(())
-                    } else {
-                        // File exists but not a directory, return original error.
-                        Err(e)
-                    }
-                }
-                Err(_) => {
-                    // `lstat` failed, means something like permission denied, return original error.
+        match symlink_metadata(path) {
+            Ok(metadata) => {
+                if metadata.is_dir() {
+                    Ok(())
+                } else {
+                    // File exists but not a directory, return original error.
                     Err(e)
                 }
             }
-        },
-        format!("create_dir({})", path.display())
-    )
+            Err(_) => {
+                // `lstat` failed, means something like permission denied, return original error.
+                Err(e)
+            }
+        }
+    })
+    .map_err(|e| IoError::new_with_path("create_dir", path, e))
 }
 
 /// `DirEntry` which is known to contain absolute path.
@@ -302,34 +304,30 @@ impl Iterator for ReadDir {
 
 pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> Result<ReadDir, IoError> {
     let _guard = IoCounterKey::ReadDir.guard();
-    make_error!(
-        fs::read_dir(path.as_ref()).map(|read_dir| ReadDir { read_dir, _guard }),
-        format!("read_dir({})", P::as_ref(&path).display()),
-    )
+    let path = path.as_ref();
+    with_retries(|| fs::read_dir(path))
+        .map_err(|e| IoError::new_with_path("read_dir", path, e))
+        .map(|read_dir| ReadDir { read_dir, _guard })
 }
 
 pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> Result<Option<ReadDir>, IoError> {
     let _guard = IoCounterKey::ReadDir.guard();
-    make_error!(
-        if_exists(fs::read_dir(path.as_ref()).map(|read_dir| ReadDir { read_dir, _guard })),
-        format!("read_dir_if_exists({})", P::as_ref(&path).display()),
-    )
+    let path = path.as_ref();
+    with_retries(|| if_exists(fs::read_dir(path)))
+        .map_err(|e| IoError::new_with_path("read_dir_if_exists", path, e))
+        .map(|opt| opt.map(|read_dir| ReadDir { read_dir, _guard }))
 }
 
 pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> Result<bool, IoError> {
     let _guard = IoCounterKey::Stat.guard();
-    make_error!(
-        path.as_ref().as_maybe_relativized().try_exists(),
-        format!("try_exists({})", P::as_ref(&path).display())
-    )
+    with_retries(|| path.as_ref().as_maybe_relativized().try_exists())
+        .map_err(|e| IoError::new_with_path("try_exists", path, e))
 }
 
 pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::Remove.guard();
-    make_error!(
-        remove_file_impl(path.as_ref().as_maybe_relativized()),
-        format!("remove_file({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| remove_file_impl(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("remove_file", path, e))
 }
 
 #[cfg(unix)]
@@ -348,6 +346,9 @@ fn remove_file_impl(path: &Path) -> io::Result<()> {
         match fs::remove_file(path) {
             Ok(_) => Ok(()),
             Err(e) => {
+                // Some tools may set readonly attribute on files in buck-out
+                // which causes `Access is denied` error on Windows.
+                // Try to remove readonly attribute and retry.
                 if e.kind() == ErrorKind::PermissionDenied {
                     let mut perms = fs::metadata(path)?.permissions();
                     if perms.readonly() {
@@ -369,72 +370,77 @@ fn remove_file_impl(path: &Path) -> io::Result<()> {
 
 pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<u64, IoError> {
     let _guard = IoCounterKey::Copy.guard();
-    make_error!(
+    with_retries(|| {
         fs::copy(
             from.as_ref().as_maybe_relativized(),
             to.as_ref().as_maybe_relativized(),
-        ),
-        format!(
-            "copy(from={}, to={})",
-            P::as_ref(&from).display(),
-            Q::as_ref(&to).display()
-        ),
-    )
+        )
+    })
+    .map_err(|e| {
+        IoError::new(
+            format!(
+                "copy(from={}, to={})",
+                P::as_ref(&from).display(),
+                Q::as_ref(&to).display()
+            ),
+            e,
+        )
+    })
 }
 
 pub fn read_link<P: AsRef<AbsPath>>(path: P) -> Result<PathBuf, IoError> {
     let _guard = IoCounterKey::ReadLink.guard();
-    make_error!(
-        fs::read_link(path.as_ref().as_maybe_relativized()),
-        format!("read_link({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::read_link(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("read_link", path, e))
 }
 
 pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<(), IoError> {
     let _guard = IoCounterKey::Rename.guard();
-    make_error!(
+    with_retries(|| {
         fs::rename(
             from.as_ref().as_maybe_relativized(),
             to.as_ref().as_maybe_relativized(),
-        ),
-        format!(
-            "rename(from={}, to={})",
-            P::as_ref(&from).display(),
-            Q::as_ref(&to).display()
-        ),
-    )
+        )
+    })
+    .map_err(|e| {
+        IoError::new(
+            format!(
+                "rename(from={}, to={})",
+                P::as_ref(&from).display(),
+                Q::as_ref(&to).display()
+            ),
+            e,
+        )
+    })
 }
 
 pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(path: P, contents: C) -> Result<(), IoError> {
     let _guard = IoCounterKey::Write.guard();
-    make_error!(
-        fs::write(path.as_ref().as_maybe_relativized(), &contents),
-        format!("write({}, _)", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::write(path.as_ref().as_maybe_relativized(), &contents))
+        .map_err(|e| IoError::new_with_path("write", path, e))
 }
 
 pub fn metadata<P: AsRef<AbsPath>>(path: P) -> Result<fs::Metadata, IoError> {
     let _guard = IoCounterKey::Stat.guard();
-    make_error!(
-        fs::metadata(path.as_ref().as_maybe_relativized()),
-        format!("metadata({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::metadata(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("metadata", path, e))
 }
 
 pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> Result<fs::Metadata, IoError> {
     let _guard = IoCounterKey::Stat.guard();
-    make_error!(
-        fs::symlink_metadata(path.as_ref().as_maybe_relativized()),
-        format!("symlink_metadata({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::symlink_metadata(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("symlink_metadata", path, e))
 }
 
 pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> Result<(), IoError> {
     let _guard = IoCounterKey::Chmod.guard();
-    make_error!(
-        fs::set_permissions(path.as_ref().as_maybe_relativized(), perm),
-        format!("set_permissions({}, _)", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::set_permissions(path.as_ref().as_maybe_relativized(), perm.clone()))
+        .map_err(|e| {
+            IoError::new(
+                format!("set_permissions({}, _)", P::as_ref(&path).display()),
+                e,
+            )
+        })
 }
 
 pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
@@ -461,10 +467,8 @@ pub fn set_executable<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
 
 pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::RmDirAll.guard();
-    make_error!(
-        fs::remove_dir_all(path.as_ref().as_maybe_relativized()),
-        format!("remove_dir_all({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::remove_dir_all(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("remove_dir_all", path, e))
 }
 
 /// `None` if file does not exist.
@@ -472,10 +476,8 @@ pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
     path: P,
 ) -> Result<Option<fs::Metadata>, IoError> {
     let _guard = IoCounterKey::Stat.guard();
-    make_error!(
-        if_exists(fs::symlink_metadata(path.as_ref().as_maybe_relativized())),
-        format!("symlink_metadata({})", path.as_ref().display())
-    )
+    with_retries(|| if_exists(fs::symlink_metadata(path.as_ref().as_maybe_relativized())))
+        .map_err(|e| IoError::new_with_path("symlink_metadata", path, e))
 }
 
 /// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
@@ -506,44 +508,34 @@ pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
 
 pub fn read<P: AsRef<AbsPath>>(path: P) -> Result<Vec<u8>, IoError> {
     let _guard = IoCounterKey::Read.guard();
-    make_error!(
-        fs::read(path.as_ref().as_maybe_relativized()),
-        format!("read({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::read(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("read", path, e))
 }
 
 pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> Result<String, IoError> {
     let _guard = IoCounterKey::Read.guard();
-    make_error!(
-        fs::read_to_string(path.as_ref().as_maybe_relativized()),
-        format!("read_to_string({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::read_to_string(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("read_to_string", path, e))
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
 pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<String>, IoError> {
     let _guard = IoCounterKey::Read.guard();
-    make_error!(
-        if_exists(fs::read_to_string(path.as_ref().as_maybe_relativized())),
-        format!("read_to_string_if_exists({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| if_exists(fs::read_to_string(path.as_ref().as_maybe_relativized())))
+        .map_err(|e| IoError::new_with_path("read_to_string_if_exists", path, e))
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
 pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<Vec<u8>>, IoError> {
     let _guard = IoCounterKey::Read.guard();
-    make_error!(
-        if_exists(fs::read(path.as_ref().as_maybe_relativized())),
-        format!("read_if_exists({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| if_exists(fs::read(path.as_ref().as_maybe_relativized())))
+        .map_err(|e| IoError::new_with_path("read_if_exists", path, e))
 }
 
 pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<AbsNormPathBuf> {
     let _guard = IoCounterKey::Canonicalize.guard();
-    let path = make_error!(
-        dunce::canonicalize(path.as_ref()),
-        format!("canonicalize({})", P::as_ref(&path).display()),
-    )?;
+    let path = with_retries(|| dunce::canonicalize(path.as_ref()))
+        .map_err(|e| IoError::new_with_path("canonicalize", path, e))?;
     AbsNormPathBuf::new(path)
 }
 
@@ -551,10 +543,9 @@ pub fn canonicalize_if_exists<P: AsRef<AbsPath>>(
     path: P,
 ) -> buck2_error::Result<Option<AbsNormPathBuf>> {
     let _guard = IoCounterKey::Canonicalize.guard();
-    let path = make_error!(
-        if_exists(dunce::canonicalize(path.as_ref())),
-        format!("canonicalize_if_exists({})", P::as_ref(&path).display()),
-    )?;
+    let path = with_retries(|| if_exists(dunce::canonicalize(path.as_ref())))
+        .map_err(|e| IoError::new_with_path("canonicalize_if_exists", path, e))?;
+
     path.map(AbsNormPathBuf::new).transpose()
 }
 
@@ -567,10 +558,8 @@ pub fn simplified(path: &AbsPath) -> buck2_error::Result<&AbsPath> {
 
 pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::RmDir.guard();
-    make_error!(
-        fs::remove_dir(path.as_ref().as_maybe_relativized()),
-        format!("remove_dir({})", P::as_ref(&path).display()),
-    )
+    with_retries(|| fs::remove_dir(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("remove_dir", path, e))
 }
 
 pub struct DiskSpaceStats {
@@ -582,26 +571,22 @@ pub struct DiskSpaceStats {
 /// When the path does not exist, the behavior is not specified.
 pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskSpaceStats> {
     #[cfg(not(windows))]
-    fn disk_space_stats_impl(path: &Path) -> buck2_error::Result<DiskSpaceStats> {
+    fn disk_space_stats_impl(path: &AbsPath) -> buck2_error::Result<DiskSpaceStats> {
         use std::ffi::CString;
         use std::mem::MaybeUninit;
         use std::os::unix::ffi::OsStrExt;
 
-        use buck2_error::conversion::from_any;
+        use buck2_error::conversion::from_any_with_tag;
 
         let path_c = CString::new(path.as_os_str().as_bytes())
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .with_buck_error_context(|| format!("Failed to convert path to CString: {:?}", path))?;
         let mut statvfs = unsafe { MaybeUninit::<libc::statvfs>::zeroed().assume_init() };
         unsafe {
             let r = libc::statvfs(path_c.as_ptr(), &mut statvfs);
             if r != 0 {
                 let e = io::Error::last_os_error();
-                return Err(IoError {
-                    op: format!("statvfs({})", path.display()),
-                    e,
-                }
-                .into());
+                return Err(IoError::new_with_path("statvfs", path, e).into());
             }
         }
         let fr_size = u64::from(statvfs.f_frsize);
@@ -629,7 +614,7 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
     }
 
     #[cfg(windows)]
-    fn disk_space_stats_impl(path: &Path) -> buck2_error::Result<DiskSpaceStats> {
+    fn disk_space_stats_impl(path: &AbsPath) -> buck2_error::Result<DiskSpaceStats> {
         use std::mem::MaybeUninit;
         use std::ptr;
 
@@ -650,11 +635,7 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
             );
             if r == 0 {
                 let e = io::Error::last_os_error();
-                return Err(IoError {
-                    op: format!("GetDiskFreeSpaceExW({})", path.display()),
-                    e,
-                }
-                .into());
+                return Err(IoError::new_with_path("GetDiskFreeSpaceExW", path, e).into());
             }
             Ok(DiskSpaceStats {
                 free_space: *free_bytes.QuadPart(),
@@ -684,19 +665,17 @@ impl Write for FileWriteGuard {
 
 pub fn create_file<P: AsRef<AbsPath>>(path: P) -> Result<FileWriteGuard, IoError> {
     let guard = IoCounterKey::Write.guard();
-    let file = make_error!(
-        File::create(path.as_ref().as_maybe_relativized()),
-        format!("create_file({})", P::as_ref(&path).display()),
-    )?;
+    let file = with_retries(|| File::create(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("create_file", path, e))?;
     Ok(FileWriteGuard {
         file,
         _guard: guard,
     })
 }
 
-pub fn create_file_if_not_exists<P: AsRef<AbsPath>>(
+fn create_file_if_not_exists_impl<P: AsRef<AbsPath>>(
     path: P,
-) -> Result<Option<FileWriteGuard>, IoError> {
+) -> Result<Option<FileWriteGuard>, io::Error> {
     let guard = IoCounterKey::Write.guard();
     match File::create_new(path.as_ref().as_maybe_relativized()) {
         Ok(file) => Ok(Some(FileWriteGuard {
@@ -704,11 +683,15 @@ pub fn create_file_if_not_exists<P: AsRef<AbsPath>>(
             _guard: guard,
         })),
         Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Ok(None),
-        Err(e) => make_error!(
-            Err(e),
-            format!("create_file_new({})", P::as_ref(&path).display()),
-        )?,
+        Err(e) => Err(e),
     }
+}
+
+pub fn create_file_if_not_exists<P: AsRef<AbsPath>>(
+    path: P,
+) -> Result<Option<FileWriteGuard>, IoError> {
+    with_retries(|| create_file_if_not_exists_impl(&path))
+        .map_err(|e| IoError::new_with_path("create_file_if_not_exists", path, e))
 }
 
 pub struct FileReadGuard {
@@ -724,10 +707,8 @@ impl Read for FileReadGuard {
 
 pub fn open_file<P: AsRef<AbsPath>>(path: P) -> Result<FileReadGuard, IoError> {
     let guard = IoCounterKey::Read.guard();
-    let file = make_error!(
-        File::open(path.as_ref().as_maybe_relativized()),
-        format!("open_file({})", P::as_ref(&path).display()),
-    )?;
+    let file = with_retries(|| File::open(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("open_file", path, e))?;
     Ok(FileReadGuard {
         file,
         _guard: guard,
@@ -736,10 +717,8 @@ pub fn open_file<P: AsRef<AbsPath>>(path: P) -> Result<FileReadGuard, IoError> {
 
 pub fn open_file_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<FileReadGuard>, IoError> {
     let guard = IoCounterKey::Read.guard();
-    let Some(file) = make_error!(
-        if_exists(File::open(path.as_ref().as_maybe_relativized())),
-        format!("open_file({})", P::as_ref(&path).display()),
-    )?
+    let Some(file) = with_retries(|| if_exists(File::open(path.as_ref().as_maybe_relativized())))
+        .map_err(|e| IoError::new_with_path("open_file", path, e))?
     else {
         return Ok(None);
     };
@@ -764,6 +743,7 @@ pub fn relative_path_from_system(path: &Path) -> buck2_error::Result<Cow<'_, Rel
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::fs;
     use std::fs::File;
     use std::io;
@@ -771,6 +751,7 @@ mod tests {
     use std::path::PathBuf;
 
     use assert_matches::assert_matches;
+    use buck2_error::ErrorTag;
     use relative_path::RelativePath;
 
     use crate::fs::fs_util;
@@ -783,7 +764,10 @@ mod tests {
     use crate::fs::fs_util::remove_file;
     use crate::fs::fs_util::symlink;
     use crate::fs::fs_util::symlink_metadata;
+    use crate::fs::fs_util::with_retries;
     use crate::fs::fs_util::write;
+    use crate::fs::fs_util::IoError;
+    use crate::fs::fs_util::MAX_IO_ATTEMPTS;
     use crate::fs::paths::abs_norm_path::AbsNormPath;
     use crate::fs::paths::abs_path::AbsPath;
     use crate::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -1314,6 +1298,102 @@ mod tests {
         let root = AbsPath::new(tempdir.path())?;
         let disk_space = fs_util::disk_space_stats(&root)?;
         assert!(disk_space.total_space > disk_space.free_space);
+        Ok(())
+    }
+
+    static TEST_FILE_CONTENT: &str = "test";
+
+    fn check_io_with_retry(
+        path: &Path,
+        error_kind: std::io::ErrorKind,
+        expected_attempts: u32,
+        should_succeed: bool,
+    ) {
+        let mut attempts: u32 = 0;
+        let mut open_fn = |p: &Path| -> io::Result<File> {
+            attempts += 1;
+            if attempts >= MAX_IO_ATTEMPTS {
+                std::fs::File::open(p)
+            } else {
+                Err(io::Error::new(error_kind, error_kind.to_string()))
+            }
+        };
+        let io_result =
+            with_retries(|| open_fn(path)).map_err(|e| IoError::new("test123".to_owned(), e));
+
+        if should_succeed {
+            let mut file = io_result.unwrap();
+            assert_eq!(attempts, expected_attempts);
+            let mut buf = String::new();
+            io::Read::read_to_string(&mut file, &mut buf).unwrap();
+            assert_eq!(buf, TEST_FILE_CONTENT);
+        } else {
+            assert_eq!(io_result.err().map(|e| e.e.kind()).unwrap(), error_kind);
+            assert_eq!(attempts, expected_attempts);
+        }
+    }
+
+    fn get_test_path(name: &str, tempdir: &tempfile::TempDir) -> std::path::PathBuf {
+        let path = tempdir.path().join(name);
+        std::fs::write(&path, TEST_FILE_CONTENT).unwrap();
+        path
+    }
+
+    #[test]
+    fn test_retry_io() -> buck2_error::Result<()> {
+        use std::io::ErrorKind;
+
+        let tempdir = tempfile::tempdir().unwrap();
+        let mut test_cases = HashMap::new();
+        // The behavior of these test cases varies by platform
+        let should_succeed = cfg!(target_os = "macos");
+        let expected_attempts = if should_succeed { MAX_IO_ATTEMPTS } else { 1 };
+        test_cases.insert(
+            get_test_path("test_timeout", &tempdir),
+            (ErrorKind::TimedOut, expected_attempts, should_succeed),
+        );
+        test_cases.insert(
+            get_test_path("test_stale", &tempdir),
+            (
+                ErrorKind::StaleNetworkFileHandle,
+                expected_attempts,
+                should_succeed,
+            ),
+        );
+
+        // These test cases should behave the same on all platforms
+        test_cases.insert(
+            get_test_path("test_too_many_args", &tempdir),
+            (ErrorKind::ArgumentListTooLong, 1, false),
+        );
+        test_cases.insert(
+            get_test_path("test_permission_denied", &tempdir),
+            (ErrorKind::PermissionDenied, 1, false),
+        );
+
+        for (test_path, results) in test_cases {
+            check_io_with_retry(&test_path, results.0, results.1, results.2);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_io_error_tag() -> buck2_error::Result<()> {
+        let fail_fn = || -> io::Result<File> {
+            Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "test error, always fails",
+            ))
+        };
+
+        let file = with_retries(fail_fn).map_err(|e| IoError::new("should fail".to_owned(), e));
+        let buck2_error = buck2_error::Error::from(file.err().unwrap());
+
+        assert_eq!(
+            buck2_error.tags(),
+            &[ErrorTag::IoPermissionDenied, ErrorTag::IoSystem]
+        );
         Ok(())
     }
 }

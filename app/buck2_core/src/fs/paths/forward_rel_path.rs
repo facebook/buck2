@@ -26,6 +26,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use smallvec::SmallVec;
+use strong_hash::StrongHash;
 
 use crate::fs::fs_util;
 use crate::fs::paths::file_name::FileName;
@@ -46,7 +47,8 @@ use crate::fs::paths::path_util::path_remove_prefix;
     PartialOrd,
     Ord,
     Hash,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePath(
@@ -1019,6 +1021,7 @@ impl<P: AsRef<ForwardRelativePath>> Extend<P> for ForwardRelativePathBuf {
 
 /// Errors from ForwardRelativePath creation
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum ForwardRelativePathError {
     #[error("expected a relative path but got an absolute path instead: `{0}`")]
     PathNotRelative(String),

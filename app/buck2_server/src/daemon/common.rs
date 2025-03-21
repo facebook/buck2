@@ -22,6 +22,7 @@ use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
@@ -95,6 +96,7 @@ pub struct CommandExecutorFactory {
     worker_pool: Arc<WorkerPool>,
     paranoid: Option<ParanoidDownloader>,
     materialize_failed_inputs: bool,
+    materialize_failed_outputs: bool,
     /// Cache permission checks per command.
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     fallback_tracker: Arc<FallbackTracker>,
@@ -119,6 +121,7 @@ impl CommandExecutorFactory {
         worker_pool: Arc<WorkerPool>,
         paranoid: Option<ParanoidDownloader>,
         materialize_failed_inputs: bool,
+        materialize_failed_outputs: bool,
         re_use_case_override: Option<RemoteExecutorUseCase>,
         memory_tracker: Option<Arc<MemoryTracker>>,
         hybrid_execution_memory_limit_gibibytes: Option<u64>,
@@ -146,6 +149,7 @@ impl CommandExecutorFactory {
             worker_pool,
             paranoid,
             materialize_failed_inputs,
+            materialize_failed_outputs,
             cache_upload_permission_checker,
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
@@ -202,7 +206,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
             if self.strategy.ban_local() {
                 return Err(buck2_error::buck2_error!(
-                    [buck2_error::ErrorTag::Input],
+                    buck2_error::ErrorTag::Input,
                     "The desired execution strategy (`{:?}`) is incompatible with the local executor",
                     self.strategy,
                 ));
@@ -236,6 +240,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
                     paranoid: self.paranoid.dupe(),
                     materialize_failed_inputs: self.materialize_failed_inputs,
+                    materialize_failed_outputs: self.materialize_failed_outputs,
                     dependencies: dependencies.to_vec(),
                 }
             };
@@ -492,6 +497,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             remote_dep_file_cache_enabled: false,
             dependencies: vec![],
             custom_image: None,
+            meta_internal_extra_params: MetaInternalExtraParams::default(),
         })
     };
 
@@ -500,6 +506,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
         options: CommandGenerationOptions {
             path_separator: get_default_path_separator(host_platform),
             output_paths_behavior: Default::default(),
+            use_bazel_protocol_remote_persistent_workers: false,
         },
     }
 }

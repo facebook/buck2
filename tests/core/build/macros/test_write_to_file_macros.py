@@ -31,7 +31,7 @@ def _find_file(dir, name: str):
     return f
 
 
-@buck_test()
+@buck_test(setup_eden=True)
 async def test_xxx(buck: Buck) -> None:
     result = await buck.build("//:test_rule")
     out = result.get_build_report().output_for_target("root//:test_rule")
@@ -60,24 +60,25 @@ async def test_xxx(buck: Buck) -> None:
     assert "@../__macros/<HASH>/2.macro" == _normalize_path(c)
     assert "@../__macros/<HASH>/3.macro" == _normalize_path(d)
 
-    a_x = _find_file(buck.cwd, "0.macro")
+    buck_out = buck.cwd / "buck-out"
+    a_x = _find_file(buck_out, "0.macro")
     with open(a_x) as f:
         a_contents = _normalize_path(f.read())
         assert "buck-out/v2/gen/root/<HASH>/__write_file__/write_file.txt" == a_contents
 
     # TODO(nga): contents of `{1,2,3}.macro` should be identical.
 
-    b_x = _find_file(buck.cwd, "1.macro")
+    b_x = _find_file(buck_out, "1.macro")
     with open(b_x) as f:
         b_contents = _normalize_path(f.read())
         assert "buck-out/v2/gen/root/<HASH>/__write_file__/write_file.txt" == b_contents
 
-    c_x = _find_file(buck.cwd, "2.macro")
+    c_x = _find_file(buck_out, "2.macro")
     with open(c_x) as f:
         c_contents = _normalize_path(f.read())
         assert "../../__write_file__/write_file.txt" == c_contents
 
-    d_x = _find_file(buck.cwd, "3.macro")
+    d_x = _find_file(buck_out, "3.macro")
     with open(d_x) as f:
         d_contents = _normalize_path(f.read())
         assert "../../__write_file__/write_file.txt" == d_contents

@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:artifacts.bzl", "single_artifact")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//dist:dist_info.bzl", "DistInfo")
 load(
     "@prelude//linking:link_info.bzl",
@@ -19,14 +20,15 @@ load(
 load(":link.bzl", "link")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "go_attr_pkg_name")
-load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
+load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
+    pkg_name = go_attr_pkg_name(ctx)
 
     lib, pkg_info = build_package(
-        ctx,
-        go_attr_pkg_name(ctx),
+        ctx = ctx,
+        pkg_name = pkg_name,
         main = True,
         srcs = ctx.attrs.srcs,
         package_root = ctx.attrs.package_root,
@@ -36,7 +38,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         race = ctx.attrs._race,
         asan = ctx.attrs._asan,
         embedcfg = ctx.attrs.embedcfg,
-        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs.cgo_enabled),
+        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled),
     )
     (bin, runtime_files, external_debug_info) = link(
         ctx,

@@ -22,11 +22,7 @@ def _sanitize(s: str) -> str:
     s = re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
     # And action digests
     s = re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
-    # And version extraction errors
-    return s.replace(
-        "version extraction failed. This indicates an issue with the buck2 release, will fallback to binary hash\n",
-        "",
-    )
+    return s
 
 
 def error_formatting_test(

@@ -27,7 +27,7 @@ mod collector {
     use std::sync::Arc;
     use std::sync::Mutex;
 
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_error::BuckErrorContext;
     use dupe::Dupe;
     use psutil::network::NetIoCountersCollector;
@@ -57,7 +57,7 @@ mod collector {
             let mut collector = self.collector.lock().expect("poisoned lock");
             let counters: HashMap<_, _> = collector
                 .net_io_counters_pernic()
-                .map_err(from_any)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .buck_error_context("collecting old counters")?
                 .into_iter()
                 .filter(|(s, _)| {
@@ -146,7 +146,7 @@ mod collector {
 
                 if GetIfTable2(&mut table) != NO_ERROR {
                     return Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Failed to retrieve MIB-II interface table: {}",
                         Error::last_os_error()
                     ));

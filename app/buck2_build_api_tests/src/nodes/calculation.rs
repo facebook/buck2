@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
-use buck2_configured::configuration::calculation::ExecutionPlatformsKey;
+use buck2_configured::execution::ExecutionPlatformsKey;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::data::ConfigurationData;
@@ -36,7 +36,7 @@ use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::attrs::spec::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -94,7 +94,7 @@ async fn test_get_node() -> anyhow::Result<()> {
         ),
     ];
 
-    let node1 = TargetNode::testing_new(label1.dupe(), rule_type.dupe(), attrs1, vec![], None);
+    let node1 = TargetNode::testing_new(label1.dupe(), rule_type.dupe(), attrs1, None);
 
     let attrs2 = vec![
         (
@@ -118,7 +118,7 @@ async fn test_get_node() -> anyhow::Result<()> {
         ),
     ];
 
-    let node2 = TargetNode::testing_new(label2.dupe(), rule_type.dupe(), attrs2, vec![], None);
+    let node2 = TargetNode::testing_new(label2.dupe(), rule_type.dupe(), attrs2, None);
 
     let eval_result = EvaluationResult::new(
         Arc::new(BuildFilePath::new(
@@ -126,7 +126,7 @@ async fn test_get_node() -> anyhow::Result<()> {
             FileNameBuf::unchecked_new("BUCK"),
         )),
         Vec::new(),
-        SuperPackage::empty::<SuperPackageValuesImpl>(),
+        SuperPackage::empty::<SuperPackageValuesImpl>()?,
         TargetsMap::from_iter([node1.dupe(), node2.dupe()]),
     );
 
@@ -180,7 +180,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
-            if internal_attrs().contains_key(a.name) {
+            if is_internal_attr(a.name) {
                 None
             } else {
                 Some((a.name, a.value))
@@ -196,7 +196,7 @@ async fn test_get_node() -> anyhow::Result<()> {
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
-            if internal_attrs().contains_key(a.name) {
+            if is_internal_attr(a.name) {
                 None
             } else {
                 Some((a.name, a.value))

@@ -10,7 +10,10 @@ RuntimeDependencyHandling = enum(
     # Do no additional handling
     "none",
     # Always include runtime dependencies in a symlink tree, regardless
-    # of whether shared linkage is used or not
+    # of whether shared linkage is used or not. Only include first level deps.
+    "symlink_single_level_only",
+    # Always include runtime dependencies in a symlink tree, regardless
+    # of whether shared linkage is used or not. Include transitive deps.
     "symlink",
 )
 

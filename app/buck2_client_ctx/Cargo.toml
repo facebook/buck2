@@ -26,6 +26,7 @@ futures = { workspace = true }
 gazebo = { workspace = true }
 hex = { workspace = true }
 httparse = { workspace = true }
+humantime = { workspace = true }
 itertools = { workspace = true }
 libc = { workspace = true }
 memmap2 = { workspace = true }
@@ -60,6 +61,7 @@ buck2_error = { workspace = true }
 buck2_event_log = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
+buck2_health_check = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 

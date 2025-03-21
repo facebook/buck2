@@ -12,7 +12,8 @@ load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain
 
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled)
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
+    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, cxx_toolchain_available, ctx.attrs._cgo_enabled)
     build_tags = [] + go_toolchain.build_tags
     linker_flags = [] + go_toolchain.linker_flags
     assembler_flags = [] + go_toolchain.assembler_flags
@@ -27,8 +28,8 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     env["GODEBUG"] = "installgoroot=all"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-    if cgo_enabled and cxx_toolchain != None:
+    if cgo_enabled:
+        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
         c_compiler = cxx_toolchain.c_compiler_info
         cflags = cmd_args(c_compiler.compiler_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
         cflags.add(cmd_args(get_target_sdk_version_flags(ctx), delimiter = "\t"))

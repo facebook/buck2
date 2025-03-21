@@ -8,7 +8,6 @@
  */
 
 #![feature(assert_matches)]
-#![feature(pin_deref_mut)]
 
 pub mod cancellation;
 mod details;

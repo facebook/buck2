@@ -20,6 +20,7 @@ use remote_execution::TDigest;
 use crate::digest_config::DigestConfig;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum DigestConversionError {
     #[error("Error parsing digest: `{}`", digest)]
     ParseError {

@@ -44,7 +44,10 @@ AppleSelectiveDebuggingInfo = provider(
 )
 
 AppleSelectiveDebuggingFilteredDebugInfo = record(
+    # Contains all artifacts, including those required for debugging (e.g., `.swiftmodule` files)
     infos = field(list[ArtifactInfo]),
+    # Contains only artifacts for _selected_ targets, excluding any others
+    selected_target_infos = field(list[ArtifactInfo]),
     swift_modules_labels = field(list[Label]),
     metadata = field(Artifact),
 )
@@ -205,6 +208,7 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
 
     def filter_debug_info(inner_ctx: AnalysisContext, debug_info: TransitiveSetIterator) -> AppleSelectiveDebuggingFilteredDebugInfo:
         artifact_infos = []
+        selected_target_infos = []
         linked_targets = set()
         is_any_selected_target_linked = False
         is_using_spec = (json_type == _SelectiveDebuggingJsonType("spec"))
@@ -237,6 +241,10 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
                             # `linked_targets` only used in targets mode, avoid costs in all other modes
                             linked_targets.add(info.label)
 
+                if is_label_included:
+                    # `selected_target_infos` should only include targets explicitly selected by the user,
+                    # not anything included in addition to support the debugger (e.g., `.swiftmodule` files)
+                    selected_target_infos.append(info)
                 if is_label_included or (selected_targets_contain_swift and is_swift_related):
                     # There might be a few ArtifactInfo corresponding to the same Label,
                     # so to avoid overwriting, we need to preserve all artifacts.
@@ -279,6 +287,7 @@ def _apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
 
         return AppleSelectiveDebuggingFilteredDebugInfo(
             infos = artifact_infos,
+            selected_target_infos = selected_target_infos,
             swift_modules_labels = [],
             metadata = metadata_output,
         )

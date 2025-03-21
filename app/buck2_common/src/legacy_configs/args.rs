@@ -113,7 +113,7 @@ pub(crate) async fn resolve_config_args(
     let mut resolved_args = Vec::new();
 
     for u in args {
-        let config_type = ConfigType::from_i32(u.config_type).with_buck_error_context(|| {
+        let config_type = ConfigType::try_from(u.config_type).with_buck_error_context(|| {
             format!(
                 "Unknown ConfigType enum value `{}` when trying to deserialize",
                 u.config_type

@@ -16,6 +16,7 @@ use buck2_error::BuckErrorContext;
 pub const BUCK_AUTH_TOKEN_HEADER: &str = "x-buck-auth-token";
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum ConnectionTypeError {
     #[error("Failed to parse correct endpoint information {0}")]
     ParseError(String),

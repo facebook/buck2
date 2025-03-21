@@ -22,8 +22,7 @@ Target Configuration Options:
 
           This argument is particularly recommended on most non-trivial cqueries. In the absence of
           this argument, buck2 will use the target literals in your cquery expression as the value
-          for
-          this argument, which may not be what you want.
+          for this argument, which may not be what you want.
 
       --target-platforms <PLATFORM>
           Configuration target (one) to use to configure targets

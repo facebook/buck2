@@ -35,6 +35,10 @@ load(
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load(
+    "@prelude//python/linking:native_python_util.bzl",
+    "merge_cxx_extension_info",
+)
+load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_root",
     "prefix_from_label",
@@ -51,15 +55,12 @@ load(
     "ManifestInfo",  # @unused Used as a type
     "create_manifest_for_source_map",
 )
-load(
-    ":native_python_util.bzl",
-    "merge_cxx_extension_info",
-)
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
 load(":python.bzl", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 load(":typing.bzl", "create_per_target_type_check")
+load(":versions.bzl", "VersionedDependenciesInfo", "gather_versioned_dependencies", "resolve_versions")
 
 def dest_prefix(label: Label, base_module: [None, str]) -> str:
     """
@@ -166,14 +167,21 @@ def create_python_library_info(
         extension_shared_libraries = new_extension_shared_libraries,
     )
 
-def gather_dep_libraries(raw_deps: list[Dependency]) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
+def gather_dep_libraries(
+        raw_deps: list[Dependency],
+        resolve_versioned_deps: bool = True) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
-    Fails if a dependency is not one of these.
+    If resolve_versions is True, it also collects versioned_library dependencies and uses their default version. Otherwise these are skipped, and should be handled elsewhere.
     """
     deps = []
     shared_libraries = []
     for dep in raw_deps:
+        if resolve_versioned_deps and VersionedDependenciesInfo in dep:
+            vdeps, vshlibs = gather_dep_libraries(resolve_versions(dep[VersionedDependenciesInfo], {}))
+            deps.extend(vdeps)
+            shared_libraries.extend(vshlibs)
+
         if PythonLibraryInfo in dep:
             deps.append(dep[PythonLibraryInfo])
         elif SharedLibraryInfo in dep:
@@ -319,7 +327,9 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     ))
     default_resource_manifest = py_resources(ctx, default_resources) if default_resources else None
     standalone_resource_manifest = py_resources(ctx, standalone_resources, "_standalone") if standalone_resources else None
-    deps, shared_libraries = gather_dep_libraries(raw_deps)
+    deps, shared_libraries = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
+    providers.append(gather_versioned_dependencies(raw_deps))
+
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
@@ -400,25 +410,24 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(DefaultInfo(sub_targets = sub_targets))
 
     # Create, augment and provide the linkable graph.
-    deps = raw_deps
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
             ctx,
             # Add in any potential native root targets from our first-order deps.
-            roots = get_roots(deps),
+            roots = get_roots(raw_deps),
             # Exclude preloaded deps from omnibus linking, to prevent preloading
             # the monolithic omnibus library.
             excluded = get_excluded(
                 deps = (
-                    (deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
+                    (raw_deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
                     # We also need to exclude deps that can't be re-linked, via
                     # the `LinkableRootInfo` provider (i.e. `prebuilt_cxx_library_group`).
-                    [d for d in deps if LinkableRootInfo not in d]
+                    [d for d in raw_deps if LinkableRootInfo not in d]
                 ),
             ),
         ),
-        deps = deps,
+        deps = raw_deps,
     )
     providers.append(linkable_graph)
 
@@ -426,8 +435,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(
         merge_cxx_extension_info(
             ctx.actions,
-            deps,
-            shared_deps = deps,
+            raw_deps,
+            shared_deps = raw_deps,
         ),
     )
 

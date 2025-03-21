@@ -1,0 +1,14 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+Error in configured node dependency, dependency chain follows (-> indicates depends on, ^ indicates same configuration as previous):
+       root//:configured_dep_platform_error_before_compatibility_when_incoming_edge_transition (root//:p-cat#24d70f740de80057)
+    -> root//:incoming_edge_transition_with_broken_configured_dep (^)
+
+
+Caused by:
+    0: Error running analysis for `root//:doesnotexist (<unbound>)`
+    1: Error looking up configured node root//:doesnotexist (<unbound>)
+    2: looking up unconfigured target node `root//:doesnotexist`
+    3: Unknown target `doesnotexist` from package `root//`.
+       Did you mean one of the 33 targets in root//:TARGETS.fixture?

@@ -13,7 +13,9 @@
 %%% @end
 
 -module(buck_ct_parser).
--compile(warn_missing_spec).
+-compile(warn_missing_spec_all).
+
+-eqwalizer(ignore).
 
 %% Public API
 -export([parse_str/1]).

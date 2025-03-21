@@ -14,6 +14,7 @@ use buck2_data::SpanStartEvent;
 use buck2_events::BuckEvent;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum VisitorError {
     #[error("Sent an event missing one or more fields: `{0:?}`")]
     MissingField(BuckEvent),

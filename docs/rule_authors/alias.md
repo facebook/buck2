@@ -69,11 +69,11 @@ The `configured_alias` rule has the following relevant attributes:
   `fallback_actual` must be set.
 - `platform` - the platform to build the aliased target with.
 
-<!-- prettier-ignore -->
 :::note
-The `actual` field is available for `configured_alias` but it is not used under the hood (to keep compatibility of output format with Buck1 queries).
 
-<!-- prettier-ignore -->
+The `actual` field is available for `configured_alias` but it is not used under
+the hood (to keep compatibility of output format with Buck1 queries).
+
 :::
 
 Outside of simply pointing at another target, this target has one other useful

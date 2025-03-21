@@ -14,7 +14,6 @@
 pub mod arc_str;
 #[cfg(unix)]
 pub mod cgroup_info;
-pub mod cleanup_ctx;
 pub mod commas;
 pub mod cycle_detector;
 pub mod future;
@@ -30,6 +29,7 @@ pub mod process_stats;
 pub mod rtabort;
 pub mod self_ref;
 pub mod sliding_window;
+pub mod strong_hasher;
 pub mod system_stats;
 pub mod thin_box;
 pub mod threads;

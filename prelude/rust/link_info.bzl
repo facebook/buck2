@@ -24,7 +24,9 @@ load(
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load(
     "@prelude//cxx:link_groups.bzl",
+    "BuildLinkGroupsContext",
     "LinkGroupLinkInfo",  # @unused Used as a type
+    "collect_linkables",
     "create_link_groups",
     "get_filtered_labels_to_links_map",
     "get_filtered_links",
@@ -61,7 +63,7 @@ load(
     "@prelude//linking:linkable_graph.bzl",
     "LinkableGraph",
     "create_linkable_graph",
-    "get_linkable_graph_node_map_func",
+    "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -425,7 +427,8 @@ def inherited_rust_cxx_link_group_info(
         ctx,
         deps = link_graphs,
     )
-    linkable_graph_node_map = get_linkable_graph_node_map_func(linkable_graph)()
+    reduced_linkable_graph = reduce_linkable_graph(linkable_graph)
+    linkable_graph_node_map = reduced_linkable_graph.nodes
 
     executable_deps = []
     for g in link_graphs:
@@ -446,13 +449,12 @@ def inherited_rust_cxx_link_group_info(
         ctx = ctx,
         link_groups = link_groups,
         link_strategy = link_strategy,
-        executable_label = ctx.label,
+        linkable_graph = reduced_linkable_graph,
         link_group_mappings = link_group_mappings,
         link_group_preferred_linkage = link_group_preferred_linkage,
         executable_deps = executable_deps,
         linker_flags = [],
         link_group_specs = auto_link_group_specs,
-        linkable_graph_node_map = linkable_graph_node_map,
         other_roots = [],
         prefer_stripped_objects = False,  # Does Rust ever use stripped objects?
         anonymous = ctx.attrs.anonymous_link_groups,
@@ -467,23 +469,37 @@ def inherited_rust_cxx_link_group_info(
         if linked_link_group.library != None:
             link_group_libs[name] = linked_link_group.library
 
-    labels_to_links = get_filtered_labels_to_links_map(
-        public_link_group_nodes,
-        linkable_graph_node_map,
-        link_group,
-        link_groups,
-        link_group_mappings,
+    roots = set(executable_deps)
+    pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported")
+    is_executable_link = True
+    exec_linkables = collect_linkables(
+        reduced_linkable_graph,
+        is_executable_link,
+        link_strategy,
         link_group_preferred_linkage,
-        pic_behavior = PicBehavior("always_enabled") if link_strategy == LinkStrategy("static_pic") else PicBehavior("supported"),
+        pic_behavior,
+        roots,
+    )
+    build_context = BuildLinkGroupsContext(
+        public_nodes = public_link_group_nodes,
+        linkable_graph = reduced_linkable_graph,
+        link_groups = link_groups,
+        link_group_mappings = link_group_mappings,
+        link_group_preferred_linkage = link_group_preferred_linkage,
+        link_strategy = link_strategy,
+        pic_behavior = pic_behavior,
         link_group_libs = {
             name: (lib.label, lib.shared_link_infos)
             for name, lib in link_group_libs.items()
         },
-        link_strategy = link_strategy,
-        roots = set(executable_deps),
-        executable_label = ctx.label,
-        is_executable_link = True,
         prefer_stripped = False,
+        prefer_optimized = False,
+    )
+    labels_to_links = get_filtered_labels_to_links_map(
+        link_group = link_group,
+        linkables = exec_linkables,
+        is_executable_link = is_executable_link,
+        build_context = build_context,
         force_static_follows_dependents = True,
     )
 

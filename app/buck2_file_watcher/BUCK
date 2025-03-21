@@ -6,7 +6,7 @@ rust_library(
     name = "buck2_file_watcher",
     srcs = glob(["src/**/*.rs"]),
     named_deps = {
-        # @oss-disable: "edenfs": "//eden/fs/service:thrift-rust", 
+        # @oss-disable[end= ]: "edenfs": "//eden/fs/service:thrift-rust",
     },
     test_deps = [
         "fbsource//third-party/rust:tempfile",
@@ -39,6 +39,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
+        "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_common:buck2_common",

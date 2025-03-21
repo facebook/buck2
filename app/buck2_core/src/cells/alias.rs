@@ -12,6 +12,7 @@ use std::borrow::Borrow;
 use allocative::Allocative;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum CellAliasError {
     #[error("Empty alias where non-empty is required")]
     EmptyAlias,

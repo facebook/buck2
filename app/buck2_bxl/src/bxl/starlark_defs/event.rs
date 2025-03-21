@@ -32,6 +32,7 @@ use super::artifacts::EnsuredArtifact;
 use super::context::output::get_artifact_path_display;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum StarlarkUserEventUnpack {
     #[error(
         "Metadata should be a dict where keys are strings, and values are strings, ints, bools, or dicts/lists of the mentioned types. Got type: `{0}`"

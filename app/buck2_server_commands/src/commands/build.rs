@@ -7,17 +7,9 @@
  * of this source tree.
  */
 
-use std::io::BufWriter;
-use std::io::Write;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
-use buck2_artifact::artifact::artifact_dump::ArtifactMetadataJson;
-use buck2_artifact::artifact::artifact_dump::DirectoryInfo;
-use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
-use buck2_artifact::artifact::artifact_dump::FileInfo;
-use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::build;
 use buck2_build_api::build::build_report::build_report_opts;
@@ -26,20 +18,21 @@ use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEvent;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
-use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::build::ProvidersToBuild;
-use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::build_request::build_providers::Action as BuildProviderAction;
 use buck2_cli_proto::build_request::BuildProviders;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
-use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PackageSpec;
@@ -49,16 +42,10 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_directory::directory::directory::Directory;
-use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
-use buck2_events::dispatch::span_async_simple;
 use buck2_events::errors::create_error_report;
-use buck2_execute::directory::ActionDirectoryBuilder;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -80,8 +67,6 @@ use futures::stream::Stream;
 use futures::stream::StreamExt;
 use itertools::Either;
 use itertools::Itertools;
-use serde::ser::SerializeSeq;
-use serde::ser::Serializer;
 
 use crate::commands::build::result_report::ResultReporter;
 use crate::commands::build::result_report::ResultReporterOptions;
@@ -146,67 +131,6 @@ fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions
     req.build_opts.as_ref().expect("should have build options")
 }
 
-async fn dump_artifacts_to_file(
-    path: &str,
-    provider_artifacts: &[ProviderArtifacts],
-    artifact_fs: &ArtifactFs,
-) -> buck2_error::Result<()> {
-    let file =
-        std::fs::File::create(path).buck_error_context("Failed to create output hash file")?;
-    let writer = BufWriter::new(file);
-    let mut ser = serde_json::Serializer::new(writer);
-    let mut seq = ser
-        .serialize_seq(None)
-        .buck_error_context("Failed to write vec to output hash file")?;
-
-    let mut dir = ActionDirectoryBuilder::empty();
-    for artifact in provider_artifacts {
-        artifact.values.add_to_directory(&mut dir, artifact_fs)?;
-    }
-    for (entry_path, entry) in dir.unordered_walk().with_paths() {
-        let info = match entry {
-            DirectoryEntry::Dir(_) => ArtifactInfo::Directory(DirectoryInfo {}),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
-                let cas_digest = metadata.digest.data();
-                ArtifactInfo::File(FileInfo {
-                    digest: cas_digest,
-                    digest_kind: cas_digest.raw_digest().algorithm(),
-                    is_exec: metadata.is_executable,
-                })
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink_target)) => {
-                ArtifactInfo::Symlink(SymlinkInfo {
-                    symlink_rel_path: symlink_target.target(),
-                })
-            }
-            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
-                ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
-                    target: external_symlink.target(),
-                    remaining_path: if external_symlink.remaining_path().is_empty() {
-                        None
-                    } else {
-                        Some(external_symlink.remaining_path())
-                    },
-                })
-            }
-        };
-
-        let artifact_meta_json = ArtifactMetadataJson {
-            path: &entry_path,
-            info,
-        };
-        seq.serialize_element(&artifact_meta_json)
-            .buck_error_context("Failed to write data to output hash file")?;
-    }
-
-    seq.end()
-        .buck_error_context("Failed to write vec end to output hash file")?;
-    ser.into_inner()
-        .flush()
-        .buck_error_context("Failed to flush output hash file")?;
-    Ok(())
-}
-
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
@@ -215,6 +139,17 @@ async fn build(
     let cwd = server_ctx.working_dir();
 
     let build_opts = expect_build_opts(request);
+
+    let timeout = request
+        .timeout
+        .as_ref()
+        .map(|t| t.clone().try_into())
+        .transpose()
+        .with_buck_error_context(|| "Invalid `duration`")?;
+
+    let timeout_observer = timeout.map(|timeout| {
+        Arc::new(TimeoutLivelinessObserver::new(timeout)) as Arc<dyn LivelinessObserver>
+    });
 
     let cell_resolver = ctx.get_cell_resolver().await?;
 
@@ -239,9 +174,12 @@ async fn build(
     let build_providers = Arc::new(request.build_providers.clone().unwrap());
 
     let final_artifact_materializations =
-        Materializations::from_i32(request.final_artifact_materializations)
+        Materializations::try_from(request.final_artifact_materializations)
             .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
+    let final_artifact_uploads = Uploads::try_from(request.final_artifact_uploads)
+        .with_buck_error_context(|| "Invalid final_artifact_uploads")
+        .unwrap();
 
     let want_configured_graph_size = ctx
         .parse_legacy_config_property(
@@ -261,11 +199,12 @@ async fn build(
                 resolved_pattern,
                 target_resolution_config,
                 build_providers,
-                &final_artifact_materializations.into(),
+                &(final_artifact_materializations, final_artifact_uploads).into(),
                 build_opts.fail_fast,
                 MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
                 build_opts.skip_incompatible_targets,
                 want_configured_graph_size,
+                timeout_observer.as_ref(),
             )
             .await
         })
@@ -334,21 +273,6 @@ async fn process_build_result(
         provider_artifacts.extend(&mut outputs);
     }
 
-    if let Some(output_hashes_file) = &request.output_hashes_file {
-        span_async_simple(
-            buck2_data::CreateOutputHashesFileStart {},
-            async {
-                dump_artifacts_to_file(output_hashes_file, &provider_artifacts, &artifact_fs)
-                    .await
-                    .with_buck_error_context(|| {
-                        format!("Failed to write output hashes file to {output_hashes_file}",)
-                    })
-            },
-            buck2_data::CreateOutputHashesFileEnd {},
-        )
-        .await?;
-    }
-
     let should_create_unhashed_links = ctx
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
@@ -387,22 +311,11 @@ async fn process_build_result(
 
     let project_root = server_ctx.project_root().to_string();
 
-    let run_buck2_explain = ctx
-        .parse_legacy_config_property(
-            cell_resolver.root_cell(),
-            BuckconfigKeyRef {
-                section: "buck2",
-                property: "automatic_buck2_explain",
-            },
-        )
-        .await?;
-
     Ok(buck2_cli_proto::BuildResponse {
         build_targets,
         project_root,
         serialized_build_report,
         errors,
-        run_buck2_explain,
     })
 }
 
@@ -411,11 +324,12 @@ async fn build_targets(
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
-    materialization: &MaterializationContext,
+    materialization_and_upload: &MaterializationAndUploadContext,
     fail_fast: bool,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<BuildTargetResult> {
     let stream = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
@@ -427,10 +341,11 @@ async fn build_targets(
                 spec,
                 global_cfg_options,
                 build_providers,
-                materialization,
+                materialization_and_upload,
                 missing_target_behavior,
                 skip_incompatible_targets,
                 want_configured_graph_size,
+                timeout_observer,
             )
             .left_stream()
         }
@@ -439,8 +354,9 @@ async fn build_targets(
             spec,
             universe,
             build_providers,
-            materialization,
+            materialization_and_upload,
             want_configured_graph_size,
+            timeout_observer,
         )
         .map(BuildEvent::Configured)
         .right_stream(),
@@ -454,8 +370,9 @@ fn build_targets_in_universe<'a>(
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
@@ -466,13 +383,14 @@ fn build_targets_in_universe<'a>(
             async move {
                 build::build_configured_label(
                     ctx,
-                    materialization,
+                    materialization_and_upload,
                     p,
                     &providers_to_build,
                     build::BuildConfiguredLabelOptions {
                         skippable: false,
                         want_configured_graph_size,
                     },
+                    timeout_observer,
                 )
                 .await
             }
@@ -486,10 +404,11 @@ fn build_targets_with_global_target_platform<'a>(
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + Unpin + 'a {
     futures::stream::iter(spec.specs.into_iter().map(move |(package, spec)| {
         build_targets_for_spec(
@@ -498,10 +417,11 @@ fn build_targets_with_global_target_platform<'a>(
             package,
             global_cfg_options.dupe(),
             build_providers.dupe(),
-            materialization,
+            materialization_and_upload,
             missing_target_behavior,
             skip_incompatible_targets,
             want_configured_graph_size,
+            timeout_observer,
         )
         .boxed()
         .flatten_stream()
@@ -545,10 +465,11 @@ async fn build_targets_for_spec<'a>(
     package: PackageLabel,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     want_configured_graph_size: bool,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let skippable = match spec {
         PackageSpec::Targets(..) => skip_incompatible_targets,
@@ -623,7 +544,16 @@ async fn build_targets_for_spec<'a>(
         .into_iter()
         .map(|build_spec| {
             let providers_to_build = providers_to_build.clone();
-            async move { build_target(ctx, build_spec, &providers_to_build, materialization).await }
+            async move {
+                build_target(
+                    ctx,
+                    build_spec,
+                    &providers_to_build,
+                    materialization_and_upload,
+                    timeout_observer,
+                )
+                .await
+            }
         })
         .collect::<FuturesUnordered<_>>()
         .flatten_unordered(None)
@@ -635,7 +565,8 @@ async fn build_target<'a>(
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
-    materialization: &'a MaterializationContext,
+    materialization_and_upload: &'a MaterializationAndUploadContext,
+    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) -> impl Stream<Item = BuildEvent> + 'a {
     let providers_label = ProvidersLabel::new(spec.target.label().dupe(), spec.providers);
     let providers_label = match ctx
@@ -655,13 +586,14 @@ async fn build_target<'a>(
 
     build::build_configured_label(
         ctx,
-        materialization,
+        materialization_and_upload,
         providers_label,
         providers_to_build,
         build::BuildConfiguredLabelOptions {
             skippable: spec.skippable,
             want_configured_graph_size: spec.want_configured_graph_size,
         },
+        timeout_observer,
     )
     .await
     .map(BuildEvent::Configured)

@@ -30,6 +30,8 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 
+use crate as buck2_build_api;
+
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_setting()` target.
 #[internal_provider(constraint_info_creator)]

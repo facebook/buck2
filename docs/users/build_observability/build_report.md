@@ -93,6 +93,10 @@ ConfiguredBuildReportEntry {
     # This is only included if `-c buck2.log_configured_graph_size=true` is set.
     # Otherwise, it is left as None.
     configured_graph_size: Optional[uint],
+
+    # Information about this particular artifact. Includes things like its hash, whether it is
+    # executable, etc.
+    artifact_info: dict[str, ArtifactInfoFile | ArtifactInfoSymlink | ArtifactInfoExternalSymlink],
 }
 
 Error {
@@ -107,6 +111,11 @@ Error {
     # same cause index have the same cause. Note that that does not mean that
     # they have the same error message.
     cause_index: uint,
+
+    # List of error tags associated with the error. The error tags provide hints to the error category
+    # that the error is associated to as determined by Buck2 internally. This is meant to classify errors
+    # more precisely, helping developers better understand the nature of the error.
+    error_tags: list[str],
 }
 
 ActionError {
@@ -176,6 +185,35 @@ ActionErrorLocation {
 
     # Optional line number
     line: Optional[u64]
+}
+
+ArtifactInfoFile {
+    # The type of this artifact info. This will always be "file".
+    kind: str,
+
+    # CAS digest for this file, includes hash and file size.
+    digest: str,
+    # Whether this file is executable.
+    is_exec: bool,
+}
+
+ArtifactInfoSymlink {
+    # The type of this artifact info. This will always be "symlink".
+    kind: str,
+
+    # Symlink target path relative to the root directory.
+    symlink_rel_path: str
+}
+
+ArtifactInfoExternalSymlink {
+    # The type of this artifact info. This will always be "external_symlink".
+    kind: str,
+
+    # Symlink target path.
+    target: str,
+    # An optional trailing path component. Join this with the `target`
+    field to get the full symlink file path.
+    remaining_path: Optional[str],
 }
 ```
 

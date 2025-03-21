@@ -19,7 +19,6 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use buck2_core::fs::paths::RelativePathBuf;
-use buck2_util::thin_box::ThinBoxSlice;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -35,6 +34,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::eval::Arguments;
 use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
@@ -52,6 +52,7 @@ use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
+use starlark::values::ThinBoxSliceFrozenValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -300,8 +301,9 @@ impl<'v> Serialize for StarlarkCmdArgs<'v> {
 
 #[derive(Debug, ProvidesStaticType, Allocative)]
 pub struct FrozenStarlarkCmdArgs {
-    items: ThinBoxSlice<FrozenCommandLineArg>,
-    hidden: ThinBoxSlice<FrozenCommandLineArg>,
+    // Elements are `FrozenCommandLineArg`s
+    items: ThinBoxSliceFrozenValue<'static>,
+    hidden: ThinBoxSliceFrozenValue<'static>,
     options: FrozenCommandLineOptions,
 }
 
@@ -333,11 +335,15 @@ impl<'a, 'v> Fields<'v> for Ref<'a, StarlarkCommandLineData<'v>> {
 
 impl<'v> Fields<'v> for FrozenStarlarkCmdArgs {
     fn items(&self) -> &[CommandLineArg<'v>] {
-        coerce(&*self.items)
+        coerce(FrozenCommandLineArg::slice_from_frozen_value_unchecked(
+            &self.items,
+        ))
     }
 
     fn hidden(&self) -> &[CommandLineArg<'v>] {
-        coerce(&*self.hidden)
+        coerce(FrozenCommandLineArg::slice_from_frozen_value_unchecked(
+            &self.hidden,
+        ))
     }
 
     fn options(&self) -> Option<&dyn CommandLineOptionsTrait<'v>> {
@@ -457,8 +463,8 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
         if items.is_empty() && hidden.is_empty() && options.is_none() {
             static EMPTY: AllocStaticSimple<FrozenStarlarkCmdArgs> =
                 AllocStaticSimple::alloc(FrozenStarlarkCmdArgs {
-                    items: ThinBoxSlice::empty(),
-                    hidden: ThinBoxSlice::empty(),
+                    items: ThinBoxSliceFrozenValue::empty(),
+                    hidden: ThinBoxSliceFrozenValue::empty(),
                     options: FrozenCommandLineOptions::empty(),
                 });
             Some(EMPTY.unpack().to_frozen_value())
@@ -563,8 +569,18 @@ impl<'v> Freeze for StarlarkCmdArgs<'v> {
             options,
         } = self.0.into_inner();
 
-        let items = ThinBoxSlice::from_iter(items.freeze(freezer)?);
-        let hidden = ThinBoxSlice::from_iter(hidden.freeze(freezer)?);
+        let items = ThinBoxSliceFrozenValue::from_iter(
+            items
+                .freeze(freezer)?
+                .into_iter()
+                .map(|a| a.to_frozen_value()),
+        );
+        let hidden = ThinBoxSliceFrozenValue::from_iter(
+            hidden
+                .freeze(freezer)?
+                .into_iter()
+                .map(|a| a.to_frozen_value()),
+        );
         let options = options
             .try_map(|options| (*options).freeze(freezer))?
             .unwrap_or_default();
@@ -626,6 +642,18 @@ impl<'v> StarlarkCommandLineData<'v> {
         for value in values {
             self.add_value(*value)?
         }
+        Ok(())
+    }
+
+    fn add_from_iterator(
+        &mut self,
+        values: impl Iterator<Item = Value<'v>>,
+    ) -> buck2_error::Result<()> {
+        let (lower, upper) = values.size_hint();
+        self.items.reserve(upper.unwrap_or(lower));
+        values
+            .into_iter()
+            .try_for_each(|value| self.add_value(value))?;
         Ok(())
     }
 
@@ -698,9 +726,12 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// Note that this operation mutates the input `cmd_args`.
     fn add<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        #[starlark(args)] args: UnpackTuple<Value<'v>>,
+        heap: &'v Heap,
+        args: &Arguments<'v, '_>,
     ) -> starlark::Result<StarlarkCommandLineMut<'v>> {
-        this.borrow.add_values(&args.items)?;
+        args.no_named_args()?;
+        let values = args.positions(heap)?;
+        this.borrow.add_from_iterator(values)?;
         Ok(this)
     }
 

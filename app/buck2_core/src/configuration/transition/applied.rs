@@ -13,6 +13,7 @@ use starlark_map::sorted_map::SortedMap;
 use crate::configuration::data::ConfigurationData;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum TransitionAppliedError {
     #[error("Transition object is declared split, but transition to one is needed in this context")]
     SplitWhereSingleExpected,

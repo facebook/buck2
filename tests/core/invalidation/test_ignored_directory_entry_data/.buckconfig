@@ -11,8 +11,5 @@
 [buildfile]
   name = TARGETS.fixture
 
-[buck2]
-  file_watcher = watchman
-
 [project]
   ignore = dir/fignore

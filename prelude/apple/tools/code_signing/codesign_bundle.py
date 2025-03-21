@@ -79,9 +79,15 @@ class CodesignedPath:
     """
 
 
-def _log_codesign_identities(identities: List[CodeSigningIdentity]) -> None:
+def _log_codesign_identities(
+    list_codesign_identities: IListCodesignIdentities,
+    identities: List[CodeSigningIdentity],
+) -> None:
     if len(identities) == 0:
         _LOGGER.warning("ZERO codesign identities available")
+        _LOGGER.warning(
+            f"Identities were retrieved by command: {list_codesign_identities.raw_command()}"
+        )
     else:
         _LOGGER.info("Listing available codesign identities")
         for identity in identities:
@@ -105,7 +111,7 @@ def _select_provisioning_profile(
         _default_read_provisioning_profile_command_factory
     )
     identities = list_codesign_identities.list_codesign_identities()
-    _log_codesign_identities(identities)
+    _log_codesign_identities(list_codesign_identities, identities)
     _LOGGER.info(
         f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
     )

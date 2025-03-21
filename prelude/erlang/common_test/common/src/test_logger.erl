@@ -6,7 +6,9 @@
 %% of this source tree.
 %% % @format
 -module(test_logger).
--compile(warn_missing_spec).
+-compile(warn_missing_spec_all).
+
+-eqwalizer(ignore).
 
 -include_lib("common/include/buck_ct_records.hrl").
 

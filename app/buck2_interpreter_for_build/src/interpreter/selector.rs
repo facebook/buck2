@@ -174,7 +174,7 @@ impl<'v> StarlarkSelector<'v> {
                 .ok_or_else(|| {
                     starlark::Error::new_kind(starlark::ErrorKind::Native(
                         buck2_error::buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Input,
                             "Expected testing function to have a boolean return type"
                         )
                         .into(),

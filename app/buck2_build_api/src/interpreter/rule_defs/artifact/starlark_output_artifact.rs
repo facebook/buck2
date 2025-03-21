@@ -136,7 +136,7 @@ impl<'v> CommandLineArgLike for StarlarkOutputArtifact<'v> {
     ) -> buck2_error::Result<()> {
         // TODO: proper error message
         Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "proper error here; we should not be adding mutable starlark objects to clis"
         ))
     }

@@ -17,10 +17,50 @@ typedef PyObject* (*pyinitfunc)();
 typedef struct {
 } StaticExtensionFinderObject;
 
+// This map is generated at build time by generate_static_extension_info.py
+// and should not be modified at runtime.
 extern std::unordered_map<std::string_view, pyinitfunc> _static_extension_info;
 
 namespace {
 
+static PyObject* _handle_single_phase_initialization(
+    PyObject* mod,
+    PyObject* name,
+    PyObject* spec,
+    pyinitfunc initfunc,
+    PyObject* modules) {
+  /* Remember pointer to module init function. */
+  PyModuleDef* def = PyModule_GetDef(mod);
+  if (def == nullptr) {
+    Py_DECREF(name);
+    return nullptr;
+  }
+  PyObject* path = PyObject_GetAttrString(spec, "origin");
+  if (PyModule_AddObject(mod, "__file__", path) < 0) {
+    PyErr_Clear();
+  } else {
+    Py_INCREF(path);
+  }
+  def->m_base.m_init = initfunc;
+  if (modules == nullptr) {
+    modules = PyImport_GetModuleDict();
+  }
+
+  // TODO private api usage
+#if PY_VERSION_HEX >= 0x030D0000
+  PyThreadState* tstate = PyThreadState_GET();
+  int result = _Ci_PyImport_FinishSinglePhaseExtension(
+      (int*)tstate, mod, def, name, modules);
+#else
+  int result = _PyImport_FixupExtensionObject(mod, name, name, modules);
+#endif
+  Py_DECREF(path);
+  Py_DECREF(name);
+  if (result < 0) {
+    return nullptr;
+  }
+  return mod;
+}
 static PyObject* _create_module(PyObject* self, PyObject* spec) {
   PyObject* name;
   PyObject* mod;
@@ -29,7 +69,7 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
   if (name == nullptr) {
     return nullptr;
   }
-
+  // Attempt to import the module normally (builtins, etc)
   mod = PyImport_GetModule(name);
   if (mod || PyErr_Occurred()) {
     Py_DECREF(name);
@@ -37,6 +77,8 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
     return mod;
   }
 
+  // If the module is not found, try to find it in the static extension map
+  // its generated at build time by generate_static_extension_info.py
   const std::string namestr = PyUnicode_AsUTF8(name);
   if (namestr.empty()) {
     Py_DECREF(name);
@@ -55,9 +97,10 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
   }
 
   PyObject* modules = nullptr;
-  PyModuleDef* def;
-
-#if PY_VERSION_HEX >= 0x030C0000
+#if PY_VERSION_HEX >= 0x030D0000
+  // Python 3.13 has a new C-API for calling module init functions
+  mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
+#elif PY_VERSION_HEX >= 0x030C0000
   // Use our custom Python 3.12 C-API to call the statically linked module init
   // function
   mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
@@ -78,38 +121,15 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
     Py_DECREF(name);
     return nullptr;
   }
+  // If the result is a PyModuleDef, then this is multi-phase initialization
+  // Return the PyModule so module_exec can be called on it later
   if (PyObject_TypeCheck(mod, &PyModuleDef_Type)) {
     Py_DECREF(name);
     return PyModule_FromDefAndSpec((PyModuleDef*)mod, spec);
-  } else {
-    /* Remember pointer to module init function. */
-    def = PyModule_GetDef(mod);
-    if (def == nullptr) {
-      Py_DECREF(name);
-      return nullptr;
-    }
-    PyObject* path = PyObject_GetAttrString(spec, "origin");
-    if (PyModule_AddObject(mod, "__file__", path) < 0) {
-      PyErr_Clear();
-    } else {
-      Py_INCREF(path);
-    }
-    def->m_base.m_init = initfunc;
-    if (modules == nullptr) {
-      modules = PyImport_GetModuleDict();
-    }
-    // TODO private api usage
-    if (_PyImport_FixupExtensionObject(mod, name, name, modules) < 0) {
-      Py_DECREF(path);
-      Py_DECREF(name);
-      return nullptr;
-    }
-    Py_DECREF(path);
-    Py_DECREF(name);
-    return mod;
   }
-  Py_DECREF(name);
-  Py_RETURN_NONE;
+  // At this point we know this is single-phase initialization
+  return _handle_single_phase_initialization(
+      mod, name, spec, initfunc, modules);
 }
 
 static PyObject* _exec_module(PyObject* self, PyObject* module) {
@@ -157,12 +177,12 @@ static PyMethodDef StaticExtensionLoaderType_methods[] = {
      (PyCFunction)(void (*)(void))_get_source,
      METH_STATIC | METH_O,
      nullptr},
-    {nullptr, nullptr}};
+    {}};
 
 static PyType_Slot StaticExtensionLoader_slots[] = {
     {Py_tp_doc, (void*)StaticExtensionLoader_doc},
     {Py_tp_methods, StaticExtensionLoaderType_methods},
-    {0, 0}};
+    {}};
 
 static PyType_Spec StaticExtensionLoader_spec = {
     "static_extension_utils.StaticExtensionLoader",
@@ -204,11 +224,14 @@ static PyObject* _check_module(PyObject* self, PyObject* fullname) {
 
 static PyModuleDef_Slot _static_extension_utils_slots[] = {
     {Py_mod_exec, (void*)_static_extension_utils_exec},
-    {0, nullptr}};
+#ifdef Py_GIL_DISABLED
+    {Py_mod_gil, Py_MOD_GIL_NOT_USED},
+#endif
+    {}};
 
 static PyMethodDef _static_extension_utils_methods[] = {
     {"_check_module", _check_module, METH_O, _check_module_doc},
-    {nullptr, nullptr}};
+    {}};
 
 PyDoc_STRVAR(
     module_doc,

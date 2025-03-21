@@ -7,7 +7,7 @@ edition = "2021"
 license = { workspace = true }
 name = "dupe"
 repository = "https://github.com/facebookincubator/gazebo"
-version = "0.9.0"
+version = "0.9.1"
 
 [dependencies]
-dupe_derive = { version = "=0.9.0", path = "../dupe_derive" }
+dupe_derive = { version = "=0.9.1", path = "../dupe_derive" }

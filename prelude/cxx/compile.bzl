@@ -6,6 +6,21 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load(
+    "@prelude//cxx:compile_types.bzl",
+    "AsmExtensions",
+    "CxxCompileCommand",
+    "CxxCompileCommandOutput",
+    "CxxCompileFlavor",
+    "CxxCompileOutput",
+    "CxxExtension",
+    "CxxSrcCompileCommand",
+    "CxxSrcPrecompileCommand",
+    "DepFileType",
+    "HeaderExtension",
+    "HeadersDepFiles",
+)
+load("@prelude//cxx:cuda.bzl", "CudaCompileInfo", "cuda_compile")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
@@ -45,155 +60,6 @@ load(
     "HeaderUnit",  # @unused Used as a type
     "cxx_merge_cpreprocessors",
     "get_flags_for_compiler_type",
-)
-
-# Supported assembly extensions
-AsmExtensions = enum(
-    ".s",
-    ".sx",
-    ".S",
-    ".asm",
-    ".asmpp",
-)
-
-# Supported Cxx file extensions
-CxxExtension = enum(
-    ".cpp",
-    ".cc",
-    ".cl",
-    ".cxx",
-    ".c++",
-    ".c",
-    ".m",
-    ".mm",
-    ".cu",
-    ".hip",
-    ".h",
-    ".hpp",
-    ".hh",
-    ".h++",
-    ".hxx",
-    ".bc",
-    *AsmExtensions.values()
-)
-
-# Header files included in compilation databases
-HeaderExtension = enum(
-    ".h",
-    ".hpp",
-    ".hh",
-    ".h++",
-    ".hxx",
-    ".cuh",
-)
-
-# File types for dep files
-DepFileType = enum(
-    "cpp",
-    "c",
-    "cuda",
-    "asm",
-)
-
-_HeadersDepFiles = record(
-    # An executable to wrap the actual command with for post-processing of dep
-    # files into the format that Buck2 recognizes (i.e. one artifact per line).
-    processor = field(cmd_args),
-    # The tag that was added to headers.
-    tag = field(ArtifactTag),
-    # A function that produces new cmd_args to append to the compile command to
-    # get it to emit the dep file. This will receive the output dep file as an
-    # input.
-    mk_flags = field(typing.Callable),
-    # Dependency tracking mode to know how to generate dep file
-    dep_tracking_mode = field(DepTrackingMode),
-)
-
-# Information about how to compile a source file of particular extension.
-_CxxCompileCommand = record(
-    # The compiler and any args which are independent of the rule.
-    base_compile_cmd = field(cmd_args),
-    # The argsfile of arguments from the rule and it's dependencies.
-    argsfile = field(CompileArgsfile),
-    # The argsfile to use for Xcode integration.
-    xcode_argsfile = field(CompileArgsfile),
-    # The argsfile containing header units args.
-    header_units_argsfile = field(CompileArgsfile | None),
-    headers_dep_files = field([_HeadersDepFiles, None]),
-    compiler_type = field(str),
-    # The action category
-    category = field(str),
-    allow_cache_upload = field(bool),
-)
-
-# Information about how to compile a source file.
-CxxSrcCompileCommand = record(
-    # Source file to compile.
-    src = field(Artifact),
-    # If we have multiple source entries with same files but different flags,
-    # specify an index so we can differentiate them. Otherwise, use None.
-    index = field([int, None], None),
-    # The CxxCompileCommand to use to compile this file.
-    cxx_compile_cmd = field(_CxxCompileCommand),
-    # Arguments specific to the source file.
-    args = field(list[typing.Any]),
-    # Is this a header file?
-    is_header = field(bool, False),
-    # The index store factory to use to generate index store for this source file.
-    index_store_factory = field(typing.Callable | None, None),
-    error_handler = field([typing.Callable, None], None),
-)
-
-_CxxSrcPrecompileCommand = record(
-    # Source file to compile.
-    src = field(Artifact),
-    # The CxxCompileCommand to use to compile this file.
-    cxx_compile_cmd = field(_CxxCompileCommand),
-    # Arguments specific to the source file.
-    args = field(list[typing.Any]),
-    # Extra argsfile to include after any other header units argsfile but before the
-    # main argsfiles.
-    extra_argsfile = field([CompileArgsfile, None], None),
-)
-
-# Output of creating compile commands for Cxx source files.
-CxxCompileCommandOutput = record(
-    # List of compile commands for each source file.
-    src_compile_cmds = field(list[CxxSrcCompileCommand], default = []),
-    # Base compile commands for each source file extension.
-    base_compile_cmds = field(dict[CxxExtension, _CxxCompileCommand], default = {}),
-    # Argsfiles generated for compiling these source files.
-    argsfiles = field(CompileArgsfiles, default = CompileArgsfiles()),
-    # List of compile commands for use in compilation database generation.
-    comp_db_compile_cmds = field(list[CxxSrcCompileCommand], default = []),
-)
-
-CxxCompileOutput = record(
-    # The compiled `.o` file.
-    object = field(Artifact),
-    object_format = field(CxxObjectFormat, CxxObjectFormat("native")),
-    object_has_external_debug_info = field(bool, False),
-    # Externally referenced debug info, which doesn't get linked with the
-    # object (e.g. the above `.o` when using `-gsplit-dwarf=single` or the
-    # the `.dwo` when using `-gsplit-dwarf=split`).
-    external_debug_info = field(Artifact | None, None),
-    clang_remarks = field(Artifact | None, None),
-    clang_trace = field(Artifact | None, None),
-    gcno_file = field(Artifact | None, None),
-    index_store = field(Artifact | None, None),
-    assembly = field(Artifact | None, None),
-    diagnostics = field(Artifact | None, None),
-    preproc = field(Artifact | None, None),
-)
-
-CxxCompileFlavor = enum(
-    # Default compilation witout alterations
-    "default",
-    # Produces position independent compile outputs
-    "pic",
-    # Produces position independent compile outputs
-    # using optimization flags from toolchain
-    "pic_optimized",
 )
 
 def get_source_extension_for_header(header_extension: str, default: CxxExtension) -> CxxExtension:
@@ -347,7 +213,7 @@ def create_compile_cmds(
 
     src_compile_cmds = []
     hdr_compile_cmds = []
-    cxx_compile_cmd_by_ext = {}  # type: dict[CxxExtension, _CxxCompileCommand]
+    cxx_compile_cmd_by_ext = {}  # type: dict[CxxExtension, CxxCompileCommand]
     argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
     xcode_argsfile_by_ext = {}  # type: dict[str, CompileArgsfile]
 
@@ -407,9 +273,9 @@ def create_compile_cmds(
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
 
-def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args, pic: bool) -> Artifact | None:
+def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     if src_compile_cmd.index_store_factory:
-        return src_compile_cmd.index_store_factory(ctx, src_compile_cmd, toolchain, compile_cmd, pic)
+        return src_compile_cmd.index_store_factory(ctx, src_compile_cmd, toolchain, compile_cmd)
     return None
 
 COMMON_PREPROCESSOR_OUTPUT_ARGS = cmd_args("-E", "-dD")
@@ -511,22 +377,36 @@ def _compile_single_cxx(
         error_handler_args["error_handler"] = src_compile_cmd.error_handler
 
     external_debug_info = None
-    if getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang":
+    extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
+    use_external_debug_info = getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
+    if use_external_debug_info:
         external_debug_info = ctx.actions.declare_output(
             folder_name,
             "{}.{}".format(filename_base, "dwo"),
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
-    ctx.actions.run(
-        cmd,
-        category = src_compile_cmd.cxx_compile_cmd.category,
-        identifier = identifier,
-        dep_files = action_dep_files,
-        allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
-        allow_dep_file_cache_upload = False,
-        **error_handler_args
-    )
+    nvcc_dryrun = None
+    if src_compile_cmd.src.extension == ".cu":
+        nvcc_dryrun = cuda_compile(
+            ctx,
+            cmd,
+            src_compile_cmd,
+            CudaCompileInfo(filename = filename_base, identifier = identifier, output_prefix = folder_name),
+            action_dep_files,
+            allow_dep_file_cache_upload = False,
+            error_handler_args = error_handler_args,
+        )
+    else:
+        ctx.actions.run(
+            cmd,
+            category = src_compile_cmd.cxx_compile_cmd.category,
+            identifier = identifier,
+            dep_files = action_dep_files,
+            allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+            allow_dep_file_cache_upload = False,
+            **error_handler_args
+        )
 
     # If we're building with split debugging, where the debug info is in the
     # original object, then add the object as external debug info
@@ -552,7 +432,11 @@ def _compile_single_cxx(
         src_compile_cmd = src_compile_cmd,
         pic = pic,
     )
-    index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd, pic)
+
+    index_store = None
+
+    if pic:
+        index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd)
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
     if compiler_type in ["clang", "gcc"]:
@@ -634,6 +518,7 @@ def _compile_single_cxx(
         assembly = assembly,
         diagnostics = diagnostics,
         preproc = preproc,
+        nvcc_dryrun = nvcc_dryrun,
     )
 
 def _get_base_compile_cmd(
@@ -713,7 +598,7 @@ def compile_cxx(
     return objects
 
 def _compiler_supports_header_units(compiler_info: typing.Any):
-    return (compiler_info.compiler_type == "clang" and
+    return ("clang" in compiler_info.compiler_type and
             compiler_info.supports_two_phase_compilation)
 
 def _get_module_name(ctx: AnalysisContext, group_name: str) -> str:
@@ -769,7 +654,7 @@ def _create_precompile_cmd(
         header_group: str | None,
         group_name: str,
         extra_preprocessors: list[CPreprocessor],
-        cmd: _CxxCompileCommand) -> _CxxSrcPrecompileCommand:
+        cmd: CxxCompileCommand) -> CxxSrcPrecompileCommand:
     include_dirs = flatten([x.include_dirs for x in preprocessors])
     converted_headers = [
         _convert_raw_header(ctx, raw_header, include_dirs)
@@ -839,14 +724,20 @@ module "{}" {{
             filename_prefix = "export{}_".format(group_name),
         )
 
+    include_args = []
     for header in headers:
-        args.extend(["-include", paths.join(header.namespace, header.name)])
+        include_args.extend(["-include", paths.join(header.namespace, header.name)])
+
+    file_name = "{}.header_unit_headers".format(group_name)
+    headers_argsfile, _ = ctx.actions.write(file_name, cmd_args(include_args, quote = "shell"), allow_args = True)
+
+    args.extend([cmd_args(headers_argsfile, format = "@{}")])
     args.extend(["-xc++-user-header", "-fmodule-header"])
     args.extend(["-fmodule-name={}".format(module_name)])
     args.extend(["-Xclang", cmd_args(input_header, format = "-fmodules-embed-file={}")])
     args.extend(["--precompile", input_header])
 
-    return _CxxSrcPrecompileCommand(
+    return CxxSrcPrecompileCommand(
         src = src_dir,
         cxx_compile_cmd = cmd,
         args = args,
@@ -857,7 +748,7 @@ def _precompile_single_cxx(
         ctx: AnalysisContext,
         impl_params: CxxRuleConstructorParams,
         group_name: str,
-        src_compile_cmd: _CxxSrcPrecompileCommand) -> HeaderUnit:
+        src_compile_cmd: CxxSrcPrecompileCommand) -> HeaderUnit:
     identifier = src_compile_cmd.src.short_path
 
     filename = "{}.pcm".format(identifier)
@@ -900,11 +791,12 @@ def _precompile_single_cxx(
 
     ctx.actions.run(
         cmd,
-        category = "cxx_precompile",
+        category = "cxx_modules_precompile",
         identifier = identifier,
         dep_files = action_dep_files,
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = False,
+        low_pass_filter = False,
     )
 
     return HeaderUnit(
@@ -979,6 +871,8 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
         if obj.preproc:
             sub_targets["preprocessed"] = [DefaultInfo(obj.preproc)]
+        if obj.nvcc_dryrun:
+            sub_targets["nvcc-dryrun"] = [DefaultInfo(obj.nvcc_dryrun)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,
@@ -999,10 +893,14 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
 
 def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing.Any:
     compiler_info = None
-    if ext.value in (".cpp", ".cc", ".cl", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
+    if ext.value in (".cpp", ".cc", ".cl", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
         compiler_info = toolchain.cxx_compiler_info
-    elif ext.value in (".c", ".m"):
+    elif ext.value == ".c":
         compiler_info = toolchain.c_compiler_info
+    elif ext.value == ".m":
+        compiler_info = toolchain.objc_compiler_info
+    elif ext.value == ".mm":
+        compiler_info = toolchain.objcxx_compiler_info
     elif ext.value in (".s", ".sx", ".S"):
         compiler_info = toolchain.as_compiler_info
     elif ext.value == ".cu":
@@ -1276,7 +1174,7 @@ def _generate_base_compile_command(
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
         ext: CxxExtension,
-        filename_prefix: str = "") -> _CxxCompileCommand:
+        filename_prefix: str = "") -> CxxCompileCommand:
     """
     Generate a common part of a compile command that is shared by all sources
     with a given extension.
@@ -1292,7 +1190,7 @@ def _generate_base_compile_command(
         tracking_mode = _get_dep_tracking_mode(toolchain, dep_file_file_type_hint)
         mk_dep_files_flags = get_headers_dep_files_flags_factory(tracking_mode)
         if mk_dep_files_flags:
-            headers_dep_files = _HeadersDepFiles(
+            headers_dep_files = HeadersDepFiles(
                 processor = cmd_args(toolchain.internal_tools.dep_file_processor),
                 mk_flags = mk_dep_files_flags,
                 tag = headers_tag,
@@ -1304,7 +1202,7 @@ def _generate_base_compile_command(
     header_units_argsfile = _mk_header_units_argsfile(ctx, compiler_info, pre, ext, filename_prefix)
 
     allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
-    return _CxxCompileCommand(
+    return CxxCompileCommand(
         base_compile_cmd = base_compile_cmd,
         argsfile = argsfile,
         xcode_argsfile = xcode_argsfile,

@@ -287,7 +287,7 @@ where
     }
 
     Err(buck2_error::buck2_error!(
-        [],
+        buck2_error::ErrorTag::Tier0,
         "Stream did not yield CommandEvent::Exit",
     ))
 }
@@ -600,7 +600,11 @@ mod tests {
                     return Ok(());
                 }
             }
-            return Err(buck2_error!([], "PID still exits: {}", pid));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "PID still exits: {}",
+                pid
+            ));
         }
         Ok(())
     }

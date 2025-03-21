@@ -28,6 +28,7 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_events::errors::create_error_report;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -49,6 +50,7 @@ use crate::daemon_lower_priority::daemon_lower_priority;
 use crate::schedule_termination::maybe_schedule_termination;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum DaemonError {
     #[error("The buckd pid file at `{}` had a mismatched pid, expected `{1}`, got `{2}`", _0.display())]
     PidFileMismatch(PathBuf, u32, u32),
@@ -178,6 +180,14 @@ impl DaemonCommand {
     ) -> buck2_error::Result<()> {
         // NOTE: Do not create any threads before this point.
         //   Daemonize does not preserve threads.
+
+        daemon_lower_priority(self.skip_macos_qos)?;
+
+        // TODO(nga): this breaks relative paths in `--no-buckd`.
+        //   `--no-buckd` should capture correct directories earlier.
+        //   Or even better, client should set current directory to project root,
+        //   and resolve all paths relative to original cwd.
+        fs_util::set_current_dir(paths.project_root().root())?;
 
         let server_init_ctx = BuckdServerInitPreferences {
             detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
@@ -344,7 +354,7 @@ impl DaemonCommand {
             let listener = tokio_stream::wrappers::TcpListenerStream::new(listener);
 
             tracing::info!("Listening.");
-
+            // `tracing::info` statements after this is dropped are not logged by default due to `[daemon_listener]=info` filter.
             drop(span_guard);
 
             let daemon_constraints =
@@ -380,12 +390,12 @@ impl DaemonCommand {
 
             select! {
                 res = buckd_server => {
-                    tracing::info!("server shutdown");
+                    tracing::warn!("server shutdown");
                     res
                 }
                 reason = shutdown_future => {
                     let reason = reason.as_deref().unwrap_or("no reason available");
-                    tracing::info!("server forced shutdown: {}", reason);
+                    tracing::warn!("server forced shutdown: {}", reason);
                     Ok(())
                 },
             }
@@ -434,23 +444,19 @@ impl DaemonCommand {
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> buck2_error::Result<()> {
-        daemon_lower_priority(self.skip_macos_qos)?;
-
-        let project_root = paths.project_root();
         let daemon_dir = paths.daemon_dir()?;
-
         if !daemon_dir.path.is_dir() {
             fs_util::create_dir_all(&daemon_dir.path)?;
         }
 
-        // TODO(nga): this breaks relative paths in `--no-buckd`.
-        //   `--no-buckd` should capture correct directories earlier.
-        //   Or even better, client should set current directory to project root,
-        //   and resolve all paths relative to original cwd.
-        fs_util::set_current_dir(project_root.root())?;
-
-        self.run(log_reload_handle, paths, in_process, listener_created)?;
-        Ok(())
+        let res = self.run(log_reload_handle, paths, in_process, listener_created);
+        if let Err(err) = res.as_ref() {
+            fs_util::write(
+                daemon_dir.buckd_error_log(),
+                serde_json::to_string(&create_error_report(err))?,
+            )?;
+        }
+        res
     }
 
     #[cfg(unix)]
@@ -471,7 +477,7 @@ impl DaemonCommand {
             let stderr_fd = libc::open_osfhandle(stderr.as_raw_handle() as isize, libc::O_RDWR);
             if stdout_fd == -1 || stderr_fd == -1 {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Can't get file descriptors for output files",
                 ));
             }
@@ -480,7 +486,7 @@ impl DaemonCommand {
             let stderr_exit_code = libc::dup2(stderr_fd, 2);
             if stdout_exit_code == -1 || stderr_exit_code == -1 {
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Failed to redirect daemon output"
                 ));
             }
@@ -502,7 +508,10 @@ impl DaemonCommand {
     #[cfg(windows)]
     /// Restart current process in detached mode with '--dont-daemonize' flag.
     fn daemonize(_stdout: File, _stderr: File) -> buck2_error::Result<()> {
-        Err(buck2_error::buck2_error!([], "Cannot daemonize on Windows"))
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "Cannot daemonize on Windows"
+        ))
     }
 }
 
@@ -535,7 +544,7 @@ mod tests {
     use tokio::runtime::Handle;
 
     // `fbinit_tokio` is not on crates, so we cannot use `#[fbinit::test]`.
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_daemon_smoke() {
         // TODO(nga): this should be `fbinit::perform_init`, but it is not on crates yet.
         let fbinit = unsafe { fbinit::assume_init() };
@@ -556,6 +565,12 @@ mod tests {
             },
             isolation: FileNameBuf::try_from("v2".to_owned()).unwrap(),
         };
+
+        let buckconfig = ProjectRelativePath::unchecked_new(".buckconfig");
+        project_root
+            .path()
+            .write_file(buckconfig, "[cells]\nroot = .", false)
+            .unwrap();
 
         #[derive(Allocative)]
         struct Delegate;

@@ -314,7 +314,7 @@ impl DynamicAttrType {
             DynamicAttrType::Value(ty) => {
                 if !ty.matches(value) {
                     return Err(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "Expecting a value of type `{}`, got: {}",
                         ty,
                         value.to_string_for_type_error()
@@ -337,7 +337,7 @@ impl DynamicAttrType {
                 for (key, value) in dict.iter_hashed() {
                     if !key_ty.matches(key.into_key()) {
                         return Err(buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Input,
                             "Expecting a key of type `{}`, got: {}",
                             key_ty,
                             key.to_string_for_type_error()
@@ -351,7 +351,7 @@ impl DynamicAttrType {
                 let tuple = <&TupleRef>::unpack_value_err(value)?;
                 if tuple.len() != elem_tys.len() {
                     return Err(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "Expecting a tuple of length {}, got: {}",
                         elem_tys.len(),
                         tuple.len()

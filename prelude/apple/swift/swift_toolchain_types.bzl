@@ -8,6 +8,8 @@
 #####################################################################
 # Providers
 
+load("@prelude//utils:arglike.bzl", "ArgLike")
+
 SwiftObjectFormat = enum(
     "object",
     "bc",
@@ -18,26 +20,26 @@ SwiftObjectFormat = enum(
 
 SwiftToolchainInfo = provider(
     fields = {
-        "architecture": provider_field(typing.Any, default = None),
-        "can_toolchain_emit_obj_c_header_textually": provider_field(typing.Any, default = None),  # bool
-        "compiler": provider_field(typing.Any, default = None),
-        "compiler_flags": provider_field(typing.Any, default = None),
+        "architecture": provider_field(str),
+        "compiler": provider_field(cmd_args),
+        "compiler_flags": provider_field(list[ArgLike]),
         "library_interface_uses_swiftinterface": provider_field(bool),
-        "mk_swift_comp_db": provider_field(typing.Any, default = None),
-        "mk_swift_interface": provider_field(typing.Any, default = None),
-        "object_format": provider_field(typing.Any, default = None),  # "SwiftObjectFormat"
-        "prefix_serialized_debugging_options": provider_field(typing.Any, default = None),  # bool
-        "resource_dir": provider_field(typing.Any, default = None),  # "artifact",
-        "runtime_run_paths": provider_field(typing.Any, default = None),  # [str]
-        "sdk_path": provider_field(typing.Any, default = None),
-        "supports_relative_resource_dir": provider_field(typing.Any, default = None),  # bool
+        "mk_swift_comp_db": provider_field(RunInfo),
+        "mk_swift_interface": provider_field(cmd_args),
+        "object_format": provider_field(SwiftObjectFormat),
+        "platform_path": provider_field([Artifact, str, None]),
+        "resource_dir": provider_field([Artifact, None]),
+        "sdk_module_path_prefixes": provider_field(dict[str, Artifact]),
+        "sdk_path": provider_field([Artifact, str, None]),
+        "supports_explicit_module_debug_serialization": provider_field(bool, default = False),
+        "supports_relative_resource_dir": provider_field(bool),
         "swift_experimental_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
-        "swift_ide_test_tool": provider_field(typing.Any, default = None),
-        "swift_stdlib_tool": provider_field(typing.Any, default = None),
-        "swift_stdlib_tool_flags": provider_field(typing.Any, default = None),
+        "swift_ide_test_tool": provider_field([RunInfo, None], default = None),
+        "swift_stdlib_tool": provider_field(RunInfo),
+        "swift_stdlib_tool_flags": provider_field(list[ArgLike]),
         "swift_upcoming_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
-        "uncompiled_clang_sdk_modules_deps": provider_field(typing.Any, default = None),  # {str: dependency} Expose deps of uncompiled Clang SDK modules.
-        "uncompiled_swift_sdk_modules_deps": provider_field(typing.Any, default = None),  # {str: dependency} Expose deps of uncompiled Swift SDK modules.
+        "uncompiled_clang_sdk_modules_deps": provider_field(dict[str, Dependency]),
+        "uncompiled_swift_sdk_modules_deps": provider_field(dict[str, Dependency]),
     },
 )
 

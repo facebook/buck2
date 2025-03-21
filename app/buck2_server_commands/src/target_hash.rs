@@ -236,6 +236,7 @@ pub struct TargetHashes {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum TargetHashError {
     #[error(
         "Found a dependency `{0}` of target `{1}` which has not been hashed yet. This may indicate a dependency cycle in the unconfigured graph."

@@ -32,6 +32,11 @@ Options:
 
           [possible values: all, none]
 
+      --upload-final-artifacts <UPLOAD_FINAL_ARTIFACTS>
+          Upload (or skip) the final artifacts.
+
+          [possible values: always, never]
+
       --build-default-info
           Build default info (this is the default)
 
@@ -52,10 +57,6 @@ Options:
 
       --out <OUTPUT_PATH>
           Copy the output of the built target to this path (`-` to stdout)
-
-      --output-hashes-file <OUTPUT_HASHES_FILE>
-          Experimental: Path to a file where the Buck2 daemon should write a list of produced
-          artifacts in json format
 
       --build-report <PATH>
           Print a build report
@@ -160,6 +161,9 @@ Options:
       --materialize-failed-inputs
           Materializes inputs for failed actions which ran on RE
 
+      --materialize-failed-outputs
+          Materializes outputs (if present) for failed actions which ran on RE
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -173,8 +177,7 @@ Target Configuration Options:
 
           This argument is particularly recommended on most non-trivial cqueries. In the absence of
           this argument, buck2 will use the target literals in your cquery expression as the value
-          for
-          this argument, which may not be what you want.
+          for this argument, which may not be what you want.
 
       --target-platforms <PLATFORM>
           Configuration target (one) to use to configure targets
@@ -182,6 +185,24 @@ Target Configuration Options:
   -m, --modifier <VALUE>
           A configuration modifier to configure all targets on the command line. This may be a
           constraint value target.
+
+      --overall-timeout <TIMEOUT>
+          How long to run the command for. If the timeout is exceeded, Buck2 will exit as quickly as
+          possible and not run further builds or tests.
+
+          In-flight builds and tests will be cancelled. The test orchestrator, if there is one, will
+          be allowed to shut down gracefully.
+
+          The exit code for builds will be a user error, for tests it is controlled by the test
+          orchestrator (which normally should report zero for this).
+
+          The format is a concatenation of time spans (separated by spaces). Each time span is an
+          integer number and a suffix.
+
+          Relevant supported suffixes: seconds, second, sec, s, minutes, minute, min, m, hours,
+          hour, hr, h
+
+          For example: `5m 10s`, `500s`.
 
 Buckconfig Options:
   -c, --config <SECTION.OPTION=VALUE>

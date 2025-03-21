@@ -10,15 +10,14 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
-load("@prelude//:attrs_validators.bzl", "get_attrs_validators_info")
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-# @oss-disable: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions") 
-# @oss-disable: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs") 
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load("@prelude//apple/mockingbird:mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryInfoTSet", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo", "MockingbirdTargetType")
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
@@ -31,6 +30,7 @@ load(
     "get_swiftmodule_linkable",
     "uses_explicit_modules",
 )
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load(
     "@prelude//cxx:argsfiles.bzl",
@@ -38,7 +38,7 @@ load(
     "CompileArgsfiles",
 )
 load(
-    "@prelude//cxx:compile.bzl",
+    "@prelude//cxx:compile_types.bzl",
     "AsmExtensions",
     "CxxSrcCompileCommand",  # @unused Used as a type
 )
@@ -60,6 +60,7 @@ load(
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxToolchainInfo",  # @unused Used as type
+    "LinkerType",
 )
 load(
     "@prelude//cxx:cxx_types.bzl",
@@ -71,6 +72,7 @@ load(
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers", "cxx_attr_headers_list")
 load(
     "@prelude//cxx:linker.bzl",
+    "LINKERS",
     "SharedLibraryFlagOverrides",
 )
 load(
@@ -91,6 +93,7 @@ load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentV
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
 load(":apple_library_types.bzl", "AppleLibraryInfo")
 load(":apple_modular_utility.bzl", "MODULE_CACHE_PATH")
+load(":apple_rpaths.bzl", "get_rpath_flags_for_library")
 load(":apple_target_sdk_version.bzl", "get_min_deployment_version_for_node")
 load(":apple_utility.bzl", "get_apple_cxx_headers_layout", "get_apple_stripped_attr_value_with_default_fallback", "get_module_name")
 load(
@@ -143,7 +146,7 @@ AppleLibraryForDistributionInfo = provider(
 )
 
 def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
-    # @oss-disable: apple_library_validate_for_meta_restrictions(ctx) 
+    # @oss-disable[end= ]: apple_library_validate_for_meta_restrictions(ctx)
 
     def get_apple_library_providers(deps_providers) -> list[Provider]:
         shared_type = AppleSharedLibraryMachOFileType(ctx.attrs.shared_library_macho_file_type)
@@ -151,10 +154,15 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
             shared_library_flags_overrides = SharedLibraryFlagOverrides(
                 # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
                 shared_library_name_linker_flags_format = [],
-                shared_library_flags = ["-bundle"],
+                shared_library_flags = ["-bundle"] + get_rpath_flags_for_library(ctx),
             )
         elif shared_type == AppleSharedLibraryMachOFileType("dylib"):
-            shared_library_flags_overrides = None
+            # Copying the default value and appending from cxx/linker.bzl
+            linker = LINKERS[LinkerType("darwin")]
+            shared_library_flags_overrides = SharedLibraryFlagOverrides(
+                shared_library_name_linker_flags_format = linker.shared_library_name_linker_flags_format,
+                shared_library_flags = linker.shared_library_flags + get_rpath_flags_for_library(ctx),
+            )
         else:
             fail("Unsupported `shared_library_macho_file_type` attribute value: `{}`".format(shared_type))
         constructor_params = apple_library_rule_constructor_params_and_swift_providers(
@@ -182,7 +190,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
     else:
         return get_apple_library_providers([])
 
-def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args, pic: bool) -> Artifact | None:
+def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     identifier = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -190,14 +198,13 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
     filename_base = identifier
     identifier += " (index_store)"
 
-    # We generate the index only for pic compilations
-    if not pic:
-        return None
-
     if src_compile_cmd.src.extension in AsmExtensions.values():
         return None
 
-    cmd = compile_cmd.copy()
+    # Use remap_cwd.py to set -ffile-prefix-map, so we have paths relative to the
+    # working directory.
+    cmd = cmd_args(toolchain.internal_tools.remap_cwd)
+    cmd.add(compile_cmd)
 
     # We use `-fsyntax-only` flag, so output will be not generated.
     # The output here is used for the identifier of the index unit file
@@ -386,7 +393,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         swift_compile,
     )
 
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = ctx.attrs._apple_toolchain[SwiftToolchainInfo]
     if swift_toolchain and swift_toolchain.supports_relative_resource_dir:
         resource_dir_args = []
     else:
@@ -421,7 +428,10 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         providers = [swift_pcm_uncompile_info] if swift_pcm_uncompile_info else []
         providers.append(swift_dependency_info)
         providers.append(xctest_swift_support_provider)
-        providers.extend(get_attrs_validators_info(ctx))
+
+        attr_validation_specs = get_attrs_validation_specs(ctx)
+        if attr_validation_specs:
+            providers.append(ValidationInfo(validations = attr_validation_specs))
 
         return providers
 
@@ -539,12 +549,12 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
 
 def _get_extra_linker_outputs(ctx: AnalysisContext) -> ExtraLinkerOutputs:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable: return get_extra_linker_outputs(ctx) 
+    # @oss-disable[end= ]: return get_extra_linker_outputs(ctx)
     return ExtraLinkerOutputs() # @oss-enable
 
 def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact]) -> list[ArgLike]:
     _ = ctx  # buildifier: disable=unused-variable
-    # @oss-disable: return get_extra_linker_output_flags(ctx, outputs) 
+    # @oss-disable[end= ]: return get_extra_linker_output_flags(ctx, outputs)
     return [] # @oss-enable
 
 def _filter_swift_srcs(ctx: AnalysisContext, additional_srcs: list = []) -> (list[CxxSrcWithFlags], list[CxxSrcWithFlags]):

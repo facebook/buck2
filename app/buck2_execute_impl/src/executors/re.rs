@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -33,11 +34,13 @@ use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::result::CommandCancellationReason;
 use buck2_execute::execute::result::CommandExecutionErrorType;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
+use buck2_execute::re::client::CancellationReason;
 use buck2_execute::re::client::ExecuteResponseOrCancelled;
 use buck2_execute::re::error::get_re_error_tag;
 use buck2_execute::re::error::RemoteExecutionError;
@@ -78,6 +81,7 @@ pub struct ReExecutor {
     pub re_resource_units: Option<i64>,
     pub paranoid: Option<ParanoidDownloader>,
     pub materialize_failed_inputs: bool,
+    pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
 }
 
@@ -153,6 +157,7 @@ impl ReExecutor {
         digest_config: DigestConfig,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
+        meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponse)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
@@ -174,13 +179,18 @@ impl ReExecutor {
                 self.re_max_queue_time_ms.map(Duration::from_millis),
                 self.re_resource_units,
                 &self.knobs,
+                meta_internal_extra_params,
             )
             .await;
 
         let response = match execute_response {
             Ok(ExecuteResponseOrCancelled::Response(result)) => result,
-            Ok(ExecuteResponseOrCancelled::Cancelled) => {
-                return ControlFlow::Break(manager.cancel());
+            Ok(ExecuteResponseOrCancelled::Cancelled(cancelled)) => {
+                let reason = cancelled.reason.map(|reason| match reason {
+                    CancellationReason::NotSpecified => CommandCancellationReason::NotSpecified,
+                    CancellationReason::ReQueueTimeout => CommandCancellationReason::ReQueueTimeout,
+                });
+                return ControlFlow::Break(manager.cancel(reason));
             }
             Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
         };
@@ -258,7 +268,7 @@ impl ReExecutor {
                 let res = soft_error!(
                     "re_timeout_exceeded",
                     buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Command {} exceeded its timeout (ran for {}s, timeout was {}s)",
                         &identity.action_key,
                         execution_time.as_secs(),
@@ -308,6 +318,7 @@ impl PreparedCommandExecutor for ReExecutor {
             details: details.clone(),
             queue_time: Duration::ZERO,
             materialized_inputs_for_failed: None,
+            materialized_outputs_for_failed_actions: None,
         });
 
         if command.request.executor_preference().requires_local() {
@@ -341,6 +352,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 self.dependencies
                     .iter()
                     .chain(remote_execution_dependencies.iter()),
+                &command.request.meta_internal_extra_params(),
             )
             .await?;
 
@@ -372,6 +384,7 @@ impl PreparedCommandExecutor for ReExecutor {
             exit_code,
             &self.artifact_fs,
             self.materialize_failed_inputs,
+            self.materialize_failed_outputs,
             additional_message,
         )
         .boxed()
@@ -394,7 +407,7 @@ impl PreparedCommandExecutor for ReExecutor {
     inner.code,
     inner.message
 )]
-#[buck2(tier0, tag = Some(get_re_error_tag(inner.code)))]
+#[buck2(tier0, tag = get_re_error_tag(&inner.code))]
 struct ReErrorWrapper {
     action_digest: ActionDigest,
     inner: remote_execution::TStatus,

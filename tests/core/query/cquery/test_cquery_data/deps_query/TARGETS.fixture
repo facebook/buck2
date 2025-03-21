@@ -1,0 +1,6 @@
+load(":defs.bzl", "rule_with_query")
+
+rule_with_query(
+    name = "declared_deps",
+    query = "$declared_deps",
+)

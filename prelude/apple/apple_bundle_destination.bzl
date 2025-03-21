@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load(":apple_bundle_utility.bzl", "get_apple_versioned_macos_bundle_value_primitive")
 
 # Abstraction of a place in a resulting bundle where file or directory will be copied. Actual value
 # of path relative to bundle root depends on a platform. This class is an implementation detail and
@@ -107,8 +108,8 @@ def _get_apple_bundle_destinations_for_sdk_name(name: str) -> AppleBundleDestina
         return _IOSBundleDestinationPaths
 
 def _get_apple_framework_bundle_destinations_for_sdk_name(name: str, versioned_macos_bundle: bool) -> AppleBundleDestinationPaths:
-    if name == "macosx" or name == "maccatalyst":
-        if versioned_macos_bundle:
+    if name.startswith("mac"):
+        if get_apple_versioned_macos_bundle_value_primitive(name, versioned_macos_bundle):
             return _MacOSVersionedFrameworkBundleDestinationPaths
         else:
             return _MacOSFrameworkBundleDestinationPaths

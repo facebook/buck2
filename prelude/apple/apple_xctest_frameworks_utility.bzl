@@ -11,24 +11,31 @@ load("@prelude//apple:apple_bundle_part.bzl", "AppleBundlePart")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 def get_xctest_frameworks_bundle_parts(ctx: AnalysisContext, swift_support_needed: bool) -> list[AppleBundlePart]:
-    swift_support = []
-    if swift_support_needed:
-        swift_support.append(_get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"))
-
-        # T201426509: Xcode 16 introduces the Swift Testing framework
-        # that is a load dependency of libXCTestSwiftSupport.dylib
-        if int(ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_version[:2]) >= 16:
-            swift_support.append(_get_object_from_platform_path(ctx, "Developer/Library/Frameworks/Testing.framework"))
-
-    return [
+    xcode_version = int(ctx.attrs._apple_toolchain[AppleToolchainInfo].xcode_version)
+    paths = [
         _get_object_from_platform_path(ctx, "Developer/Library/Frameworks/XCTest.framework"),
         _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework"),
         _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTestCore.framework"),
         _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCTestSupport.framework"),
-        _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCUIAutomation.framework"),
         _get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCUnit.framework"),
         _get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestBundleInject.dylib"),
-    ] + swift_support
+    ]
+
+    # From Xcode 16.3 XCUIAutomation is in Frameworks, not PrivateFrameworks
+    if xcode_version >= 1630:
+        paths.append(_get_object_from_platform_path(ctx, "Developer/Library/Frameworks/XCUIAutomation.framework"))
+    else:
+        paths.append(_get_object_from_platform_path(ctx, "Developer/Library/PrivateFrameworks/XCUIAutomation.framework"))
+
+    if swift_support_needed:
+        paths.append(_get_object_from_platform_path(ctx, "Developer/usr/lib/libXCTestSwiftSupport.dylib"))
+
+        # T201426509: Xcode 16 introduces the Swift Testing framework
+        # that is a load dependency of libXCTestSwiftSupport.dylib
+        if xcode_version >= 1600:
+            paths.append(_get_object_from_platform_path(ctx, "Developer/Library/Frameworks/Testing.framework"))
+
+    return paths
 
 def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]

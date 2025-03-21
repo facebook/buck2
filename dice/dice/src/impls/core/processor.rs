@@ -79,7 +79,6 @@ impl StateProcessor {
                 deps,
                 invalidation_paths,
                 resp,
-                ..
             } => {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(
@@ -99,7 +98,6 @@ impl StateProcessor {
                 previous,
                 invalidation_paths,
                 resp,
-                ..
             } => {
                 // ignore error if the requester dropped it.
                 drop(resp.send(self.state.update_computed(

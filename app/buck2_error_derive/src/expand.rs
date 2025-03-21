@@ -85,14 +85,14 @@ fn impl_struct(input: Struct) -> TokenStream {
             error.context(error_msg)
         }
     } else {
-        let source_location_extra = syn::LitStr::new(&ty.to_string(), Span::call_site());
+        let source_location_type_name = syn::LitStr::new(&ty.to_string(), Span::call_site());
 
         quote! {
             #field_pats
             #tags
 
-            let source_location = buck2_error::source_location::from_file(core::file!(), Some(#source_location_extra));
-            let root_error = buck2_error::Error::new(format!("{}", #arg_token), source_location, None);
+            let source_location = buck2_error::source_location::SourceLocation::new(core::file!()).with_type_name(#source_location_type_name);
+            let root_error = buck2_error::Error::new(format!("{}", #arg_token), tags[0], source_location, None);
             root_error.tag(tags)
         }
     };
@@ -252,13 +252,13 @@ fn impl_enum(mut input: Enum) -> TokenStream {
                 error.context(err_msg)
             }
         } else {
-            let source_location_extra =
+            let source_location_type_name =
                 syn::LitStr::new(&format!("{}::{}", &ty, &variant.ident), Span::call_site());
             quote! {
                 #tags
 
-                let source_location = buck2_error::source_location::from_file(core::file!(), Some(#source_location_extra));
-                let root_error = buck2_error::Error::new(err_msg, source_location, None);
+                let source_location = buck2_error::source_location::SourceLocation::new(core::file!()).with_type_name(#source_location_type_name);
+                let root_error = buck2_error::Error::new(err_msg, tags[0], source_location, None);
                 root_error.tag(tags)
             }
         };
@@ -297,21 +297,14 @@ fn get_tags(attrs: &Attrs) -> TokenStream {
         .iter()
         .map(|tag| match tag {
             OptionStyle::Explicit(tag) => syn::parse_quote! {
-                core::option::Option::Some(buck2_error::ErrorTag::#tag)
+                buck2_error::ErrorTag::#tag
             },
             OptionStyle::ByExpr(e) => e.clone(),
         })
         .collect();
 
     quote! {
-        let maybe_tags = [#(#tags,)*];
-        let mut tags: Vec<buck2_error::ErrorTag> = vec![];
-
-        for tag in maybe_tags {
-            if let Some(tag) = tag {
-                tags.push(tag);
-            }
-        }
+        let tags = [#(#tags,)*];
     }
 }
 

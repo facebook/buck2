@@ -7,7 +7,13 @@
 
 # pyre-strict
 
-from buck2.tests.core.common.io.file_watcher import FileWatcherProvider
+from buck2.tests.core.common.io.file_watcher import (
+    FileWatcherEvent,
+    FileWatcherEventType,
+    FileWatcherKind,
+    FileWatcherProvider,
+    get_file_watcher_events,
+)
 from buck2.tests.core.common.io.file_watcher_dir_tests import (
     run_create_directory_test,
     run_remove_directory_test,
@@ -22,12 +28,16 @@ from buck2.tests.core.common.io.file_watcher_file_tests import (
 )
 from buck2.tests.core.common.io.file_watcher_scm_tests import (
     run_checkout_mergebase_changes_test,
-    run_checkout_wtih_mergebase_test,
-    run_rebase_wtih_mergebase_test,
-    run_restack_wtih_mergebase_test,
+    run_checkout_with_mergebase_test,
+    run_rebase_with_mergebase_test,
+    run_restack_with_mergebase_test,
+    setup_file_watcher_scm_test,
 )
-from buck2.tests.core.common.io.file_watcher_tests import FileSystemType
-
+from buck2.tests.core.common.io.file_watcher_tests import (
+    FileSystemType,
+    setup_file_watcher_test,
+    verify_results,
+)
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -162,41 +172,66 @@ async def test_watchman_checkout_mergebase_changes_eden(buck: Buck) -> None:
 
 @buck_test(setup_eden=False)
 async def test_watchman_checkout_with_mergebase_no_eden(buck: Buck) -> None:
-    await run_checkout_wtih_mergebase_test(
+    await run_checkout_with_mergebase_test(
         buck, FileSystemType.NATIVE, FileWatcherProvider.WATCHMAN
     )
 
 
 @buck_test(setup_eden=True)
 async def test_watchman_checkout_with_mergebase_eden(buck: Buck) -> None:
-    await run_checkout_wtih_mergebase_test(
+    await run_checkout_with_mergebase_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.WATCHMAN
     )
 
 
 @buck_test(setup_eden=False)
 async def test_watchman_rebase_with_mergebase_no_eden(buck: Buck) -> None:
-    await run_rebase_wtih_mergebase_test(
+    await run_rebase_with_mergebase_test(
         buck, FileSystemType.NATIVE, FileWatcherProvider.WATCHMAN
     )
 
 
 @buck_test(setup_eden=True)
 async def test_watchman_rebase_with_mergebase_eden(buck: Buck) -> None:
-    await run_rebase_wtih_mergebase_test(
+    await run_rebase_with_mergebase_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.WATCHMAN
     )
 
 
 @buck_test(setup_eden=False)
 async def test_watchman_restack_with_mergebase_no_eden(buck: Buck) -> None:
-    await run_restack_wtih_mergebase_test(
+    await run_restack_with_mergebase_test(
         buck, FileSystemType.NATIVE, FileWatcherProvider.WATCHMAN
     )
 
 
 @buck_test(setup_eden=True)
 async def test_watchman_restack_with_mergebase_eden(buck: Buck) -> None:
-    await run_restack_wtih_mergebase_test(
+    await run_restack_with_mergebase_test(
         buck, FileSystemType.EDEN_FS, FileWatcherProvider.WATCHMAN
     )
+
+
+@buck_test(
+    setup_eden=True,
+    extra_buck_config={
+        "buck2": {"disable_watchman_empty_on_fresh_instance": "true"},
+    },
+)
+async def test_watchman_files_report_on_fresh_instance(buck: Buck) -> None:
+    await setup_file_watcher_test(buck)
+    await setup_file_watcher_scm_test(buck)
+    await buck.kill()
+
+    required = [
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/ghi"
+        ),
+        FileWatcherEvent(
+            FileWatcherEventType.CREATE, FileWatcherKind.FILE, "root//files/jkl"
+        ),
+    ]
+
+    is_fresh_instance, results = await get_file_watcher_events(buck)
+    assert is_fresh_instance
+    verify_results(results, required)

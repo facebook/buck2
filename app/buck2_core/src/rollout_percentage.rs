@@ -116,7 +116,7 @@ impl FromStr for Inner {
         }
 
         Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "RolloutPercentage must be either a float, a bool, a `daemon:<float>` or a `hostname:<float>` (got: {})",
             &val,
         ))
@@ -128,7 +128,7 @@ fn rate(val: f64) -> buck2_error::Result<f64> {
         Ok(val)
     } else {
         Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "RolloutPercentage floats must be within [0,1] (got: {})",
             val
         ))

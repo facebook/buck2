@@ -262,7 +262,11 @@ impl NodeKey for ActionQueryNodeRef {}
 impl ActionQueryNodeRef {
     pub fn require_action(&self) -> buck2_error::Result<&ActionKey> {
         match self {
-            Self::Analysis(a) => Err(buck2_error::buck2_error!([], "Not an action: {}", a)),
+            Self::Analysis(a) => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Not an action: {}",
+                a
+            )),
             Self::Action(a) => Ok(a),
         }
     }
@@ -389,6 +393,11 @@ impl QueryTarget for ActionQueryNode {
     ) -> Result<(), E> {
         // TODO(cjhopman): In addition to implementing this, we should be able to return an buck2_error::Error here rather than panicking.
         unimplemented!("inputs not yet implemented in aquery")
+    }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R {
+        // aquery doesn't have special attrs, so this is the same as map_attr
+        self.map_attr(key, func)
     }
 }
 

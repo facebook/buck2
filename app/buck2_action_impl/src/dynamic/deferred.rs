@@ -44,6 +44,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_futures::cancellation::CancellationObserver;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::CancellationContext;
@@ -132,7 +133,7 @@ pub fn invoke_dynamic_output_lambda<'v>(
         DynamicLambdaArgs::OldPositional { .. } => {
             if !return_value.is_none() {
                 return Err(buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "dynamic_output lambda must return `None`, got: `{0}`",
                     return_value.to_string_for_type_error()
                 ));
@@ -270,8 +271,9 @@ async fn execute_lambda(
 
                 declared_actions = Some(analysis_registry.num_declared_actions());
                 declared_artifacts = Some(analysis_registry.num_declared_artifacts());
-                let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
-                recorded_values
+                let registry_finalizer = analysis_registry.finalize(&env)?;
+                let frozen_env = env.freeze().map_err(from_freeze_error)?;
+                registry_finalizer(&frozen_env)?
             };
 
             (
@@ -546,7 +548,10 @@ fn new_attr_value<'v>(
                     )?,
                 );
                 if prev.is_some() {
-                    return Err(buck2_error!([], "Duplicate key in dict"));
+                    return Err(buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Duplicate key in dict"
+                    ));
                 }
             }
             Ok(env.heap().alloc(AllocDict(r)))

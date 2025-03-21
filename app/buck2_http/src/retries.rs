@@ -13,6 +13,7 @@ use futures::future::Future;
 use http::StatusCode;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 pub enum HttpError {
     #[error(transparent)]
     Client(crate::HttpError),
@@ -118,6 +119,7 @@ mod tests {
     }
 
     #[derive(Debug, buck2_error::Error)]
+    #[buck2(tag = Http)]
     enum HttpTestError {
         #[error("Error in test")]
         Client(#[source] HttpError),

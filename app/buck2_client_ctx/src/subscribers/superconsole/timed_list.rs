@@ -243,7 +243,7 @@ mod tests {
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::action_stats::ActionStats;
     use buck2_event_observer::verbosity::Verbosity;
     use buck2_events::span::SpanId;
@@ -351,6 +351,7 @@ mod tests {
             cached_actions: 1,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         };
 
         let timed_list_state = SuperConsoleConfig {
@@ -369,7 +370,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let expected = [
 
             "----------------------------------------",
@@ -437,6 +438,7 @@ mod tests {
             cached_actions: 1,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         };
 
         let timed_list_state = SuperConsoleConfig {
@@ -455,7 +457,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let expected = [
             "----------------------------------------",
             "e1 -- speak of the devil            1.0s",
@@ -510,7 +512,7 @@ mod tests {
                     },
                     DrawMode::Normal,
                 )
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
             let expected = [
                 "------------------------------------------------------------",
@@ -531,7 +533,7 @@ mod tests {
                     },
                     DrawMode::Normal,
                 )
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
             let expected = [
                 "------------------------------------------------------------",
@@ -583,6 +585,7 @@ mod tests {
             cached_actions: 1,
             fallback_actions: 0,
             remote_dep_file_cached_actions: 0,
+            excess_cache_misses: 0,
         };
 
         let timed_list_state = SuperConsoleConfig {
@@ -607,7 +610,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
@@ -652,7 +655,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",

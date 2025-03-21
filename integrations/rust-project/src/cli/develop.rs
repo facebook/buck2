@@ -19,9 +19,9 @@ use tracing::info;
 
 use super::Input;
 use crate::buck;
-use crate::buck::relative_to;
 use crate::buck::select_mode;
 use crate::buck::to_json_project;
+use crate::buck::Buck;
 use crate::json_project::JsonProject;
 use crate::json_project::Sysroot;
 use crate::path::safe_canonicalize;
@@ -34,11 +34,11 @@ use crate::Command;
 #[derive(Debug)]
 pub(crate) struct Develop {
     pub(crate) sysroot: SysrootConfig,
-    pub(crate) relative_paths: bool,
     pub(crate) buck: buck::Buck,
     pub(crate) check_cycles: bool,
     pub(crate) invoked_by_ra: bool,
     pub(crate) buck2_command: Option<String>,
+    pub(crate) include_all_buildfiles: bool,
 }
 
 pub(crate) struct OutputCfg {
@@ -62,10 +62,10 @@ impl Develop {
             prefer_rustup_managed_toolchain,
             sysroot,
             pretty,
-            relative_paths,
             mode,
             check_cycles,
             buck2_command,
+            include_all_buildfiles,
             ..
         } = command
         {
@@ -88,11 +88,11 @@ impl Develop {
 
             let develop = Develop {
                 sysroot,
-                relative_paths,
                 buck,
                 check_cycles,
                 invoked_by_ra: false,
                 buck2_command,
+                include_all_buildfiles,
             };
             let out = OutputCfg { out, pretty };
 
@@ -133,11 +133,11 @@ impl Develop {
 
             let develop = Develop {
                 sysroot,
-                relative_paths: false,
                 buck,
                 check_cycles: false,
                 invoked_by_ra: true,
                 buck2_command,
+                include_all_buildfiles: false,
             };
             let out = OutputCfg { out, pretty: false };
 
@@ -234,53 +234,39 @@ impl Develop {
     pub(crate) fn run_inner(&self, targets: Vec<Target>) -> Result<JsonProject, anyhow::Error> {
         let Develop {
             sysroot,
-            relative_paths,
             buck,
             check_cycles,
             buck2_command,
+            include_all_buildfiles,
             ..
         } = self;
 
-        let project_root = buck.resolve_project_root()?;
-
-        info!("building generated code");
-        let exclude_workspaces =
-            std::env::var("RUST_PROJECT_EXCLUDE_WORKSPACES").is_ok_and(|it| it != "0");
-        let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
-
-        info!("resolving aliased libraries");
-        let aliased_libraries =
-            buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
-
         info!("fetching sysroot");
         let sysroot = match &sysroot {
-            SysrootConfig::Sysroot(path) => {
-                let mut sysroot_path = safe_canonicalize(&expand_tilde(path)?);
-                if *relative_paths {
-                    sysroot_path = relative_to(&sysroot_path, &project_root);
-                }
-
-                Sysroot {
-                    sysroot: sysroot_path,
-                    sysroot_src: None,
-                }
-            }
+            SysrootConfig::Sysroot(path) => Sysroot {
+                sysroot: safe_canonicalize(&expand_tilde(path)?),
+                sysroot_src: None,
+                sysroot_project: None,
+            },
             SysrootConfig::BuckConfig => {
-                resolve_buckconfig_sysroot(&project_root, *relative_paths)?
+                let project_root = buck.resolve_project_root()?;
+                resolve_buckconfig_sysroot(&buck, &project_root)?
             }
             SysrootConfig::Rustup => resolve_rustup_sysroot()?,
         };
-        info!("converting buck info to rust-project.json");
-        let rust_project = to_json_project(
+
+        let exclude_workspaces =
+            std::env::var("RUST_PROJECT_EXCLUDE_WORKSPACES").is_ok_and(|it| it != "0");
+
+        develop_with_sysroot(
+            buck,
+            targets,
             sysroot,
-            expanded_and_resolved,
-            aliased_libraries,
-            *relative_paths,
+            exclude_workspaces,
             *check_cycles,
             buck2_command.clone(),
-        )?;
-
-        Ok(rust_project)
+            *include_all_buildfiles
+        )
     }
 
     /// For every Rust file, return the relevant buck targets that should be used to configure rust-analyzer.
@@ -310,4 +296,31 @@ fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
     } else {
         Ok(path.to_path_buf())
     }
+}
+
+pub(crate) fn develop_with_sysroot(
+    buck: &Buck,
+    targets: Vec<Target>,
+    sysroot: Sysroot,
+    exclude_workspaces: bool,
+    check_cycles: bool,
+    include_all_buildfiles: bool,
+) -> Result<JsonProject, anyhow::Error> {
+    info!("building generated code");
+    let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
+
+    info!("resolving aliased libraries");
+    let aliased_libraries =
+        buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets)?;
+
+    info!("converting buck info to rust-project.json");
+    let rust_project = to_json_project(
+        sysroot,
+        expanded_and_resolved,
+        aliased_libraries,
+        check_cycles,
+        include_all_buildfiles,
+    )?;
+
+    Ok(rust_project)
 }

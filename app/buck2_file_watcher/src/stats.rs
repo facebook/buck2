@@ -14,7 +14,7 @@ use allocative::Allocative;
 ///
 /// 100 entries covers everything required for 96% of updates, which seems sufficient.
 /// Number needs to be < 850 or it is often bigger than a scribe message.
-const MAX_FILE_CHANGE_RECORDS: usize = 100;
+pub(crate) const MAX_FILE_CHANGE_RECORDS: usize = 100;
 
 #[derive(Allocative)]
 pub(crate) struct FileWatcherStats {

@@ -46,3 +46,11 @@ def source_listing_impl(exclude: list[str]):
         deps = ["//" + package + s + ":source_listing" for s in __internal__.sub_packages()],
         visibility = ["PUBLIC"],
     )
+
+def empty_source_listing_impl():
+    _source_listing(
+        name = "source_listing",
+        srcs = [],
+        deps = [],
+        visibility = ["PUBLIC"],
+    )

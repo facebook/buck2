@@ -43,6 +43,10 @@ pub fn host_cpu_load_info() -> buck2_error::Result<HostCpuLoadInfo> {
         };
 
         let res = libc::host_statistics64(
+            // TODO libc::mach_host_self is deprecated and is not yet part of the
+            // suggested `mach2` crate (https://github.com/JohnTitor/mach2/issues/34)
+            // Someone needs to add it upstream or implement a different route!
+            #[allow(deprecated)]
             libc::mach_host_self(),
             libc::HOST_CPU_LOAD_INFO,
             &mut host_info as *mut _ as *mut libc::integer_t,
@@ -50,7 +54,7 @@ pub fn host_cpu_load_info() -> buck2_error::Result<HostCpuLoadInfo> {
         );
         if res != libc::KERN_SUCCESS {
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "host_statistics64 failed: {}",
                 mach_error_string(res)
             ));

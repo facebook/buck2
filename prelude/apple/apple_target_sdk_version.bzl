@@ -24,7 +24,7 @@ _MACCATALYST_IOS_TO_MACOS_VERSION_MAP = {
     "14.6": "11.4",
     "14.7": "11.5",
     "15.0": "12.0",  # Monterey
-    "15.1": "12.0",  # Xcode reported 10.15
+    "15.1": "12.1",  # Xcode reported 10.15
     "15.2": "12.1",
     "15.3": "12.2",
     "15.4": "12.3",

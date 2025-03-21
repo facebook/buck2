@@ -1,0 +1,86 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _not_selector_attr(ctx):
+    node = ctx.lazy.unconfigured_target_node("root//:not_selector").resolve()
+    flags = node.get_attr("flags")
+    asserts.equals(flags, ["--foo", "--bar"])
+    for flag in flags:
+        asserts.true(isinstance(flag, str))
+
+not_selector_attr = bxl_main(
+    impl = _not_selector_attr,
+    cli_args = {},
+)
+
+def _selector_dict_attr(ctx):
+    node = ctx.lazy.unconfigured_target_node("root//:select_dict").resolve()
+    flags = node.get_attr("flags")
+
+    asserts.equals(str(flags), 'select({"root//constraints:macos": ["--foo-macos", "--bar-macos"], "root//constraints:x86": ["--foo-x86", "--bar-x86"], "DEFAULT": ["--foo", "--bar"]})')
+
+    asserts.true(isinstance(flags, bxl.SelectDict))
+
+    # it will return false, since it is Select not bxl.SelectDict. We will support `Select = bxl.SelectDict | bxl.SelectConcat` later
+    asserts.false(isinstance(select({"DEFAULT": ["--foo"], "root//constraints:macos": ["--foo-macos"], "root//constraints:x86": ["--foo-x86"]}), bxl.SelectDict))
+
+    # test for iter on iterms
+    for key, value in flags.select_items():
+        asserts.equals(flags.get_select_entry(key), value)
+
+    for key in flags.select_keys():
+        v = flags.get_select_entry(key)
+        asserts.true(v != None)
+
+        v = flags.get_select_entry(str(key))
+        asserts.true(v != None)
+
+    flag_items = flags.select_items()
+    asserts.equals(len(flag_items), 3)
+    asserts.true(isinstance(flag_items[0][0], ProvidersLabel))
+    asserts.equals(str(flag_items[0][0]), "root//constraints:macos")
+    asserts.equals(flag_items[0][1], ["--foo-macos", "--bar-macos"])
+
+    asserts.true(isinstance(flag_items[1][0], ProvidersLabel))
+    asserts.equals(str(flag_items[1][0]), "root//constraints:x86")
+    asserts.equals(flag_items[1][1], ["--foo-x86", "--bar-x86"])
+
+    asserts.true(isinstance(flag_items[2][0], str))
+    asserts.equals(flag_items[2][0], "DEFAULT")
+    asserts.equals(flag_items[2][1], ["--foo", "--bar"])
+
+selector_dict_attr = bxl_main(
+    impl = _selector_dict_attr,
+    cli_args = {},
+)
+
+def _selector_concat_attr(ctx):
+    node = ctx.lazy.unconfigured_target_node("root//:select_concat").resolve()
+    flags = node.get_attr("flags")
+
+    asserts.true(isinstance(flags, bxl.SelectConcat))
+    asserts.equals(str(flags), '["--flag", "--baz"]+select({"root//constraints:macos": ["--foo-macos", "--bar-macos"], "root//constraints:x86": ["--foo-x86", "--bar-x86"], "DEFAULT": ["--foo", "--bar"]})')
+
+    # test for iterator
+    for v in flags.select_iter():
+        if isinstance(v, bxl.SelectDict):
+            asserts.equals(str(v), 'select({"root//constraints:macos": ["--foo-macos", "--bar-macos"], "root//constraints:x86": ["--foo-x86", "--bar-x86"], "DEFAULT": ["--foo", "--bar"]})')
+            for key, val in v.select_items():
+                print(key)
+                print(val)
+        else:
+            asserts.true(isinstance(v, list))
+            asserts.equals(v, ["--flag", "--baz"])
+
+    asserts.equals(len(flags), 2)
+    asserts.equals(flags.select_iter()[0], ["--flag", "--baz"])
+    asserts.true(isinstance(flags.select_iter()[1], bxl.SelectDict))
+
+selector_concat_attr = bxl_main(
+    impl = _selector_concat_attr,
+    cli_args = {},
+)

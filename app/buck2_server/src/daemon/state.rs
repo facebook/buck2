@@ -33,6 +33,7 @@ use buck2_common::systemd::SystemdCreationDecision;
 use buck2_common::systemd::SystemdRunner;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
+use buck2_core::configuration::data::init_new_platform_hash_rollout_threshold;
 use buck2_core::facebook_only;
 use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
@@ -42,6 +43,7 @@ use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::tag_result;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
@@ -70,11 +72,13 @@ use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
+use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
+use remote::ScribeConfig;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
@@ -98,7 +102,7 @@ pub struct DaemonState {
     pub paths: InvocationPaths,
 
     /// This holds the main data shared across different commands.
-    pub(crate) data: buck2_error::Result<Arc<DaemonStateData>>,
+    pub(crate) data: Arc<DaemonStateData>,
 
     #[allocative(skip)]
     rt: Handle,
@@ -188,6 +192,9 @@ pub struct DaemonStateData {
 
     /// Tracks memory usage. Used to make scheduling decisions.
     pub memory_tracker: Option<Arc<MemoryTracker>>,
+
+    /// Tracks data about previous command (e.g. configs)
+    pub previous_command_data: Arc<LockedPreviousCommandData>,
 }
 
 impl DaemonStateData {
@@ -220,26 +227,26 @@ impl DaemonState {
         rt: Handle,
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
-    ) -> Self {
+    ) -> Result<Self, buck2_error::Error> {
         let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), materializations)
             .await
-            .buck_error_context("Error initializing DaemonStateData");
+            .map_err(|e| {
+                e.context("Error initializing DaemonStateData")
+                    .tag([ErrorTag::DaemonStateInitFailed])
+            })?;
 
-        if let Ok(data) = &data {
-            crate::daemon::panic::initialize(data.dupe());
-        }
+        crate::daemon::panic::initialize(data.dupe());
 
         tracing::info!("Daemon state is ready.");
 
-        let data = data.map_err(buck2_error::Error::from);
-
-        DaemonState {
+        let state = DaemonState {
             fb,
             paths,
             data,
             rt,
             working_directory,
-        }
+        };
+        Ok(state)
     }
 
     // Creates the initial DaemonStateData.
@@ -257,7 +264,10 @@ impl DaemonState {
             applicability = testing
         )? {
             // TODO(minglunli): Errors here don't actually make it to invocation records which should be fixed
-            return Err(buck2_error::buck2_error!([], "Injected init daemon error"));
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Injected init daemon error"
+            ));
         }
 
         let daemon_state_data_rt = rt.clone();
@@ -300,10 +310,13 @@ impl DaemonState {
             })?;
             let scribe_sink = Self::init_scribe_sink(
                 fb,
-                buffer_size,
-                retry_backoff,
-                retry_attempts,
-                message_batch_size,
+                ScribeConfig {
+                    buffer_size,
+                    retry_backoff,
+                    retry_attempts,
+                    message_batch_size,
+                    thrift_timeout: Duration::from_secs(1),
+                },
             )
             .buck_error_context("failed to init scribe sink")?;
 
@@ -588,6 +601,12 @@ impl DaemonState {
                 })?
                 .unwrap_or(false);
 
+            let new_platform_hash_rollout = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "new_platform_hash_rollout",
+            })?;
+            init_new_platform_hash_rollout_threshold(new_platform_hash_rollout)?;
+
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
                 format!("which-dice:{}", dice.which_dice().variant_name()),
@@ -640,6 +659,7 @@ impl DaemonState {
                 tags,
                 system_warning_config,
                 memory_tracker,
+                previous_command_data: LockedPreviousCommandData::new(),
             }))
         })
         .await?
@@ -717,20 +737,11 @@ impl DaemonState {
 
     fn init_scribe_sink(
         fb: FacebookInit,
-        buffer_size: usize,
-        retry_backoff: Duration,
-        retry_attempts: usize,
-        message_batch_size: Option<usize>,
+        config: ScribeConfig,
     ) -> buck2_error::Result<Option<Arc<dyn EventSinkWithStats>>> {
         facebook_only();
-        remote::new_remote_event_sink_if_enabled(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )
-        .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
+        remote::new_remote_event_sink_if_enabled(fb, config)
+            .map(|maybe_scribe| maybe_scribe.map(|scribe| Arc::new(scribe) as _))
     }
 
     /// Prepares an event stream for a request by bootstrapping an event source and EventDispatcher pair. The given
@@ -742,7 +753,7 @@ impl DaemonState {
         // facebook only: logging events to Scribe.
         facebook_only();
         let (events, sink) = buck2_events::create_source_sink_pair();
-        let data = self.data()?;
+        let data = self.data();
         let dispatcher = if let Some(scribe_sink) = data.scribe_sink.dupe() {
             EventDispatcher::new(trace_id, TeeSink::new(scribe_sink.to_event_sync(), sink))
         } else {
@@ -762,7 +773,7 @@ impl DaemonState {
         let data = self.data();
 
         dispatcher.instant_event(buck2_data::RestartConfiguration {
-            enable_restarter: data.as_ref().map_or(false, |d| d.enable_restarter),
+            enable_restarter: data.enable_restarter,
         });
 
         tag_result!(
@@ -779,7 +790,6 @@ impl DaemonState {
         self.validate_buck_out_mount()
             .buck_error_context("Error validating buck-out mount")?;
 
-        let data = data?;
         dispatcher.instant_event(buck2_data::TagEvent {
             tags: data.tags.clone(),
         });
@@ -801,7 +811,7 @@ impl DaemonState {
         })
     }
 
-    pub fn data(&self) -> buck2_error::Result<Arc<DaemonStateData>> {
+    pub fn data(&self) -> Arc<DaemonStateData> {
         self.data.dupe()
     }
 
@@ -810,8 +820,8 @@ impl DaemonState {
             let res = working_directory.is_stale().and_then(|stale| {
                 if stale {
                     Err(buck2_error!(
-                        [],
-                        "Buck appears to be running in a stale working directory \
+                        buck2_error::ErrorTag::Environment,
+                        "Buck appears to be running in a stale working directory. \
                          This will likely lead to failed or slow builds. \
                          To remediate, restart Buck2."
                     ))
@@ -870,12 +880,13 @@ impl DaemonState {
             soft_error!(
                 "eden_buck_out",
                 buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Environment,
                     "Buck is running in an Eden repository, but `buck-out` is not redirected. \
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
                 )
-                .into()
+                .into(),
+                quiet:false
             )?;
         }
 
@@ -900,7 +911,7 @@ fn convert_algorithm_kind(kind: DigestAlgorithmFamily) -> buck2_error::Result<Di
                 // We probably should just add it as a separate buckconfig, there is
                 // zero reason not to.
                 return Err(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "{} is not supported in the open source build",
                     kind
                 ));

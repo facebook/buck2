@@ -103,7 +103,7 @@ build_start_boot(
     ]).
 
 make_boot_script(RelName, RelFileContent, Options) ->
-    ok = file:write_file(
+    ok = write_file(
         io_lib:format("~s.rel", [RelName]),
         io_lib:format("~p.", [RelFileContent])
     ),
@@ -175,7 +175,7 @@ get_otp_app_deps([App | Rest], OTPAppMapping, Acc) ->
 
 app_file_path(Path, Name) ->
     AppFile = unicode:characters_to_list(io_lib:format("~s.app", [Name])),
-    filename:join([Path, AppFile]).
+    filename:join(Path, AppFile).
 
 parse_app_path(Path) ->
     case string:prefix(Path, [code:lib_dir(), "/"]) of
@@ -204,3 +204,25 @@ parse_app_file(File) ->
         version => Version,
         deps => Dependencies
     }.
+
+-spec write_file(file:name_all() | iodata(), iolist()) -> string().
+write_file(File, Data) ->
+    case
+        % We write in raw mode because this is a standalone escript, so we don't
+        % need advanced file server features, and we gain performance by avoiding
+        % calling through the file server
+        file:open(File, [write, binary, raw])
+    of
+        {ok, Handle} ->
+            try
+                % We use file:pwrite instead of file:write_file to work around
+                % the latter needlessly flattening iolists (as returned by
+                % json:encode/1, etc.) to a binary
+                file:pwrite(Handle, 0, Data)
+            after
+                file:close(Handle)
+            end,
+            ok;
+        {error, _} = Error ->
+            Error
+    end.

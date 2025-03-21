@@ -105,6 +105,48 @@ def _error_handler_produced_multiple_categories(ctx):
 
     return [DefaultInfo(default_outputs = [out])]
 
+def _fail_error_handler_with_output(ctx):
+    out = ctx.actions.declare_output("output")
+
+    def error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+        categories = []
+        file_str = ctx.output_artifacts[out].read_string()
+
+        if "Compilation Error" in file_str:
+            categories.append(ctx.new_sub_error(
+                category = "compilation",
+            ))
+
+        file_json = ctx.output_artifacts[out].read_json()
+
+        if "ErrorCode123" in file_json["message"]:
+            categories.append(ctx.new_sub_error(
+                category = "ErrorCode123",
+                message = "Try doing xyz",
+            ))
+
+        return categories
+
+    ctx.actions.run(
+        [
+            "python3",
+            ctx.attrs.src,
+            out.as_output(),
+        ],
+        category = ctx.attrs.name,
+        outputs_for_error_handler = [out.as_output()],
+        error_handler = error_handler,
+    )
+
+    return [DefaultInfo(default_outputs = [out])]
+
+fail_error_handler_with_output = rule(
+    impl = _fail_error_handler_with_output,
+    attrs = {
+        "src": attrs.source(),
+    },
+)
+
 fail_one_with_error_handler = rule(
     impl = _fail_one,
     attrs = {

@@ -68,6 +68,7 @@ impl<'a> CategoryRef<'a> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum CategoryParseError {
     #[error(
         "Invalid category `{0}`. Must be a snake_cased identifier consisting of lowercase alphanumeric characters, e.g. `cxx_compile`. Each section of the snake_cased identifier must begin with a lowercase letter (not a number)."

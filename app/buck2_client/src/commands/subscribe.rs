@@ -17,6 +17,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::exit_result::ExitCode;
@@ -75,6 +76,7 @@ impl StreamingCommand for SubscribeCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let client_context = ctx.client_context(matches, &self)?;
 
@@ -128,7 +130,7 @@ impl StreamingCommand for SubscribeCommand {
                 |stream| async move {
                     buckd
                         .with_flushing()
-                        .subscription(client_context, stream, partial_result_handler)
+                        .subscription(client_context, stream, events_ctx, partial_result_handler)
                         .await
                 },
                 || {
@@ -200,7 +202,7 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        mut ctx: PartialResultCtx<'_, '_>,
+        mut ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> buck2_error::Result<()> {
         let response = partial_res

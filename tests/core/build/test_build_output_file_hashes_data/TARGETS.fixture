@@ -1,6 +1,0 @@
-load(":defs.bzl", "export_file")
-
-export_file(
-    name = "file.txt",
-    src = "file.txt",
-)

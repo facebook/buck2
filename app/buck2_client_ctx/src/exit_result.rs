@@ -22,7 +22,7 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_error::classify::best_error;
 use buck2_error::classify::ErrorLike;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::ErrorTag;
 use buck2_error::Tier;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -152,7 +152,11 @@ impl ExitResult {
     }
 
     pub fn bail(msg: impl Display) -> Self {
-        Self::err(buck2_error::buck2_error!([], "Command failed: {}", msg))
+        Self::err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::ActionCommandFailure,
+            "Command failed: {}",
+            msg
+        ))
     }
 
     pub fn err(err: buck2_error::Error) -> Self {
@@ -256,10 +260,11 @@ impl ExitResult {
         trace_id: TraceId,
         buck_log_dir: &AbsNormPathBuf,
         command_report_path: &Option<AbsPathBuf>,
+        finalizing_error_messages: Vec<String>,
     ) -> buck2_error::Result<()> {
         let dir = buck_log_dir.join(ForwardRelativePath::new(&trace_id.to_string())?);
         fs_util::create_dir_all(&dir)?;
-
+        // this path is used by the buck wrapper, don't change without updating the wrapper.
         let path = dir.join(ForwardRelativePath::new("command_report.json")?);
         let file = fs_util::create_file(&path)?;
         let mut file = std::io::BufWriter::new(file);
@@ -273,6 +278,7 @@ impl ExitResult {
                         trace_id: trace_id.to_string(),
                         exit_code: exit_code.exit_code(),
                         error_messages: self.error_messages.clone(),
+                        finalizing_error_messages,
                     },
                 )?;
 
@@ -280,6 +286,7 @@ impl ExitResult {
                     if let Some(parent) = report_path.parent() {
                         fs_util::create_dir_all(parent)?;
                     }
+                    // buck wrapper depends on command report being written.
                     file.flush()?;
                     fs_util::copy(path, report_path)?;
                 }
@@ -414,7 +421,7 @@ impl From<csv::Error> for ClientIoError {
     fn from(error: csv::Error) -> Self {
         match error.kind() {
             csv::ErrorKind::Io(_) => {}
-            _ => return ClientIoError::Other(from_any(error)),
+            _ => return ClientIoError::Other(from_any_with_tag(error, ErrorTag::Tier0)),
         }
         match error.into_kind() {
             csv::ErrorKind::Io(io_error) => ClientIoError::from(io_error),

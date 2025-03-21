@@ -46,6 +46,7 @@ use crate::actions::impls::write_json::UnregisteredWriteJsonAction;
 use crate::actions::impls::write_macros::UnregisteredWriteMacrosToFileAction;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum WriteActionError {
     #[error(
         "Argument type attributes detected in a content to be written into a file, but support for arguments was not turned on. Use `allow_args` parameter to turn on the support for arguments."
@@ -122,6 +123,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
     ///     * If it is true, the result will be a pair of the `artifact` containing content and a
     ///       list of artifact values that were written by macros, which should be used in hidden
     ///       fields or similar
+    /// * `with_inputs` (optional): if set, add artifacts in `content` as associated artifacts of the return `artifact`.
     /// * `absolute` (optional): if set, this action will produce absolute paths in its output when
     ///   rendering artifact paths. You generally shouldn't use this if you plan to use this action
     ///   as the input for anything else, as this would effectively result in losing all shared

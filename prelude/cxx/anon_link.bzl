@@ -21,6 +21,7 @@ load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
 load(
     "@prelude//linking:link_info.bzl",
     "Archive",
+    "ArchiveContentsType",
     "ArchiveLinkable",
     "DepMetadata",
     "LinkArgs",
@@ -38,7 +39,11 @@ load(
 def _serialize_linkable(linkable):
     if isinstance(linkable, ArchiveLinkable):
         return ("archive", (
-            (linkable.archive.artifact, linkable.archive.external_objects),
+            (
+                linkable.archive.artifact,
+                linkable.archive.external_objects,
+                linkable.archive.archive_contents_type.value,
+            ),
             linkable.link_whole,
             linkable.linker_type.value,
             linkable.supports_lto,
@@ -71,7 +76,7 @@ def _serialize_link_info(info: LinkInfo):
         info.post_flags,
         [_serialize_linkable(linkable) for linkable in info.linkables],
         # TODO(agallagher): It appears anon-targets don't allow passing in `label`.
-        [(stringify_artifact_label(info.label), stringify_artifact_label(info.identity), info.artifacts) for info in external_debug_info],
+        [(stringify_artifact_label(info.label), info.artifacts) for info in external_debug_info],
         [m.version for m in info.metadata],
     )
 
@@ -107,11 +112,12 @@ def _deserialize_linkable(linkable: (str, typing.Any)) -> typing.Any:
     typ, payload = linkable
 
     if typ == "archive":
-        (artifact, external_objects), link_whole, linker_type, supports_lto = payload
+        (artifact, external_objects, archive_contents_type), link_whole, linker_type, supports_lto = payload
         return ArchiveLinkable(
             archive = Archive(
                 artifact = artifact,
                 external_objects = external_objects,
+                archive_contents_type = ArchiveContentsType(archive_contents_type),
             ),
             link_whole = link_whole,
             linker_type = LinkerType(linker_type),
@@ -145,8 +151,8 @@ def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> Link
         external_debug_info = make_artifact_tset(
             actions = actions,
             infos = [
-                ArtifactInfo(label = label, identity = identity, artifacts = artifacts, tags = [])
-                for _label, identity, artifacts in external_debug_info
+                ArtifactInfo(label = label, artifacts = artifacts, tags = [])
+                for _label, artifacts in external_debug_info
             ],
         ),
         metadata = [DepMetadata(version = v) for v in metadata],
@@ -223,6 +229,7 @@ ANON_ATTRS = {
                                             # Archive
                                             attrs.source(),  # archive
                                             attrs.list(attrs.source()),  # external_objects
+                                            attrs.enum(ArchiveContentsType.values()),  # archive_contents_type
                                         ),
                                         attrs.bool(),  # link_whole
                                         attrs.enum(LinkerType.values()),  # linker_type
@@ -242,7 +249,6 @@ ANON_ATTRS = {
                                 # TODO(agallagher): It appears anon-targets don't
                                 # allow passing in `label`.
                                 attrs.string(),  # label
-                                attrs.string(),  # identity
                                 attrs.list(attrs.source()),  # artifacts
                             ),
                         ),

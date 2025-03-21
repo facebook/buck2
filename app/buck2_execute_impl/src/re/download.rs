@@ -61,6 +61,7 @@ use gazebo::prelude::*;
 use indexmap::IndexMap;
 use remote_execution as RE;
 
+use crate::executors::local::materialize_build_outputs;
 use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
 use crate::storage_resource_exhausted::is_storage_resource_exhausted;
@@ -83,6 +84,7 @@ pub async fn download_action_results<'a>(
     action_exit_code: i32,
     artifact_fs: &ArtifactFs,
     materialize_failed_re_action_inputs: bool,
+    materialize_failed_re_action_outputs: bool,
     additional_message: Option<String>,
 ) -> DownloadResult {
     let std_streams = response.std_streams(re_client, re_use_case, digest_config);
@@ -150,6 +152,7 @@ pub async fn download_action_results<'a>(
                         match materialize_inputs(artifact_fs, materializer, request).await {
                             Ok(materialized_paths) => Some(materialized_paths.paths.clone()),
                             Err(e) => {
+                                // TODO(minglunli): Properly handle this and the error below and add a test for it.
                                 console_message(format!(
                                     "Failed to materialize inputs for failed action: {}",
                                     e
@@ -164,10 +167,36 @@ pub async fn download_action_results<'a>(
                 None
             };
 
+            let materialized_outputs = if materialize_failed_re_action_outputs {
+                match materialize_build_outputs(artifact_fs, materializer, request).await {
+                    Ok(materialized_paths) => Some(materialized_paths.clone()),
+                    Err(e) => {
+                        console_message(format!(
+                            "Failed to materialize outputs for failed action: {}",
+                            e
+                        ));
+                        None
+                    }
+                }
+            } else if !request.outputs_for_error_handler().is_empty() {
+                match materializer
+                    .ensure_materialized(request.outputs_for_error_handler().to_vec())
+                    .await
+                {
+                    Ok(()) => Some(request.outputs_for_error_handler().to_vec()),
+                    // Do nothing here, handle file not materialized/doesn't exit case in the error handler.
+                    // This way local/remote behavior would be consistent and errors are handled at the same place
+                    Err(_) => None,
+                }
+            } else {
+                None
+            };
+
             manager.failure(
-                response.execution_kind_with_materialized_inputs_for_failed(
+                response.execution_kind_for_failed_actions(
                     details,
                     materialized_inputs,
+                    materialized_outputs,
                 ),
                 outputs,
                 CommandStdStreams::Remote(std_streams),
@@ -400,6 +429,7 @@ fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum DownloadError {
     #[error("Failed to declare in materializer")]
     Materialization,

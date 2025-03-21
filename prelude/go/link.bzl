@@ -165,8 +165,9 @@ def link(
     if link_mode != None:
         cmd.add("-linkmode", link_mode)
 
-    cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-    if cxx_toolchain != None:
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
+    if cxx_toolchain_available:
+        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
         is_win = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
         # Gather external link args from deps.

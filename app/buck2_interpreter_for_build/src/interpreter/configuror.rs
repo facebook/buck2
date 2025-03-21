@@ -105,7 +105,7 @@ impl BuildInterpreterConfiguror {
             .build()
     }
 
-    pub(crate) fn host_info(&self) -> &HostInfo {
+    pub fn host_info(&self) -> &HostInfo {
         &self.host_info
     }
 

@@ -8,10 +8,12 @@
  */
 
 use allocative::Allocative;
+use strong_hash::StrongHash;
 
 use crate::configuration::builtin::BuiltinPlatform;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum BoundConfigurationLabelError {
     #[error("Configuration label is empty")]
     LabelIsEmpty,
@@ -33,7 +35,8 @@ enum BoundConfigurationLabelError {
     Hash,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 pub struct BoundConfigurationLabel(String);
 

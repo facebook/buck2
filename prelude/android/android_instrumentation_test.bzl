@@ -26,10 +26,10 @@ ANDROID_EMULATOR_ABI_LABEL_PREFIX = "tpx-re-config::"
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
 DEFAULT_ANDROID_PLATFORM = "android-emulator"
 DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE = "instrumentation-tests"
-RIOT_USE_CASE = "riot"
+RIOT_USE_CASES = ["horizon-os-diff", "horizon-os-other", "horizon-os-human-lease", "wearables-diff", "wearables-other", "wearables-human-lease"]
 SUPPORTED_POOLS = ["EUREKA_POOL", "HOLLYWOOD_POOL", "STAGE_DELPHI_POOL", "PANTHER_POOL", "SEACLIFF_POOL"]
 SUPPORTED_PLATFORMS = ["riot", "android-emulator"]
-SUPPORTED_USE_CASES = [RIOT_USE_CASE, DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE]
+SUPPORTED_USE_CASES = RIOT_USE_CASES + [DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE]
 
 def android_instrumentation_test_impl(ctx: AnalysisContext):
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -194,6 +194,7 @@ def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_r
                 remote_enabled = True,
                 remote_execution_properties = ctx.attrs.re_caps["dynamic-listing"],
                 remote_execution_use_case = ctx.attrs.re_use_case["dynamic-listing"],
+                meta_internal_extra_params = ctx.attrs.meta_internal_extra_params,
             )
         if "test-execution" in ctx.attrs.re_caps and "test-execution" in ctx.attrs.re_use_case:
             _validate_executor_override_re_config(ctx.attrs.re_caps["test-execution"], ctx.attrs.re_use_case["test-execution"])
@@ -202,6 +203,7 @@ def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_r
                 remote_enabled = True,
                 remote_execution_properties = ctx.attrs.re_caps["test-execution"],
                 remote_execution_use_case = ctx.attrs.re_use_case["test-execution"],
+                meta_internal_extra_params = ctx.attrs.meta_internal_extra_params,
             )
 
     return {

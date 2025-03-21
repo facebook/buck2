@@ -135,7 +135,12 @@ pub(crate) fn dispatch(
 ) -> buck2_error::Result<dap::Response> {
     fn arg<T: for<'a> Deserialize<'a>>(r: &dap::Request) -> buck2_error::Result<T> {
         Ok(serde_json::from_value(r.arguments.clone().ok_or_else(
-            || buck2_error::buck2_error!([], "missing expected argument in DAP request"),
+            || {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "missing expected argument in DAP request"
+                )
+            },
         )?)?)
     }
 
@@ -187,7 +192,7 @@ pub(crate) fn dispatch(
         "stepIn" => ret_none(r, server.step_in(arg(r)?)),
         "stepOut" => ret_none(r, server.step_out(arg(r)?)),
         _ => Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Input,
             "Buck2 debugserver didn't recognize command: {}",
             r.command
         )),

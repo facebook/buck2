@@ -667,7 +667,6 @@ impl REClient {
                             },
                             cached_result: execute_response_grpc.cached_result,
                             action_digest: Default::default(), // Filled in below.
-                            executed_action_details: Default::default(),
                         };
 
                         ExecuteWithProgressResponse {
@@ -681,12 +680,12 @@ impl REClient {
                 let meta =
                     ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
 
-                let stage = match execution_stage::Value::from_i32(meta.stage) {
-                    Some(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                    Some(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                    Some(execution_stage::Value::Queued) => Stage::QUEUED,
-                    Some(execution_stage::Value::Executing) => Stage::EXECUTING,
-                    Some(execution_stage::Value::Completed) => Stage::COMPLETED,
+                let stage = match execution_stage::Value::try_from(meta.stage) {
+                    Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+                    Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+                    Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+                    Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+                    Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
                     _ => Stage::UNKNOWN,
                 };
 
@@ -760,13 +759,29 @@ impl REClient {
         .await
     }
 
-    pub async fn upload_blob(
+    pub async fn upload_blob_with_digest(
         &self,
-        _blob: Vec<u8>,
-        _metadata: RemoteExecutionMetadata,
+        blob: Vec<u8>,
+        digest: TDigest,
+        metadata: RemoteExecutionMetadata,
     ) -> anyhow::Result<TDigest> {
-        // TODO(aloiscochard)
-        Err(anyhow::anyhow!("Not implemented (RE upload_blob)"))
+        let blob = InlinedBlobWithDigest {
+            digest: digest.clone(),
+            blob,
+            ..Default::default()
+        };
+        self.upload(
+            metadata,
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![blob]),
+                files_with_digest: None,
+                directories: None,
+                upload_only_missing: false,
+                ..Default::default()
+            },
+        )
+        .await?;
+        Ok(digest)
     }
 
     pub async fn download(

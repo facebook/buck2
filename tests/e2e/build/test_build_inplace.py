@@ -51,7 +51,7 @@ async def test_build_output(buck: Buck) -> None:
         "targets",
         "interpreter",
         "buildfiles",
-        "TARGETS.v2",
+        "TARGETS",
     )
 
     result = await buck.build_without_report(
@@ -439,15 +439,13 @@ async def test_build_test_dependencies(buck: Buck) -> None:
     target = "fbcode//buck2/tests/targets/rules/sh_test:test_with_env"
     build = await buck.build(
         target,
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--build-test-info",
         "--build-report",
         "-",
     )
     report = build.get_build_report().build_report
 
-    path = ["results", target, "other_outputs", "DEFAULT"]
+    path = ["results", target, "other_outputs"]
     for p in path:
         report = report[p]
 
@@ -456,7 +454,7 @@ async def test_build_test_dependencies(buck: Buck) -> None:
         if "__file__" in artifact:
             has_file = True
 
-    assert has_file
+    assert not has_file
 
 
 # TODO(marwhal): Fix and enable on Windows
@@ -680,7 +678,7 @@ async def test_exit_when_different_state(buck: Buck) -> None:
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -723,7 +721,7 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )
@@ -768,7 +766,7 @@ async def test_exit_when_preemptible_on_different_state(
         return (result.process.returncode, result.stderr)
 
     done, pending = await asyncio.wait(
-        [process(a), process(b)],
+        [asyncio.create_task(process(a)), asyncio.create_task(process(b))],
         timeout=10,
         return_when=asyncio.FIRST_COMPLETED,
     )

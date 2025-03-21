@@ -100,10 +100,6 @@ enum Command {
         #[clap(long)]
         check_cycles: bool,
 
-        /// Use paths relative to the project root in `rust-project.json`.
-        #[clap(long, hide = true)]
-        relative_paths: bool,
-
         /// The name of the client invoking rust-project, such as 'vscode'.
         #[clap(long)]
         client: Option<String>,
@@ -115,6 +111,10 @@ enum Command {
         /// Command used to run Buck2. Defaults to `buck2`.
         #[clap(long)]
         buck2_command: Option<String>,
+      
+        /// Include a `build` section for every crate, including dependencies. Otherwise, `build` is only included for crates in the workspace.
+        #[clap(long)]
+        include_all_buildfiles: bool,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///

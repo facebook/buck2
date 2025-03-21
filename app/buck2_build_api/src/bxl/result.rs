@@ -13,25 +13,14 @@ use indexmap::IndexSet;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::ArtifactGroup;
-use crate::bxl::build_result::BxlBuildResult;
 
 /// The result of evaluating a bxl function
 #[derive(Allocative)]
-pub enum BxlResult {
-    /// represents that the bxl function has no built results
-    None {
-        output_loc: BuildArtifactPath,
-        error_loc: BuildArtifactPath,
-        analysis_values: RecordedAnalysisValues,
-    },
-    /// a bxl that deals with builds
-    BuildsArtifacts {
-        output_loc: BuildArtifactPath,
-        error_loc: BuildArtifactPath,
-        built: Vec<BxlBuildResult>,
-        artifacts: Vec<ArtifactGroup>,
-        analysis_values: RecordedAnalysisValues,
-    },
+pub struct BxlResult {
+    output_loc: BuildArtifactPath,
+    error_loc: BuildArtifactPath,
+    artifacts: Vec<ArtifactGroup>,
+    analysis_values: RecordedAnalysisValues,
 }
 
 impl BxlResult {
@@ -41,59 +30,27 @@ impl BxlResult {
         ensured_artifacts: IndexSet<ArtifactGroup>,
         analysis_values: RecordedAnalysisValues,
     ) -> Self {
-        if ensured_artifacts.is_empty() {
-            Self::None {
-                output_loc,
-                error_loc,
-                analysis_values,
-            }
-        } else {
-            Self::BuildsArtifacts {
-                output_loc,
-                error_loc,
-                built: vec![],
-                artifacts: ensured_artifacts.into_iter().collect(),
-                analysis_values,
-            }
+        Self {
+            output_loc,
+            error_loc,
+            artifacts: ensured_artifacts.into_iter().collect(),
+            analysis_values,
         }
     }
 
     pub(crate) fn analysis_values(&self) -> &RecordedAnalysisValues {
-        match self {
-            BxlResult::None {
-                analysis_values, ..
-            } => analysis_values,
-            BxlResult::BuildsArtifacts {
-                analysis_values, ..
-            } => analysis_values,
-        }
+        &self.analysis_values
     }
 
-    pub fn get_output_loc(&self) -> &BuildArtifactPath {
-        match self {
-            BxlResult::None { output_loc, .. } => output_loc,
-            BxlResult::BuildsArtifacts { output_loc, .. } => output_loc,
-        }
+    pub fn output_loc(&self) -> &BuildArtifactPath {
+        &self.output_loc
     }
 
-    pub fn get_error_loc(&self) -> &BuildArtifactPath {
-        match self {
-            BxlResult::None { error_loc, .. } => error_loc,
-            BxlResult::BuildsArtifacts { error_loc, .. } => error_loc,
-        }
+    pub fn error_loc(&self) -> &BuildArtifactPath {
+        &self.error_loc
     }
 
-    pub fn get_artifacts_opt(&self) -> Option<&Vec<ArtifactGroup>> {
-        match self {
-            BxlResult::None { .. } => None,
-            BxlResult::BuildsArtifacts { artifacts, .. } => Some(artifacts),
-        }
-    }
-
-    pub fn get_build_result_opt(&self) -> Option<&Vec<BxlBuildResult>> {
-        match self {
-            BxlResult::None { .. } => None,
-            BxlResult::BuildsArtifacts { built, .. } => Some(built),
-        }
+    pub fn artifacts(&self) -> &Vec<ArtifactGroup> {
+        &self.artifacts
     }
 }

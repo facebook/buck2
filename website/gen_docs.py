@@ -51,7 +51,7 @@ def buck_command(args: argparse.Namespace) -> str:
     elif args.cargo:
         return "cargo run --bin=buck2 --"
     else:
-        return "./buck2.sh"
+        return "./buck2.py"
 
 
 def copy_starlark_docs() -> None:
@@ -103,6 +103,49 @@ def generate_api_docs(buck: str) -> None:
             dest = base_dir.joinpath(path)
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(orig, dest)
+
+
+def generate_bxl_utils_api_docs(buck: str) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        base_dir = Path("docs") / "api" / "bxl_utils"
+        setup_gen_dir(base_dir)
+        bxl_utils_foler = Path("prelude") / "bxl"
+        bxl_utils_file_prefix = "prelude//bxl"
+
+        os.makedirs(base_dir, exist_ok=True)
+
+        for file in bxl_utils_foler.rglob("*.bxl"):
+            relative_file = file.relative_to(bxl_utils_foler)
+            relative_folder_name = (
+                "" if file.parent == bxl_utils_foler else str(relative_file.parent)
+            )
+            buck_bxl_file_name = (
+                bxl_utils_file_prefix + relative_folder_name + ":" + relative_file.name
+            )
+
+            subprocess.run(
+                buck
+                + " docs starlark --format=markdown_files --output-dir="
+                + tmp
+                + " "
+                + buck_bxl_file_name,
+                shell=True,
+                check=True,
+            )
+
+            content = read_file(
+                Path(tmp) / str(bxl_utils_foler) / (str(relative_file) + ".md")
+            )
+
+            # Remove the first line of the file, which is the file path of the bxl file
+            content = "\n".join(content.splitlines()[1:])
+
+            prefix = f"""# {file.stem} \n\nThe following functions are defined in the bxl file: `{buck_bxl_file_name}`. \
+            You can import them in your bxl file by using `load("@{buck_bxl_file_name}", "function_name")`\n\n"""
+
+            dest = base_dir / (str(relative_file.with_suffix(".md")))
+
+            write_file(dest, prefix + content)
 
 
 def parse_subcommands(output: str) -> List[str]:
@@ -173,6 +216,7 @@ def generate_query_docs(buck: str) -> None:
             + f"title: {x.title()} Environment\n"
             + "toc_max_heading_level: 4\n"
             + "---\n"
+            + "\nimport useBaseUrl from '@docusaurus/useBaseUrl';"
             + "\nimport { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';\n\n"
             + res.stdout.decode(),
         )
@@ -211,6 +255,7 @@ def main() -> None:
     buck = buck_command(args)
     copy_starlark_docs()
     generate_api_docs(buck)
+    generate_bxl_utils_api_docs(buck)
     generate_help_docs(buck)
     generate_query_docs(buck)
 

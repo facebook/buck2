@@ -48,10 +48,13 @@ const TICKS_PER_SECOND: u32 = 10;
 #[allow(clippy::large_enum_variant)]
 enum BuckdCommunicationError {
     #[error("call to daemon returned an unexpected result type. got `{0:?}`")]
+    #[buck2(tag = Tier0)]
     UnexpectedResultType(command_result::Result),
     #[error("buck daemon returned an empty CommandResult")]
+    #[buck2(tag = Tier0)]
     EmptyCommandResult,
     #[error("buck daemon request finished without returning a CommandResult")]
+    #[buck2(tag = Tier0)]
     MissingCommandResult,
     #[error(
         "The Buck2 daemon was shut down while executing your command. This happened because: {0}"
@@ -59,6 +62,7 @@ enum BuckdCommunicationError {
     #[buck2(tag = InterruptedByDaemonShutdown)]
     InterruptedByDaemonShutdown(buck2_data::DaemonShutdown),
     #[error("buckd communication encountered an unexpected error `{0:?}`")]
+    #[buck2(tag = Tier0)]
     TonicError(tonic::Status),
 }
 
@@ -83,17 +87,17 @@ pub trait PartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        ctx: PartialResultCtx<'_, '_>,
+        ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> buck2_error::Result<()>;
 }
 
 /// Exposes restricted access to EventsCtx from PartialResultHandler instances.
-pub struct PartialResultCtx<'a, 'b> {
-    inner: &'a mut EventsCtx<'b>,
+pub struct PartialResultCtx<'a> {
+    inner: &'a mut EventsCtx,
 }
 
-impl<'a, 'b> PartialResultCtx<'a, 'b> {
+impl<'a> PartialResultCtx<'a> {
     pub async fn stdout(&mut self, bytes: &[u8]) -> buck2_error::Result<()> {
         self.inner
             .subscribers
@@ -104,8 +108,8 @@ impl<'a, 'b> PartialResultCtx<'a, 'b> {
 
 /// Manages incoming event streams from the daemon for the buck2 client and
 /// forwards them to the appropriate subscribers registered on this struct
-pub struct EventsCtx<'a> {
-    pub(crate) subscribers: EventSubscribers<'a>,
+pub struct EventsCtx {
+    pub(crate) subscribers: EventSubscribers,
     ticker: Ticker,
     client_cpu_tracker: ClientCpuTracker,
 }
@@ -116,8 +120,8 @@ pub enum FileTailerEvent {
     Stderr(Vec<u8>),
 }
 
-impl<'a> EventsCtx<'a> {
-    pub fn new(subscribers: EventSubscribers<'a>) -> Self {
+impl EventsCtx {
+    pub fn new(subscribers: EventSubscribers) -> Self {
         Self {
             subscribers,
             ticker: Ticker::new(TICKS_PER_SECOND),
@@ -155,7 +159,11 @@ impl<'a> EventsCtx<'a> {
                         .buck_error_context("Empty partial result")?
                         .try_into()
                         .map_err(|e| {
-                            buck2_error::buck2_error!([], "Invalid PartialResult: {:?}", e)
+                            buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Tier0,
+                                "Invalid PartialResult: {:?}",
+                                e
+                            )
                         })?;
                     partial_result_handler
                         .handle_partial_result(PartialResultCtx { inner: self }, partial_res)
@@ -355,6 +363,10 @@ impl<'a> EventsCtx<'a> {
 
         Ok(())
     }
+
+    pub async fn finalize(&mut self) -> Vec<String> {
+        self.subscribers.finalize().await
+    }
 }
 
 /// Convert a CommandResult into a CommandOutcome after the CommandResult has been printed by `handle_command_result`.
@@ -373,7 +385,7 @@ fn convert_result<R: TryFrom<command_result::Result, Error = command_result::Res
     }
 }
 
-impl<'a> EventsCtx<'a> {
+impl EventsCtx {
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> buck2_error::Result<()> {
         let stderr = String::from_utf8_lossy(stderr);
         let stderr = stderr.trim_end();
@@ -447,6 +459,7 @@ impl<'a> EventsCtx<'a> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 pub enum EventsCtxError {
     #[error("While propagating error:\n{source:#?}, another error was detected:\n{other:#?}")]
     WrappedStreamError {

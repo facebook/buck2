@@ -16,7 +16,7 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.utils import read_timestamps
+from buck2.tests.e2e_util.helper.utils import read_invocation_record, read_timestamps
 
 
 # Currently installer grpc doesn't compile on Mac
@@ -83,13 +83,30 @@ if linux_only():
         ]
 
     @buck_test(inplace=True)
-    async def test_artifact_fails_to_install(buck: Buck) -> None:
+    async def test_artifact_fails_to_install(buck: Buck, tmp_path: Path) -> None:
+        record_path = tmp_path / "record.json"
         await expect_failure(
             buck.install(
-                "fbcode//buck2/tests/targets/rules/install:installer_server_sends_error"
+                "fbcode//buck2/tests/targets/rules/install:installer_server_sends_error",
+                "--unstable-write-invocation-record",
+                str(record_path),
             ),
             stderr_regex=r"Failed to send artifacts to installer",
         )
+        record = read_invocation_record(record_path)
+        errors = record["errors"]
+        assert len(errors) == 1
+        error = errors[0]
+        assert "Mocking failing to install" in error["message"]
+        assert error["category"] == "INFRA"
+        assert "INSTALLER_TAG" in error["category_key"]
+
+        install_duration_ms = record["install_duration_us"] / 1000
+
+        assert install_duration_ms > 0
+        assert record["install_device_metadata"] == [
+            {"entry": [{"key": "version", "value": "1"}]}
+        ]
 
     @buck_test(inplace=True)
     async def test_fail_to_build_artifact(buck: Buck) -> None:

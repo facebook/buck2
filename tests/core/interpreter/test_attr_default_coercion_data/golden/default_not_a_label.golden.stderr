@@ -1,0 +1,23 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+Error evaluating expression:
+    root//:
+    ^-----^
+
+
+Caused by:
+    0: From load at TARGETS.fixture:1
+    1: Error evaluating module: `root//error_rule.bzl`
+    2: Traceback (most recent call last):
+         * error_rule.bzl:22, in <module>
+             "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transiti...
+       
+       error: Error coercing "notaproperlabel"
+         --> error_rule.bzl:22:21
+          |
+       22 |         "someattr": attrs.transition_dep(default = "notaproperlabel", cfg = _transition),
+          |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          |
+    3: Invalid target pattern `notaproperlabel` is not allowed
+    4: Expected a `:`, a trailing `/...` or the literal `...`.

@@ -60,6 +60,8 @@ dynamic attributes can be found [here](../../../api/build/dynattrs)
 
 We need to declare all arguments defined in step3 and bxl context.
 
+**Note:** The name of the first argument in the impl function must be `bxl_ctx`.
+
 We can read the `file` content by `read_string()` or `read_json()`. Details can
 be found [here](../../../api/build/ArtifactValue/)
 

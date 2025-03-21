@@ -8,9 +8,6 @@
  */
 
 use allocative::Allocative;
-use buck2_core::soft_error;
-use buck2_error::buck2_error;
-use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
@@ -18,13 +15,24 @@ use super::anon_target_attr_validation::AnonRuleAttrValidation;
 use crate::attrs::attr::Attribute;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_attr_full::CoercedAttrFull;
-use crate::attrs::id::AttributeId;
 use crate::attrs::inspect_options::AttrInspectOptions;
-use crate::attrs::internal::internal_attrs;
-use crate::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use crate::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
-use crate::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
+use crate::attrs::spec::internal::common_internal_attrs;
+use crate::attrs::spec::internal::is_internal_attr;
+use crate::attrs::spec::internal::INCOMING_TRANSITION_ATTRIBUTE;
 use crate::attrs::values::AttrValues;
+use crate::rule::RuleIncomingTransition;
+
+pub mod internal;
+
+/// Identifies an attribute within a rule.
+#[derive(
+    Debug, Clone, dupe::Dupe, Copy, Eq, Hash, PartialEq, Ord, PartialOrd, Allocative
+)]
+pub struct AttributeId(u16); // Index in the attribute spec
+
+impl AttributeId {
+    const MAX_INDEX: u16 = u16::MAX;
+}
 
 /// AttributeSpec holds the specification for a rules attributes as defined in the rule() call. This
 /// is split into a mapping of "attribute name" -> "attribute id". The Attributes are stored in a vec
@@ -38,6 +46,7 @@ pub struct AttributeSpec {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum AttributeSpecError {
     #[error("User provided attribute `{0}` overrides internal attribute")]
     InternalAttributeRedefined(String),
@@ -50,59 +59,6 @@ pub(crate) enum AttributeSpecError {
 }
 
 impl AttributeSpec {
-    pub(crate) fn name_attr_id() -> AttributeId {
-        static ID: Lazy<AttributeId> = Lazy::new(|| {
-            let index_in_attribute_spec = u16::try_from(
-                internal_attrs()
-                    .keys()
-                    .position(|name| *name == NAME_ATTRIBUTE_FIELD)
-                    .unwrap(),
-            )
-            .unwrap();
-            AttributeId {
-                index_in_attribute_spec,
-            }
-        });
-        *ID
-    }
-
-    pub(crate) fn visibility_attr_id() -> AttributeId {
-        static ID: Lazy<AttributeId> = Lazy::new(|| {
-            let index_in_attribute_spec = u16::try_from(
-                internal_attrs()
-                    .keys()
-                    .position(|name| *name == VISIBILITY_ATTRIBUTE_FIELD)
-                    .unwrap(),
-            )
-            .unwrap();
-            AttributeId {
-                index_in_attribute_spec,
-            }
-        });
-        *ID
-    }
-
-    pub fn within_view_attr_id() -> AttributeId {
-        static ID: Lazy<AttributeId> = Lazy::new(|| {
-            let index_in_attribute_spec = u16::try_from(
-                internal_attrs()
-                    .keys()
-                    .position(|name| *name == WITHIN_VIEW_ATTRIBUTE_FIELD)
-                    .unwrap(),
-            )
-            .unwrap();
-            AttributeId {
-                index_in_attribute_spec,
-            }
-        });
-        *ID
-    }
-
-    pub fn attr_is_internal(id: AttributeId) -> bool {
-        static INTERNAL_ATTR_COUNT: Lazy<usize> = Lazy::new(|| internal_attrs().len());
-        usize::from(id.index_in_attribute_spec) < *INTERNAL_ATTR_COUNT
-    }
-
     fn new(attributes: OrderedMap<Box<str>, Attribute>) -> buck2_error::Result<AttributeSpec> {
         if attributes.len() > AttributeId::MAX_INDEX as usize {
             return Err(AttributeSpecError::TooManyAttributes(attributes.len()).into());
@@ -110,8 +66,12 @@ impl AttributeSpec {
         Ok(AttributeSpec { attributes })
     }
 
-    pub fn from(attributes: Vec<(String, Attribute)>, is_anon: bool) -> buck2_error::Result<Self> {
-        let internal_attrs = internal_attrs();
+    pub fn from(
+        attributes: Vec<(String, Attribute)>,
+        is_anon: bool,
+        cfg: &RuleIncomingTransition,
+    ) -> buck2_error::Result<Self> {
+        let internal_attrs = common_internal_attrs();
 
         let mut instances: OrderedMap<Box<str>, Attribute> =
             OrderedMap::with_capacity(attributes.len());
@@ -122,17 +82,20 @@ impl AttributeSpec {
             }
         }
 
+        if cfg == &RuleIncomingTransition::FromAttribute {
+            instances.insert(
+                INCOMING_TRANSITION_ATTRIBUTE.name.into(),
+                (INCOMING_TRANSITION_ATTRIBUTE.attr)(),
+            );
+        }
+
         for (name, instance) in attributes.into_iter() {
             if is_anon {
                 instance.coercer().validate_for_anon_rule()?;
             }
-            if name == "metadata" {
-                soft_error!(
-                    "metadata_attribute",
-                    buck2_error!([], "Rules should not declare an attribute named metadata`"),
-                    deprecation: true,
-                    quiet: true
-                )?;
+
+            if is_internal_attr(&name) {
+                return Err(AttributeSpecError::InternalAttributeRedefined(name.to_owned()).into());
             }
 
             match instances.entry(name.into_boxed_str()) {
@@ -141,14 +104,7 @@ impl AttributeSpec {
                 }
                 small_map::Entry::Occupied(e) => {
                     let name: &str = e.key();
-                    if internal_attrs.contains_key(name) {
-                        return Err(AttributeSpecError::InternalAttributeRedefined(
-                            name.to_owned(),
-                        )
-                        .into());
-                    } else {
-                        return Err(AttributeSpecError::DuplicateAttribute(name.to_owned()).into());
-                    }
+                    return Err(AttributeSpecError::DuplicateAttribute(name.to_owned()).into());
                 }
             }
         }
@@ -168,34 +124,24 @@ impl AttributeSpec {
             .map(|(index_in_attribute_spec, (name, attribute))| {
                 (
                     &**name,
-                    AttributeId {
-                        index_in_attribute_spec: index_in_attribute_spec as u16,
-                    },
+                    AttributeId(index_in_attribute_spec as u16),
                     attribute,
                 )
             })
     }
 
     fn attribute_by_id(&self, id: AttributeId) -> &Attribute {
-        self.attributes
-            .get_index(id.index_in_attribute_spec as usize)
-            .unwrap()
-            .1
+        self.attributes.get_index(id.0 as usize).unwrap().1
     }
 
     fn attribute_name_by_id(&self, id: AttributeId) -> &str {
-        self.attributes
-            .get_index(id.index_in_attribute_spec as usize)
-            .unwrap()
-            .0
+        self.attributes.get_index(id.0 as usize).unwrap().0
     }
 
     pub(crate) fn attribute_id_by_name(&self, name: &str) -> Option<AttributeId> {
         self.attributes
             .get_index_of(name)
-            .map(|index_in_attribute_spec| AttributeId {
-                index_in_attribute_spec: index_in_attribute_spec as u16,
-            })
+            .map(|index_in_attribute_spec| AttributeId(index_in_attribute_spec as u16))
     }
 
     pub fn attribute(&self, name: &str) -> Option<&Attribute> {
@@ -245,15 +191,20 @@ impl AttributeSpec {
         idx: AttributeId,
         attr_values: &'v AttrValues,
         opts: AttrInspectOptions,
-    ) -> Option<&'v CoercedAttr> {
-        if let Some(attr) = attr_values.get(idx) {
-            return Some(attr);
-        }
+    ) -> Option<CoercedAttrFull<'v>> {
+        let value = if let Some(attr) = attr_values.get(idx) {
+            attr
+        } else if opts.include_default() {
+            self.attribute_by_id(idx).default()?
+        } else {
+            return None;
+        };
 
-        if opts.include_default() {
-            return self.attribute_by_id(idx).default().map(|v| &**v);
-        }
-        None
+        Some(CoercedAttrFull {
+            name: self.attribute_name_by_id(idx),
+            attr: self.attribute_by_id(idx),
+            value,
+        })
     }
 
     pub fn attr_or_none<'v>(
@@ -263,11 +214,7 @@ impl AttributeSpec {
         opts: AttrInspectOptions,
     ) -> Option<CoercedAttrFull<'v>> {
         if let Some(idx) = self.attribute_id_by_name(name) {
-            // Same as function parameter `name` but with lifetime of `self`.
-            let name = self.attribute_name_by_id(idx);
-            let attr = self.attribute_by_id(idx);
-            let value = self.known_attr_or_none(idx, attr_values, opts)?;
-            Some(CoercedAttrFull { name, attr, value })
+            self.known_attr_or_none(idx, attr_values, opts)
         } else {
             None
         }
@@ -280,13 +227,7 @@ impl AttributeSpec {
         opts: AttrInspectOptions,
     ) -> buck2_error::Result<Option<CoercedAttrFull<'v>>> {
         if let Some(idx) = self.attribute_id_by_name(key) {
-            Ok(self
-                .known_attr_or_none(idx, attr_values, opts)
-                .map(|value| {
-                    let name = self.attribute_name_by_id(idx);
-                    let attr = self.attribute_by_id(idx);
-                    CoercedAttrFull { name, attr, value }
-                }))
+            Ok(self.known_attr_or_none(idx, attr_values, opts))
         } else {
             Err(AttributeSpecError::UnknownAttribute(key.to_owned()).into())
         }
@@ -299,10 +240,16 @@ pub(crate) mod testing {
 
     use crate::attrs::attr::Attribute;
     use crate::attrs::spec::AttributeSpec;
+    use crate::rule::RuleIncomingTransition;
 
     impl AttributeSpec {
-        pub(crate) fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
-            AttributeSpec::from(attributes.into_iter().collect(), false).unwrap()
+        pub fn testing_new(attributes: OrderedMap<String, Attribute>) -> AttributeSpec {
+            AttributeSpec::from(
+                attributes.into_iter().collect(),
+                false,
+                &RuleIncomingTransition::None,
+            )
+            .unwrap()
         }
     }
 }

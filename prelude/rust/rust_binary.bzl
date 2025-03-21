@@ -62,6 +62,7 @@ load(
     "BuildParams",  # @unused Used as a type
     "Emit",
     "LinkageLang",
+    "ProfileMode",  # @unused Used as a type
     "RuleType",
     "build_params",
     "output_filename",
@@ -78,6 +79,7 @@ load(
 )
 load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
+load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
 
 def _strategy_params(
@@ -333,6 +335,48 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
+
+    llvm_ir_noopt = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("llvm-ir-noopt"),
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    ).output
+    llvm_time_trace = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = params,
+        default_roots = default_roots,
+        extra_link_args = executable_args.extra_link_args,
+        extra_flags = extra_flags,
+        rust_cxx_link_group_info = rust_cxx_link_group_info,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("llvm-time-trace"),
+    )
+    self_profile = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = params,
+        default_roots = default_roots,
+        extra_link_args = executable_args.extra_link_args,
+        extra_flags = extra_flags,
+        rust_cxx_link_group_info = rust_cxx_link_group_info,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("self-profile"),
+    )
+    profiles = make_profile_providers(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        llvm_ir_noopt = llvm_ir_noopt,
+        llvm_time_trace = llvm_time_trace,
+        self_profile = self_profile,
+    )
+    sub_targets["profile"] = profiles
 
     extra_compiled_targets["llvm_ir"] = rust_compile(
         ctx = ctx,

@@ -12,6 +12,7 @@
 %% for tpx documentation, and https://www.internalfb.com/code/fbsource/%5B20c96bf58ffecff08a87b89035518b392985308b%5D/fbcode/testinfra/tpx/tpx-output/src/buck_junitlike_xml.rs
 %% for the details about the test protocol.
 -module(junit_interfacer).
+-eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
 

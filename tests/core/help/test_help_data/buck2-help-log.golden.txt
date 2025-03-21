@@ -19,6 +19,7 @@ Commands:
                      JSONL format
   summary            Outputs high level statistics about the build
   diff               Subcommands for diff'ing two buck2 commands
+  external-configs   Display the values and origins of external configs for a selected command
   help               Print this message or the help of the given subcommand(s)
 
 Options:

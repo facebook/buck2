@@ -12,6 +12,7 @@
 %%% % @format
 
 -module(ct_daemon_core).
+-eqwalizer(ignore).
 
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
@@ -133,9 +134,9 @@ run_test(Spec, PreviousSetup, OutputDir) ->
             {Skip, #{setup_state => SetupState, config => SetupConfig}};
         {{fail, Where, ST}, SetupConfig, SetupState} ->
             %% we map fail to error
-            {{error, {setup_failure, {Where, ST}}}, #{setup_state => SetupState, config => SetupConfig}};
+            {{error, {Where, ST}}, #{setup_state => SetupState, config => SetupConfig}};
         {{error, R}, SetupConfig, SetupState} ->
-            {{error, {setup_failure, R}}, #{setup_state => SetupState, config => SetupConfig}}
+            {{error, R}, #{setup_state => SetupState, config => SetupConfig}}
     end.
 
 do_incremental_setup(undefined, Spec, OutputDir) ->

@@ -25,6 +25,7 @@ use crate::file_ops::FileOps;
 use crate::pattern::package_roots::find_package_roots;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ResolvedPatternError {
     #[error("Expecting {0} pattern, got `{1}`")]
     InvalidPattern(&'static str, String),

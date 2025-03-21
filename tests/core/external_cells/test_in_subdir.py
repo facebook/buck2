@@ -8,19 +8,14 @@
 # pyre-strict
 
 
-import platform
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test()
+@buck_test(setup_eden=True)
 async def test_in_subdir(buck: Buck) -> None:
-    if platform.system() == "Windows":
-        err = "The system cannot find the path specified"
-    else:
-        err = "No such file or directory"
+    err = "No such file or directory"
     await expect_failure(
         buck.targets("test_bundled_cell//dir:"),
         stderr_regex=err,

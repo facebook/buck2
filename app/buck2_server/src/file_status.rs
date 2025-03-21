@@ -148,7 +148,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         }
         if result.bad != 0 {
             Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Failed with {} mismatches",
                 result.bad
             ))

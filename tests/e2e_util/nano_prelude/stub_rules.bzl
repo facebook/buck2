@@ -22,7 +22,21 @@ stub = rule(
         "srcs": attrs.list(attrs.source(), default = []),
         "toolchain_deps": attrs.list(attrs.toolchain_dep(), default = []),
         "labels": attrs.list(attrs.string(), default = []),
+        "configured_deps": attrs.list(attrs.configured_dep(), default = []),
     },
+)
+
+stub_toolchain = rule(
+    impl = _stub,
+    attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
+        "exec_deps": attrs.list(attrs.exec_dep(), default = []),
+        "srcs": attrs.list(attrs.source(), default = []),
+        "toolchain_deps": attrs.list(attrs.toolchain_dep(), default = []),
+        "labels": attrs.list(attrs.string(), default = []),
+        "configured_deps": attrs.list(attrs.configured_dep(), default = []),
+    },
+    is_toolchain_rule = True,
 )
 
 # Rule with no attrs that produces an output. Useful if you want to be able to

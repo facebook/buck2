@@ -69,7 +69,6 @@ xattr = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 indoc = { workspace = true }
-maplit = { workspace = true }
 tempfile = { workspace = true }
 test-case = { workspace = true }
 

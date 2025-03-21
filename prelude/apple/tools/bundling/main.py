@@ -37,7 +37,6 @@ from .action_metadata import action_metadata_if_present
 from .assemble_bundle import assemble_bundle
 from .assemble_bundle_types import BundleSpecItem, IncrementalContext
 from .incremental_state import (
-    CodesignedOnCopy,
     IncrementalState,
     IncrementalStateItem,
     IncrementalStateJSONEncoder,

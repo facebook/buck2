@@ -11,6 +11,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use dice::DiceComputations;
@@ -53,7 +54,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         self: Box<Self>,
         dice: &mut DiceComputations,
         eval: &mut Evaluator<'v, '_, '_>,
-        description: String,
+        eval_kind: &StarlarkEvalKind,
     ) -> buck2_error::Result<()> {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
@@ -81,7 +82,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         Ok(with_starlark_eval_provider(
             dice,
             &mut StarlarkProfilerOpt::disabled(),
-            description,
+            &eval_kind,
             |_provider, _| {
                 // But must bind the promises sequentially
                 for (promise, xs) in shape {

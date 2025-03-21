@@ -13,11 +13,11 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::platform_info::PlatformInfo;
 use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::BuckErrorContext;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;
@@ -57,9 +57,9 @@ use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
-use starlark::StarlarkResultExt;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum TransitionError {
     #[error("Transition must be assigned to a variable, e.g. `android_cpus = transition(...)`")]
     TransitionNotAssigned,
@@ -96,9 +96,7 @@ pub(crate) struct FrozenTransition {
     id: Arc<TransitionId>,
     pub(crate) implementation: FrozenValue,
     pub(crate) refs: SmallMap<FrozenStringValue, TargetLabel>,
-    pub(crate) attrs_names_starlark: Option<Vec<FrozenStringValue>>,
-    // the same as `attrs_names_starlark` but String representation
-    pub(crate) attrs_names: Option<Arc<[String]>>,
+    pub(crate) attrs_names: Option<Vec<FrozenStringValue>>,
     pub(crate) split: bool,
 }
 
@@ -112,7 +110,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
         let mut id = self.id.borrow_mut();
         // First export wins
         if id.is_none() {
-            *id = Some(Arc::new(TransitionId {
+            *id = Some(Arc::new(TransitionId::MagicObject {
                 path: self.path.clone(),
                 name: variable_name.to_owned(),
             }));
@@ -151,21 +149,12 @@ impl<'v> Freeze for Transition<'v> {
             .attrs
             .map(|a| a.into_try_map(|a| a.freeze(freezer)))
             .transpose()?;
-        let attrs_names = attrs.as_ref().map(|attrs| {
-            Arc::from(
-                attrs
-                    .iter()
-                    .map(|a| a.as_str().to_owned())
-                    .collect::<Vec<_>>(),
-            )
-        });
         let split = self.split;
         Ok(FrozenTransition {
             id,
             implementation,
             refs,
-            attrs_names_starlark: attrs,
-            attrs_names,
+            attrs_names: attrs,
             split,
         })
     }
@@ -189,12 +178,12 @@ impl TransitionValue for FrozenTransition {
     }
 }
 
-struct ParamNameAndType {
-    name: &'static str,
-    ty: LazyLock<Ty>,
+pub(crate) struct ParamNameAndType {
+    pub(crate) name: &'static str,
+    pub(crate) ty: LazyLock<Ty>,
 }
 
-static IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
+pub(crate) static IMPL_PLATFORM_PARAM: ParamNameAndType = ParamNameAndType {
     name: "platform",
     ty: LazyLock::new(PlatformInfo::starlark_type_repr),
 };
@@ -202,12 +191,12 @@ static IMPL_REFS_PARAM: ParamNameAndType = ParamNameAndType {
     name: "refs",
     ty: LazyLock::new(StructRef::starlark_type_repr),
 };
-static IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
+pub(crate) static IMPL_ATTRS_PARAM: ParamNameAndType = ParamNameAndType {
     name: "attrs",
     ty: LazyLock::new(StructRef::starlark_type_repr),
 };
 
-type ImplSingleReturnTy<'v> = PlatformInfo<'v>;
+pub(crate) type ImplSingleReturnTy<'v> = PlatformInfo<'v>;
 type ImplSplitReturnTy<'v> = DictType<String, PlatformInfo<'v>>;
 
 struct TransitionImplParams;
@@ -236,7 +225,11 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
 }
 
 // This function is not optimized, but it is called like 10 times during the heavy build.
-fn validate_transition_impl(implementation: Value, attrs: bool, split: bool) -> anyhow::Result<()> {
+fn validate_transition_impl(
+    implementation: Value,
+    attrs: bool,
+    split: bool,
+) -> buck2_error::Result<()> {
     let expected_return_type = match split {
         false => ImplSingleReturnTy::starlark_type_repr(),
         true => ImplSplitReturnTy::starlark_type_repr(),
@@ -258,15 +251,12 @@ fn validate_transition_impl(implementation: Value, attrs: bool, split: bool) -> 
             None,
             &expected_return_type,
         )
-        .into_anyhow_result()
-        .context("`impl` function signature is incorrect")
+        .buck_error_context("`impl` function signature is incorrect")
 }
 
 #[starlark_module]
 fn register_transition_function(builder: &mut GlobalsBuilder) {
     fn transition<'v>(
-        // Note that precise function type is not checked by static or runtime typechecker,
-        // and exists here only for documentation purposes.
         #[starlark(require = named)] r#impl: StarlarkCallableChecked<
             'v,
             TransitionImplParams,
@@ -276,7 +266,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] attrs: Option<UnpackListOrTuple<StringValue<'v>>>,
         #[starlark(require = named, default = false)] split: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Transition<'v>> {
+    ) -> starlark::Result<Transition<'v>> {
         let implementation = r#impl.0;
 
         let refs = refs
@@ -288,7 +278,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
                     TargetLabelTrace((COERCE_TARGET_LABEL_FOR_BZL.get()?)(eval, &r)?),
                 ))
             })
-            .collect::<anyhow::Result<_>>()?;
+            .collect::<buck2_error::Result<_>>()?;
 
         let path: ImportPath = (*starlark_path_from_build_context(eval)?
             .unpack_load_file()

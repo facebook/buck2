@@ -191,6 +191,7 @@ async fn query_action_cache_and_download_result(
         action_exit_code,
         artifact_fs,
         false,
+        false,
         None,
     )
     .await;

@@ -9,6 +9,10 @@
 
 use std::fmt;
 
+use buck2_data::error::ErrorTag;
+
+use crate::source_location::SourceLocation;
+
 static NEXT_ROOT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Uniquely identifies an instance of an error root
@@ -33,20 +37,23 @@ pub struct UniqueRootId(u64);
 pub(crate) struct ErrorRoot {
     id: UniqueRootId,
     description: String,
-    source_location: Option<String>,
+    error_tag: ErrorTag,
+    source_location: SourceLocation,
     action_error: Option<buck2_data::ActionError>,
 }
 
 impl ErrorRoot {
     pub(crate) fn new(
         description: String,
-        source_location: Option<String>,
+        error_tag: ErrorTag,
+        source_location: SourceLocation,
         action_error: Option<buck2_data::ActionError>,
     ) -> Self {
         let id = UniqueRootId(NEXT_ROOT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
         Self {
             id,
             description,
+            error_tag,
             source_location,
             action_error,
         }
@@ -66,8 +73,12 @@ impl ErrorRoot {
         self.id
     }
 
-    pub(crate) fn source_location(&self) -> Option<&str> {
-        self.source_location.as_deref()
+    pub(crate) fn error_tag(&self) -> ErrorTag {
+        self.error_tag
+    }
+
+    pub(crate) fn source_location(&self) -> &SourceLocation {
+        &self.source_location
     }
 
     pub fn action_error(&self) -> Option<&buck2_data::ActionError> {

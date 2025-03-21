@@ -24,6 +24,7 @@ load("@prelude//apple/user:target_sdk_version_transition.bzl", "apple_test_targe
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
 load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
+load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
@@ -251,6 +252,7 @@ def _cxx_python_extension_attrs():
         # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
         # or by any of the target's dependencies.
         "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
+        "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
         "exported_needs_coverage_instrumentation": attrs.bool(default = False),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
         "link_whole": attrs.default_only(attrs.bool(default = True)),
@@ -372,6 +374,7 @@ def _cxx_binary_and_test_attrs():
         # selected for coverage either in the target or in one
         # of the target's dependencies.
         "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
+        "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
         "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "exported_needs_coverage_instrumentation": attrs.bool(default = False),
@@ -383,7 +386,6 @@ def _cxx_binary_and_test_attrs():
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
         "separate_debug_info": attrs.bool(default = False),
-        "standalone_extensions": attrs.option(attrs.bool(), default = None),
         "_build_info": BUILD_INFO_ATTR,
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -431,6 +433,7 @@ inlined_extra_attributes = {
         # when coverage for that target is enabled by `exported_needs_coverage_instrumentation`
         # or by any of the target's dependencies.
         "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
+        "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
         "deps_query": attrs.option(attrs.query(), default = None),
         "exported_needs_coverage_instrumentation": attrs.bool(default = False),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -686,13 +689,14 @@ transitions = {
     "go_library": go_library_transition,
     "go_stdlib": go_stdlib_transition,
     "go_test": go_test_transition,
-    "python_binary": constraint_overrides.transition,
-    "python_test": constraint_overrides.transition,
+    "python_binary": constraint_overrides.python_transition,
+    "python_test": constraint_overrides.python_transition,
     "sh_test": constraint_overrides.transition,
 }
 
 toolchain_rule_names = [
     "apple_toolchain",
+    "swift_macro_toolchain",
     "swift_toolchain",
     "toolchain_alias",
 ]

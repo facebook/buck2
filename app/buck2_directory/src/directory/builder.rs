@@ -37,6 +37,7 @@ use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::path_accumulator::PathAccumulator;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum DirectoryInsertError {
     #[error("Path is empty")]
     EmptyPath,
@@ -46,12 +47,14 @@ pub enum DirectoryInsertError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum DirectoryMkdirError {
     #[error("Mkdir conflicts with an existing leaf at path: `{}`", .path)]
     CannotTraverseLeaf { path: PathAccumulator },
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum DirectoryMergeError {
     #[error("Merge conflicts with an existing leaf at path: `{}`", .path)]
     CannotTraverseLeaf { path: PathAccumulator },

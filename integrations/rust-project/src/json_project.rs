@@ -27,7 +27,7 @@ use crate::target::Target;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub(crate) struct JsonProject {
     #[serde(flatten)]
-    pub(crate) sysroot: Sysroot,
+    pub(crate) sysroot: Box<Sysroot>,
 
     /// The set of crates comprising the project.
     ///
@@ -193,6 +193,8 @@ pub(crate) enum Edition {
     #[default]
     #[serde(rename = "2021")]
     Edition2021,
+    #[serde(rename = "2024")]
+    Edition2024,
 }
 
 /// An optional set of Rust files that comprise the crate.
@@ -216,7 +218,7 @@ pub(crate) struct Dep {
 
 /// Sysroot paths. These are documented in the rust-analyzer manual:
 ///
-/// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
+/// <https://rust-analyzer.github.io/book/non_cargo_based_projects.html>
 ///
 /// rust-analyzer treats both paths as optional, but we always provide sysroot.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -241,4 +243,11 @@ pub(crate) struct Sysroot {
     /// are packaged seperately from binaries such as `rust-analyzer-proc-macro-srv`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) sysroot_src: Option<PathBuf>,
+    /// A nested rust-project for the sysroot itself. If not provided, rust-analyzer
+    /// will attempt to compute the sysroot layout with Cargo.
+    ///
+    /// Inside Meta, we have a Buck-ified rust toolchain and we can provide the
+    /// sysroot layout directly with Buck.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) sysroot_project: Option<JsonProject>,
 }

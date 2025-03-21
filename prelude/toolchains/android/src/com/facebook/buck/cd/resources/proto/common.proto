@@ -1,0 +1,46 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+//----------------------------------------------
+//  Generate command
+//----------------------------------------------
+//
+// When modifying this file, please run the following generate command,
+// and include generated code in your commit
+//
+// fbcode/buck2/prelude/toolchains/android/tools/protobuf/gen.py
+//
+//-----------------------
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.facebook.buck.cd.model.common";
+option java_outer_classname = "CommonCDProto";
+
+// protobuf map doesn't support custom type as map key, so would present a map
+// as list of entries.
+message RelPathMapEntry {
+  string key = 1;
+  string value = 2;
+}
+
+message PostBuildParams {
+  string libraryJar = 1;
+  string abiJar = 2;
+  string jvmAbiGen = 4;
+  string abiOutputDir = 5;
+  repeated string usedClasses = 6;
+  string depFile = 7;
+  string jarToJarDirMap = 8;
+  repeated string optionalDirs = 9;
+  string incrementalStateDir = 10;
+  bool shouldCreateClassAbi = 11;
+  string usedJarsFile = 12;
+}

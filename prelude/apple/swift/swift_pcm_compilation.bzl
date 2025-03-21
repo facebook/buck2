@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//cxx:preprocessor.bzl", "cxx_inherited_preprocessor_infos", "cxx_merge_cpreprocessors")
 load(
     ":apple_sdk_modules_utility.bzl",
@@ -17,8 +16,10 @@ load(
     "extract_and_merge_clang_debug_infos",
 )
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
+load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
-load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "WrappedSdkCompiledModuleInfo")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info", "get_swift_toolchain_info_dep")
+load(":swift_toolchain_types.bzl", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
 
 _REQUIRED_SDK_MODULES = ["Foundation"]
 
@@ -54,7 +55,7 @@ def get_swift_pcm_anon_targets(
             "enable_cxx_interop": enable_cxx_interop,
             "name": uncompiled_dep.label,
             "swift_cxx_args": swift_cxx_args,
-            "_apple_toolchain": ctx.attrs._apple_toolchain,
+            "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
         }))
 
     return deps
@@ -63,14 +64,13 @@ def _compile_with_argsfile(
         ctx: AnalysisContext,
         category: str,
         module_name: str,
+        swift_toolchain_info: SwiftToolchainInfo,
         args: cmd_args,
         additional_cmd: cmd_args):
     shell_quoted_cmd = cmd_args(args, quote = "shell")
     argfile, _ = ctx.actions.write(module_name + ".swift_pcm_argsfile", shell_quoted_cmd, allow_args = True)
-
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     cmd = cmd_args(
-        swift_toolchain.compiler,
+        swift_toolchain_info.compiler,
         cmd_args(["@", argfile], delimiter = ""),
         additional_cmd,
         # Action should also depend on all artifacts from the argsfile, otherwise they won't be materialised.
@@ -157,9 +157,11 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             ]
 
         module_name = uncompiled_pcm_info.name
+        swift_toolchain_info = ctx.attrs._swift_toolchain[SwiftToolchainInfo]
         cmd, additional_cmd, pcm_output = _get_base_pcm_flags(
             ctx,
             module_name,
+            swift_toolchain_info,
             uncompiled_pcm_info,
             sdk_deps_tset,
             pcm_deps_tset,
@@ -182,6 +184,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             ctx,
             "swift_pcm_compile",
             module_name,
+            swift_toolchain_info,
             cmd,
             additional_cmd,
         )
@@ -202,7 +205,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.dep[SwiftPCMUncompiledInfo].uncompiled_sdk_modules,
         required_sdk_modules,
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+        ctx.attrs._swift_toolchain[SwiftToolchainInfo],
     )
 
     # Recursively compiling SDK's Clang dependencies
@@ -228,7 +231,7 @@ _swift_pcm_compilation = rule(
         "dep": attrs.dep(),
         "enable_cxx_interop": attrs.bool(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
-        "_apple_toolchain": attrs.dep(),
+        "_swift_toolchain": attrs.dep(),
     },
 )
 
@@ -248,9 +251,11 @@ def _compile_pcm(
     # ones that should be transitively exported through public headers
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, compiled_pcm_deps_providers)
 
+    swift_toolchain_info = get_swift_toolchain_info(ctx)
     cmd, additional_cmd, pcm_output = _get_base_pcm_flags(
         ctx,
         module_name,
+        swift_toolchain_info,
         uncompiled_pcm_info,
         sdk_deps_tset,
         pcm_deps_tset,
@@ -262,6 +267,7 @@ def _compile_pcm(
         ctx,
         action_name,
         module_name,
+        swift_toolchain_info,
         cmd,
         additional_cmd,
     )
@@ -312,22 +318,22 @@ def compile_underlying_pcm(
 def _get_base_pcm_flags(
         ctx: AnalysisContext,
         module_name: str,
+        swift_toolchain_info: SwiftToolchainInfo,
         uncompiled_pcm_info: SwiftPCMUncompiledInfo,
         sdk_deps_tset: SwiftCompiledModuleTset,
         pcm_deps_tset: SwiftCompiledModuleTset,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
     modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
     pcm_output = ctx.actions.declare_output(module_name + ".pcm")
 
     cmd = cmd_args(
         get_shared_pcm_compilation_args(module_name),
-        ["-sdk", swift_toolchain.sdk_path],
-        swift_toolchain.compiler_flags,
+        get_sdk_flags(ctx),
+        swift_toolchain_info.compiler_flags,
         ([
             "-resource-dir",
-            swift_toolchain.resource_dir,
-        ] if swift_toolchain.resource_dir else []),
+            swift_toolchain_info.resource_dir,
+        ] if swift_toolchain_info.resource_dir else []),
         sdk_deps_tset.project_as_args("clang_module_file_flags"),
         pcm_deps_tset.project_as_args("clang_module_file_flags"),
         pcm_deps_tset.project_as_args("clang_importer_flags"),

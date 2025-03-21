@@ -48,7 +48,6 @@ use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::errors::create_error_report;
@@ -147,6 +146,9 @@ impl DaemonShutdown {
     /// As we might be processing a `kill()` (or other) request, we cannot wait for the server to actually
     /// shutdown (as it will wait for current requests to finish), so this returns immediately.
     fn start_shutdown(&self, reason: buck2_data::DaemonShutdown, timeout: Option<Duration>) {
+        // It would be better to pass reason to be logged later in a more structured way, but this can't be done via
+        // the existing graceful (not forced) shutdown mechanism (serve_with_incoming_shutdown), so logging here instead.
+        tracing::warn!("triggered shutdown: {}", reason.reason);
         crate::active_commands::broadcast_shutdown(&reason);
 
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
@@ -273,8 +275,21 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let daemon_state = Arc::new(
-            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await,
+            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await?,
         );
+
+        #[cfg(fbcode_build)]
+        {
+            let root_path =
+                std::path::PathBuf::from(&daemon_state.paths.project_root().root().as_os_str());
+            if !buck2_env!("BUCK2_DISABLE_EDEN_HEALTH_CHECK", bool)?
+                && detect_eden::is_eden(root_path).unwrap_or(false)
+            {
+                tracing::trace!("EdenFS root detected; starting health check job");
+                eden_health::edenfs_health_check(fb, daemon_state.paths.roots.project_root.dupe())
+                    .await;
+            }
+        }
 
         let auth_token = process_info.auth_token.clone();
         let api_server = BuckdServer(Arc::new(BuckdServerData {
@@ -396,14 +411,14 @@ impl BuckdServer {
         OneshotCommandOptions::pre_run(&opts, self)?;
 
         let daemon_state = self.0.daemon_state.dupe();
-        let trace_id = client_ctx.trace_id.parse().map_err(from_any)?;
+        let trace_id = client_ctx.trace_id.parse()?;
         let (events, dispatch) = daemon_state.prepare_events(trace_id).await?;
         let ActiveCommand {
             guard,
             daemon_shutdown_channel,
             state,
         } = ActiveCommand::new(&dispatch, client_ctx.sanitized_argv.clone());
-        let data = daemon_state.data()?;
+        let data = daemon_state.data();
 
         // Fire off a system-wide event to record the memory usage of this process.
         // TODO(ezgi): add it to oneshot command too
@@ -420,10 +435,10 @@ impl BuckdServer {
             min_re_download_bytes_threshold: system_warning_config.min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold: system_warning_config
                 .avg_re_download_bytes_per_sec_threshold,
-            min_cache_hit_threshold_percent: system_warning_config.min_cache_hit_threshold_percent,
-            cache_warning_min_completion_threshold_percent: system_warning_config
-                .cache_warning_min_completion_threshold_percent,
-            cache_warning_min_actions_count: system_warning_config.cache_warning_min_actions_count,
+            optin_vpn_check_targets_regex: system_warning_config
+                .optin_vpn_check_targets_regex
+                .clone(),
+            enable_stable_revision_check: system_warning_config.enable_stable_revision_check,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
@@ -771,7 +786,7 @@ impl<Req> StreamingCommandOptions<Req> for QueryCommandOptions {
         match self.profile_mode {
             None => Ok(StarlarkProfilerConfiguration::None),
             Some(mode) => {
-                let mode = buck2_cli_proto::ProfileMode::from_i32(mode)
+                let mode = buck2_cli_proto::ProfileMode::try_from(mode)
                     .internal_error("invalid profile mode enum value")?;
                 Ok(StarlarkProfilerConfiguration::ProfileLoading(
                     proto_to_profile_mode(mode),
@@ -849,10 +864,9 @@ impl DaemonApi for BuckdServer {
 
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
             let snapshot = if req.snapshot {
-                let data = daemon_state.data()?;
                 Some(
                     snapshot::SnapshotCollector::new(
-                        data.dupe(),
+                        daemon_state.data(),
                         daemon_state.paths.buck_out_path(),
                     )
                     .create_snapshot(),
@@ -861,27 +875,22 @@ impl DaemonApi for BuckdServer {
                 None
             };
 
-            let extra_constraints = daemon_state.data().as_ref().ok().map(|state| {
-                buck2_cli_proto::ExtraDaemonConstraints {
-                    trace_io_enabled: TracingIoProvider::from_io(&*state.io).is_some(),
-                    materializer_state_identity: state
-                        .materializer_state_identity
-                        .as_ref()
-                        .map(|i| i.to_string()),
-                }
-            });
+            let extra_constraints = buck2_cli_proto::ExtraDaemonConstraints {
+                trace_io_enabled: TracingIoProvider::from_io(&*daemon_state.data().io).is_some(),
+                materializer_state_identity: daemon_state
+                    .data()
+                    .materializer_state_identity
+                    .as_ref()
+                    .map(|i| i.to_string()),
+            };
 
             let mut daemon_constraints = self.0.base_daemon_constraints.clone();
-            daemon_constraints.extra = extra_constraints;
+            daemon_constraints.extra = Some(extra_constraints);
 
             let valid_working_directory = daemon_state.validate_cwd().is_ok();
             let valid_buck_out_mount = daemon_state.validate_buck_out_mount().is_ok();
 
-            let io_provider = daemon_state
-                .data()
-                .as_ref()
-                .ok()
-                .map(|state| state.io.name().to_owned());
+            let io_provider = daemon_state.data().io.name().to_owned();
 
             let uptime = self.0.start_instant.elapsed();
             let base = StatusResponse {
@@ -892,24 +901,12 @@ impl DaemonApi for BuckdServer {
                 daemon_constraints: Some(daemon_constraints),
                 project_root: daemon_state.paths.project_root().to_string(),
                 isolation_dir: daemon_state.paths.isolation.to_string(),
-                forkserver_pid: daemon_state
-                    .data
-                    .as_ref()
-                    .ok()
-                    .and_then(|state| state.forkserver.as_ref().map(|f| f.pid())),
-                supports_vpnless: daemon_state
-                    .data()
-                    .as_ref()
-                    .ok()
-                    .map(|state| state.http_client.supports_vpnless()),
-                http2: daemon_state
-                    .data()
-                    .as_ref()
-                    .ok()
-                    .map(|state| state.http_client.http2()),
+                forkserver_pid: daemon_state.data.forkserver.as_ref().map(|f| f.pid()),
+                supports_vpnless: Some(daemon_state.data().http_client.supports_vpnless()),
+                http2: Some(daemon_state.data().http_client.http2()),
                 valid_working_directory: Some(valid_working_directory),
                 valid_buck_out_mount: Some(valid_buck_out_mount),
-                io_provider,
+                io_provider: Some(io_provider),
                 ..Default::default()
             };
             Ok(base)
@@ -1244,12 +1241,12 @@ impl DaemonApi for BuckdServer {
         let res: buck2_error::Result<_> = try {
             let path = Path::new(&path);
             let format_proto =
-                buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::from_i32(inner.format)
+                buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat::try_from(inner.format)
                     .buck_error_context("Invalid DICE dump format")?;
 
             self.0
                 .daemon_state
-                .data()?
+                .data()
                 .spawn_dice_dump(path, format_proto)
                 .await
                 .with_buck_error_context(|| {
@@ -1272,7 +1269,7 @@ impl DaemonApi for BuckdServer {
 
         let res: buck2_error::Result<_> = try {
             let client_ctx = req.get_ref().client_context()?;
-            let trace_id = client_ctx.trace_id.parse().map_err(from_any)?;
+            let trace_id = client_ctx.trace_id.parse()?;
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
             let active_command = ActiveCommand::new(&dispatcher, client_ctx.sanitized_argv.clone());
             (event_source, dispatcher, active_command)
@@ -1460,14 +1457,13 @@ impl DaemonApi for BuckdServer {
         }
 
         if req.forkserver {
-            if let Ok(data) = self.0.daemon_state.data() {
-                if let Some(forkserver) = data.forkserver.as_ref() {
-                    forkserver
-                        .set_log_filter(req.log_filter)
-                        .await
-                        .buck_error_context("Error forwarding daemon log filter to forkserver")
-                        .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
-                }
+            let data = self.0.daemon_state.data();
+            if let Some(forkserver) = data.forkserver.as_ref() {
+                forkserver
+                    .set_log_filter(req.log_filter)
+                    .await
+                    .buck_error_context("Error forwarding daemon log filter to forkserver")
+                    .map_err(|e| Status::invalid_argument(format!("{:#}", e)))?;
             }
         }
 
@@ -1534,6 +1530,11 @@ fn server_shutdown_signal(
 async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duration: Duration) {
     // this restarts the timer everytime there is a new command
     while (timeout(duration, command_receiver.next()).await).is_ok() {}
+
+    tracing::warn!(
+        "inactivity timeout elapsed ({:?}), shutting down server",
+        duration
+    );
 }
 
 async fn certs_validation_background_job(cert_state: CertState) {
@@ -1547,6 +1548,76 @@ async fn certs_validation_background_job(cert_state: CertState) {
             *valid = result.is_ok();
         }
     });
+}
+
+#[cfg(fbcode_build)]
+mod eden_health {
+    use std::time::Duration;
+
+    use buck2_core::fs::project::ProjectRoot;
+    use buck2_core::soft_error;
+    use buck2_eden::connection::EdenConnectionManager;
+    use buck2_eden::error::ErrorFromHangingMount;
+    use buck2_eden::semaphore;
+    use buck2_error::buck2_error;
+
+    pub(crate) async fn edenfs_health_check(fb: fbinit::FacebookInit, root: ProjectRoot) {
+        tokio::task::spawn(async move {
+            const HEALTH_CHECK_INTERVAL: u64 = 60 * 10; // 10 minutes
+            tracing::trace!(
+                "spawned EdenFS health check that runs every {} seconds",
+                HEALTH_CHECK_INTERVAL
+            );
+            loop {
+                tokio::time::sleep(Duration::from_secs(HEALTH_CHECK_INTERVAL)).await;
+                match EdenConnectionManager::new(fb, &root, Some(semaphore::buck2_default())) {
+                    Ok(Some(conn)) => {
+                        let info = conn
+                            .with_eden(|eden| {
+                                tracing::trace!("running getDaemonInfo() on EdenFS service");
+                                eden.getDaemonInfo()
+                            })
+                            .await;
+                        match info {
+                            Err(e) if e.is_caused_by_hanging_mount() => {
+                                tracing::error!(
+                                    "check hit an EdenFS error caused by a hanging mount: {:#}",
+                                    e
+                                );
+                                soft_error!(
+                                    "eden_thrift_health_check_failed",
+                                    buck2_error!(buck2_error::ErrorTag::Input, "check failed with: {:#}", e),
+                                    quiet: true
+                                )
+                                .ok();
+                            }
+                            _ => {
+                                tracing::debug!("check determined EdenFS is not hanging");
+                                continue;
+                            }
+                        }
+                    }
+                    // Only occurs if the .eden dir doesn't exist (indicative of an unmounted mount).
+                    // Ignore this case since it's not related to a hanging Eden daemon.
+                    Ok(None) => {
+                        tracing::debug!("failed to run check: .eden dir does not exist");
+                        continue;
+                    }
+                    // Can occur for a number of reasons, including IO into the Eden mount failing.
+                    // This _could_ signal a hanging mount, so we'll report a possible hang.
+                    Err(e) => {
+                        tracing::error!("check failed to create an EdenFS client: {:#}", e);
+                        soft_error!(
+                            "eden_thrift_client_creation_failed",
+                            buck2_error!(buck2_error::ErrorTag::Input, "client creation failed with: {:#}", e),
+                            quiet: true
+                        )
+                        .ok();
+                    }
+                }
+            }
+        });
+    }
 }
 
 /// No-op set of command options.

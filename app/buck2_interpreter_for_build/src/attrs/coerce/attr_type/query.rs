@@ -52,9 +52,6 @@ impl QueryAttrTypeExt for QueryAttrType {
             fn target_pattern(&mut self, pattern: &str) -> buck2_error::Result<()> {
                 // TODO(cjhopman): We could probably parse the pattern first. This would likely at least give a better error message when the query contains a non-literal target pattern.
                 // We could optimize this to do less work for duplicates, but it's generally not helpful.
-                if pattern == "$declared_deps" || pattern == "$declared" {
-                    return Ok(());
-                }
                 let label = self.ctx.coerce_providers_label(pattern)?;
 
                 /*

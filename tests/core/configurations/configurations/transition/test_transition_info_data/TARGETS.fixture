@@ -1,0 +1,46 @@
+load(
+    ":defs.bzl",
+    "constraint_override_transition",
+    "stub_transition",
+    "stub_with_incoming_transition",
+)
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
+)
+
+platform(
+    name = "empty_platform",
+    constraint_values = [],
+)
+
+stub(
+    name = "base",
+    labels = select({
+        ":cat": ["cat"],
+        "DEFAULT": [],
+    }),
+)
+
+constraint_override_transition(
+    name = "transition",
+    constraint_to_add = ":cat",
+)
+
+stub_transition(
+    name = "pre_outgoing_transition",
+    dep = ":base",
+    default_target_platform = ":empty_platform",
+)
+
+stub_with_incoming_transition(
+    name = "pre_incoming_transition",
+    dep = ":base",
+    default_target_platform = ":empty_platform",
+    incoming_transition = ":transition",
+)

@@ -50,6 +50,7 @@ use crate::anon_targets::AnonTargetKey;
 use crate::anon_targets::AnonTargetsRegistry;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum AnonTargetsError {
     #[error("artifact with name `{0}` was not found")]
     ArtifactNotFound(String),

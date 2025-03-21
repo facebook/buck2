@@ -87,6 +87,7 @@ java_annotation_processor = prelude_rule(
             "licenses": attrs.list(attrs.source(), default = []),
             "processor_class": attrs.string(default = ""),
             "supports_abi_generation_from_source": attrs.bool(default = False),
+            "runs_on_java_only": attrs.bool(default = False),
         }
     ),
 )

@@ -9,10 +9,12 @@
 
 use std::time::Duration;
 
+use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_core::soft_error;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
@@ -31,20 +33,20 @@ use crate::NodeKey;
 /// potential savings in addition to the critical path.
 pub(crate) struct LongestPathGraphBackend {
     builder: buck2_error::Result<GraphBuilder<NodeKey, NodeData>>,
-    top_level_analysis: Vec<VisibilityEdge>,
+    top_level_targets: Vec<TopLevelTarget>,
 }
 
 /// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
-struct VisibilityEdge {
-    node: NodeKey,
-    makes_visible: Vec<NodeKey>,
+struct TopLevelTarget {
+    target: ConfiguredTargetLabel,
+    artifacts: Vec<NodeKey>,
 }
 
 impl LongestPathGraphBackend {
     pub(crate) fn new() -> Self {
         Self {
             builder: Ok(GraphBuilder::new()),
-            top_level_analysis: Vec::new(),
+            top_level_targets: Vec::new(),
         }
     }
 }
@@ -89,12 +91,12 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 
     fn process_top_level_target(
         &mut self,
-        analysis: NodeKey,
+        target: ConfiguredTargetLabel,
         artifacts: impl IntoIterator<Item = NodeKey>,
     ) {
-        self.top_level_analysis.push(VisibilityEdge {
-            node: analysis,
-            makes_visible: artifacts.into_iter().collect(),
+        self.top_level_targets.push(TopLevelTarget {
+            target,
+            artifacts: artifacts.into_iter().collect(),
         })
     }
 
@@ -105,11 +107,12 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
             let mut n = 0;
 
-            for visibility in &self.top_level_analysis {
-                let analysis = &visibility.node;
-                let artifacts = &visibility.makes_visible;
+            for top_level_target in &self.top_level_targets {
+                // This is a bit wasteful, but transient and the volume is small.
+                let analysis = NodeKey::AnalysisKey(AnalysisKey(top_level_target.target.dupe()));
+                let artifacts = &top_level_target.artifacts;
 
-                let analysis = match keys.get(analysis) {
+                let analysis = match keys.get(&analysis) {
                     Some(k) => k,
                     None => continue, // Nothing depends on this,
                 };
@@ -170,9 +173,50 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 .buck_error_context("Duration `as_micros()` exceeds u64")
         })?;
 
-        let (critical_path, critical_path_cost, replacement_durations) =
+        let (critical_path, critical_path_cost, replacement_durations, critical_path_accessor) =
             compute_critical_path_potentials(&graph, &durations)
                 .buck_error_context("Error computing critical path potentials")?;
+
+        let critical_path_for_top_level_targets = self
+            .top_level_targets
+            .iter()
+            .filter_map(|t| {
+                let max_cost = (|| {
+                    let (path_cost, _critical_path) = t
+                        .artifacts
+                        .iter()
+                        .map(|a| {
+                            let idx = keys.get(a).with_buck_error_context(|| {
+                                format!("Cannot find artifact: {}", a)
+                            })?;
+                            critical_path_accessor
+                                .critical_path_for_vertex(idx)
+                                .with_buck_error_context(|| {
+                                    format!("Invalid index for artifact: {}", a)
+                                })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter()
+                        .max_by_key(|p| p.0)
+                        .buck_error_context("No critical path")?;
+
+                    buck2_error::Result::Ok(Duration::from_micros(path_cost.runtime))
+                })();
+
+                let max_cost = match max_cost {
+                    Ok(max_cost) => max_cost,
+                    Err(e) => {
+                        // This would happen if we're given a target at the top
+                        // level but then its DICE node never gets computed.
+                        // This may happen if the command was e.g. cancelled.
+                        tracing::debug!("No critical path for target {}: {:#}", t.target, e);
+                        return None;
+                    }
+                };
+
+                Some((t.target.dupe(), max_cost))
+            })
+            .collect::<Vec<_>>();
 
         drop(durations);
 
@@ -203,6 +247,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             critical_path,
             num_nodes: graph.vertices_count() as _,
             num_edges: graph.edges_count() as _,
+            top_level_targets: critical_path_for_top_level_targets,
         })
     }
 

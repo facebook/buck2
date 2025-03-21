@@ -22,7 +22,7 @@ pub async fn try_terminate_process_gracefully(
     #[cfg(not(unix))]
     {
         Err(buck2_error::buck2_error!(
-            [],
+            buck2_error::ErrorTag::Unimplemented,
             "Graceful process termination is not implemented for non-unix target family."
         ))
     }
@@ -78,7 +78,7 @@ mod unix {
             Err(nix::errno::Errno::ESRCH) => ControlFlow::Break(StoppedWaiting::Success),
             Err(e) => {
                 ControlFlow::Break(StoppedWaiting::UnexpectedError(buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Tier0,
                     "Unexpected error while waiting for process `{}` to terminate (`{}`)",
                     pid,
                     e

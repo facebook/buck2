@@ -46,7 +46,3 @@ export_file(
 export_file(name = "test_bxl_template.py")
 
 export_file(name = "test_bxl_check_dependencies_template.py")
-
-export_file(name = "test_bxl_assert_dependencies_template.py")
-
-export_file(name = "test_bxl_audit_dependents_template.py")

@@ -15,9 +15,9 @@ rust_library(
         "fbsource//third-party/rust:x509-parser",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_util:buck2_util",
-        # @oss-disable: "//buck2/facebook/find_certs:find_certs", 
+        # @oss-disable[end= ]: "//buck2/facebook/find_certs:find_certs",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
-        # @oss-disable: "//common/rust/cpe:cpe", 
+        # @oss-disable[end= ]: "//common/rust/cpe:cpe",
     ],
 )

@@ -9,6 +9,7 @@
 
 use std::cell::RefCell;
 use std::io::Write;
+use std::iter;
 use std::ops::DerefMut;
 use std::rc::Rc;
 
@@ -85,6 +86,10 @@ pub(crate) struct OutputStream {
     #[trace(unsafe_ignore)]
     #[allocative(skip)]
     pub(crate) sink: Rc<RefCell<dyn Write>>,
+    #[derivative(Debug = "ignore")]
+    #[trace(unsafe_ignore)]
+    #[allocative(skip)]
+    pub(crate) error_sink: Rc<RefCell<dyn Write>>,
     #[trace(unsafe_ignore)]
     artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifactOrGroup>>>,
     #[derivative(Debug = "ignore")]
@@ -102,14 +107,36 @@ pub(crate) enum EnsuredArtifactOrGroup {
     ArtifactGroup(ArtifactGroup),
 }
 
+impl EnsuredArtifactOrGroup {
+    pub(crate) fn into_artifact_groups(self) -> buck2_error::Result<Vec<ArtifactGroup>> {
+        match self {
+            EnsuredArtifactOrGroup::Artifact(artifact) => {
+                let as_artifact = artifact.as_artifact();
+                let bound_artifact = as_artifact.get_bound_artifact()?;
+                let associated_artifacts = as_artifact.get_associated_artifacts();
+
+                Ok(associated_artifacts
+                    .iter()
+                    .flat_map(|v| v.iter())
+                    .cloned()
+                    .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
+                    .collect::<Vec<_>>())
+            }
+            EnsuredArtifactOrGroup::ArtifactGroup(group) => Ok(vec![group]),
+        }
+    }
+}
+
 impl OutputStream {
     pub(crate) fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
         sink: Rc<RefCell<dyn Write>>,
+        error_sink: Rc<RefCell<dyn Write>>,
     ) -> Self {
         Self {
             sink,
+            error_sink,
             artifacts_to_ensure: RefCell::new(Some(Default::default())),
             project_fs,
             artifact_fs,
@@ -119,60 +146,19 @@ impl OutputStream {
     pub(crate) fn take_artifacts(&self) -> SmallSet<EnsuredArtifactOrGroup> {
         self.artifacts_to_ensure.borrow_mut().take().unwrap()
     }
-}
 
-#[starlark_value(type = "bxl.OutputStream", StarlarkTypeRepr, UnpackValue)]
-impl<'v> StarlarkValue<'v> for OutputStream {
-    fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(output_stream_methods)
-    }
-}
-
-impl<'v> AllocValue<'v> for OutputStream {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
-        heap.alloc_complex_no_freeze(self)
-    }
-}
-
-#[derive(StarlarkTypeRepr, UnpackValue)]
-enum EnsureMultipleArtifactsArg<'v> {
-    None(NoneType),
-    EnsuredArtifactArgs(UnpackList<ArtifactArg<'v>>),
-    ProvidersArtifactIterable(&'v StarlarkProvidersArtifactIterable<'v>),
-    BxlBuildResult(&'v StarlarkBxlBuildResult),
-    Dict(UnpackDictEntries<Value<'v>, &'v StarlarkBxlBuildResult>),
-    CmdLine(ValueAsCommandLineLike<'v>),
-}
-
-/// The output stream for bxl to print values to the console as their result
-#[starlark_module]
-fn output_stream_methods(builder: &mut MethodsBuilder) {
-    /// Outputs results to the console via stdout. These outputs are considered to be the results
-    /// of a bxl script, which will be displayed to stdout by buck2 even when the script is cached.
-    /// Accepts an optional separator that defaults to " ".
-    ///
-    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
-    /// and `pprint`. Note that `ctx.output.print()` is intended for simple outputs. For more complex
-    /// outputs, the recommendation would be to write them to a file.
-    ///
-    /// Sample usage:
-    /// ```python
-    /// def _impl_print(ctx):
-    ///     ctx.output.print("test")
-    /// ```
     fn print<'v>(
-        this: &'v OutputStream,
-        #[starlark(args)] args: UnpackTuple<Value<'v>>,
-        #[starlark(default = " ")] sep: &'v str,
+        &self,
+        args: impl Iterator<Item = Value<'v>>,
+        sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<NoneType> {
+    ) -> buck2_error::Result<()> {
         let mut first = true;
         let mut write = |d: &dyn Display| -> buck2_error::Result<()> {
             if !first {
-                write!(this.sink.borrow_mut(), "{}{}", sep, d)?;
+                write!(self.sink.borrow_mut(), "{}{}", sep, d)?;
             } else {
-                write!(this.sink.borrow_mut(), "{}", d)?;
+                write!(self.sink.borrow_mut(), "{}", d)?;
                 first = false;
             }
             Ok(())
@@ -183,8 +169,8 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 let path = get_artifact_path_display(
                     ensured.get_artifact_path(),
                     ensured.abs(),
-                    &this.project_fs,
-                    &this.artifact_fs,
+                    &self.project_fs,
+                    &self.artifact_fs,
                 )?;
                 write(&path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg)? {
@@ -198,8 +184,8 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                                     let path = get_artifact_path_display(
                                         artifact_path,
                                         abs,
-                                        &this.project_fs,
-                                        &this.artifact_fs,
+                                        &self.project_fs,
+                                        &self.artifact_fs,
                                     )?;
                                     write(&path)
                                 },
@@ -212,34 +198,17 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             }
         }
 
-        if let Err(e) = writeln!(this.sink.borrow_mut()) {
-            return Err(buck2_error::Error::from(e).into());
-        }
+        writeln!(self.sink.borrow_mut())?;
 
-        Ok(NoneType)
+        Ok(())
     }
 
-    /// Outputs results to the console via stdout as pretty-printed json. Pretty
-    /// printing can be turned off by the `pretty` keyword-only parameter.
-    /// These outputs are considered to be the results of a bxl script, which will be displayed to
-    /// stdout by buck2 even when the script is cached.
-    ///
-    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
-    /// and `pprint`.
-    ///
-    /// Sample usage:
-    /// ```python
-    /// def _impl_print_json(ctx):
-    ///     outputs = {}
-    ///     outputs.update({"foo": bar})
-    ///     ctx.output.print_json("test")
-    /// ```
     fn print_json<'v>(
-        this: &'v OutputStream,
+        &self,
         value: Value<'v>,
-        #[starlark(require=named, default=true)] pretty: bool,
+        pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> starlark::Result<NoneType> {
+    ) -> buck2_error::Result<()> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v, 'd> {
             value: Value<'v>,
@@ -293,7 +262,11 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                                             self.artifact_fs,
                                         )?;
                                         seq_ser.serialize_element(&path).map_err(|err| {
-                                            buck2_error!([], "{}", format!("{:#}", err))
+                                            buck2_error!(
+                                                buck2_error::ErrorTag::Tier0,
+                                                "{}",
+                                                format!("{:#}", err)
+                                            )
                                         })?;
                                         Ok(())
                                     },
@@ -328,19 +301,95 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             serde_json::to_writer
         };
         writer(
-            this.sink.borrow_mut().deref_mut(),
+            self.sink.borrow_mut().deref_mut(),
             &SerializeValue {
                 value,
-                artifact_fs: &this.artifact_fs,
-                project_fs: &this.project_fs,
+                artifact_fs: &self.artifact_fs,
+                project_fs: &self.project_fs,
                 async_ctx: &BxlEvalExtra::from_context(eval)?.dice,
             },
         )
         .buck_error_context("Error writing to JSON for `write_json`")?;
 
-        if let Err(e) = writeln!(this.sink.borrow_mut()) {
-            return Err(buck2_error::Error::from(e).into());
-        }
+        writeln!(self.sink.borrow_mut())?;
+
+        Ok(())
+    }
+}
+
+#[starlark_value(type = "bxl.OutputStream", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for OutputStream {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(output_stream_methods)
+    }
+}
+
+impl<'v> AllocValue<'v> for OutputStream {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
+
+#[derive(StarlarkTypeRepr, UnpackValue)]
+enum EnsureMultipleArtifactsArg<'v> {
+    None(NoneType),
+    EnsuredArtifactArgs(UnpackList<ArtifactArg<'v>>),
+    ProvidersArtifactIterable(&'v StarlarkProvidersArtifactIterable<'v>),
+    BxlBuildResult(&'v StarlarkBxlBuildResult),
+    Dict(UnpackDictEntries<Value<'v>, &'v StarlarkBxlBuildResult>),
+    CmdLine(ValueAsCommandLineLike<'v>),
+}
+
+/// The output stream for bxl to print values to the console as their result
+#[starlark_module]
+fn output_stream_methods(builder: &mut MethodsBuilder) {
+    /// Outputs results to the console via stdout. These outputs are considered to be the results
+    /// of a bxl script, which will be displayed to stdout by buck2 even when the script is cached.
+    /// Accepts an optional separator that defaults to " ".
+    ///
+    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
+    /// and `pprint`. Note that `ctx.output.print()` is intended for simple outputs. For more complex
+    /// outputs, the recommendation would be to write them to a file.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_print(ctx):
+    ///     ctx.output.print("test")
+    /// ```
+    fn print<'v>(
+        this: &'v OutputStream,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
+        #[starlark(default = " ")] sep: &'v str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<NoneType> {
+        this.print(args.into_iter(), sep, eval)?;
+
+        Ok(NoneType)
+    }
+
+    /// Outputs results to the console via stdout as pretty-printed json. Pretty
+    /// printing can be turned off by the `pretty` keyword-only parameter.
+    /// These outputs are considered to be the results of a bxl script, which will be displayed to
+    /// stdout by buck2 even when the script is cached.
+    ///
+    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
+    /// and `pprint`.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_print_json(ctx):
+    ///     outputs = {}
+    ///     outputs.update({"foo": bar})
+    ///     ctx.output.print_json("test")
+    /// ```
+    fn print_json<'v>(
+        this: &'v OutputStream,
+        value: Value<'v>,
+        #[starlark(require=named, default=true)] pretty: bool,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<NoneType> {
+        this.print_json(value, pretty, eval)?;
 
         Ok(NoneType)
     }

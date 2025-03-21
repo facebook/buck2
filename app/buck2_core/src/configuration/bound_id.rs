@@ -13,6 +13,7 @@ use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::hash::ConfigurationHash;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum BoundConfigurationIdError {
     #[error("Bound configuration id must contain a hash, got: `{0}`")]
     MissingHash(String),

@@ -20,12 +20,13 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::async_once_cell::AsyncOnceCell;
 use buck2_core::buck2_env;
+use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use chrono::DateTime;
@@ -237,7 +238,7 @@ impl ReConnectionManager {
 
     pub fn get_network_stats(&self) -> buck2_error::Result<RemoteExecutionClientStats> {
         let client_stats = RE::get_network_stats()
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .buck_error_context("Error getting RE network stats")?;
 
         // Those two fields come from RE and are always available.
@@ -405,6 +406,7 @@ impl ManagedRemoteExecutionClient {
         re_max_queue_time: Option<Duration>,
         re_resource_units: Option<i64>,
         knobs: &ExecutorGlobalKnobs,
+        meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);
         self.lock()?
@@ -422,6 +424,7 @@ impl ManagedRemoteExecutionClient {
                 re_max_queue_time,
                 re_resource_units,
                 knobs,
+                meta_internal_extra_params,
             )
             .await
     }
@@ -468,7 +471,7 @@ impl ManagedRemoteExecutionClient {
 
     pub async fn upload_blob(
         &self,
-        blob: Vec<u8>,
+        blob: InlinedBlobWithDigest,
         use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<TDigest> {
         let use_case = self.re_use_case_override.unwrap_or(use_case);

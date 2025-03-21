@@ -20,8 +20,8 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
-use starlark::starlark_simple_value;
 use starlark::typing::Ty;
+use starlark::values::dict::DictType;
 use starlark::values::list::UnpackList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneOr;
@@ -35,38 +35,38 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueError;
+use starlark::values::ValueOfUnchecked;
 
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::artifact::starlark_artifact_value::StarlarkArtifactValue;
 use crate::starlark::values::ValueLike;
 
 pub(crate) type ActionSubErrorResult<'a> = UnpackList<&'a StarlarkActionSubError<'a>>;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum ActionErrorHandlerError {
     #[error("Error handler failed. Expected return type `{0}`, got value with type `{1}`")]
     TypeError(Ty, String),
 }
 
-#[derive(
-    ProvidesStaticType,
-    Trace,
-    Allocative,
-    Debug,
-    Display,
-    NoSerialize,
-    Clone
-)]
+#[derive(ProvidesStaticType, Trace, Allocative, Debug, Display, NoSerialize)]
 #[display(
-    "ActionErrorCtx(stderr: {}, stdout: {})",
-    self.stderr,
-    self.stdout
-)]
-pub struct StarlarkActionErrorContext {
+     "ActionErrorCtx(stderr: {}, stdout: {})",
+     self.stderr,
+     self.stdout
+ )]
+pub struct StarlarkActionErrorContext<'v> {
     stderr: String,
     stdout: String,
+    output_artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
 }
 
-impl StarlarkActionErrorContext {
-    pub(crate) fn new_from_command_execution(command: Option<&CommandExecution>) -> Self {
+impl<'v> StarlarkActionErrorContext<'v> {
+    pub(crate) fn new_from_command_execution(
+        command: Option<&CommandExecution>,
+        output_artifacts: ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>,
+    ) -> Self {
         let stderr = command.map_or(String::default(), |c| {
             c.details
                 .as_ref()
@@ -78,14 +78,22 @@ impl StarlarkActionErrorContext {
                 .map_or(String::default(), |c| c.stdout.clone())
         });
 
-        StarlarkActionErrorContext { stderr, stdout }
+        StarlarkActionErrorContext {
+            stderr,
+            stdout,
+            output_artifacts,
+        }
     }
 }
 
-starlark_simple_value!(StarlarkActionErrorContext);
+impl<'v> AllocValue<'v> for StarlarkActionErrorContext<'v> {
+    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        heap.alloc_complex_no_freeze(self)
+    }
+}
 
-#[starlark_value(type = "ActionErrorCtx")]
-impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext {
+#[starlark_value(type = "ActionErrorCtx", StarlarkTypeRepr, UnpackValue)]
+impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
         RES.methods(action_error_context_methods)
@@ -106,6 +114,15 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn stdout<'v>(this: &'v StarlarkActionErrorContext) -> starlark::Result<&'v str> {
         Ok(&this.stdout)
+    }
+
+    // The output artifacts of the failed action.
+    #[starlark(attribute)]
+    fn output_artifacts<'v>(
+        this: &'v StarlarkActionErrorContext<'v>,
+    ) -> starlark::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
+    {
+        Ok(this.output_artifacts)
     }
 
     /// Create a new error location, specifying a file path and an optional line number.
@@ -165,10 +182,10 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
     PartialEq
 )]
 #[display(
-    "ActionErrorLocation(file={}, line={})",
-    self.file,
-    self.line.map_or("None".to_owned(), |l| l.to_string())
-)]
+     "ActionErrorLocation(file={}, line={})",
+     self.file,
+     self.line.map_or("None".to_owned(), |l| l.to_string())
+ )]
 pub struct StarlarkActionErrorLocation {
     file: String,
     line: Option<u64>,
@@ -361,13 +378,14 @@ pub(crate) fn register_action_error_types(globals: &mut GlobalsBuilder) {
 pub(crate) fn register_action_error_handler_for_testing(builder: &mut GlobalsBuilder) {
     /// Global function to create a new `ActionErrorContext` for testing a starlark action error
     /// handler via `bxl_test`.
-    fn new_test_action_error_ctx(
+    fn new_test_action_error_ctx<'v>(
         #[starlark(require=named, default = "")] stderr: &str,
         #[starlark(require=named, default = "")] stdout: &str,
-    ) -> starlark::Result<StarlarkActionErrorContext> {
+    ) -> starlark::Result<StarlarkActionErrorContext<'v>> {
         Ok(StarlarkActionErrorContext {
             stderr: stderr.to_owned(),
             stdout: stdout.to_owned(),
+            output_artifacts: ValueOfUnchecked::new(starlark::values::Value::new_none()),
         })
     }
 }

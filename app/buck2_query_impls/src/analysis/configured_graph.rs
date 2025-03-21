@@ -54,7 +54,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
         self.resolved_literals
             .get(literal)
             .duped()
-            .ok_or_else(|| buck2_error::buck2_error!([], ""))
+            .ok_or_else(|| buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, ""))
     }
 
     async fn get_targets_from_template_placeholder_info(

@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("get_vs_settings.bxl", "get_basic_vs_settings")
-load("utils.bxl", "basename", "gen_guid", "get_project_file_path", "get_root_path_relative_to", "log_debug", "sanitize")
+load("utils.bxl", "basename", "gen_guid", "get_project_file_path", "log_debug", "sanitize")
 
 def _gen_entry(project_type_guid, project_name, project_filepath, project_guid):
     return """Project("{project_type_guid}") = "{project_name}", "{project_filepath}", "{project_guid}"
@@ -33,7 +33,7 @@ def _gen_folder(folder_path, guid, project_names):
         guid,
     )
 
-def _gen_project(target, vs_settings, root_path, project_names):
+def _gen_project(target, vs_settings, project_names):
     project_name = target.label.name
     if project_names[project_name] > 1:
         # Unique name to avoid prompt: The solution already contains an item named 'xxx'.
@@ -45,13 +45,13 @@ def _gen_project(target, vs_settings, root_path, project_names):
     return _gen_entry(
         project_type_guid_cpp,
         project_name,
-        root_path + get_project_file_path(target.label, ".vcxproj"),
+        get_project_file_path(target.label, ".vcxproj"),
         vs_settings["Globals"]["ProjectGuid"],
     )
 
 # For each target/project, generate intermediate folder entries if they haven't and the target/project itself,
 # as well as mappings of item => folder for solution nested projects structure.
-def _gen_target(target, vs_settings, root_path, existing_folders, nested_projects, project_names):
+def _gen_target(target, vs_settings, existing_folders, nested_projects, project_names):
     entries = []
 
     if target.label.package:
@@ -68,7 +68,7 @@ def _gen_target(target, vs_settings, root_path, existing_folders, nested_project
             folder_prev = folder
         nested_projects[vs_settings["Globals"]["ProjectGuid"]] = existing_folders[folder_prev]
 
-    entries.append(_gen_project(target, vs_settings, root_path, project_names))
+    entries.append(_gen_project(target, vs_settings, project_names))
     return "\n".join(entries)
 
 def _gen_nested_projects(nested_projects):
@@ -108,12 +108,31 @@ def _set_startup_target(targets, vs_settings_list, startup_target_label):
     else:
         warning("Startup target couldn't be located: {}. Please check passed in targets list, `--recursive_target_types`, `--target_exclude_pattern` and `--target_exclude_pattern`.".format(startup_target_label))
 
-def gen_sln(targets, vs_settings_list, explicit_targets, startup_target_label, root_path, bxl_ctx):
+# In buck dependency tree, duplicate targets can exist with exact same label but different
+# configurations. While VS doesn't like duplicate project names (prompting with message: The
+# solution already contains an item named 'xxx'). Besides, there is not much value in showing
+# multiple projects for the same target but with slightly different configuration. Ideally, this
+# could be more efficient trimming those duplicates while building dependency trees, but it's more
+# risky of getting missing target nodes while traversaling the dependency tree after trimming.
+def _dedup_targets(targets, vs_settings_list):
+    deduped_targets = []
+    deduped_vs_settings_list = []
+    seen_raw_targets = set()
+    for i in range(len(targets)):
+        raw_target = targets[i].label.raw_target()
+        if raw_target not in seen_raw_targets:
+            seen_raw_targets.add(raw_target)
+            deduped_targets.append(targets[i])
+            deduped_vs_settings_list.append(vs_settings_list[i])
+    return deduped_targets, deduped_vs_settings_list
+
+def gen_sln(targets, vs_settings_list, explicit_targets, startup_target_label, bxl_ctx):
     log_debug("# Generating sln for {}", startup_target_label, bxl_ctx = bxl_ctx)
     if len(targets) != len(vs_settings_list):
         fail("targets and vs_settings_list are expected to be length.")
 
     _set_startup_target(targets, vs_settings_list, startup_target_label)
+    targets, vs_settings_list = _dedup_targets(targets, vs_settings_list)
     existing_folders = {}  # folder path => folder guid
     nested_projects = {}  # project guid => parent guid
 
@@ -136,7 +155,7 @@ Global
 \tEndGlobalSection
 EndGlobal""".format(
         projects = "\n".join([
-            _gen_target(t, s, root_path, existing_folders, nested_projects, project_names)
+            _gen_target(t, s, existing_folders, nested_projects, project_names)
             for (t, s) in zip(targets, vs_settings_list)
         ]),
         solution_configuration_platforms = "\n".join([
@@ -157,7 +176,7 @@ def _main(bxl_ctx):
     target_node = bxl_ctx.configured_targets(target_label)
 
     basic_vs_settings = get_basic_vs_settings(target_node, bxl_ctx.cli_args)
-    sln_content = gen_sln([target_node], [basic_vs_settings], [target_label], target_node.label, get_root_path_relative_to(target_label), bxl_ctx)
+    sln_content = gen_sln([target_node], [basic_vs_settings], [target_label], target_node.label, bxl_ctx)
     bxl_ctx.output.print(sln_content)
 
 main = bxl_main(

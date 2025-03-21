@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//apple:apple_error_handler_types.bzl", "AppleErrorCategories")
-# @oss-disable: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES") 
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_META_STDERR_ERROR_CATEGORIES")
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
     #codesigning issues
@@ -58,6 +58,6 @@ def apple_build_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     lowercase_stderr = ctx.stderr.lower()
     categories = set()
     _add_category_strings(lowercase_stderr, categories, _APPLE_STDERR_ERROR_CATEGORIES)
-    # @oss-disable: _add_category_strings(lowercase_stderr, categories, APPLE_META_STDERR_ERROR_CATEGORIES) 
+    # @oss-disable[end= ]: _add_category_strings(lowercase_stderr, categories, APPLE_META_STDERR_ERROR_CATEGORIES)
 
     return [ctx.new_sub_error(category = category_string) for category_string in sorted(categories)]

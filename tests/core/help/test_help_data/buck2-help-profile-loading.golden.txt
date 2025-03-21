@@ -29,9 +29,9 @@ Options:
 
           `-allocated` means allocated memory, including memory which is later garbage collected.
 
-          [possible values: time-flame, heap-flame-allocated, heap-flame-retained,
-          heap-summary-allocated, heap-summary-retained, statement, bytecode, bytecode-pairs,
-          typecheck, coverage, none]
+          [possible values: time-flame, heap-allocated, heap-retained, heap-flame-allocated,
+          heap-flame-retained, heap-summary-allocated, heap-summary-retained, statement, bytecode,
+          bytecode-pairs, typecheck, coverage, none]
 
   -h, --help
           Print help (see a summary with '-h')
@@ -46,8 +46,7 @@ Target Configuration Options:
 
           This argument is particularly recommended on most non-trivial cqueries. In the absence of
           this argument, buck2 will use the target literals in your cquery expression as the value
-          for
-          this argument, which may not be what you want.
+          for this argument, which may not be what you want.
 
       --target-platforms <PLATFORM>
           Configuration target (one) to use to configure targets

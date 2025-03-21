@@ -82,7 +82,12 @@ fn bxl_impl<'v>(
 
     let bxl_path = (*starlark_path_from_build_context(eval)?
         .unpack_bxl_file()
-        .ok_or_else(|| buck2_error!([], "`bxl` can only be declared in bxl files"))?)
+        .ok_or_else(|| {
+            buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "`bxl` can only be declared in bxl files"
+            )
+        })?)
     .clone();
 
     let mut unresolved_cli_args = SmallMap::new();
@@ -112,6 +117,7 @@ fn bxl_impl<'v>(
 
 /// Errors around rule declaration, instantiation, validation, etc
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlError {
     #[error("Bxl defined in `{0}` must be assigned to a variable, e.g. `my_bxl = bxl_main(...)`")]
     BxlNotAssigned(String),

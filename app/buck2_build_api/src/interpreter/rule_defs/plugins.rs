@@ -71,6 +71,7 @@ pub struct AnalysisPluginsGen<V: ValueLifetimeless> {
 starlark_complex_value!(pub AnalysisPlugins);
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AnalysisPluginsError {
     #[error("The rule did not declare that it uses plugins of kind {0}")]
     PluginKindNotUsed(PluginKind),

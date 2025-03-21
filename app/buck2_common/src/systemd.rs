@@ -7,6 +7,7 @@
  * of this source tree.
  */
 
+use std::cmp::PartialEq;
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
@@ -14,6 +15,7 @@ use std::sync::OnceLock;
 
 use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
+use tracing::warn;
 
 use crate::init::ResourceControlConfig;
 use crate::init::ResourceControlStatus;
@@ -22,6 +24,7 @@ const SYSTEMD_MIN_VERSION: u32 = 253;
 static AVAILABILITY: OnceLock<Option<buck2_error::Error>> = OnceLock::new();
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 enum SystemdNotAvailableReason {
     #[error("Unexpected `systemctl --version` output format: {0}")]
     UnexpectedVersionOutputFormat(String),
@@ -53,6 +56,15 @@ pub enum ParentSlice {
     Root(String),
 }
 
+/// Turns on delegation of further resource control partitioning to processes of the unit.
+/// Units where this is enabled may create and manage their own private subhierarchy
+/// of control groups below the control group of the unit itself.
+#[derive(PartialEq)]
+pub enum CgroupDelegation {
+    Enabled,
+    Disabled,
+}
+
 pub struct SystemdRunnerConfig {
     /// A config to determine if systemd is available.
     pub status: ResourceControlStatus,
@@ -60,6 +72,8 @@ pub struct SystemdRunnerConfig {
     pub memory_max: Option<String>,
     /// Parent slice behaviour
     pub parent_slice: ParentSlice,
+    /// Delegation of further resource control partitioning of cgroup unit
+    pub delegation: CgroupDelegation,
 }
 
 impl SystemdRunnerConfig {
@@ -68,6 +82,7 @@ impl SystemdRunnerConfig {
             status: config.status.clone(),
             memory_max: config.memory_max.clone(),
             parent_slice,
+            delegation: CgroupDelegation::Disabled,
         }
     }
 
@@ -76,6 +91,7 @@ impl SystemdRunnerConfig {
             status: config.status.clone(),
             memory_max: config.memory_max_per_action.clone(),
             parent_slice,
+            delegation: CgroupDelegation::Enabled,
         }
     }
 }
@@ -108,6 +124,10 @@ impl SystemdRunner {
             // Set `OOMPolicy=kill` explicitly since otherwise (`OOMPolicy=continue`)
             // some workers can keep alive even after buck2 daemon has gone due to OOM.
             args.push("--property=OOMPolicy=kill".to_owned());
+        }
+
+        if config.delegation == CgroupDelegation::Enabled {
+            args.push("--property=Delegate=yes".to_owned());
         }
 
         match &config.parent_slice {
@@ -192,7 +212,7 @@ impl SystemdRunner {
         if !result.status.success() {
             let stderr = String::from_utf8(result.stderr)?;
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Failed to set memory limits for {}: {}",
                 slice,
                 stderr
@@ -200,12 +220,33 @@ impl SystemdRunner {
         }
         Ok(())
     }
+
+    pub async fn ensure_scope_stopped(&self, scope: &str) -> buck2_error::Result<()> {
+        let mut cmd = process::async_background_command("systemctl");
+        cmd.arg("is-active").arg("--quiet").arg("--user").arg(scope);
+        // systemctl returns no error if scope is active
+        let is_active = cmd.status().await?.success();
+        if is_active {
+            warn!(
+                "Transient scope unit {} is already active. Stopping before start a new one.",
+                scope
+            );
+            self.stop_scope(scope).await?;
+        }
+        Ok(())
+    }
+
+    async fn stop_scope(&self, scope: &str) -> buck2_error::Result<()> {
+        let mut cmd = process::async_background_command("systemctl");
+        cmd.arg("stop").arg("--user").arg(scope);
+        cmd.spawn()?.wait().await?;
+        Ok(())
+    }
 }
 
-// Helper function to replace a delimiter in slice name,
-// so systemd won't split the name on nested slices
-pub fn replace_slice_delimiter(slice: &str) -> String {
-    slice.replace("-", ".")
+// Helper function to replace a special characters in a cgroup unit name
+pub fn replace_unit_delimiter(unit: &str) -> String {
+    unit.replace("-", "_").replace(":", "_")
 }
 
 fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {

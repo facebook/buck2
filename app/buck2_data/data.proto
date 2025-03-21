@@ -84,7 +84,6 @@ message SpanStartEvent {
     ReleaseLocalResourcesStart release_local_resources = 81;
     // Measure total time it takes to ensure BXL artifacts.
     BxlEnsureArtifactsStart bxl_ensure_artifacts = 82;
-    CreateOutputHashesFileStart create_output_hashes_file = 84;
     ActionErrorHandlerExecutionStart action_error_handler_execution = 85;
     CqueryUniverseBuildStart cquery_universe_build = 87;
     DepFileUploadStart dep_file_upload = 88;
@@ -136,7 +135,6 @@ message SpanEndEvent {
     SetupLocalResourcesEnd local_resources = 81;
     ReleaseLocalResourcesEnd release_local_resources = 82;
     BxlEnsureArtifactsEnd bxl_ensure_artifacts = 83;
-    CreateOutputHashesFileEnd create_output_hashes_file = 85;
     ActionErrorHandlerExecutionEnd action_error_handler_execution = 86;
     CqueryUniverseBuildEnd cquery_universe_build = 87;
     DepFileUploadEnd dep_file_upload = 88;
@@ -182,40 +180,14 @@ message CommandOptions {
   uint64 concurrency = 1;
 }
 
-message BuckConfigs {
-  reserved 1, 2, 3;
-  // config diff by cell name
-  map<string, CellConfigDiff> cell_diff = 4;
+message CellHasNewConfigs {
+  // We fire this event whenever configs are changed or loaded for a new cell
+  // for which configs had not previously been loaded.
+  string cell = 1;
 }
-
-message CellConfigDiff {
-  // config diff by section name
-  map<string, SectionConfigDiff> section_diff = 1;
-  uint64 config_diff_count = 2;
-  // key + old value + new value
-  uint64 config_diff_size = 3;
-  // If this is set, then this event indicates that buck has loaded configs for
-  // a new cell for which configs had not previously been loaded. In this case,
-  // the other fields are left empty
-  bool new_config_indicator_only = 4;
-}
-
-message SectionConfigDiff {
-  // config diff by config name
-  map<string, ConfigDiff> config_diff = 1;
-}
-
-message ConfigDiff {
-  // both fields set means config was updated
-  // old_value set and new_value empty means config was removed
-  // new_value set and old_value empty means config was added
-  optional string old_value = 1;
-  optional string new_value = 2;
-}
-
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 2, 8, 9, 12, 13, 22, 24, 38;
+  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -295,9 +267,6 @@ message InstantEvent {
     MaterializerCommand materializer_command = 36;
 
     CleanStaleResult clean_stale_result = 37;
-
-    CellConfigDiff cell_config_diff = 41;
-
     InstallFinished install_finished = 39;
 
     SystemInfo system_info = 40;
@@ -319,7 +288,18 @@ message InstantEvent {
 
     // Tracks values of external buckconfigs
     BuckconfigInputValues buckconfig_input_values = 47;
+
+    CellHasNewConfigs cell_has_new_configs = 48;
+
+    // Previous command, but only logged if external configs changed
+    PreviousCommandWithMismatchedConfig
+        previous_command_with_mismatched_config = 49;
   }
+}
+
+message PreviousCommandWithMismatchedConfig {
+  repeated string sanitized_argv = 1;
+  string trace_id = 2;
 }
 
 message ConfigurationCreated {
@@ -359,12 +339,13 @@ message ConfigValue {
 
 message ConfigFile {
   oneof data {
-    // If the config file is project relative, the path of the file. We only
-    // store the path, not actual values of project-relative buckconfigs because
-    // they are huge/costly to store
+    // If the config file is project relative (except .buckconfig.local), the
+    // path of the file. We only store the path, not actual values of
+    // project-relative buckconfigs because they are huge/costly to store
     string project_relative_path = 1;
-    // If the config file is external, we store all the config values in a list
-    // along with the path the file is originating from
+    // If the config file is external or project-relative .buckconfig.local, we
+    // store all the config values in a list along with the path the file is
+    // originating from
     GlobalExternalConfig global_external_config = 2;
   }
 }
@@ -416,6 +397,7 @@ message DiceKeyState {
 message RemoteExecutionSessionCreated {
   string session_id = 1;
   string experiment_name = 2;
+  optional string persistent_cache_mode = 3;
 }
 
 message Location {
@@ -470,7 +452,7 @@ message StructuredError {
   // users. If true, it won't get logged to console
   bool quiet = 5;
   // If this was a soft error, its category.
-  optional string soft_error_category = 6;
+  optional SoftError soft_error_category = 6;
   // Whether a tracking task should be created for this error.
   optional bool task = 7;
   // Is this error indicative of needing to restart the daemon?
@@ -518,7 +500,8 @@ message CriticalPathEntry2 {
     optional CommandInvalidationInfo invalidation_info = 8;
   }
 
-  message Materialization {
+  // This is for materializing the final outputs at the end of the build
+  message FinalMaterialization {
     string path = 1;
 
     oneof owner {
@@ -571,12 +554,19 @@ message CriticalPathEntry2 {
   oneof entry {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;
-    Materialization materialization = 102;
+    FinalMaterialization final_materialization = 102;
     ComputeCriticalPath compute_critical_path = 103;
     Load load = 104;
     Listing listing = 105;
     GenericEntry generic_entry = 106;
   }
+}
+
+message TopLevelTargetCriticalPath {
+  // The relevant target.
+  ConfiguredTargetLabel target = 1;
+  // The duration of the full critical path for this target.
+  google.protobuf.Duration duration = 2;
 }
 
 // Sent once per build.
@@ -599,6 +589,8 @@ message BuildGraphExecutionInfo {
   optional string command_name = 8;
   // The isolation dir
   optional string isolation_dir = 9;
+  // The critical path for top level targets
+  repeated TopLevelTargetCriticalPath top_level_targets = 10;
 }
 
 // An event capturing information from the test discovery phase.
@@ -614,10 +606,31 @@ message TestDiscovery {
 // Result of invoking buck2 rage
 message RageResult {
   reserved 1 to 8;
+  // TODO iguridi: remove string_data and int_data
   map<string, string> string_data = 9;
   map<string, uint64> int_data = 10;
+
   google.protobuf.Timestamp timestamp = 11;
   google.protobuf.Duration command_duration = 12;
+
+  optional string command = 13;
+  optional string buck2_revision = 14;
+  optional string username = 15;
+  optional string hostname = 16;
+  optional string os = 17;
+  optional string os_version = 18;
+
+  string dice_dump = 19;
+  string materializer_state = 20;
+  string materializer_fsck = 21;
+  string thread_dump = 22;
+  string daemon_stderr_dump = 23;
+  string hg_snapshot_id = 24;
+  string invocation_id = 25;
+  string event_log_dump = 26;
+  string re_logs = 27;
+
+  optional int64 daemon_uptime_s = 28;
 }
 
 message VersionControlRevision {
@@ -820,6 +833,7 @@ message TestResult {
   google.protobuf.Duration duration = 7; // Optional
   string details = 8; // Required
   ConfiguredTargetLabel target_label = 9;
+  optional uint64 max_memory_used_bytes = 10;
 }
 
 // At the beginning of discovery, the test orchestrator will advertise
@@ -1403,6 +1417,9 @@ message ActionExecutionEnd {
   optional uint64 input_files_bytes = 39;
 
   optional CommandInvalidationInfo invalidation_info = 40;
+
+  // Name of the rule type that was executed by this action
+  optional string target_rule_type_name = 41;
 }
 
 message CommandInvalidationInfo {
@@ -1754,6 +1771,8 @@ message FileWatcherStats {
   optional FreshInstance fresh_instance_data = 9;
   // Timestamp in seconds of the 'Branched From Revision' commit
   optional uint64 branched_from_revision_timestamp = 11;
+  // Version of eden if available
+  optional string eden_version = 12;
 }
 
 message FreshInstance {
@@ -1831,7 +1850,7 @@ message BuildArtifact {
 }
 
 // A target pattern, representing a set of targets. See
-// `<https://buck.build/concept/build_target_pattern.html#content>` for Buck's
+// `<https://buck2.build/docs/concepts/target_pattern>` for Buck's
 // documentation on target patterns.
 message TargetPattern {
   string value = 1;
@@ -1904,9 +1923,12 @@ message RemoteCommand {
   optional string remote_dep_file_key = 6;
 
   // Project relative paths to the materialized inputs for failed
-
   // actions, if `--materialize-failed-inputs` was passed to build options
   repeated string materialized_inputs_for_failed = 7;
+
+  // Project relative paths to the materialized outputs for failed actions, if
+  // `--unstable_materialize_failed_action_outputs` was passed to build options
+  repeated string materialized_outputs_for_failed_actions = 8;
 }
 
 message RemoteCommandDetails {
@@ -1970,7 +1992,7 @@ enum DaemonWasStartedReason {
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 88, 89;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -2069,7 +2091,7 @@ message InvocationRecord {
   optional string watchman_version = 55;
   optional string command_name = 56;
   // Any soft errors we hit during this invocation.
-  repeated string soft_error_categories = 57;
+  repeated SoftError soft_error_categories = 57;
   // Version number of EdenFS if mount is EdenFS
   optional string eden_version = 58;
   // Duration of when the concurrent command is blocking
@@ -2095,6 +2117,8 @@ message InvocationRecord {
   // Daemon was started by this command.
   // Unset if the the command connected to existing daemon or did not start one.
   optional DaemonWasStartedReason daemon_was_started = 751;
+  // Set if an event occurred that should trigger a command restart.
+  optional bool should_restart = 752;
   // Metadata provided by the client. Unlike TypedMetadata, this won't become
   // its own column in Scuba, all those entries will land in a NormVector.
   repeated ClientMetadata client_metadata = 76;
@@ -2123,10 +2147,6 @@ message InvocationRecord {
   google.protobuf.Duration install_duration = 86;
   // Peak process memory which is max of RSS and malloc-active bytes
   optional uint64 peak_process_memory_bytes = 87;
-  // How many buck configs changed, set only after config change
-  optional uint64 buckconfig_diff_count = 88;
-  // Approximate config change size in bytes: key + old value + new value
-  optional uint64 buckconfig_diff_size = 89;
   optional uint64 event_log_manifold_ttl_s = 90;
   optional uint64 peak_used_disk_space_bytes = 92;
   optional uint64 total_disk_space_bytes = 93;
@@ -2194,11 +2214,30 @@ message InvocationRecord {
 
   // Total number of files materialized.
   optional uint64 materialization_files = 240;
+  // How many loads were executed
+  optional uint64 load_count = 241;
+  // Time elapsed from a build's start until first test run begins.
+  optional uint64 time_to_first_test_run_ms = 242;
+
+  // UUID of the previous command stored only if external configs are different
+  optional string previous_uuid_with_mismatched_config = 243;
+  optional string file_watcher = 244;
+
+  // CASd persistent cache mode used by the RE client
+  optional string persistent_cache_mode = 245;
+
+  // The start time measured by the wrapper (Most accurate start_time we track)
+  optional uint64 wrapper_start_time = 246;
 }
 
 // Record event sent directly to scribe.
 message BuildGraphStats {
   repeated BuildTarget build_targets = 1;
+}
+
+message SoftError {
+  string category = 1;
+  bool is_quiet = 2;
 }
 
 message BuildTarget {
@@ -2276,10 +2315,6 @@ message CreateOutputSymlinksStart {};
 message CreateOutputSymlinksEnd {
   uint64 created = 1;
 };
-
-message CreateOutputHashesFileStart {};
-
-message CreateOutputHashesFileEnd {};
 
 message InstallEventInfoStart {
   string artifact_name = 1;
@@ -2416,6 +2451,8 @@ message CommandReport {
   uint32 exit_code = 2;
   // List of error messages seen during the command execution
   repeated string error_messages = 3;
+  // Error messages produced while finalizing event logging.
+  repeated string finalizing_error_messages = 4;
 }
 
 message MaterializerStateInfo {
@@ -2533,9 +2570,8 @@ message SystemInfo {
   optional uint64 remaining_disk_space_threshold_gb = 4;
   optional uint64 min_re_download_bytes_threshold = 5;
   optional uint64 avg_re_download_bytes_per_sec_threshold = 6;
-  optional uint64 min_cache_hit_threshold_percent = 7;
-  optional uint64 cache_warning_min_completion_threshold_percent = 9;
-  optional uint64 cache_warning_min_actions_count = 10;
+  optional string optin_vpn_check_targets_regex = 8;
+  optional bool enable_stable_revision_check = 9;
 }
 
 message CpuCounter {

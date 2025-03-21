@@ -35,7 +35,8 @@ pub(crate) struct BxlEvalExtra<'e> {
 }
 
 #[derive(Debug, buck2_error::Error)]
-pub(crate) enum BxlContextError {
+#[buck2(tag = Input)]
+pub(crate) enum BxlScopeError {
     #[error("This function can only be called from Bxl")]
     UnavailableOutsideBxl,
 }
@@ -79,7 +80,7 @@ impl<'e> BxlEvalExtra<'e> {
         eval: &Evaluator<'v, 'a, 'e>,
     ) -> buck2_error::Result<&'a BxlEvalExtra<'e>> {
         let f = || eval.extra?.downcast_ref::<BxlEvalExtra>();
-        f().ok_or_else(|| BxlContextError::UnavailableOutsideBxl.into())
+        f().ok_or_else(|| BxlScopeError::UnavailableOutsideBxl.into())
     }
 
     pub(crate) fn via_dice<'a, T>(

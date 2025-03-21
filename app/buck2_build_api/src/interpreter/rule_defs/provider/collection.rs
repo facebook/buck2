@@ -430,7 +430,7 @@ impl<'v> Freeze for ProviderCollection<'v> {
 }
 
 impl FrozenProviderCollection {
-    pub fn default_info(&self) -> buck2_error::Result<FrozenRef<'static, FrozenDefaultInfo>> {
+    pub fn default_info<'a>(&'a self) -> buck2_error::Result<FrozenRef<'a, FrozenDefaultInfo>> {
         self.builtin_provider().internal_error(
             "DefaultInfo should always be set for providers returned from rule function",
         )
@@ -440,12 +440,18 @@ impl FrozenProviderCollection {
         self.providers.contains_key(provider_id)
     }
 
-    pub fn builtin_provider<T: FrozenBuiltinProviderLike>(&self) -> Option<FrozenRef<'static, T>> {
+    pub fn builtin_provider<'a, T: FrozenBuiltinProviderLike>(
+        &'a self,
+    ) -> Option<FrozenRef<'a, T>> {
+        self.builtin_provider_value::<T>()
+            .map(|v| v.to_frozen_value().downcast_frozen_ref().unwrap())
+    }
+
+    pub fn builtin_provider_value<'a, T: FrozenBuiltinProviderLike>(
+        &'a self,
+    ) -> Option<FrozenValueTyped<'a, T>> {
         let provider: FrozenValue = *self.providers.get(T::builtin_provider_id())?;
-        let provider = provider
-            .downcast_frozen_ref::<T>()
-            .expect("Incorrect provider type");
-        Some(provider)
+        Some(FrozenValueTyped::new(provider).expect("Incorrect provider type"))
     }
 
     pub fn get_provider_raw(&self, provider_id: &ProviderId) -> Option<&FrozenValue> {
@@ -654,7 +660,11 @@ pub mod tester {
             let collection = frozen
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
-                    buck2_error::buck2_error!([], "{:?} was not a FrozenProviderCollection", value)
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::StarlarkError,
+                        "{:?} was not a FrozenProviderCollection",
+                        value
+                    )
                 })?;
 
             let ret = collection.default_info()?.default_outputs_raw().to_value();
@@ -668,7 +678,11 @@ pub mod tester {
             let collection = frozen
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
-                    buck2_error::buck2_error!([], "{:?} was not a FrozenProviderCollection", value)
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::StarlarkError,
+                        "{:?} was not a FrozenProviderCollection",
+                        value
+                    )
                 })?;
 
             let ret = collection.default_info()?.sub_targets_raw().to_value();
@@ -692,7 +706,7 @@ pub mod tester {
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::StarlarkError,
                         "{:?} was not a FrozenProviderCollection",
                         collection
                     )
@@ -709,7 +723,7 @@ pub mod tester {
                 .downcast_ref::<FrozenProviderCollection>()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::StarlarkError,
                         "{:?} was not a FrozenProviderCollection",
                         collection
                     )

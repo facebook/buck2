@@ -38,6 +38,7 @@ use crate::nodes::unconfigured::TargetNodeRef;
 use crate::super_package::SuperPackage;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BuildErrors {
     #[error("Did not find package with name `{0}`.")]
     MissingPackage(PackageLabel),

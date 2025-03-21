@@ -12,8 +12,8 @@ rust_library(
             "linux",
             [
                 "//buck2/app/buck2_forkserver_proto:buck2_forkserver_proto",
-                # @oss-disable: "//common/rust/shed/hostcaps:hostcaps", 
-                # @oss-disable: "//justknobs/rust:justknobs", 
+                # @oss-disable[end= ]: "//common/rust/shed/hostcaps:hostcaps",
+                # @oss-disable[end= ]: "//justknobs/rust:justknobs",
             ],
         ),
         (
@@ -27,6 +27,7 @@ rust_library(
         "fbsource//third-party/rust:assert_matches",
     ],
     deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-condvar-fair",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:chrono",

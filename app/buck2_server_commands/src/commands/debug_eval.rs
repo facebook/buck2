@@ -22,6 +22,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DebugEvalError {
     #[error("Can only eval `.bzl` or `.bxl`, but got `{0}`")]
     InvalidImportPath(CellPath),

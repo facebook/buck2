@@ -23,7 +23,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
     """
 
     # prepare include directory for current app
-    name = ctx.attrs.application_name
+    name = ctx.attrs.app_name
 
     # input mapping
     input_mapping = {}

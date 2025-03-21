@@ -43,6 +43,7 @@ load(
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load("@prelude//utils:utils.bzl", "flatten_dict")
@@ -52,6 +53,7 @@ load(
     "CrateType",
     "Emit",
     "MetadataKind",
+    "ProfileMode",  # @unused Used as a type
     "crate_type_codegen",
     "crate_type_linked",
     "dep_metadata_of_emit",
@@ -97,6 +99,7 @@ load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
 def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
     # Setup source symlink tree.
@@ -104,20 +107,34 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     srcs.update({k: v for v, k in ctx.attrs.mapped_srcs.items()})
 
     # Decide whether to use symlinked_dir or copied_dir.
-    #
-    # If a source is a prefix of any other source, use copied_dir. This supports
-    # e.g. `srcs = [":foo.crate"]` where :foo.crate is an http_archive, together
-    # with a `mapped_srcs` which overlays additional generated files into that
-    # directory. Symlinked_dir would error in this situation.
     prefixes = {}
     symlinked_srcs = None
-    for src in sorted(srcs.keys(), key = len, reverse = True):
-        if src in prefixes:
-            symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
-            break
-        components = src.split("/")
-        for i in range(1, len(components)):
-            prefixes["/".join(components[:i])] = None
+
+    if "generated" in ctx.attrs.labels:
+        # For generated code targets, we always want to copy files in the [sources]
+        # subtarget, never symlink.
+        #
+        # This ensures that IDEs that open the generated file always see the correct
+        # directory structure.
+        #
+        # VS Code will expand symlinks when doing go-to-definition. In normal source
+        # files this takes us back to the correct path, but for generated files the
+        # expanded path may not be a well-formed crate layout.
+        symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
+    else:
+        # If a source is a prefix of any other source, use copied_dir. This supports
+        # e.g. `srcs = [":foo.crate"]` where :foo.crate is an http_archive, together
+        # with a `mapped_srcs` which overlays additional generated files into that
+        # directory. Symlinked_dir would error in this situation.
+        for src in sorted(srcs.keys(), key = len, reverse = True):
+            if src in prefixes:
+                symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
+                break
+            components = src.split("/")
+            for i in range(1, len(components)):
+                prefixes["/".join(components[:i])] = None
+
+    # Otherwise, symlink it.
     if not symlinked_srcs:
         symlinked_srcs = ctx.actions.symlinked_dir("__srcs", srcs)
 
@@ -147,6 +164,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
 
     return CompileContext(
         toolchain_info = toolchain_info,
+        internal_tools_info = internal_tools_info,
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
         symlinked_srcs = symlinked_srcs,
@@ -181,6 +199,7 @@ def generate_rustdoc(
         infallible_diagnostics = False,
         incremental_enabled = False,
         is_rustdoc_test = False,
+        profile_mode = None,
     )
 
     subdir = common_args.subdir + "-rustdoc"
@@ -209,7 +228,7 @@ def generate_rustdoc(
 
     rustdoc_cmd = _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = compile_ctx.internal_tools_info.rustc_action,
         args = rustdoc_cmd_action,
         argfile_name = "{}.args".format(subdir),
     )
@@ -239,6 +258,7 @@ def generate_rustdoc_coverage(
         infallible_diagnostics = False,
         incremental_enabled = False,
         is_rustdoc_test = False,
+        profile_mode = None,
     )
 
     file = common_args.subdir + "-rustdoc-coverage"
@@ -265,12 +285,12 @@ def generate_rustdoc_coverage(
 
     rustdoc_cmd = _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = compile_ctx.internal_tools_info.rustc_action,
         args = rustdoc_cmd_action,
         argfile_name = "{}.args".format(file),
     )
 
-    cmd = cmd_args([toolchain_info.rustdoc_coverage, output.as_output(), rustdoc_cmd])
+    cmd = cmd_args([compile_ctx.internal_tools_info.rustdoc_coverage, output.as_output(), rustdoc_cmd])
 
     ctx.actions.run(cmd, category = "rustdoc_coverage")
 
@@ -286,6 +306,7 @@ def generate_rustdoc_test(
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
+    internal_tools_info = compile_ctx.internal_tools_info
     doc_dep_ctx = DepCollectionContext(
         advanced_unstable_linking = compile_ctx.dep_ctx.advanced_unstable_linking,
         include_doc_deps = True,
@@ -330,6 +351,7 @@ def generate_rustdoc_test(
         infallible_diagnostics = False,
         is_rustdoc_test = True,
         incremental_enabled = False,
+        profile_mode = None,
     )
 
     link_args_output = make_link_args(
@@ -353,7 +375,6 @@ def generate_rustdoc_test(
                 params.dep_link_strategy,
             ),
         ],
-        "{}-{}".format(common_args.subdir, common_args.tempfile),
     )
 
     link_args_output.link_args.add(ctx.attrs.doc_linker_flags or [])
@@ -398,7 +419,7 @@ def generate_rustdoc_test(
         cmd_args(compile_ctx.linker_args, format = "-Clinker={}"),
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
         runtool,
-        cmd_args(toolchain_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
+        cmd_args(internal_tools_info.rustdoc_test_with_resources, format = "--runtool-arg={}"),
         cmd_args("--runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
@@ -412,7 +433,7 @@ def generate_rustdoc_test(
 
     return _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = internal_tools_info.rustc_action,
         args = rustdoc_cmd,
         argfile_name = "{}.args".format(common_args.subdir),
     )
@@ -436,7 +457,8 @@ def rust_compile(
         # compilation fails. This should not generally be used if the "real"
         # output of the action is going to be depended on
         infallible_diagnostics: bool = False,
-        rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None) -> RustcOutput:
+        rust_cxx_link_group_info: [RustCxxLinkGroupInfo, None] = None,
+        profile_mode: ProfileMode | None = None) -> RustcOutput:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -463,6 +485,7 @@ def rust_compile(
         infallible_diagnostics = infallible_diagnostics,
         incremental_enabled = incremental_enabled,
         is_rustdoc_test = False,
+        profile_mode = profile_mode,
     )
 
     deferred_link_cmd = None
@@ -475,7 +498,7 @@ def rust_compile(
         out_version_script = ctx.actions.declare_output(common_args.subdir + "/version-script")
         out_objects_dir = ctx.actions.declare_output(common_args.subdir + "/objects", dir = True)
         linker_cmd = cmd_args(
-            toolchain_info.extract_link_action,
+            compile_ctx.internal_tools_info.extract_link_action,
             cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
             cmd_args(out_version_script.as_output(), format = "--out_version-script={}") if out_version_script else cmd_args(),
             cmd_args(out_objects_dir.as_output(), format = "--out_objects={}"),
@@ -490,7 +513,7 @@ def rust_compile(
         )
 
         deferred_link_cmd = cmd_args(
-            toolchain_info.deferred_link_action,
+            compile_ctx.internal_tools_info.deferred_link_action,
             cmd_args(out_objects_dir, format = "--objects={}"),
             cmd_args(out_version_script, format = "--version-script={}"),
             compile_ctx.linker_args,
@@ -527,6 +550,7 @@ def rust_compile(
             subdir = common_args.subdir,
             params = params,
             incremental_enabled = incremental_enabled,
+            profile_mode = profile_mode,
         )
     else:
         emit_op = _rustc_emit(
@@ -537,6 +561,7 @@ def rust_compile(
             predeclared_output = predeclared_output,
             incremental_enabled = incremental_enabled,
             deferred_link = deferred_link_cmd != None,
+            profile_mode = profile_mode,
         )
 
     if emit == Emit("clippy"):
@@ -590,7 +615,6 @@ def rust_compile(
                 LinkArgs(flags = extra_link_args),
                 inherited_link_args,
             ],
-            "{}-{}".format(subdir, tempfile),
             output_short_path = emit_op.output.short_path,
         )
         linker_argsfile, _ = ctx.actions.write(
@@ -615,6 +639,9 @@ def rust_compile(
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
             rustc_cmd.add(cmd_args(hidden = link_args_output.hidden))
 
+    if toolchain_info.rust_target_path != None:
+        emit_op.env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
+
     invoke = _rustc_invoke(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -629,6 +656,7 @@ def rust_compile(
         env = emit_op.env,
         incremental_enabled = incremental_enabled,
         deferred_link_cmd = deferred_link_cmd,
+        profile_mode = profile_mode,
     )
 
     if infallible_diagnostics and emit != Emit("clippy"):
@@ -712,6 +740,7 @@ def rust_compile(
         dwp_output = dwp_output,
         dwo_output_directory = dwo_output_directory,
         extra_external_debug_info = extra_external_debug_info,
+        profile_output = emit_op.profile_out,
     )
 
 # --extern <crate>=<path> for direct dependencies
@@ -833,7 +862,7 @@ def dynamic_symlinked_dirs(
 
     ctx.actions.run(
         [
-            compile_ctx.toolchain_info.transitive_dependency_symlinks_tool,
+            compile_ctx.internal_tools_info.transitive_dependency_symlinks_tool,
             cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
             cmd_args(artifacts_json, format = "--artifacts={}"),
         ],
@@ -880,13 +909,14 @@ def _compute_common_args(
         default_roots: list[str],
         infallible_diagnostics: bool,
         incremental_enabled: bool,
-        is_rustdoc_test: bool) -> CommonArgsInfo:
+        is_rustdoc_test: bool,
+        profile_mode: ProfileMode | None) -> CommonArgsInfo:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
     path_sep = "\\" if exec_is_windows else "/"
 
     crate_type = params.crate_type
 
-    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, infallible_diagnostics, incremental_enabled)
+    args_key = (crate_type, emit, params.dep_link_strategy, is_rustdoc_test, infallible_diagnostics, incremental_enabled, profile_mode)
     if args_key in compile_ctx.common_args:
         return compile_ctx.common_args[args_key]
 
@@ -898,6 +928,8 @@ def _compute_common_args(
         subdir = "{}-diag".format(subdir)
     if incremental_enabled:
         subdir = "{}-incr".format(subdir)
+    if profile_mode:
+        subdir = "{}-prof-{}".format(subdir, profile_mode.value)
 
     # Included in tempfiles
     tempfile = "{}-{}".format(attr_simple_crate_for_filenames(ctx), emit.value)
@@ -1189,17 +1221,23 @@ def crate_root(
          "\nMake sure you have one of {} in your `srcs` attribute.".format(default_roots) +
          "\nOr add 'crate_root = \"src/example.rs\"' to your attributes to disambiguate. candidates={}".format(candidates))
 
-def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, infallible_diagnostics: bool) -> str:
+def _explain(
+        crate_type: CrateType,
+        link_strategy: LinkStrategy,
+        emit: Emit,
+        infallible_diagnostics: bool,
+        profile_mode: ProfileMode | None) -> str:
+    base = None
     if emit == Emit("metadata-full"):
         link_strategy_suffix = {
             LinkStrategy("static"): " [static]",
             LinkStrategy("static_pic"): " [pic]",
             LinkStrategy("shared"): " [shared]",
         }[link_strategy]
-        return "metadata" + link_strategy_suffix
+        base = "metadata" + link_strategy_suffix
 
     if emit == Emit("metadata-fast"):
-        return "diag" if infallible_diagnostics else "check"
+        base = "diag" if infallible_diagnostics else "check"
 
     if emit == Emit("link"):
         link_strategy_suffix = {
@@ -1208,20 +1246,20 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
             LinkStrategy("shared"): " [shared]",
         }[link_strategy]
         if crate_type == CrateType("bin"):
-            return "link" + link_strategy_suffix
+            base = "link" + link_strategy_suffix
         if crate_type == CrateType("rlib"):
-            return "rlib" + link_strategy_suffix
+            base = "rlib" + link_strategy_suffix
         if crate_type == CrateType("dylib"):
-            return "dylib" + link_strategy_suffix
+            base = "dylib" + link_strategy_suffix
         if crate_type == CrateType("proc-macro"):
-            return "proc-macro"  # always static_pic
+            base = "proc-macro"  # always static_pic
         if crate_type == CrateType("cdylib"):
-            return "cdylib" + link_strategy_suffix
+            base = "cdylib" + link_strategy_suffix
         if crate_type == CrateType("staticlib"):
-            return "staticlib" + link_strategy_suffix
+            base = "staticlib" + link_strategy_suffix
 
     if emit == Emit("expand"):
-        return "expand"
+        base = "expand"
 
     if emit == Emit("llvm-ir"):
         link_strategy_suffix = {
@@ -1229,15 +1267,25 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
             LinkStrategy("static_pic"): " [pic]",
             LinkStrategy("shared"): " [shared]",
         }[link_strategy]
-        return "llvm-ir" + link_strategy_suffix
+        base = "llvm-ir" + link_strategy_suffix
 
-    fail("unrecognized rustc action:", crate_type, link_strategy, emit)
+    if emit == Emit("llvm-ir-noopt"):
+        base = "llvm-ir-noopt"
+
+    if base == None:
+        fail("unrecognized rustc action:", crate_type, link_strategy, emit)
+
+    if profile_mode:
+        return "{} [{}]".format(base, profile_mode.value)
+    else:
+        return base
 
 EmitOperation = record(
     output = field(Artifact),
     args = field(cmd_args),
     env = field(dict[str, str]),
     extra_out = field(Artifact | None),
+    profile_out = field(Artifact | None),
 )
 
 # Take a desired output and work out how to convince rustc to generate it
@@ -1247,6 +1295,7 @@ def _rustc_emit(
         subdir: str,
         params: BuildParams,
         incremental_enabled: bool,
+        profile_mode: ProfileMode | None,
         predeclared_output: Artifact | None = None,
         deferred_link: bool = False) -> EmitOperation:
     simple_crate = attr_simple_crate_for_filenames(ctx)
@@ -1255,13 +1304,18 @@ def _rustc_emit(
     emit_args = cmd_args()
     emit_env = {}
     extra_out = None
+    profile_out = None
 
     if predeclared_output:
         emit_output = predeclared_output
+
+        # Don't support profiles with predeclared outputs
+        crate_name_and_extra_for_profile = None
     else:
         extra_hash = "-" + _metadata(ctx.label, False)[1]
         emit_args.add("-Cextra-filename={}".format(extra_hash))
         filename = subdir + "/" + output_filename(simple_crate, emit, params, extra_hash)
+        crate_name_and_extra_for_profile = simple_crate + extra_hash
 
         emit_output = ctx.actions.declare_output(filename)
 
@@ -1296,6 +1350,9 @@ def _rustc_emit(
                 effective_emit = "link"
         elif emit == Emit("metadata-fast") or emit == Emit("clippy"):
             effective_emit = "metadata"
+        elif emit == Emit("llvm-ir-noopt"):
+            effective_emit = "llvm-ir"
+            emit_args.add("-Cno-prepopulate-passes")
         else:
             effective_emit = emit.value
 
@@ -1319,11 +1376,21 @@ def _rustc_emit(
             incremental_cmd = cmd_args(incremental_out.as_output(), format = "-Cincremental={}")
             emit_args.add(incremental_cmd)
 
+        if profile_mode == ProfileMode("llvm-time-trace"):
+            emit_args.add("-Zllvm-time-trace=yes")
+            profile_out = extra_out.project(crate_name_and_extra_for_profile + ".llvm_timings.json")
+        elif profile_mode == ProfileMode("self-profile"):
+            self_profile = ctx.actions.declare_output("{}/extra/self-profile".format(subdir), dir = True)
+            emit_args.add("-Zself-profile-events=default,args")
+            emit_args.add(cmd_args("-Zself-profile=", self_profile.as_output(), delimiter = ""))
+            profile_out = self_profile
+
     return EmitOperation(
         output = emit_output,
         args = emit_args,
         env = emit_env,
         extra_out = extra_out,
+        profile_out = profile_out,
     )
 
 Invoke = record(
@@ -1347,7 +1414,8 @@ def _rustc_invoke(
         incremental_enabled: bool,
         crate_map: list[(CrateName, Label)],
         env: dict[str, str | ResolvedStringWithMacros | Artifact],
-        deferred_link_cmd: cmd_args | None) -> Invoke:
+        deferred_link_cmd: cmd_args | None,
+        profile_mode: ProfileMode | None) -> Invoke:
     exec_is_windows = ctx.attrs._exec_os_type[OsLookup].platform == "windows"
 
     toolchain_info = compile_ctx.toolchain_info
@@ -1390,7 +1458,7 @@ def _rustc_invoke(
 
     compile_cmd = _long_command(
         ctx = ctx,
-        exe = toolchain_info.rustc_action,
+        exe = compile_ctx.internal_tools_info.rustc_action,
         args = compile_cmd,
         argfile_name = "{}-{}.args".format(prefix, diag),
     )
@@ -1414,6 +1482,7 @@ def _rustc_invoke(
             link_strategy = common_args.params.dep_link_strategy,
             emit = common_args.emit,
             infallible_diagnostics = infallible_diagnostics,
+            profile_mode = profile_mode,
         )
 
     if incremental_enabled:

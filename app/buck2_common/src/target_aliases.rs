@@ -23,6 +23,7 @@ use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::dice::HasLegacyConfigs;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum AliasResolutionError {
     #[error("No [alias] section in buckconfig")]
     MissingAliasSection,

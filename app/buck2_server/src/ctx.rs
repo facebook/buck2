@@ -50,10 +50,9 @@ use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::diffs::ConfigDiffTracker;
 use buck2_common::legacy_configs::file_ops::ConfigPath;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_configured::calculation::ConfiguredGraphCycleDescriptor;
+use buck2_configured::cycle::ConfiguredGraphCycleDescriptor;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::facebook_only;
@@ -95,6 +94,7 @@ use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
+use buck2_server_ctx::ctx::LockedPreviousCommandData;
 use buck2_server_ctx::ctx::PrivateStruct;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::stderr_output_guard::StderrOutputGuard;
@@ -105,9 +105,6 @@ use buck2_test::local_resource_registry::InitLocalResourceRegistry;
 use buck2_util::arc_str::ArcS;
 use buck2_util::truncate::truncate_container;
 use buck2_validation::enabled_optional_validations_key::SetEnabledOptionalValidations;
-use buck2_wrapper_common::DOT_BUCKCONFIG_D;
-use buck2_wrapper_common::EXPERIMENTS_FILENAME;
-use const_format::concatcp;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
@@ -130,14 +127,11 @@ use crate::host_info;
 use crate::snapshot::SnapshotCollector;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 enum DaemonCommunicationError {
     #[error("Got invalid working directory `{0}`")]
     InvalidWorkingDirectory(String),
 }
-
-const EXPERIMENT_PATH_SUFFIX: &str = concatcp!("/", DOT_BUCKCONFIG_D, "/", EXPERIMENTS_FILENAME);
-
-const EXPERIMENTS: &str = "experiments";
 
 /// BaseCommandContext provides access to the global daemon state and information specific to a command (like the
 /// EventDispatcher). Most commands use a ServerCommandContext which has more command/client-specific information.
@@ -270,6 +264,7 @@ impl<'a> ServerCommandContext<'a> {
                     .instant_event(buck2_data::RemoteExecutionSessionCreated {
                         session_id: session_id.to_owned(),
                         experiment_name,
+                        persistent_cache_mode: client.get_persistent_cache_mode(),
                     })
             }
         }
@@ -349,7 +344,7 @@ impl<'a> ServerCommandContext<'a> {
             .as_ref()
             .map(|opts| opts.execution_strategy)
             .map_or(ExecutionStrategy::LocalOnly, |strategy| {
-                ExecutionStrategy::from_i32(strategy).expect("execution strategy should be valid")
+                ExecutionStrategy::try_from(strategy).expect("execution strategy should be valid")
             });
 
         let skip_cache_read = self
@@ -423,6 +418,10 @@ impl<'a> ServerCommandContext<'a> {
             interpreter_platform,
             interpreter_architecture,
             interpreter_xcode_version,
+            materialize_failed_outputs: self
+                .build_options
+                .as_ref()
+                .map_or(false, |opts| opts.materialize_failed_outputs),
         })
     }
 
@@ -435,30 +434,6 @@ impl<'a> ServerCommandContext<'a> {
 }
 
 impl ServerCommandContext<'_> {
-    fn get_experiment_tags(&self, components: &[buck2_data::BuckconfigComponent]) -> Vec<String> {
-        let mut init = Vec::new();
-        for component in components {
-            use buck2_data::buckconfig_component::Data;
-            match &component.data {
-                Some(Data::GlobalExternalConfigFile(external_config_file)) => {
-                    if external_config_file
-                        .origin_path
-                        .ends_with(EXPERIMENT_PATH_SUFFIX)
-                    {
-                        external_config_file.values.iter().for_each(|config_value| {
-                            if config_value.section == EXPERIMENTS {
-                                // all enabled GK experiments have their value set to true by definition
-                                init.push(format!("{}.{}", EXPERIMENTS, config_value.key.clone()));
-                            }
-                        });
-                    }
-                }
-                _ => {}
-            }
-        }
-        init
-    }
-
     async fn load_new_configs(
         &self,
         dice_ctx: &mut DiceComputations<'_>,
@@ -470,24 +445,16 @@ impl ServerCommandContext<'_> {
         .await?;
 
         self.report_traced_config_paths(&new_configs.config_paths)?;
-        // Normally, this code should execute only once (hence we should fire only one BuckconfigInputValues event) but there might be an additional call once concurrent command is detected.
-        // Even if there is no concurrent command, we sometimes end up having two events due to a bug where concurrency manager treats many more commands as being concurrent than it's supposed to.
-        let components = new_configs.external_data.get_buckconfig_components();
-        let tags = self.get_experiment_tags(&components);
-        self.events().instant_event(buck2_data::TagEvent { tags });
-        self.events()
-            .instant_event(buck2_data::BuckconfigInputValues { components });
-
         if self.reuse_current_config {
             if dice_ctx
                 .is_injected_external_buckconfig_data_key_set()
                 .await?
             {
                 if !self.config_overrides.is_empty() {
-                    let config_type_str = |c| match ConfigType::from_i32(c) {
-                        Some(ConfigType::Value) => "--config",
-                        Some(ConfigType::File) => "--config-file",
-                        None => "",
+                    let config_type_str = |c| match ConfigType::try_from(c) {
+                        Ok(ConfigType::Value) => "--config",
+                        Ok(ConfigType::File) => "--config-file",
+                        Err(_) => "",
                     };
                     warn!(
                         "Found config overrides while using --reuse-current-config flag. Ignoring overrides [{}] and using current config instead",
@@ -551,6 +518,7 @@ struct DiceCommandUpdater<'s, 'a: 's> {
     skip_cache_write: bool,
     keep_going: bool,
     materialize_failed_inputs: bool,
+    materialize_failed_outputs: bool,
     interpreter_platform: InterpreterHostPlatform,
     interpreter_architecture: InterpreterHostArchitecture,
     interpreter_xcode_version: Option<XcodeVersionInfo>,
@@ -616,11 +584,6 @@ impl<'s, 'a> DiceUpdater for DiceCommandUpdater<'s, 'a> {
             .await?;
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
-        ConfigDiffTracker::promote_into(
-            existing_state,
-            &mut user_data,
-            &cells_and_configs.root_config,
-        );
         user_data.set_mergebase(mergebase);
 
         Ok((ctx, user_data))
@@ -683,9 +646,16 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             })?
             .or(Some(10));
 
+        let re_cancel_on_estimated_queue_time_exceeds_s =
+            root_config.parse::<u32>(BuckconfigKeyRef {
+                section: "build",
+                property: "remote_execution_cancel_on_estimated_queue_time_exceeds_s",
+            })?;
+
         let executor_global_knobs = ExecutorGlobalKnobs {
             enable_miniperf,
             log_action_keys,
+            re_cancel_on_estimated_queue_time_exceeds_s,
         };
 
         let host_sharing_broker =
@@ -737,7 +707,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
                 section: "buck2",
                 property: "critical_path_backend2",
             })?
-            .unwrap_or(CriticalPathBackendName::Default);
+            .unwrap_or(CriticalPathBackendName::LongestPathGraph);
 
         let override_use_case = root_config.parse::<RemoteExecutorUseCase>(BuckconfigKeyRef {
             section: "buck2_re_client",
@@ -767,6 +737,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
             worker_pool,
             self.cmd_ctx.base_context.daemon.paranoid.dupe(),
             self.materialize_failed_inputs,
+            self.materialize_failed_outputs,
             override_use_case,
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             resource_control_config.hybrid_execution_memory_limit_gibibytes,
@@ -877,6 +848,10 @@ impl<'a> ServerCommandContextTrait for ServerCommandContext<'a> {
 
     fn events(&self) -> &EventDispatcher {
         &self.base_context.events
+    }
+
+    fn previous_command_data(&self) -> Arc<LockedPreviousCommandData> {
+        self.base_context.daemon.previous_command_data.clone()
     }
 
     fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>> {

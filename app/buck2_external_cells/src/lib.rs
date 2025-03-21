@@ -29,6 +29,7 @@ mod git;
 struct ConcreteExternalCellsImpl;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum ExternalCellsError {
     #[error("Tried to expand external cell to `{0}`, but that directory already contains data!")]
     ExpandDataAlreadyPresent(ProjectRelativePathBuf),

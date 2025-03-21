@@ -22,6 +22,7 @@ use crate::execute::claim::ClaimManager;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
+use crate::execute::result::CommandCancellationReason;
 use crate::execute::result::CommandExecutionErrorType;
 use crate::execute::result::CommandExecutionMetadata;
 use crate::execute::result::CommandExecutionReport;
@@ -95,9 +96,9 @@ impl CommandExecutionManager {
         self.inner.claim_manager.on_result_delayed();
     }
 
-    pub fn cancel(self) -> CommandExecutionResult {
+    pub fn cancel(self, reason: Option<CommandCancellationReason>) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled,
+            CommandExecutionStatus::Cancelled { reason },
             IndexMap::new(),
             Default::default(),
             None,
@@ -189,7 +190,7 @@ impl CommandExecutionManagerWithClaim {
 
     pub fn cancel_claim(self) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled,
+            CommandExecutionStatus::Cancelled { reason: None },
             IndexMap::new(),
             Default::default(),
             None,

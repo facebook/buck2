@@ -25,7 +25,7 @@ use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_
 use crate::interpreter::rule_defs::provider::ProviderLike;
 
 /// Types associated with builtin providers.
-pub(crate) struct BuiltinProviderTy<
+pub struct BuiltinProviderTy<
     'v,
     P: StarlarkValue<'v> + ProviderLike<'v>,
     C: StarlarkValue<'v> + ProviderCallableLike,
@@ -46,7 +46,7 @@ unsafe impl<
 impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + ProviderCallableLike>
     BuiltinProviderTy<'v, P, C>
 {
-    pub(crate) const fn new() -> BuiltinProviderTy<'v, P, C> {
+    pub const fn new() -> BuiltinProviderTy<'v, P, C> {
         BuiltinProviderTy {
             callable: OnceLock::new(),
             instance: OnceLock::new(),
@@ -54,13 +54,13 @@ impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + Provide
         }
     }
 
-    pub(crate) fn callable(&self, creator_func: for<'a> fn(&'a mut GlobalsBuilder)) -> Ty {
+    pub fn callable(&self, creator_func: for<'a> fn(&'a mut GlobalsBuilder)) -> Ty {
         self.callable
             .get_or_init(|| builtin_provider_typechecker_ty::<C>(creator_func))
             .dupe()
     }
 
-    pub(crate) fn instance(&self) -> Ty {
+    pub fn instance(&self) -> Ty {
         self.instance
             .get_or_init(|| {
                 ty_provider(

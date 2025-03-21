@@ -14,6 +14,8 @@
 
 -module(ct_error_printer).
 
+-eqwalizer(ignore).
+
 %% Public API
 -export([format_error/2, format_error/3, format_reason/1]).
 -spec format_error(term(), boolean()) -> [unicode:chardata()].
@@ -224,8 +226,8 @@ format_assert0(
                 io_lib:format("          got value: ~p~n", [Value]);
             #{unexpected_exception := {Class, Reason, StackTrace} = _Exception} ->
                 io_lib:format(
-                    "      got exception: ~s ~n",
-                    [erl_error:format_exception(Class, Reason, StackTrace)]
+                    "      got exception: ~p ~n",
+                    [{Class, Reason, StackTrace}]
                 );
             _ ->
                 unrecognized_error

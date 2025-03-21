@@ -11,7 +11,7 @@ use std::ffi::OsString;
 use std::path::Path;
 
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use gazebo::prelude::VecExt;
 use rustls::Certificate;
@@ -22,8 +22,18 @@ use rustls::RootCertStore;
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
 async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
-    let native_certs = rustls_native_certs::load_native_certs()
-        .buck_error_context("Error loading system root certificates native frameworks");
+    let native_certs =
+        rustls_native_certs::load_native_certs().tag(buck2_error::ErrorTag::Environment);
+    let native_certs = if cfg!(fbcode_build) {
+        native_certs.buck_error_context(
+            "Error loading system root certificates native frameworks.
+            This is usually due to Chef not installed or working properly.
+            Please try `getchef -reason 'chef broken'`, `Fix My <OS>` via the f-menu, then `buck2 killall`.
+            If that doesn't resolve it, please visit HelpDesk to get Chef back to a healthy state.",
+        )
+    } else {
+        native_certs.buck_error_context("Error loading system root certificates native frameworks.")
+    };
 
     let root_certs =
           // Load the system root certificates using native frameworks.
@@ -39,11 +49,8 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
                   .await
                   .with_buck_error_context(|| format!("Loading root certs from: {}", path.to_string_lossy()))?
           } else {
-              if let Err(e) = native_certs {
-                  return Err(e.into());
-              }
-
-              return Err(buck2_error!([], "Unable to load system root certificates"));
+              native_certs?;
+              return Err(buck2_error!(buck2_error::ErrorTag::Environment, "Unable to load system root certificates"));
           };
 
     // According to [`rustls` documentation](https://docs.rs/rustls/latest/rustls/struct.RootCertStore.html#method.add_parsable_certificates),
@@ -58,7 +65,7 @@ async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {
     // able to make any connections via https.
     if valid == 0 {
         return Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Environment,
             "Error loading system certs: unable to find any valid system certs"
         ));
     }
@@ -118,7 +125,7 @@ pub async fn tls_config_with_single_cert<P: AsRef<Path>>(
         .with_safe_defaults()
         .with_root_certificates(system_roots)
         .with_client_auth_cert(cert, key)
-        .map_err(from_any)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .buck_error_context("Error creating TLS config with cert and key path")
 }
 

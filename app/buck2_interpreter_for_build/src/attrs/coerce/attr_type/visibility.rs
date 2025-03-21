@@ -25,10 +25,13 @@ use crate::interpreter::selector::StarlarkSelector;
 #[derive(Debug, buck2_error::Error)]
 enum VisibilityAttrTypeCoerceError {
     #[error("Visibility attribute is not configurable (internal error)")]
+    #[buck2(tag = Tier0)]
     AttrTypeNotConfigurable,
     #[error("Visibility must be a list of string, got `{0}`")]
+    #[buck2(tag = Input)]
     WrongType(String),
     #[error("Visibility attribute is not configurable (i.e. cannot use `select()`): `{0}`")]
+    #[buck2(tag = Input)]
     NotConfigurable(String),
 }
 

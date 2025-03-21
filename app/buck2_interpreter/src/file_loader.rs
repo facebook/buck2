@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
@@ -27,6 +27,7 @@ use crate::paths::module::OwnedStarlarkModulePath;
 use crate::paths::module::StarlarkModulePath;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum FileLoaderError {
     #[error("`native` in `prelude.bzl` must be a struct")]
     NativeMustBeStruct,
@@ -114,7 +115,12 @@ impl LoadedModule {
     pub fn extra_globals_from_prelude_for_buck_files(
         &self,
     ) -> buck2_error::Result<impl Iterator<Item = (&str, FrozenValue)> + '_> {
-        if let Some(native) = self.0.env.get_option("native").map_err(from_any)? {
+        if let Some(native) = self
+            .0
+            .env
+            .get_option("native")
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+        {
             unsafe {
                 match FrozenStructRef::<'static>::from_value(native.unchecked_frozen_value()) {
                     Some(native) => Ok(Either::Left(native.iter().map(|(n, v)| (n.as_str(), v)))),
@@ -142,7 +148,12 @@ impl InterpreterFileLoader {
 }
 
 fn to_diagnostic(err: &buck2_error::Error, id: &str) -> buck2_error::Error {
-    buck2_error::buck2_error!([], "UnknownError in {}: {}", id, err)
+    buck2_error::buck2_error!(
+        buck2_error::ErrorTag::Tier0,
+        "UnknownError in {}: {}",
+        id,
+        err
+    )
 }
 
 impl InterpreterFileLoader {
@@ -152,7 +163,7 @@ impl InterpreterFileLoader {
             Some(v) => Ok(&v.0.env),
             None => Err(to_diagnostic(
                 &buck2_error::buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "Should have had an env for {}. had <{:?}>",
                     id,
                     self.loaded_modules.map.keys().collect::<Vec<_>>()
@@ -199,7 +210,7 @@ mod tests {
                 "alias2//last/package:import.bzl" => Ok(OwnedStarlarkModulePath::LoadFile(
                     ImportPath::testing_new("cell2//last/package:import.bzl"),
                 )),
-                _ => Err(buck2_error!([], "error")),
+                _ => Err(buck2_error!(buck2_error::ErrorTag::Tier0, "error")),
             }
         }
     }

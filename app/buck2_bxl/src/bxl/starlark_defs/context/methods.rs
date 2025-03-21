@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
@@ -281,14 +282,19 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     /// Also takes in an optional `target_platform` param to configure the nodes with, and a `keep_going`
     /// flag to skip any loading or configuration errors. Note that `keep_going` currently can only be used
     /// if the input labels is a single target pattern as a string literal.
+    ///
+    /// The default modifiers used to configure the target nodes are empty. If you want to use the
+    /// modifiers from the cli, you can pass `ctx.modifiers` to the argument `modifiers` of this function.
     fn target_universe<'v>(
         this: ValueTyped<'v, BxlContext<'v>>,
         labels: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = false)] keep_going: bool,
+        #[starlark(require = named, default = UnpackList::default())] modifiers: UnpackList<String>,
     ) -> starlark::Result<StarlarkTargetUniverse<'v>> {
-        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
+        let modifiers = modifiers.items;
+        let global_cfg_options = this.resolve_global_cfg_options(target_platform, modifiers)?;
 
         Ok(this.via_dice(|ctx, this_no_dice: &BxlContextNoDice<'_>| {
             ctx.via(|ctx| {
@@ -641,8 +647,13 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             labels,
             target_platform,
             Materializations::from_str_name(&materializations.to_uppercase()).ok_or_else(|| {
-                buck2_error!([], "Unknown materialization setting `{}`", materializations)
+                buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Unknown materialization setting `{}`",
+                    materializations
+                )
             })?,
+            Uploads::Never,
             eval,
         )?)
     }
@@ -746,10 +757,11 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         promise: ValueTyped<'v, StarlarkPromise<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
-        this.via_dice(|dice, this| {
+        let eval_kind = this.current_bxl().as_starlark_eval_kind();
+        this.via_dice(|dice, _this| {
             dice.via(|dice| {
                 action_factory
-                    .run_promises(dice, eval, format!("bxl$promises:{}", this.current_bxl()))
+                    .run_promises(dice, eval, &eval_kind)
                     .boxed_local()
             })
         })?;

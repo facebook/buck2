@@ -10,13 +10,11 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_wrapper_common::invocation_id::TraceId;
 
 use crate::action_stats::ActionStats;
-use crate::cold_build_detector::ColdBuildDetector;
 use crate::debug_events::DebugEventsState;
 use crate::dice_state::DiceState;
 use crate::progress::BuildProgressStateTracker;
@@ -36,7 +34,6 @@ pub struct EventObserver<E> {
     session_info: SessionInfo,
     test_state: TestState,
     starlark_debugger_state: StarlarkDebuggerState,
-    pub cold_build_detector: Option<ColdBuildDetector>,
     dice_state: DiceState,
     /// When running without the Superconsole, we skip some state that we don't need. This might be
     /// premature optimization.
@@ -47,8 +44,7 @@ impl<E> EventObserver<E>
 where
     E: EventObserverExtra,
 {
-    pub fn new(trace_id: TraceId, build_count_dir: Option<AbsNormPathBuf>) -> Self {
-        let cold_build_detector = build_count_dir.map(ColdBuildDetector::new);
+    pub fn new(trace_id: TraceId) -> Self {
         Self {
             span_tracker: BuckEventSpanTracker::new(),
             action_stats: ActionStats::default(),
@@ -56,13 +52,12 @@ where
             two_snapshots: TwoSnapshots::default(),
             system_info: buck2_data::SystemInfo::default(),
             session_info: SessionInfo {
-                trace_id,
+                trace_id: trace_id.clone(),
                 test_session: None,
                 legacy_dice: false,
             },
             test_state: TestState::default(),
             starlark_debugger_state: StarlarkDebuggerState::new(),
-            cold_build_detector,
             dice_state: DiceState::new(),
             extra: E::new(),
         }
@@ -90,11 +85,7 @@ where
                         ActionExecution(action_execution_end) => {
                             self.action_stats.update(action_execution_end);
                         }
-                        buck2_data::span_end_event::Data::FileWatcher(file_watcher) => {
-                            if let Some(cold_build_detector) = &mut self.cold_build_detector {
-                                cold_build_detector.update_merge_base(file_watcher).await?;
-                            }
-                        }
+
                         _ => {}
                     }
                 }
@@ -139,16 +130,6 @@ where
                         TagEvent(tags) => {
                             if tags.tags.contains(&"which-dice:Legacy".to_owned()) {
                                 self.session_info.legacy_dice = true;
-                            }
-                        }
-                        SystemInfo(system_info) => {
-                            self.system_info = system_info.clone();
-                        }
-                        TargetPatterns(tag) => {
-                            if let Some(cold_build_detector) = &mut self.cold_build_detector {
-                                cold_build_detector
-                                    .update_parsed_target_patterns(tag)
-                                    .await?;
                             }
                         }
                         DiceStateSnapshot(dice) => {

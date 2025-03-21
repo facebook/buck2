@@ -172,7 +172,7 @@ def loop():
         if len(xs) == 3:
             xs.append(4)
 loop()"#,
-        "mutate an iterable",
+        "mutates an iterable",
     );
 }
 
@@ -272,7 +272,7 @@ def foo():
         break
 foo()
 "#,
-        "mutate an iterable",
+        "mutates an iterable",
     );
     assert::fail(
         r#"

@@ -14,6 +14,8 @@ load(
 )
 load(
     "@prelude//java:java_providers.bzl",
+    "JavaClasspathEntry",
+    "JavaCompilingDepsTSet",
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaPackagingInfo",
@@ -21,6 +23,7 @@ load(
     "create_java_library_providers",
     "create_native_providers",
     "derive_compiling_deps",
+    "single_library_compiling_deps",
     "to_list",
 )
 load(
@@ -52,7 +55,8 @@ def _create_kotlin_sources(
         deps: list[Dependency],
         annotation_processor_properties: AnnotationProcessorProperties,
         ksp_annotation_processor_properties: AnnotationProcessorProperties,
-        additional_classpath_entries: list[Artifact]) -> (Artifact, Artifact | None, Artifact | None):
+        additional_classpath_entries: JavaCompilingDepsTSet | None,
+        bootclasspath_entries: list[Artifact]) -> (Artifact, Artifact | None, Artifact | None):
     """
     Runs kotlinc on the provided kotlin sources.
     """
@@ -67,7 +71,7 @@ def _create_kotlin_sources(
         "--kotlinc_output",
         kotlinc_output.as_output(),
     ]
-    compile_kotlin_cmd_hidden = []
+    compile_kotlin_cmd_hidden = cmd_args()
 
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     zip_scrubber_args = ["--zip_scrubber", cmd_args(java_toolchain.zip_scrubber, delimiter = " ")]
@@ -75,19 +79,23 @@ def _create_kotlin_sources(
 
     kotlinc_cmd_args = cmd_args([kotlinc])
 
-    compiling_classpath = [] + additional_classpath_entries
+    compiling_classpath = cmd_args()
+    if additional_classpath_entries:
+        compiling_classpath.add(additional_classpath_entries.project_as_args("args_for_compiling"))
+
+    # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
+    compiling_classpath.add(bootclasspath_entries)
+
     compiling_deps_tset = derive_compiling_deps(ctx.actions, None, deps + [kotlin_toolchain.kotlin_stdlib])
     if compiling_deps_tset:
-        compiling_classpath.extend(
-            [compiling_dep.abi for compiling_dep in list(compiling_deps_tset.traverse())],
-        )
+        compiling_classpath.add(compiling_deps_tset.project_as_args("args_for_compiling"))
 
     classpath_args = cmd_args(
         compiling_classpath,
         delimiter = get_path_separator_for_exec_os(ctx),
     )
 
-    compile_kotlin_cmd_hidden.append([compiling_classpath])
+    compile_kotlin_cmd_hidden.add(compiling_classpath)
 
     kotlinc_cmd_args.add(["-classpath"])
     kotlinc_cmd_args.add(at_argfile(
@@ -104,7 +112,7 @@ def _create_kotlin_sources(
             module_name,
             "-no-stdlib",
             "-no-reflect",
-        ] + ctx.attrs.extra_kotlinc_arguments,
+        ] + ctx.attrs.extra_kotlinc_arguments + get_language_version_arg(ctx),
     )
 
     jvm_target = get_kotlinc_compatible_target(ctx.attrs.target) if ctx.attrs.target else None
@@ -130,7 +138,7 @@ def _create_kotlin_sources(
         ).project_as_args("full_jar_args")
         kapt_classpath_file = ctx.actions.write("kapt_classpath_file", annotation_processor_classpath)
         compile_kotlin_cmd_args.extend(["--kapt_classpath_file", kapt_classpath_file])
-        compile_kotlin_cmd_hidden.append(annotation_processor_classpath)
+        compile_kotlin_cmd_hidden.add(annotation_processor_classpath)
 
         sources_output = ctx.actions.declare_output("kapt_sources_output")
         compile_kotlin_cmd_args.append(["--kapt_sources_output", sources_output.as_output()])
@@ -209,7 +217,7 @@ def _create_kotlin_sources(
     if zipped_sources:
         zipped_sources_file = ctx.actions.write("kotlinc_zipped_source_args", zipped_sources)
         compile_kotlin_cmd_args.append(["--zipped_sources_file", zipped_sources_file])
-        compile_kotlin_cmd_hidden.append(zipped_sources)
+        compile_kotlin_cmd_hidden.add(zipped_sources)
 
     args_file, _ = ctx.actions.write(
         "kotlinc_cmd",
@@ -217,11 +225,11 @@ def _create_kotlin_sources(
         allow_args = True,
     )
 
-    compile_kotlin_cmd_hidden.append(plain_sources)
+    compile_kotlin_cmd_hidden.add(plain_sources)
 
     compile_kotlin_cmd_args.append("--kotlinc_cmd_file")
     compile_kotlin_cmd_args.append(args_file)
-    compile_kotlin_cmd_hidden.append(kotlinc_cmd_args)
+    compile_kotlin_cmd_hidden.add(kotlinc_cmd_args)
 
     ctx.actions.run(
         cmd_args(compile_kotlin_cmd_args, hidden = compile_kotlin_cmd_hidden),
@@ -263,6 +271,40 @@ def _add_plugins(
 
     return _PluginCmdArgs(kotlinc_cmd_args = kotlinc_cmd_args, compile_kotlin_cmd = compile_kotlin_cmd)
 
+def get_language_version(ctx: AnalysisContext) -> str:
+    kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
+
+    # kotlin compiler expects relase version of format 1.6, 1.7, etc. Don't include patch version
+    current_kotlin_release_version = ".".join(kotlin_toolchain.kotlin_version.split(".")[:2])
+
+    current_language_version = None
+    for arg in ctx.attrs.extra_kotlinc_arguments:
+        # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
+        if isinstance(arg, str) and "-language-version" in arg:
+            current_language_version = arg.split("=")[1].strip()
+
+    if ctx.attrs.k2 == True and kotlin_toolchain.allow_k2_usage:
+        if not current_language_version or current_language_version < "2.0":
+            if current_kotlin_release_version < "2.0":
+                current_language_version = "2.0"
+            else:
+                current_language_version = current_kotlin_release_version
+    else:  # use K1
+        if not current_language_version or current_language_version >= "2.0":
+            if current_kotlin_release_version >= "2.0":
+                current_language_version = "1.9"
+            else:
+                current_language_version = current_kotlin_release_version
+
+    return current_language_version
+
+def get_language_version_arg(ctx: AnalysisContext) -> list[str]:
+    language_version = get_language_version(ctx)
+    return ["-language-version=" + language_version]
+
+def filter_out_language_version(extra_arguments: list) -> list:
+    return [arg for arg in extra_arguments if not (isinstance(arg, str) and "-language-version" in arg)]
+
 def kotlin_library_impl(ctx: AnalysisContext) -> list[Provider]:
     packaging_deps = ctx.attrs.deps + ctx.attrs.exported_deps + ctx.attrs.runtime_deps
 
@@ -299,7 +341,7 @@ def _check_exported_deps(exported_deps: list[Dependency], attr_name: str):
 
 def build_kotlin_library(
         ctx: AnalysisContext,
-        additional_classpath_entries: list[Artifact] = [],
+        additional_classpath_entries: JavaCompilingDepsTSet | None = None,
         bootclasspath_entries: list[Artifact] = [],
         extra_sub_targets: dict = {},
         validation_deps_outputs: [list[Artifact], None] = None) -> JavaProviders:
@@ -319,11 +361,6 @@ def build_kotlin_library(
         )
 
     else:
-        compose_stability_config = getattr(ctx.attrs, "compose_stability_config", None)
-        if compose_stability_config != None:
-            ctx.attrs.extra_kotlinc_arguments.append("-P")
-            ctx.attrs.extra_kotlinc_arguments.append(cmd_args(["plugin:androidx.compose.compiler.plugins.kotlin:stabilityConfigurationPath", ctx.attrs._compose_stability_config], delimiter = "="))
-
         deps_query = getattr(ctx.attrs, "deps_query", []) or []
         provided_deps_query = getattr(ctx.attrs, "provided_deps_query", []) or []
         _check_exported_deps(ctx.attrs.exported_deps, "exported_deps")
@@ -350,23 +387,35 @@ def build_kotlin_library(
             kotlinc_classes, kapt_generated_sources, ksp_generated_sources = _create_kotlin_sources(
                 ctx,
                 ctx.attrs.srcs,
-                deps,
+                (deps or []) + [kotlin_toolchain.kotlin_stdlib],
                 annotation_processor_properties,
                 ksp_annotation_processor_properties,
-                # kotlic doesn't support -bootclasspath param, so adding `bootclasspath_entries` into kotlin classpath
-                additional_classpath_entries + bootclasspath_entries,
+                additional_classpath_entries,
+                bootclasspath_entries,
             )
             srcs = [src for src in ctx.attrs.srcs if not src.extension == ".kt"]
             if kapt_generated_sources:
                 srcs.append(kapt_generated_sources)
             if ksp_generated_sources:
                 srcs.append(ksp_generated_sources)
+            kotlinc_classes_classpath = [single_library_compiling_deps(
+                ctx.actions,
+                JavaClasspathEntry(
+                    full_library = kotlinc_classes,
+                    abi = kotlinc_classes,
+                    abi_as_dir = None,
+                    required_for_source_only_abi = True,
+                    abi_jar_snapshot = None,
+                ),
+            )]
+            children = kotlinc_classes_classpath + ([additional_classpath_entries] if additional_classpath_entries else []) + [kotlin_toolchain.kotlin_stdlib[JavaLibraryInfo].compiling_deps]
+            all_additional_classpath_entries = ctx.actions.tset(JavaCompilingDepsTSet, children = children)
             java_lib = build_java_library(
                 ctx,
                 srcs,
                 run_annotation_processors = False,
                 bootclasspath_entries = bootclasspath_entries,
-                additional_classpath_entries = [kotlinc_classes] + additional_classpath_entries,
+                additional_classpath_entries = all_additional_classpath_entries,
                 additional_compiled_srcs = kotlinc_classes,
                 generated_sources = filter(None, [kapt_generated_sources, ksp_generated_sources]),
                 extra_sub_targets = extra_sub_targets,
@@ -374,6 +423,11 @@ def build_kotlin_library(
             )
             return java_lib
         elif kotlin_toolchain.kotlinc_protocol == "kotlincd":
+            expect(
+                ctx.attrs._java_toolchain[JavaToolchainInfo].javac_protocol == "javacd",
+                "Kotlin compiler mode: kotlincd and java compiler mode: {} don't match.".format(ctx.attrs._java_toolchain[JavaToolchainInfo].javac_protocol) +
+                "\nHint: If you have a Java toolchain with a custom javac, you should also provide a custom kotlinc for your Kotlin toolchain.",
+            )
             source_level, target_level = get_java_version_attributes(ctx)
             extra_arguments = cmd_args(
                 ctx.attrs.extra_arguments,
@@ -394,16 +448,16 @@ def build_kotlin_library(
                 "debug_port": getattr(ctx.attrs, "debug_port", None),
                 "deps": deps + [kotlin_toolchain.kotlin_stdlib],
                 "enable_used_classes": ctx.attrs.enable_used_classes,
-                "extra_kotlinc_arguments": ctx.attrs.extra_kotlinc_arguments,
+                "extra_kotlinc_arguments": filter_out_language_version(ctx.attrs.extra_kotlinc_arguments or []),
                 "friend_paths": ctx.attrs.friend_paths,
                 "is_building_android_binary": ctx.attrs._is_building_android_binary,
                 "jar_postprocessor": ctx.attrs.jar_postprocessor[RunInfo] if hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor else None,
                 "java_toolchain": ctx.attrs._java_toolchain[JavaToolchainInfo],
                 "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
-                "k2": ctx.attrs.k2,
                 "kotlin_compiler_plugins": ctx.attrs.kotlin_compiler_plugins,
                 "kotlin_toolchain": kotlin_toolchain,
                 "label": ctx.label,
+                "language_version": get_language_version(ctx),
                 "manifest_file": ctx.attrs.manifest_file,
                 "remove_classes": ctx.attrs.remove_classes,
                 "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,
@@ -481,6 +535,7 @@ def build_kotlin_library(
                 has_srcs = bool(srcs),
                 sources_jar = sources_jar,
                 preprocessed_library = outputs.preprocessed_library if outputs else None,
+                used_jars_json = outputs.used_jars_json if outputs else None,
             )
 
             default_info = get_default_info(

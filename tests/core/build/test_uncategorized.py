@@ -9,6 +9,7 @@
 
 
 import json
+
 import os
 import platform
 import random
@@ -19,7 +20,6 @@ from pathlib import Path
 from typing import List, Tuple
 
 import pytest
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -75,8 +75,6 @@ def read_all_outputs(buck: Buck, report: str) -> typing.List[str]:
 async def test_build_providers(buck: Buck) -> None:
     await buck.build(
         "//:target",
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--build-default-info",
         "--skip-run-info",
         "--skip-test-info",
@@ -91,8 +89,6 @@ async def test_build_providers(buck: Buck) -> None:
 
     await buck.build(
         "//:target",
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--skip-default-info",
         "--build-run-info",
         "--skip-test-info",
@@ -102,13 +98,10 @@ async def test_build_providers(buck: Buck) -> None:
 
     outputs = read_all_outputs(buck, "report")
     assert all("/build" not in o for o in outputs)
-    assert any("/run" in o for o in outputs)
     assert all("/test" not in o for o in outputs)
 
     await buck.build(
         "//:target",
-        "-c",
-        "build_report.unstable_include_other_outputs=true",
         "--skip-default-info",
         "--skip-run-info",
         "--build-test-info",
@@ -119,7 +112,6 @@ async def test_build_providers(buck: Buck) -> None:
     outputs = read_all_outputs(buck, "report")
     assert all("/build" not in o for o in outputs)
     assert all("/run" not in o for o in outputs)
-    assert any("/test" in o for o in outputs)
 
 
 @buck_test(data_dir="projected_artifacts")
@@ -181,9 +173,7 @@ async def test_cell_deletion(buck: Buck) -> None:
 @buck_test(
     data_dir="invalid_file_invalidation",
     skip_for_os=["windows"],
-    # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
-    # watchman file watcher here.
-    extra_buck_config={"buck2": {"file_watcher": "watchman"}},
+    setup_eden=True,
 )
 async def test_invalid_file_invalidation(buck: Buck) -> None:
     """
@@ -420,59 +410,6 @@ async def test_roots(buck: Buck) -> None:
 @buck_test(data_dir="tmpdir")
 async def test_tmpdir(buck: Buck) -> None:
     await buck.build("root//:")
-
-
-@buck_test(data_dir="materialize_inputs_for_failed_actions")
-async def test_materialize_inputs_for_failed_actions(buck: Buck) -> None:
-    await expect_failure(
-        buck.build(
-            "//:action_fail",
-            "--remote-only",
-            "--no-remote-cache",
-            "--materialize-failed-inputs",
-            "-c",
-            f"test.cache_buster={random_string()}",
-        ),
-    )
-
-    log = (await buck.log("show")).stdout.strip().splitlines()
-
-    found_action_error = False
-    found_materialize_failed_inputs_span = False
-
-    for line in log:
-        # Look for MaterializeFailedInputs ReStage event
-        if "MaterializeFailedInputs" in line:
-            found_materialize_failed_inputs_span = True
-
-        # Inpsect failed input
-        materialized_inputs_for_failed = json_get(
-            line,
-            "Event",
-            "data",
-            "Instant",
-            "data",
-            "ActionError",
-            "last_command",
-            "details",
-            "command_kind",
-            "command",
-            "RemoteCommand",
-            "materialized_inputs_for_failed",
-        )
-
-        if materialized_inputs_for_failed:
-            found_action_error = True
-            assert len(materialized_inputs_for_failed) == 1
-            input = materialized_inputs_for_failed[0]
-            with open(Path(buck.cwd / input), "r") as materialized_input_path:
-                contents = materialized_input_path.read()
-                assert contents == "yay!"
-
-    if not found_action_error:
-        raise AssertionError("Did not find relevant ActionError")
-    if not found_materialize_failed_inputs_span:
-        raise AssertionError("Did not find relevant MaterializeFailedInputs span")
 
 
 def random_string() -> str:

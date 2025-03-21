@@ -20,6 +20,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -89,6 +90,7 @@ impl StreamingCommand for StarlarkSubcommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let serialized = serde_json::to_string(&self)?;
 
@@ -101,6 +103,7 @@ impl StreamingCommand for StarlarkSubcommand {
                     context: Some(context),
                     serialized_opts: serialized,
                 },
+                events_ctx,
                 ctx.console_interaction_stream(self.console_opts()),
                 &mut StdoutPartialResultHandler,
             )

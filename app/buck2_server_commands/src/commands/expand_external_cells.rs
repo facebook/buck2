@@ -40,6 +40,7 @@ struct ExpandExternalCellsServerCommand {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ExpandExternalCellError {
     #[error("Cell `{0}` is not an external cell")]
     CellNotExternal(CellName),

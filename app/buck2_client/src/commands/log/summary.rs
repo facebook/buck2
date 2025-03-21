@@ -65,10 +65,10 @@ impl Stats {
                     self.total_bytes_materialized += data.total_bytes;
                 }
                 Some(buck2_data::span_end_event::Data::ActionExecution(ref data)) => {
-                    match ActionExecutionKind::from_i32(data.execution_kind) {
-                        Some(ActionExecutionKind::Local) => self.total_local_actions += 1,
-                        Some(ActionExecutionKind::Remote) => self.total_remote_actions += 1,
-                        Some(ActionExecutionKind::ActionCache) => self.total_cached_actions += 1,
+                    match ActionExecutionKind::try_from(data.execution_kind) {
+                        Ok(ActionExecutionKind::Local) => self.total_local_actions += 1,
+                        Ok(ActionExecutionKind::Remote) => self.total_remote_actions += 1,
+                        Ok(ActionExecutionKind::ActionCache) => self.total_cached_actions += 1,
                         _ => self.total_other_actions += 1,
                     }
                 }

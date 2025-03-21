@@ -12,6 +12,7 @@ load(
     "@prelude//java:java_providers.bzl",
     "ClasspathSnapshotGranularity",
     "JavaCompileOutputs",  # @unused Used as type
+    "JavaCompilingDepsTSet",  # @unused Used as type
     "JavaLibraryInfo",
     "JavaPackagingDepTSet",
     "JavaProviders",
@@ -33,7 +34,7 @@ load(
     "create_plugin_params",
 )
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
-load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "to_java_version")
+load("@prelude//java/utils:java_utils.bzl", "build_bootclasspath", "declare_prefixed_name", "derive_javac", "get_abi_generation_mode", "get_class_to_source_map_info", "get_default_info", "get_java_version_attributes", "to_java_version")
 load("@prelude//jvm:cd_jar_creator_util.bzl", "postprocess_jar")
 load("@prelude//jvm:nullsafe.bzl", "get_nullsafe_info")
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
@@ -123,27 +124,18 @@ def _process_plugins(
 
     return cmd
 
-def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additional_classpath_entries: list[Artifact], classpath_args_projection: str) -> [cmd_args, None]:
+def _build_classpath(actions: AnalysisActions, deps: list[Dependency], additional_classpath_entries: JavaCompilingDepsTSet | None, classpath_args_projection: str) -> [cmd_args, None]:
     compiling_deps_tset = derive_compiling_deps(actions, None, deps)
 
     if additional_classpath_entries or compiling_deps_tset:
         args = cmd_args()
         if compiling_deps_tset:
             args.add(compiling_deps_tset.project_as_args(classpath_args_projection))
-        args.add(additional_classpath_entries)
+        if additional_classpath_entries:
+            args.add(additional_classpath_entries.project_as_args(classpath_args_projection))
         return args
 
     return None
-
-def _build_bootclasspath(bootclasspath_entries: list[Artifact], source_level: int, java_toolchain: JavaToolchainInfo) -> list[Artifact]:
-    bootclasspath_list = []
-    if source_level in [8]:
-        if bootclasspath_entries:
-            bootclasspath_list = bootclasspath_entries
-        elif source_level == 8:
-            expect(java_toolchain.bootclasspath_8, "Must specify bootclasspath for source level 8")
-            bootclasspath_list = java_toolchain.bootclasspath_8
-    return bootclasspath_list
 
 def _append_javac_params(
         ctx: AnalysisContext,
@@ -157,7 +149,7 @@ def _append_javac_params(
         target_level: int,
         deps: list[Dependency],
         extra_arguments: cmd_args,
-        additional_classpath_entries: list[Artifact],
+        additional_classpath_entries: JavaCompilingDepsTSet | None,
         bootclasspath_entries: list[Artifact],
         generated_sources_dir: Artifact) -> cmd_args:
     cmd = cmd_args()
@@ -186,7 +178,7 @@ def _append_javac_params(
     javac_args.add("-target")
     javac_args.add(str(target_level))
 
-    bootclasspath_list = _build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
+    bootclasspath_list = build_bootclasspath(bootclasspath_entries, source_level, java_toolchain)
     if bootclasspath_list:
         cmd.add(_process_classpath(
             ctx.actions,
@@ -293,13 +285,11 @@ def compile_to_jar(
         required_for_source_only_abi: bool = False,
         source_only_abi_deps: [list[Dependency], None] = None,
         extra_arguments: [cmd_args, None] = None,
-        additional_classpath_entries: [list[Artifact], None] = None,
+        additional_classpath_entries: JavaCompilingDepsTSet | None = None,
         additional_compiled_srcs: Artifact | None = None,
         bootclasspath_entries: [list[Artifact], None] = None,
         is_creating_subtarget: bool = False,
         debug_port: [int, None] = None) -> JavaCompileOutputs:
-    if not additional_classpath_entries:
-        additional_classpath_entries = []
     if not bootclasspath_entries:
         bootclasspath_entries = []
     if not extra_arguments:
@@ -375,7 +365,7 @@ def _create_jar_artifact(
         required_for_source_only_abi: bool,
         _source_only_abi_deps: list[Dependency],
         extra_arguments: cmd_args,
-        additional_classpath_entries: list[Artifact],
+        additional_classpath_entries: JavaCompilingDepsTSet | None,
         additional_compiled_srcs: Artifact | None,
         bootclasspath_entries: list[Artifact],
         _is_building_android_binary: bool,
@@ -437,7 +427,7 @@ def _create_jar_artifact(
 
     ctx.actions.run(compile_and_package_cmd, category = "javac_and_jar", identifier = actions_identifier)
 
-    abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, jar_out)
+    abi = None if (not srcs and not additional_compiled_srcs) or abi_generation_mode == AbiGenerationMode("none") or java_toolchain.is_bootstrap_toolchain else create_abi(ctx.actions, java_toolchain.class_abi_generator, jar_out, getattr(ctx.attrs, "keep_synthetics_in_class_abi", False) or False)
 
     has_postprocessor = hasattr(ctx.attrs, "jar_postprocessor") and ctx.attrs.jar_postprocessor
     final_jar = postprocess_jar(ctx.actions, java_toolchain.zip_scrubber, ctx.attrs.jar_postprocessor[RunInfo], java_toolchain.postprocessor_runner[RunInfo], jar_out, actions_identifier) if has_postprocessor else jar_out
@@ -526,7 +516,7 @@ def build_java_library(
         ctx: AnalysisContext,
         srcs: list[Artifact],
         run_annotation_processors = True,
-        additional_classpath_entries: list[Artifact] = [],
+        additional_classpath_entries: JavaCompilingDepsTSet | None = None,
         bootclasspath_entries: list[Artifact] = [],
         additional_compiled_srcs: Artifact | None = None,
         generated_sources: list[Artifact] = [],
@@ -688,6 +678,7 @@ def build_java_library(
         sources_jar = sources_jar,
         gwt_module = gwt_output,
         preprocessed_library = outputs.preprocessed_library if outputs else None,
+        used_jars_json = outputs.used_jars_json if outputs else None,
     )
 
     default_info = get_default_info(

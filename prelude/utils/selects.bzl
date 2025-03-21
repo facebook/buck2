@@ -10,11 +10,6 @@ _SELECT_TYPE = type(select({"DEFAULT": []}))
 def _is_select(thing):
     return type(thing) == _SELECT_TYPE
 
-def _apply_helper(function, inner):
-    if not _is_select(inner):
-        return function(inner)
-    return _apply(inner, function)
-
 def _apply(obj, function):
     """
     If the object is a select, runs `select_map` with `function`.
@@ -24,7 +19,7 @@ def _apply(obj, function):
         return function(obj)
     return select_map(
         obj,
-        partial(_apply_helper, function),
+        lambda obj: _apply(obj, function),
     )
 
 selects = struct(

@@ -20,6 +20,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -34,7 +35,7 @@ pub struct ConfiguredTargetsCommand {
     skip_missing_targets: bool,
 
     /// Patterns to interpret.
-    #[clap(name = "TARGET_PATTERNS")]
+    #[clap(name = "TARGET_PATTERNS", value_hint = clap::ValueHint::Other)]
     patterns: Vec<String>,
 
     #[clap(flatten)]
@@ -53,6 +54,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = Some(ctx.client_context(matches, &self)?);
         let ConfiguredTargetsResponse {
@@ -66,6 +68,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     skip_missing_targets: self.skip_missing_targets,
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),
                 &mut NoPartialResultHandler,
             )

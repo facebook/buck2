@@ -35,6 +35,7 @@ pub struct ForkserverClient {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum ForkserverError {
     #[error("Error on Forkserver wait()")]
     WaitError(#[source] io::Error),

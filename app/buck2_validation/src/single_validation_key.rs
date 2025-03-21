@@ -25,6 +25,7 @@ use crate::cached_validation_result::CachedValidationResult;
 use crate::validator_api::parse_validation_result;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum ParseValidationResultError {
     #[error("Validation result should produce exactly one artifact")]
     WrongNumberOfArtifacts,

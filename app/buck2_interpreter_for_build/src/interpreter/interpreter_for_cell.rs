@@ -24,8 +24,7 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::soft_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
@@ -70,6 +69,8 @@ use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::super_package::eval_ctx::PackageFileEvalCtx;
 
+const DEFAULT_STARLARK_MEMORY_USAGE_LIMIT: u64 = 2 * (1 << 30);
+
 #[derive(Debug, buck2_error::Error)]
 #[error("Tabs are not allowed in Buck files: `{0}`")]
 #[buck2(input)]
@@ -82,15 +83,6 @@ enum StarlarkPeakMemoryError {
     )]
     #[buck2(input)]
     ExceedsThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
-}
-
-#[derive(Debug, buck2_error::Error)]
-#[buck2(input)]
-enum StarlarkPeakMemorySoftError {
-    #[error(
-        "Starlark peak memory usage for {0} is {1} which is over 50% of the limit {2}! Consider investigating what takes too much memory: {3}."
-    )]
-    CloseToThreshold(BuildFilePath, HumanizedBytes, HumanizedBytes, String),
 }
 
 /// A ParseData includes the parsed AST and a list of the imported files.
@@ -170,6 +162,7 @@ struct InterpreterLoadResolver {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum LoadResolutionError {
     #[error(
         "Cannot load `{0}`. Bxl loads are not allowed from within this context. bxl files can only be loaded from other bxl files."
@@ -329,7 +322,7 @@ impl InterpreterForCell {
         env.set_extra_value_no_overwrite(env.heap().alloc_complex(StarlarkAnyComplex {
             value: InterpreterExtraValue::default(),
         }))
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         Ok(env)
     }
@@ -527,9 +520,6 @@ impl InterpreterForCell {
                     eval_provider
                         .evaluation_complete(&mut eval)
                         .buck_error_context("Profiler finalization failed")?;
-                    eval_provider
-                        .visit_frozen_module(None)
-                        .buck_error_context("Profiler heap visitation failed")?;
 
                     cpu_instruction_count
                 }
@@ -682,11 +672,11 @@ impl InterpreterForCell {
                     .as_deref(),
             )?
             .unwrap_or(false);
-        let default_limit = 2 * (1 << 30);
         let starlark_mem_limit = eval_result
             .starlark_peak_allocated_byte_limit
             .get()
-            .map_or(default_limit, |opt| opt.unwrap_or(default_limit));
+            .and_then(|limit| *limit)
+            .unwrap_or(DEFAULT_STARLARK_MEMORY_USAGE_LIMIT);
 
         if starlark_peak_mem_check_enabled && starlark_peak_allocated_bytes > starlark_mem_limit {
             Err(StarlarkPeakMemoryError::ExceedsThreshold(
@@ -696,24 +686,6 @@ impl InterpreterForCell {
                 get_starlark_warning_link().to_owned(),
             )
             .into())
-        } else if starlark_peak_mem_check_enabled
-            && starlark_peak_allocated_bytes > starlark_mem_limit / 2
-        {
-            soft_error!(
-                "starlark_memory_usage_over_soft_limit",
-                StarlarkPeakMemorySoftError::CloseToThreshold(
-                    build_file.clone(),
-                    HumanizedBytes::fixed_width(starlark_peak_allocated_bytes),
-                    HumanizedBytes::fixed_width(starlark_mem_limit),
-                    get_starlark_warning_link().to_owned()
-                ).into(), quiet: true
-            )?;
-
-            Ok(EvaluationResultWithStats {
-                result: EvaluationResult::from(internals),
-                starlark_peak_allocated_bytes,
-                cpu_instruction_count: eval_result.cpu_instruction_count,
-            })
         } else {
             Ok(EvaluationResultWithStats {
                 result: EvaluationResult::from(internals),

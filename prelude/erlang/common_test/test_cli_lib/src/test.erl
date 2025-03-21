@@ -14,6 +14,7 @@
 %%% % @format
 
 -module(test).
+-eqwalizer(ignore).
 
 -include_lib("common/include/buck_ct_records.hrl").
 

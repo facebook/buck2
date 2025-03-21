@@ -13,6 +13,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import sys
 import zipfile
 from types import TracebackType
@@ -49,19 +50,26 @@ class WheelBuilder(contextlib.AbstractContextManager):
 
     def write(self, dst: str, src: str) -> None:
         self._record.append(dst)
-        self._outf.write(filename=src, arcname=dst)
+        zinfo = zipfile.ZipInfo.from_file(filename=src, arcname=dst)
+        zinfo.date_time = (1980, 1, 1, 0, 0, 0)
+        with open(src, "rb") as fsrc, self._outf.open(zinfo, "w") as fdst:
+            shutil.copyfileobj(fsrc, fdst, 1024 * 8)
 
     def write_data(self, dst: str, src: str) -> None:
         self.write(self._data(dst), src)
 
     def writestr(self, dst: str, contents: str) -> None:
         self._record.append(dst)
-        self._outf.writestr(zinfo_or_arcname=dst, data=contents)
+        self._outf.writestr(
+            zinfo_or_arcname=zipfile.ZipInfo(filename=dst),
+            data=contents,
+        )
 
     def _write_record(self) -> None:
         record = self._dist_info("RECORD")
         self._outf.writestr(
-            record, "".join(["{},,\n".format(f) for f in (self._record + [record])])
+            zinfo_or_arcname=zipfile.ZipInfo(filename=record),
+            data="".join(["{},,\n".format(f) for f in (self._record + [record])]),
         )
 
     def close(self) -> None:
@@ -104,7 +112,10 @@ def main(argv: List[str]) -> None:
     parser.add_argument("--name", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--entry-points", default=None)
-    parser.add_argument("--srcs", action="append", default=[])
+    parser.add_argument("--manifest", dest="manifests", action="append", default=[])
+    parser.add_argument(
+        "--src-path", nargs=2, dest="src_paths", action="append", default=[]
+    )
     parser.add_argument("--metadata", nargs=2, action="append", default=[])
     parser.add_argument("--data", nargs=2, action="append", default=[])
     args = parser.parse_args(argv[1:])
@@ -127,22 +138,28 @@ def main(argv: List[str]) -> None:
         ),
         metadata=args.metadata,
     ) as whl:
-        for src in args.srcs:
+        all_srcs = {}
+        for src in args.manifests:
             with open(src) as f:
                 manifest = json.load(f)
             for dst, src, *_ in manifest:
-                if dst.endswith((".py", ".so")):
-                    pkg = os.path.dirname(dst)
-                    _add_pkg(pkg)
-                    if os.path.basename(dst) == "__init__.py":
-                        pkgs_with_init.add(pkg)
-                whl.write(dst, src)
+                all_srcs[dst] = src
+        for dst, src in args.src_paths:
+            all_srcs[dst] = src
+
+        for dst, src in sorted(all_srcs.items()):
+            if dst.endswith((".py", ".so")):
+                pkg = os.path.dirname(dst)
+                _add_pkg(pkg)
+                if os.path.basename(dst) == "__init__.py":
+                    pkgs_with_init.add(pkg)
+            whl.write(dst, src)
+
+        for pkg in sorted(pkgs - pkgs_with_init):
+            whl.writestr(os.path.join(pkg, "__init__.py"), "")
 
         for dst, src in args.data:
             whl.write_data(dst, src)
-
-        for pkg in pkgs - pkgs_with_init:
-            whl.writestr(os.path.join(pkg, "__init__.py"), "")
 
 
 sys.exit(main(sys.argv))

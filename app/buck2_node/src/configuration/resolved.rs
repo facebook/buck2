@@ -30,8 +30,10 @@ use starlark_map::unordered_map::UnorderedMap;
     Clone,
     Dupe,
     Ord,
-    PartialOrd
+    PartialOrd,
+    ref_cast::RefCast
 )]
+#[repr(transparent)]
 pub struct ConfigurationSettingKey(pub ProvidersLabel);
 
 impl ConfigurationSettingKey {
@@ -42,49 +44,49 @@ impl ConfigurationSettingKey {
     }
 }
 
-/// For a target, some of the configuration comes down the graph from its dependents, other
-/// parts of the configuration (those not specified by the target platform or transitions)
-/// comes from the global configuration state.
-///
-/// The ResolvedConfiguration represents the full configuration state that is available to
-/// a target for analysis.
+/// See [`MatchedConfigurationSettingKeys`].
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
-pub struct ResolvedConfiguration(Arc<ResolvedConfigurationData>);
+pub struct MatchedConfigurationSettingKeysWithCfg(Arc<MatchedConfigurationSettingKeysWithCfgData>);
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
-pub(crate) struct ResolvedConfigurationData {
+pub(crate) struct MatchedConfigurationSettingKeysWithCfgData {
     cfg: ConfigurationNoExec,
-    pub(crate) settings: ResolvedConfigurationSettings,
+    pub(crate) settings: MatchedConfigurationSettingKeys,
 }
 
+/// For a given target, this stores the result of matching all of the select keys and compatibility
+/// attributes against that target's configuration.
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
-pub struct ResolvedConfigurationSettings {
+pub struct MatchedConfigurationSettingKeys {
     settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
 }
 
-impl ResolvedConfiguration {
-    pub fn new(cfg: ConfigurationNoExec, settings: ResolvedConfigurationSettings) -> Self {
-        Self(Arc::new(ResolvedConfigurationData { cfg, settings }))
+impl MatchedConfigurationSettingKeysWithCfg {
+    pub fn new(cfg: ConfigurationNoExec, settings: MatchedConfigurationSettingKeys) -> Self {
+        Self(Arc::new(MatchedConfigurationSettingKeysWithCfgData {
+            cfg,
+            settings,
+        }))
     }
 
     pub fn cfg(&self) -> &ConfigurationNoExec {
         &self.0.cfg
     }
 
-    pub fn settings(&self) -> &ResolvedConfigurationSettings {
+    pub fn settings(&self) -> &MatchedConfigurationSettingKeys {
         &self.0.settings
     }
 }
 
-impl ResolvedConfigurationSettings {
+impl MatchedConfigurationSettingKeys {
     pub fn new(
         settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
-    ) -> ResolvedConfigurationSettings {
-        ResolvedConfigurationSettings { settings }
+    ) -> MatchedConfigurationSettingKeys {
+        MatchedConfigurationSettingKeys { settings }
     }
 
-    pub fn empty() -> ResolvedConfigurationSettings {
-        ResolvedConfigurationSettings::new(UnorderedMap::new())
+    pub fn empty() -> MatchedConfigurationSettingKeys {
+        MatchedConfigurationSettingKeys::new(UnorderedMap::new())
     }
 
     pub fn setting_matches(&self, key: &ConfigurationSettingKey) -> Option<&ConfigSettingData> {

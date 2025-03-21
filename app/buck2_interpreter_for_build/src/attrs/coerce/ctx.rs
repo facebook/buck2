@@ -20,6 +20,7 @@ use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
@@ -167,10 +168,12 @@ impl BuildAttrCoercionContext {
         &self,
         value: &str,
     ) -> buck2_error::Result<ParsedPattern<P>> {
-        ParsedPattern::parsed_opt_absolute(
+        ParsedPattern::parse_not_relaxed(
             value,
-            self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()),
-            self.cell_name,
+            match self.enclosing_package.as_ref().map(|x| x.0.as_cell_path()) {
+                Some(package) => TargetParsingRel::AllowLimitedRelative(package),
+                None => TargetParsingRel::RequireAbsolute(self.cell_name),
+            },
             &self.cell_resolver,
             &self.cell_alias_resolver,
         )

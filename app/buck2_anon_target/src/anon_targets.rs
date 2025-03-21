@@ -32,7 +32,7 @@ use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
-use buck2_configured::nodes::calculation::find_execution_platform_by_configuration;
+use buck2_configured::execution::find_execution_platform_by_configuration;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::pair::ConfigurationNoExec;
@@ -53,6 +53,7 @@ use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -61,7 +62,7 @@ use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProv
 use buck2_interpreter_for_build::rule::FrozenRuleCallable;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
-use buck2_node::attrs::internal::internal_attrs;
+use buck2_node::attrs::spec::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::arc_str::ArcStr;
@@ -102,6 +103,7 @@ pub struct AnonTargetsRegistry<'v> {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum AnonTargetsError {
     #[error("Not allowed to call `anon_targets` in this context")]
     AssertNoPromisesFailed,
@@ -160,7 +162,6 @@ impl AnonTargetKey {
         ConfigurationNoExec,
     )> {
         let mut name = None;
-        let internal_attrs = internal_attrs();
 
         let entries = attributes.entries;
         let attrs_spec = rule.attributes();
@@ -171,7 +172,7 @@ impl AnonTargetKey {
         for (k, v) in entries {
             if k == "name" {
                 name = Some(Self::coerce_name(v)?);
-            } else if internal_attrs.contains_key(k) {
+            } else if is_internal_attr(k) {
                 return Err(AnonTargetsError::InternalAttribute(k.to_owned()).into());
             } else {
                 let attr = attrs_spec
@@ -185,7 +186,7 @@ impl AnonTargetKey {
             }
         }
         for (k, _, a) in attrs_spec.attr_specs() {
-            if !attrs.contains_key(k) && !internal_attrs.contains_key(k) {
+            if !attrs.contains_key(k) && !is_internal_attr(k) {
                 if let Some(x) = a.default() {
                     attrs.insert(
                         k.to_owned(),
@@ -402,10 +403,11 @@ impl AnonTargetKey {
         let env = Module::new();
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
+        let eval_kind = self.0.dupe().eval_kind();
         let (dice, mut eval, ctx, list_res) = with_starlark_eval_provider(
             dice,
             &mut StarlarkProfilerOpt::disabled(),
-            format!("anon_analysis:{}", self),
+            &eval_kind,
             |provider, dice| {
                 let (mut eval, _) = provider.make(&env)?;
                 eval.set_print_handler(&print);
@@ -442,7 +444,7 @@ impl AnonTargetKey {
         .await?;
 
         ctx.actions
-            .run_promises(dice, &mut eval, format!("anon_analysis$promises:{}", self))
+            .run_promises(dice, &mut eval, &eval_kind)
             .await?;
         let res_typed = ProviderCollection::try_from_value(list_res)?;
         let res = env.heap().alloc(res_typed);
@@ -468,7 +470,9 @@ impl AnonTargetKey {
         std::mem::drop(eval);
         let num_declared_actions = analysis_registry.num_declared_actions();
         let num_declared_artifacts = analysis_registry.num_declared_artifacts();
-        let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+        let registry_finalizer = analysis_registry.finalize(&env)?;
+        let frozen_env = env.freeze().map_err(from_freeze_error)?;
+        let recorded_values = registry_finalizer(&frozen_env)?;
 
         let validations = transitive_validations(
             validations_from_deps,

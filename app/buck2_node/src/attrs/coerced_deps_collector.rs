@@ -13,13 +13,14 @@ use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::thin_box::ThinBoxSlice;
 use dupe::Dupe;
 use starlark_map::ordered_set::OrderedSet;
 
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::traversal::CoercedAttrTraversal;
-use crate::configuration::resolved::ConfigurationSettingKey;
 
 #[derive(Default, Debug, PartialEq, Eq, Hash, Allocative)]
 pub struct CoercedDeps {
@@ -37,11 +38,8 @@ pub struct CoercedDeps {
     /// Contains the toolchain deps derived from the attributes.
     pub toolchain_deps: ThinBoxSlice<TargetLabel>,
 
-    /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: ThinBoxSlice<ConfigurationSettingKey>,
-
-    /// Contains platform targets of configured_alias()
-    pub platform_deps: ThinBoxSlice<TargetLabel>,
+    /// Contains the configuration deps
+    pub configuration_deps: ThinBoxSlice<(ProvidersLabel, ConfigurationDepKind)>,
 
     /// Contains the plugin deps
     pub plugin_deps: ThinBoxSlice<TargetLabel>,
@@ -55,7 +53,6 @@ impl From<CoercedDepsCollector> for CoercedDeps {
             exec_deps,
             toolchain_deps,
             configuration_deps,
-            platform_deps,
             plugin_deps,
         } = collector;
         CoercedDeps {
@@ -64,7 +61,6 @@ impl From<CoercedDepsCollector> for CoercedDeps {
             exec_deps: exec_deps.into_iter().collect(),
             toolchain_deps: toolchain_deps.into_iter().collect(),
             configuration_deps: configuration_deps.into_iter().collect(),
-            platform_deps: platform_deps.into_iter().collect(),
             plugin_deps: plugin_deps.into_iter().collect(),
         }
     }
@@ -87,10 +83,7 @@ pub struct CoercedDepsCollector {
     pub toolchain_deps: OrderedSet<TargetLabel>,
 
     /// Contains the configuration deps. These are deps that appear as conditions in selects.
-    pub configuration_deps: OrderedSet<ConfigurationSettingKey>,
-
-    /// Contains platform targets of configured_alias()
-    pub platform_deps: OrderedSet<TargetLabel>,
+    pub configuration_deps: OrderedSet<(ProvidersLabel, ConfigurationDepKind)>,
 
     /// Contains the plugin deps
     pub plugin_deps: OrderedSet<TargetLabel>,
@@ -104,53 +97,53 @@ impl CoercedDepsCollector {
             toolchain_deps: OrderedSet::new(),
             transition_deps: OrderedSet::new(),
             configuration_deps: OrderedSet::new(),
-            platform_deps: OrderedSet::new(),
             plugin_deps: OrderedSet::new(),
         }
     }
 }
 
 impl<'a> CoercedAttrTraversal<'a> for CoercedDepsCollector {
-    fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.deps.insert(dep.dupe());
+    fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()> {
+        self.deps.insert(dep.target().dupe());
         Ok(())
     }
 
-    fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.exec_deps.insert(dep.dupe());
+    fn exec_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
+        self.exec_deps.insert(dep.target().dupe());
         Ok(())
     }
 
-    fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.toolchain_deps.insert(dep.dupe());
+    fn toolchain_dep(&mut self, dep: &'a ProvidersLabel) -> buck2_error::Result<()> {
+        self.toolchain_deps.insert(dep.target().dupe());
         Ok(())
     }
 
     fn transition_dep(
         &mut self,
-        dep: &'a TargetLabel,
+        dep: &'a ProvidersLabel,
         tr: &Arc<TransitionId>,
     ) -> buck2_error::Result<()> {
-        self.transition_deps.insert((dep.dupe(), tr.dupe()));
+        self.transition_deps
+            .insert((dep.target().dupe(), tr.dupe()));
         Ok(())
     }
 
     fn split_transition_dep(
         &mut self,
-        dep: &'a TargetLabel,
+        dep: &'a ProvidersLabel,
         tr: &Arc<TransitionId>,
     ) -> buck2_error::Result<()> {
-        self.transition_deps.insert((dep.dupe(), tr.dupe()));
+        self.transition_deps
+            .insert((dep.target().dupe(), tr.dupe()));
         Ok(())
     }
 
-    fn configuration_dep(&mut self, dep: &'a ConfigurationSettingKey) -> buck2_error::Result<()> {
-        self.configuration_deps.insert(dep.dupe());
-        Ok(())
-    }
-
-    fn platform_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-        self.platform_deps.insert(dep.dupe());
+    fn configuration_dep(
+        &mut self,
+        dep: &ProvidersLabel,
+        t: ConfigurationDepKind,
+    ) -> buck2_error::Result<()> {
+        self.configuration_deps.insert((dep.dupe(), t));
         Ok(())
     }
 

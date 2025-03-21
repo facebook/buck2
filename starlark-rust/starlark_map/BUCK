@@ -7,7 +7,7 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     metadata = {
         "buck.cfg_modifiers": [
-            # @oss-disable: "ovr_config//rust:panic_unwind", 
+            # @oss-disable[end= ]: "ovr_config//rust:panic_unwind",
         ],
     },
     rustc_flags = [
@@ -23,5 +23,6 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "//buck2/allocative/allocative:allocative",
         "//buck2/gazebo/dupe:dupe",
+        "//buck2/gazebo/strong_hash:strong_hash",
     ],
 )

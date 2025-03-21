@@ -10,13 +10,15 @@
 #![feature(error_generic_member_access)]
 #![feature(trait_upcasting)]
 
-pub mod calculation;
 pub mod configuration;
+pub mod cycle;
+pub mod execution;
 pub mod nodes;
+mod target_platform_resolution;
 
 pub fn init_late_bindings() {
-    calculation::init_configured_target_calculation();
-    configuration::calculation::init_get_execution_platforms();
-    configuration::calculation::init_configuration_calculation();
-    nodes::calculation::init_configured_target_node_calculation();
+    target_platform_resolution::init_configured_target_calculation();
+    execution::init_get_execution_platforms();
+    configuration::init_configuration_calculation();
+    nodes::init_configured_target_node_calculation();
 }

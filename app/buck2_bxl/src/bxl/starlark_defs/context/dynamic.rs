@@ -10,6 +10,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::LazyLock;
 
 use buck2_action_impl::dynamic::attrs_starlark::StarlarkDynamicAttrType;
@@ -40,7 +41,9 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -129,7 +132,8 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                     with_starlark_eval_provider(
                         dice_ctx,
                         &mut StarlarkProfilerOpt::disabled(),
-                        format!("bxl_dynamic:{}", "foo"),
+                        // TODO(cjhopman): not foo
+                        &StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned())),
                         move |provider, dice_ctx| {
                             Ok(tokio::task::block_in_place(|| {
                                 eval_ctx.do_eval(provider, dice_ctx)
@@ -138,7 +142,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
                     )
                     .await
                 }),
-                || Err(buck2_error!([], "cancelled")),
+                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
             )
         })
     }
@@ -237,7 +241,8 @@ impl BxlDynamicOutputEvaluator<'_> {
             ctx.take_state_dynamic()?
         };
 
-        let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+        let recorded_values =
+            analysis_registry.finalize(&env)?(&env.freeze().map_err(from_freeze_error)?)?;
         Ok(recorded_values)
     }
 }

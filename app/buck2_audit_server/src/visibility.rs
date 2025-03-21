@@ -29,6 +29,7 @@ use dupe::Dupe;
 use crate::ServerAuditSubcommand;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum VisibilityCommandError {
     #[error(
         "Internal Error: The dependency `{0}` of the target `{1}` was not found during the traversal."
@@ -90,7 +91,11 @@ async fn verify_visibility(
     }
 
     if !visibility_errors.is_empty() {
-        return Err(buck2_error::buck2_error!([], "{}", 1));
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "{}",
+            1
+        ));
     }
 
     buck2_client_ctx::eprintln!("audit visibility succeeded")?;

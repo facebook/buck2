@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
@@ -37,12 +38,10 @@ load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
 load(":package_builder.bzl", "build_package")
 load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name", "merge_pkgs")
-load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
+load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-
-    pkgs = {}
+    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_name = go_attr_pkg_name(ctx)
 
     race = ctx.attrs._race
@@ -50,8 +49,8 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
 
     pkg, pkg_info = build_package(
-        ctx,
-        pkg_name,
+        ctx = ctx,
+        pkg_name = pkg_name,
         main = False,
         srcs = ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
@@ -63,11 +62,13 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         asan = asan,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
-        cgo_enabled = evaluate_cgo_enabled(go_toolchain, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
+        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
     )
 
     default_output = pkg.pkg
-    pkgs[pkg_name] = pkg
+    pkgs = {
+        pkg_name: pkg,
+    }
 
     own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
 

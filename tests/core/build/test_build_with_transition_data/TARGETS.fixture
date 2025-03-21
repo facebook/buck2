@@ -1,0 +1,14 @@
+load(":defs.bzl", "simple")
+
+platform(
+    name = "p",
+    constraint_values = [],
+)
+
+simple(
+    name = "buck",
+)
+
+simple(
+    name = "moose",
+)

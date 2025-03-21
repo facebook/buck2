@@ -60,11 +60,11 @@ When a user runs `buck2 test $targets`:
   events that the end-user will see (such as test results), upload logs
   externally, request further executions, and so on.
 
-<!-- prettier-ignore -->
 :::note
-If more than one target is being built, test building and execution will proceed concurrently.
 
-<!-- prettier-ignore -->
+If more than one target is being built, test building and execution will proceed
+concurrently.
+
 :::
 
 ## Information available on `ExternalRunnerTestInfo`

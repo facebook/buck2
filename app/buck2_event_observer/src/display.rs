@@ -24,7 +24,7 @@ use buck2_data::BxlFunctionKey;
 use buck2_data::BxlFunctionLabel;
 use buck2_data::ConfiguredTargetLabel;
 use buck2_data::TargetLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
@@ -381,7 +381,6 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
             Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
             Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
-            Data::CreateOutputHashesFile(..) => Ok("Creating output hashes file".to_owned()),
             Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::ActionErrorHandlerExecution(..) => {
                 Ok("Running error handler on action failure".to_owned())
@@ -397,12 +396,12 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
 }
 
 fn display_file_watcher(provider: i32) -> &'static str {
-    match buck2_data::FileWatcherProvider::from_i32(provider) {
-        Some(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
-        Some(buck2_data::FileWatcherProvider::RustNotify) => "notify",
-        Some(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
-        Some(buck2_data::FileWatcherProvider::EdenFs) => "EdenFS",
-        None => "unknown mechanism",
+    match buck2_data::FileWatcherProvider::try_from(provider) {
+        Ok(buck2_data::FileWatcherProvider::Watchman) => "Watchman",
+        Ok(buck2_data::FileWatcherProvider::RustNotify) => "notify",
+        Ok(buck2_data::FileWatcherProvider::FsHashCrawler) => "fs_hash_crawler",
+        Ok(buck2_data::FileWatcherProvider::EdenFs) => "EdenFS",
+        Err(_) => "unknown mechanism",
     }
 }
 
@@ -480,7 +479,7 @@ pub fn display_executor_stage(
     let label = match stage {
         Stage::Prepare(..) => "prepare",
         Stage::CacheQuery(cache_query) => {
-            match buck2_data::CacheType::from_i32(cache_query.cache_type).unwrap() {
+            match buck2_data::CacheType::try_from(cache_query.cache_type).unwrap() {
                 buck2_data::CacheType::ActionCache => "re_action_cache",
                 buck2_data::CacheType::RemoteDepFileCache => "re_dep_file_cache",
             }
@@ -522,6 +521,7 @@ pub fn display_executor_stage(
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ParseEventError {
     #[error("Missing configured target label")]
     MissingConfiguredTargetLabel,
@@ -547,6 +547,7 @@ enum ParseEventError {
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Invalid buck event: `{0:?}`")]
+#[buck2(tag = Tier0)]
 pub struct InvalidBuckEvent(pub Arc<BuckEvent>);
 
 pub fn format_test_result(
@@ -559,7 +560,8 @@ pub fn format_test_result(
         details,
         ..
     } = test_result;
-    let status = TestStatus::try_from(*status).map_err(from_any)?;
+    let status = TestStatus::try_from(*status)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     // Pass results normally have no details, unless the --print-passing-details is set.
     // Do not display anything for passing tests unless details are present to avoid
@@ -580,10 +582,11 @@ pub fn format_test_result(
         TestStatus::RERUN => Span::new_styled("↻ Rerun".to_owned().cyan()),
         TestStatus::LISTING_FAILED => Span::new_styled("⚠ Listing failed".to_owned().red()),
     }
-    .map_err(from_any)?;
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
     let mut base = Line::from_iter([
         prefix,
-        Span::new_unstyled(format!(": {}", name,)).map_err(from_any)?,
+        Span::new_unstyled(format!(": {}", name,))
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
     ]);
     if let Some(duration) = duration {
         if let Ok(duration) = Duration::try_from(duration.clone()) {
@@ -594,7 +597,7 @@ pub fn format_test_result(
                     // so it doesn't make sense to apply the speed adjustment.
                     fmt_duration::fmt_duration(duration, 1.0)
                 ))
-                .map_err(from_any)?,
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             );
         }
     }
@@ -723,8 +726,8 @@ impl<'a> ActionErrorDisplay<'a> {
             match error_diagnostics.data.as_ref().unwrap() {
                 buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
                     let sub_errors = &sub_errors.sub_errors;
-                    let mut all_sub_errors = String::new();
                     if !sub_errors.is_empty() {
+                        let mut all_sub_errors = String::new();
                         for sub_error in sub_errors {
                             let mut sub_error_line = String::new();
 
@@ -736,11 +739,11 @@ impl<'a> ActionErrorDisplay<'a> {
                             // TODO(@wendyy) - handle locations later
                             writeln!(all_sub_errors, "- {}", sub_error_line).unwrap();
                         }
+                        append_stream(
+                            "\nAction sub-errors produced by error handlers",
+                            &all_sub_errors,
+                        );
                     }
-                    append_stream(
-                        "\nAction sub-errors produced by error handlers",
-                        &all_sub_errors,
-                    );
                 }
                 buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
                     append_stream("\nCould not produce error diagnostics", error);
@@ -836,7 +839,14 @@ fn failure_reason_for_command_execution(
             impl fmt::Display for OptionalExitCode {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                     match self.code {
-                        Some(code) => write!(f, "{}", code),
+                        Some(code) => {
+                            if (i16::MIN as i32) < code && code < (i16::MAX as i32) {
+                                write!(f, "{}", code)
+                            } else {
+                                let code = code as u32;
+                                write!(f, "{} ({:#X})", code, code)
+                            }
+                        }
                         None => write!(f, "<no exit code>"),
                     }
                 }

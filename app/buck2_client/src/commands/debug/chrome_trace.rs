@@ -982,7 +982,7 @@ impl ChromeTraceCommand {
     ) -> buck2_error::Result<AbsPathBuf> {
         match log.file_name() {
             None => Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Could not determine filename from event log path: `{:#}`",
                 log.display()
             )),

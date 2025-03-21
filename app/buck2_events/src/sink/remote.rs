@@ -10,24 +10,24 @@
 //! A Sink for forwarding events directly to Remote service.
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
 
 use fbinit::FacebookInit;
 
 #[cfg(fbcode_build)]
 mod fbcode {
     use std::sync::Arc;
-    use std::time::Duration;
     use std::time::SystemTime;
 
     use buck2_core::buck2_env;
     use buck2_data::InstantEvent;
     use buck2_data::Location;
     use buck2_data::StructuredError;
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
+    use buck2_error::ErrorTag;
     use buck2_util::truncate::truncate;
     use fbinit::FacebookInit;
     use prost::Message;
+    pub use scribe_client::ScribeConfig;
 
     use crate::metadata;
     use crate::schedule_type::ScheduleType;
@@ -56,19 +56,10 @@ mod fbcode {
         pub fn new(
             fb: FacebookInit,
             category: String,
-            buffer_size: usize,
-            retry_backoff: Duration,
-            retry_attempts: usize,
-            message_batch_size: Option<usize>,
+            config: ScribeConfig,
         ) -> buck2_error::Result<RemoteEventSink> {
-            let client = scribe_client::ScribeClient::new(
-                fb,
-                buffer_size,
-                retry_backoff,
-                retry_attempts,
-                message_batch_size,
-            )
-            .map_err(from_any)?;
+            let client = scribe_client::ScribeClient::new(fb, config)
+                .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))?;
 
             // schedule_type can change for the same daemon, because on OD some builds are pre warmed for users
             // This would be problematic, because this is run just once on the daemon
@@ -82,12 +73,12 @@ mod fbcode {
         }
 
         // Send this event now, bypassing internal message queue.
-        pub async fn send_now(&self, event: BuckEvent) {
-            self.send_messages_now(vec![event]).await;
+        pub async fn send_now(&self, event: BuckEvent) -> buck2_error::Result<()> {
+            self.send_messages_now(vec![event]).await
         }
 
         // Send multiple events now, bypassing internal message queue.
-        pub async fn send_messages_now(&self, events: Vec<BuckEvent>) {
+        pub async fn send_messages_now(&self, events: Vec<BuckEvent>) -> buck2_error::Result<()> {
             let messages = events
                 .into_iter()
                 .filter_map(|e| {
@@ -99,7 +90,10 @@ mod fbcode {
                     })
                 })
                 .collect();
-            self.client.send_messages_now(messages).await;
+            self.client
+                .send_messages_now(messages)
+                .await
+                .map_err(|e| from_any_with_tag(e, ErrorTag::Tier0))
         }
 
         // Send this event by placing it on the internal message queue.
@@ -155,7 +149,7 @@ mod fbcode {
                                     backtrace: Vec::new(),
                                     quiet: false,
                                     task: Some(true),
-                                    soft_error_category: Some("oversized_scribe".to_owned()),
+                                    soft_error_category: Some(buck2_data::SoftError {category: "oversized_scribe".to_owned(), is_quiet:false}),
                                     daemon_in_memory_state_is_corrupted: false,
                                     daemon_materializer_state_is_corrupted: false,
                                     action_cache_is_corrupted: false,
@@ -278,11 +272,11 @@ mod fbcode {
                     Some(Data::Command(..)) => true,
                     Some(Data::ActionExecution(a)) => {
                         a.failed
-                            || match ActionExecutionKind::from_i32(a.execution_kind) {
+                            || match ActionExecutionKind::try_from(a.execution_kind) {
                                 // Those kinds are not used in downstreams
-                                Some(ActionExecutionKind::Simple) => false,
-                                Some(ActionExecutionKind::Deferred) => false,
-                                Some(ActionExecutionKind::NotSet) => false,
+                                Ok(ActionExecutionKind::Simple) => false,
+                                Ok(ActionExecutionKind::Deferred) => false,
+                                Ok(ActionExecutionKind::NotSet) => false,
                                 _ => true,
                             }
                     }
@@ -339,6 +333,7 @@ mod fbcode {
 #[cfg(not(fbcode_build))]
 mod fbcode {
     use std::sync::Arc;
+    use std::time::Duration;
 
     use crate::BuckEvent;
     use crate::Event;
@@ -349,8 +344,12 @@ mod fbcode {
     pub enum RemoteEventSink {}
 
     impl RemoteEventSink {
-        pub async fn send_now(&self, _event: BuckEvent) {}
-        pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) {}
+        pub async fn send_now(&self, _event: BuckEvent) -> buck2_error::Result<()> {
+            Ok(())
+        }
+        pub async fn send_messages_now(&self, _events: Vec<BuckEvent>) -> buck2_error::Result<()> {
+            Ok(())
+        }
     }
 
     impl EventSink for RemoteEventSink {
@@ -366,56 +365,40 @@ mod fbcode {
             match *self {}
         }
     }
+
+    #[derive(Default)]
+    pub struct ScribeConfig {
+        pub buffer_size: usize,
+        pub retry_backoff: Duration,
+        pub retry_attempts: usize,
+        pub message_batch_size: Option<usize>,
+        pub thrift_timeout: Duration,
+    }
 }
 
 pub use fbcode::*;
 
 fn new_remote_event_sink_if_fbcode(
     fb: FacebookInit,
-    buffer_size: usize,
-    retry_backoff: Duration,
-    retry_attempts: usize,
-    message_batch_size: Option<usize>,
+    config: ScribeConfig,
 ) -> buck2_error::Result<Option<RemoteEventSink>> {
     #[cfg(fbcode_build)]
     {
-        Ok(Some(RemoteEventSink::new(
-            fb,
-            scribe_category()?,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )?))
+        Ok(Some(RemoteEventSink::new(fb, scribe_category()?, config)?))
     }
     #[cfg(not(fbcode_build))]
     {
-        let _ = (
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        );
+        let _ = (fb, config);
         Ok(None)
     }
 }
 
 pub fn new_remote_event_sink_if_enabled(
     fb: FacebookInit,
-    buffer_size: usize,
-    retry_backoff: Duration,
-    retry_attempts: usize,
-    message_batch_size: Option<usize>,
+    config: ScribeConfig,
 ) -> buck2_error::Result<Option<RemoteEventSink>> {
     if is_enabled() {
-        new_remote_event_sink_if_fbcode(
-            fb,
-            buffer_size,
-            retry_backoff,
-            retry_attempts,
-            message_batch_size,
-        )
+        new_remote_event_sink_if_fbcode(fb, config)
     } else {
         Ok(None)
     }

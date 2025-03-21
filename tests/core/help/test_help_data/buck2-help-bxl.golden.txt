@@ -18,6 +18,11 @@ Options:
 
           [possible values: all, none]
 
+      --upload-final-artifacts <UPLOAD_FINAL_ARTIFACTS>
+          Upload (or skip) the final artifacts.
+
+          [possible values: always, never]
+
       --user-event-log <PATH>
           Write user events to this log file. Both user and internal events are written to main
           event log. If this flag is specified, user events are additionally written to user event
@@ -128,6 +133,9 @@ Options:
 
       --materialize-failed-inputs
           Materializes inputs for failed actions which ran on RE
+
+      --materialize-failed-outputs
+          Materializes outputs (if present) for failed actions which ran on RE
 
   -h, --help
           Print help (see a summary with '-h')

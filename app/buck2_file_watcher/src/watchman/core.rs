@@ -16,6 +16,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_certs::validate::validate_certs;
+use buck2_common::manifold::Bucket;
+use buck2_common::manifold::ManifoldClient;
+use buck2_common::manifold::Ttl;
 use buck2_core::buck2_env;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
@@ -28,8 +31,8 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
 use watchman_client::prelude::*;
 
-fn watchman_error_tag(e: &watchman_client::Error) -> Option<ErrorTag> {
-    let tag = match e {
+fn watchman_error_tag(e: &watchman_client::Error) -> ErrorTag {
+    match e {
         watchman_client::Error::ConnectionError { .. } => ErrorTag::WatchmanConnectionError,
         watchman_client::Error::ConnectionLost(_) => ErrorTag::WatchmanConnectionLost,
         watchman_client::Error::ConnectionDiscovery { .. } => ErrorTag::WatchmanConnectionDiscovery,
@@ -49,8 +52,7 @@ fn watchman_error_tag(e: &watchman_client::Error) -> Option<ErrorTag> {
         watchman_client::Error::Deserialize { .. } => ErrorTag::WatchmanDeserialize,
         watchman_client::Error::Serialize { .. } => ErrorTag::WatchmanSerialize,
         watchman_client::Error::Connect { .. } => ErrorTag::WatchmanConnect,
-    };
-    Some(tag)
+    }
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -182,7 +184,19 @@ async fn with_timeout<R>(
             validate_certs()
                 .await
                 .buck_error_context("Watchman Request Failed")?;
-            Err(WatchmanClientError::RequestFailed { inner: e }.into())
+
+            let request_err: buck2_error::Error =
+                WatchmanClientError::RequestFailed { inner: e }.into();
+
+            if request_err.has_tag(buck2_error::ErrorTag::WatchmanServerError) {
+                Err(
+                    request_err.context(get_watchman_eden_error_logs().await.unwrap_or(
+                        "Attempted to retrieve Watchman and Eden rage logs but failed".to_owned(),
+                    )),
+                )
+            } else {
+                Err(request_err)
+            }
         }
         Err(_) => {
             validate_certs()
@@ -190,6 +204,61 @@ async fn with_timeout<R>(
                 .buck_error_context("Watchman Timed Out")?;
             Err(WatchmanClientError::Timeout(timeout).into())
         }
+    }
+}
+
+async fn write_to_manifold(buf: &[u8], name: &str) -> Option<String> {
+    let manifold = ManifoldClient::new().await.ok()?;
+
+    let filename = format!("flat/{}_{}_logs", uuid::Uuid::new_v4(), name);
+    let ttl = Ttl::from_days(14); // 14 days should be plenty of time to take action
+
+    let bucket = Bucket::RAGE_DUMPS;
+    let mut cursor = &mut std::io::Cursor::new(buf);
+
+    manifold
+        .read_and_upload(bucket, &filename, ttl, &mut cursor)
+        .await
+        .ok()?;
+
+    let url = format!(
+        "https://interncache-all.fbcdn.net/manifold/{}/{}",
+        bucket.name, filename
+    );
+
+    Some(url)
+}
+
+async fn cmd_logs_to_manifold(cmd: &str, args: Vec<&str>) -> Option<String> {
+    let async_cmd = buck2_util::process::async_background_command(cmd)
+        .args(args)
+        .output()
+        .await;
+
+    if let Ok(result) = async_cmd {
+        if result.status.success() {
+            return write_to_manifold(&result.stdout, cmd).await;
+        }
+    }
+
+    None
+}
+
+// Best effort to get watchman and eden rage logs to help with debugging.
+async fn get_watchman_eden_error_logs() -> Option<String> {
+    let watchman_cmd = cmd_logs_to_manifold("watchmanctl", vec!["rage"]);
+    let eden_cmd = cmd_logs_to_manifold("eden", vec!["debug", "log", "--full", "--stdout"]);
+
+    let (watchman_cmd, eden_cmd) = tokio::join!(watchman_cmd, eden_cmd);
+
+    match (watchman_cmd, eden_cmd) {
+        (Some(watchman_cmd), Some(eden_cmd)) => Some(format!(
+            "Watchman and Eden rage logs:\n{}\n{}",
+            watchman_cmd, eden_cmd
+        )),
+        (Some(watchman_cmd), None) => Some(format!("Watchman rage logs:\n{}", watchman_cmd)),
+        (None, Some(eden_cmd)) => Some(format!("Eden rage logs:\n{}", eden_cmd)),
+        (None, None) => None,
     }
 }
 

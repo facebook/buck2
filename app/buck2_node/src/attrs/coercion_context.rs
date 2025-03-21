@@ -24,6 +24,7 @@ use crate::attrs::coerced_path::CoercedPath;
 use crate::configuration::resolved::ConfigurationSettingKey;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum AttrCoercionContextError {
     #[error("Expected target label without name. Got `{0}`")]
     UnexpectedProvidersName(String),

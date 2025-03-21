@@ -35,6 +35,13 @@ async def test_construction_validation_bad_param_types(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_construction_validation_bad_param_types_vnew(buck: Buck) -> None:
+    # FIXME(JakobDegen): Evaluate whether we can implement this. The performance
+    # concerns are a bit higher here because the code is hotter.
+    await buck.build("//bad_param_types_vnew:")
+
+
+@buck_test()
 async def test_construction_validation_bad_return_type(buck: Buck) -> None:
     await expect_failure(
         buck.targets("//bad_return_type:"),

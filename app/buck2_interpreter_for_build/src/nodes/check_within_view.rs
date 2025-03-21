@@ -7,17 +7,14 @@
  * of this source tree.
  */
 
-use std::sync::Arc;
-
-use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::package::PackageLabel;
-use buck2_core::plugins::PluginKind;
+use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::traversal::CoercedAttrTraversal;
-use buck2_node::configuration::resolved::ConfigurationSettingKey;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::WithinViewSpecification;
@@ -79,52 +76,24 @@ pub(crate) fn check_within_view(
     }
 
     impl<'a, 'x> CoercedAttrTraversal<'a> for WithinViewCheckTraversal<'x> {
-        fn dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
-        }
-
-        fn plugin_dep(
-            &mut self,
-            dep: &'a TargetLabel,
-            _kind: &PluginKind,
-        ) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
-        }
-
-        fn exec_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
-        }
-
-        fn toolchain_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
-        }
-
-        fn transition_dep(
-            &mut self,
-            dep: &'a TargetLabel,
-            _tr: &Arc<TransitionId>,
-        ) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
-        }
-
-        fn split_transition_dep(
-            &mut self,
-            dep: &'a TargetLabel,
-            _tr: &Arc<TransitionId>,
-        ) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
+        fn dep(&mut self, dep: &ProvidersLabel) -> buck2_error::Result<()> {
+            self.check_dep_within_view(dep.target())
         }
 
         fn configuration_dep(
             &mut self,
-            _dep: &'a ConfigurationSettingKey,
+            dep: &ProvidersLabel,
+            t: ConfigurationDepKind,
         ) -> buck2_error::Result<()> {
-            // Skip configuration deps.
+            match t {
+                // Skip some configuration deps
+                ConfigurationDepKind::CompatibilityAttribute => (),
+                ConfigurationDepKind::SelectKey => (),
+                ConfigurationDepKind::ConfiguredDepPlatform | ConfigurationDepKind::Transition => {
+                    self.check_dep_within_view(dep.target())?
+                }
+            }
             Ok(())
-        }
-
-        fn platform_dep(&mut self, dep: &'a TargetLabel) -> buck2_error::Result<()> {
-            self.check_dep_within_view(dep)
         }
 
         fn input(&mut self, _input: SourcePathRef) -> buck2_error::Result<()> {

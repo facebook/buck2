@@ -11,8 +11,5 @@ prelude = nano_prelude
 [external_cells]
 nano_prelude = bundled
 
-[buck2]
-file_watcher = fs_hash_crawler
-
 [build]
   execution_platforms = root//platforms:platforms

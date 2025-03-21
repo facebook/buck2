@@ -11,7 +11,7 @@ use std::process::ExitStatus;
 
 use async_trait::async_trait;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfOutput;
 
@@ -108,7 +108,7 @@ impl StatusDecoder for MiniperfStatusDecoder {
             })?;
 
         let status = bincode::deserialize::<MiniperfOutput>(&status)
-            .map_err(from_any)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .with_buck_error_context(|| {
                 format!("Invalid miniperf output at `{}`", self.out_path.display())
             })?;
@@ -150,7 +150,7 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 #[cfg(not(unix))]
                 {
                     Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Attempted to use Miniperf output off-UNIX"
                     ))
                 }

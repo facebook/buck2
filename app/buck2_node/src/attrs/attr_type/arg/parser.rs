@@ -122,7 +122,7 @@ pub fn parse_macros(input: &str) -> buck2_error::Result<ParsedArg> {
             let pointer = error_start - message_start;
 
             Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "E:{}\n    V:{}\n    M:{}{}\n",
                 err,
                 &input[message_start..message_end],

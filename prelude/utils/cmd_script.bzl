@@ -27,8 +27,10 @@ def cmd_script(
         ctx: AnalysisContext,
         name: str,
         cmd: cmd_args,
-        os: ScriptOs) -> cmd_args:
-    shell_quoted = cmd_args(cmd, quote = "shell")
+        os: ScriptOs = ScriptOs("unix"),
+        quote: str | None = "shell") -> cmd_args:
+    cmd_kwargs = {} if quote == None else {"quote": quote}
+    shell_quoted = cmd_args(cmd, **cmd_kwargs)
 
     if os == ScriptOs("unix"):
         wrapper, _ = ctx.actions.write(

@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:comp_db.bzl", "CxxCompilationDbInfo")
-load("@prelude//cxx:compile.bzl", "CxxSrcCompileCommand")
+load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
 load("@prelude//utils:utils.bzl", "flatten")
 
 def _make_entry(ctx: bxl.Context, compile_command: CxxSrcCompileCommand) -> dict:

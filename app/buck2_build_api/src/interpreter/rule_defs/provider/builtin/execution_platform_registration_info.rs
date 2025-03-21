@@ -30,10 +30,12 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTypedComplex;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::ExecutionPlatformInfo;
 use crate::interpreter::rule_defs::provider::builtin::execution_platform_info::FrozenExecutionPlatformInfo;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ExecutionPlatformRegistrationTypeError {
     #[error("expected a list of ExecutionPlatformInfo, got `{0}` (type `{1}`)")]
     ExpectedListOfPlatforms(String, String),

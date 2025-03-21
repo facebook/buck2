@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use dupe::Dupe;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum VerbosityError {
     #[error("Can't have more than 1 level set at a time")]
     MoreThan1Level,

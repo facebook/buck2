@@ -50,19 +50,23 @@ use crate::actions::impls::offline;
 #[derive(Debug, buck2_error::Error)]
 enum CasArtifactActionDeclarationError {
     #[error("CAS artifact action should not have inputs, got {0}")]
+    #[buck2(tag = ReCasArtifactWrongNumberOfInputs)]
     WrongNumberOfInputs(usize),
     #[error("CAS artifact action should have exactly 1 output, got {0}")]
+    #[buck2(tag = ReCasArtifactWrongNumberOfOutputs)]
     WrongNumberOfOutputs(usize),
 }
 
 #[derive(Debug, buck2_error::Error)]
 enum CasArtifactActionExecutionError {
     #[error("Error accessing digest expiration for: `{0}`")]
+    #[buck2(tag = ReCasArtifactGetDigestExpirationError)]
     GetDigestExpirationError(FileDigest),
 
     #[error(
         "The digest `{digest}` was declared to expire after `{declared_expiration}`, but it expires at `{effective_expiration}`"
     )]
+    #[buck2(tag = ReCasArtifactInvalidExpiration)]
     InvalidExpiration {
         digest: FileDigest,
         declared_expiration: DateTime<Utc>,

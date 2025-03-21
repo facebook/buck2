@@ -36,7 +36,6 @@ use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::instant_event::Data;
 use buck2_data::InstantEvent;
 use buck2_data::RageResult;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::do_find_log_by_trace_id;
 use buck2_event_log::file_names::get_local_logs;
@@ -44,6 +43,7 @@ use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::read::EventLogSummary;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::sink::remote::RemoteEventSink;
+use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::BuckEvent;
 use buck2_util::process::async_background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -64,6 +64,7 @@ use tokio::io::BufReader;
 use crate::commands::debug::upload_re_logs;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum RageError {
     #[error("Failed to get a valid user selection")]
     InvalidSelectionError,
@@ -286,22 +287,29 @@ impl RageCommand {
         build_info: RageSection<build_info::BuildInfo>,
         re_logs: RageSection<String>,
     ) -> buck2_error::Result<()> {
+        let dice_dump = dice_dump.output();
+        let materializer_state = materializer_state.output();
+        let materializer_fsck = materializer_fsck.output();
+        let thread_dump = thread_dump.output();
+        let daemon_stderr_dump = daemon_stderr_dump.output();
+        let hg_snapshot_id = hg_snapshot_id.output();
+        let event_log_dump = event_log_dump.output();
+        let re_logs = re_logs.output();
+        let invocation_id2 = invocation_id
+            .clone()
+            .map(|inv| inv.to_string())
+            .unwrap_or_default();
+
         let mut string_data: std::collections::HashMap<String, _> = [
-            ("dice_dump", dice_dump.output()),
-            ("materializer_state", materializer_state.output()),
-            ("materializer_fsck", materializer_fsck.output()),
-            ("thread_dump", thread_dump.output()),
-            ("daemon_stderr_dump", daemon_stderr_dump.output()),
-            ("hg_snapshot_id", hg_snapshot_id.output()),
-            (
-                "invocation_id",
-                invocation_id
-                    .clone()
-                    .map(|inv| inv.to_string())
-                    .unwrap_or_default(),
-            ),
-            ("event_log_dump", event_log_dump.output()),
-            ("re_logs", re_logs.output()),
+            ("dice_dump", dice_dump.clone()),
+            ("materializer_state", materializer_state.clone()),
+            ("materializer_fsck", materializer_fsck.clone()),
+            ("thread_dump", thread_dump.clone()),
+            ("daemon_stderr_dump", daemon_stderr_dump.clone()),
+            ("hg_snapshot_id", hg_snapshot_id.clone()),
+            ("invocation_id", invocation_id2.clone()),
+            ("event_log_dump", event_log_dump.clone()),
+            ("re_logs", re_logs.clone()),
         ]
         .iter()
         .map(|(k, v)| (k.to_string(), v.clone()))
@@ -314,12 +322,12 @@ impl RageCommand {
         let os = system_info.get_field(|o| Some(o.os.to_owned()));
         let os_version = system_info.get_field(|o| o.os_version.to_owned());
 
-        insert_if_some(&mut string_data, "command", command);
-        insert_if_some(&mut string_data, "buck2_revision", buck2_revision);
-        insert_if_some(&mut string_data, "username", username);
-        insert_if_some(&mut string_data, "hostname", hostname);
-        insert_if_some(&mut string_data, "os", os);
-        insert_if_some(&mut string_data, "os_version", os_version);
+        insert_if_some(&mut string_data, "command", command.clone());
+        insert_if_some(&mut string_data, "buck2_revision", buck2_revision.clone());
+        insert_if_some(&mut string_data, "username", username.clone());
+        insert_if_some(&mut string_data, "hostname", hostname.clone());
+        insert_if_some(&mut string_data, "os", os.clone());
+        insert_if_some(&mut string_data, "os_version", os_version.clone());
 
         let mut int_data = HashMap::new();
         let daemon_uptime_s = build_info.get_field(|o| o.daemon_uptime_s);
@@ -339,10 +347,27 @@ impl RageCommand {
                 sink.as_ref(),
                 &invocation_id,
                 RageResult {
+                    // TODO iguridi: remove string_data and int_data
                     string_data,
                     int_data,
                     timestamp,
+                    daemon_uptime_s: daemon_uptime_s.map(|s| s as i64),
                     command_duration,
+                    dice_dump,
+                    materializer_state,
+                    materializer_fsck,
+                    thread_dump,
+                    daemon_stderr_dump,
+                    hg_snapshot_id,
+                    invocation_id: invocation_id2,
+                    event_log_dump,
+                    re_logs,
+                    command,
+                    buck2_revision,
+                    username,
+                    hostname,
+                    os,
+                    os_version,
                 },
             )
             .await?;
@@ -538,14 +563,15 @@ async fn dispatch_event_to_scribe(
     event: InstantEvent,
 ) -> buck2_error::Result<()> {
     if let Some(sink) = sink {
-        sink.send_now(BuckEvent::new(
-            SystemTime::now(),
-            trace_id.to_owned(),
-            None,
-            None,
-            event.into(),
-        ))
-        .await;
+        let _res = sink
+            .send_now(BuckEvent::new(
+                SystemTime::now(),
+                trace_id.to_owned(),
+                None,
+                None,
+                event.into(),
+            ))
+            .await;
     } else {
         tracing::warn!(
             "Couldn't send rage results to scribe, rage ID `{}`",
@@ -559,13 +585,7 @@ async fn dispatch_event_to_scribe(
 fn create_scribe_sink(ctx: &ClientCommandContext) -> buck2_error::Result<Option<RemoteEventSink>> {
     // TODO(swgiillespie) scribe_logging is likely the right feature for this, but we should be able to inject a sink
     // without using configurations at the call site
-    new_remote_event_sink_if_enabled(
-        ctx.fbinit(),
-        /* buffer size */ 100,
-        /* retry_backoff */ Duration::from_millis(500),
-        /* retry_attempts */ 5,
-        /* message_batch_size */ None,
-    )
+    new_remote_event_sink_if_enabled(ctx.fbinit(), ScribeConfig::default())
 }
 
 async fn maybe_select_invocation(
@@ -719,7 +739,6 @@ async fn generate_paste(title: &str, content: &str) -> buck2_error::Result<Strin
     let reader = async move {
         let output = tokio::time::timeout(Duration::from_secs(10), pastry.wait_with_output())
             .await
-            .map_err(from_any)
             .buck_error_context(RageError::PastryTimeout)?
             .buck_error_context(RageError::PastryOutputError)?;
         if !output.status.success() {

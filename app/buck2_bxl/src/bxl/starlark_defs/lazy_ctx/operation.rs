@@ -16,7 +16,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_node::nodes::unconfigured::TargetNode;
 use cquery::LazyCqueryOperation;
 use cquery::LazyCqueryResult;
@@ -139,7 +139,10 @@ impl LazyOperation {
             }
             LazyOperation::Cquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Cquery),
             LazyOperation::BuildArtifact(artifact) => {
-                artifact.build_artifacts(dice).await.map_err(from_any)?;
+                artifact
+                    .build_artifacts(dice)
+                    .await
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                 Ok(LazyResult::BuildArtifact(artifact.artifact()))
             }
             LazyOperation::Join(lazy0, lazy1) => {

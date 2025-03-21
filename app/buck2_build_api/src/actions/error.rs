@@ -11,6 +11,7 @@ use std::fmt;
 
 use buck2_error::ErrorTag;
 use buck2_error::__for_macro::AsDynError;
+use buck2_error::source_location::SourceLocation;
 use buck2_event_observer::display::display_action_error;
 use buck2_event_observer::display::TargetDisplayOptions;
 
@@ -35,11 +36,12 @@ impl std::error::Error for ActionError {
         });
 
         let mut tags = vec![ErrorTag::AnyActionExecution];
-
+        let mut source_location = SourceLocation::new(std::file!()).with_type_name("ActionError");
         match &self.execute_error {
             ExecuteError::CommandExecutionError { error } => {
                 if let Some(err) = error {
                     tags.extend(err.tags());
+                    source_location = err.source_location().clone();
                 }
 
                 if is_command_failure {
@@ -54,16 +56,11 @@ impl std::error::Error for ActionError {
             ExecuteError::WrongOutputType { .. } => tags.push(ErrorTag::ActionWrongOutputType),
             ExecuteError::Error { error } => {
                 tags.extend(error.tags());
+                source_location = error.source_location().clone();
             }
         };
 
-        buck2_error::provide_metadata(
-            request,
-            tags,
-            std::file!(),
-            Some("ActionError"),
-            Some(self.as_proto_event()),
-        );
+        buck2_error::provide_metadata(request, tags, source_location, Some(self.as_proto_event()));
     }
 
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
@@ -160,14 +157,14 @@ fn error_items<T: fmt::Display>(xs: &[T]) -> String {
 #[cfg(test)]
 mod tests {
     use buck2_error::buck2_error;
-    use buck2_error::conversion::from_any;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_error::ErrorTag;
 
     use super::*;
 
     #[test]
     fn test_error_conversion() {
-        let error = buck2_error!([ErrorTag::Http], "error");
+        let error = buck2_error!(ErrorTag::Http, "error");
 
         let execute_error = ExecuteError::Error {
             error: error.into(),
@@ -199,7 +196,7 @@ mod tests {
             None,
         );
 
-        let buck2_error = from_any(action_error);
+        let buck2_error = from_any_with_tag(action_error, ErrorTag::AnyActionExecution);
 
         assert_eq!(
             buck2_error.tags(),

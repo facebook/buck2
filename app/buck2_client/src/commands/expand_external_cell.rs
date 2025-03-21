@@ -17,6 +17,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -52,6 +53,7 @@ impl StreamingCommand for ExpandExternalCellsCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         let req = if self.all_cells {
@@ -61,7 +63,12 @@ impl StreamingCommand for ExpandExternalCellsCommand {
         };
         let resp = buckd
             .with_flushing()
-            .new_generic(context, NewGenericRequest::ExpandExternalCells(req), None)
+            .new_generic(
+                context,
+                NewGenericRequest::ExpandExternalCells(req),
+                events_ctx,
+                None,
+            )
             .await??;
         let NewGenericResponse::ExpandExternalCells(resp) = resp else {
             return ExitResult::bail("Unexpected response type from generic command");

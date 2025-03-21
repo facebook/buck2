@@ -9,7 +9,7 @@ load("constants.bxl", "ADDITIONAL_TARGETS", "BY_MODES", "DEBUG_ARGS", "DEBUG_CMD
 load("get_attrs.bxl", "get_attrs", "get_unified_value")
 load("get_compiler_settings.bxl", "get_compiler_settings", "get_exported_compiler_settings")
 load("get_linker_settings.bxl", "get_exported_linker_settings", "get_linker_settings")
-load("utils.bxl", "dedupe_by_value", "dirname", "flatten_lists", "gen_guid", "get_output_path", "get_project_file_path", "get_vs_configuration", "infer_settings_by_modes", "log_debug", "merge", "suffix")
+load("utils.bxl", "dedupe_by_value", "dirname", "flatten_lists", "gen_guid", "get_output_path", "get_project_file_path", "get_vs_configuration", "infer_settings_by_modes", "log_debug", "log_warn", "merge", "suffix")
 
 def _get_application_type_and_platform(mode_file):
     if "android" in mode_file:
@@ -36,15 +36,14 @@ def _get_all_header_files(attrs: dict):
 # e.g., fbsource//xplat/QNNPACK:operators
 def _get_headers_and_sources(attrs):
     headers_dict = {h: True for h in _get_all_header_files(attrs)}
-    sources_dict = {s: True for s in attrs["srcs"]}
+    sources_dict = attrs["srcs"]
 
     def is_header(filename):
         return suffix(filename) in ["h", "hh", "hpp", "hxx", "hm", "inl", "inc", "ipp", "xsd"]
 
     headers_list = [h for h in headers_dict if h not in sources_dict or is_header(h)]
-    sources_list = [s for s in sources_dict if s not in headers_dict or not is_header(s)]
-
-    return headers_list, sources_list
+    sources_dict = {s: o for s, o in sources_dict.items() if s not in headers_dict or not is_header(s)}
+    return headers_list, sources_dict
 
 def _unescape_arg(arg):
     if arg.startswith("\\-\\-"):
@@ -100,12 +99,15 @@ def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_laz
         debug_settings[DEBUG_CMD] = "$(RepoRoot)\\" + debug_settings[DEBUG_ARGS][0]
         debug_settings[DEBUG_PWD] = "$(RepoRoot)\\" + dirname(debug_settings[DEBUG_ARGS][0], separator = "\\")
         debug_settings[DEBUG_ARGS].pop(0)
-    elif attrs["buck_type"] == "command_alias":
+    elif attrs["buck_type"] == "command_alias" and attrs["exe"]:
         # Replicate generic command_alias as buck launches exe binary via child process which Visual Studio cannot debug into.
         exe_target = bxl_ctx.configured_targets(attrs["exe"], modifiers = bxl_ctx.modifiers)
-        debug_settings[DEBUG_CMD] = vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][DEBUG_CMD]
-        debug_settings[DEBUG_ENV].update(vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][DEBUG_ENV])
-        debug_settings[ADDITIONAL_TARGETS] += vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][ADDITIONAL_TARGETS]
+        if exe_target.label in vs_settings_dict:
+            debug_settings[DEBUG_CMD] = vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][DEBUG_CMD]
+            debug_settings[DEBUG_ENV].update(vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][DEBUG_ENV])
+            debug_settings[ADDITIONAL_TARGETS] += vs_settings_dict[exe_target.label][BY_MODES][default_mode_file][ADDITIONAL_TARGETS]
+        else:
+            log_warn("Failed to infer debug settings for command_alias target ({}).", target.label)
     elif attrs["buck_type"] == "cxx_test" and "BUCK_BASE_BINARY" in attrs["env"]:
         test_binary_path = attrs["env"]["BUCK_BASE_BINARY"][0]
         debug_settings[DEBUG_CMD] = test_binary_path

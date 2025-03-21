@@ -16,7 +16,7 @@ load("@prelude//apple:apple_test_host_app_transition.bzl", "apple_test_host_app_
 load("@prelude//apple:apple_universal_executable.bzl", "apple_universal_executable_impl")
 load("@prelude//apple:cxx_universal_executable.bzl", "cxx_universal_executable_impl")
 load("@prelude//apple:resource_groups.bzl", "RESOURCE_GROUP_MAP_ATTR")
-load("@prelude//apple/swift:swift_types.bzl", "SwiftVersion")
+load("@prelude//apple/swift:swift_types.bzl", "SwiftMacroPlugin", "SwiftVersion")
 load("@prelude//apple/user:cpu_split_transition.bzl", "cpu_split_transition")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
@@ -38,7 +38,7 @@ SchemeActionType = ["build", "launch", "test", "profile", "analyze", "archive"]
 
 WatchInterface = ["main", "complication", "dynamic_notification", "static_notification"]
 
-_swift_version_feature_map = {
+SWIFT_VERSION_FEATURE_MAP = {
     "5": [],
     "6": [],
 }
@@ -527,6 +527,7 @@ apple_library = prelude_rule(
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = True),
+            "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
             "swift_module_skip_function_bodies": attrs.bool(default = True),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "thin_lto": attrs.bool(default = False),
@@ -536,6 +537,7 @@ apple_library = prelude_rule(
         } |
         buck.allow_cache_upload_arg()
     ),
+    uses_plugins = [SwiftMacroPlugin],
 )
 
 apple_package = prelude_rule(
@@ -976,65 +978,29 @@ scene_kit_assets = prelude_rule(
     ),
 )
 
-swift_library = prelude_rule(
-    name = "swift_library",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        apple_common.serialize_debugging_options_arg() |
-        {
-            "bridging_header": attrs.option(attrs.source(), default = None),
-            "compiler_flags": attrs.list(attrs.arg(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "enable_cxx_interop": attrs.bool(default = False),
-            "frameworks": attrs.list(attrs.string(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "module_name": attrs.option(attrs.string(), default = None),
-            "preferred_linkage": attrs.option(attrs.enum(Linkage.values()), default = None),
-            "sdk_modules": attrs.list(attrs.string(), default = []),
-            "soname": attrs.option(attrs.string(), default = None),
-            "srcs": attrs.list(attrs.source(), default = []),
-            "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
-            "target_sdk_version": attrs.option(attrs.string(), default = None),
-            "version": attrs.option(attrs.string(), default = None),
-        } |
-        apple_common.uses_explicit_modules_arg()
-    ),
-)
-
 swift_toolchain = prelude_rule(
     name = "swift_toolchain",
     docs = "",
     examples = None,
     further = None,
     attrs = (
-        # @unsorted-dict-items
         {
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
-            "platform_path": attrs.source(),
-            "prefix_serialized_debug_info": attrs.bool(default = False),
             "resource_dir": attrs.option(attrs.source(), default = None),
             "runtime_paths_for_bundling": attrs.list(attrs.string(), default = []),
             "runtime_paths_for_linking": attrs.list(attrs.string(), default = []),
-            "runtime_run_paths": attrs.list(attrs.string(), default = []),
             "sdk_path": attrs.source(),
-            "static_runtime_paths": attrs.list(attrs.string(), default = []),
+            "supports_explicit_module_debug_serialization": attrs.bool(default = False),
             "supports_relative_resource_dir": attrs.bool(default = False),
+            "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
             "swift_stdlib_tool": attrs.option(attrs.source(), default = None),
             "swift_stdlib_tool_flags": attrs.list(attrs.arg(), default = []),
+            "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = SWIFT_VERSION_FEATURE_MAP),
             "swiftc": attrs.source(),
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
-            "swift_experimental_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
-            "swift_upcoming_features": attrs.dict(key = attrs.enum(SwiftVersion), value = attrs.list(attrs.string()), sorted = False, default = _swift_version_feature_map),
             "_library_interface_uses_swiftinterface": attrs.bool(default = select({
                 "DEFAULT": False,
                 "config//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
@@ -1166,6 +1132,5 @@ ios_rules = struct(
     cxx_universal_executable = cxx_universal_executable,
     prebuilt_apple_framework = prebuilt_apple_framework,
     scene_kit_assets = scene_kit_assets,
-    swift_library = swift_library,
     swift_toolchain = swift_toolchain,
 )

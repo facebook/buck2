@@ -429,6 +429,17 @@ where
     get_dispatcher().span(start, func)
 }
 
+/// Simpler version of `span` where the end event
+/// can be constructed without requiring the result of the function.
+pub fn span_simple<Start, End, F, R>(start: Start, func: F, end: End) -> R
+where
+    Start: Into<span_start_event::Data>,
+    End: Into<span_end_event::Data>,
+    F: FnOnce() -> R,
+{
+    span(start, || (func(), end))
+}
+
 /// Emits an InstantEvent annotated with the current trace ID
 pub fn instant_event<E: Into<buck2_data::instant_event::Data>>(data: E) {
     get_dispatcher().instant_event(data)

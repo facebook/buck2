@@ -18,7 +18,6 @@
 use std::collections::HashSet;
 use std::mem;
 use std::mem::MaybeUninit;
-use std::path::Path;
 
 use dupe::Dupe;
 use starlark_syntax::eval_exception::EvalException;
@@ -268,7 +267,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.loader = Some(loader);
     }
 
-    /// Enable profiling, allowing [`Evaluator::write_profile`] to be used.
+    /// Enable profiling, allowing [`Evaluator::gen_profile`] to be used.
     /// Profilers add overhead, and while some profilers can be used together,
     /// it's better to run at most one profiler at a time.
     pub fn enable_profile(&mut self, mode: &ProfileMode) -> anyhow::Result<()> {
@@ -279,7 +278,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Profile(mode.dupe());
 
         match mode {
-            ProfileMode::HeapSummaryAllocated
+            ProfileMode::HeapAllocated
+            | ProfileMode::HeapRetained
+            | ProfileMode::HeapSummaryAllocated
             | ProfileMode::HeapFlameAllocated
             | ProfileMode::HeapSummaryRetained
             | ProfileMode::HeapFlameRetained => {
@@ -292,6 +293,10 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
                     ProfileMode::HeapSummaryRetained => self
                         .module_env
                         .enable_retained_heap_profile(RetainedHeapProfileMode::Summary),
+                    ProfileMode::HeapRetained => {
+                        self.module_env
+                            .enable_retained_heap_profile(RetainedHeapProfileMode::FlameAndSummary);
+                    }
                     _ => {}
                 }
 
@@ -327,12 +332,6 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         Ok(())
     }
 
-    /// Write a profile to a file.
-    /// Only valid if corresponding profiler was enabled.
-    pub fn write_profile<P: AsRef<Path>>(&mut self, filename: P) -> crate::Result<()> {
-        self.gen_profile()?.write(filename.as_ref())
-    }
-
     /// Generate profile for a given mode.
     /// Only valid if corresponding profiler was enabled.
     pub fn gen_profile(&mut self) -> crate::Result<ProfileData> {
@@ -349,17 +348,20 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         };
         self.profile_or_instrumentation_mode = ProfileOrInstrumentationMode::Collected;
         match mode {
+            ProfileMode::HeapAllocated => self
+                .heap_profile
+                .gen(self.heap(), HeapProfileFormat::FlameGraphAndSummary),
             ProfileMode::HeapSummaryAllocated => self
                 .heap_profile
                 .gen(self.heap(), HeapProfileFormat::Summary),
             ProfileMode::HeapFlameAllocated => self
                 .heap_profile
                 .gen(self.heap(), HeapProfileFormat::FlameGraph),
-            ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
-                Err(crate::Error::new_other(
-                    EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
-                ))
-            }
+            ProfileMode::HeapSummaryRetained
+            | ProfileMode::HeapFlameRetained
+            | ProfileMode::HeapRetained => Err(crate::Error::new_other(
+                EvaluatorError::RetainedMemoryProfilingCannotBeObtainedFromEvaluator,
+            )),
             ProfileMode::Statement => self.stmt_profile.gen(),
             ProfileMode::Coverage => self.stmt_profile.gen_coverage(),
             ProfileMode::Bytecode => self.gen_bc_profile(),

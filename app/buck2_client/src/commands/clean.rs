@@ -144,7 +144,7 @@ async fn clean(
     if daemon_dir.path.exists() {
         paths_to_clean.push(daemon_dir.to_string());
         if let Some(lifecycle_lock) = lifecycle_lock {
-            lifecycle_lock.clean_daemon_dir()?;
+            lifecycle_lock.clean_daemon_dir(false)?;
         }
     }
 

@@ -273,6 +273,7 @@ impl VersionRanges {
         self.0.last().copied()
     }
 
+    /// Find the largest version which is at most `v`
     pub(crate) fn find_value_upper_bound(&self, v: VersionNumber) -> Option<VersionNumber> {
         // we generally expect queries at later versions so just look through the list from the
         // end. potentially this should be changed if that expectation is no longer true.

@@ -62,7 +62,7 @@ pub fn find_proxy() -> buck2_error::Result<Option<Proxy>> {
 #[cfg(not(fbcode_build))]
 pub fn find_proxy() -> buck2_error::Result<Option<Proxy>> {
     Err(buck2_error!(
-        [],
+        buck2_error::ErrorTag::Input,
         "VPNless development not supported for non-internal fbcode builds"
     ))
 }
@@ -71,6 +71,7 @@ pub fn find_proxy() -> buck2_error::Result<Option<Proxy>> {
 /// denotes a URL is not authorized for vpnless access and/or using the wrong,
 /// non-vpnless url.
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum X2PAgentError {
     #[error("Host `{host}` is not authorized for vpnless access: {message}")]
     ForbiddenHost { host: String, message: String },
@@ -112,7 +113,11 @@ impl X2PAgentError {
                 host,
                 message: to_str(msg),
             }),
-            (_, _, Some(message)) => Some(Self::Error(buck2_error!([], "{}", to_str(message)))),
+            (_, _, Some(message)) => Some(Self::Error(buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "{}",
+                to_str(message)
+            ))),
             _ => None,
         }
     }

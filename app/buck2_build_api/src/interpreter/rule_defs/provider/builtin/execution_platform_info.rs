@@ -29,11 +29,13 @@ use starlark::values::ValueOfUncheckedGeneric;
 use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ExecutionPlatformProviderErrors {
     #[error("expected a ConfigurationInfo, got `{0}` (type `{1}`)")]
     ExpectedConfigurationInfo(String, String),

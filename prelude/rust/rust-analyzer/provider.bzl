@@ -15,6 +15,7 @@ load("@prelude//rust:link_info.bzl", "get_available_proc_macros", "resolve_rust_
 
 RustAnalyzerInfo = provider(
     fields = {
+        "available_proc_macros": list[Dependency],
         # The root source for the rust target (typically lib.rs, main.rs), relative to the buck target file.
         "crate_root": str,
         # The processed env as produced by the buck build prelude. Some env vars like `OUT_DIR` and `CARGO_MANIFEST_DIR`
@@ -26,7 +27,7 @@ RustAnalyzerInfo = provider(
         # The list of recursive rust dependencies for this target, including proc macros. Useful for
         # identifying the targets needing to be collected into Rust Analyzer's crate graph. Notably,
         # excludes rust dependencies that are used in build tools (e.g. build scripts).
-        "transitive_target_set": set[TargetLabel],
+        "transitive_target_set": set[ConfiguredTargetLabel],
     },
 )
 
@@ -51,8 +52,8 @@ def _compute_rust_deps(
 
 def _compute_transitive_target_set(
         ctx: AnalysisContext,
-        first_order_deps: list[Dependency]) -> set[TargetLabel]:
-    transitive_targets = set([ctx.label.raw_target()])
+        first_order_deps: list[Dependency]) -> set[ConfiguredTargetLabel]:
+    transitive_targets = set([ctx.label.configured_target()])
     for dep in first_order_deps:
         target_sets = dep.get(RustAnalyzerInfo).transitive_target_set
         for target_set in target_sets:
@@ -72,6 +73,7 @@ def rust_analyzer_provider(
         default_roots: list[str]) -> RustAnalyzerInfo:
     rust_deps = _compute_rust_deps(ctx, compile_ctx.dep_ctx)
     return RustAnalyzerInfo(
+        available_proc_macros = get_available_proc_macros(ctx).values(),
         crate_root = crate_root(ctx, default_roots),
         env = _compute_env(ctx, compile_ctx),
         rust_deps = rust_deps,

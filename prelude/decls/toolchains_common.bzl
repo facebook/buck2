@@ -70,6 +70,9 @@ def _java_test_toolchain():
 def _kotlin_toolchain():
     return _toolchain("kotlin", [KotlinToolchainInfo])
 
+def _kotlin_for_android_toolchain():
+    return _toolchain("kotlin_for_android", [KotlinToolchainInfo])
+
 def _prebuilt_jar_toolchain():
     # Override is allowed for bootstrapping prebuilt jar toolchains
     return _toolchain("prebuilt_jar", [PrebuiltJarToolchainInfo])
@@ -108,6 +111,7 @@ toolchains_common = struct(
     java_for_host_test = _java_for_host_test_toolchain,
     java_test = _java_test_toolchain,
     kotlin = _kotlin_toolchain,
+    kotlin_for_android = _kotlin_for_android_toolchain,
     prebuilt_jar = _prebuilt_jar_toolchain,
     python = _python_toolchain,
     python_bootstrap = _python_bootstrap_toolchain,

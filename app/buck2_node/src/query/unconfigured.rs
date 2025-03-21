@@ -57,7 +57,7 @@ impl QueryTarget for TargetNode {
     }
 
     fn configuration_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
-        TargetNode::get_configuration_deps(self).map(|k| k.0.target())
+        TargetNode::get_configuration_deps(self).map(|k| k.target())
     }
 
     fn toolchain_deps<'a>(&'a self) -> impl Iterator<Item = &'a Self::Key> + Send + 'a {
@@ -110,6 +110,16 @@ impl QueryTarget for TargetNode {
                 .as_ref()
                 .map(|a| a.value),
         )
+    }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
+        match self.attr_or_none(key, AttrInspectOptions::All) {
+            Some(attr) => func(Some(attr.value)),
+            None => match self.special_attr_or_none(key) {
+                Some(special) => func(Some(&special)),
+                None => func(None),
+            },
+        }
     }
 
     fn inputs_for_each<E, F: FnMut(CellPath) -> Result<(), E>>(

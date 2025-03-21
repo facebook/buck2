@@ -48,10 +48,7 @@ async def test_symlinks(buck: Buck) -> None:
     await expect_exec_count(buck, 1)
 
 
-@buck_test(
-    # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
-    extra_buck_config={"buck2": {"file_watcher": "watchman"}},
-)
+@buck_test(setup_eden=True)
 async def test_symlinks_redirection(buck: Buck) -> None:
     symlink_path = os.path.join(buck.cwd, "src", "link")
 
@@ -78,10 +75,7 @@ async def test_symlinks_redirection(buck: Buck) -> None:
     await expect_exec_count(buck, 1)
 
 
-@buck_test(
-    # For some reason, this test fails when using filesystem watcher on macos, so explicitly set
-    extra_buck_config={"buck2": {"file_watcher": "watchman"}},
-)
+@buck_test(setup_eden=True)
 async def test_symlinks_external(buck: Buck) -> None:
     symlink_path = os.path.join(buck.cwd, "ext", "link")
     shutil.rmtree(symlink_path)

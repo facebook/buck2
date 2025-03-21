@@ -23,6 +23,7 @@ use serde::Serialize;
 use crate::stream_value::StreamValue;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum SerializeUserEventError {
     #[error("Internal error: Missing `data` in `{0}`")]
     MissingData(String),

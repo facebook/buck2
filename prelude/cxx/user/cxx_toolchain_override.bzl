@@ -18,6 +18,8 @@ load(
     "CxxToolchainInfo",
     "LinkerInfo",
     "LinkerType",
+    "ObjcCompilerInfo",
+    "ObjcxxCompilerInfo",
     "PicBehavior",
     "ShlibInterfacesMode",
     "StripFlagsInfo",
@@ -70,11 +72,31 @@ def _cxx_toolchain_override(ctx):
         preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
         allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
     )
+    base_objc_info = base_toolchain.objc_compiler_info
+    objc_info = ObjcCompilerInfo(
+        compiler = _pick_bin(ctx.attrs.c_compiler, base_c_info.compiler),
+        compiler_type = base_c_info.compiler_type,
+        compiler_flags = _pick_and_add(ctx.attrs.c_compiler_flags, ctx.attrs.additional_c_compiler_flags, base_objc_info.compiler_flags),
+        preprocessor = _pick_bin(ctx.attrs.c_compiler, base_c_info.preprocessor),
+        preprocessor_type = base_c_info.preprocessor_type,
+        preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
+        allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
+    )
     base_cxx_info = base_toolchain.cxx_compiler_info
     cxx_info = CxxCompilerInfo(
         compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
         compiler_type = base_cxx_info.compiler_type,
         compiler_flags = _pick_and_add(ctx.attrs.cxx_compiler_flags, ctx.attrs.additional_cxx_compiler_flags, base_cxx_info.compiler_flags),
+        preprocessor = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.preprocessor),
+        preprocessor_type = base_cxx_info.preprocessor_type,
+        preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
+        allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
+    )
+    base_objcxx_info = base_toolchain.objcxx_compiler_info
+    objcxx_info = ObjcxxCompilerInfo(
+        compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
+        compiler_type = base_cxx_info.compiler_type,
+        compiler_flags = _pick_and_add(ctx.attrs.cxx_compiler_flags, ctx.attrs.additional_cxx_compiler_flags, base_objcxx_info.compiler_flags),
         preprocessor = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.preprocessor),
         preprocessor_type = base_cxx_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
@@ -168,6 +190,8 @@ def _cxx_toolchain_override(ctx):
         bolt_enabled = value_or(ctx.attrs.bolt_enabled, base_toolchain.bolt_enabled),
         c_compiler_info = c_info,
         cxx_compiler_info = cxx_info,
+        objc_compiler_info = objc_info,
+        objcxx_compiler_info = objcxx_info,
         llvm_link = ctx.attrs.llvm_link if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
         # the rest are used without overrides
         cuda_compiler_info = base_toolchain.cuda_compiler_info,

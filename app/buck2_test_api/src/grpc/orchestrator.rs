@@ -177,8 +177,23 @@ impl TestOrchestratorClient {
                 ExecuteResponse::Result(res.try_into().context("Invalid `result`")?)
             }
             buck2_test_proto::execute_response2::Response::Cancelled(
-                buck2_test_proto::Cancelled {},
-            ) => ExecuteResponse::Cancelled,
+                buck2_test_proto::Cancelled { reason },
+            ) => {
+                let reason = match reason {
+                    Some(reason) => buck2_test_proto::CancellationReason::try_from(reason)
+                        .map(|proto_reason| match proto_reason {
+                            buck2_test_proto::CancellationReason::NotSpecified => {
+                                crate::data::CancellationReason::NotSpecified
+                            }
+                            buck2_test_proto::CancellationReason::ReQueueTimeout => {
+                                crate::data::CancellationReason::ReQueueTimeout
+                            }
+                        })
+                        .ok(),
+                    None => None,
+                };
+                ExecuteResponse::Cancelled(reason)
+            }
         };
 
         Ok(response)
@@ -335,9 +350,21 @@ where
                         r.try_into().context("Failed to serialize result")?,
                     )
                 }
-                ExecuteResponse::Cancelled => {
+                ExecuteResponse::Cancelled(reason) => {
+                    let reason = if let Some(reason) = reason {
+                        match reason {
+                            crate::data::CancellationReason::NotSpecified => {
+                                Some(buck2_test_proto::CancellationReason::NotSpecified.into())
+                            }
+                            crate::data::CancellationReason::ReQueueTimeout => {
+                                Some(buck2_test_proto::CancellationReason::ReQueueTimeout.into())
+                            }
+                        }
+                    } else {
+                        None
+                    };
                     buck2_test_proto::execute_response2::Response::Cancelled(
-                        buck2_test_proto::Cancelled {},
+                        buck2_test_proto::Cancelled { reason },
                     )
                 }
             };

@@ -31,17 +31,31 @@ async def check_dice_equality(buck: Buck) -> None:
 
 
 async def check_config_is_the_same(buck: Buck) -> None:
-    diff_count = await filter_events(
+    # We only fire this event where there are config invalidations.
+    has_new_configs = await filter_events(
         buck,
         "Event",
         "data",
         "Instant",
         "data",
-        "CellConfigDiff",
-        "config_diff_count",
+        "CellHasNewConfigs",
     )
-    assert len(diff_count) == 1
-    assert diff_count[0] == 0
+    assert len(has_new_configs) == 0
+
+
+async def check_config_is_different(buck: Buck) -> None:
+    # We only fire this event where there are config invalidations.
+    has_new_configs = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "CellHasNewConfigs",
+    )
+    assert len(has_new_configs) == 1
+
+    assert has_new_configs[0]["cell"] == "root"
 
 
 @buck_test()
@@ -55,6 +69,7 @@ async def test_ignore_state_invalidation_with_re_override_in_arg(buck: Buck) -> 
     # No arg, default is buck2-default
     await buck.build("root//:simple")
     await check_dice_equality(buck)
+    await check_config_is_the_same(buck)
     # Add arg to switch to buck2-user again
     await buck.build(
         "root//:simple",
@@ -62,6 +77,7 @@ async def test_ignore_state_invalidation_with_re_override_in_arg(buck: Buck) -> 
         "buck2_re_client.override_use_case=buck2-user",
     )
     await check_dice_equality(buck)
+    await check_config_is_the_same(buck)
 
 
 @buck_test()
@@ -73,13 +89,13 @@ async def test_ignore_state_invalidation_with_re_override_in_config(buck: Buck) 
         f.write("[buck2_re_client]\n")
         f.write("override_use_case = buck2-user\n")
     await buck.build("root//:simple")
-    await check_config_is_the_same(buck)
+    await check_config_is_different(buck)
     # Add config to return to buck2-default
     with open(buck.cwd / ".buckconfig.local", "w") as f:
         f.write("[buck2_re_client]\n")
         f.write("override_use_case = buck2-default\n")
     await buck.build("root//:simple")
-    await check_config_is_the_same(buck)
+    await check_config_is_different(buck)
 
 
 @buck_test()
@@ -94,14 +110,14 @@ async def test_ignore_state_invalidation_with_re_override_in_external_config(
         f.write("override_use_case = buck2-user\n")
         f.close()
         await buck.build("root//:simple", "--config-file", f.name)
-    await check_config_is_the_same(buck)
+    await check_config_is_different(buck)
     # Add config to return to buck2-default
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
         f.write("[buck2_re_client]\n")
         f.write("override_use_case = buck2-default\n")
         f.close()
         await buck.build("root//:simple", "--config-file", f.name)
-    await check_config_is_the_same(buck)
+    await check_config_is_different(buck)
 
 
 @buck_test()
@@ -120,7 +136,7 @@ async def test_ignore_state_invalidation_with_re_override_in_external_config_sou
         temp.write("override_use_case = buck2-user\n")
         temp.flush()
         await buck.build("root//:simple", env=env)
-        await check_config_is_the_same(buck)
+        await check_config_is_different(buck)
 
         # Add config to return to buck2-default
         temp.seek(0)

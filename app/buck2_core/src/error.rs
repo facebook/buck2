@@ -41,7 +41,7 @@ static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
 /// Throw a "soft_error" ie. a non-fatal error logged to logview.
-/// Errors will also be logged to stderr as warnings to the user, unless `quiet=true` is passed.
+/// Errors will not be logged to stderr as warnings to the user, unless `quiet=false` is passed.
 /// Logview will generate tasks for each error category, unless `task=false` is passed.
 /// If `deprecation=true` this error should ideally become a hard error in the future.
 ///
@@ -146,24 +146,17 @@ pub struct StructuredErrorOptions {
     pub daemon_in_memory_state_is_corrupted: bool,
     pub daemon_materializer_state_is_corrupted: bool,
     pub action_cache_is_corrupted: bool,
-    // By default, we only get a handful of traces per error category in Logview.
-    // This key, if specified, enables logging one trace per unique key using
-    // the "trace cut" feature of Logview. Note that the dimensionality of this
-    // key must not be too large otherwise it can bring significant capacity cost
-    // and may even bring down Logview.
-    pub low_cardinality_key_for_additional_logview_samples: Option<Box<dyn ToString>>,
 }
 
 impl Default for StructuredErrorOptions {
     fn default() -> Self {
         Self {
-            quiet: false,
+            quiet: true,
             task: true,
             deprecation: false,
             daemon_in_memory_state_is_corrupted: false,
             daemon_materializer_state_is_corrupted: false,
             action_cache_is_corrupted: false,
-            low_cardinality_key_for_additional_logview_samples: None,
         }
     }
 }
@@ -178,7 +171,7 @@ pub fn handle_soft_error(
     loc: (&'static str, u32, u32),
     options: StructuredErrorOptions,
 ) -> Result<buck2_error::Error, buck2_error::Error> {
-    validate_category(category)?;
+    validate_logview_category(category)?;
 
     if cfg!(test) {
         // When running unit tests of `buck2_core` crate, all errors are hard errors.
@@ -294,16 +287,18 @@ impl HardErrorConfigHolder {
     "Invalid hard error config: `{0}`\n\
     Valid examples: empty, `true`, `false`, `only=category1,category2`"
 )]
+#[buck2(tag = Input)]
 struct InvalidHardErrorConfig(String);
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum InvalidSoftError {
     #[error("Invalid category, must be lower_snake_case, got `{0}`")]
     InvalidCategory(String),
 }
 
 /// A category must be a-z with no consecutive underscores. Or we raise an error.
-fn validate_category(category: &str) -> buck2_error::Result<()> {
+pub fn validate_logview_category(category: &str) -> buck2_error::Result<()> {
     let mut allow_underscore = false;
     for &x in category.as_bytes() {
         if x.is_ascii_lowercase() {
@@ -371,15 +366,15 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn test_validate_category() {
-        assert_matches!(validate_category("valid"), Ok(_));
-        assert_matches!(validate_category("a_valid_category"), Ok(_));
-        assert_matches!(validate_category(""), Err(_));
-        assert_matches!(validate_category("Invalid_because_capital"), Err(_));
-        assert_matches!(validate_category("some_1number"), Err(_));
-        assert_matches!(validate_category("two__underscore"), Err(_));
-        assert_matches!(validate_category("a-dash"), Err(_));
-        assert_matches!(validate_category("_leading_underscore"), Err(_));
-        assert_matches!(validate_category("trailing_underscore_"), Err(_));
+    fn test_validate_logview_category() {
+        assert_matches!(validate_logview_category("valid"), Ok(_));
+        assert_matches!(validate_logview_category("a_valid_category"), Ok(_));
+        assert_matches!(validate_logview_category(""), Err(_));
+        assert_matches!(validate_logview_category("Invalid_because_capital"), Err(_));
+        assert_matches!(validate_logview_category("some_1number"), Err(_));
+        assert_matches!(validate_logview_category("two__underscore"), Err(_));
+        assert_matches!(validate_logview_category("a-dash"), Err(_));
+        assert_matches!(validate_logview_category("_leading_underscore"), Err(_));
+        assert_matches!(validate_logview_category("trailing_underscore_"), Err(_));
     }
 }

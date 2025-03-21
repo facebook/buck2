@@ -349,6 +349,6 @@ async def assert_flame_outputs(
         assert os.path.exists(file_path / "flame.src")
         assert os.path.exists(file_path / "flame.svg")
     else:
-        assert os.path.exists(file_path / "profile.txt")
+        assert os.path.exists(file_path / "profile.csv")
 
     assert os.path.exists(file_path / "targets.txt")

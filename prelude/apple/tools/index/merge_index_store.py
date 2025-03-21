@@ -22,7 +22,6 @@ def parse_arguments() -> Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dest", type=str, required=True)
     parser.add_argument("-s", "--sources", nargs="+", type=str, required=True)
-    parser.add_argument("--dummy-output", type=str, required=False)
     return parser.parse_args()
 
 
@@ -31,10 +30,38 @@ def merge_directories(source: str, destination: str) -> None:
         print(f"Merging {source} to {destination}", file=sys.stderr)
         if not source.endswith("/"):
             source = source + "/"
-        # Use rsync to copy files from source to destination
-        # shutil.copytree will show file eixst errors when mergeing parallelly
+
+        # Each index store is a directory containing record and unit files.
+        #
+        # $ ls my_index_store
+        # v5/records/93/scope6_var.h-3KOUVOFGN7X93
+        # v5/records/93/ShareViewController.swift-336T0RUILP193
+        # v5/records/95/host_security.h-NRLXTM4VIC95
+        # v5/units/ShareViewController.swift-5TSSN9QOIJ15
+        #
+        # We want a single destination directory containing all the record and unit
+        # files from all the source directories.
+        #
+        # There's no built-in way to merge directories in buck. In Python, there is
+        # `shutil.copytree(source, dest, dirs_exist_ok=True)` but that overwrites
+        # files in the destination when there are multiple sources with the same
+        # file. That's slower.
+        #
+        # Instead, use rsync to merge the directories.
+        #
+        # Use `--no-owner` to ensure the files in the destination directory are
+        # owned by the current user, even if some of the input files were owned by
+        # root.
         result = subprocess.run(
-            ["rsync", "-a", "--ignore-existing", source, destination],
+            [
+                "rsync",
+                "-a",
+                "--ignore-existing",
+                "--no-owner",
+                "--no-group",
+                source,
+                destination,
+            ],
             stderr=subprocess.PIPE,
             text=True,
         )
@@ -49,12 +76,17 @@ def merge_directories(source: str, destination: str) -> None:
 def main() -> None:
     args = parse_arguments()
     destination = args.dest
-    directories = args.sources
+
+    directories = []
+    for source in args.sources:
+        if source.startswith("@"):
+            with open(source[1:]) as f:
+                for line in f.readlines():
+                    directories.append(line.strip())
+        else:
+            directories.append(source)
 
     Path(destination).mkdir(parents=True, exist_ok=True)
-    if args.dummy_output:
-        # For dummy output, create a file to avoid empty output for buck2
-        Path(args.dummy_output).touch()
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = [

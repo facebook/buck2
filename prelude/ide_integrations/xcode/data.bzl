@@ -13,6 +13,7 @@ XcodeDataInfo = provider(fields = {
 })
 
 XcodeDataInfoKeys = struct(
+    APP_EXTENSION_DEPENDENCIES = "app_extension_dependencies",
     ARCH = "arch",
     ARGSFILES_BY_EXT = "argsfiles_by_ext",
     BUNDLE_TYPE = "bundle_type",

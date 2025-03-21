@@ -10,6 +10,7 @@
 //! Server-side implementation of `buck2 targets --resolve-alias` command.
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ResolveAliasError {
     #[error("`--stat` format is not supported by `--resolve-alias`")]
     StatFormatNotSupported,
@@ -113,7 +114,7 @@ pub(crate) async fn targets_resolve_aliases(
                 Ok((package, target_name))
             }
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid alias (does not expand to a single target): `{}`",
                 alias
             )),
@@ -143,7 +144,7 @@ pub(crate) async fn targets_resolve_aliases(
 
     let mut buffer = String::new();
 
-    let output_format = OutputFormat::from_i32(request.output_format)
+    let output_format = OutputFormat::try_from(request.output_format)
         .internal_error("Invalid value of `output_format`")?;
 
     let json_writer;

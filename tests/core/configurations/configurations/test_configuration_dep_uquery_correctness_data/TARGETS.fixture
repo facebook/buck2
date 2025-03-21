@@ -1,0 +1,91 @@
+load(
+    ":defs.bzl",
+    "incoming_transition_alias",
+    "incoming_transition_alias_vnew",
+    "outgoing_transition_alias",
+    "outgoing_transition_alias_vnew",
+    "stub_configuration",
+)
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
+)
+
+platform(
+    name = "base",
+    constraint_values = [],
+)
+
+# Default target platform
+
+stub(
+    name = "with_custom_dtp",
+    default_target_platform = ":base",
+)
+
+# Configured dep platform
+
+stub(
+    name = "stub",
+)
+
+stub(
+    name = "stub_configured",
+    configured_deps = [(":stub", ":base")],
+)
+
+# Transition dep refs
+
+stub(
+    name = "post_out_transition",
+)
+
+outgoing_transition_alias(
+    name = "pre_out_transition",
+    actual = ":post_out_transition",
+)
+
+incoming_transition_alias(
+    name = "post_inc_transition",
+)
+
+stub(
+    name = "pre_inc_transition",
+    deps = [":post_inc_transition"],
+)
+
+# Transition dep refs in vnew
+
+stub_configuration(
+    name = "transition",
+)
+
+outgoing_transition_alias_vnew(
+    name = "pre_out_transition_vnew",
+    actual = ":post_out_transition",
+)
+
+incoming_transition_alias_vnew(
+    name = "post_inc_transition_vnew",
+    incoming_transition = ":transition",
+)
+
+stub(
+    name = "pre_inc_transition_vnew",
+    deps = [":post_inc_transition_vnew"],
+)
+
+# Select keys
+
+stub(
+    name = "with_select",
+    labels = select({
+        ":cat": [],
+        "DEFAULT": [],
+    }),
+)

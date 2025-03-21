@@ -36,6 +36,7 @@ use crate::query::traversal::ChildVisitor;
 mod tests;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 pub enum QueryEnvironmentError {
     #[error("Missing target `{}`. Targets in the package: <{}>", .0, .1.join(", "))]
     MissingTargetError(String, Vec<String>),
@@ -129,7 +130,12 @@ pub trait QueryTarget: LabeledNode + Dupe + Send + Sync + 'static {
         func: F,
     ) -> Result<(), E>;
 
+    /// map the attr named `key` to a value using `func`
+    /// attribute here is usered defined attribute, not including special attributes.
     fn map_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
+
+    /// map the any attr (user defined attribute or special attribute) named `key` to a value using `func`
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, func: F) -> R;
 }
 
 #[async_trait]

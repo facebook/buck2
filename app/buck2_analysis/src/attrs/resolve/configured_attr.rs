@@ -52,6 +52,7 @@ use crate::attrs::resolve::attr_type::split_transition_dep::SplitTransitionDepAt
 use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum ConfiguredAttrError {
     #[error("Source path `{0}` cannot be used in attributes referenced in transition")]
     SourceFileToStarlarkValue(ArcS<PackageRelativePath>),
@@ -276,7 +277,7 @@ fn configured_attr_to_value<'v>(
         }
         ConfiguredAttr::ConfigurationDep(c) => {
             // TODO(T198210718)
-            heap.alloc(StarlarkTargetLabel::new(c.0.target().dupe()))
+            heap.alloc(StarlarkTargetLabel::new(c.target().dupe()))
         }
         ConfiguredAttr::PluginDep(d, _) => heap.alloc(StarlarkTargetLabel::new(d.dupe())),
         ConfiguredAttr::Dep(d) => heap.alloc(StarlarkConfiguredProvidersLabel::new(d.label.dupe())),

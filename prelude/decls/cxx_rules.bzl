@@ -13,14 +13,12 @@
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
 load("@prelude//decls:test_common.bzl", "test_common")
-load("@prelude//linking:link_info.bzl", "LinkStyle")
+load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
 load(":native_common.bzl", "native_common")
-
-ArchiveContents = ["normal", "thin"]
 
 ArchiverProviderType = ["bsd", "gnu", "llvm", "windows", "windows_clang"]
 
@@ -963,7 +961,7 @@ cxx_toolchain = prelude_rule(
     attrs = (
         cxx_common.raw_headers_as_headers_mode_arg() |
         {
-            "archive_contents": attrs.enum(ArchiveContents, default = "normal"),
+            "archive_contents": attrs.enum(ArchiveContentsType.values(), default = "normal"),
             "archiver": attrs.source(),
             "archiver_flags": attrs.list(attrs.arg(), default = []),
             "archiver_type": attrs.enum(ArchiverProviderType),
@@ -991,6 +989,7 @@ cxx_toolchain = prelude_rule(
                 omnibus link strategies).
                 """,
             ),
+            "bolt": attrs.source(),
             "c_compiler": attrs.source(),
             "c_compiler_flags": attrs.list(attrs.arg(), default = []),
             "c_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
@@ -1003,6 +1002,7 @@ cxx_toolchain = prelude_rule(
             "cuda_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cuda_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "cuda_preprocessor_flags": attrs.list(attrs.arg(), default = []),
+            "custom_tools": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
             "cvtres_compiler": attrs.option(attrs.source(), default = None),
             "cvtres_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cvtres_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
@@ -1043,7 +1043,9 @@ cxx_toolchain = prelude_rule(
             "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "linker_type": attrs.enum(LinkerProviderType),
             "nm": attrs.source(),
+            "objc_compiler_flags": attrs.list(attrs.arg(), default = []),
             "objcopy_for_shared_library_interface": attrs.source(),
+            "objcxx_compiler_flags": attrs.list(attrs.arg(), default = []),
             "objdump": attrs.option(attrs.source(), default = None),
             "object_file_extension": attrs.string(default = ""),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
@@ -1196,6 +1198,7 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.exported_platform_deps_arg() |
         cxx_common.supports_merged_linking() |
         cxx_common.local_linker_flags_arg() |
+        cxx_common.local_linker_script_flags_arg() |
         cxx_common.version_arg() |
         {
             "can_be_asset": attrs.bool(default = False),

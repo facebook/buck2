@@ -46,6 +46,7 @@ static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
     Lazy::new(|| hashset!["classpath_abi", "maven_coords", "output", "query_paths",]);
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum MacroError {
     #[error("Expected a single target label argument. Got `[{}]`", (.0).join(", "))]
     ExpectedSingleTargetArgument(Vec<String>),
@@ -88,8 +89,9 @@ impl AttrTypeCoerce for ArgAttrType {
                 }) => {
                     let part = match macro_type.as_ref() {
                         "location" | "location-platform" if args.len() == 1 => {
-                            UnconfiguredMacro::new_location(ctx, args)?
+                            UnconfiguredMacro::new_location(ctx, args, false)?
                         }
+                        "location_exec" => UnconfiguredMacro::new_location(ctx, args, true)?,
                         "exe" => UnconfiguredMacro::new_exe(ctx, args, true)?,
                         "exe_target" => UnconfiguredMacro::new_exe(ctx, args, false)?,
                         "source" => UnconfiguredMacro::new_source(ctx, args)?,
@@ -136,10 +138,12 @@ pub trait UnconfiguredMacroExt {
     fn new_location(
         ctx: &dyn AttrCoercionContext,
         args: Vec<String>,
+        exec_dep: bool,
     ) -> buck2_error::Result<UnconfiguredMacro> {
-        Ok(UnconfiguredMacro::Location(get_single_target_arg(
-            args, ctx,
-        )?))
+        Ok(UnconfiguredMacro::Location {
+            label: get_single_target_arg(args, ctx)?,
+            exec_dep,
+        })
     }
 
     fn new_exe(
@@ -298,18 +302,54 @@ mod tests {
     #[test]
     fn test_location() -> buck2_error::Result<()> {
         let ctx = coercion_ctx();
-        let location = UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()])?;
+        let location =
+            UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()], false)?;
         let deps = location.get_deps()?.map(|t| t.to_string());
         assert_eq!(vec!["root//some:target".to_owned()], deps);
 
         let configured = location.configure(&configuration_ctx())?;
 
-        if let MacroBase::Location(target) = &configured {
+        if let MacroBase::Location {
+            label: target,
+            exec_dep: false,
+        } = &configured
+        {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
             assert_eq!(smallset![target.dupe()], info.deps);
         } else {
-            return Err(buck2_error!([], "Expected Location"));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected Location"
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_location_exec() -> buck2_error::Result<()> {
+        let ctx = coercion_ctx();
+        let location =
+            UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()], true)?;
+        let deps = location.get_deps()?.map(|t| t.to_string());
+        assert_eq!(vec!["root//some:target".to_owned()], deps);
+        assert_eq!("location_exec root//some:target", &location.to_string());
+
+        let config_ctx = configuration_ctx();
+        let configured = location.configure(&config_ctx)?;
+
+        if let MacroBase::Location { label, .. } = &configured {
+            let mut info = ConfiguredAttrInfoForTests::new();
+            configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
+            assert_eq!(label.cfg(), config_ctx.exec_cfg()?.cfg());
+            assert_eq!(smallset![label.dupe()], info.execution_deps);
+            assert_eq!(smallset![], info.deps);
+        } else {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected Location"
+            ));
         }
 
         Ok(())
@@ -333,7 +373,7 @@ mod tests {
             assert_eq!(smallset![label.dupe()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
         } else {
-            return Err(buck2_error!([], "Expected Exe"));
+            return Err(buck2_error!(buck2_error::ErrorTag::Input, "Expected Exe"));
         }
 
         Ok(())
@@ -357,7 +397,7 @@ mod tests {
             assert_eq!(smallset![], info.execution_deps);
             assert_eq!(smallset![label.dupe()], info.deps);
         } else {
-            return Err(buck2_error!([], "Expected Exe"));
+            return Err(buck2_error!(buck2_error::ErrorTag::Input, "Expected Exe"));
         }
 
         Ok(())

@@ -18,6 +18,7 @@ BY_MODES = "ByModes"
 
 CXXFLAGS = "cxxflags"
 CXXPPFLAGS = "cxxppflags"
+FLAGS_LOCATION = "flags_location"
 LDFLAGS = "ldflags"
 TOOLSET = "toolset"
 LANGUAGE_STANDARD = "language_standard"

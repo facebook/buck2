@@ -131,6 +131,17 @@ impl QueryTarget for ConfiguredTargetNode {
         }
         Ok(())
     }
+
+    fn map_any_attr<R, F: FnMut(Option<&Self::Attr<'_>>) -> R>(&self, key: &str, mut func: F) -> R {
+        match self
+            .get(key, AttrInspectOptions::All)
+            .as_ref()
+            .map(|v| &v.value)
+        {
+            Some(attr) => func(Some(attr)),
+            None => func(self.special_attr_or_none(key).as_ref()),
+        }
+    }
 }
 
 impl<'a> LabeledNode for ConfiguredTargetNodeRef<'a> {

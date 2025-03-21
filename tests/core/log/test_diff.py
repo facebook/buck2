@@ -10,9 +10,11 @@
 import json
 import tempfile
 import typing
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import filter_events, read_invocation_record
 
 
 def with_buck2_output(output: str) -> typing.List[str]:
@@ -152,3 +154,48 @@ async def test_config_diff_command_project_relative(buck: Buck) -> None:
     # We only store the path of the modefile
     assert diff[0]["FirstOnly"]["key"] == "my_mode_a.bcfg"
     assert diff[1]["SecondOnly"]["key"] == "my_mode_b.bcfg"
+
+
+@buck_test()
+async def test_config_diff_tracker_modfile_change(buck: Buck, tmp_path: Path) -> None:
+    record_file = tmp_path / "record.json"
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        "@root//mode/my_mode_a",
+    )
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        "@root//mode/my_mode_b",
+        "--unstable-write-invocation-record",
+        str(record_file),
+    )
+    cell_config_diffs = await filter_events(
+        buck, "Event", "data", "Instant", "data", "CellHasNewConfigs"
+    )
+    assert len(cell_config_diffs) == 1 and cell_config_diffs[0]["cell"] == "prelude"
+
+    assert read_invocation_record(record_file)["new_configs_used"] == 1
+
+
+@buck_test()
+async def test_config_diff_tracker_no_change(buck: Buck, tmp_path: Path) -> None:
+    record_file = tmp_path / "record.json"
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        "@root//mode/my_mode_a",
+    )
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        "@root//mode/my_mode_a",
+        "--unstable-write-invocation-record",
+        str(record_file),
+    )
+    cell_config_diffs = await filter_events(
+        buck, "Event", "data", "Instant", "data", "CellHasNewConfigs"
+    )
+    assert len(cell_config_diffs) == 0
+    assert read_invocation_record(record_file)["new_configs_used"] == 0

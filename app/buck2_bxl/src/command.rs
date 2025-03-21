@@ -17,12 +17,12 @@ use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::build::build_report::BuildReportOpts;
-use buck2_build_api::build::ConfiguredBuildTargetResult;
-use buck2_build_api::bxl::build_result::BxlBuildResult;
+use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
-use buck2_build_api::materialize::materialize_artifact_group;
-use buck2_build_api::materialize::MaterializationContext;
+use buck2_build_api::materialize::materialize_and_upload_artifact_group;
+use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
 use buck2_common::dice::cells::HasCellResolver;
@@ -35,8 +35,8 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
@@ -49,7 +49,6 @@ use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::module::StarlarkModulePath;
-use buck2_server_ctx::commands::send_target_cfg_event;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -61,6 +60,7 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::FutureExt;
 use itertools::Itertools;
+use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::calculation::eval_bxl;
 use crate::bxl::eval::get_bxl_callable;
@@ -68,6 +68,7 @@ use crate::bxl::eval::resolve_cli_args;
 use crate::bxl::eval::BxlResolvedCliArgs;
 use crate::bxl::eval::CliResolutionCtx;
 use crate::bxl::key::BxlKey;
+use crate::bxl::starlark_defs::cli_args::CliArgValue;
 
 pub(crate) async fn bxl_command(
     ctx: &dyn ServerCommandContextTrait,
@@ -104,13 +105,8 @@ impl ServerCommandTemplate for BxlServerCommand {
         mut partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         ctx: DiceTransaction,
     ) -> buck2_error::Result<Self::Response> {
-        bxl(
-            server_ctx,
-            partial_result_dispatcher.as_writer(),
-            ctx,
-            &self.req,
-        )
-        .await
+        self.execute(server_ctx, partial_result_dispatcher.as_writer(), ctx)
+            .await
     }
 
     fn additional_telemetry_errors(
@@ -125,130 +121,291 @@ impl ServerCommandTemplate for BxlServerCommand {
     }
 }
 
-async fn bxl(
-    server_ctx: &dyn ServerCommandContextTrait,
-    stdout: impl Write,
-    mut ctx: DiceTransaction,
-    request: &BxlRequest,
-) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
-    let cwd = server_ctx.working_dir();
-    let cell_resolver = ctx.get_cell_resolver().await?;
-    let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
-    let bxl_label = parse_bxl_label_from_cli(
-        cwd,
-        &request.bxl_label,
-        &cell_resolver,
-        &cell_alias_resolver,
-    )?;
-    let project_root = server_ctx.project_root().to_string();
+impl BxlServerCommand {
+    async fn execute(
+        &self,
+        server_ctx: &dyn ServerCommandContextTrait,
+        stdout: impl Write,
+        mut dice_ctx: DiceTransaction,
+    ) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
+        let bxl_cmd_ctx = self
+            .parse_and_validate_request(server_ctx, &mut dice_ctx)
+            .await?;
 
-    let global_cfg_options = global_cfg_options_from_client_context(
-        request
-            .target_cfg
-            .as_ref()
-            .internal_error("target_cfg must be set")?,
-        server_ctx,
-        &mut ctx,
-    )
-    .await?;
-
-    let bxl_args =
-        match get_bxl_cli_args(cwd, &mut ctx, &bxl_label, &request.bxl_args, &cell_resolver).await?
-        {
+        let resolved_cli_args = self.resolve_cli_args(&bxl_cmd_ctx, &mut dice_ctx).await?;
+        let bxl_args = match resolved_cli_args {
             BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
-            // Return early if user passed in `--help`
             BxlResolvedCliArgs::Help => {
                 return Ok(BxlResponse {
-                    project_root,
+                    project_root: bxl_cmd_ctx.project_root,
                     errors: Vec::new(),
                     serialized_build_report: None,
                 });
             }
         };
 
-    let final_artifact_materializations =
-        Materializations::from_i32(request.final_artifact_materializations)
+        let bxl_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await?;
+
+        let errors = self
+            .materialize_artifacts(&mut dice_ctx, bxl_result.dupe())
+            .await;
+
+        self.copy_output(&mut dice_ctx, server_ctx, bxl_result, stdout)
+            .await?;
+
+        let serialized_build_report = self
+            .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx)
+            .await?;
+
+        Ok(BxlResponse {
+            project_root: bxl_cmd_ctx.project_root,
+            errors,
+            serialized_build_report,
+        })
+    }
+
+    async fn parse_and_validate_request<'a>(
+        &self,
+        server_ctx: &'a dyn ServerCommandContextTrait,
+        dice_ctx: &mut DiceTransaction,
+    ) -> buck2_error::Result<BxlCommandContext<'a>> {
+        let cwd = server_ctx.working_dir();
+        let cell_resolver = dice_ctx.get_cell_resolver().await?;
+        let cell_alias_resolver = dice_ctx.get_cell_alias_resolver_for_dir(cwd).await?;
+        let bxl_label = parse_bxl_label_from_cli(
+            cwd,
+            &self.req.bxl_label,
+            &cell_resolver,
+            &cell_alias_resolver,
+        )?;
+        let project_root = server_ctx.project_root().to_string();
+
+        let global_cfg_options = global_cfg_options_from_client_context(
+            self.req
+                .target_cfg
+                .as_ref()
+                .internal_error("target_cfg must be set")?,
+            server_ctx,
+            dice_ctx,
+        )
+        .await?;
+
+        Ok(BxlCommandContext {
+            cwd,
+            cell_resolver,
+            bxl_label,
+            project_root,
+            global_cfg_options,
+        })
+    }
+
+    async fn resolve_cli_args(
+        &self,
+        ctx: &BxlCommandContext<'_>,
+        dice_ctx: &mut DiceTransaction,
+    ) -> buck2_error::Result<BxlResolvedCliArgs> {
+        let cur_package =
+            PackageLabel::from_cell_path(ctx.cell_resolver.get_cell_path(ctx.cwd)?.as_ref());
+        let cell_name = ctx.cell_resolver.find(ctx.cwd)?;
+        let cell_alias_resolver = dice_ctx.get_cell_alias_resolver(cell_name).await?;
+
+        let target_alias_resolver = dice_ctx.target_alias_resolver().await?;
+
+        let bxl_module = dice_ctx
+            .get_loaded_module(StarlarkModulePath::BxlFile(&ctx.bxl_label.bxl_path))
+            .await?;
+
+        let frozen_callable = get_bxl_callable(&ctx.bxl_label, &bxl_module)?;
+        let cli_ctx = CliResolutionCtx {
+            target_alias_resolver,
+            cell_resolver: ctx.cell_resolver.dupe(),
+            cell_alias_resolver,
+            relative_dir: cur_package,
+            dice: dice_ctx,
+        };
+
+        resolve_cli_args(
+            &ctx.bxl_label,
+            &cli_ctx,
+            &self.req.bxl_args,
+            &frozen_callable,
+        )
+        .await
+    }
+
+    /// Evaluate the bxl main function and return the result.
+    async fn eval_bxl(
+        &self,
+        ctx: &BxlCommandContext<'_>,
+        dice_ctx: &mut DiceTransaction,
+        bxl_args: Arc<OrderedMap<String, CliArgValue>>,
+    ) -> buck2_error::Result<Arc<BxlResult>> {
+        let bxl_key = BxlKey::new(
+            ctx.bxl_label.clone(),
+            bxl_args,
+            self.req.print_stacktrace,
+            ctx.global_cfg_options.dupe(),
+        );
+
+        Ok(eval_bxl(dice_ctx, bxl_key.clone()).await?.0)
+    }
+
+    /// Materializes artifacts from the BXL result
+    ///
+    /// Returns the build results and any errors encountered during materialization.
+    async fn materialize_artifacts(
+        &self,
+        dice_ctx: &mut DiceTransaction,
+        bxl_result: Arc<BxlResult>,
+    ) -> Vec<buck2_data::ErrorReport> {
+        let materialization_context = self.create_materialization_context();
+
+        self.ensure_all_artifacts(dice_ctx, &materialization_context, bxl_result.artifacts())
+            .await
+    }
+
+    /// Creates a materialization context from request parameters.
+    /// This context determines how artifacts will be materialized and uploaded.
+    fn create_materialization_context(&self) -> MaterializationAndUploadContext {
+        let materializations = Materializations::try_from(self.req.final_artifact_materializations)
             .with_buck_error_context(|| "Invalid final_artifact_materializations")
             .unwrap();
 
-    let bxl_key = BxlKey::new(
-        bxl_label.clone(),
-        bxl_args,
-        request.print_stacktrace,
-        global_cfg_options,
-    );
+        let uploads = Uploads::try_from(self.req.final_artifact_uploads)
+            .with_buck_error_context(|| "Invalid final_artifact_uploads")
+            .unwrap();
 
-    let bxl_result = eval_bxl(&mut ctx, bxl_key.clone()).await?.0;
+        (materializations, uploads).into()
+    }
 
-    let build_results: Option<&Vec<BxlBuildResult>> = bxl_result.get_build_result_opt();
-    let labeled_configured_build_results = filter_bxl_build_results(build_results);
-    send_bxl_target_cfg_event(server_ctx, request, &labeled_configured_build_results);
-    let configured_build_results = labeled_configured_build_results.values();
-    let build_result = ensure_artifacts(
-        &mut ctx,
-        &final_artifact_materializations.into(),
-        configured_build_results,
-        bxl_result.get_artifacts_opt(),
-    )
-    .await;
-    copy_output(stdout, &mut ctx, bxl_result.get_output_loc()).await?;
-    copy_output(server_ctx.stderr()?, &mut ctx, bxl_result.get_error_loc()).await?;
+    /// Ensures that all artifacts from BXL execution are materialized.
+    ///
+    /// Wraps the materialization process in tracing spans
+    /// and converts errors to a standardized report format.
+    async fn ensure_all_artifacts(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        materialization_context: &MaterializationAndUploadContext,
+        artifacts: &[ArtifactGroup],
+    ) -> Vec<buck2_data::ErrorReport> {
+        if artifacts.is_empty() {
+            return vec![];
+        }
 
-    let errors = match build_result {
-        Ok(_) => vec![],
-        Err(errors) => errors
-            .iter()
-            .map(create_error_report)
-            .unique_by(|e| e.message.clone())
-            .collect(),
-    };
+        let result = get_dispatcher()
+            .span_async(BxlEnsureArtifactsStart {}, async move {
+                let result = self
+                    .materialize_collected_artifacts(ctx, materialization_context, artifacts)
+                    .await;
 
-    let bxl_opts = request
-        .build_opts
-        .as_ref()
-        .expect("should have build options");
+                (result, BxlEnsureArtifactsEnd {})
+            })
+            .await;
 
-    let serialized_build_report = if bxl_opts.unstable_print_build_report {
-        let artifact_fs = ctx.get_artifact_fs().await?;
-        let build_report_opts = BuildReportOpts {
-            // These are all deprecated for `buck2 build`, so don't need to support them
-            print_unconfigured_section: false,
-            unstable_include_other_outputs: false,
-            unstable_include_failures_build_report: false,
-            unstable_include_package_project_relative_paths: false,
-            unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
+        match result {
+            Ok(_) => vec![],
+            Err(errors) => errors
+                .iter()
+                .map(create_error_report)
+                .unique_by(|e| e.message.clone())
+                .collect(),
+        }
+    }
+
+    /// Collects and materializes artifacts
+    ///
+    /// Returns the arggregated errors encountered during materialization.
+    async fn materialize_collected_artifacts(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        materialization_context: &MaterializationAndUploadContext,
+        artifacts: &[ArtifactGroup],
+    ) -> Result<(), Vec<buck2_error::Error>> {
+        let artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
+        let mut errors = Vec::new();
+
+        // Materialize all collected artifacts in parallel
+        let materialize_errors = ctx
+            .compute_join(artifacts_to_materialize, |ctx, artifact| {
+                async move {
+                    materialize_and_upload_artifact_group(ctx, &artifact, materialization_context)
+                        .await?;
+                    Ok(())
+                }
+                .boxed()
+            })
+            .await;
+
+        errors.extend(materialize_errors.into_iter().filter_map(|v| v.err()));
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+
+    /// We write the stdout and stderr to files in buck-out as cache
+    async fn copy_output(
+        &self,
+        dice_ctx: &mut DiceTransaction,
+        server_ctx: &dyn ServerCommandContextTrait,
+        bxl_result: Arc<BxlResult>,
+        stdout: impl Write,
+    ) -> buck2_error::Result<()> {
+        copy_output(stdout, dice_ctx, bxl_result.output_loc()).await?;
+        copy_output(server_ctx.stderr()?, dice_ctx, bxl_result.error_loc()).await?;
+        Ok(())
+    }
+
+    async fn generate_build_report(
+        &self,
+        ctx: &BxlCommandContext<'_>,
+        dice_ctx: &mut DiceTransaction,
+        server_ctx: &dyn ServerCommandContextTrait,
+    ) -> buck2_error::Result<Option<String>> {
+        let bxl_opts = self
+            .req
+            .build_opts
+            .as_ref()
+            .expect("should have build options");
+
+        let serialized_build_report = if bxl_opts.unstable_print_build_report {
+            let artifact_fs = dice_ctx.get_artifact_fs().await?;
+            let build_report_opts = BuildReportOpts {
+                // These are all deprecated for `buck2 build`, so don't need to support them
+                print_unconfigured_section: false,
+                unstable_include_failures_build_report: false,
+                unstable_include_package_project_relative_paths: false,
+                unstable_include_artifact_hash_information: false,
+                unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
+            };
+
+            generate_build_report(
+                build_report_opts,
+                &artifact_fs,
+                &ctx.cell_resolver,
+                server_ctx.project_root(),
+                ctx.cwd,
+                server_ctx.events().trace_id(),
+                &BTreeMap::default(),
+                &BTreeMap::default(),
+            )?
+        } else {
+            None
         };
 
-        generate_build_report(
-            build_report_opts,
-            &artifact_fs,
-            &cell_resolver,
-            server_ctx.project_root(),
-            cwd,
-            server_ctx.events().trace_id(),
-            &labeled_configured_build_results
-                .iter()
-                .map(|(k, v)| (k.to_owned(), Some(v.to_owned())))
-                .collect::<BTreeMap<_, _>>(),
-            &BTreeMap::default(),
-        )?
-    } else {
-        None
-    };
-
-    Ok(BxlResponse {
-        project_root,
-        errors,
-        serialized_build_report,
-    })
+        Ok(serialized_build_report)
+    }
 }
 
-fn send_bxl_target_cfg_event(
-    server_ctx: &dyn ServerCommandContextTrait,
-    request: &buck2_cli_proto::BxlRequest,
-    labels: &BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult>,
-) {
-    send_target_cfg_event(server_ctx.events(), labels.keys(), &request.target_cfg);
+#[derive(Debug)]
+struct BxlCommandContext<'a> {
+    cwd: &'a ProjectRelativePath,
+    cell_resolver: CellResolver,
+    bxl_label: BxlFunctionLabel,
+    project_root: String,
+    global_cfg_options: GlobalCfgOptions,
 }
 
 pub(crate) async fn get_bxl_cli_args(
@@ -306,68 +463,8 @@ async fn copy_output<W: Write>(
     Ok(())
 }
 
-async fn ensure_artifacts(
-    ctx: &mut DiceComputations<'_>,
-    materialization_ctx: &MaterializationContext,
-    target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
-    artifacts: Option<&Vec<ArtifactGroup>>,
-) -> Result<(), Vec<buck2_error::Error>> {
-    if let Some(artifacts) = artifacts {
-        return {
-            get_dispatcher()
-                .span_async(BxlEnsureArtifactsStart {}, async move {
-                    (
-                        ensure_artifacts_inner(ctx, materialization_ctx, target_results, artifacts)
-                            .await,
-                        BxlEnsureArtifactsEnd {},
-                    )
-                })
-                .await
-        };
-    }
-    Ok(())
-}
-
-async fn ensure_artifacts_inner(
-    ctx: &mut DiceComputations<'_>,
-    materialization_ctx: &MaterializationContext,
-    target_results: impl IntoIterator<Item = &ConfiguredBuildTargetResult>,
-    artifacts: &[ArtifactGroup],
-) -> Result<(), Vec<buck2_error::Error>> {
-    let mut artifacts_to_materialize: Vec<_> = artifacts.iter().duped().collect();
-    let mut errors = Vec::new();
-
-    for res in target_results {
-        for output in &res.outputs {
-            match output {
-                Ok(artifacts) => {
-                    for (artifact, _value) in artifacts.values.iter() {
-                        artifacts_to_materialize.push(ArtifactGroup::Artifact(artifact.dupe()))
-                    }
-                }
-                Err(e) => errors.push(e.dupe()),
-            }
-        }
-    }
-
-    let materialize_errors = ctx
-        .compute_join(artifacts_to_materialize, |ctx, artifact| {
-            async move {
-                materialize_artifact_group(ctx, &artifact, materialization_ctx).await?;
-                Ok(())
-            }
-            .boxed()
-        })
-        .await;
-    errors.extend(materialize_errors.into_iter().filter_map(|v| v.err()));
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors)
-    }
-}
-
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlLabelError {
     #[error(
         "bxl label should be of format `<cell>//path/to/file.bxl:function_name`, but got `{0}`"
@@ -417,23 +514,4 @@ pub(crate) fn parse_bxl_label_from_cli(
         bxl_path: BxlFilePath::new(import_path)?,
         name: bxl_fn.to_owned(),
     })
-}
-
-fn filter_bxl_build_results(
-    build_results: Option<&Vec<BxlBuildResult>>,
-) -> BTreeMap<ConfiguredProvidersLabel, ConfiguredBuildTargetResult> {
-    let mut btree = BTreeMap::new();
-    if let Some(build_results) = build_results {
-        for res in build_results {
-            match res {
-                BxlBuildResult::Built { label, result } => {
-                    if btree.insert(label.to_owned(), result.to_owned()).is_some() {
-                        tracing::debug!("Found duped bxl result {}", label);
-                    }
-                }
-                BxlBuildResult::None => (),
-            }
-        }
-    }
-    btree
 }

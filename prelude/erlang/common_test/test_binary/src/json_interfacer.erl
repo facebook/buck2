@@ -12,6 +12,7 @@
 %
 %
 %
+-eqwalizer(ignore).
 
 -export([write_json_output/2, format_json/1, status_name/1]).
 

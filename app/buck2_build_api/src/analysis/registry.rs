@@ -26,7 +26,6 @@ use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
-use buck2_interpreter::from_freeze::from_freeze_error;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -99,6 +98,7 @@ pub struct AnalysisRegistry<'v> {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum DeclaredArtifactError {
     #[error("Can't declare an artifact with an empty filename component")]
     DeclaredEmptyFileName,
@@ -286,11 +286,11 @@ impl<'v> AnalysisRegistry<'v> {
         self,
         env: &'v Module,
     ) -> buck2_error::Result<
-        impl FnOnce(Module) -> buck2_error::Result<(FrozenModule, RecordedAnalysisValues)> + 'static,
+        impl FnOnce(&FrozenModule) -> buck2_error::Result<RecordedAnalysisValues> + 'static,
     > {
         let AnalysisRegistry {
             actions,
-            artifact_groups,
+            artifact_groups: _,
             anon_targets: _,
             analysis_value_storage,
             short_path_assertions: _,
@@ -298,17 +298,15 @@ impl<'v> AnalysisRegistry<'v> {
 
         let self_key = analysis_value_storage.self_key.dupe();
         analysis_value_storage.write_to_module(env)?;
-        Ok(move |env: Module| {
-            let frozen_env = env.freeze().map_err(from_freeze_error)?;
+        Ok(move |frozen_env: &FrozenModule| {
             let analysis_value_fetcher = AnalysisValueFetcher {
                 self_key,
                 frozen_module: Some(frozen_env.dupe()),
             };
             let actions = actions.ensure_bound(&analysis_value_fetcher)?;
-            artifact_groups.ensure_bound(&analysis_value_fetcher)?;
             let recorded_values = analysis_value_fetcher.get_recorded_values(actions)?;
 
-            Ok((frozen_env, recorded_values))
+            Ok(recorded_values)
         })
     }
 

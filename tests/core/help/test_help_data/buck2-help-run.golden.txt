@@ -128,10 +128,24 @@ Options:
       --materialize-failed-inputs
           Materializes inputs for failed actions which ran on RE
 
+      --materialize-failed-outputs
+          Materializes outputs (if present) for failed actions which ran on RE
+
   -h, --help
           Print help (see a summary with '-h')
 
 Target Configuration Options:
+  -u, --target-universe <TARGET_UNIVERSE>
+          Comma separated list of targets to construct a configured target universe.
+
+          When the option is specified, command targets are be resolved in this universe.
+          Additionally, `--target-platforms=` and `--modifier=` flags are be used to configure the
+          universe targets, not the command targets.
+
+          This argument is particularly recommended on most non-trivial cqueries. In the absence of
+          this argument, buck2 will use the target literals in your cquery expression as the value
+          for this argument, which may not be what you want.
+
       --target-platforms <PLATFORM>
           Configuration target (one) to use to configure targets
 

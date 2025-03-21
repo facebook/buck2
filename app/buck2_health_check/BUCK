@@ -1,0 +1,36 @@
+load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+rust_library(
+    name = "buck2_health_check",
+    srcs = glob(
+        [
+            "src/**/*.rs",
+            "src/**/*.graphql",
+        ],
+    ),
+    env = {
+        # graphql_client uses this path to find graphql files.
+        "CARGO_MANIFEST_DIR": ".",
+    },
+    mapped_srcs = {
+        # @oss-disable[end= ]: "fbsource//xplat/graphql:intern-schema.graphql": "intern-schema.graphql",
+    },
+    test_deps = ["fbsource//third-party/rust:tokio"],
+    deps = [
+        "fbsource//third-party/rust:async-trait",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:graphql_client",
+        "fbsource//third-party/rust:regex",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/app/buck2_common:buck2_common",
+        "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_data:buck2_data",
+        "//buck2/app/buck2_error:buck2_error",
+        # @oss-disable[end= ]: "//common/rust/cpe:cpe",
+        # @oss-disable[end= ]: "//common/rust/interngraph:interngraph",
+        "//common/rust/shed/fbinit:fbinit",
+    ],
+)

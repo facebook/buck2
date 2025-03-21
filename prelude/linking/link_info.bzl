@@ -15,7 +15,6 @@ load(
     "LinkerType",
     "PicBehavior",
 )
-load("@prelude//cxx:debug.bzl", "get_debug_info_identity")
 load(
     "@prelude//cxx:linker.bzl",
     "get_link_whole_args",
@@ -33,8 +32,15 @@ ExtraLinkerOutputs = record(
     providers = field(dict[str, list[DefaultInfo]], {}),
 )
 
+ArchiveContentsType = enum(
+    "normal",  # The static archive itself contains a symbol table and compressed object files
+    "thin",  # The static archive only has a symbol table and refers to object files elsewhere on disk
+    "virtual",  # Object files are passed directly to the linker between --start-lib --end-lib flags to indicate archive semantics, and a normal static archive is used by actions that request the archive itself
+)
+
 # Represents an archive (.a file)
 Archive = record(
+    archive_contents_type = field(ArchiveContentsType, default = ArchiveContentsType("normal")),
     artifact = field(Artifact),
     # For a thin archive, this contains all the referenced .o files
     external_objects = field(list[Artifact], []),
@@ -136,19 +142,11 @@ SwiftmoduleLinkable = record(
     swiftmodules = field(ArtifactTSet, ArtifactTSet()),
 )
 
-# Represents the Swift runtime as a linker input.
-SwiftRuntimeLinkable = record(
-    # Only store whether the runtime is required, so that linker flags
-    # are only materialized _once_ (no duplicates) on the link line.
-    runtime_required = field(bool, False),
-)
-
 LinkableTypes = [
     ArchiveLinkable,
     SharedLibLinkable,
     ObjectsLinkable,
     FrameworksLinkable,
-    SwiftRuntimeLinkable,
     SwiftmoduleLinkable,
 ]
 
@@ -242,37 +240,31 @@ def wrap_link_info(
         metadata = inner.metadata,
     )
 
-# Returns true if the command line argument representation of this linkable,
-# could be passed within a filelist.
-def _is_linkable_included_in_filelist(linkable: LinkableTypes) -> bool:
-    if isinstance(linkable, ArchiveLinkable):
-        # Link whole archives don't appear in the filelist, but are passed directly to the linker
-        # with a -force-load (MachO) or -whole-archive (ELF) flag. Regular archives do appear in the filelist.
-        return not linkable.link_whole
-    elif isinstance(linkable, SharedLibLinkable) or \
-         isinstance(linkable, FrameworksLinkable) or \
-         isinstance(linkable, SwiftRuntimeLinkable) or \
-         isinstance(linkable, SwiftmoduleLinkable):
-        # These are all passed directly via various command line flags, not via a filelist.
-        return False
-    elif isinstance(linkable, ObjectsLinkable):
-        # Object files always appear in the filelist.
-        return True
-    else:
-        fail("Encountered unhandled filelist-like linkable {}".format(str(linkable)))
+def _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable: LinkableTypes) -> bool:
+    return isinstance(linkable, ObjectsLinkable) or (isinstance(linkable, ArchiveLinkable) and not linkable.link_whole)
 
 # Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     if isinstance(linkable, ArchiveLinkable):
-        if linkable.link_whole:
+        if linkable.archive.archive_contents_type == ArchiveContentsType("virtual"):
+            if not linkable.link_whole:
+                args.add("-Wl,--start-lib")
+
+            for object in linkable.archive.external_objects:
+                args.add(object)
+
+            if not linkable.link_whole:
+                args.add("-Wl,--end-lib")
+        elif linkable.link_whole:
             args.add(get_link_whole_args(linkable.linker_type, [linkable.archive.artifact]))
         else:
             args.add(linkable.archive.artifact)
 
-        # When using thin archives, object files are implicitly used as inputs
-        # to the link, so make sure track them as inputs so that they're
-        # materialized/tracked properly.
-        args.add(cmd_args(hidden = linkable.archive.external_objects))
+        if linkable.archive.archive_contents_type == ArchiveContentsType("thin"):
+            # When using thin archives, object files are implicitly used as inputs
+            # to the link, so make sure track them as inputs so that they're
+            # materialized/tracked properly.
+            args.add(cmd_args(hidden = linkable.archive.external_objects))
     elif isinstance(linkable, SharedLibLinkable):
         if linkable.link_without_soname:
             args.add(cmd_args(linkable.lib, format = "-L{}", parent = 1))
@@ -289,7 +281,6 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
         else:
             args.add(linkable.objects)
     elif isinstance(linkable, FrameworksLinkable) or \
-         isinstance(linkable, SwiftRuntimeLinkable) or \
          isinstance(linkable, SwiftmoduleLinkable):
         # These flags are handled separately so they can be deduped.
         #
@@ -301,23 +292,25 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
 
 LinkInfoArgumentFilter = enum(
     "all",
-    "filelist_only",
-    "excluding_filelist",
+    "object_files_and_lazy_archives_only",
+    "exclude_object_files_and_lazy_archives",
 )
 
 def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFilter = LinkInfoArgumentFilter("all")) -> cmd_args:
     result = cmd_args()
 
-    do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("excluding_filelist")
+    do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives")
     if do_pre_post_flags:
         result.add(value.pre_flags)
 
     for linkable in value.linkables:
-        if (argument_type_filter == LinkInfoArgumentFilter("all")) or (
-            argument_type_filter == LinkInfoArgumentFilter("filelist_only") and _is_linkable_included_in_filelist(linkable)
-        ) or (
-            argument_type_filter == LinkInfoArgumentFilter("excluding_filelist") and not _is_linkable_included_in_filelist(linkable)
-        ):
+        if argument_type_filter == LinkInfoArgumentFilter("all"):
+            append_linkable_args(result, linkable)
+
+        elif argument_type_filter == LinkInfoArgumentFilter("object_files_and_lazy_archives_only") and _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable):
+            append_linkable_args(result, linkable)
+
+        elif argument_type_filter == LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives") and not _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable):
             append_linkable_args(result, linkable)
 
     if do_pre_post_flags:
@@ -347,57 +340,31 @@ def _link_info_stripped_link_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("all"))
 
-def _link_info_default_filelist(infos: LinkInfos):
-    info = infos.default
-    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only"))
+def _link_info_object_files_and_lazy_archives_only_args(infos: LinkInfos):
+    return link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("object_files_and_lazy_archives_only"))
 
-def _link_info_stripped_filelist(infos: LinkInfos):
-    info = infos.stripped or infos.default
-    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only"))
+def _link_info_excluding_object_files_and_lazy_archives_args(infos: LinkInfos):
+    return link_info_to_args(infos.default, argument_type_filter = LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives"))
 
-def _link_info_default_excluding_filelist_args(infos: LinkInfos):
-    info = infos.default
-    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
-
-def _link_info_stripped_excluding_filelist_args(infos: LinkInfos):
-    info = infos.stripped or infos.default
-    return link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("excluding_filelist"))
-
-def link_info_to_metadata_args(info: LinkInfo) -> ArgLike:
-    return cmd_args(["version:" + meta.version for meta in info.metadata])
+def link_info_to_metadata_args(info: LinkInfo, args: cmd_args | None = None) -> ArgLike:
+    if args == None:
+        args = cmd_args()
+    for meta in info.metadata:
+        args.add("version:" + meta.version)
+    return args
 
 def _link_info_metadata_args(infos: LinkInfos):
     info = infos.stripped or infos.default
     return link_info_to_metadata_args(info)
 
-def _link_info_has_default_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
-    if infos:
-        info = infos.default
-        if len(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")).inputs):
-            return True
-    return any(children)
-
-def _link_info_has_stripped_filelist(children: list[bool], infos: [LinkInfos, None]) -> bool:
-    if infos:
-        info = infos.stripped or infos.default
-        if len(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")).inputs):
-            return True
-    return any(children)
-
 # TransitiveSet of LinkInfos.
 LinkInfosTSet = transitive_set(
     args_projections = {
         "default": _link_info_default_args,
-        "default_excluding_filelist": _link_info_default_excluding_filelist_args,
-        "default_filelist": _link_info_default_filelist,
+        "exclude_object_files_and_lazy_archives": _link_info_excluding_object_files_and_lazy_archives_args,
         "metadata": _link_info_metadata_args,
+        "object_files_and_lazy_archives_only": _link_info_object_files_and_lazy_archives_only_args,
         "stripped": _link_info_stripped_link_args,
-        "stripped_excluding_filelist": _link_info_stripped_excluding_filelist_args,
-        "stripped_filelist": _link_info_stripped_filelist,
-    },
-    reductions = {
-        "has_default_filelist": _link_info_has_default_filelist,
-        "has_stripped_filelist": _link_info_has_stripped_filelist,
     },
 )
 
@@ -444,11 +411,6 @@ LinkedObject = record(
     # This argsfile is generated in the `cxx_link` step and contains a list of arguments
     # passed to the linker. It is being exposed as a sub-target for debugging purposes.
     linker_argsfile = field(Artifact | None, None),
-    # The filelist is generated in the `cxx_link` step and contains a list of
-    # object files (static libs or plain object files) passed to the linker.
-    # It is being exposed for debugging purposes. Only present when a Darwin
-    # linker is used.
-    linker_filelist = field(Artifact | None, None),
     # The linker command as generated by `cxx_link`. Exposed for debugging purposes only.
     # Not present for DistLTO scenarios.
     linker_command = field([cmd_args, None], None),
@@ -484,7 +446,6 @@ MergedLinkInfo = provider(fields = [
     # structure, based on the link-style.
     "frameworks",  # dict[LinkStrategy, FrameworksLinkable | None]
     "swiftmodules",  # dict[LinkStrategy, SwiftmoduleLinkable | None]
-    "swift_runtime",  # dict[LinkStrategy, SwiftRuntimeLinkable | None]
 ])
 
 # A map of linkages to all possible output styles it supports.
@@ -527,8 +488,7 @@ def create_merged_link_info(
         # Link info to always propagate from exported deps.
         exported_deps: list[MergedLinkInfo] = [],
         frameworks_linkable: [FrameworksLinkable, None] = None,
-        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
-        swift_runtime_linkable: [SwiftRuntimeLinkable, None] = None) -> MergedLinkInfo:
+        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None) -> MergedLinkInfo:
     """
     Create a `MergedLinkInfo` provider.
     """
@@ -536,7 +496,6 @@ def create_merged_link_info(
     infos = {}
     external_debug_info = {}
     frameworks = {}
-    swift_runtime = {}
     swiftmodules = {}
 
     # We don't know how this target will be linked, so we generate the possible
@@ -548,7 +507,6 @@ def create_merged_link_info(
         children = []
         external_debug_info_children = []
         framework_linkables = []
-        swift_runtime_linkables = []
         swiftmodule_linkables = []
 
         # When we're being linked statically, we also need to export all private
@@ -564,9 +522,6 @@ def create_merged_link_info(
             swiftmodule_linkables.append(swiftmodule_linkable)
             swiftmodule_linkables += [dep_info.swiftmodules[link_strategy] for dep_info in exported_deps]
 
-            swift_runtime_linkables.append(swift_runtime_linkable)
-            swift_runtime_linkables += [dep_info.swift_runtime[link_strategy] for dep_info in exported_deps]
-
             for dep_info in deps:
                 # The inherited link infos no longer guarantees that a tset will be available for
                 # all link strategies. Protect against missing infos
@@ -579,7 +534,6 @@ def create_merged_link_info(
 
                 framework_linkables.append(dep_info.frameworks[link_strategy])
                 swiftmodule_linkables.append(dep_info.swiftmodules[link_strategy])
-                swift_runtime_linkables.append(dep_info.swift_runtime[link_strategy])
 
         # We always export link info for exported deps.
         for dep_info in exported_deps:
@@ -591,7 +545,6 @@ def create_merged_link_info(
                 external_debug_info_children.append(value)
 
         frameworks[link_strategy] = merge_framework_linkables(framework_linkables)
-        swift_runtime[link_strategy] = merge_swift_runtime_linkables(swift_runtime_linkables)
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, swiftmodule_linkables)
 
         if actual_output_style in link_infos:
@@ -617,7 +570,6 @@ def create_merged_link_info(
         _infos = infos,
         _external_debug_info = external_debug_info,
         frameworks = frameworks,
-        swift_runtime = swift_runtime,
         swiftmodules = swiftmodules,
     )
 
@@ -632,7 +584,6 @@ def create_merged_link_info_for_propagation(
     merged = {}
     merged_external_debug_info = {}
     frameworks = {}
-    swift_runtime = {}
     swiftmodules = {}
     for link_strategy in LinkStrategy:
         merged[link_strategy] = ctx.actions.tset(
@@ -645,13 +596,12 @@ def create_merged_link_info_for_propagation(
             children = filter(None, [x._external_debug_info.get(link_strategy) for x in xs]),
         )
         frameworks[link_strategy] = merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
-        swift_runtime[link_strategy] = merge_swift_runtime_linkables([x.swift_runtime[link_strategy] for x in xs])
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, [x.swiftmodules[link_strategy] for x in xs])
+
     return MergedLinkInfo(
         _infos = merged,
         _external_debug_info = merged_external_debug_info,
         frameworks = frameworks,
-        swift_runtime = swift_runtime,
         swiftmodules = swiftmodules,
     )
 
@@ -674,9 +624,11 @@ def get_link_info(
 def unpack_link_args_metadata(args: LinkArgs) -> ArgLike:
     if args.tset != None:
         return args.tset.infos.project_as_args("metadata")
+    ret = cmd_args()
     if args.infos != None:
-        return cmd_args([link_info_to_metadata_args(info) for info in args.infos])
-    return cmd_args()
+        for info in args.infos:
+            link_info_to_metadata_args(info, ret)
+    return ret
 
 def dedupe_dep_metadata(metadatas: list[DepMetadata]) -> list[DepMetadata]:
     versions = set([m.version for m in metadatas])
@@ -727,51 +679,39 @@ def unpack_link_args(
 
     fail("Unpacked invalid empty link args")
 
-def unpack_link_args_filelist(args: LinkArgs) -> [ArgLike, None]:
+def unpack_link_args_excluding_object_files_and_lazy_archives(args: LinkArgs) -> [ArgLike, None]:
     if args.tset != None:
-        tset = args.tset.infos
-        stripped = args.tset.prefer_stripped
-        if not tset.reduce("has_stripped_filelist" if stripped else "has_default_filelist"):
-            return None
-        return tset.project_as_args("stripped_filelist" if stripped else "default_filelist")
+        if args.tset.prefer_stripped:
+            fail("Preferring stripped link infos is not supported by this function.")
+
+        return args.tset.infos.project_as_args("exclude_object_files_and_lazy_archives")
 
     if args.infos != None:
         result_args = cmd_args()
         for info in args.infos:
-            result_args.add(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("filelist_only")))
+            result_args.add(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives")))
+        return result_args
 
-        if not len(result_args.inputs):
-            return None
+    if args.flags != None:
+        return args.flags
 
+    fail("Unpacked invalid empty link args")
+
+def unpack_link_args_object_files_and_lazy_archives_only(args: LinkArgs) -> [ArgLike, None]:
+    if args.tset != None:
+        if args.tset.prefer_stripped:
+            fail("Preferring stripped link infos is not supported by this function.")
+
+        return args.tset.infos.project_as_args("object_files_and_lazy_archives_only")
+
+    if args.infos != None:
+        result_args = cmd_args()
+        for info in args.infos:
+            result_args.add(link_info_to_args(info, argument_type_filter = LinkInfoArgumentFilter("object_files_and_lazy_archives_only")))
         return result_args
 
     if args.flags != None:
         return None
-
-    fail("Unpacked invalid empty link args")
-
-def unpack_link_args_excluding_filelist(
-        args: LinkArgs,
-        link_ordering: [LinkOrdering, None] = None,
-        link_metadata_flag: str | None = None) -> ArgLike:
-    cmd = link_args_metadata_with_flag(args, link_metadata_flag)
-    if args.tset != None:
-        ordering = link_ordering.value if link_ordering else "preorder"
-
-        tset = args.tset.infos
-        if args.tset.prefer_stripped:
-            cmd.add(tset.project_as_args("stripped_excluding_filelist", ordering = ordering))
-        else:
-            cmd.add(tset.project_as_args("default_excluding_filelist", ordering = ordering))
-        return cmd
-
-    if args.infos != None:
-        cmd.add([link_info_to_args(info, LinkInfoArgumentFilter("excluding_filelist")) for info in args.infos])
-        return cmd
-
-    if args.flags != None:
-        cmd.add(args.flags)
-        return cmd
 
     fail("Unpacked invalid empty link args")
 
@@ -838,7 +778,6 @@ def get_link_args_for_strategy(
     external_debug_info = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
-        identity = get_debug_info_identity(ctx),
         children = filter(
             None,
             [x._external_debug_info.get(link_strategy) for x in deps_merged_link_infos] + ([additional_link_info.external_debug_info] if additional_link_info else []),
@@ -943,12 +882,6 @@ def legacy_output_style_to_link_style(output_style: LibOutputStyle) -> LinkStyle
         return LinkStyle("static_pic")
     fail("unrecognized output_style {}".format(output_style))
 
-def merge_swift_runtime_linkables(linkables: list[[SwiftRuntimeLinkable, None]]) -> SwiftRuntimeLinkable:
-    for linkable in linkables:
-        if linkable and linkable.runtime_required:
-            return SwiftRuntimeLinkable(runtime_required = True)
-    return SwiftRuntimeLinkable(runtime_required = False)
-
 def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> FrameworksLinkable:
     unique_framework_names = {}
     unique_framework_paths = {}
@@ -1011,7 +944,6 @@ LinkCommandDebugOutput = record(
     filename = str,
     command = ArgLike,
     argsfile = Artifact,
-    filelist = Artifact | None,
     dist_thin_lto_codegen_argsfile = Artifact | None,
     dist_thin_lto_index_argsfile = Artifact | None,
 )
@@ -1036,7 +968,6 @@ def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandD
         filename = linked_object.output.short_path,
         command = linked_object.linker_command,
         argsfile = linked_object.linker_argsfile,
-        filelist = linked_object.linker_filelist,
         dist_thin_lto_index_argsfile = linked_object.dist_thin_lto_index_argsfile,
         dist_thin_lto_codegen_argsfile = linked_object.dist_thin_lto_codegen_argsfile,
     )
@@ -1047,7 +978,6 @@ def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandD
 #
 # For local thin-LTO:
 # - linker argfile
-# - linker filelist (if present - only applicable to Darwin linkers)
 #
 # For distributed thin-LTO:
 # - thin-link argsfile (without inputs just flags)
@@ -1072,8 +1002,8 @@ def make_link_command_debug_output_json_info(ctx: AnalysisContext, debug_outputs
                 "filename": debug_output.filename,
             })
 
-            # Ensure all argsfile and filelists get materialized, as those are needed for debugging
-            associated_artifacts.extend(filter(None, [debug_output.argsfile, debug_output.filelist]))
+            # Ensure all argsfile get materialized, as those are needed for debugging
+            associated_artifacts.extend(filter(None, [debug_output.argsfile]))
 
     # Explicitly drop all inputs by using `with_inputs = False`, we don't want
     # to materialize all inputs to the link actions (which includes all object files

@@ -29,7 +29,10 @@ impl KillallCommand {
                 let _ignored = buck2_client_ctx::eprintln!("{}", s);
             })
             .then_some(())
-            .ok_or(buck2_error::buck2_error!([], "Killall command failed"))
+            .ok_or(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Killall command failed"
+            ))
         })
         .into()
     }

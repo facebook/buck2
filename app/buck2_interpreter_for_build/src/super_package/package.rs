@@ -22,16 +22,11 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::none::NoneType;
 
 use crate::interpreter::build_context::BuildContext;
-use crate::interpreter::build_context::PerFileTypeContext;
 use crate::super_package::eval_ctx::PackageFileVisibilityFields;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum PackageFileError {
-    #[error(
-        "`package()` can only be called in `PACKAGE` files \
-        or in `bzl` files included from `PACKAGE` files"
-    )]
-    NotPackage,
     #[error("`package()` function can be used at most once per `PACKAGE` file")]
     AtMostOnce,
 }
@@ -92,10 +87,7 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
         eval: &mut Evaluator,
     ) -> starlark::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
-        let package_file_eval_ctx = match &build_context.additional {
-            PerFileTypeContext::Package(package_file_eval_ctx) => package_file_eval_ctx,
-            _ => return Err(buck2_error::Error::from(PackageFileError::NotPackage).into()),
-        };
+        let package_file_eval_ctx = build_context.additional.require_package_file("package")?;
         let visibility = parse_visibility(
             &visibility.items,
             build_context.cell_info().name().name(),

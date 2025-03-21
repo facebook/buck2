@@ -47,3 +47,21 @@ service Worker {
 
   rpc Exec(stream ExecuteEvent) returns (ExecuteResponse) {};
 }
+
+message ExecuteCommandStream {
+  ExecuteCommand request = 1;
+  uint64 id = 2;
+}
+
+message ExecuteResponseStream {
+  ExecuteResponse response = 1;
+  uint64 id = 2;
+}
+
+// This is its own interface because it significantly complicates worker
+// implementation. Most workers do not need streaming, nor do they benefit from
+// it.
+service WorkerStreaming {
+  rpc ExecuteStream(stream ExecuteCommandStream)
+      returns (stream ExecuteResponseStream) {};
+}

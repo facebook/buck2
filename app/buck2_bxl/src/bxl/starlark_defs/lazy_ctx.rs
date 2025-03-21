@@ -42,6 +42,7 @@ pub(crate) mod lazy_cquery_ctx;
 pub(crate) mod operation;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlBuildArtifactError {
     #[error(
         "`ctx.lazy.build_artifact()` does not accept declared artifact {0}. Use `ctx.output.ensure()` instead."

@@ -31,7 +31,11 @@ impl TryInto<HashMap<String, String>> for proto::Event {
                     e.insert(value);
                 }
                 Entry::Occupied(e) => {
-                    return Err(buck2_error::buck2_error!([], "Duplicate key: {}", e.key()));
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Tier0,
+                        "Duplicate key: {}",
+                        e.key()
+                    ));
                 }
             }
         }
@@ -63,10 +67,15 @@ impl TryInto<Level> for proto::LogLevel {
         use proto::log_level::Value;
 
         let proto::LogLevel { value } = self;
-        let value = Value::from_i32(value).buck_error_context("Invalid `value`")?;
+        let value = Value::try_from(value).buck_error_context("Invalid `value`")?;
 
         Ok(match value {
-            Value::NotSet => return Err(buck2_error::buck2_error!([], "Missing `value`")),
+            Value::NotSet => {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Missing `value`"
+                ));
+            }
             Value::Trace => Level::TRACE,
             Value::Debug => Level::DEBUG,
             Value::Info => Level::INFO,
@@ -88,7 +97,13 @@ impl TryFrom<Level> for proto::LogLevel {
             v if v == Level::INFO => Value::Info,
             v if v == Level::WARN => Value::Warn,
             v if v == Level::ERROR => Value::Error,
-            v => return Err(buck2_error::buck2_error!([], "Unsupported Level: {:?}", v)),
+            v => {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Unsupported Level: {:?}",
+                    v
+                ));
+            }
         };
 
         Ok(proto::LogLevel {

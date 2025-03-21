@@ -49,23 +49,26 @@ def _gen_headers(headers):
     ], indent_level = 1)
 
 def _gen_sources(sources):
-    return h("ItemGroup", [
-        h("ClCompile", None, {
+    source_entries = [
+        h("ClCompile", [h("BuckObjSubTarget", object, indent_level = 3)], {
             "Include": cmd_args("$(RepoRoot)\\", source, delimiter = ""),
         }, indent_level = 2)
-        for source in sources
-    ], indent_level = 1)
+        for source, object in sources.items()
+    ]
+    return h("ItemGroup", source_entries, indent_level = 1)
 
 def _gen_import_mode_configs(vs_settings: dict, target):
     imports = []
     for (mode_file, _) in vs_settings[BY_MODES].items():
-        import_config = '    <Import Condition="\'$(Configuration)\'==\'{}\'" Project="{}mode_configs\\{}" />\n'.format(
+        import_config = '        <Import Condition="\'$(Configuration)\'==\'{}\'" Project="{}mode_configs\\{}" />\n'.format(
             get_vs_configuration(mode_file),
             get_root_path_relative_to(target.label),
             get_mode_config_path(mode_file),
         )
         imports.append(import_config)
-    return "".join(imports)
+    return h("ImportGroup", imports, {
+        "Label": "PropertySheets",
+    }, indent_level = 1)
 
 def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, buck_root):
     log_debug("# Generating vcxproj for {}", target.label.raw_target(), log_level = cli_args.log_level)
@@ -115,6 +118,26 @@ def gen_vcxproj(target: bxl.ConfiguredTargetNode, vs_settings: dict, cli_args, b
         "",
         sources,
         "",
+        h(
+            "Target",
+            [
+                h(
+                    "Exec",
+                    None,
+                    {
+                        "Command": "$(vs_buck_build_command)[objects][%(ClCompile.BuckObjSubTarget)] $(ExtraBuckOptions)",
+                        "WorkingDirectory": "$(RepoRoot)",
+                    },
+                    indent_level = 2,
+                ),
+            ],
+            {
+                "Condition": "\'@(ClCompile)\' != \'\'",
+                "DependsOnTargets": "SelectClCompile",
+                "Name": "ClCompile",
+            },
+            indent_level = 1,
+        ),
         """
     <ImportGroup Label="ExtensionTargets" />
 </Project>""",

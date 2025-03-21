@@ -17,6 +17,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::events_ctx::PartialResultCtx;
 use buck2_client_ctx::events_ctx::PartialResultHandler;
 use buck2_client_ctx::exit_result::ExitResult;
@@ -49,6 +50,7 @@ impl StreamingCommand for LspCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let client_context = ctx.client_context(matches, &self)?;
         let stream = ide_message_stream::<_, Message>(ctx.stdin()).filter_map(|m| async move {
@@ -68,7 +70,12 @@ impl StreamingCommand for LspCommand {
             |stream| async move {
                 buckd
                     .with_flushing()
-                    .lsp(client_context, stream, &mut partial_result_handler)
+                    .lsp(
+                        client_context,
+                        stream,
+                        events_ctx,
+                        &mut partial_result_handler,
+                    )
                     .await
             },
             // The LSP server side does not handle hangups. So, until it does... we never hang up:
@@ -117,7 +124,7 @@ impl PartialResultHandler for LspPartialResultHandler {
 
     async fn handle_partial_result(
         &mut self,
-        mut ctx: PartialResultCtx<'_, '_>,
+        mut ctx: PartialResultCtx<'_>,
         partial_res: Self::PartialResult,
     ) -> buck2_error::Result<()> {
         let lsp_message: lsp_server::Message = serde_json::from_str(&partial_res.lsp_json)?;

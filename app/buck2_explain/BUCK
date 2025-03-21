@@ -1,7 +1,5 @@
-load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup", "buck_genrule")
-load("@fbcode_macros//build_defs:python_binary.bzl", "python_binary")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbcode_macros//build_defs:rust_library.bzl", "rust_library")
-load("@fbsource//xplat/third-party/yarn:yarn_offline_mirror_helper.bzl", "yarn_offline_mirror_path")
 
 oncall("build_infra")
 
@@ -11,7 +9,9 @@ rust_library(
         ["src/*"],
     ),
     mapped_srcs = {
-        "//buck2/app/buck2_explain:explain_html": "src/explain.html",
+        "//buck2/app/buck2_explain/js:html": "src/explain.html",
+        "//buck2/app/buck2_explain/output_format_js:html": "src/output_format.html",
+        ":output_format_schema_rust[output_format_generated.rs]": "src/output_format_generated.rs",
         ":schema_rust[explain_generated.rs]": "src/explain_generated.rs",
     },
     test_deps = [
@@ -26,56 +26,32 @@ rust_library(
         "fbsource//third-party/rust:flatbuffers",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",
+        "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_node:buck2_node",
         "//buck2/app/buck2_query:buck2_query",
     ],
 )
 
 buck_genrule(
-    name = "schema_rust",
+    name = "output_format_schema_rust",
     srcs = [
-        "explain.fbs",
+        "output_format_js/output_format.fbs",
     ],
     outs = {
-        "explain_generated.rs": ["explain_generated.rs"],
+        "output_format_generated.rs": ["output_format_generated.rs"],
     },
     cmd = "$(exe fbsource//third-party/flatbuffers-23.5.26:flatc) --rust -o ${OUT} ${SRCS}",
     default_outs = ["."],
 )
 
 buck_genrule(
-    name = "explain_html",
-    srcs = [":files"],
-    out = "explain.html",
-    cmd = '$(exe :build_html_script) --yarn "$(exe fbsource//xplat/third-party/yarn:yarn)" --yarn-offline-mirror "{yarn_offline_mirror}" -o "$OUT" --src "$(location :files)" --tmp "$TMP"'.format(yarn_offline_mirror = yarn_offline_mirror_path(yarn_lock = "js/yarn.lock")),
-)
-
-buck_filegroup(
-    name = "files",
-    srcs = glob(
-        [
-            "js/src/**",
-            "js/*",
-        ],
-        exclude = [
-            "js/node_modules/**",
-            "js/dist/**",
-        ],
-    ) + [":schema_ts"],
-)
-
-buck_genrule(
-    name = "schema_ts",
+    name = "schema_rust",
     srcs = [
-        "explain.fbs",
+        "js/explain.fbs",
     ],
-    out = "js/src/fbs",
-    cmd = "$(exe fbsource//third-party/flatbuffers-23.5.26:flatc) --ts -o ${OUT} ${SRCS}",
+    outs = {
+        "explain_generated.rs": ["explain_generated.rs"],
+    },
+    cmd = "$(exe fbsource//third-party/flatbuffers-23.5.26:flatc) --rust -o ${OUT} ${SRCS}",
     default_outs = ["."],
-)
-
-python_binary(
-    name = "build_html_script",
-    main_function = ".build_html.main",
-    main_src = "build_html.py",
 )

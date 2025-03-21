@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 
 AppleToolchainInfo = provider(
@@ -38,9 +37,8 @@ AppleToolchainInfo = provider(
         "sdk_path": provider_field(str | Artifact),
         # TODO(T124581557) Make it non-optional once there is no "selected xcode" toolchain
         "sdk_version": provider_field(str | None, default = None),
-        "swift_toolchain_info": provider_field(SwiftToolchainInfo),
         "xcode_build_version": provider_field(str | None, default = None),
-        "xcode_version": provider_field(str | None, default = None),
+        "xcode_version": provider_field(str),
         "xctest": provider_field(RunInfo),
     },
 )

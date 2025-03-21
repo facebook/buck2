@@ -139,7 +139,7 @@ mod tests {
                     path.clone(),
                 )
             ),
-            r#"Validation for `cell//pkg:foo (<testing>#2c29d96c65b4379a)` failed:
+            r#"Validation for `cell//pkg:foo (<testing>#e1e3240f3bd1fb2b)` failed:
 
 Diagnostic message is missing from validation result
 
@@ -154,7 +154,7 @@ Full validation result is located at: `/my/path/to/validation/result`"#
                     path,
                 )
             ),
-            r#"Validation for `cell//pkg:foo (<testing>#2c29d96c65b4379a)` failed:
+            r#"Validation for `cell//pkg:foo (<testing>#e1e3240f3bd1fb2b)` failed:
 
 Here is my diagnostic message
 

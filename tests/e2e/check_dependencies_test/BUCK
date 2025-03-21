@@ -27,6 +27,7 @@ check_dependencies_test(
     name = "allow_list_and_block_none",
     allowlist_patterns = ALLOW_LIST,
     contacts = CONTACTS,
+    mode = "allowlist",
     target = TARGET2,
 )
 
@@ -34,14 +35,19 @@ check_dependencies_test(
     name = "allow_none_and_block_list",
     blocklist_patterns = BLOCK_LIST,
     contacts = CONTACTS,
+    mode = "blocklist",
     target = TARGET2,
 )
 
 check_dependencies_test(
     name = "allow_list_and_block_list",
     allowlist_patterns = ALLOW_LIST,
-    blocklist_patterns = BLOCK_LIST,
+    blocklist_patterns = [
+        ".*:useless_target_1*",
+    ],
     contacts = CONTACTS,
+    expect_failure_msg = "Found banned targets",
+    mode = "allowlist",
     target = TARGET2,
 )
 
@@ -50,6 +56,7 @@ check_dependencies_test(
     allowlist_patterns = ALLOW_LIST,
     blocklist_patterns = [],
     contacts = CONTACTS,
+    mode = "allowlist",
     target = TARGET2,
 )
 
@@ -58,6 +65,7 @@ check_dependencies_test(
     allowlist_patterns = [],
     blocklist_patterns = BLOCK_LIST,
     contacts = CONTACTS,
+    mode = "blocklist",
     target = TARGET2,
 )
 
@@ -66,6 +74,19 @@ check_dependencies_test(
     blocklist_patterns = [".*:useless_target_1"],
     contacts = CONTACTS,
     expect_failure_msg = "Found blocklisted targets",
+    mode = "blocklist",
+    target = TARGET2,
+)
+
+check_dependencies_test(
+    name = "fail_blocklist_with_allowlist",
+    allowlist_patterns = [
+        ".*:useless_target_1",
+        ".*:useless_target_2",
+    ],
+    blocklist_patterns = [".*:useless_target.*"],
+    contacts = CONTACTS,
+    mode = "blocklist",
     target = TARGET2,
 )
 
@@ -74,6 +95,7 @@ check_dependencies_test(
     allowlist_patterns = [".*:nonexistent_target"],
     contacts = CONTACTS,
     expect_failure_msg = "Found banned targets",
+    mode = "allowlist",
     target = TARGET2,
 )
 

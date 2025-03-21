@@ -22,6 +22,7 @@ pub mod testing {
     use crate::interpreter::build_context::BuildContext;
 
     #[derive(Debug, buck2_error::Error)]
+    #[buck2(tag = Input)]
     enum LabelCreatorError {
         #[error("Expected provider, found something else: `{0}`")]
         ExpectedProvider(String),

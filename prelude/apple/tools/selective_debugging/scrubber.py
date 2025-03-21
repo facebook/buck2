@@ -58,8 +58,10 @@ def load_focused_targets_output_paths(json_file_path: str) -> Set[str]:
 def _get_target_output_path_from_debug_file_path(
     debug_target_path: str,
 ) -> str:
-    # This function assumes the debug file path created by buck2 is in the following format:
+    # This function assumes the debug file path created by buck2 in one of the following formats:
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/libFoo.a
+    # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/__objects__/bar.o
+    # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/swift_object_file.o
     parts = debug_target_path.split("/")
 
     # We are doing the traverse in reverse order because this way we'll find the first
@@ -67,7 +69,12 @@ def _get_target_output_path_from_debug_file_path(
     # important that we make it as efficient as possible.
     i = 1
     while i <= len(parts):
-        if parts[-i].startswith("__") and parts[-i].endswith("__"):
+        # We are looking for the path component that matches __name__ in the examples above, and if we don't explicitly skip __objects__, we'll get the wrong path
+        if (
+            parts[-i].startswith("__")
+            and parts[-i].endswith("__")
+            and parts[-i] != "__objects__"
+        ):
             break
         i += 1
     if i > len(parts):

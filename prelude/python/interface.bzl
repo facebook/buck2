@@ -5,29 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-# Input to build Python libraries and binaries (which are libraries wrapped in
-# an executable). The various functions here must returns the inputs annotated
-# below.
-PythonLibraryInterface = record(
-    # Shared libraries used by this Python library.
-    # dict[str, SharedLibraryInfo]
-    shared_libraries = field(typing.Callable),
-
-    # Shared libraries used by this Python library.
-    # dict[str, SharedLibraryInfo]
-    extension_shared_libraries = field(typing.Callable),
-
-    # An iterator of PythonLibraryManifests objects. This is used to collect extensions.
-    # iterator of PythonLibraryManifests
-    iter_manifests = field(typing.Callable),
-
-    # A PythonLibraryManifestsInterface. This is used to convert manifests to
-    # arguments for pexing. Unlike iter_manifests this allows for more
-    # efficient calls, such as using t-sets projections.
-    # PythonLibraryManifestsInterface
-    manifests = field(typing.Callable),
-)
-
 PythonLibraryManifestsInterface = record(
     # Returns the source manifests for this Python library.
     # [_arglike] of source manifests

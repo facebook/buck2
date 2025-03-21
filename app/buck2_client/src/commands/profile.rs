@@ -26,6 +26,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::BuckSubcommand;
@@ -60,6 +61,8 @@ impl ProfileCommand {
 #[derive(clap::ValueEnum, Dupe, Clone, Copy, Debug)]
 pub(crate) enum BuckProfileMode {
     TimeFlame,
+    HeapAllocated,
+    HeapRetained,
     HeapFlameAllocated,
     HeapFlameRetained,
     HeapSummaryAllocated,
@@ -150,6 +153,8 @@ struct ProfileSubcommand {
 pub(crate) fn profile_mode_to_profile(mode: BuckProfileMode) -> buck2_cli_proto::ProfileMode {
     match mode {
         BuckProfileMode::TimeFlame => buck2_cli_proto::ProfileMode::TimeFlame,
+        BuckProfileMode::HeapAllocated => buck2_cli_proto::ProfileMode::HeapAllocated,
+        BuckProfileMode::HeapRetained => buck2_cli_proto::ProfileMode::HeapRetained,
         BuckProfileMode::HeapFlameAllocated => buck2_cli_proto::ProfileMode::HeapFlameAllocated,
         BuckProfileMode::HeapFlameRetained => buck2_cli_proto::ProfileMode::HeapFlameRetained,
         BuckProfileMode::HeapSummaryAllocated => buck2_cli_proto::ProfileMode::HeapSummaryAllocated,
@@ -182,6 +187,7 @@ impl StreamingCommand for ProfileSubcommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
 
@@ -238,7 +244,7 @@ impl StreamingCommand for ProfileSubcommand {
                     .is_empty()
                 {
                     return Err::<(), _>(buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "BXL profile does not support target universe"
                     ))
                     .into();
@@ -260,7 +266,12 @@ impl StreamingCommand for ProfileSubcommand {
 
         let response = buckd
             .with_flushing()
-            .profile(request, console_opts, &mut NoPartialResultHandler)
+            .profile(
+                request,
+                events_ctx,
+                console_opts,
+                &mut NoPartialResultHandler,
+            )
             .await??;
 
         let ProfileResponse {
@@ -271,8 +282,9 @@ impl StreamingCommand for ProfileSubcommand {
         let elapsed = elapsed
             .buck_error_context("Missing duration")
             .and_then(|d| {
-                Duration::try_from(d)
-                    .map_err(|_| buck2_error::buck2_error!([], "Duration is negative"))
+                Duration::try_from(d).map_err(|_| {
+                    buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "Duration is negative")
+                })
             })
             .buck_error_context("Elapsed is invalid")?;
 

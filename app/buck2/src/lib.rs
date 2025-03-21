@@ -55,10 +55,9 @@ use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_util::cleanup_ctx::AsyncCleanupContextGuard;
 use buck2_util::threads::thread_spawn_scoped;
 use clap::CommandFactory;
 use clap::FromArgMatches;
@@ -221,11 +220,11 @@ impl ParsedArgv {
         let clap = Opt::command();
         let matches = clap.get_matches_from(argv.expanded_argv.args());
 
-        let opt: Opt = Opt::from_arg_matches(&matches).map_err(from_any)?;
+        let opt: Opt = Opt::from_arg_matches(&matches)?;
 
         if opt.common_opts.help_wrapper {
             return Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "`--help-wrapper` should have been handled by the wrapper"
             ));
         }
@@ -279,7 +278,6 @@ pub(crate) enum CommandKind {
     Test(TestCommand),
     Cquery(CqueryCommand),
     Init(InitCommand),
-    #[clap(hide = true)] // TODO iguridi: remove
     Explain(ExplainCommand),
     ExpandExternalCell(ExpandExternalCellsCommand),
     Install(InstallCommand),
@@ -380,7 +378,6 @@ impl CommandKind {
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
 
         let runtime = client_tokio_runtime()?;
-        let async_cleanup = AsyncCleanupContextGuard::new(&runtime);
 
         let start_in_process_daemon = if common_opts.no_buckd {
             #[cfg(not(client_only))]
@@ -406,7 +403,6 @@ impl CommandKind {
             start_in_process_daemon,
             argv,
             process.trace_id.dupe(),
-            async_cleanup.ctx().dupe(),
             process.stdin,
             process.restarter,
             process.restarted_trace_id.dupe(),
@@ -422,12 +418,13 @@ impl CommandKind {
             #[cfg(not(client_only))]
             CommandKind::Forkserver(cmd) => cmd
                 .exec(matches, command_ctx, process.log_reload_handle.dupe())
-                .map_err(from_any)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .into(),
             #[cfg(not(client_only))]
-            CommandKind::InternalTestRunner(cmd) => {
-                cmd.exec(matches, command_ctx).map_err(from_any).into()
-            }
+            CommandKind::InternalTestRunner(cmd) => cmd
+                .exec(matches, command_ctx)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                .into(),
             CommandKind::Aquery(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Build(cmd) => cmd.exec(matches, command_ctx),
             CommandKind::Bxl(cmd) => cmd.exec(matches, command_ctx),

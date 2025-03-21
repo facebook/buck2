@@ -62,7 +62,7 @@ lazy_ops = [
 #### For collective error handling (stop on first error):
 
 ```python
-result = ctx.lazy.join(lazy_ops).catch().resolve()
+result = ctx.lazy.join_all(lazy_ops).catch().resolve()
 ```
 
 The Return type is `Result[list[bxl.AnalysisResult]]`
@@ -70,7 +70,7 @@ The Return type is `Result[list[bxl.AnalysisResult]]`
 #### For individual error handling per operation:
 
 ```python
-result = ctx.lazy.join([op.catch() for op in lazy_ops]).resolve()
+result = ctx.lazy.join_all([op.catch() for op in lazy_ops]).resolve()
 ```
 
 The Return type is `list[Result[bxl.AnalysisResult]]`

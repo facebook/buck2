@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# pyre-unsafe
+
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck

@@ -13,6 +13,7 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use buck2_cli_proto::command_result;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
+use buck2_events::sink::remote::ScribeConfig;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use fbinit::FacebookInit;
@@ -76,11 +77,18 @@ impl BuildGraphStats {
 
     async fn send_events(&self, events: Vec<buck2_events::BuckEvent>) {
         #[allow(unreachable_patterns)]
-        if let Ok(Some(sink)) =
-            new_remote_event_sink_if_enabled(self.fb, 1, Duration::from_millis(100), 2, None)
-        {
+        if let Ok(Some(sink)) = new_remote_event_sink_if_enabled(
+            self.fb,
+            ScribeConfig {
+                buffer_size: 1,
+                retry_backoff: Duration::from_millis(100),
+                retry_attempts: 2,
+                message_batch_size: None,
+                thrift_timeout: Duration::from_secs(1),
+            },
+        ) {
             tracing::info!("Sending events to Scribe: {:?}", &events);
-            sink.send_messages_now(events).await;
+            let _res = sink.send_messages_now(events).await;
         } else {
             tracing::info!("Events were not sent to Scribe: {:?}", &events);
         }

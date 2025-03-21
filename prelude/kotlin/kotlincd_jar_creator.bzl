@@ -66,15 +66,15 @@ def create_jar_artifact_kotlincd(
         required_for_source_only_abi: bool,
         source_only_abi_deps: list[Dependency],
         extra_arguments: cmd_args,
-        additional_classpath_entries: list[Artifact],
+        additional_classpath_entries: JavaCompilingDepsTSet | None,
         bootclasspath_entries: list[Artifact],
         is_building_android_binary: bool,
         friend_paths: list[Dependency],
         kotlin_compiler_plugins: dict,
         extra_kotlinc_arguments: list,
-        k2: bool,
         incremental: bool,
         enable_used_classes: bool,
+        language_version: str,
         is_creating_subtarget: bool = False,
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
@@ -90,7 +90,6 @@ def create_jar_artifact_kotlincd(
     actual_abi_generation_mode = abi_generation_mode or AbiGenerationMode("class") if srcs else AbiGenerationMode("none")
 
     output_paths = define_output_paths(actions, actions_identifier, label)
-    path_to_class_hashes_out = declare_prefixed_output(actions, actions_identifier, "classes.txt")
 
     should_create_class_abi = \
         not is_creating_subtarget and \
@@ -99,7 +98,7 @@ def create_jar_artifact_kotlincd(
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar")
         class_abi_output_dir = declare_prefixed_output(actions, actions_identifier, "class_abi_dir", dir = True)
-        jvm_abi_gen = output_paths.jar_parent.project("jvm-abi-gen.jar")
+        jvm_abi_gen = cmd_args(output_paths.jar.as_output(), format = "{}/jvm-abi-gen.jar", parent = 1)
         should_use_jvm_abi_gen = True
     else:
         class_abi_jar = None
@@ -153,7 +152,6 @@ def create_jar_artifact_kotlincd(
         kotlin_toolchain = kotlin_toolchain,
         kotlin_compiler_plugins = kotlin_compiler_plugins,
         extra_kotlinc_arguments = extra_kotlinc_arguments,
-        k2 = k2,
         bootclasspath_entries = bootclasspath_entries,
         friend_paths = friend_paths,
         target_level = target_level,
@@ -161,6 +159,7 @@ def create_jar_artifact_kotlincd(
         actual_abi_generation_mode = actual_abi_generation_mode,
         should_kotlinc_run_incrementally = should_kotlinc_run_incrementally,
         incremental_state_dir = incremental_state_dir,
+        language_version = language_version,
     )
 
     library_command_builder = command_builder(
@@ -171,12 +170,11 @@ def create_jar_artifact_kotlincd(
         build_mode = BuildMode("LIBRARY"),
         target_type = TargetType("library"),
         output_paths = output_paths,
-        path_to_class_hashes = path_to_class_hashes_out,
         classpath_jars_tag = library_classpath_jars_tag,
         source_only_abi_compiling_deps = [],
         track_class_usage = track_class_usage,
     )
-    proto = define_kotlincd_action(
+    proto, used_jars_json = define_kotlincd_action(
         category_prefix = "",
         actions_identifier = actions_identifier,
         encoded_command = command,
@@ -207,7 +205,6 @@ def create_jar_artifact_kotlincd(
             kotlin_toolchain = kotlin_toolchain,
             kotlin_compiler_plugins = kotlin_compiler_plugins,
             extra_kotlinc_arguments = extra_kotlinc_arguments,
-            k2 = k2,
             bootclasspath_entries = bootclasspath_entries,
             friend_paths = friend_paths,
             target_level = target_level,
@@ -215,6 +212,7 @@ def create_jar_artifact_kotlincd(
             actual_abi_generation_mode = actual_abi_generation_mode,
             should_kotlinc_run_incrementally = False,
             incremental_state_dir = None,
+            language_version = language_version,
         )
         abi_command_builder = command_builder(
             kotlin_extra_params = kotlin_extra_params,
@@ -251,6 +249,7 @@ def create_jar_artifact_kotlincd(
             annotation_processor_output = output_paths.annotations,
             incremental_state_dir = incremental_state_dir,
             abi_jar_snapshot = abi_jar_snapshot,
+            used_jars_json = used_jars_json,
         ), proto
     else:
         full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
@@ -260,20 +259,21 @@ def create_jar_artifact_kotlincd(
             required_for_source_only_abi = required_for_source_only_abi,
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = full_jar_snapshot,
+            used_jars_json = used_jars_json,
         ), proto
 
 def _encode_kotlin_extra_params(
         kotlin_toolchain: KotlinToolchainInfo,
         kotlin_compiler_plugins: dict,
         extra_kotlinc_arguments: list,
-        k2: bool,
         bootclasspath_entries: list[Artifact],
         friend_paths: list[Dependency],
         target_level: int,
         should_use_jvm_abi_gen: bool,
         actual_abi_generation_mode: AbiGenerationMode,
         should_kotlinc_run_incrementally: bool,
-        incremental_state_dir: Artifact | None):
+        incremental_state_dir: Artifact | None,
+        language_version: str):
     kosabiPluginOptionsMap = {}
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
@@ -286,19 +286,6 @@ def _encode_kotlin_extra_params(
 
     if kotlin_toolchain.kosabi_jvm_abi_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_jvm_abi_gen_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_plugin
-
-    current_language_version = None
-    for arg in extra_kotlinc_arguments:
-        # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
-        if isinstance(arg, str) and "-language-version" in arg:
-            current_language_version = arg.split("=")[1].strip()
-
-    if k2 == True and kotlin_toolchain.allow_k2_usage:
-        if not current_language_version or current_language_version < "2.0":
-            extra_kotlinc_arguments.append("-language-version=2.0")
-    else:  # use K1
-        if not current_language_version or current_language_version >= "2.0":
-            extra_kotlinc_arguments.append("-language-version=1.9")
 
     return struct(
         extraClassPaths = bootclasspath_entries,
@@ -320,6 +307,7 @@ def _encode_kotlin_extra_params(
         shouldKotlincRunIncrementally = should_kotlinc_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         shouldUseStandaloneKosabi = kotlin_toolchain.kosabi_standalone,
+        languageVersion = language_version,
     )
 
 def _command_builder(
@@ -402,7 +390,7 @@ def _define_kotlincd_action(
         srcs: list[Artifact],
         should_create_class_abi: bool,
         class_abi_jar: [Artifact, None],
-        jvm_abi_gen: [Artifact, None],
+        jvm_abi_gen: [cmd_args, None],
         class_abi_output_dir: [Artifact, None],
         optional_dirs: list[OutputArtifact],
         track_class_usage: bool,
@@ -428,7 +416,7 @@ def _define_kotlincd_action(
     compiler = kotlin_toolchain.kotlinc[DefaultInfo].default_outputs[0]
     exe, local_only = prepare_cd_exe(
         qualified_name,
-        java = java_toolchain.graalvm_java[RunInfo] if java_toolchain.use_graalvm_java_for_javacd else java_toolchain.java[RunInfo],
+        java = java_toolchain.java[RunInfo],
         class_loader_bootstrapper = kotlin_toolchain.class_loader_bootstrapper,
         compiler = compiler,
         main_class = kotlin_toolchain.kotlincd_main_class,
@@ -446,7 +434,7 @@ def _define_kotlincd_action(
         post_build_params["shouldCreateClassAbi"] = True
         post_build_params["libraryJar"] = output_paths.jar.as_output()
         post_build_params["abiJar"] = class_abi_jar.as_output()
-        post_build_params["jvmAbiGen"] = jvm_abi_gen.as_output()
+        post_build_params["jvmAbiGen"] = jvm_abi_gen
         post_build_params["abiOutputDir"] = class_abi_output_dir.as_output()
 
     if target_type == TargetType("source_abi") or target_type == TargetType("source_only_abi"):
@@ -460,11 +448,13 @@ def _define_kotlincd_action(
         post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
 
     dep_files = {}
+    used_jars_json_output = None
     if not is_creating_subtarget and srcs and (kotlin_toolchain.dep_files == DepFiles("per_jar") or kotlin_toolchain.dep_files == DepFiles("per_class")) and target_type == TargetType("library") and track_class_usage:
         used_classes_json_outputs = [
-            output_paths.jar_parent.project("used-classes.json"),
-            output_paths.jar_parent.project("kotlin-used-classes.json"),
+            cmd_args(output_paths.jar.as_output(), format = "{}/used-classes.json", parent = 1),
+            cmd_args(output_paths.jar.as_output(), format = "{}/kotlin-used-classes.json", parent = 1),
         ]
+        used_jars_json_output = declare_prefixed_output(actions, actions_identifier, "jar/used-jars.json")
         args = setup_dep_files(
             actions,
             actions_identifier,
@@ -472,6 +462,7 @@ def _define_kotlincd_action(
             post_build_params,
             classpath_jars_tag,
             used_classes_json_outputs,
+            used_jars_json_output,
             compiling_deps_tset.project_as_args("abi_to_abi_dir") if kotlin_toolchain.dep_files == DepFiles("per_class") and compiling_deps_tset else None,
         )
 
@@ -512,4 +503,4 @@ def _define_kotlincd_action(
         error_handler = kotlin_toolchain.kotlin_error_handler,
         **incremental_run_params
     )
-    return proto
+    return proto, used_jars_json_output

@@ -13,7 +13,7 @@ use allocative::FlameGraph;
 use allocative::FlameGraphBuilder;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::process_stats::process_stats;
 
@@ -95,17 +95,16 @@ pub(crate) async fn spawn_allocative(
         let final_fg = wrap_flamegraph_with_system_stats(fg.flamegraph());
         fs_util::write(path.join("flamegraph.src"), final_fg.write())?;
         let mut fg_svg = Vec::new();
-        inferno::flamegraph::from_reader(
-            &mut inferno::flamegraph::Options::default(),
-            final_fg.write().as_bytes(),
-            &mut fg_svg,
-        )
-        .map_err(from_any)?;
-        fs_util::write(path.join("flamegraph.svg"), &fg_svg)?;
+        let mut options = inferno::flamegraph::Options::default();
+        options.title = "Flame Graph - Allocative".to_owned();
+        inferno::flamegraph::from_reader(&mut options, final_fg.write().as_bytes(), &mut fg_svg)
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
-        fs_util::write(path.join("warnings.txt"), fg.warnings())?;
+        fs_util::write(path.join("flame.src"), final_fg.write().as_bytes())?;
+        fs_util::write(path.join("flame.svg"), &fg_svg)?;
+        fs_util::write(path.join("flame_warnings.txt"), fg.warnings())?;
 
-        dispatcher.console_message("Profile written.".to_owned());
+        dispatcher.console_message(format!("Allocative profile written to {}", path.display()));
 
         buck2_error::Ok(())
     })

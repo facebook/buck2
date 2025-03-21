@@ -11,7 +11,6 @@ use std::collections::HashSet;
 
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
-use buck2_error::conversion::from_any;
 use buck2_futures::drop::DropTogether;
 use buck2_futures::spawn::spawn_dropcancel;
 use dice::DiceTransaction;
@@ -164,10 +163,9 @@ pub(crate) async fn find_package_roots(
     let mut results = Vec::new();
     collect_package_roots(fs, vec![cell_path], |res| {
         results.push(res);
-        Result::<_, !>::Ok(())
+        buck2_error::Ok(())
     })
-    .await
-    .map_err(from_any)?;
+    .await?;
     let mut results: Vec<_> = results.into_try_map(|v| v)?;
     results.sort();
     Ok(results)

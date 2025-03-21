@@ -16,6 +16,7 @@ use buck2_error::BuckErrorContext;
 use tokio::fs::File;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 enum ManifoldError {
     #[error("Failed to open file `{0}`")]
     OpenFileError(String),

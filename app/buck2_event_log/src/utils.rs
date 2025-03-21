@@ -16,6 +16,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum EventLogErrors {
     #[error(
         "Trying to write to logfile that hasn't been opened yet - this is an internal error, please report. Unwritten event: {serialized_event}"
@@ -89,6 +90,7 @@ pub(crate) const KNOWN_ENCODINGS: &[Encoding] = &[
 ];
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 pub(crate) enum EventLogInferenceError {
     #[error("Event log at path {} has no filename", .0.display())]
     NoFilename(AbsPathBuf),

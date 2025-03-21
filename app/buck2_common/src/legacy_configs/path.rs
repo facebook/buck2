@@ -46,11 +46,13 @@ pub(crate) static DEFAULT_EXTERNAL_CONFIG_SOURCES: &[ExternalConfigSource] = &[
     #[cfg(windows)]
     ExternalConfigSource::GlobalFile("C:\\ProgramData\\buckconfig"),
     ExternalConfigSource::UserFolder(DOT_BUCKCONFIG_D),
-    ExternalConfigSource::UserFile(".buckconfig.local"),
+    ExternalConfigSource::UserFile(DOT_BUCKCONFIG_LOCAL),
 ];
 
 pub(crate) static DEFAULT_PROJECT_CONFIG_SOURCES: &[ProjectConfigSource] = &[
     ProjectConfigSource::CellRelativeFolder(DOT_BUCKCONFIG_D),
     ProjectConfigSource::CellRelativeFile(".buckconfig"),
-    ProjectConfigSource::CellRelativeFile(".buckconfig.local"),
+    ProjectConfigSource::CellRelativeFile(DOT_BUCKCONFIG_LOCAL),
 ];
+
+pub(crate) static DOT_BUCKCONFIG_LOCAL: &str = ".buckconfig.local";

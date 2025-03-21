@@ -149,7 +149,7 @@ where
         let out = out.trim();
         if out.is_empty() {
             Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "expected output from `{:?}`",
                 cmd
             ))
@@ -158,7 +158,11 @@ where
         }
     } else {
         let err = String::from_utf8(result.stderr).buck_error_context("hg stderr to string")?;
-        Err(buck2_error::buck2_error!([], "{}", err))
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "{}",
+            err
+        ))
     }
 }
 

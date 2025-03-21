@@ -5,7 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attrs_validators.bzl", "ATTRS_VALIDATORS_NAME", "ATTRS_VALIDATORS_TYPE")
+load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//apple:apple_bundle_types.bzl", "AppleBundleResourceInfo", "AppleBundleTypeAttributeType")
 load("@prelude//apple:apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType")
 load("@prelude//apple:apple_common.bzl", "apple_common")
@@ -70,6 +70,13 @@ def _skip_adhoc_resigning_scrubbed_frameworks_default_attr():
         "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_enabled": True,
     }))
 
+def _versioned_macos_bundle_default_value():
+    return select({
+        "DEFAULT": False,
+        "config//features/apple/constraints:versioned_macos_bundle_false": False,
+        "config//features/apple/constraints:versioned_macos_bundle_true": True,
+    })
+
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -102,7 +109,7 @@ def _apple_bundle_like_common_attrs():
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "skip_adhoc_resigning_scrubbed_frameworks": attrs.option(attrs.bool(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
-        "versioned_macos_bundle": attrs.bool(default = False),
+        "versioned_macos_bundle": attrs.bool(default = _versioned_macos_bundle_default_value()),
         "_apple_xctoolchain": get_apple_xctoolchain_attr(),
         "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
         "_bundling_cache_buster": attrs.option(attrs.string(), default = None),
@@ -139,12 +146,9 @@ def apple_test_extra_attrs():
     # wrap this test library into an `apple_bundle`. Because of this, `apple_test` has attributes
     # from both `apple_library` and `apple_bundle`.
     attribs = {
-        ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "binary": attrs.option(attrs.dep(), default = None),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
-        # FIXME(T206479753): we should remove exported_deps on apple_test
-        "exported_deps": attrs.list(attrs.dep(), default = []),
         # The resulting test bundle should have .xctest extension.
         "extension": attrs.string(),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
@@ -173,7 +177,7 @@ def apple_test_extra_attrs():
         "_ios_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_booted_simulator", providers = [LocalResourceInfo]),
         "_ios_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ios_unbooted_simulator", providers = [LocalResourceInfo]),
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
-    }
+    } | validation_common.attrs_validators_arg()
     attribs.update(_apple_bundle_like_common_attrs())
     return attribs
 

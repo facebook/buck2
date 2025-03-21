@@ -66,6 +66,7 @@ pub struct TExecutedActionMetadata {
     pub last_queued_timestamp: TTimestamp,
     pub instruction_counts: TPerfCount,
     pub auxiliary_metadata: Vec<TAny>,
+    pub max_used_mem: i64,
     // Compatibility with the Thrift structs
     pub _dot_dot_default: (),
 }
@@ -187,19 +188,6 @@ pub struct ExecuteResponse {
     pub action_digest: TDigest,
     pub action_result_digest: TDigest,
     pub action_result_ttl: i64,
-    pub executed_action_details: ExecutedActionDetails,
-}
-
-#[derive(Clone, Default)]
-pub struct ExecutedActionDetails {
-    pub was_served_from_cache: bool,
-    pub was_deduplicated: bool,
-    pub elastic_capacity: bool,
-    pub memory_stats: ExecutedActionMemoryStats,
-    pub cpu_stats: ExecutedActionCpuStats,
-    pub storage_stats: ExecutedActionStorageStats,
-    // Compatibility with the Thrift structs
-    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]
@@ -217,12 +205,6 @@ pub struct ExecutedActionStorageStats {
 pub struct ExecutedActionMemoryStats {
     pub max_used_mem: i64,
     pub reserved_mem: i64,
-}
-
-#[derive(Clone, Default)]
-pub struct ExecutedActionCpuStats {
-    // Compatibility with the Thrift structs
-    pub _dot_dot_default: (),
 }
 
 #[derive(Clone, Default)]

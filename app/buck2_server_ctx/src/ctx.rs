@@ -10,8 +10,10 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Instant;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_signals::env::BuildSignalsContext;
 use buck2_build_signals::env::DeferredBuildSignals;
@@ -32,6 +34,7 @@ use buck2_data::DiceCriticalSectionStart;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_futures::cancellation::CancellationContext;
+use buck2_wrapper_common::invocation_id::TraceId;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
@@ -40,7 +43,61 @@ use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
 
-const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "time-spent-synchronizing-and-waiting";
+const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "synchronizing-and-waiting";
+
+#[derive(Allocative, Debug)]
+pub struct PreviousCommandDataInternal {
+    pub external_and_local_configs: Vec<buck2_data::BuckconfigComponent>,
+    pub sanitized_argv: Vec<String>,
+    pub trace_id: TraceId,
+}
+
+#[derive(Allocative, Debug, Default)]
+pub struct PreviousCommandData {
+    pub data: Option<PreviousCommandDataInternal>,
+}
+
+impl PreviousCommandData {
+    pub fn process_current_command(
+        &mut self,
+        event_dispatcher: EventDispatcher,
+        current_external_and_local_configs: Vec<buck2_data::BuckconfigComponent>,
+        current_sanitized_argv: Vec<String>,
+        current_trace: TraceId,
+    ) {
+        if let Some(PreviousCommandDataInternal {
+            external_and_local_configs: external_configs,
+            sanitized_argv,
+            trace_id,
+        }) = self.data.as_ref()
+        {
+            if *current_external_and_local_configs != *external_configs {
+                event_dispatcher.instant_event(buck2_data::PreviousCommandWithMismatchedConfig {
+                    sanitized_argv: sanitized_argv.clone(),
+                    trace_id: trace_id.to_string(),
+                });
+            }
+        }
+
+        self.data = Some(PreviousCommandDataInternal {
+            external_and_local_configs: current_external_and_local_configs,
+            sanitized_argv: current_sanitized_argv,
+            trace_id: current_trace,
+        });
+    }
+}
+
+#[derive(Allocative, Debug, Default)]
+pub struct LockedPreviousCommandData {
+    pub data: Mutex<PreviousCommandData>,
+}
+impl LockedPreviousCommandData {
+    pub fn new() -> Arc<Self> {
+        Arc::new(LockedPreviousCommandData {
+            data: Mutex::new(PreviousCommandData { data: None }),
+        })
+    }
+}
 
 #[async_trait]
 pub trait ServerCommandContextTrait: Send + Sync {
@@ -65,6 +122,8 @@ pub trait ServerCommandContextTrait: Send + Sync {
     ) -> buck2_error::Result<DiceAccessor<'a>>;
 
     fn events(&self) -> &EventDispatcher;
+
+    fn previous_command_data(&self) -> Arc<LockedPreviousCommandData>;
 
     fn stderr(&self) -> buck2_error::Result<StderrOutputGuard<'_>>;
 
@@ -219,6 +278,8 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             exit_when_different_state,
                             self.cancellation_context(),
                             preemptible,
+                            self.previous_command_data().into(),
+                            self.project_root(),
                         )
                         .await,
                     DiceCriticalSectionEnd {},

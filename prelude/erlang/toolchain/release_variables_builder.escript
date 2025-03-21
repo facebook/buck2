@@ -55,12 +55,9 @@ do(Spec, ReleaseVariablesFile) ->
             "variables" := Variables
         }
     ]} = file:consult(Spec),
-    {ok, F} = file:open(ReleaseVariablesFile, [write]),
-    maps:map(
-        fun(Key, Value) ->
-            ok = file:write(F, io_lib:format("~s=\"~s\"~n", [Key, Value]))
-        end,
-        Variables#{"ERTS_VSN" => erlang:system_info(version)}
-    ),
+    {ok, F} = file:open(ReleaseVariablesFile, [write, raw]),
+    [ ok = file:write(F, io_lib:format("~s=\"~s\"~n", [Key, Value]))
+      || Key := Value <- Variables#{"ERTS_VSN" => erlang:system_info(version)}
+    ],
     ok = file:close(F),
     ok.

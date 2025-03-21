@@ -11,6 +11,6 @@ impl From<std::array::TryFromSliceError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::array::TryFromSliceError) -> Self {
-        crate::conversion::from_any(value)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }

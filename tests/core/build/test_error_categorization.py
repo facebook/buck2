@@ -194,7 +194,7 @@ async def test_targets_error_categorization(buck: Buck, tmp_path: Path) -> None:
     record = read_invocation_record(record_path)
     errors = record["errors"]
     assert len(errors) == 1
-    assert errors[0]["tags"] == ["STARLARK_FAIL"]
+    assert errors[0]["tags"] == ["INPUT", "STARLARK_FAIL"]
     assert errors[0]["category"] == "USER"
 
 
@@ -217,15 +217,13 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     else:
         assert "stream closed because of a broken pipe" in error["message"]
 
-    assert error["tags"] == ["CLIENT_GRPC", "SERVER_PANICKED"]
+    assert error["tags"] == ["CLIENT_GRPC", "SERVER_PANICKED", "TIER0"]
     assert "buckd stderr:\n" in error["message"]
     assert "panicked at" in error["message"]
 
     assert invocation_record["best_error_tag"] == "SERVER_PANICKED"
     category_key = invocation_record["best_error_category_key"]
-    assert "buck2_client_ctx/src/daemon/client.rs" in category_key
-    assert "CLIENT_GRPC" in category_key
-    assert "SERVER_PANICKED" in category_key
+    assert category_key.startswith("SERVER_PANICKED")
 
     # TODO dump stack trace on windows
     if not is_running_on_windows():
@@ -234,6 +232,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
 
 @buck_test()
 @env("BUCKD_STARTUP_TIMEOUT", "0")
+@env("BUCKD_STARTUP_INIT_TIMEOUT", "0")
 async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     record_path = tmp_path / "record.json"
     res = await expect_failure(
@@ -249,7 +248,7 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["daemon_connection_failure"] is True
     assert record["daemon_was_started"] is None
 
-    assert record["best_error_tag"] == "DAEMON_CONNECT"
+    assert record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
 
 
 @buck_test()
@@ -271,17 +270,13 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     if is_running_on_windows():
         # TODO get windows to dump a stack trace
         assert "buckd stderr is empty" in error["message"]
-        assert "buck2_client_ctx/src/daemon/client.rs" in category_key
-        assert "CLIENT_GRPC" in category_key
-        assert "SERVER_STDERR_EMPTY" in category_key
+        assert category_key == "SERVER_STDERR_EMPTY"
         assert invocation_record["best_error_tag"] == "SERVER_STDERR_EMPTY"
     else:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]
         assert "*** Signal 6 (SIGABRT)" in error["message"]
-        assert "buck2_client_ctx/src/daemon/client.rs" in category_key
-        assert "CLIENT_GRPC" in category_key
-        assert "SERVER_STDERR_UNKNOWN" in category_key
+        assert category_key.startswith("SERVER_STDERR_UNKNOWN")
         assert invocation_record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
 
     # TODO dump stack trace on mac and windows
@@ -336,10 +331,7 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
     )
     record = read_invocation_record(record_path)
     category_key = record["best_error_category_key"]
-    assert (
-        category_key
-        == "buck2_execute/src/re/error.rs::RemoteExecutionError:MATERIALIZATION_ERROR:RE_NOT_FOUND:UNKNOWN"
-    )
+    assert category_key == "RE_NOT_FOUND:UNKNOWN"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
         in res.stderr
@@ -365,5 +357,24 @@ async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
     assert record["error_category"] == "USER"
     assert (
         record["best_error_category_key"]
-        == "buck2_build_api/src/actions/error.rs::ActionError:ANY_ACTION_EXECUTION"
+        == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )
+
+
+@buck_test()
+@env("BUCK2_TEST_INIT_DAEMON_ERROR", "true")
+async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    res = await expect_failure(
+        buck.targets(":", "--unstable-write-invocation-record", str(record_path))
+    )
+    assert "Injected init daemon error" in res.stderr
+    assert "Error initializing DaemonStateData" in res.stderr
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    assert len(errors) == 1
+    [error] = errors
+
+    assert "DAEMON_CONNECT" in error["tags"]
+    assert "DAEMON_STATE_INIT_FAILED" in error["tags"]

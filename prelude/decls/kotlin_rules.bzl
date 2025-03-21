@@ -91,7 +91,7 @@ kotlin_library = prelude_rule(
                 Rules (usually other `kotlin_library` rules) that are used to
                  generate the classpath required to compile this `kotlin_library`.
             """),
-            "extra_kotlinc_arguments": attrs.list(attrs.string(), default = [], doc = """
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
             "friend_paths": attrs.list(attrs.dep(), default = [], doc = """
@@ -222,7 +222,7 @@ kotlin_test = prelude_rule(
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
-            "extra_kotlinc_arguments": attrs.list(attrs.string(), default = []),
+            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "friend_paths": attrs.list(attrs.dep(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),

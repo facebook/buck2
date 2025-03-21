@@ -10,11 +10,13 @@
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
+use tokio::sync::mpsc::Receiver;
 
 use crate::client_ctx::ClientCommandContext;
 use crate::common::ui::ConsoleType;
@@ -39,7 +41,7 @@ pub fn get_console_with_root(
     replay_speed: Option<f64>,
     command_name: &str,
     config: SuperConsoleConfig,
-    build_count_dir: Option<AbsNormPathBuf>,
+    health_check_display_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
 ) -> buck2_error::Result<Box<dyn EventSubscriber>> {
     match console_type {
         ConsoleType::Simple => Ok(Box::new(
@@ -47,7 +49,7 @@ pub fn get_console_with_root(
                 trace_id,
                 verbosity,
                 expect_spans,
-                build_count_dir,
+                health_check_display_reports_receiver,
             ),
         )),
         ConsoleType::SimpleNoTty => Ok(Box::new(
@@ -55,14 +57,14 @@ pub fn get_console_with_root(
                 trace_id,
                 verbosity,
                 expect_spans,
-                build_count_dir,
+                health_check_display_reports_receiver,
             ),
         )),
         ConsoleType::SimpleTty => Ok(Box::new(SimpleConsole::<NoopEventObserverExtra>::with_tty(
             trace_id,
             verbosity,
             expect_spans,
-            build_count_dir,
+            health_check_display_reports_receiver,
         ))),
         ConsoleType::Super => Ok(Box::new(StatefulSuperConsole::new_with_root_forced(
             trace_id,
@@ -72,25 +74,29 @@ pub fn get_console_with_root(
             replay_speed,
             None,
             config,
-            build_count_dir,
+            health_check_display_reports_receiver,
         )?)),
         ConsoleType::Auto => {
-            match StatefulSuperConsole::new_with_root(
-                trace_id.dupe(),
-                command_name,
-                verbosity,
-                expect_spans,
-                replay_speed,
-                config,
-                build_count_dir.clone(),
-            )? {
-                Some(super_console) => Ok(Box::new(super_console)),
+            match StatefulSuperConsole::console_builder()
+                .build()
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+            {
+                Some(sc) => Ok(Box::new(StatefulSuperConsole::new(
+                    command_name,
+                    trace_id,
+                    sc,
+                    verbosity,
+                    expect_spans,
+                    replay_speed,
+                    config,
+                    health_check_display_reports_receiver,
+                )?)),
                 None => Ok(Box::new(
                     SimpleConsole::<NoopEventObserverExtra>::autodetect(
                         trace_id,
                         verbosity,
                         expect_spans,
-                        build_count_dir,
+                        health_check_display_reports_receiver,
                     ),
                 )),
             }
@@ -100,11 +106,11 @@ pub fn get_console_with_root(
 }
 
 /// Given the command arguments, conditionally create an event log.
-pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
+pub(crate) fn try_get_event_log_subscriber<T: StreamingCommand>(
     cmd: &T,
-    ctx: &ClientCommandContext<'a>,
+    ctx: &ClientCommandContext,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
     let event_log_opts = cmd.event_log_opts();
     let sanitized_argv = cmd.sanitize_argv(ctx.argv.clone());
     let user_event_log = cmd.user_event_log();
@@ -122,27 +128,23 @@ pub(crate) fn try_get_event_log_subscriber<'a, T: StreamingCommand>(
             .map(|p| p.resolve(&ctx.working_dir)),
         user_event_log.as_ref().map(|p| p.resolve(&ctx.working_dir)),
         sanitized_argv,
-        ctx.async_cleanup_context().dupe(),
         T::COMMAND_NAME.to_owned(),
         log_size_counter_bytes,
     )?;
     Ok(Some(Box::new(log)))
 }
 
-pub(crate) fn try_get_re_log_subscriber<'a>(
-    ctx: &ClientCommandContext<'a>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
-    let log = ReLog::new(
-        ctx.paths()?.isolation.clone(),
-        ctx.async_cleanup_context().dupe(),
-    );
+pub(crate) fn try_get_re_log_subscriber(
+    ctx: &ClientCommandContext,
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
+    let log = ReLog::new(ctx.paths()?.isolation.clone());
     Ok(Some(Box::new(log)))
 }
 
-pub(crate) fn try_get_build_id_writer<'a>(
+pub(crate) fn try_get_build_id_writer(
     opts: &CommonEventLogOptions,
-    ctx: &ClientCommandContext<'a>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+    ctx: &ClientCommandContext,
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
     if let Some(file_loc) = opts.write_build_id.as_ref() {
         Ok(Some(Box::new(BuildIdWriter::new(
             file_loc.resolve(&ctx.working_dir),
@@ -152,10 +154,10 @@ pub(crate) fn try_get_build_id_writer<'a>(
     }
 }
 
-pub(crate) fn try_get_build_graph_stats<'a, T: StreamingCommand>(
+pub(crate) fn try_get_build_graph_stats<T: StreamingCommand>(
     cmd: &T,
-    ctx: &ClientCommandContext<'a>,
-) -> buck2_error::Result<Option<Box<dyn EventSubscriber + 'a>>> {
+    ctx: &ClientCommandContext,
+) -> buck2_error::Result<Option<Box<dyn EventSubscriber>>> {
     if should_handle_build_graph_stats(cmd) {
         Ok(Some(Box::new(BuildGraphStats::new(
             ctx.fbinit(),

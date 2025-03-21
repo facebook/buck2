@@ -28,11 +28,12 @@ use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
@@ -131,6 +132,7 @@ pub(crate) fn register_anon_rule(globals: &mut GlobalsBuilder) {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum BxlAnonTargetError {
     #[error("Anon BXL is not supported in bzl files")]
     UnsupportedInBzl,
@@ -212,7 +214,7 @@ async fn eval_bxl_for_anon_target(
                     execution_platform,
                     liveness,
                 )),
-                || Err(buck2_error!([], "cancelled")),
+                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
             )
         })
     }
@@ -255,6 +257,7 @@ async fn eval_bxl_for_anon_target_inner(
 
     let anon_impl = AnonImpl::new(dice, anon_target.dupe()).await?;
 
+    let eval_kind = anon_target.dupe().eval_kind();
     let (
         num_declared_actions,
         num_declared_artifacts,
@@ -263,7 +266,7 @@ async fn eval_bxl_for_anon_target_inner(
     ) = with_starlark_eval_provider(
         dice,
         &mut StarlarkProfilerOpt::disabled(),
-        format!("bxl_anon_analysis:{}", anon_target),
+        &eval_kind,
         |provider, dice| {
             let env = Module::new();
 
@@ -307,17 +310,13 @@ async fn eval_bxl_for_anon_target_inner(
                     bxl_ctx.via_dice(|dice, _| {
                         dice.via(|dice| {
                             action_factory
-                                .run_promises(
-                                    dice,
-                                    &mut eval,
-                                    format!("bxl_anon_analysis$promise:{}", anon_target),
-                                )
+                                .run_promises(dice, &mut eval, &eval_kind)
                                 .boxed_local()
                         })
                     })?;
                     Ok(invoke_res)
                 })
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
                 let res_typed = ProviderCollection::try_from_value(list_res)?;
                 let res = env.heap().alloc(res_typed);
@@ -346,7 +345,9 @@ async fn eval_bxl_for_anon_target_inner(
 
             let num_declared_actions = analysis_registry.num_declared_actions();
             let num_declared_artifacts = analysis_registry.num_declared_artifacts();
-            let (_frozen_env, recorded_values) = analysis_registry.finalize(&env)?(env)?;
+            let registry_finalizer = analysis_registry.finalize(&env)?;
+            let frozen_env = env.freeze().map_err(from_freeze_error)?;
+            let recorded_values = registry_finalizer(&frozen_env)?;
             Ok((
                 num_declared_actions,
                 num_declared_artifacts,

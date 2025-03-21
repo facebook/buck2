@@ -692,3 +692,33 @@ async fn test_dice_usable_after_cancellations() {
 
     assert!(is_ran.load(Ordering::SeqCst));
 }
+
+#[tokio::test]
+async fn test_is_idle_respects_active_transactions() {
+    let dice = DiceModern::builder().build(DetectCycles::Disabled);
+
+    let mut ctx = dice.updater().commit().await;
+
+    let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
+    let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
+    let is_ran = Arc::new(AtomicBool::new(false));
+
+    let key = KeyThatRuns {
+        barrier1: barrier1.dupe(),
+        barrier2: barrier2.dupe(),
+        is_ran: is_ran.dupe(),
+    };
+
+    let req1 = ctx.compute(&key);
+
+    // FIXME(JakobDegen): This is a pretty silly behavior for a function called `is_idle`, dice is
+    // obviously not idle.
+    assert!(dice.is_idle().await);
+    dice.wait_for_idle().await;
+
+    barrier2.add_permits(1);
+    req1.await.unwrap();
+
+    assert!(dice.is_idle().await);
+    dice.wait_for_idle().await;
+}

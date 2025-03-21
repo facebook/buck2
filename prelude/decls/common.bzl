@@ -51,7 +51,7 @@ TestType = ["junit", "junit5", "testng"]
 
 UnusedDependenciesAction = ["unknown", "fail", "warn", "ignore", "unrecognized"]
 
-RuntimeDependencyHandling = ["none", "symlink"]
+RuntimeDependencyHandling = ["none", "symlink_single_level_only", "symlink"]
 
 def _name_arg(name_type):
     return {

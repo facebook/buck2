@@ -56,8 +56,7 @@ def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None
         name = name,
         env = env,
         srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_template.py": "test_bxl_template.py"},
-        # fbcode_macros uses tags instead of labels
-        tags = ["bxl_test"] + (labels if labels else []),
+        labels = ["bxl_test"] + (labels if labels else []),
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         **kwargs

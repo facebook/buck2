@@ -41,9 +41,12 @@ pub enum CommandExecutionKind {
         /// How long this command queued in RE. This value excludes execution time, i.e. for action cache hit,
         /// this value represents how long a request has to wait for server to handle.
         queue_time: Duration,
-        /// Local paths to the materialized inputs for failed actions, if `--materialize-failed-re-action-inputs`
+        /// Local paths to the materialized inputs for failed actions, if `--materialize-failed-inputs`
         /// was passed to build options
         materialized_inputs_for_failed: Option<Vec<ProjectRelativePathBuf>>,
+        /// Local paths to the materialized outputs for failed actions, if `--unstable-materialize-failed-action-outputs`
+        /// was passed to build options
+        materialized_outputs_for_failed_actions: Option<Vec<ProjectRelativePathBuf>>,
     },
     /// This action was served by the action cache and not executed.
     #[display("action_cache")]
@@ -115,6 +118,7 @@ impl CommandExecutionKind {
                 details,
                 queue_time,
                 materialized_inputs_for_failed,
+                materialized_outputs_for_failed_actions,
             } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: false,
@@ -123,6 +127,10 @@ impl CommandExecutionKind {
                 queue_time: (*queue_time).try_into().ok(),
                 details: details.to_proto(omit_details),
                 materialized_inputs_for_failed: materialized_inputs_for_failed
+                    .as_ref()
+                    .map(|paths| paths.clone().map(|p| format!("{}", p)))
+                    .unwrap_or_default(),
+                materialized_outputs_for_failed_actions: materialized_outputs_for_failed_actions
                     .as_ref()
                     .map(|paths| paths.clone().map(|p| format!("{}", p)))
                     .unwrap_or_default(),
@@ -136,6 +144,7 @@ impl CommandExecutionKind {
                 details: details.to_proto(omit_details),
                 remote_dep_file_key: None,
                 materialized_inputs_for_failed: Vec::new(),
+                materialized_outputs_for_failed_actions: Vec::new(),
             }),
 
             Self::RemoteDepFileCache { details } => {
@@ -150,6 +159,7 @@ impl CommandExecutionKind {
                         .as_ref()
                         .map(|k| k.to_string()),
                     materialized_inputs_for_failed: Vec::new(),
+                    materialized_outputs_for_failed_actions: Vec::new(),
                 })
             }
 

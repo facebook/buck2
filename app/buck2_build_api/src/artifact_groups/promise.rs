@@ -21,6 +21,7 @@ use dupe::Dupe;
 use starlark::codemap::FileSpan;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum PromiseArtifactResolveError {
     #[error("Resolved promise of the artifact promise was not an artifact (was `{0}`)")]
     NotAnArtifact(String),

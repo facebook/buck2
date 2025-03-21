@@ -32,7 +32,7 @@ def apple_core_data_impl(ctx: AnalysisContext) -> list[Provider]:
         core_data_spec = spec,
     )
 
-    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_asset_catalog", None, _xcode_populate_attributes)
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "core_data_model", None, _xcode_populate_attributes)
 
     return [DefaultInfo(
         sub_targets = {

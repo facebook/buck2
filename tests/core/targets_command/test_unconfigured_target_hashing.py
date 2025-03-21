@@ -52,3 +52,54 @@ async def assert_hashes(
         assert output[0]["buck.target_hash"] == modified_output[0]["buck.target_hash"]
     else:
         assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]
+
+
+@buck_test()
+async def test_cfg_modifiers_change_target_hash(buck: Buck) -> None:
+    result = await buck.targets(
+        ":foo",
+        "--show-unconfigured-target-hash",
+        "--target-hash-recursive=false",
+        "--json",
+    )
+
+    with open(buck.cwd / "PACKAGE", "w") as package:
+        package.write("set_modifiers(['aaabbbccc'])")
+
+    modified_result = await buck.targets(
+        ":foo",
+        "--show-unconfigured-target-hash",
+        "--target-hash-recursive=false",
+        "--json",
+    )
+    output = json.loads(result.stdout)
+    modified_output = json.loads(modified_result.stdout)
+
+    # modifiers should change target hash
+    assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]
+
+
+@buck_test()
+async def test_parent_cfg_modifiers_change_target_hash(buck: Buck) -> None:
+    result = await buck.targets(
+        "foo:bar",
+        "--show-unconfigured-target-hash",
+        "--target-hash-recursive=false",
+        "--json",
+    )
+
+    with open(buck.cwd / "PACKAGE", "w") as package:
+        package.write("set_modifiers(['aaabbbccc'])")
+
+    modified_result = await buck.targets(
+        "foo:bar",
+        "--show-unconfigured-target-hash",
+        "--target-hash-recursive=false",
+        "--json",
+    )
+    output = json.loads(result.stdout)
+    modified_output = json.loads(modified_result.stdout)
+
+    # parent set_modifiers value should change target hash
+    # note that we merge parent modifiers and current package modifiers
+    assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]

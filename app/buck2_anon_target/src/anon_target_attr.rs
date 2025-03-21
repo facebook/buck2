@@ -109,6 +109,7 @@ impl AttrDisplayWithContext for AnonTargetAttr {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AnonTargetAttrError {
     #[error("Inconsistent number of elements in tuple")]
     InconsistentTupleLength,
@@ -135,6 +136,7 @@ impl ToJsonWithContext for AnonTargetAttr {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub(crate) enum AnonTargetFromCoercedAttrError {
     #[error("Anon targets do not support default values for `{0}`")]
     DefaultAttrTypeNotSupported(String),

@@ -103,7 +103,11 @@ where
     }
 
     fn convert_err(e: tonic::Status) -> buck2_error::Error {
-        buck2_error::buck2_error!([], "forkserver error: {}", e.message())
+        buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "forkserver error: {}",
+            e.message()
+        )
     }
 
     s.map(|r| r.map_err(convert_err).and_then(convert_event))

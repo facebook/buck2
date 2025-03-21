@@ -14,6 +14,7 @@ use starlark::starlark_module;
 use starlark::values::none::NoneType;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum SoftErrorError {
     #[error("Error produced by Starlark: {category}: {message}\n{call_stack}")]
     StarlarkSoftError {

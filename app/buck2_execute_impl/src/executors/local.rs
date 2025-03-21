@@ -176,7 +176,10 @@ impl LocalExecutor {
                     #[cfg(not(unix))]
                     {
                         let _unused = (forkserver, disable_miniperf, action_digest);
-                        Err(buck2_error!([], "Forkserver is not supported off-UNIX"))
+                        Err(buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "Forkserver is not supported off-UNIX"
+                        ))
                     }
                 }
 
@@ -241,12 +244,13 @@ impl LocalExecutor {
                         // output from previous run of that action could actually be used as the
                         // input during current run (e.g. extra output which is an incremental state describing the actual output).
                         if !request.outputs_cleanup {
-                            materialize_build_outputs_from_previous_run(
+                            materialize_build_outputs(
                                 &self.artifact_fs,
                                 self.materializer.as_ref(),
                                 request,
                             )
-                            .await
+                            .await?;
+                            buck2_error::Ok(())
                         } else {
                             Ok(())
                         }
@@ -316,7 +320,7 @@ impl LocalExecutor {
                     return manager.error(
                         "scratch_dir_too_long",
                         buck2_error!(
-                            [],
+                            buck2_error::ErrorTag::Environment,
                             "Scratch directory path is longer than MAX_PATH: {}",
                             scratch_path_abs
                         ),
@@ -349,7 +353,10 @@ impl LocalExecutor {
         let dispatcher = match get_dispatcher_opt() {
             Some(dispatcher) => dispatcher,
             None => {
-                return manager.error("no_dispatcher", buck2_error!([], "No dispatcher available"));
+                return manager.error(
+                    "no_dispatcher",
+                    buck2_error!(buck2_error::ErrorTag::Tier0, "No dispatcher available"),
+                );
             }
         };
         let build_id: &str = &dispatcher.trace_id().to_string();
@@ -961,15 +968,17 @@ async fn check_inputs(
     }
 }
 
-/// Materialize build outputs from the previous run of the same command.
-/// Useful when executing incremental actions first remotely and then locally.
+/// Materialize all output artifact for CommandExecutionRequest.
+///
+/// Note that the outputs could be from the previous run of the same command if cleanup on the action was not performed.
+/// The above is useful when executing incremental actions first remotely and then locally.
 /// In that case output from remote execution which is incremental state should be materialized prior local execution.
 /// Such incremental state in fact serves as the input while being output as well.
-pub async fn materialize_build_outputs_from_previous_run(
+pub(crate) async fn materialize_build_outputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
     request: &CommandExecutionRequest,
-) -> buck2_error::Result<()> {
+) -> buck2_error::Result<Vec<ProjectRelativePathBuf>> {
     let mut paths = vec![];
 
     for output in request.outputs() {
@@ -977,14 +986,14 @@ pub async fn materialize_build_outputs_from_previous_run(
             CommandExecutionOutputRef::BuildArtifact {
                 path,
                 output_type: _,
-            } => {
-                paths.push(artifact_fs.resolve_build(path));
-            }
+            } => paths.push(artifact_fs.resolve_build(path)),
             CommandExecutionOutputRef::TestPath { path: _, create: _ } => {}
         }
     }
 
-    materializer.ensure_materialized(paths).await
+    materializer.ensure_materialized(paths.clone()).await?;
+
+    Ok(paths)
 }
 
 /// Create any output dirs requested by the command. Note that this makes no effort to delete

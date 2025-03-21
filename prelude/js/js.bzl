@@ -18,9 +18,11 @@ def _select_platform():
         "DEFAULT": select({
             "DEFAULT": "android",
             "config//os/constraints:iphoneos": "ios",
-            "config//os/constraints:macos": "macos",
             "config//os/constraints:windows": "windows",
         }),
+        "config//react-native:macos": "macos",
+        # TODO(T210407097): Remove after deleting //third-party/microsoft-fork-of-react-native
+        "fbsource//tools/build_defs/js/config:macos_legacy": "macos_legacy",
         "fbsource//tools/build_defs/js/config:platform_override_android": "android",
         "fbsource//tools/build_defs/js/config:platform_override_ios": "ios",
         "fbsource//tools/build_defs/js/config:platform_override_macos": "macos",

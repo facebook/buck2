@@ -9,5 +9,6 @@
 
 pub(crate) mod defs;
 pub(crate) mod eval_ctx;
+mod modifiers;
 pub(crate) mod package;
 pub mod package_value;

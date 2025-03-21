@@ -12,6 +12,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
+use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_http::retries::http_retry;
 use buck2_http::retries::AsBuck2Error;
 use buck2_http::retries::HttpError;
@@ -23,6 +24,7 @@ use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use hyper::Response;
+use tokio::fs::File;
 use tokio::io::AsyncRead;
 
 use crate::chunk_reader::ChunkReader;
@@ -58,12 +60,14 @@ impl Default for Ttl {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpWriteError {
     #[error(transparent)]
     Client(HttpError),
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Http)]
 enum HttpAppendError {
     #[error(transparent)]
     Client(HttpError),
@@ -98,6 +102,7 @@ impl AsBuck2Error for HttpAppendError {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 pub enum UploadError {
     #[error(
         "No result code from uploading path `{0}` to Manifold, probably due to signal interrupt"
@@ -148,6 +153,16 @@ impl Bucket {
         name: "buck2_re_logs",
         key: "buck2_re_logs-key",
     };
+
+    pub const INSTALLER_LOGS: Bucket = Bucket {
+        name: "buck2_installer_logs",
+        key: "buck2_installer_logs-key",
+    };
+}
+
+fn manifold_url(bucket: &Bucket, filename: String) -> String {
+    let full_path = format!("{}/{}", bucket.name, filename);
+    format!("https://interncache-all.fbcdn.net/manifold/{}", full_path)
 }
 
 /// Return the place to upload logs, or None to not upload logs at all
@@ -296,6 +311,19 @@ impl ManifoldClient {
             path,
             ttl,
         }
+    }
+
+    pub async fn upload_file(
+        &self,
+        local_path: &AbsPath,
+        filename: String,
+        bucket: Bucket,
+    ) -> buck2_error::Result<String> {
+        let mut file = File::open(&local_path).await?;
+        self.read_and_upload(bucket, &filename, Default::default(), &mut file)
+            .await?;
+
+        Ok(manifold_url(&bucket, filename))
     }
 }
 

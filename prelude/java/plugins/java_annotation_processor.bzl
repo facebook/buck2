@@ -26,7 +26,14 @@ JavaProcessorsInfo = provider(
 
         # Names of processors
         "processors": provider_field(typing.Any, default = None),  # ["string"]
+
+        # Whether processor can only run on java and shall run on javac even in KotlinCD
+        # (which means it will only apply on java files in kotlin module)
+        "runs_on_java_only": provider_field(typing.Any, default = None),
+
+        # Whether processor support source only abi
         "supports_source_only_abi": provider_field(typing.Any, default = None),
+
         # Type of processor
         "type": provider_field(typing.Any, default = None),  # "JavaProcessorsType"
     },
@@ -35,6 +42,7 @@ JavaProcessorsInfo = provider(
 AnnotationProcessor = record(
     affects_abi = field(bool),
     supports_source_only_abi = field(bool),
+    runs_on_java_only = field(bool),
     processors = field(list[str]),
     deps = field([JavaPackagingDepTSet, None]),
     isolate_class_loader = field(bool),
@@ -70,10 +78,11 @@ def create_annotation_processor_properties(
             if not ap_dep:
                 fail("Dependency must have a type of `java_library` or `prebuilt_jar`. Deps: {}".format(annotation_processor_deps))
 
-        # "legacy" annotation processors have no mechanism for indicating if they affect abi or if they support source_only
+        # "legacy" annotation processors have no mechanism for indicating if they affect abi or if they support source_only or if they run on javac for mix modules
         annotation_processors.append(AnnotationProcessor(
             affects_abi = True,
             supports_source_only_abi = False,
+            runs_on_java_only = False,
             processors = annotation_processor_names,
             # using packaging deps to have all transitive deps collected for processors classpath
             deps = derive_transitive_deps(ctx, annotation_processor_deps),
@@ -88,6 +97,7 @@ def create_annotation_processor_properties(
             annotation_processors.append(AnnotationProcessor(
                 affects_abi = ap_plugin.affects_abi,
                 supports_source_only_abi = ap_plugin.supports_source_only_abi,
+                runs_on_java_only = ap_plugin.runs_on_java_only,
                 processors = ap_plugin.processors,
                 deps = ap_plugin.deps,
                 isolate_class_loader = ap_plugin.isolate_class_loader,
@@ -113,6 +123,7 @@ def create_ksp_annotation_processor_properties(plugins: list[[Dependency, (Depen
             annotation_processors.append(AnnotationProcessor(
                 affects_abi = ap_plugin.affects_abi,
                 supports_source_only_abi = ap_plugin.supports_source_only_abi,
+                runs_on_java_only = ap_plugin.runs_on_java_only,
                 processors = ap_plugin.processors,
                 deps = ap_plugin.deps,
                 isolate_class_loader = ap_plugin.isolate_class_loader,
@@ -145,6 +156,7 @@ def java_annotation_processor_impl(ctx: AnalysisContext) -> list[Provider]:
             type = _get_processor_type(ctx.attrs.processor_class),
             affects_abi = not ctx.attrs.does_not_affect_abi,
             supports_source_only_abi = ctx.attrs.supports_abi_generation_from_source,
+            runs_on_java_only = ctx.attrs.runs_on_java_only,
             isolate_class_loader = ctx.attrs.isolate_class_loader,
         ),
         DefaultInfo(default_output = None, other_outputs = [packaging_dep.jar for packaging_dep in transitive_deps.traverse() if packaging_dep.jar]),

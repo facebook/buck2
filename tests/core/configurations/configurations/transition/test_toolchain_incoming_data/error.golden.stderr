@@ -1,0 +1,23 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+Command failed: 
+From load at TARGETS.fixture:1
+
+Caused by:
+    0: Error evaluating module: `root//defs.bzl`
+    1: Traceback (most recent call last):
+         * defs.bzl:25, in <module>
+             toolchain_with_incoming_transition = rule(
+       
+       error: Toolchain rules do not support incoming transitions
+         --> defs.bzl:25:38
+          |
+       25 |   toolchain_with_incoming_transition = rule(
+          |  ______________________________________^
+       26 | |     impl = _impl2,
+       27 | |     attrs = {},
+       28 | |     is_toolchain_rule = True,
+       29 | |     supports_incoming_transition = True,
+       30 | | )
+          | |_^
+          |

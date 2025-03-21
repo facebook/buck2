@@ -31,11 +31,13 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum TemplatePlaceholderInfoError {
     #[error(
         "Expected TemplatePlaceholderInfo.{field_key} to be a dict of String->arg-like Value, got `{value_repr}`."

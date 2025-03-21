@@ -151,7 +151,7 @@ fn write_output<T: Display + Serialize>(
 fn get_record(materialization: &buck2_data::MaterializationEnd) -> Record {
     let method = match materialization
         .method
-        .and_then(buck2_data::MaterializationMethod::from_i32)
+        .and_then(|v| buck2_data::MaterializationMethod::try_from(v).ok())
     {
         Some(buck2_data::MaterializationMethod::CasDownload) => "cas",
         Some(buck2_data::MaterializationMethod::LocalCopy) => "copy",

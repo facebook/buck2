@@ -11,7 +11,6 @@
 
 use std::cell::RefCell;
 use std::io::Write;
-use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -64,7 +63,6 @@ use starlark::values::ValueTyped;
 
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
-use crate::bxl::starlark_defs::context::output::EnsuredArtifactOrGroup;
 use crate::bxl::starlark_defs::context::output::OutputStream;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
@@ -82,6 +80,7 @@ pub(crate) mod starlark_async;
 
 /// Errors that can occur when accessing some field of `BxlContext` for dynamic action or anon target.
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum BxlContextError {
     #[error("`{0}()` is unsupported")]
     Unsupported(String),
@@ -91,19 +90,20 @@ enum BxlContextError {
 
 #[derive(buck2_error::Error, Debug)]
 #[error("Expected a single target as a string literal, not a target pattern")]
+#[buck2(tag = Input)]
 struct NotATargetLabelString;
 
 #[derive(buck2_error::Error, Debug)]
 #[error(
     "Unconfigured target label(s)/node(s) was passed into analysis. Targets passed into analysis should be configured."
 )]
+#[buck2(tag = Input)]
 struct UnconfiguredTargetInAnalysis;
 
 /// Data object for `BxlContextType::Root`.
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
 pub(crate) struct RootBxlContextData<'v> {
     output_stream: ValueTyped<'v, OutputStream>,
-    error_stream: ValueTyped<'v, OutputStream>,
     cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
 }
 
@@ -128,8 +128,14 @@ impl<'v> BxlContextType<'v> {
     fn unpack_root(&self) -> buck2_error::Result<&'v RootBxlContextData> {
         match &self {
             BxlContextType::Root(root) => Ok(root),
-            BxlContextType::Dynamic(_) => Err(buck2_error!([], "Expected root BXL context type")),
-            BxlContextType::AnonTarget => Err(buck2_error!([], "Expected root BXL context type")),
+            BxlContextType::Dynamic(_) => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected root BXL context type"
+            )),
+            BxlContextType::AnonTarget => Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected root BXL context type"
+            )),
         }
     }
 }
@@ -357,10 +363,6 @@ impl<'v> BxlContext<'v> {
                 core.project_fs.clone(),
                 core.artifact_fs.clone(),
                 output_sink,
-            )),
-            error_stream: heap.alloc_typed(OutputStream::new(
-                core.project_fs.clone(),
-                core.artifact_fs.clone(),
                 error_sink,
             )),
         };
@@ -479,21 +481,7 @@ impl<'v> BxlContext<'v> {
             .as_ref()
             .take_artifacts()
             .into_iter()
-            .map(|ensured_artifact_type| match ensured_artifact_type {
-                EnsuredArtifactOrGroup::Artifact(artifact) => {
-                    let as_artifact = artifact.as_artifact();
-                    let bound_artifact = as_artifact.get_bound_artifact()?;
-                    let associated_artifacts = as_artifact.get_associated_artifacts();
-
-                    Ok(associated_artifacts
-                        .iter()
-                        .flat_map(|v| v.iter())
-                        .cloned()
-                        .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
-                        .collect::<Vec<_>>())
-                }
-                EnsuredArtifactOrGroup::ArtifactGroup(ag) => Ok(vec![ag]),
-            })
+            .map(|ensured_artifact| ensured_artifact.into_artifact_groups())
             .flatten_ok()
             .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
 
@@ -533,7 +521,9 @@ impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
     // Used for caching error logs emitted from within the BXL core.
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.context_type {
-            BxlContextType::Root(root) => writeln!(root.error_stream.sink.borrow_mut(), "{}", msg)?,
+            BxlContextType::Root(root) => {
+                writeln!(root.output_stream.error_sink.borrow_mut(), "{}", msg)?
+            }
             BxlContextType::Dynamic(_) => console_message(msg),
             BxlContextType::AnonTarget => console_message(msg),
         }

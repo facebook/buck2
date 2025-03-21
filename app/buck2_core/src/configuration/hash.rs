@@ -10,6 +10,7 @@
 use allocative::Allocative;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum ConfigurationHashError {
     #[error("Configuration hash must be 16 hex digits, got: `{0}`")]
     Invalid(String),

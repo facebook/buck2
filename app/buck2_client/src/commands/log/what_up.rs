@@ -21,7 +21,7 @@ use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleConfig;
 use buck2_client_ctx::subscribers::superconsole::SuperConsoleState;
 use buck2_client_ctx::subscribers::superconsole::CUTOFFS;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_events::BuckEvent;
@@ -62,11 +62,8 @@ impl WhatUpCommand {
 
             let mut super_console = StatefulSuperConsole::console_builder()
                 .build_forced(StatefulSuperConsole::FALLBACK_SIZE)
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
-            let build_count_dir = ctx
-                .maybe_paths()?
-                .map(|p| p.roots.project_root.root().to_owned());
             let mut super_console_state = SuperConsoleState::new(
                 None,
                 invocation.trace_id,
@@ -76,7 +73,7 @@ impl WhatUpCommand {
                     max_lines: 1000000,
                     ..Default::default()
                 },
-                build_count_dir,
+                None,
             )?;
             let mut first_timestamp = None;
             // Ignore any events that are truncated, hence unreadable
@@ -107,7 +104,7 @@ impl WhatUpCommand {
                         super_console.emit(result);
                         super_console
                             .finalize(&Self::component(&super_console_state))
-                            .map_err(from_any)?;
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                         buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                         return Ok(());
                     }
@@ -116,7 +113,7 @@ impl WhatUpCommand {
 
             super_console
                 .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)
-                .map_err(from_any)?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             buck2_error::Ok(())
         })?;
 

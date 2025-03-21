@@ -16,7 +16,7 @@ use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::configuration::pair::ConfigurationNoExec;
+use buck2_core::configuration::pair::Configuration;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
@@ -27,8 +27,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::buck2_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
-use buck2_node::attrs::configuration_context::AttrConfigurationContext;
-use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
 use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::resolved::ConfigurationSettingKey;
@@ -56,11 +54,11 @@ use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTyped;
-use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::starlark_defs::context::BxlContextNoDice;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlActionsError {
     #[error(
         "An action registry was already requested via `ctx.bxl_actions().actions`. Only one action registry is allowed"
@@ -76,10 +74,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     target_platform: Option<TargetLabel>,
     exec_compatible_with: Arc<[ConfigurationSettingKey]>,
 ) -> buck2_error::Result<BxlExecutionResolution> {
-    // bxl has on transitions
-    let resolved_transitions = OrderedMap::new();
-
-    let platform_configuration = match target_platform.as_ref() {
+    let target_cfg = match target_platform.as_ref() {
         Some(global_target_platform) => {
             CONFIGURATION_CALCULATION
                 .get()?
@@ -88,29 +83,6 @@ pub(crate) async fn resolve_bxl_execution_platform(
         }
         None => ConfigurationData::unspecified(),
     };
-    let resolved_configuration = CONFIGURATION_CALCULATION
-        .get()?
-        .get_resolved_configuration(ctx, &platform_configuration, cell, &exec_compatible_with)
-        .await?;
-
-    // there is not explicit configured deps, so platforms is empty
-    let platform_cfgs = OrderedMap::new();
-
-    let configuration_ctx = AttrConfigurationContextImpl::new(
-        &resolved_configuration,
-        ConfigurationNoExec::unbound_exec(),
-        // We don't really need `resolved_transitions` here:
-        // `Traversal` declared above ignores transitioned dependencies.
-        // But we pass `resolved_transitions` here to prevent breakages in the future
-        // if something here changes.
-        &resolved_transitions,
-        &platform_cfgs,
-    );
-
-    let toolchain_deps_configured: Vec<_> = toolchain_deps
-        .iter()
-        .map(|t| configuration_ctx.configure_toolchain_target(t))
-        .collect();
 
     let resolved_execution = GET_EXECUTION_PLATFORMS
         .get()?
@@ -120,14 +92,24 @@ pub(crate) async fn resolve_bxl_execution_platform(
                 .iter()
                 .map(|label| label.target().dupe())
                 .collect(),
-            toolchain_deps_configured
+            toolchain_deps
                 .iter()
-                .map(|dep| TargetConfiguredTargetLabel::new_without_exec_cfg(dep.target().dupe()))
+                .map(|dep| {
+                    TargetConfiguredTargetLabel::new_configure(dep.target(), target_cfg.dupe())
+                })
                 .collect(),
             exec_compatible_with,
             cell,
         )
         .await?;
+
+    let exec_cfg = resolved_execution.platform()?.cfg_pair_no_exec().dupe();
+    let toolchain_cfg = Configuration::new(target_cfg.dupe(), Some(exec_cfg.cfg().dupe()));
+
+    let toolchain_deps_configured: Vec<_> = toolchain_deps
+        .iter()
+        .map(|t| t.configure_pair(toolchain_cfg.dupe()))
+        .collect();
 
     let exec_deps_configured = exec_deps.try_map(|e| {
         let label =
@@ -303,7 +285,7 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
         if this.is_anon_target_or_dyn_action()? {
             soft_error!(
                 "bxl_acessing_exec_platform",
-                buck2_error!([], "Anon target or dynamic action accesses bxl.Actions.exec_deps."),
+                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.exec_deps."),
                 quiet: true
             )?;
         }
@@ -320,7 +302,7 @@ fn bxl_actions_methods(builder: &mut MethodsBuilder) {
         if this.is_anon_target_or_dyn_action()? {
             soft_error!(
                 "bxl_acessing_exec_platform",
-                buck2_error!([], "Anon target or dynamic action accesses bxl.Actions.toolchains."),
+                buck2_error!(buck2_error::ErrorTag::Input, "Anon target or dynamic action accesses bxl.Actions.toolchains."),
                 quiet: true
             )?;
         }

@@ -11,7 +11,7 @@ impl From<std::string::FromUtf8Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::string::FromUtf8Error) -> Self {
-        crate::conversion::from_any(value)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }
 
@@ -20,8 +20,8 @@ impl From<std::string::String> for crate::Error {
     #[track_caller]
     fn from(value: std::string::String) -> Self {
         let source_location =
-            crate::source_location::from_file(std::panic::Location::caller().file(), None);
+            crate::source_location::SourceLocation::new(std::panic::Location::caller().file());
 
-        crate::Error::new(value, source_location, None)
+        crate::Error::new(value, crate::ErrorTag::Tier0, source_location, None)
     }
 }

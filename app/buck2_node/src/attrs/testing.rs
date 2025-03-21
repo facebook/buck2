@@ -25,13 +25,13 @@ use starlark_map::unordered_map::UnorderedMap;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::configuration::resolved::ConfigurationNode;
 use crate::configuration::resolved::ConfigurationSettingKey;
-use crate::configuration::resolved::ResolvedConfigurationSettings;
+use crate::configuration::resolved::MatchedConfigurationSettingKeys;
 
 pub fn configuration_ctx() -> impl AttrConfigurationContext {
     struct TestAttrConfigurationContext(
         ConfigurationData,
         ConfigurationData,
-        ResolvedConfigurationSettings,
+        MatchedConfigurationSettingKeys,
     );
     impl AttrConfigurationContext for TestAttrConfigurationContext {
         fn cfg(&self) -> ConfigurationNoExec {
@@ -42,7 +42,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             Ok(ConfigurationNoExec::new(self.1.dupe()))
         }
 
-        fn resolved_cfg_settings(&self) -> &ResolvedConfigurationSettings {
+        fn matched_cfg_keys(&self) -> &MatchedConfigurationSettingKeys {
             &self.2
         }
 
@@ -70,7 +70,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             },
         )
         .unwrap(),
-        ResolvedConfigurationSettings::new(UnorderedMap::from_iter([
+        MatchedConfigurationSettingKeys::new(UnorderedMap::from_iter([
             (
                 ConfigurationSettingKey::testing_parse("root//other:config"),
                 ConfigurationNode::new(Some(ConfigSettingData {

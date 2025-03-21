@@ -33,6 +33,7 @@ use indexmap::IndexSet;
 use starlark::values::OwnedFrozenValue;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum CopyActionValidationError {
     #[error("Exactly one input file must be specified for a copy action, got {0}")]
     WrongNumberOfInputs(usize),

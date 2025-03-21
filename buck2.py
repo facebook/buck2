@@ -14,6 +14,7 @@ from typing import List, Tuple
 
 def parse_arguments() -> Tuple[argparse.Namespace, List[str]]:
     parser = argparse.ArgumentParser(
+        add_help=False,  # This allows us to pass --help to the inner command
         description="Builds buck2 locally and then runs it.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -48,7 +49,7 @@ def get_extra_build_params(args: argparse.Namespace) -> List[str]:
 
 
 def build_command(args: argparse.Namespace, extra_args: List[str]) -> List[str]:
-    cmd = ["buck2", "run", "fbcode//buck2:buck2"]
+    cmd = ["buck2", "run", "fbcode//buck2:buck2_bundle"]
     inner_buck_isolation_dir = (
         args.run_isolation_dir if args.run_isolation_dir else "v2.self"
     )

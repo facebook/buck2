@@ -6,13 +6,14 @@
 # of this source tree.
 
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 
 def _apple_toolchain_override_impl(ctx: AnalysisContext) -> list[Provider]:
     base = ctx.attrs.base[AppleToolchainInfo]
     cxx_toolchain_override = ctx.attrs.cxx_toolchain[CxxToolchainInfo]
-    return [
+    providers = [
         DefaultInfo(),
         AppleToolchainInfo(
             actool = base.actool,
@@ -39,12 +40,15 @@ def _apple_toolchain_override_impl(ctx: AnalysisContext) -> list[Provider]:
             sdk_name = base.sdk_name,
             sdk_path = base.sdk_path,
             sdk_version = base.sdk_version,
-            swift_toolchain_info = base.swift_toolchain_info,
             xcode_build_version = base.xcode_build_version,
             xcode_version = base.xcode_version,
             xctest = base.xctest,
         ),
     ]
+    if SwiftToolchainInfo in ctx.attrs.base:
+        providers.append(ctx.attrs.base[SwiftToolchainInfo])
+
+    return providers
 
 registration_spec = RuleRegistrationSpec(
     name = "apple_toolchain_override",

@@ -1,6 +1,11 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
-Start, query, and control the http server
+Start, query, and control the buck2 server, a long-lived process, spanning buck2 command line
+invocations.
+Using this command can ensure the daemon is running.
+
+To stop a specific server, use `buck2 kill` and add `--isolation-dir` for a specific instance.
+To stop all instances, use `buck2 killall`.
 
 Usage: buck2 server [OPTIONS]
 

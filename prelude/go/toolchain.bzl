@@ -19,7 +19,6 @@ GoToolchainInfo = provider(
         "compiler_flags": provider_field(typing.Any, default = None),
         "concat_files": provider_field(RunInfo),
         "cover": provider_field(RunInfo),
-        "default_cgo_enabled": provider_field(bool, default = False),
         "env_go_arch": provider_field(str),
         "env_go_os": provider_field(str),
         "env_go_arm": provider_field(str | None, default = None),
@@ -37,8 +36,7 @@ GoToolchainInfo = provider(
 def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_args]:
     env = {
         "GOARCH": toolchain.env_go_arch,
-        # opt-out from Go1.20 coverage redesign
-        "GOEXPERIMENT": "nocoverageredesign",
+        "GOEXPERIMENT": "",
         "GOOS": toolchain.env_go_os,
     }
 
@@ -52,13 +50,15 @@ def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_ar
 
     return env
 
-# Sets default value of cgo_enabled attribute based on default_cgo_enabled attribute of GoToolchainInfo
-def evaluate_cgo_enabled(toolchain: GoToolchainInfo, cgo_enabled: [bool, None], override_cgo_enabled: [bool, None] = None) -> bool:
+# Sets default value of cgo_enabled attribute based on availability of CxxToolchain
+def evaluate_cgo_enabled(cxx_toolchain_available: bool, cgo_enabled: [bool, None], override_cgo_enabled: [bool, None] = None) -> bool:
+    if not cxx_toolchain_available and (cgo_enabled or override_cgo_enabled):
+        fail("CGo can't be enabled because CxxToolchain is not available for current configuration")
+
     if override_cgo_enabled != None:
         return override_cgo_enabled
 
     if cgo_enabled != None:
         return cgo_enabled
 
-    # Sadly we can't add a check if cxx_toolchain available, because it's always set even when it doesn't make sense
-    return toolchain.default_cgo_enabled
+    return cxx_toolchain_available

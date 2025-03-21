@@ -14,7 +14,7 @@ load(
     "JavaPackagingDepTSet",
     "JavaPackagingInfo",
     "create_java_packaging_dep",
-    "derive_compiling_deps",
+    "single_library_compiling_deps",
 )
 load(":android_providers.bzl", "AndroidBuildConfigInfo", "BuildConfigField", "merge_android_packageable_info")
 
@@ -63,7 +63,7 @@ def generate_android_build_config(
     packaging_deps_kwargs = {"value": create_java_packaging_dep(ctx, library_output.full_library)}
     packaging_deps = ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs)
     return (JavaLibraryInfo(
-        compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
+        compiling_deps = single_library_compiling_deps(ctx.actions, library_output),
         library_output = library_output,
         output_for_classpath_macro = library_output.full_library,
     ), JavaPackagingInfo(

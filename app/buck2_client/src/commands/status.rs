@@ -12,20 +12,23 @@ use std::time::Duration;
 use buck2_cli_proto::StatusResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::daemon::client::connect::connect_buckd;
 use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
+use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use chrono::DateTime;
 use humantime::format_duration;
 use walkdir::WalkDir;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum StatusError {
     #[error("Incorrect seconds/nanos argument")]
     NativeDateTime,
@@ -47,12 +50,15 @@ impl StatusCommand {
         ctx: ClientCommandContext<'_>,
     ) -> buck2_error::Result<()> {
         ctx.with_runtime(|ctx| async move {
+            let mut events_ctx =
+                EventsCtx::new(EventSubscribers::new(vec![Box::new(StdoutStderrForwarder)]));
             if self.all {
                 let mut daemon_dirs = Vec::new();
                 let root = ctx.paths()?.roots.common_buckd_dir()?;
                 let walker = WalkDir::new(&root).follow_links(false).into_iter();
                 for entry in walker {
-                    let entry = entry.map_err(from_any)?;
+                    let entry =
+                        entry.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
                     if entry.file_type().is_dir() {
                         let dir = DaemonDir {
                             path: entry.into_path().try_into()?,
@@ -69,11 +75,9 @@ impl StatusCommand {
                     if let Ok(bootstrap_client) = establish_connection_existing(&dir).await {
                         statuses.push(process_status(
                             bootstrap_client
-                                .with_subscribers(EventSubscribers::new(vec![Box::new(
-                                    StdoutStderrForwarder,
-                                )]))
+                                .to_connector()
                                 .with_flushing()
-                                .status(self.snapshot)
+                                .status(&mut events_ctx, self.snapshot)
                                 .await?,
                         )?);
                     }
@@ -81,17 +85,24 @@ impl StatusCommand {
 
                 buck2_client_ctx::println!("{}", serde_json::to_string_pretty(&statuses)?)?;
             } else {
-                match ctx
-                    .connect_buckd(BuckdConnectOptions::existing_only_no_console())
-                    .await
+                match connect_buckd(
+                    BuckdConnectConstraints::ExistingOnly,
+                    &mut events_ctx,
+                    ctx.paths()?,
+                )
+                .await
                 {
                     Err(_) => {
                         buck2_client_ctx::eprintln!("no buckd running")?;
                         // Should this be an error?
                     }
                     Ok(mut client) => {
-                        let json_status =
-                            process_status(client.with_flushing().status(self.snapshot).await?)?;
+                        let json_status = process_status(
+                            client
+                                .with_flushing()
+                                .status(&mut events_ctx, self.snapshot)
+                                .await?,
+                        )?;
                         buck2_client_ctx::println!(
                             "{}",
                             serde_json::to_string_pretty(&json_status)?

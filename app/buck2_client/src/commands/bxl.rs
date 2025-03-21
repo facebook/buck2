@@ -23,13 +23,16 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
 use buck2_client_ctx::daemon::client::StdoutPartialResultHandler;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 
 use crate::commands::build::print_build_result;
 use crate::commands::build::FinalArtifactMaterializations;
+use crate::commands::build::FinalArtifactUploads;
 use crate::commands::build::MaterializationsToProto;
+use crate::commands::build::UploadsToProto;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "bxl", about = "Run BXL scripts")]
@@ -54,6 +57,14 @@ pub struct BxlCommandOptions {
         value_enum
     )]
     materializations: Option<FinalArtifactMaterializations>,
+
+    #[clap(
+        long = "upload-final-artifacts",
+        help = "Upload (or skip) the final artifacts.",
+        ignore_case = true,
+        value_enum
+    )]
+    upload_final_artifacts: Option<FinalArtifactUploads>,
 
     #[clap(
         name = "BXL label",
@@ -89,6 +100,7 @@ impl StreamingCommand for BxlCommand {
         buckd: &mut BuckdClientConnector,
         matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
         let result = buckd
@@ -102,8 +114,10 @@ impl StreamingCommand for BxlCommand {
                     target_cfg: Some(self.target_cfg.target_cfg()),
                     final_artifact_materializations: self.bxl_opts.materializations.to_proto()
                         as i32,
+                    final_artifact_uploads: self.bxl_opts.upload_final_artifacts.to_proto() as i32,
                     print_stacktrace: ctx.verbosity.print_success_stderr(),
                 },
+                events_ctx,
                 ctx.console_interaction_stream(&self.common_ops.console_opts),
                 &mut StdoutPartialResultHandler,
             )

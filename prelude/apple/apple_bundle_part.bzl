@@ -6,6 +6,7 @@
 # of this source tree.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
@@ -113,9 +114,9 @@ def assemble_bundle(
             "--appclips-destination",
             bundle_relative_path_for_destination(AppleBundleDestination("appclips"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
             "--swift-stdlib-command",
-            cmd_args(ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool, delimiter = " ", quote = "shell"),
+            cmd_args(ctx.attrs._apple_toolchain[SwiftToolchainInfo].swift_stdlib_tool, delimiter = " ", quote = "shell"),
             "--sdk-root",
-            ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.sdk_path,
+            ctx.attrs._apple_toolchain[SwiftToolchainInfo].sdk_path,
         ]
     else:
         swift_args = []

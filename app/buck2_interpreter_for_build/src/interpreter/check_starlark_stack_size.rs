@@ -13,6 +13,7 @@ use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_provider::with_starlark_eval_provider;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::starlark_profiler::profiler::StarlarkProfilerOpt;
 use dice::DiceComputations;
@@ -23,6 +24,7 @@ use starlark::environment::Module;
 use starlark::syntax::AstModule;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CheckStarlarkStackSizeError {
     #[error("Error checking starlark stack size")]
     CheckStarlarkStackSizeError,
@@ -50,7 +52,7 @@ pub(crate) async fn check_starlark_stack_size(
             with_starlark_eval_provider(
                 ctx,
                 &mut StarlarkProfilerOpt::disabled(),
-                "Check starlark stack size".to_owned(),
+                &StarlarkEvalKind::Unknown("Check starlark stack size".into()),
                 move |provider, _| {
                     let env = Module::new();
                     let (mut eval, _) = provider.make(&env)?;

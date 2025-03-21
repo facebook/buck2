@@ -158,6 +158,9 @@ Options:
       --materialize-failed-inputs
           Materializes inputs for failed actions which ran on RE
 
+      --materialize-failed-outputs
+          Materializes outputs (if present) for failed actions which ran on RE
+
   -h, --help
           Print help (see a summary with '-h')
 

@@ -28,6 +28,9 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact) -> Artifact:
             ]),
             identifier = obj.short_path,
             category = "stamp_build_info",
+            # This can be run remotely, but it's often cheaper to do this locally for large
+            # binaries
+            prefer_local = True,
         )
         return stamped_output
     return obj

@@ -20,6 +20,7 @@ use dupe::Dupe;
 use static_assertions::assert_eq_size;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -91,10 +92,18 @@ impl DepAttr<ProvidersLabel> {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> buck2_error::Result<()> {
         match &attr_type.transition {
-            DepAttrTransition::Identity(..) => traversal.dep(label.target()),
-            DepAttrTransition::Exec => traversal.exec_dep(label.target()),
-            DepAttrTransition::Toolchain => traversal.toolchain_dep(label.target()),
-            DepAttrTransition::Transition(tr) => traversal.transition_dep(label.target(), tr),
+            DepAttrTransition::Identity(..) => traversal.dep(label),
+            DepAttrTransition::Exec => traversal.exec_dep(label),
+            DepAttrTransition::Toolchain => traversal.toolchain_dep(label),
+            DepAttrTransition::Transition(tr) => {
+                match &**tr {
+                    TransitionId::MagicObject { .. } => (),
+                    TransitionId::Target(label) => {
+                        traversal.configuration_dep(label, ConfigurationDepKind::Transition)?
+                    }
+                };
+                traversal.transition_dep(label, tr)
+            }
         }
     }
 }

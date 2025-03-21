@@ -25,6 +25,7 @@ pub mod protobuf_util;
 tonic::include_proto!("buck.daemon");
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum BuckDaemonProtoError {
     #[error("daemon request was missing client context")]
     MissingClientContext,

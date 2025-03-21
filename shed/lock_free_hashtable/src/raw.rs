@@ -141,7 +141,7 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
 
             let current = unsafe { &*current };
             match current.table.insert(hash, value, |a, b| eq(a, b)) {
-                Ok((referece, value)) => {
+                Ok((reference, value)) => {
                     drop(guard);
                     // Insert was successful. However, we or other threads
                     // may have exceeded the load factor.
@@ -149,7 +149,7 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
                     if current.table.need_resize() {
                         self.resize_if_needed(|v| hash_fn(v));
                     }
-                    return (referece, value);
+                    return (reference, value);
                 }
                 Err(ret_value) => {
                     drop(guard);

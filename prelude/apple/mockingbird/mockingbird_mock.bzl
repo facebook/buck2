@@ -45,8 +45,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         json_project_description_output,
         "--output",
         mockingbird_source.as_output(),
-        "--header",
-        "// (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.",
         "--support",
         ctx.attrs._mockingbird_support[DefaultInfo].default_outputs,
         "--verbose",

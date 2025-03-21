@@ -35,7 +35,7 @@ This exposes `your_function_name` as a function, with whatever arguments you
 defined it, so that on the command line you can invoke:
 
 ```sh
-buck2 bxl //myscript.bxl:your_function_name -- --bool_arg true --list-type 1 --list-type 2 --target //foo:bar`
+buck2 bxl //myscript.bxl:your_function_name -- --bool_arg true --list-type 1 --list-type 2 --target //foo:bar
 ```
 
 The implementation function takes a single context as parameter (see the

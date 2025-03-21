@@ -58,10 +58,10 @@ ASSET_EXTENSIONS = [
 ]
 
 # Matches the default value for resolver.platforms in metro-config
-ASSET_PLATFORMS = ["ios", "android", "windows", "macos", "web"]
+ASSET_PLATFORMS = ["ios", "android", "windows", "macos", "macos_legacy", "web"]
 
 def get_apple_resource_providers_for_js_bundle(ctx: AnalysisContext, js_bundle_info: JsBundleInfo, platform: str, skip_resources: bool) -> list[ResourceGraphInfo]:
-    if platform != "ios" and platform != "macos":
+    if platform != "ios" and platform != "macos" and platform != "macos_legacy":
         return []
 
     # `skip_resources` controls whether the JS resources should be skipped, not whether
@@ -126,7 +126,7 @@ def get_bundle_name(ctx: AnalysisContext, default_bundle_name: str) -> str:
     flavors = bundle_name_for_flavor_map.keys()
     for flavor in flavors:
         expect(
-            flavor == "android" or flavor == "ios" or flavor == "macos" or flavor == "windows" or flavor == "vr",
+            flavor == "android" or flavor == "ios" or flavor == "macos" or flavor == "macos_legacy" or flavor == "windows" or flavor == "vr",
             "Currently only support picking bundle name by platform!",
         )
 
@@ -167,4 +167,6 @@ def run_worker_commands(
         worker_command,
         category = category.replace("-", "_"),
         identifier = identifier,
+        # Handshake seems more prone to failure when running locally, so workaround by running remotely where possible.
+        prefer_remote = True,
     )

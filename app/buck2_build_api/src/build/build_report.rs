@@ -18,6 +18,11 @@ use std::hash::Hasher;
 use std::io::BufWriter;
 use std::sync::Arc;
 
+use buck2_artifact::artifact::artifact_dump::ArtifactInfo;
+use buck2_artifact::artifact::artifact_dump::DirectoryInfo;
+use buck2_artifact::artifact::artifact_dump::ExternalSymlinkInfo;
+use buck2_artifact::artifact::artifact_dump::FileInfo;
+use buck2_artifact::artifact::artifact_dump::SymlinkInfo;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
@@ -35,10 +40,14 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::UniqueRootId;
 use buck2_events::errors::create_error_report;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::directory::ActionDirectoryEntry;
+use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice::DiceComputations;
@@ -108,6 +117,9 @@ struct MaybeConfiguredBuildReportEntry {
 pub(crate) struct ConfiguredBuildReportEntry {
     /// A list of errors that occurred while building this target
     errors: Vec<BuildReportError>,
+    /// Remote artifact information, including hashes, etc.
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    artifact_info: HashMap<Arc<str>, ArtifactInfo>,
     #[serde(flatten)]
     inner: MaybeConfiguredBuildReportEntry,
 }
@@ -161,9 +173,9 @@ enum EntryLabel {
 
 pub struct BuildReportOpts {
     pub print_unconfigured_section: bool,
-    pub unstable_include_other_outputs: bool,
     pub unstable_include_failures_build_report: bool,
     pub unstable_include_package_project_relative_paths: bool,
+    pub unstable_include_artifact_hash_information: bool,
     pub unstable_build_report_filename: String,
 }
 
@@ -172,13 +184,13 @@ pub struct BuildReportCollector<'a> {
     cell_resolver: &'a CellResolver,
     overall_success: bool,
     include_unconfigured_section: bool,
-    include_other_outputs: bool,
     error_cause_cache: HashMap<buck2_error::UniqueRootId, usize>,
     next_cause_index: usize,
     strings: BTreeMap<String, String>,
     failures: HashMap<EntryLabel, String>,
     include_failures: bool,
     include_package_project_relative_paths: bool,
+    include_artifact_hash_information: bool,
 }
 
 impl<'a> BuildReportCollector<'a> {
@@ -188,9 +200,9 @@ impl<'a> BuildReportCollector<'a> {
         cell_resolver: &'a CellResolver,
         project_root: &ProjectRoot,
         include_unconfigured_section: bool,
-        include_other_outputs: bool,
         include_failures: bool,
         include_package_project_relative_paths: bool,
+        include_artifact_hash_information: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     ) -> BuildReport {
@@ -199,13 +211,13 @@ impl<'a> BuildReportCollector<'a> {
             cell_resolver,
             overall_success: true,
             include_unconfigured_section,
-            include_other_outputs,
             error_cause_cache: HashMap::default(),
             next_cause_index: 0,
             strings: BTreeMap::default(),
             failures: HashMap::default(),
             include_failures,
             include_package_project_relative_paths,
+            include_artifact_hash_information,
         };
         let mut entries = HashMap::new();
 
@@ -357,52 +369,27 @@ impl<'a> BuildReportCollector<'a> {
         for (label, result) in results {
             let provider_name: Arc<str> = report_providers_name(label).into();
 
-            result.outputs.iter().for_each(|res| {
-                match res {
-                    Ok(artifacts) => {
-                        let mut is_default = false;
-                        let mut is_other = false;
-
-                        match artifacts.provider_type {
-                            BuildProviderType::Default => {
-                                // as long as we have requested it as a default info, it should  be
-                                // considered a default output whether or not it also appears as an other
-                                // non-main output
-                                is_default = true;
+            result.outputs.iter().for_each(|res| match res {
+                Ok(artifacts) => {
+                    if artifacts.provider_type == BuildProviderType::Default {
+                        for (artifact, value) in artifacts.values.iter() {
+                            if self.include_artifact_hash_information {
+                                update_artifact_info(
+                                    &mut configured_report.artifact_info,
+                                    provider_name.dupe(),
+                                    &value.entry(),
+                                );
                             }
-                            BuildProviderType::DefaultOther
-                            | BuildProviderType::Run
-                            | BuildProviderType::Test => {
-                                // as long as the output isn't the default, we add it to other outputs.
-                                // This means that the same artifact may appear twice if its part of the
-                                // default AND the other outputs, but this is intended as it accurately
-                                // describes the type of the artifact
-                                is_other = true;
-                            }
-                        }
-
-                        for (artifact, _value) in artifacts.values.iter() {
-                            if is_default {
-                                configured_report
-                                    .inner
-                                    .outputs
-                                    .entry(provider_name.clone())
-                                    .or_default()
-                                    .insert(artifact.resolve_path(self.artifact_fs).unwrap());
-                            }
-
-                            if is_other && self.include_other_outputs {
-                                configured_report
-                                    .inner
-                                    .other_outputs
-                                    .entry(provider_name.clone())
-                                    .or_default()
-                                    .insert(artifact.resolve_path(self.artifact_fs).unwrap());
-                            }
+                            configured_report
+                                .inner
+                                .outputs
+                                .entry(provider_name.dupe())
+                                .or_default()
+                                .insert(artifact.resolve_path(self.artifact_fs).unwrap());
                         }
                     }
-                    Err(e) => errors.push(e.dupe()),
                 }
+                Err(e) => errors.push(e.dupe()),
             });
 
             errors.extend(result.errors.iter().cloned());
@@ -536,6 +523,54 @@ impl<'a> BuildReportCollector<'a> {
     }
 }
 
+fn update_artifact_info(
+    artifact_info: &mut HashMap<Arc<str>, ArtifactInfo>,
+    provider_name: Arc<str>,
+    entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+) {
+    match entry {
+        DirectoryEntry::Dir(dir) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::Directory(DirectoryInfo {
+                    digest: dir.fingerprint().clone(),
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(metadata)) => {
+            let cas_digest = metadata.digest.data();
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::File(FileInfo {
+                    digest: *cas_digest,
+                    is_exec: metadata.is_executable,
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(symlink_target)) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::Symlink(SymlinkInfo {
+                    symlink_rel_path: symlink_target.target().into(),
+                }),
+            );
+        }
+        DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
+            artifact_info.insert(
+                provider_name,
+                ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {
+                    target: external_symlink.target().into(),
+                    remaining_path: if external_symlink.remaining_path().is_empty() {
+                        None
+                    } else {
+                        Some(external_symlink.remaining_path().to_owned())
+                    },
+                }),
+            );
+        }
+    }
+}
+
 fn report_providers_name(label: &ConfiguredProvidersLabel) -> String {
     match label.name() {
         ProvidersName::Default => "DEFAULT".to_owned(),
@@ -565,19 +600,11 @@ pub async fn build_report_opts<'a>(
             )
             .await?
             .unwrap_or(true),
-        unstable_include_other_outputs: ctx
-            .parse_legacy_config_property(
-                cell_resolver.root_cell(),
-                BuckconfigKeyRef {
-                    section: "build_report",
-                    property: "unstable_include_other_outputs",
-                },
-            )
-            .await?
-            .unwrap_or(false),
         unstable_include_failures_build_report: build_opts.unstable_include_failures_build_report,
         unstable_include_package_project_relative_paths: build_opts
             .unstable_include_package_project_relative_paths,
+        unstable_include_artifact_hash_information: build_opts
+            .unstable_include_artifact_hash_information,
         unstable_build_report_filename: esto.clone(),
     };
 
@@ -600,9 +627,9 @@ pub fn generate_build_report(
         cell_resolver,
         project_root,
         opts.print_unconfigured_section,
-        opts.unstable_include_other_outputs,
         opts.unstable_include_failures_build_report,
         opts.unstable_include_package_project_relative_paths,
+        opts.unstable_include_artifact_hash_information,
         configured,
         other_errors,
     );
@@ -610,13 +637,15 @@ pub fn generate_build_report(
     let mut serialized_build_report = None;
 
     if !opts.unstable_build_report_filename.is_empty() {
-        let file = fs_util::create_file(
-            project_root
-                .resolve(cwd)
-                .as_abs_path()
-                .join(opts.unstable_build_report_filename),
-        )
-        .buck_error_context("Error writing build report")?;
+        let path = project_root
+            .resolve(cwd)
+            .as_abs_path()
+            .join(opts.unstable_build_report_filename);
+        if let Some(parent) = path.parent() {
+            fs_util::create_dir_all(parent)?;
+        }
+        let file =
+            fs_util::create_file(path.clone()).buck_error_context("Error writing build report")?;
         let mut file = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut file, &build_report)?
     } else {

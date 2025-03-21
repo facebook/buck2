@@ -10,7 +10,6 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
     "project_artifacts",
-    "project_identified_artifacts",
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -23,12 +22,12 @@ load(
     "LinkerType",
 )
 load(
-    "@prelude//cxx/dist_lto:darwin_dist_lto.bzl",
-    "cxx_darwin_dist_link",
-)
-load(
     "@prelude//cxx/dist_lto:dist_lto.bzl",
     "cxx_gnu_dist_link",
+)
+load(
+    "@prelude//cxx/dist_lto/darwin:dist_lto.bzl",
+    "cxx_darwin_dist_link",
 )
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "LinkExecutionPreferenceInfo", "get_action_execution_attributes")
 load(
@@ -67,7 +66,6 @@ load(
     "linker_map_args",
     "make_link_args",
 )
-load(":debug.bzl", "SplitDebugMode")
 load(":dwp.bzl", "dwp", "dwp_available")
 load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
 load(
@@ -136,7 +134,7 @@ def cxx_link_into(
     cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
 
-    should_generate_dwp = dwp_available(cxx_toolchain_info)
+    dwp_tool_available = dwp_available(cxx_toolchain_info)
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps:
@@ -153,8 +151,6 @@ def cxx_link_into(
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
         sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
-        if sanitizer_runtime_args.extra_link_args or sanitizer_runtime_args.sanitizer_runtime_files:
-            fail("Cannot use distributed thinlto with sanitizer runtime")
 
         linker_type = linker_info.type
         if linker_type == LinkerType("darwin"):
@@ -164,15 +160,18 @@ def cxx_link_into(
                 opts,
                 linker_info.thin_lto_premerger_enabled,
                 is_result_executable,
+                sanitizer_runtime_args,
                 linker_map,
             )
         elif linker_type == LinkerType("gnu"):
+            if sanitizer_runtime_args.extra_link_args or sanitizer_runtime_args.sanitizer_runtime_files:
+                fail("Cannot use GNU distributed thinlto with sanitizer runtime")
             exe = cxx_gnu_dist_link(
                 ctx,
                 output,
                 opts,
                 linker_map,
-                should_generate_dwp,
+                dwp_tool_available,
                 is_result_executable,
             )
             extra_outputs = {}
@@ -185,7 +184,7 @@ def cxx_link_into(
             link_execution_preference_info = LinkExecutionPreferenceInfo(
                 preference = opts.link_execution_preference,
             ),
-            sanitizer_runtime_files = [],
+            sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
             extra_outputs = extra_outputs,
         )
 
@@ -214,20 +213,11 @@ def cxx_link_into(
         split_debug_output = split_debug_lto_info.output
     expect(not generates_split_debug(cxx_toolchain_info) or split_debug_output != None)
 
-    link_args_suffix = None
-    if opts.identifier:
-        link_args_suffix = opts.identifier
-    if opts.category_suffix:
-        if link_args_suffix:
-            link_args_suffix += "-" + opts.category_suffix
-        else:
-            link_args_suffix = opts.category_suffix
     link_args_output = make_link_args(
         ctx,
         ctx.actions,
         cxx_toolchain_info,
         links_with_linker_map,
-        suffix = link_args_suffix,
         output_short_path = output.short_path,
         link_ordering = value_or(
             opts.link_ordering,
@@ -331,15 +321,17 @@ def cxx_link_into(
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         output = strip_object(ctx, cxx_toolchain_info, output, strip_args, opts.category_suffix)
 
-    final_output = output if not (is_result_executable and cxx_use_bolt(ctx)) else bolt(ctx, output, external_debug_info, opts.identifier)
-    final_output = stamp_build_info(ctx, final_output) if is_result_executable else final_output
+    use_bolt = (is_result_executable and cxx_use_bolt(ctx))
+    if use_bolt:
+        bolt_output = bolt(ctx, output, external_debug_info, opts.identifier, dwp_tool_available)
+        output = bolt_output.output
+        split_debug_output = bolt_output.dwo_output
 
     dwp_artifact = None
-    if should_generate_dwp:
+    if dwp_tool_available:
         dwp_inputs = cmd_args()
-        dwp_from_dwo = getattr(ctx.attrs, "separate_debug_info", False) and cxx_toolchain_info.split_debug_mode == SplitDebugMode("split")
-        if dwp_from_dwo:
-            dwp_inputs.add(project_identified_artifacts(ctx.actions, [external_debug_info]))
+        if use_bolt:
+            dwp_inputs.add([split_debug_output])
         else:
             for link in opts.links:
                 dwp_inputs.add(unpack_link_args(link))
@@ -348,7 +340,7 @@ def cxx_link_into(
         dwp_artifact = dwp(
             ctx,
             cxx_toolchain_info,
-            final_output,
+            output,
             identifier = opts.identifier,
             category_suffix = opts.category_suffix,
             # TODO(T110378142): Ideally, referenced objects are a list of
@@ -356,11 +348,13 @@ def cxx_link_into(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = [dwp_inputs],
-            from_exe = not dwp_from_dwo,
         )
 
+    if is_result_executable:
+        output = stamp_build_info(ctx, output)
+
     linked_object = LinkedObject(
-        output = final_output,
+        output = output,
         link_args = opts.links,
         bitcode_bundle = bitcode_artifact.artifact if bitcode_artifact else None,
         prebolt_output = output,
@@ -368,7 +362,6 @@ def cxx_link_into(
         dwp = dwp_artifact,
         external_debug_info = external_debug_info,
         linker_argsfile = argfile,
-        linker_filelist = link_args_output.filelist,
         linker_command = command,
         import_library = opts.import_library,
         pdb = link_args_output.pdb_artifact,

@@ -8,6 +8,7 @@
 load("@prelude//:paths.bzl", "paths")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
+# Modeled after: https://pkg.go.dev/cmd/go/internal/list#pkg-variables
 GoListOut = record(
     name = field(str),
     imports = field(list[str], default = []),
@@ -46,9 +47,28 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
     if asan:
         all_tags.append("asan")
 
-    required_felds = "Name,Imports,GoFiles,CgoFiles,HFiles,CFiles,CXXFiles,SFiles,EmbedFiles,CgoCFLAGS,CgoCPPFLAGS,IgnoredGoFiles,IgnoredOtherFiles"
+    required_felds = [
+        "Name",
+        "Imports",
+        "GoFiles",
+        "CgoFiles",
+        "HFiles",
+        "CFiles",
+        "CXXFiles",
+        "SFiles",
+        "EmbedFiles",
+        "CgoCFLAGS",
+        "CgoCPPFLAGS",
+        "IgnoredGoFiles",
+        "IgnoredOtherFiles",
+    ]
     if with_tests:
-        required_felds += ",TestImports,XTestImports,TestGoFiles,XTestGoFiles"
+        required_felds += [
+            "TestImports",
+            "XTestImports",
+            "TestGoFiles",
+            "XTestGoFiles",
+        ]
 
     go_list_args = [
         go_toolchain.go_wrapper,
@@ -57,7 +77,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
         ["--output", go_list_out.as_output()],
         "list",
         "-e",
-        "-json=" + required_felds,
+        "-json=" + ",".join(required_felds),
         ["-tags", ",".join(all_tags) if all_tags else []],
         ".",
     ]

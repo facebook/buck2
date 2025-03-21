@@ -49,9 +49,11 @@ pub struct RemoteEnabledExecutorOptions {
     pub remote_dep_file_cache_enabled: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
     pub custom_image: Option<RemoteExecutorCustomImage>,
+    pub meta_internal_extra_params: MetaInternalExtraParams,
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum RemoteExecutorDependencyErrors {
     #[error("RE dependency requires `{0}` to be set")]
     MissingField(&'static str),
@@ -246,7 +248,7 @@ impl FromStr for OutputPathsBehavior {
             #[cfg(not(fbcode_build))]
             "output_paths" => Ok(OutputPathsBehavior::OutputPaths),
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid OutputPathsBehavior: `{}`",
                 s
             )),
@@ -282,6 +284,7 @@ impl Default for CacheUploadBehavior {
 pub struct CommandGenerationOptions {
     pub path_separator: PathSeparatorKind,
     pub output_paths_behavior: OutputPathsBehavior,
+    pub use_bazel_protocol_remote_persistent_workers: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone)]
@@ -313,6 +316,7 @@ impl CommandExecutorConfig {
             options: CommandGenerationOptions {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),
+                use_bazel_protocol_remote_persistent_workers: false,
             },
         })
     }
@@ -323,4 +327,21 @@ impl CommandExecutorConfig {
             Executor::RemoteEnabled(options) => options.remote_cache_enabled,
         }
     }
+}
+
+/// This struct is used to pass policy info about the action to RE, its data should
+/// match the TExecutionPolicy in the RE thrift API.
+/// affinity_keys is not defined here because it's already defined in ReActionIdentity
+/// duration_ms is not supported because we can't unpack i64 from starlark easily
+#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+pub struct RemoteExecutionPolicy {
+    pub priority: Option<i32>,
+    pub region_preference: Option<String>,
+    pub setup_preference_key: Option<String>,
+}
+
+/// This struct is used to pass meta internal params to RE
+#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+pub struct MetaInternalExtraParams {
+    pub remote_execution_policy: RemoteExecutionPolicy,
 }

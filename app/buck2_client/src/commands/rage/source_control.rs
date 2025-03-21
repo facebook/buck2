@@ -11,6 +11,7 @@ use buck2_error::BuckErrorContext;
 use buck2_util::process::async_background_command;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Environment)]
 enum SourceControlError {
     #[error("HG command failed with code '{0}' and error '{1}' ")]
     HgCommand(i32, String),

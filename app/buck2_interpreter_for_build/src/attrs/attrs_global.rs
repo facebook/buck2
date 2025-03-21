@@ -9,10 +9,9 @@
 
 use std::sync::Arc;
 
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKindSet;
-use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
-use buck2_error::conversion::from_any;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::coerce::COERCE_TARGET_LABEL_FOR_BZL;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
@@ -71,12 +70,6 @@ pub(crate) trait AttributeExt {
         doc: &str,
         coercer: AttrType,
     ) -> buck2_error::Result<StarlarkAttribute>;
-
-    /// An `attr` which is not allowed to have a default as a relative label.
-    fn check_not_relative_label<'v>(
-        default: Option<Value<'v>>,
-        attr: &str,
-    ) -> buck2_error::Result<()>;
 }
 
 impl AttributeExt for Attribute {
@@ -103,23 +96,6 @@ impl AttributeExt for Attribute {
             default, doc, coercer,
         )))
     }
-
-    /// An `attr` which is not allowed to have a default as a relative label.
-    fn check_not_relative_label<'v>(
-        default: Option<Value<'v>>,
-        attr: &str,
-    ) -> buck2_error::Result<()> {
-        if let Some(as_str) = default.and_then(|x| x.unpack_str()) {
-            if ProvidersLabel::maybe_relative_label(as_str) {
-                return Err(DepError::DepRelativeDefault {
-                    invalid_label: as_str.to_owned(),
-                    attr: attr.to_owned(),
-                }
-                .into());
-            }
-        }
-        Ok(())
-    }
 }
 
 /// Coerction context for evaluating bzl files (attr default, transition rules).
@@ -141,25 +117,19 @@ pub(crate) fn init_coerce_target_label_for_bzl() {
         .init(|eval, value| attr_coercion_context_for_bzl(eval)?.coerce_target_label(value))
 }
 
-#[derive(Debug, buck2_error::Error)]
-enum DepError {
-    #[error(
-        "relative labels ('{invalid_label}') are not permitted as default values for `{attr}` \
-        attributes. Use a fully qualified one like //foo:bar"
-    )]
-    DepRelativeDefault { invalid_label: String, attr: String },
-}
-
 /// Common code to handle `providers` argument of dep-like attrs.
 fn dep_like_attr_handle_providers_arg(providers: Vec<Value>) -> buck2_error::Result<ProviderIdSet> {
-    Ok(ProviderIdSet::from(providers.try_map(
-        |v| match v.as_provider_callable() {
+    Ok(ProviderIdSet::from(providers.try_map(|v| {
+        match v.as_provider_callable() {
             Some(callable) => buck2_error::Ok(callable.id()?.dupe()),
-            None => Err(from_any(ValueError::IncorrectParameterTypeNamed(
-                "providers".to_owned(),
-            ))),
-        },
-    )?))
+            None => Err(
+                starlark::Error::from(ValueError::IncorrectParameterTypeNamed(
+                    "providers".to_owned(),
+                ))
+                .into(),
+            ),
+        }
+    })?))
 }
 
 /// This type is available as a global `attrs` symbol, to allow the definition of attributes to the `rule` function.
@@ -214,7 +184,6 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Attribute::check_not_relative_label(default, "attrs.exec_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::exec_dep(required_providers);
         Ok(Attribute::attr(eval, default, doc, coercer)?)
@@ -230,7 +199,6 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Attribute::check_not_relative_label(default, "attrs.toolchain_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::toolchain_dep(required_providers);
         Ok(Attribute::attr(eval, default, doc, coercer)?)
@@ -244,22 +212,22 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Attribute::check_not_relative_label(default, "attrs.transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
-        let transition_id = transition_id_from_value(cfg)?;
-        let coercer = AttrType::transition_dep(required_providers, transition_id);
+        let label_coercion_ctx = attr_coercion_context_for_bzl(eval)?;
 
+        // FIXME(JakobDegen): Use a proper unpack for this. Easier to do after deleting old API
+        let transition_id = if let Some(s) = StringValue::new(cfg) {
+            let transition_target = label_coercion_ctx.coerce_providers_label(&s)?;
+            Arc::new(TransitionId::Target(transition_target))
+        } else {
+            transition_id_from_value(cfg)?
+        };
+
+        let coercer = AttrType::transition_dep(required_providers, transition_id);
         let coerced_default = match default {
             None => None,
             Some(default) => {
-                match coercer.coerce(
-                    AttrIsConfigurable::Yes,
-                    &attr_coercion_context_for_bzl(eval)?,
-                    default,
-                ) {
-                    Ok(coerced_default) => Some(coerced_default),
-                    Err(_) => return Err(ValueError::IncorrectParameterType.into()),
-                }
+                Some(coercer.coerce(AttrIsConfigurable::Yes, &label_coercion_ctx, default)?)
             }
         };
 
@@ -277,7 +245,6 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Attribute::check_not_relative_label(default, "attrs.configured_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let coercer = AttrType::configured_dep(required_providers);
         Ok(Attribute::attr(eval, default, doc, coercer)?)
@@ -291,23 +258,17 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Attribute::check_not_relative_label(default, "attrs.split_transition_dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let transition_id = transition_id_from_value(cfg)?;
         let coercer = AttrType::split_transition_dep(required_providers, transition_id);
 
         let coerced_default = match default {
             None => None,
-            Some(default) => {
-                match coercer.coerce(
-                    AttrIsConfigurable::Yes,
-                    &attr_coercion_context_for_bzl(eval)?,
-                    default,
-                ) {
-                    Ok(coerced_default) => Some(coerced_default),
-                    Err(_) => return Err(ValueError::IncorrectParameterType.into()),
-                }
-            }
+            Some(default) => Some(coercer.coerce(
+                AttrIsConfigurable::Yes,
+                &attr_coercion_context_for_bzl(eval)?,
+                default,
+            )?),
         };
 
         Ok(StarlarkAttribute::new(Attribute::new(
@@ -348,7 +309,6 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Attribute::check_not_relative_label(default, "attrs.dep")?;
         let required_providers = dep_like_attr_handle_providers_arg(providers.items)?;
         let plugin_kinds = match pulls_and_pushes_plugins {
             Either::Right(_) => PluginKindSet::ALL,
@@ -617,7 +577,6 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         #[starlark(require = named, default = "")] doc: &str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAttribute> {
-        Attribute::check_not_relative_label(default, "attrs.source")?;
         Ok(Attribute::attr(
             eval,
             default,

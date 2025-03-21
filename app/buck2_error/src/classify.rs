@@ -55,6 +55,7 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ServerSigterm => rank!(environment),
         ErrorTag::IoMaterializerFileBusy => rank!(environment),
         ErrorTag::IoClientBrokenPipe => rank!(environment),
+        ErrorTag::IoReadOnlyFilesystem => rank!(environment),
         ErrorTag::WatchmanRootNotConnectedError => rank!(environment),
         ErrorTag::WatchmanCheckoutInProgress => rank!(environment),
         ErrorTag::ServerTransportError => rank!(environment),
@@ -63,18 +64,18 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ServerStderrEmpty => rank!(environment),
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
+        ErrorTag::InstallerEnvironment => rank!(environment),
+        ErrorTag::IoNotConnected => rank!(environment), // This typically means eden is not mounted
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
         ErrorTag::ServerStackOverflow => rank!(tier0),
         ErrorTag::ServerPanicked => rank!(tier0),
         ErrorTag::ServerSegv => rank!(tier0),
-        ErrorTag::DaemonConnect => rank!(tier0),
         ErrorTag::ServerStderrUnknown => rank!(tier0),
         ErrorTag::InternalError => rank!(tier0),
         ErrorTag::DaemonWontDieFromKill => rank!(tier0),
         ErrorTag::GrpcResponseMessageTooLarge => rank!(tier0),
-        ErrorTag::ClientGrpc => rank!(tier0),
         ErrorTag::ReUnknownTcode => rank!(tier0),
         ErrorTag::ReCancelled => rank!(tier0),
         ErrorTag::ReUnknown => rank!(tier0),
@@ -92,6 +93,11 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::ReUnavailable => rank!(tier0),
         ErrorTag::ReDataLoss => rank!(tier0),
         ErrorTag::ReUnauthenticated => rank!(tier0),
+        ErrorTag::ReCasArtifactWrongNumberOfInputs => rank!(tier0),
+        ErrorTag::ReCasArtifactWrongNumberOfOutputs => rank!(tier0),
+        ErrorTag::ReCasArtifactGetDigestExpirationError => rank!(tier0),
+        ErrorTag::ReCasArtifactInvalidExpiration => rank!(tier0),
+
         ErrorTag::IoConnectionAborted => rank!(tier0),
         ErrorTag::IoTimeout => rank!(tier0),
         ErrorTag::IoEdenMountNotReady => rank!(tier0),
@@ -117,6 +123,14 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::HttpServer => rank!(tier0),
         ErrorTag::StarlarkInternal => rank!(tier0),
         ErrorTag::ActionMismatchedOutputs => rank!(tier0),
+        ErrorTag::DiceDuplicatedChange => rank!(tier0),
+        ErrorTag::DiceChangedToInvalid => rank!(tier0),
+        ErrorTag::DiceInjectedKeyGotInvalidation => rank!(tier0),
+        ErrorTag::DiceCancelled => rank!(tier0),
+        ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
+        ErrorTag::DiceDuplicateActivationData => rank!(tier0),
+        ErrorTag::InstallerUnknown => rank!(tier0),
+        ErrorTag::InstallerTier0 => rank!(tier0),
 
         ErrorTag::Environment => rank!(environment),
         ErrorTag::Tier0 => rank!(tier0),
@@ -129,8 +143,8 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::DaemonIsBusy => rank!(input),
         ErrorTag::DaemonPreempted => rank!(input),
         ErrorTag::ConfigureAttr => rank!(input),
+        ErrorTag::DepOnlyIncompatible => rank!(input),
         ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
-        ErrorTag::IoNotConnected => rank!(input), // This typically means eden is not mounted
         ErrorTag::IoExecutableFileBusy => rank!(input),
         ErrorTag::IoStorageFull => rank!(input),
         ErrorTag::IoPermissionDenied => rank!(input),
@@ -149,12 +163,19 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::StarlarkNativeInput => rank!(input),
         ErrorTag::Visibility => rank!(input),
         ErrorTag::HttpClient => rank!(input),
-        ErrorTag::Analysis => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
+        ErrorTag::Unimplemented => rank!(input),
+        ErrorTag::InstallerInput => rank!(input),
+        ErrorTag::BuildDeadlineExpired => rank!(input),
 
         ErrorTag::Input => rank!(input),
 
-        // Unspecified errors
+        // Generic tags, these can represent:
+        // - Tags not specific enough to determine infra vs user categorization.
+        // - Tags not specific enough to usefully disambiguate category keys.
+        // - Something that isn't actually an error.
+        // - A phase of the build.
+        ErrorTag::ClientGrpc => rank!(unspecified),
         ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
         ErrorTag::IoNotFound => rank!(unspecified),
@@ -166,12 +187,40 @@ pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
         ErrorTag::IoEdenUnknownField => rank!(unspecified),
         ErrorTag::MaterializationError => rank!(unspecified),
         ErrorTag::CleanInterrupt => rank!(unspecified),
+        ErrorTag::Tpx => rank!(unspecified),
+        ErrorTag::TestExecutor => rank!(unspecified),
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::DownloadFileHeadRequest => rank!(unspecified),
+        ErrorTag::StarlarkError => rank!(unspecified),
+        ErrorTag::UnexpectedNone => rank!(unspecified),
+        ErrorTag::UnusedDefaultTag => rank!(unspecified),
+        // Build phases
+        ErrorTag::DaemonStateInitFailed => rank!(unspecified),
+        ErrorTag::DaemonConnect => rank!(unspecified),
+        ErrorTag::Analysis => rank!(unspecified),
         ErrorTag::Install => rank!(unspecified),
         ErrorTag::AnyActionExecution => rank!(unspecified),
-        ErrorTag::StarlarkError => rank!(unspecified),
-        ErrorTag::UnusedDefaultTag => rank!(unspecified),
+    }
+}
+
+/// Errors can be categorized by tags only if they have any non-generic tags.
+pub fn tag_is_generic(tag: &ErrorTag) -> bool {
+    if tag_is_hidden(tag) {
+        return true;
+    }
+    category_and_rank(*tag).0.is_none()
+}
+
+/// Hidden tags only used internally, for categorization.
+pub fn tag_is_hidden(tag: &ErrorTag) -> bool {
+    match tag {
+        ErrorTag::Tier0 => true,
+        ErrorTag::Input => true,
+        ErrorTag::Environment => true,
+        ErrorTag::InstallerTier0 => true,
+        ErrorTag::InstallerInput => true,
+        ErrorTag::InstallerEnvironment => true,
+        _ => false,
     }
 }
 
@@ -188,7 +237,7 @@ impl ErrorLike for buck2_data::ErrorReport {
         best_tag(self.tags.iter().filter_map(|t| {
             // This should never be `None`, but with weak prost types,
             // it is safer to just ignore incorrect integers.
-            ErrorTag::from_i32(*t)
+            ErrorTag::try_from(*t).ok()
         }))
     }
 
@@ -233,6 +282,8 @@ pub enum ErrorSourceArea {
     Re,
     Watchman,
     Starlark,
+    TestExecutor,
+    Installer,
 }
 
 pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
@@ -245,6 +296,10 @@ pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
         ErrorSourceArea::Watchman
     } else if tag_name.starts_with("STARLARK") {
         ErrorSourceArea::Starlark
+    } else if tag == crate::ErrorTag::Tpx || tag == crate::ErrorTag::TestExecutor {
+        ErrorSourceArea::TestExecutor
+    } else if tag_name.starts_with("INSTALLER") {
+        ErrorSourceArea::Installer
     } else {
         ErrorSourceArea::Buck2
     }
@@ -275,8 +330,8 @@ mod tests {
     }
 
     #[test]
-    fn test_user_and_infra() {
-        let errors = vec![
+    fn test_first_error_best_error() {
+        let mut errors = vec![
             ErrorReport {
                 tags: vec![ErrorTag::Input as i32],
                 ..ErrorReport::default()
@@ -287,7 +342,12 @@ mod tests {
             },
         ];
 
-        assert_eq!(best_error(&errors).map(|e| e.category()), Some(Tier::Tier0));
+        let best_error = best_error(&errors).unwrap().clone();
+        assert_eq!(best_error.category(), Tier::Tier0);
+
+        // Test that first error in sorted list is equivalent to best_error.
+        errors.sort_by_key(|e| e.error_rank());
+        assert_eq!(errors.first(), Some(&best_error));
     }
 
     #[test]
@@ -349,6 +409,10 @@ mod tests {
         assert_eq!(
             source_area(ErrorTag::IoEdenArgumentError),
             ErrorSourceArea::Eden
+        );
+        assert_eq!(
+            source_area(ErrorTag::TestExecutor),
+            ErrorSourceArea::TestExecutor
         );
     }
 }

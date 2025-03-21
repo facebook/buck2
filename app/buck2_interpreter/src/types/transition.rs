@@ -14,6 +14,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::values::Value;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum TransitionError {
     #[error("cfg parameter is not a transition object: {}", _0)]
     WrongType(String),

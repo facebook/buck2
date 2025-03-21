@@ -60,6 +60,7 @@ Emit = enum(
     "asm",
     "llvm-bc",
     "llvm-ir",
+    "llvm-ir-noopt",
     "obj",
     "link",
     "dep-info",
@@ -73,6 +74,11 @@ Emit = enum(
     #    build, but cannot be used in pipelined builds.
     "metadata-full",
     "metadata-fast",
+)
+
+ProfileMode = enum(
+    "llvm-time-trace",
+    "self-profile",
 )
 
 # The different quantities of Rust metadata that can be requested from
@@ -90,6 +96,7 @@ def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
         Emit("asm"): MetadataKind("link"),
         Emit("llvm-bc"): MetadataKind("link"),
         Emit("llvm-ir"): MetadataKind("link"),
+        Emit("llvm-ir-noopt"): MetadataKind("link"),
         Emit("obj"): MetadataKind("link"),
         Emit("link"): MetadataKind("link"),
         Emit("mir"): MetadataKind("link"),
@@ -125,6 +132,7 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("asm"): ("", ".s"),
     Emit("llvm-bc"): ("", ".bc"),
     Emit("llvm-ir"): ("", ".ll"),
+    Emit("llvm-ir-noopt"): ("", ".ll"),
     Emit("obj"): ("", ".o"),
     Emit("metadata-fast"): ("lib", ".rmeta"),  # even binaries get called 'libfoo.rmeta'
     Emit("metadata-full"): (None, None),  # Hollow rlibs, so they get the same name

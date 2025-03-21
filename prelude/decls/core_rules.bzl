@@ -203,6 +203,10 @@ command_alias = prelude_rule(
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
             "resources": attrs.list(attrs.source(), default = []),
+            "run_using_single_arg": attrs.bool(default = False, doc = """
+                Ensure that the command alias can be run as a single argument (instead of
+                $(exe) or RunInfo potentially expanding to multiple arguments).
+            """),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_target_os_type": buck.target_os_type_arg(),
         }
@@ -470,6 +474,9 @@ filegroup = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
+            "out": attrs.option(attrs.string(), default = None, doc = """
+                The name of the output directory. Defaults to the rule's name.
+            """),
         }
     ),
 )

@@ -10,6 +10,7 @@
 #![feature(error_generic_member_access)]
 
 mod builder;
+mod critical_path_accessor;
 mod graph;
 mod potential;
 mod types;

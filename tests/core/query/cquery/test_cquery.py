@@ -160,6 +160,14 @@ async def test_multi_query(buck: Buck) -> None:
     )
 
 
+@buck_test(data_dir="unsorted")
+async def test_query_attrfilter(buck: Buck) -> None:
+    out = await buck.uquery(
+        "attrfilter(buck.package, 'root//bin:TARGETS.fixture',root//bin:the_binary)"
+    )
+    assert out.stdout.strip() == "root//bin:the_binary"
+
+
 @buck_test(data_dir="multi_query_universe")
 async def test_multi_query_universe(buck: Buck) -> None:
     out = await buck.cquery(
@@ -257,3 +265,13 @@ async def test_disabling_of_execution_platforms(buck: Buck) -> None:
         query = "deps(set(tests/...))"
         await buck.cquery(query)
         await buck.cquery(query, "-c", "build.execution_platforms=")
+
+
+@buck_test(data_dir="deps_query")
+async def test_declared_deps_query(buck: Buck) -> None:
+    await expect_failure(
+        buck.cquery(
+            "root//:declared_deps",
+        ),
+        stderr_regex="Invalid target pattern `\\$declared_deps` is not allowed",
+    )

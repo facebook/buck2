@@ -32,14 +32,11 @@ def _rust_toolchain_impl(ctx):
             clippy_driver = RunInfo(args = ["clippy-driver"]),
             compiler = ctx.attrs.compiler[RunInfo],
             default_edition = ctx.attrs.default_edition,
-            failure_filter_action = ctx.attrs.failure_filter_action[RunInfo],
             panic_runtime = PanicRuntime("unwind"),
-            rustc_action = ctx.attrs.rustc_action[RunInfo],
             rustc_flags = ctx.attrs.rustc_flags,
             rustc_target_triple = ctx.attrs.rustc_target_triple,
             rustdoc = RunInfo(args = ["rustdoc"]),
             rustdoc_flags = ctx.attrs.rustdoc_flags,
-            rustdoc_test_with_resources = ctx.attrs.rustdoc_test_with_resources[RunInfo],
         ),
     ]
 

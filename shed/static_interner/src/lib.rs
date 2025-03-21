@@ -29,6 +29,8 @@ use allocative::Visitor;
 use dupe::Dupe;
 pub use equivalent::Equivalent;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
+use strong_hash::StrongHash;
+use strong_hash::StrongHasher;
 
 pub struct Interner<T: 'static, H = DefaultHasher> {
     table: ShardedLockFreeRawTable<Box<InternedData<T>>, 64>,
@@ -50,6 +52,12 @@ struct InternedData<T: 'static> {
 #[derive(Debug)]
 pub struct Intern<T: 'static> {
     pointer: &'static InternedData<T>,
+}
+
+impl<T: StrongHash> StrongHash for Intern<T> {
+    fn strong_hash<H: StrongHasher>(&self, hasher: &mut H) {
+        self.pointer.data.strong_hash(hasher);
+    }
 }
 
 // TODO(nga): derive.

@@ -9,7 +9,7 @@
 
 use buck2_core::buck2_env;
 #[cfg(target_os = "macos")]
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 
 /// Buck2 sets priority class = utility on macOS.
 ///
@@ -75,7 +75,8 @@ fn do_lower_priority() -> buck2_error::Result<()> {
     }
 
     let exe = env::current_exe()?;
-    let exe = CString::new(exe.into_os_string().as_bytes()).map_err(from_any)?;
+    let exe = CString::new(exe.into_os_string().as_bytes())
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     struct Spawnattr(libc::posix_spawnattr_t);
 
@@ -105,10 +106,10 @@ fn do_lower_priority() -> buck2_error::Result<()> {
     let mut spawnattr = Spawnattr::new()?;
 
     let mut argv: Vec<CString> = env::args()
-        .map(|s| CString::new(s).map_err(from_any))
-        .chain(iter::once(Ok(
-            CString::new("--skip-macos-qos").map_err(from_any)?
-        )))
+        .map(|s| CString::new(s).map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0)))
+        .chain(iter::once(Ok(CString::new("--skip-macos-qos").map_err(
+            |e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
+        )?)))
         .collect::<buck2_error::Result<Vec<_>>>()?;
     let argv: Vec<*mut libc::c_char> = argv
         .iter_mut()
@@ -155,6 +156,7 @@ fn do_lower_priority() -> buck2_error::Result<()> {
 
     #[derive(Debug, buck2_error::Error)]
     #[error("`posix_spawnp` with `POSIX_SPAWN_SETEXEC` flag should not return on success.")]
+    #[buck2(tag = Tier0)]
     struct Unreachable;
 
     Err(Unreachable.into())

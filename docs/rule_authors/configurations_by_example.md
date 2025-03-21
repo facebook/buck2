@@ -311,21 +311,21 @@ Here’s an example definition of execution platforms.
 # //platforms/execution/BUCK
 
 execution_platform(
-name = "mac-exec",
-platform = "//platforms:mac-arm64-opt",
-local_enabled = host_info().os.is_macos,
-remote_enabled = True,
-use_limited_hybrid = False,
-remote_execution_use_case = "buck2-build",
-remote_execution_properties = {
-    "platform": "mac-re"
-},
+    name = "mac-exec",
+    platform = "//platforms:mac-arm64-opt",
+    local_enabled = host_info().os.is_macos,
+    remote_enabled = True,
+    use_limited_hybrid = False,
+    remote_execution_use_case = "buck2-build",
+    remote_execution_properties = {
+        "platform": "mac-re"
+    },
 )
 
 execution_platform(
     name = "windows-exec",
-platform = "//platforms:windows-arm64-opt",
-local_enabled = host_info().os.is_windows,
+    platform = "//platforms:windows-arm64-opt",
+    local_enabled = host_info().os.is_windows,
     ...
 )
 

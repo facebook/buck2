@@ -142,10 +142,9 @@ def suffix(path):
     return chunks[1] if len(chunks) > 1 else ""
 
 def get_project_file_path(target_label, extension):
+    path = target_label.cell + "/"
     if target_label.package:
-        path = target_label.package + "/"
-    else:
-        path = ""
+        path = path + target_label.package + "/"
 
     # The same target may exists under two configuration
     config_hash = str(target_label.config()).split("#")
@@ -166,10 +165,10 @@ def get_mode_config_path(mode_name):
 def get_root_path_relative_to(target_label):
     # Workaround: "".split("/") returns [""], which is not expected.
     if not target_label.package:
-        return "../"
+        return "../../"
 
-    # + 1 for the hash layer of directory
-    return "../" * (len(target_label.package.split("/")) + 1)
+    # + 1 for the hash layer of directory and + 1 more for cell
+    return "../" * (len(target_label.package.split("/")) + 2)
 
 def get_output_path(target_node: bxl.ConfiguredTargetNode, bxl_ctx) -> str:
     providers = bxl_ctx.analysis(target_node).providers()

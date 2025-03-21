@@ -97,6 +97,14 @@ message TargetCfg {
   repeated string cli_modifiers = 2;
 }
 
+message RepresentativeConfigFlag {
+  oneof source {
+    string config_flag = 1;
+    string config_file = 2;
+    string mode_file = 3;
+  }
+}
+
 message ClientContext {
   reserved 5, 21;
   // `AbsNormPath`.
@@ -148,6 +156,8 @@ message ClientContext {
   // whether the new build will preempt (ie kill) the current build and take its
   // place.
   PreemptibleWhen preemptible = 22;
+  // Used for logging purposes; gives the config flags needed to repro the run
+  repeated RepresentativeConfigFlag representative_config_flags = 23;
 }
 
 message TargetsRequest {
@@ -247,6 +257,7 @@ enum QueryOutputFormat {
   DOT = 2;
   DOT_COMPACT = 3;
   STARLARK = 4;
+  HTML = 5;
 }
 
 message AqueryRequest {
@@ -385,6 +396,9 @@ message CommonBuildOptions {
   /// Validations to run that are marked optional.
   repeated string enable_optional_validations = 19;
 
+  /// Materializes outputs for failed actions which ran on RE.
+  bool materialize_failed_outputs = 20;
+
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them). The only
   // one of these that might stick around is print_build_report, it's unclear if
@@ -393,10 +407,11 @@ message CommonBuildOptions {
   string unstable_build_report_filename = 4242003;
   bool unstable_include_failures_build_report = 4242004;
   bool unstable_include_package_project_relative_paths = 4242005;
+  bool unstable_include_artifact_hash_information = 4242006;
 }
 
 message BuildRequest {
-  reserved 2, 5, 4242001;
+  reserved 2, 5, 9, 4242001;
 
   ClientContext context = 1;
   repeated string target_patterns = 10;
@@ -438,8 +453,17 @@ message BuildRequest {
   // Materialize final artifacts?
   Materializations final_artifact_materializations = 7;
 
-  // File name where built artifact hash information should be saved
-  optional string output_hashes_file = 9;
+  enum Uploads {
+    ALWAYS = 0;
+    NEVER = 1;
+  }
+  // Upload final artifacts?
+  Uploads final_artifact_uploads = 11;
+
+  // How long to build for? If the timeout is exceeded, Buck2 will exit as
+  // quickly as possible and drop in-flight builds. The exit code will be a
+  // user failure.
+  optional google.protobuf.Duration timeout = 12;
 }
 
 message TestSessionOptions {
@@ -503,6 +527,8 @@ message BxlRequest {
   BuildRequest.Materializations final_artifact_materializations = 6;
 
   bool print_stacktrace = 7;
+
+  BuildRequest.Uploads final_artifact_uploads = 8;
 }
 
 message BxlResponse {
@@ -549,15 +575,13 @@ message BuildTarget {
 }
 
 message BuildResponse {
-  reserved 101;
+  reserved 101, 200;
   repeated BuildTarget build_targets = 1;
   // Absolute path to the repo root
   string project_root = 2;
 
   optional string serialized_build_report = 100;
   repeated buck.data.ErrorReport errors = 102;
-
-  optional bool run_buck2_explain = 200;
 }
 
 message CounterWithExamples {
@@ -795,8 +819,10 @@ message TargetProfile {
 enum ProfileMode {
   HEAP_FLAME_ALLOCATED = 0;
   HEAP_FLAME_RETAINED = 10;
+  HEAP_ALLOCATED = 12;
   HEAP_SUMMARY_ALLOCATED = 1;
   HEAP_SUMMARY_RETAINED = 11;
+  HEAP_RETAINED = 13;
   TIME_FLAME = 2;
   STATEMENT = 3;
   BYTECODE = 4;

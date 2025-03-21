@@ -18,38 +18,36 @@ use std::time::Instant;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::EventObserver;
 use buck2_event_observer::event_observer::EventObserverExtra;
 use buck2_event_observer::humanized::HumanizedBytes;
-use buck2_event_observer::pending_estimate::estimate_completion_percentage;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
-use buck2_event_observer::what_ran::WhatRanOptions;
-use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
+use buck2_health_check::interface::HealthCheckType;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
+use tokio::sync::mpsc::error::TryRecvError;
+use tokio::sync::mpsc::Receiver;
 
+use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
-use crate::subscribers::system_warning::cache_misses_msg;
-use crate::subscribers::system_warning::check_cache_misses;
-use crate::subscribers::system_warning::check_memory_pressure;
-use crate::subscribers::system_warning::check_remaining_disk_space;
+use crate::subscribers::system_warning::check_memory_pressure_snapshot;
+use crate::subscribers::system_warning::check_remaining_disk_space_snapshot;
 use crate::subscribers::system_warning::low_disk_space_msg;
 use crate::subscribers::system_warning::system_memory_exceeded_msg;
 
@@ -57,15 +55,7 @@ use crate::subscribers::system_warning::system_memory_exceeded_msg;
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
-#[derive(Eq, PartialEq, Hash)]
-enum SystemWarningTypes {
-    MemoryPressure,
-    LowDiskSpace,
-    SlowDownloadSpeed,
-    LowCacheHits,
-}
-
-static ELAPSED_SYSTEM_WARNING_MAP: Lazy<Mutex<HashMap<SystemWarningTypes, (Instant, u64)>>> =
+static ELAPSED_HEALTH_CHECK_MAP: Lazy<Mutex<HashMap<HealthCheckType, (Instant, u64)>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 fn now_display() -> impl Display {
@@ -107,11 +97,11 @@ macro_rules! echo {
 
 // Report only if at least double time has passed since reporting interval
 fn echo_system_warning_exponential(
-    warning: SystemWarningTypes,
+    warning: &HealthCheckType,
     msg: &str,
 ) -> buck2_error::Result<()> {
     if let Some((last_reported, every_x)) =
-        ELAPSED_SYSTEM_WARNING_MAP.lock().unwrap().get_mut(&warning)
+        ELAPSED_HEALTH_CHECK_MAP.lock().unwrap().get_mut(warning)
     {
         let now = Instant::now();
         let elapsed = now.duration_since(*last_reported);
@@ -132,22 +122,26 @@ enum TtyMode {
 }
 
 fn init_remaining_system_warning_count() {
-    ELAPSED_SYSTEM_WARNING_MAP
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::MemoryPressure, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
+        .insert(HealthCheckType::MemoryPressure, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::LowDiskSpace, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
+        .insert(HealthCheckType::LowDiskSpace, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::SlowDownloadSpeed, (Instant::now(), 1));
-    ELAPSED_SYSTEM_WARNING_MAP
+        .insert(HealthCheckType::SlowDownloadSpeed, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
         .lock()
         .unwrap()
-        .insert(SystemWarningTypes::LowCacheHits, (Instant::now(), 1));
+        .insert(HealthCheckType::VpnEnabled, (Instant::now(), 1));
+    ELAPSED_HEALTH_CHECK_MAP
+        .lock()
+        .unwrap()
+        .insert(HealthCheckType::StableRevision, (Instant::now(), 1));
 }
 
 /// Just repeats stdout and stderr to client process.
@@ -160,6 +154,7 @@ pub struct SimpleConsole<E> {
     action_errors: Vec<buck2_data::ActionError>,
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
+    health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
 }
 
 impl<E> SimpleConsole<E>
@@ -170,17 +165,18 @@ where
         trace_id: TraceId,
         verbosity: Verbosity,
         expect_spans: bool,
-        build_count_dir: Option<AbsNormPathBuf>,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> Self {
         init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Enabled,
             verbosity,
             expect_spans,
-            observer: EventObserver::new(trace_id, build_count_dir),
+            observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
+            health_check_reports_receiver,
         }
     }
 
@@ -188,17 +184,18 @@ where
         trace_id: TraceId,
         verbosity: Verbosity,
         expect_spans: bool,
-        build_count_dir: Option<AbsNormPathBuf>,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> Self {
         init_remaining_system_warning_count();
         SimpleConsole {
             tty_mode: TtyMode::Disabled,
             verbosity,
             expect_spans,
-            observer: EventObserver::new(trace_id, build_count_dir.clone()),
+            observer: EventObserver::new(trace_id),
             action_errors: Vec::new(),
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
+            health_check_reports_receiver,
         }
     }
 
@@ -207,11 +204,21 @@ where
         trace_id: TraceId,
         verbosity: Verbosity,
         expect_spans: bool,
-        build_count_dir: Option<AbsNormPathBuf>,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> Self {
         match SuperConsole::compatible() {
-            true => Self::with_tty(trace_id, verbosity, expect_spans, build_count_dir),
-            false => Self::without_tty(trace_id, verbosity, expect_spans, build_count_dir),
+            true => Self::with_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_reports_receiver,
+            ),
+            false => Self::without_tty(
+                trace_id,
+                verbosity,
+                expect_spans,
+                health_check_reports_receiver,
+            ),
         }
     }
 
@@ -318,14 +325,11 @@ where
         self.handle_event_inner(event).await?;
 
         if self.verbosity.print_all_commands() {
-            let options = WhatRanOptions::default();
-            let options_regex = WhatRanOptionsRegex::from_options(&options)?;
-            what_ran::emit_event_if_relevant(
+            emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.observer().spans(),
                 &mut PrintDebugCommandToStderr,
-                &options_regex,
             )?;
         }
 
@@ -547,7 +551,8 @@ where
             let mut buffer = String::new();
 
             for line in msg {
-                writeln!(buffer, "{}", line.to_unstyled()).map_err(from_any)?;
+                writeln!(buffer, "{}", line.to_unstyled())
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             }
             //Printing the test output in multiple lines. It makes easier for the user to read.
             echo!("{}", buffer)?;
@@ -559,6 +564,34 @@ where
     pub(crate) async fn handle_stderr(&mut self, stderr: &str) -> buck2_error::Result<()> {
         echo!("{}", stderr)?;
         self.notify_printed();
+        Ok(())
+    }
+
+    pub(crate) fn try_recv_health_check_display_reports(&mut self) -> Option<Vec<DisplayReport>> {
+        if let Some(receiver) = self.health_check_reports_receiver.as_mut() {
+            let mut reports = Vec::new();
+            loop {
+                match receiver.try_recv() {
+                    Ok(report) => reports.extend(report),
+                    Err(TryRecvError::Empty) => break,
+                    Err(TryRecvError::Disconnected) => {
+                        // If the sender has been dropped, remove the receiver so that we can avoid trying again.
+                        self.health_check_reports_receiver = None;
+                        break;
+                    }
+                }
+            }
+            if !reports.is_empty() {
+                return Some(reports);
+            }
+        }
+        None
+    }
+
+    fn echo_health_check_warning(&self, report: &DisplayReport) -> buck2_error::Result<()> {
+        if let Some(warning) = &report.warning {
+            echo_system_warning_exponential(&report.health_check_type, &warning.to_string())?;
+        }
         Ok(())
     }
 }
@@ -615,6 +648,13 @@ where
         if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
             let mut show_stats = self.expect_spans;
 
+            for report in self
+                .try_recv_health_check_display_reports()
+                .unwrap_or_default()
+            {
+                self.echo_health_check_warning(&report)?;
+            }
+
             let mut roots = self.observer().spans().iter_roots();
             let sample_event = roots.next();
             match sample_event {
@@ -646,40 +686,20 @@ where
 
                     let last_snapshot = self.observer().two_snapshots().last.as_ref().map(|s| &s.1);
                     let sysinfo = self.observer().system_info();
-                    if let Some(memory_pressure) = check_memory_pressure(last_snapshot, sysinfo) {
+                    if let Some(memory_pressure) =
+                        check_memory_pressure_snapshot(last_snapshot, sysinfo)
+                    {
                         echo_system_warning_exponential(
-                            SystemWarningTypes::MemoryPressure,
+                            &HealthCheckType::MemoryPressure,
                             &system_memory_exceeded_msg(&memory_pressure),
                         )?;
                     }
-                    if let Some(low_disk_space) = check_remaining_disk_space(last_snapshot, sysinfo)
+                    if let Some(low_disk_space) =
+                        check_remaining_disk_space_snapshot(last_snapshot, sysinfo)
                     {
                         echo_system_warning_exponential(
-                            SystemWarningTypes::LowDiskSpace,
+                            &HealthCheckType::LowDiskSpace,
                             &low_disk_space_msg(&low_disk_space),
-                        )?;
-                    }
-
-                    let first_build_since_rebase = self
-                        .observer
-                        .cold_build_detector
-                        .as_ref()
-                        .and_then(|cbd| cbd.first_build_since_rebase())
-                        .unwrap_or(false);
-                    let estimated_completion_percent = estimate_completion_percentage(
-                        self.observer().spans().roots(),
-                        self.observer().dice_state(),
-                    );
-
-                    if check_cache_misses(
-                        self.observer().action_stats(),
-                        sysinfo,
-                        first_build_since_rebase,
-                        Some(estimated_completion_percent),
-                    ) {
-                        echo_system_warning_exponential(
-                            SystemWarningTypes::LowCacheHits,
-                            &cache_misses_msg(self.observer().action_stats()),
                         )?;
                     }
                     show_stats = self.verbosity.always_print_stats_in_status();

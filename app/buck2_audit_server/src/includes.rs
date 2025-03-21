@@ -53,6 +53,7 @@ use serde::Serializer;
 use crate::ServerAuditSubcommand;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AuditIncludesError {
     #[error("Error loading buildfile for `{0}` found a mismatched buildfile name (`{1}`)")]
     WrongBuildfilePath(CellPath, FileNameBuf),

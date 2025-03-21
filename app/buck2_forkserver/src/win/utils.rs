@@ -17,7 +17,7 @@ use winapi::shared::minwindef::FALSE;
 pub(crate) fn result_bool(ret: BOOL) -> buck2_error::Result<()> {
     if ret == FALSE {
         Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "{}",
             format!("{}", Error::last_os_error())
         ))
@@ -29,7 +29,7 @@ pub(crate) fn result_bool(ret: BOOL) -> buck2_error::Result<()> {
 pub(crate) fn result_dword(ret: DWORD) -> buck2_error::Result<()> {
     if ret == DWORD::MAX {
         Err(buck2_error!(
-            [],
+            buck2_error::ErrorTag::Tier0,
             "{}",
             format!("{}", Error::last_os_error())
         ))

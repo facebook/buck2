@@ -13,7 +13,7 @@ load("@prelude//apple:apple_package_config.bzl", "IpaCompressionLevel")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "get_apple_bundle_toolchain_attr")
 load("@prelude//apple:apple_sdk.bzl", "get_apple_sdk_name")
 load("@prelude//apple:apple_swift_stdlib.bzl", "should_copy_swift_stdlib")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
+load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
@@ -98,7 +98,7 @@ def _build_symbols_dir(ctx) -> Artifact:
     return symbols_dir
 
 def _get_swift_support_dir(ctx, bundle_output: Artifact, bundle_info: AppleBundleInfo) -> Artifact:
-    stdlib_tool = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.swift_stdlib_tool
+    stdlib_tool = ctx.attrs._apple_toolchain[SwiftToolchainInfo].swift_stdlib_tool
     sdk_name = get_apple_sdk_name(ctx)
 
     # .app -> app

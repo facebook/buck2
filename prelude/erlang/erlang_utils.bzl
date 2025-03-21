@@ -23,9 +23,15 @@ def to_term_args(data: typing.Any) -> cmd_args:
         "",
     )
 
+def app_name(ctx: AnalysisContext) -> str:
+    if ctx.attrs.app_name == None:
+        return ctx.attrs.name
+    else:
+        return ctx.attrs.app_name
+
 # paths
 def app_file(ctx: AnalysisContext) -> str:
-    return paths.join(beam_dir(ctx), ctx.attrs.name + ".app")
+    return paths.join(beam_dir(ctx), app_name(ctx) + ".app")
 
 def beam_dir(ctx: AnalysisContext) -> str:
     return paths.join(ctx.attrs.name, "ebin")

@@ -20,6 +20,8 @@
 
 -module(io_buffer).
 
+-eqwalizer(ignore).
+
 -record(state, {buffer, process, group_leader, capture, pass_through, max_elements, max_length}).
 
 -define(ERROR_MSG, "This is a write_only IO server").

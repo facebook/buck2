@@ -10,6 +10,7 @@
 ## dynamic\_actions
 ## get\_base\_path
 ## get\_cell\_name
+## get\_parent\_modifiers
 ## glob
 ## host\_info
 ## implicit\_package\_symbol
@@ -32,7 +33,9 @@
 ## select\_map
 ## select\_test
 ## set\_cfg\_constructor
+## set\_modifiers
 ## set\_starlark\_peak\_allocated\_byte\_limit
+## sha1
 ## sha256
 ## soft\_error
 ## transition

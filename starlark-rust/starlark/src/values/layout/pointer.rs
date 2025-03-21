@@ -248,6 +248,17 @@ enum _FrozenPointerTags {
     Other = 0,
 }
 
+/// `ThinBoxSliceFrozenValue` depends on all `FrozenPointer` values having the bottom bit unset.
+/// We keep a check here to ensure that remains true.
+#[allow(dead_code)] // False positive.
+const TAG_NICHE: usize = 0b1;
+
+const _: () = assert!(
+    _FrozenPointerTags::Int as usize & TAG_NICHE == 0
+        && _FrozenPointerTags::Str as usize & TAG_NICHE == 0
+        && _FrozenPointerTags::Other as usize & TAG_NICHE == 0
+);
+
 /// `InlineInt` is shift by this number of bits to the left to be stored in a pointer.
 const INT_SHIFT: usize = mem::size_of::<usize>() * 8 - InlineInt::BITS;
 const INT_DATA_MASK: usize = ((1usize << InlineInt::BITS) - 1) << INT_SHIFT;

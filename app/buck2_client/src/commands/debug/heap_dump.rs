@@ -17,6 +17,7 @@ use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::connect::BuckdProcessInfo;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
@@ -52,6 +53,7 @@ impl StreamingCommand for HeapDumpCommand {
         buckd: &mut BuckdClientConnector,
         _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let path = self.path.resolve(&ctx.working_dir);
         let test_executor_path = self
@@ -59,12 +61,15 @@ impl StreamingCommand for HeapDumpCommand {
             .map(|path| path.resolve(&ctx.working_dir));
         buckd
             .with_flushing()
-            .unstable_heap_dump(UnstableHeapDumpRequest {
-                destination_path: path.to_str()?.to_owned(),
-                test_executor_destination_path: test_executor_path
-                    .map(|v| -> buck2_error::Result<String> { Ok(v.to_str()?.to_owned()) })
-                    .transpose()?,
-            })
+            .unstable_heap_dump(
+                UnstableHeapDumpRequest {
+                    destination_path: path.to_str()?.to_owned(),
+                    test_executor_destination_path: test_executor_path
+                        .map(|v| -> buck2_error::Result<String> { Ok(v.to_str()?.to_owned()) })
+                        .transpose()?,
+                },
+                events_ctx,
+            )
             .await?;
 
         let daemon_dir = ctx.paths()?.daemon_dir()?;

@@ -1,0 +1,74 @@
+load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "buck_java_library")
+
+buck_java_library(
+    name = "javacd-model",
+    srcs = glob(["**/cd/model/java/**/*.java"]),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = ["prelude//toolchains/android/third-party:jakarta.annotation-api"],
+    exported_deps = [
+        "prelude//toolchains/android/src-gen:cd-model",
+        "prelude//toolchains/android/third-party:protobuf",
+    ],
+)
+
+buck_java_library(
+    name = "kotlincd-model",
+    srcs = glob(["**/cd/model/kotlin/**/*.java"]),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/src-gen:javacd-model",
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/src-gen:cd-model",
+        "prelude//toolchains/android/third-party:protobuf",
+    ],
+)
+
+buck_java_library(
+    name = "cd-model",
+    srcs = glob(
+        ["**/cd/model/common/**/*.java"],
+    ),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = ["prelude//toolchains/android/third-party:jakarta.annotation-api"],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:protobuf",
+    ],
+)
+
+buck_java_library(
+    name = "buck2-worker-model",
+    srcs = glob(["**/worker/model/**/*.java"]),
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/...",
+        "prelude//toolchains/android/test/com/facebook/buck/...",
+    ],
+    deps = [
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:remote-apis",
+    ],
+)
+
+buck_java_library(
+    name = "installer-proto",
+    srcs = glob(["**/install/model/**/*.java"]),
+    visibility = ["PUBLIC"],
+    deps = [
+        "prelude//toolchains/android/third-party:jakarta.annotation-api",
+    ],
+    exported_deps = [
+        "prelude//toolchains/android/third-party:remote-apis",
+    ],
+)

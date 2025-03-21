@@ -14,6 +14,7 @@
 -include_lib("kernel/include/logger.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
 -compile(warn_missing_spec_all).
+-eqwalizer(ignore).
 
 -export([run/1]).
 

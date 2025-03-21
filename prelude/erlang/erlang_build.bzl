@@ -376,35 +376,19 @@ def _deps_key(anchor: Artifact, src: Artifact) -> str:
     return anchor_path(anchor, name + ext)
 
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
-    dependency_analyzer = toolchain.dependency_analyzer
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
-    erl = toolchain.otp_binaries.erl
 
-    dependency_analyzer_cmd = cmd_args(
+    dependency_analyzer_args = cmd_args(
         [
-            erl,
-            "+A0",
-            "+S1:1",
-            "+sbtu",
-            "-mode",
-            "minimal",
-            "-noinput",
-            "-noshell",
-            "-pa",
-            toolchain.utility_modules,
-            "-run",
-            "escript",
-            "start",
-            "--",
-            dependency_analyzer,
             src,
             dependency_json.as_output(),
         ],
     )
-    _run_with_env(
+    _run_escript(
         ctx,
         toolchain,
-        dependency_analyzer_cmd,
+        toolchain.dependency_analyzer,
+        dependency_analyzer_args,
         category = "dependency_analyzer",
         identifier = action_identifier(toolchain, src.short_path),
     )
@@ -706,13 +690,24 @@ def _get_erl_opts(
         )
         args.add(cmd_args(hidden = resource_folder))
 
+    source = cmd_args(src, format = "{source, \"{}\"}")
+    path_type = "{path_type, relative}"
+    preserved_opts = _preserved_opts(opts)
+
+    compile_info = cmd_args([source, path_type, preserved_opts], delimiter = ", ")
+
     # add relevant compile_info manually
-    args.add(cmd_args(
-        src,
-        format = "+{compile_info, [{source, \"{}\"}, {path_type, relative}, {options, []}]}",
-    ))
+    args.add(cmd_args(compile_info, format = "+{compile_info, [{}]}"))
 
     return args
+
+def _preserved_opts(opts: list[str]) -> cmd_args:
+    """Options that should be preserved in the beam file despite +determinstic"""
+    preservable = set(["+inline", "+line_coverage"])
+    preserved = [opt.lstrip("+") for opt in preservable.intersection(opts)]
+
+    joined = cmd_args(preserved, delimiter = ", ")
+    return cmd_args(joined, format = "{options, [{}]}")
 
 def private_include_name(toolchain: Toolchain, appname: str) -> str:
     """The temporary appname private header files."""
@@ -834,6 +829,13 @@ def _run_escript(ctx: AnalysisContext, toolchain: Toolchain, script: Artifact, a
         "+A0",
         "+S1:1",
         "+sbtu",
+        "+MMscs",
+        "8",
+        "+MMsco",
+        "false",
+        "-env",
+        "MALLOC_ARENA_MAX",
+        "2",
         "-mode",
         "minimal",
         "-noinput",

@@ -18,7 +18,6 @@ use async_trait::async_trait;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::PRINT_ACTION_NODE;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
-use buck2_cli_proto::QueryOutputFormat;
 use buck2_core::cells::CellResolver;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_query::query::environment::AttrFmtOptions;
@@ -46,6 +45,8 @@ use crate::commands::query::QueryCommandError;
 use crate::dot::targets::DotTargetGraph;
 use crate::dot::Dot;
 use crate::dot::DotCompact;
+use crate::html::Html;
+use crate::query_output_format::QueryOutputFormatInfo;
 
 #[derive(Copy_, Dupe_, Clone_, UnpackVariants)]
 pub(crate) enum ShouldPrintProviders<'a, T> {
@@ -65,7 +66,7 @@ pub(crate) trait ProviderLookUp<T: QueryTarget>: Send + Sync {
 pub(crate) struct QueryResultPrinter<'a> {
     resolver: &'a CellResolver,
     attributes: Option<RegexSet>,
-    output_format: QueryOutputFormat,
+    output_format: QueryOutputFormatInfo,
 }
 
 struct TargetSetJsonPrinter<'a, T: QueryTarget> {
@@ -226,11 +227,12 @@ impl<'a> QueryResultPrinter<'a> {
         resolver: &'a CellResolver,
         attributes: &[String],
         output_format: i32,
+        trace_id: String,
     ) -> buck2_error::Result<Self> {
         Self::from_options(
             resolver,
             attributes,
-            QueryOutputFormat::from_i32(output_format)
+            QueryOutputFormatInfo::from_protobuf_int(output_format, trace_id)
                 .expect("cli should send a valid output_format enum"),
         )
     }
@@ -238,11 +240,11 @@ impl<'a> QueryResultPrinter<'a> {
     pub fn from_options(
         resolver: &'a CellResolver,
         attributes: &[String],
-        output_format: QueryOutputFormat,
+        output_format: QueryOutputFormatInfo,
     ) -> buck2_error::Result<Self> {
         let output_format = match (output_format, attributes.is_empty()) {
             // following buck1's behavior, if any attributes are requested we use json output instead of list output
-            (QueryOutputFormat::Default, false) => QueryOutputFormat::Json,
+            (QueryOutputFormatInfo::Default, false) => QueryOutputFormatInfo::Json,
             (v, _) => v,
         };
 
@@ -266,12 +268,12 @@ impl<'a> QueryResultPrinter<'a> {
         target_call_stacks: bool,
         print_providers: ShouldPrintProviders<'b, T>,
     ) -> buck2_error::Result<()> {
-        match (self.output_format, &self.attributes) {
+        match (&self.output_format, &self.attributes) {
             // A multi-query only has interesting output with --json output. For non-json output it gets merged together.
             // TODO(cjhopman): buck1 does this really odd thing that a multi-query that requests any attributes
             // gets the entire result merged together rather than printed as a multi-query. We match that behavior, but
             // it really doesn't make sense and we should migrate off of that.
-            (QueryOutputFormat::Json, None) => {
+            (QueryOutputFormatInfo::Json, None) => {
                 let multi_result = multi_result.0;
                 let mut captured_error = Ok(());
 
@@ -333,8 +335,8 @@ impl<'a> QueryResultPrinter<'a> {
         print_providers: ShouldPrintProviders<'b, T>,
     ) -> buck2_error::Result<()> {
         match result {
-            QueryEvaluationValue::TargetSet(targets) => match self.output_format {
-                QueryOutputFormat::Default => {
+            QueryEvaluationValue::TargetSet(targets) => match &self.output_format {
+                QueryOutputFormatInfo::Default => {
                     for target in
                         printable_targets(&targets, print_providers, &self.attributes, call_stack)
                             .await?
@@ -342,7 +344,7 @@ impl<'a> QueryResultPrinter<'a> {
                         writeln!(&mut output, "{}", target)?;
                     }
                 }
-                QueryOutputFormat::Starlark => {
+                QueryOutputFormatInfo::Starlark => {
                     for (i, target) in targets.iter().enumerate() {
                         if i > 0 {
                             writeln!(&mut output)?;
@@ -378,7 +380,7 @@ impl<'a> QueryResultPrinter<'a> {
                         writeln!(&mut output, ")")?;
                     }
                 }
-                QueryOutputFormat::Json => {
+                QueryOutputFormatInfo::Json => {
                     let mut ser = serde_json::Serializer::pretty(&mut output);
                     TargetSetJsonPrinter::new(
                         call_stack,
@@ -392,7 +394,7 @@ impl<'a> QueryResultPrinter<'a> {
                     // need to add a newline to flush the output.
                     writeln!(&mut output)?
                 }
-                QueryOutputFormat::Dot => {
+                QueryOutputFormatInfo::Dot => {
                     Dot::render(
                         &DotTargetGraph {
                             targets,
@@ -401,7 +403,10 @@ impl<'a> QueryResultPrinter<'a> {
                         &mut output,
                     )?;
                 }
-                QueryOutputFormat::DotCompact => {
+                QueryOutputFormatInfo::Html(trace_id) => {
+                    Html::render(targets, &mut output, trace_id.clone()).await?
+                }
+                QueryOutputFormatInfo::DotCompact => {
                     DotCompact::render(
                         &DotTargetGraph {
                             targets,
@@ -416,7 +421,7 @@ impl<'a> QueryResultPrinter<'a> {
                     return Err(QueryCommandError::FileSetHasNoAttributes.into());
                 }
                 match self.output_format {
-                    QueryOutputFormat::Default | QueryOutputFormat::Starlark => {
+                    QueryOutputFormatInfo::Default | QueryOutputFormatInfo::Starlark => {
                         for file in files.iter() {
                             writeln!(
                                 &mut output,
@@ -425,7 +430,7 @@ impl<'a> QueryResultPrinter<'a> {
                             )?;
                         }
                     }
-                    QueryOutputFormat::Json => {
+                    QueryOutputFormatInfo::Json => {
                         let mut ser = serde_json::Serializer::pretty(&mut output);
                         FileSetJsonPrinter {
                             resolver: self.resolver,
@@ -436,11 +441,23 @@ impl<'a> QueryResultPrinter<'a> {
                         // need to add a newline to flush the output.
                         writeln!(&mut output)?;
                     }
-                    QueryOutputFormat::Dot => {
-                        unimplemented!("dot output for files not implemented yet")
+                    QueryOutputFormatInfo::Dot => {
+                        return Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Unimplemented,
+                            "dot output for files not implemented yet"
+                        ));
                     }
-                    QueryOutputFormat::DotCompact => {
-                        unimplemented!("dot_compact output for files not implemented yet")
+                    QueryOutputFormatInfo::DotCompact => {
+                        return Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Unimplemented,
+                            "dot_compact output for files not implemented yet"
+                        ));
+                    }
+                    QueryOutputFormatInfo::Html(..) => {
+                        return Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Unimplemented,
+                            "html output for files not implemented yet"
+                        ));
                     }
                 }
             }
@@ -482,17 +499,14 @@ async fn print_action_node(
     cell_resolver: &CellResolver,
 ) -> buck2_error::Result<()> {
     // Dot/DotCompact output format don't make sense here.
-    let unstable_output_format = if json {
-        QueryOutputFormat::Json
+    let output_format = if json {
+        QueryOutputFormatInfo::Json
     } else {
-        QueryOutputFormat::Default
-    } as i32;
+        QueryOutputFormatInfo::Default
+    };
 
-    let query_result_printer = QueryResultPrinter::from_request_options(
-        cell_resolver,
-        output_attributes,
-        unstable_output_format,
-    )?;
+    let query_result_printer =
+        QueryResultPrinter::from_options(cell_resolver, output_attributes, output_format)?;
 
     let mut result = TargetSet::new();
     result.insert(action);

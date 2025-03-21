@@ -76,6 +76,7 @@ load(
     "Emit",
     "LinkageLang",
     "MetadataKind",
+    "ProfileMode",  # @unused Used as a type
     "RuleType",
     "build_params",
 )
@@ -111,6 +112,7 @@ load(
     "output_as_diag_subtargets",
 )
 load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
+load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":targets.bzl", "targets")
@@ -260,6 +262,40 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
+    llvm_ir_noopt = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("llvm-ir-noopt"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+    ).output
+    llvm_time_trace = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("llvm-time-trace"),
+    )
+    self_profile = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = ctx.attrs.incremental_enabled,
+        profile_mode = ProfileMode("self-profile"),
+    )
+    profiles = make_profile_providers(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        llvm_ir_noopt = llvm_ir_noopt,
+        llvm_time_trace = llvm_time_trace,
+        self_profile = self_profile,
+    )
+
     # If doctests=True or False is set on the individual target, respect that.
     # Otherwise look at the global setting on the toolchain.
     doctests_enabled = \
@@ -325,6 +361,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sources = compile_ctx.symlinked_srcs,
         rustdoc_coverage = rustdoc_coverage,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
+        profiles = profiles,
     )
     providers += _rust_metadata_providers(
         diag_artifacts = diag_artifacts,
@@ -542,7 +579,8 @@ def _default_providers(
         expand: Artifact,
         sources: Artifact,
         rustdoc_coverage: Artifact,
-        named_deps_names: Artifact | None) -> list[Provider]:
+        named_deps_names: Artifact | None,
+        profiles: list[Provider]) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
@@ -555,6 +593,7 @@ def _default_providers(
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()
     }
+    sub_targets["profile"] = profiles
 
     # Add provider for default output, and for each lib output style...
     # FIXME(JakobDegen): C++ rules only provide some of the output styles,
@@ -596,6 +635,7 @@ def _default_providers(
         type = "rustdoc",
         command = [rustdoc_test],
         run_from_project_root = True,
+        use_project_relative_paths = True,
     )
 
     # Always let the user run doctests via `buck2 test :crate[doc]`

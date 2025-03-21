@@ -22,8 +22,9 @@ implemented_rules = {
 extra_attributes = {
     "kotlin_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-        "resources_root": attrs.option(attrs.string(), default = None),
+        "keep_synthetics_in_class_abi": attrs.option(attrs.bool(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
+        "resources_root": attrs.option(attrs.string(), default = None),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
         "_dex_toolchain": toolchains_common.dex(),

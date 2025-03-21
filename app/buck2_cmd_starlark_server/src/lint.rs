@@ -129,7 +129,11 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
                     }
                 }
                 if lint_count > 0 {
-                    Err(buck2_error::buck2_error!([], "Found {} lints", lint_count))
+                    Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Found {} lints",
+                        lint_count
+                    ))
                 } else {
                     writeln!(
                         server_ctx.stderr()?,

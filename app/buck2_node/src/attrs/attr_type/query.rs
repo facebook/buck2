@@ -163,7 +163,7 @@ impl QueryAttrBase<ProvidersLabel> {
     ) -> buck2_error::Result<()> {
         // queries don't have any configuration_deps or inputs currently.
         for dep in self.resolved_literals.0.values() {
-            traversal.dep(dep.target())?;
+            traversal.dep(dep)?;
         }
         Ok(())
     }

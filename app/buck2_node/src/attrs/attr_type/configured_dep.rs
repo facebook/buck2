@@ -13,6 +13,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
@@ -77,8 +78,9 @@ impl UnconfiguredExplicitConfiguredDep {
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> buck2_error::Result<()> {
-        traversal.dep(self.label.target())?;
-        traversal.platform_dep(&self.platform)
+        traversal.dep(&self.label)?;
+        let label = ProvidersLabel::default_for(self.platform.dupe());
+        traversal.configuration_dep(&label, ConfigurationDepKind::ConfiguredDepPlatform)
     }
 }
 

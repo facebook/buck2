@@ -417,7 +417,7 @@ impl CacheUploader {
                 .report
                 .std_streams
                 .clone()
-                .into_re(&self.re_client, self.re_use_case)
+                .into_re(&self.re_client, self.re_use_case, digest_config)
                 .await
                 .buck_error_context("Error accessing std_streams")
         };
@@ -525,7 +525,10 @@ impl CacheUploadOutcome {
             }
         };
         if !self.uploaded() && error_on_cache_upload {
-            Err(buck2_error::buck2_error!([], "cache_upload_failed"))
+            Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "cache_upload_failed"
+            ))
         } else {
             Ok(self)
         }
@@ -545,6 +548,7 @@ enum CacheUploadRejectionReason {
 
 #[derive(Debug, buck2_error::Error)]
 #[error("Missing action result for dep file key `{0}`")]
+#[buck2(tag = Tier0)]
 struct DepFileReActionResultMissingError(String);
 
 #[async_trait]
@@ -593,7 +597,6 @@ impl UploadCache for CacheUploader {
             (false, None)
         };
 
-        // note uploads aren't attempted for local worker actions because we don't upload outputs for them so there is no action result
         let should_upload_dep_file =
             res.was_locally_executed() || res.was_remotely_executed() || res.was_action_cache_hit();
 

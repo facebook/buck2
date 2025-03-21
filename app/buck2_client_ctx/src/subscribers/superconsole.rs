@@ -14,26 +14,22 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::buck2_error;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::display;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::event_observer::DebugEventObserverExtra;
-use buck2_event_observer::pending_estimate::estimate_completion_percentage;
 use buck2_event_observer::session_info::SessionInfo;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_event_observer::what_ran;
 use buck2_event_observer::what_ran::command_to_string;
 use buck2_event_observer::what_ran::worker_command_as_fallback_to_string;
-use buck2_event_observer::what_ran::WhatRanOptions;
-use buck2_event_observer::what_ran::WhatRanOptionsRegex;
 use buck2_events::BuckEvent;
+use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use gazebo::prelude::*;
@@ -51,8 +47,10 @@ use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
 pub(crate) use superconsole::SuperConsole;
+use tokio::sync::mpsc::Receiver;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::subscriber::Tick;
@@ -117,7 +115,10 @@ impl TimeSpeed {
         let speed = speed_value.unwrap_or(TIMESPEED_DEFAULT);
 
         if speed <= 0.0 {
-            return Err(buck2_error!([], "Time speed cannot be negative!"));
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Time speed cannot be negative!"
+            ));
         }
         Ok(TimeSpeed { speed })
     }
@@ -133,6 +134,7 @@ pub struct SuperConsoleState {
     /// This contains the SpanTracker, which is why it's part of the SuperConsoleState.
     simple_console: SimpleConsole<DebugEventObserverExtra>,
     config: SuperConsoleConfig,
+    active_warnings: Option<Vec<DisplayReport>>,
 }
 
 impl SuperConsoleState {
@@ -194,28 +196,14 @@ impl<'s> Component for BuckRootComponent<'s> {
             .last
             .as_ref()
             .map(|s| &s.1);
-        let first_build_since_rebase = self
-            .state
-            .simple_console
-            .observer
-            .cold_build_detector
-            .as_ref()
-            .and_then(|cbd| cbd.first_build_since_rebase())
-            .unwrap_or(false);
-        let estimated_completion_percent = estimate_completion_percentage(
-            self.state.simple_console.observer().spans().roots(),
-            self.state.simple_console.observer().dice_state(),
-        );
         let system_info = self.state.simple_console.observer.system_info();
-        let action_stats = self.state.simple_console.observer.action_stats();
+        let health_check_reports = self.state.active_warnings.as_ref();
         {
             draw.draw(
                 &SystemWarningComponent {
                     last_snapshot,
                     system_info,
-                    action_stats,
-                    first_build_since_rebase,
-                    estimated_completion_percent,
+                    health_check_reports,
                 },
                 mode,
             )?;
@@ -301,7 +289,7 @@ impl StatefulSuperConsole {
         replay_speed: Option<f64>,
         stream: Option<Box<dyn Write + Send + 'static + Sync>>,
         config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
         let mut builder = Self::console_builder();
         if let Some(stream) = stream {
@@ -312,37 +300,13 @@ impl StatefulSuperConsole {
             trace_id,
             builder
                 .build_forced(Self::FALLBACK_SIZE)
-                .map_err(from_any)?,
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
             verbosity,
             expect_spans,
             replay_speed,
             config,
-            build_count_dir,
+            health_check_reports_receiver,
         )
-    }
-
-    pub(crate) fn new_with_root(
-        trace_id: TraceId,
-        command_name: &str,
-        verbosity: Verbosity,
-        expect_spans: bool,
-        replay_speed: Option<f64>,
-        config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
-    ) -> buck2_error::Result<Option<Self>> {
-        match Self::console_builder().build().map_err(from_any)? {
-            None => Ok(None),
-            Some(sc) => Ok(Some(Self::new(
-                command_name,
-                trace_id,
-                sc,
-                verbosity,
-                expect_spans,
-                replay_speed,
-                config,
-                build_count_dir,
-            )?)),
-        }
     }
 
     pub(crate) fn new(
@@ -353,7 +317,7 @@ impl StatefulSuperConsole {
         expect_spans: bool,
         replay_speed: Option<f64>,
         config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
         let header = format!("Command: {}.", command_name);
         Ok(Self::Running(StatefulSuperConsoleImpl {
@@ -364,7 +328,7 @@ impl StatefulSuperConsole {
                 verbosity,
                 expect_spans,
                 config,
-                build_count_dir,
+                health_check_reports_receiver,
             )?,
             super_console,
             verbosity,
@@ -436,7 +400,7 @@ impl SuperConsoleState {
         verbosity: Verbosity,
         expect_spans: bool,
         config: SuperConsoleConfig,
-        build_count_dir: Option<AbsNormPathBuf>,
+        health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<SuperConsoleState> {
         Ok(SuperConsoleState {
             current_tick: Tick::now(),
@@ -445,9 +409,10 @@ impl SuperConsoleState {
                 trace_id,
                 verbosity,
                 expect_spans,
-                build_count_dir,
+                health_check_reports_receiver,
             ),
             config,
+            active_warnings: None,
         })
     }
 
@@ -490,14 +455,11 @@ impl StatefulSuperConsoleImpl {
             .with_buck_error_context(|| display::InvalidBuckEvent(event.clone()).to_string())?;
 
         if self.verbosity.print_all_commands() {
-            let options = WhatRanOptions::default();
-            let options_regex = WhatRanOptionsRegex::from_options(&options)?;
-            what_ran::emit_event_if_relevant(
+            emit_event_if_relevant(
                 event.parent_id().into(),
                 event.data(),
                 self.state.simple_console.observer().spans(),
                 &mut self.super_console,
-                &options_regex,
             )?;
         }
         Ok(())
@@ -657,7 +619,7 @@ impl StatefulSuperConsoleImpl {
             action_id,
             reason,
             command,
-            ..
+            error_diagnostics,
         } = display::display_action_error(
             error,
             TargetDisplayOptions::for_console(display_platform),
@@ -683,6 +645,29 @@ impl StatefulSuperConsoleImpl {
             lines_for_command_details(&command, self.verbosity, &mut lines);
         }
 
+        if let Some(error_diagnostics) = error_diagnostics {
+            match error_diagnostics.data.as_ref().unwrap() {
+                buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
+                    let sub_errors = &sub_errors.sub_errors;
+                    if !sub_errors.is_empty() {
+                        for sub_error in sub_errors {
+                            if let Some(message) = &sub_error.message {
+                                lines.push(Line::from_iter([Span::new_styled_lossy(
+                                    format!("[{}] {}", sub_error.category, message)
+                                        .with(Color::DarkCyan),
+                                )]));
+                            }
+                        }
+                    }
+                }
+                buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
+                    lines.push(Line::from_iter([Span::new_styled_lossy(
+                        error.to_owned().with(Color::DarkRed),
+                    )]));
+                }
+            };
+        }
+
         self.super_console.emit(Lines(lines));
 
         Ok(())
@@ -703,7 +688,7 @@ impl StatefulSuperConsoleImpl {
         &mut self,
         prefs: &buck2_data::ConsolePreferences,
     ) -> buck2_error::Result<()> {
-        self.state.config.max_lines = prefs.max_lines.try_into().map_err(from_any)?;
+        self.state.config.max_lines = prefs.max_lines.try_into()?;
 
         Ok(())
     }
@@ -781,14 +766,24 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
+    fn try_update_active_warnings(&mut self) {
+        let reports = self
+            .state
+            .simple_console
+            .try_recv_health_check_display_reports();
+        if reports.is_some() {
+            self.state.active_warnings = reports;
+        }
+    }
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
         self.state.current_tick = tick.dupe();
+        self.try_update_active_warnings();
         self.super_console
             .render(&BuckRootComponent {
                 header: &self.header,
                 state: &self.state,
             })
-            .map_err(from_any)?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 
@@ -823,7 +818,8 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 
     async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
-        self.finalize().map_err(from_any)?;
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         match self {
             Self::Running(_) => unreachable!(),
             Self::Finalized(c) => c.handle_output(raw_output).await,
@@ -856,7 +852,8 @@ impl EventSubscriber for StatefulSuperConsole {
             Self::Running(c) => c.handle_command_result(result).await?,
             Self::Finalized(c) => c.handle_command_result(result).await?,
         }
-        self.finalize().map_err(from_any)?;
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 
@@ -868,7 +865,8 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 
     async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
-        self.finalize().map_err(from_any)?;
+        self.finalize()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         Ok(())
     }
 }
@@ -1132,6 +1130,7 @@ mod tests {
                         buck2_data::RemoteExecutionSessionCreated {
                             session_id: "reSessionID-123".to_owned(),
                             experiment_name: "".to_owned(),
+                            persistent_cache_mode: None,
                         }
                         .into(),
                     ),
@@ -1165,7 +1164,7 @@ mod tests {
             StatefulSuperConsole::Running(c) => c
                 .super_console
                 .test_output_mut()
-                .map_err(from_any)?
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                 .frames
                 .pop()
                 .buck_error_context("No frame was emitted")?,
@@ -1212,7 +1211,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         assert_eq!(full.len(), 2);
 
@@ -1227,7 +1226,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         assert_eq!(multiline.len(), 4);
 
@@ -1241,7 +1240,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(from_any)?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
         assert_eq!(too_small.len(), 1);
 
@@ -1271,7 +1270,7 @@ mod tests {
             StatefulSuperConsole::Running(c) => c
                 .super_console
                 .test_output_mut()
-                .map_err(from_any)?
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
                 .frames
                 .pop()
                 .buck_error_context("No frame was emitted")?,

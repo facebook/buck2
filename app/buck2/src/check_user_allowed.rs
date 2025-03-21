@@ -77,6 +77,7 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
 
     #[derive(Debug, buck2_error::Error)]
     #[error("buck2 is not allowed to run as root (unless home dir is owned by root)")]
+    #[buck2(tag = Input)]
     struct RootError;
 
     if nix::unistd::geteuid().is_root() {

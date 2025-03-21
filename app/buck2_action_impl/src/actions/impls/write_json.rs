@@ -60,6 +60,7 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum WriteJsonActionValidationError {
     #[error("WriteJsonAction received inputs")]
     TooManyInputs,

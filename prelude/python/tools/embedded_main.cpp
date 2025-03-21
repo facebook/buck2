@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
     // the path (I think this happens in `Py_RunMain` below), so we need to get
     // it added for this block.
     const auto par = std::getenv("FB_PAR_FILENAME");
-    if (par != NULL) {
+    if (par != nullptr) {
       PyObject* sysPath = PySys_GetObject((char*)"path");
       auto result = PyList_Insert(sysPath, 0, PyUnicode_FromString((char*)par));
       if (result == -1) {

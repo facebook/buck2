@@ -90,15 +90,21 @@ def fail_cycle(
     if cycle:
         errors = []
         for i, c in enumerate(cycle):
-            indented_number = "\n\n" + (" -> " if i > 0 else "    ") + "" * (3 - len(str(i))) + str(i + 1) + ": "
+            indented_number = (" -> " if i > 0 else "    ") + "" * (3 - len(str(i))) + str(i + 1) + ": "
             edge_explanation = ""
             if i > 0:
                 edge_explanation = "\n" + " " * 9 + "Reason for edge:"
                 edge_explanation += "".join(["\n" + " " * 11 + e for e in edge_explainer(cycle[i - 1], c)])
             errors.append(indented_number + node_formatter(c) + edge_explanation)
         fail(
-            "cycle in graph detected:{}\n".format("".join(errors)),
+            "cycle detected between the following targets:\n    {}\n\ncycle details:\n{}\n\n".format(
+                "\n -> ".join(
+                    [node_formatter(c) for c in cycle],
+                ),
+                "\n\n".join(errors),
+            ),
         )
+
     fail("expected cycle, but found none")
 
 def find_cycle(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any] | None:
@@ -128,7 +134,7 @@ def find_cycle(graph: dict[typing.Any, list[typing.Any]]) -> list[typing.Any] | 
     return None
 
 def post_order_traversal_by(
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func) -> list[typing.Any]:
     """
     Returns the post-order sorted list of the nodes in the traversal.
@@ -163,7 +169,7 @@ def post_order_traversal_by(
     return ordered
 
 def pre_order_traversal_by(
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func) -> list[typing.Any]:
     """
     Returns a topological sorted list of the nodes from a pre-order traversal.
@@ -175,7 +181,7 @@ def pre_order_traversal_by(
 
 def depth_first_traversal(
         graph_nodes: dict[typing.Any, list[typing.Any]],
-        roots: list[typing.Any]) -> list[typing.Any]:
+        roots: typing.Iterable) -> list[typing.Any]:
     """
     Like `depth_first_traversal_by` but the nodes are stored in the graph.
     """
@@ -206,7 +212,7 @@ GraphTraversal = enum(
 
 def depth_first_traversal_by(
         graph_nodes: [dict[typing.Any, typing.Any], None],
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func: typing.Callable,
         traversal: GraphTraversal = GraphTraversal("preorder-right-to-left"),
         node_formatter: typing.Callable[[typing.Any], str] = str) -> list[typing.Any]:
@@ -221,13 +227,10 @@ def depth_first_traversal_by(
     must make use of a for loop.
     """
 
-    # Dictify for O(1) lookup
-    visited = {k: None for k in roots}
+    # Note, this relies on the Starlark guarantee that set() returns values in the order they were first added.
+    visited = set(roots)
     stride = -1 if traversal == GraphTraversal("preorder-left-to-right") else 1
-
-    stack = []
-    for node in visited.keys()[::stride]:
-        stack.append(node)
+    stack = reversed(visited) if stride < 0 else list(visited)
 
     for _ in range(len(graph_nodes) if graph_nodes else 2000000000):
         if not stack:
@@ -237,20 +240,27 @@ def depth_first_traversal_by(
             fail("Expected node {} in graph nodes".format(node_formatter(node)))
         nodes_to_visit = get_nodes_to_traverse_func(node)
         if nodes_to_visit:
-            for node in nodes_to_visit[::stride]:
+            # This is supposed to be equivalent to `for node in nodes_to_visit[::stride]:`
+            # Unfortunately, Starlark allocates new arrays for slices.
+            #
+            # Deriving the indexes via `range()` helps alleviate the memory
+            # usage of this function.
+            range_traversal = range(len(nodes_to_visit) - 1, -1, -1) if stride == -1 else range(len(nodes_to_visit))
+            for i in range_traversal:
+                node = nodes_to_visit[i]
                 if node not in visited:
-                    visited[node] = None
+                    visited.add(node)
                     stack.append(node)
 
     expect(not stack, "Expected to be done with graph traversal stack.")
 
-    return visited.keys()
+    return list(visited)
 
 # To support migration from a tset-based link strategy, we are trying to match buck's internal tset
 # traversal logic here.  Look for implementation of TopologicalTransitiveSetIteratorGen
 def rust_matching_topological_traversal(
         graph_nodes: [dict[typing.Any, typing.Any], None],
-        roots: list[typing.Any],
+        roots: typing.Iterable,
         get_nodes_to_traverse_func: typing.Callable) -> list[typing.Any]:
     counts = {}
 

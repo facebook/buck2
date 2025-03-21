@@ -1287,7 +1287,7 @@ impl DeclaredDepFiles {
                         soft_error!(
                             "missing_dep_file",
                             buck2_error::buck2_error!(
-                                [],
+                                buck2_error::ErrorTag::Input,
                                 "Dep file is missing at {}",
                                 dep_file_path
                             )
@@ -1334,6 +1334,7 @@ impl DeclaredDepFiles {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum MaterializeDepFilesError {
     #[error("Error materializing dep file")]
     MaterializationFailed {

@@ -21,7 +21,7 @@ use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -103,12 +103,9 @@ impl CliArgs {
     ) -> buck2_error::Result<Self> {
         let default = match default {
             None => None,
-            Some(x) => Some(Arc::new(
-                coercer
-                    .coerce_value(x)
-                    .map_err(|_| ValueError::IncorrectParameterType)
-                    .map_err(from_any)?,
-            )),
+            Some(x) => Some(Arc::new(coercer.coerce_value(x).map_err(|_| {
+                starlark::Error::from(ValueError::IncorrectParameterType)
+            })?)),
         };
 
         let short = match short {
@@ -116,12 +113,14 @@ impl CliArgs {
             Some(s) => match s.unpack_str() {
                 Some(s) => {
                     if s.len() != 1 {
-                        return Err(from_any(ValueError::IncorrectParameterType));
+                        return Err(
+                            starlark::Error::from(ValueError::IncorrectParameterType).into()
+                        );
                     }
                     Some(s.chars().next().unwrap())
                 }
                 None => {
-                    return Err(from_any(ValueError::IncorrectParameterType));
+                    return Err(starlark::Error::from(ValueError::IncorrectParameterType).into());
                 }
             },
         };
@@ -542,8 +541,12 @@ impl CliArgType {
                     r.map(Some)
                 })?,
                 CliArgType::Int => clap.value_of().map_or(Ok(None), |x| {
-                    let r: buck2_error::Result<_> =
-                        try { CliArgValue::Int(x.parse::<BigInt>().map_err(from_any)?) };
+                    let r: buck2_error::Result<_> = try {
+                        CliArgValue::Int(
+                            x.parse::<BigInt>()
+                                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
+                        )
+                    };
                     r.map(Some)
                 })?,
                 CliArgType::Float => clap.value_of().map_or(Ok(None), |x| {
@@ -691,6 +694,7 @@ impl CliArgType {
 
 #[starlark_module]
 pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
+    /// Takes an arg from cli, and gets a string in bxl
     fn string<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
@@ -699,6 +703,9 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, CliArgType::string(), short)?)
     }
 
+    /// Takes a list of args from cli, and gets a list of inner type in bxl.
+    ///
+    /// e.g. `cli.args.list(cli.args.string())` declares that the cli flag takes a list of args from cli, and gets a list of strings in bxl.
     fn list<'v>(
         #[starlark(require = pos)] inner: &CliArgs,
         default: Option<Value<'v>>,
@@ -709,6 +716,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, coercer, short)?)
     }
 
+    /// Accepts "true" or "false" from cli, and get a `bool` in bxl. If not given, will get `false`
     fn bool<'v>(
         #[starlark(default = false)] default: Value<'v>,
         #[starlark(default = "")] doc: &str,
@@ -717,6 +725,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(Some(default), doc, CliArgType::bool(), short)?)
     }
 
+    /// Takes an arg from cli, and gets a `int` in bxl
     fn int<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
@@ -725,6 +734,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, CliArgType::int(), short)?)
     }
 
+    /// Takes an arg from cli, and gets a `float` in bxl
     fn float<'v>(
         default: Option<Value<'v>>,
         #[starlark(default = "")] doc: &str,
@@ -733,6 +743,9 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(default, doc, CliArgType::float(), short)?)
     }
 
+    /// Takes a arg from cli, and gets an inner type in bxl. If not given, will get `None` in bxl.
+    ///
+    /// e.g. `cli.args.option(cli.args.int())` defines an optional int arg.
     fn option<'v>(
         inner: &CliArgs,
         #[starlark(default = "")] doc: &str,
@@ -743,6 +756,9 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(Some(default), doc, coercer, short)?)
     }
 
+    /// Takes a set of defined values in `variants`, and gets a `str` in bxl.
+    ///
+    /// e.g. `cli.args.enumeration(["foo", "bar"])` defines an arg that only accepts "foo" or "bar".
     fn r#enum<'v>(
         #[starlark(require = pos)] variants: UnpackListOrTuple<String>,
         default: Option<Value<'v>>,
@@ -760,6 +776,9 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         )?)
     }
 
+    /// Takes an arg from cli, and gets a parsed `TargetLabel` in bxl.
+    ///
+    /// **Note**: this will not check if the target is valid.
     fn target_label<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -767,6 +786,9 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(None, doc, CliArgType::target_label(), short)?)
     }
 
+    /// Takes an arg from cli, and gets a parsed `ProvidersLabel` in bxl.
+    ///
+    /// **Note**: this will not check if the target is valid.
     fn sub_target<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -774,6 +796,8 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(None, doc, CliArgType::sub_target(), short)?)
     }
 
+    /// Takes an arg from the cli, and treats it as a target pattern, e.g. "cell//foo:bar", "cell//foo:", or "cell//foo/...".
+    /// We will get a list of `TargetLabel` in bxl.
     fn target_expr<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -781,6 +805,7 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         Ok(CliArgs::new(None, doc, CliArgType::target_expr(), short)?)
     }
 
+    /// Takes an arg from cli, and would be treated as a sub target pattern. We will get a list of `ProvidersLabel` in bxl.
     fn sub_target_expr<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,
@@ -793,6 +818,9 @@ pub(crate) fn cli_args_module(registry: &mut GlobalsBuilder) {
         )?)
     }
 
+    /// Takes an arg from cli, and would be treated as a json string, and return a json object in bxl.
+    ///
+    /// **Note**: It will not accept a json file path, if you want to pass a json file path, you can use like in cli `--flag "$(cat foo.json)"`
     fn json<'v>(
         #[starlark(default = "")] doc: &str,
         #[starlark(require = named)] short: Option<Value<'v>>,

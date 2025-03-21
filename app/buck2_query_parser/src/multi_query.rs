@@ -12,6 +12,7 @@ use gazebo::prelude::SliceExt;
 use crate::placeholder::QUERY_PERCENT_S_PLACEHOLDER;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum EvalQueryError {
     #[error("Query args supplied without any `%s` placeholder in the query, got args {}", .0.map(|x| format!("`{}`", x)).join(", "))]
     ArgsWithoutPlaceholder(Vec<String>),

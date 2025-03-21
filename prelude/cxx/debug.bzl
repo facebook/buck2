@@ -5,8 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//debugging:labels.bzl", "DBG_INFO_IDENTITY")
-
 # Model the various "split" debug scenarios (e.g. `-gsplit-dwarf`).
 SplitDebugMode = enum(
     # Debug info, if present, is inline in the object file, and will be linked
@@ -23,9 +21,3 @@ SplitDebugMode = enum(
     # info (e.g. `dSYM`, `dwp`).
     "split",
 )
-
-def get_debug_info_identity(ctx: AnalysisContext) -> Label | str:
-    for label in ctx.attrs.labels:
-        if label.startswith(DBG_INFO_IDENTITY):
-            return label
-    return ctx.label

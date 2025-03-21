@@ -1,0 +1,96 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under both the MIT license found in the
+ * LICENSE-MIT file in the root directory of this source tree and the Apache
+ * License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+ * of this source tree.
+ */
+
+//----------------------------------------------
+//  Generate command
+//----------------------------------------------
+//
+// When modifying this file, please run the following generate command,
+// and include generated code in your commit (How-to
+// https://fburl.com/gdoc/4zvk9n6n)
+//
+// fbcode/buck2/prelude/toolchains/android/tools/protobuf/gen.py
+//
+//-----------------------
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.facebook.buck.cd.model.kotlin";
+option java_outer_classname = "KotlinCDProto";
+
+// best practices to include version number in package
+package kotlincd.api.v1;
+
+import "javacd.proto";
+import "common.proto";
+
+message BuildKotlinCommand {
+  BuildCommand buildCommand = 1;
+  PostBuildParams postBuildParams = 2;
+}
+
+message BuildCommand {
+  javacd.api.v1.BuildMode buildMode = 1;
+  javacd.api.v1.BaseJarCommand baseJarCommand = 2;
+  KotlinExtraParams kotlinExtraParams = 3;
+}
+
+message KotlinExtraParams {
+  repeated string extraClassPaths = 2;
+  string standardLibraryClassPath = 3;
+  string annotationProcessingClassPath = 4;
+  AnnotationProcessingTool annotationProcessingTool = 5;
+  repeated string extraKotlincArguments = 6;
+  // kotlinCompilerPlugin keys are strings encoded as strings due to limitations
+  // in proto3.
+  map<string, PluginParams> kotlinCompilerPlugins = 7;
+  map<string, string> kosabiPluginOptions = 8;
+  string kosabiJvmAbiGenEarlyTerminationMessagePrefix = 9;
+  repeated string friendPaths = 10;
+  repeated string kotlinHomeLibraries = 11;
+  string jvmTarget = 12;
+  bool shouldGenerateAnnotationProcessingStats = 13;
+  bool shouldUseJvmAbiGen = 14;
+  string jvmAbiGenPlugin = 15;
+  bool shouldVerifySourceOnlyAbiConstraints = 16;
+  bool shouldRemoveKotlinCompilerFromClassPath = 17;
+  string depTrackerPlugin = 18;
+  bool shouldUseStandaloneKosabi = 19;
+  bool shouldKotlincRunViaBuildToolsApi = 20;
+  bool shouldKotlincRunIncrementally = 21;
+  string incrementalStateDir = 22;
+  string languageVersion = 23;
+}
+
+message PluginParams {
+  map<string, string> params = 1;
+}
+
+/** Model for KotlinLibraryDescription.AnnotationProcessingTool */
+enum AnnotationProcessingTool {
+  KAPT = 0;
+  JAVAC = 1;
+}
+
+/** Model for metadata provided by Buck2 incremental action see:
+ * https://buck2.build/docs/rule_authors/incremental_actions */
+message ActionMetadata {
+  Metadata previousMetadata = 1;
+  Metadata currentMetadata = 2;
+}
+
+message Metadata {
+  repeated Digests digests = 1;
+}
+
+message Digests {
+  string path = 1;
+  string digest = 2;
+}

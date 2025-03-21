@@ -1,0 +1,10 @@
+[package]
+description = "Hash trait similar to std::hash::Hash but for strong/cryptographic hashes"
+edition = "2021"
+license = { workspace = true }
+name = "strong_hash"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+strong_hash_derive = { workspace = true }

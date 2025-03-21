@@ -22,6 +22,7 @@ use buck2_core::package::PackageLabel;
 use crate::parse_import::parse_import;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum PackageImportsError {
     #[error("Expected value to contain `=>`. Got `{0}`.")]
     MissingArrow(String),

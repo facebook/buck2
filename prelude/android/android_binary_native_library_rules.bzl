@@ -17,6 +17,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
 load("@prelude//android:util.bzl", "EnhancementContext")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
+# @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "gatorade_libraries")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
     "@prelude//cxx:link.bzl",
@@ -29,14 +30,14 @@ load(
     "extract_undefined_syms",
 )
 load("@prelude//java:java_library.bzl", "compile_to_jar")  # @unused
-load("@prelude//java:java_providers.bzl", "JavaClasspathEntry", "JavaLibraryInfo", "derive_compiling_deps")  # @unused
-load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
+load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
     "LinkArgs",
     "LinkInfo",
     "LinkOrdering",
+    "LinkedObject",
     "SharedLibLinkable",
     "get_lib_output_style",
     "set_link_info_link_whole",
@@ -118,6 +119,7 @@ def get_android_binary_native_library_info(
         original_shared_libs_by_platform[platform] = shared_libs
 
     if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
+        enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
         return AndroidBinaryNativeLibsInfo(
@@ -228,20 +230,7 @@ def get_android_binary_native_library_info(
     if has_native_merging and ctx.attrs.native_library_merge_code_generator:
         mergemap_gencode_jar = ctx.actions.declare_output("MergedLibraryMapping.jar")
         dynamic_outputs.append(mergemap_gencode_jar)
-        library_output = JavaClasspathEntry(
-            full_library = mergemap_gencode_jar,
-            abi = mergemap_gencode_jar,
-            abi_as_dir = None,
-            required_for_source_only_abi = False,
-            abi_jar_snapshot = None,
-        )
-        generated_java_code.append(
-            JavaLibraryInfo(
-                compiling_deps = derive_compiling_deps(ctx.actions, library_output, []),
-                library_output = library_output,
-                output_for_classpath_macro = library_output.full_library,
-            ),
-        )
+        generated_java_code.append(mergemap_gencode_jar)
 
     def dynamic_native_libs_info(ctx: AnalysisContext, artifacts, outputs):
         get_module_from_target = all_targets_in_root_module
@@ -354,6 +343,11 @@ def get_android_binary_native_library_info(
             unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
             final_shared_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
             _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, unrelinked_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug, unrelinked = True)
+            # @oss-disable[end= ]: final_shared_libs_by_platform = gatorade_libraries(ctx, final_shared_libs_by_platform)
+
+        bolt_args = getattr(ctx.attrs, "native_library_bolt_args", None)
+        if bolt_args and len(bolt_args) != 0:
+            final_shared_libs_by_platform = _bolt_libraries(ctx, final_shared_libs_by_platform, bolt_args)
 
         _link_library_subtargets(ctx, outputs, lib_outputs_by_platform, original_shared_libs_by_platform, final_shared_libs_by_platform, merged_shared_lib_targets_by_platform, split_groups, native_merge_debug)
 
@@ -1293,8 +1287,10 @@ def _get_merged_linkables_for_platform(
             cxx_toolchain = cxx_toolchain,
         )
         link_args = [link_args]
+        if ctx.attrs.native_library_merge_linker_args_all:
+            link_args += [LinkArgs(flags = ctx.attrs.native_library_merge_linker_args_all)]
         if soname in merge_linker_args:
-            link_args += [LinkArgs(infos = [LinkInfo(pre_flags = merge_linker_args[soname])])]
+            link_args += [LinkArgs(flags = merge_linker_args[soname])]
 
         shared_lib = create_shared_lib(
             ctx,
@@ -1567,6 +1563,32 @@ def _create_merged_link_args(
         links.append(LinkInfo(pre_flags = extra_runtime_flags))
     return LinkArgs(infos = links), shlib_deps, link_traversal_cache
 
+def _bolt_libraries(
+        ctx: AnalysisContext,
+        libraries_by_platform: dict[str, dict[str, SharedLibrary]],
+        bolt_args: dict[str, list[str]]) -> dict[str, dict[str, SharedLibrary]]:
+    bolted_libraries_by_platform = {}
+    for platform, shared_libraries in libraries_by_platform.items():
+        cxx_toolchain = ctx.attrs._cxx_toolchain[platform][CxxToolchainInfo]
+        bolted_libraries = bolted_libraries_by_platform.setdefault(platform, {})
+        for soname, _ in shared_libraries.items():
+            original_shared_library = shared_libraries[soname]
+            if not soname in bolt_args:
+                bolted_libraries[soname] = original_shared_library
+                continue
+
+            output_path = "bolt-libs/{}/{}".format(platform, soname)
+
+            bolted_libraries[soname] = _create_bolt_lib(
+                ctx = ctx,
+                cxx_toolchain = cxx_toolchain,
+                prebolt_lib = original_shared_library,
+                output_path = output_path,
+                bolt_args = bolt_args[soname],
+            )
+
+    return bolted_libraries_by_platform
+
 # When linking shared libraries, by default, all symbols are exported from the library. In a
 # particular application, though, many of those symbols may never be used. Ideally, in each apk,
 # each shared library would only export the minimal set of symbols that are used by other libraries
@@ -1643,9 +1665,12 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             relinker_link_args = (
                 original_shared_library.link_args +
                 [LinkArgs(flags = [cmd_args(relinker_version_script, format = "-Wl,--version-script={}")])] +
+                [LinkArgs(flags = ctx.attrs.relinker_extra_args)] +
                 ([LinkArgs(infos = [set_link_info_link_whole(red_linkable[1]) for red_linkable in red_linkables[platform]])] if len(red_linkables) > 0 else [])
             )
 
+            extra_args = {} # @oss-enable
+            # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path)
             shared_lib = create_shared_lib(
                 ctx,
                 output_path = output_path,
@@ -1655,6 +1680,7 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
                 shared_lib_deps = original_shared_library.shlib_deps,
                 label = original_shared_library.label,
                 can_be_asset = original_shared_library.can_be_asset,
+                **extra_args
             )
             needed_symbols_from_this = extract_undefined_symbols(ctx, cxx_toolchain, shared_lib.lib.output)
             unioned_needed_symbols_file = ctx.actions.declare_output(output_path + ".all_needed_symbols")
@@ -1737,7 +1763,9 @@ def create_shared_lib(
         cxx_toolchain: CxxToolchainInfo,
         shared_lib_deps: list[str],
         label: Label,
-        can_be_asset: bool) -> SharedLibrary:
+        can_be_asset: bool,
+        extra_linker_outputs_factory: typing.Callable | None = None,
+        extra_linker_outputs_flags_factory: typing.Callable | None = None) -> SharedLibrary:
     for link_arg in link_args:
         flags = link_arg.flags or []
         for info in link_arg.infos or []:
@@ -1757,6 +1785,8 @@ def create_shared_lib(
             identifier = output_path,
             strip = False,
             cxx_toolchain = cxx_toolchain,
+            extra_linker_outputs_factory = extra_linker_outputs_factory,
+            extra_linker_outputs_flags_factory = extra_linker_outputs_flags_factory,
         ),
     )
 
@@ -1770,4 +1800,46 @@ def create_shared_lib(
         for_primary_apk = False,
         soname = soname,
         label = label,
+        extra_outputs = link_result.extra_outputs,
+    )
+
+def _create_bolt_lib(
+        ctx: AnalysisContext,
+        cxx_toolchain: CxxToolchainInfo,
+        prebolt_lib: SharedLibrary,
+        output_path: str,
+        bolt_args: list[str]) -> SharedLibrary:
+    soname = prebolt_lib.soname.ensure_str()
+    bolt_output = ctx.actions.declare_output(output_path)
+    action_execution_properties = get_action_execution_attributes(LinkExecutionPreference("any"))
+
+    args = cmd_args(
+        cmd_args(cxx_toolchain.binary_utilities_info.bolt),
+        prebolt_lib.lib.output,
+        "-o",
+        bolt_output.as_output(),
+        bolt_args,
+    )
+
+    ctx.actions.run(
+        args,
+        category = "bolt",
+        prefer_local = action_execution_properties.prefer_local,
+        prefer_remote = action_execution_properties.prefer_remote,
+        local_only = action_execution_properties.local_only,
+        identifier = output_path,
+    )
+
+    linked_object = LinkedObject(
+        output = bolt_output,
+        unstripped_output = bolt_output,
+    )
+
+    return create_shlib(
+        lib = linked_object,
+        stripped_lib = strip_lib(ctx, cxx_toolchain, linked_object.output),
+        can_be_asset = prebolt_lib.can_be_asset,
+        for_primary_apk = False,
+        soname = soname,
+        label = prebolt_lib.label,
     )

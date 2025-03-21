@@ -83,6 +83,7 @@ impl StarlarkCallableParamSpec for DynamicActionsCallbackParamSpec {
 pub type DynamicActionsCallbackReturnType = ListType<AbstractProvider>;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum DynamicActionCallableError {
     #[error("DynamicActionCallable can be called only if frozen")]
     NotFrozen,

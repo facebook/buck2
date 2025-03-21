@@ -41,22 +41,6 @@ Options:
           Will run tests to on RE even if they are missing required settings (running from the root
           + relative paths). Those required settings just get overridden
 
-      --overall-timeout <TIMEOUT>
-          How long to execute tests for. If the timeout is exceeded, Buck2 will exit as quickly as
-          possible and not run further tests. In-flight tests will be cancelled. The test
-          orchestrator will be allowed to shut down gracefully.
-
-          The exit code is controlled by the test orchestrator (which normally should report zero
-          for this).
-
-          The format is a concatenation of time spans (separated by spaces). Each time span is an
-          integer number and a suffix.
-
-          Relevant supported suffixes: seconds, second, sec, s, minutes, minute, min, m, hours,
-          hour, hr, h
-
-          For example: `5m 10s`, `500s`.
-
       --test-executor-stdout <TEST_EXECUTOR_STDOUT>
           Writes the test executor stdout to the provided path
 
@@ -185,6 +169,9 @@ Options:
       --materialize-failed-inputs
           Materializes inputs for failed actions which ran on RE
 
+      --materialize-failed-outputs
+          Materializes outputs (if present) for failed actions which ran on RE
+
   -h, --help
           Print help (see a summary with '-h')
 
@@ -195,6 +182,24 @@ Target Configuration Options:
   -m, --modifier <VALUE>
           A configuration modifier to configure all targets on the command line. This may be a
           constraint value target.
+
+      --overall-timeout <TIMEOUT>
+          How long to run the command for. If the timeout is exceeded, Buck2 will exit as quickly as
+          possible and not run further builds or tests.
+
+          In-flight builds and tests will be cancelled. The test orchestrator, if there is one, will
+          be allowed to shut down gracefully.
+
+          The exit code for builds will be a user error, for tests it is controlled by the test
+          orchestrator (which normally should report zero for this).
+
+          The format is a concatenation of time spans (separated by spaces). Each time span is an
+          integer number and a suffix.
+
+          Relevant supported suffixes: seconds, second, sec, s, minutes, minute, min, m, hours,
+          hour, hr, h
+
+          For example: `5m 10s`, `500s`.
 
 Buckconfig Options:
   -c, --config <SECTION.OPTION=VALUE>

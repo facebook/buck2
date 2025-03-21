@@ -13,6 +13,7 @@ use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::AttrTypeInner;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum AnonRuleAttrError {
     #[error("Attr type `{0}` is not supported for anon rules")]
     NotSupported(String),

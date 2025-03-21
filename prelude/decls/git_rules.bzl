@@ -25,6 +25,9 @@ git_fetch = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
+            "allow_cache_upload": attrs.bool(doc = """
+                Whether the results of the fetch can be written to the action cache and CAS.
+            """, default = True),
             "repo": attrs.string(doc = """
                 Url suitable as a git remote.
             """),

@@ -7,10 +7,23 @@
  * of this source tree.
  */
 
+use serde_json::error::Category;
+
+use crate::conversion::stds::io::io_error_kind_to_error_tag;
+
 impl From<serde_json::Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: serde_json::Error) -> Self {
-        crate::conversion::from_any(value)
+        let error_tag = match value.classify() {
+            Category::Data | Category::Syntax => crate::ErrorTag::Input,
+            Category::Eof => crate::ErrorTag::Tier0,
+            Category::Io => match value.io_error_kind() {
+                Some(error_kind) => io_error_kind_to_error_tag(error_kind),
+                None => crate::ErrorTag::Tier0,
+            },
+        };
+
+        crate::conversion::from_any_with_tag(value, error_tag)
     }
 }

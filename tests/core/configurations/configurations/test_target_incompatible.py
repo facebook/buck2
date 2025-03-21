@@ -21,7 +21,8 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_incompatible_target_skipping(buck: Buck) -> None:
     # incompatible target should be skipped when a package
     result = await buck.build("//:")
-    assert "Skipping target incompatible node `root//:incompatible (" in result.stderr
+    assert "Skipped 1 incompatible targets:" in result.stderr
+    assert "root//:incompatible (" in result.stderr
     # when explicitly requested, it should be a failure
     await expect_failure(buck.build("//:incompatible"))
     # should be a failure if it's both explicitly requested and part of a package/recursive pattern
@@ -103,18 +104,7 @@ async def test_error_on_dep_only_incompatible(
         "//dep_incompatible:dep_incompatible",
     ]
     if soft_error:
-        result = await buck.cquery(*args)
-        # This can't use the same INCOMPATIBLE_ERROR str as elsewhere.
-        # Because the result is a soft error, stderr has timestamps
-        # prefixing each line which makes this regex, which works elsewhere,
-        # fail here. The regex could try to match with the timestamp instead,
-        # but this is easier
-        assert re.search(
-            "root//:incompatible", result.stderr, re.DOTALL | re.IGNORECASE
-        )
-        assert re.search(
-            "is incompatible with", result.stderr, re.DOTALL | re.IGNORECASE
-        )
+        await check_dep_only_incompatible_soft_err(buck, args)
     else:
         await expect_failure(
             buck.cquery(*args),
@@ -131,3 +121,61 @@ async def test_error_on_dep_only_incompatible_conf(buck: Buck) -> None:
         buck.cquery(*args),
         stderr_regex=INCOMPATIBLE_ERROR,
     )
+
+
+@buck_test(allow_soft_errors=True)
+async def test_error_on_dep_only_incompatible_excluded(buck: Buck) -> None:
+    args = [
+        "-c",
+        "buck2.error_on_dep_only_incompatible_excluded=//dep_incompatible:dep_incompatible_conf2",
+        "//dep_incompatible:dep_incompatible_conf2",
+    ]
+    await check_dep_only_incompatible_soft_err(buck, args)
+
+
+async def check_dep_only_incompatible_soft_err(buck: Buck, args: list[str]) -> None:
+    result = await buck.cquery(*args)
+    # This can't use the same INCOMPATIBLE_ERROR str as elsewhere.
+    # Because the result is a soft error, stderr has timestamps
+    # prefixing each line which makes this regex, which works elsewhere,
+    # fail here. The regex could try to match with the timestamp instead,
+    # but this is easier
+    assert re.search(
+        "does not pass compatibility check \\(will be error in future\\) because its transitive dep root//:incompatible",
+        result.stderr,
+        re.DOTALL | re.IGNORECASE,
+    )
+    assert re.search("is incompatible with", result.stderr, re.DOTALL | re.IGNORECASE)
+
+
+@buck_test(allow_soft_errors=True)
+async def test_dep_only_incompatible_custom_soft_errors(buck: Buck) -> None:
+    args = [
+        "-c",
+        "buck2.dep_only_incompatible_info=//dep_incompatible/dep_only_incompatible_info:dep_only_incompatible_info",
+    ]
+    await buck.cquery("//dep_incompatible:dep_incompatible", *args)
+    result = await buck.log("show")
+    assert "Soft Error: soft_error_one" in result.stdout
+
+    await buck.cquery("//dep_incompatible:transitive_dep_incompatible", *args)
+    result = await buck.log("show")
+    assert "Soft Error: soft_error_two" in result.stdout
+
+
+@buck_test(allow_soft_errors=True)
+async def test_dep_only_incompatible_custom_soft_errors_with_exclusions(
+    buck: Buck,
+) -> None:
+    args = [
+        "-c",
+        "buck2.dep_only_incompatible_info=//dep_incompatible/dep_only_incompatible_info:dep_only_incompatible_info_with_exclusions",
+    ]
+    await buck.cquery("//dep_incompatible:dep_incompatible", *args)
+    result = await buck.log("show")
+    assert "Soft Error: soft_error_one" in result.stdout
+    assert "Soft Error: soft_error_three" in result.stdout
+
+    await buck.cquery("//dep_incompatible:transitive_dep_incompatible", *args)
+    result = await buck.log("show")
+    assert "Soft Error: soft_error_two" in result.stdout

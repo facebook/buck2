@@ -32,6 +32,7 @@ use starlark::values::ValueLike;
 use starlark::values::ValueTypedComplex;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum BxlResultError {
     #[error("called `bxl.Result.unwrap()` on an `Err` value: {0}")]
     UnwrapOnError(buck2_error::Error),
@@ -50,7 +51,7 @@ enum BxlResultError {
     Allocative,
     Trace
 )]
-#[display("bx.Error({})", StarlarkStr::repr(&format!("{:?}", err)))]
+#[display("bxl.Error({})", StarlarkStr::repr(&format!("{:?}", err)))]
 pub(crate) struct StarlarkError {
     err: buck2_error::Error,
 }
@@ -143,6 +144,17 @@ fn result_methods(builder: &mut MethodsBuilder) {
         }
     }
 
+    /// If the result is an `Ok`, return the inner value, otherwise return the default
+    fn unwrap_or<'v>(
+        this: ValueTypedComplex<'v, StarlarkResult<'v>>,
+        #[starlark(require = pos)] default: Value<'v>,
+    ) -> starlark::Result<Value<'v>> {
+        match this.unpack() {
+            either::Either::Left(x) => Ok(x.unwrap_or(default)),
+            either::Either::Right(x) => Ok(x.unwrap_or(default)),
+        }
+    }
+
     /// Unwrap the error, returning the inner error if the result is `Err`.
     /// If the result is an `Ok`, it will fail
     fn unwrap_err<'v>(
@@ -176,6 +188,13 @@ impl<'v, V: ValueLike<'v>> StarlarkResultGen<V> {
         match self {
             StarlarkResultGen::Ok(val) => Ok(val.to_value()),
             StarlarkResultGen::Err(err) => Err(BxlResultError::UnwrapOnError(err.dupe()).into()),
+        }
+    }
+
+    fn unwrap_or(&self, default: Value<'v>) -> Value<'v> {
+        match self {
+            StarlarkResultGen::Ok(val) => val.to_value(),
+            StarlarkResultGen::Err(_) => default,
         }
     }
 

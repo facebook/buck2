@@ -9,7 +9,6 @@
 
 use std::collections::HashMap;
 
-use buck2_core::bzl::ImportPath;
 use dupe::Dupe;
 use serde::Serialize;
 use starlark::collections::SmallMap;
@@ -17,6 +16,8 @@ use starlark::docs::DocItem;
 use starlark::docs::DocMember;
 use starlark::docs::DocModule;
 use starlark::typing::Ty;
+
+use crate::starlark_::StarlarkFilePath;
 
 fn serialize_ty<S: serde::Serializer>(ty: &Ty, s: S) -> Result<S::Ok, S::Error> {
     s.serialize_str(&ty.to_string())
@@ -288,7 +289,7 @@ impl JsonDocString {
 
 // Note(JakobDegen): The particular format of the output is not really by design, but mostly a
 // historical accident.
-pub(crate) fn to_json(docs: Vec<(ImportPath, DocModule)>) -> buck2_error::Result<String> {
+pub(crate) fn to_json(docs: Vec<(StarlarkFilePath, DocModule)>) -> buck2_error::Result<String> {
     let docs: Vec<_> = docs
         .into_iter()
         .flat_map(|(p, d)| to_docs_list(&p, d))
@@ -303,7 +304,7 @@ struct Doc {
     item: DocItem,
 }
 
-fn to_docs_list(import_path: &ImportPath, module_docs: DocModule) -> Vec<Doc> {
+fn to_docs_list(import_path: &StarlarkFilePath, module_docs: DocModule) -> Vec<Doc> {
     // Do this so that we don't get the '@' in the display if we're printing targets from a
     // different cell root. i.e. `//foo:bar.bzl`, rather than `//foo:bar.bzl @ cell`
     let import_path_string = format!(

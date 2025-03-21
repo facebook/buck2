@@ -6,7 +6,7 @@
 # of this source tree.
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerInfo", "LinkerType")
-load("@prelude//linking:link_info.bzl", "Archive")
+load("@prelude//linking:link_info.bzl", "Archive", "ArchiveContentsType")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
@@ -26,6 +26,10 @@ def _archive_flags(
         return ["/Brepro", "/d2threads1"]
     elif archiver_type == "windows_clang":
         return ["/llvmlibthin"] if thin else []
+    elif archiver_type == "amdclang":
+        # amdclang can be used to create archives with --emit-static-lib, so let's
+        # prefer to let the toolchain define the args instead of hardcoding them here.
+        return []
     flags = ""
 
     # Operate in quick append mode, so that objects with identical basenames
@@ -69,6 +73,8 @@ def _archive(
     ))
     if archiver_type == "windows" or archiver_type == "windows_clang":
         command.add([cmd_args(archive_output.as_output(), format = "/OUT:{}")])
+    elif archiver_type == "amdclang":
+        command.add(["-o", archive_output.as_output()])
     else:
         command.add([archive_output.as_output()])
 
@@ -143,4 +149,8 @@ def make_archive(
     # TODO(T110378100): We need to scrub the static library (timestamps, permissions, etc) as those are
     # sources of non-determinism. See `ObjectFileScrubbers.createDateUidGidScrubber()` in Buck v1.
 
-    return Archive(artifact = archive, external_objects = objects if thin else [])
+    return Archive(
+        artifact = archive,
+        archive_contents_type = ArchiveContentsType(linker_info.archive_contents),
+        external_objects = objects,
+    )

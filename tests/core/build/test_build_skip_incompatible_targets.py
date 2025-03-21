@@ -35,7 +35,8 @@ async def test_build_skip_incompatible(buck: Buck) -> None:
         f"--target-platforms={platformA}",
         "--skip-incompatible-targets",
     )
-    assert f"Skipping target incompatible node `{targetB}" in result.stderr
+    assert "Skipped 1 incompatible target" in result.stderr
+    assert targetB in result.stderr
 
     report = result.get_build_report()
     assert len(report.results) == 2

@@ -30,7 +30,6 @@ serde_json = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
 tokio = { workspace = true }
-tracing = { workspace = true }
 
 buck2_action_impl = { workspace = true }
 buck2_analysis = { workspace = true }

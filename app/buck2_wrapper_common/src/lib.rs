@@ -38,6 +38,7 @@ pub mod win;
 
 pub const BUCK2_WRAPPER_ENV_VAR: &str = "BUCK2_WRAPPER";
 pub const BUCK_WRAPPER_UUID_ENV_VAR: &str = "BUCK_WRAPPER_UUID";
+pub const BUCK_WRAPPER_START_TIME_ENV_VAR: &str = "BUCK_WRAPPER_START_TIME";
 pub const EXPERIMENTS_FILENAME: &str = "experiments_from_buck_start";
 pub const DOT_BUCKCONFIG_D: &str = ".buckconfig.d";
 
@@ -204,7 +205,7 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
                 printer.failed_to_kill(
                     &process.0,
                     buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Tier0,
                         "Process still alive after {timeout_secs}s after kill sent"
                     ),
                 );

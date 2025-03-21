@@ -13,7 +13,6 @@
 pub mod action_stats;
 pub mod action_util;
 pub mod cache_hit_rate;
-pub mod cold_build_detector;
 pub mod debug_events;
 pub mod dice_state;
 pub mod display;

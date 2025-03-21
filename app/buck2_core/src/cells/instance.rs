@@ -20,6 +20,7 @@ use crate::cells::name::CellName;
 use crate::cells::nested::NestedCells;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum CellInstanceError {
     #[error(
         "Attempted to refer to cell `{0}`; however, this is an external cell which cannot be used from `{1}`"

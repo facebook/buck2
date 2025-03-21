@@ -16,9 +16,9 @@ load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "preprocessor_info_for_modulemap")
-load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftVersion", "get_implicit_framework_search_path_providers")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_use_shlib_intfs_mode")
 load(
     "@prelude//cxx:cxx_sources.bzl",
@@ -62,8 +62,10 @@ load(
     ":swift_pcm_compilation_types.bzl",
     "SwiftPCMUncompiledInfo",
 )
+load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 load(
     ":swift_toolchain_types.bzl",
     "SwiftCompiledModuleInfo",
@@ -140,11 +142,18 @@ SwiftDebugInfo = record(
 
 _IS_USER_BUILD = True # @oss-enable
 # @oss-disable: # To determine whether we're running on CI or not, we expect user.sandcastle_alias to be set.
-# @oss-disable: _IS_USER_BUILD = (read_root_config("user", "sandcastle_alias", None) == None) 
+# @oss-disable[end= ]: _IS_USER_BUILD = (read_root_config("user", "sandcastle_alias", None) == None)
 
 _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
 
 _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
+
+def _get_target_flags(ctx) -> list[str]:
+    if get_cxx_platform_info(ctx).name.startswith("linux"):
+        # Linux triples are unversioned
+        return ["-target", "{}-unknown-linux-gnu".format(get_swift_toolchain_info(ctx).architecture)]
+    else:
+        return ["-target", get_target_triple(ctx)]
 
 def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: typing.Callable) -> Promise:
     # Get SDK deps from direct dependencies,
@@ -152,7 +161,7 @@ def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: t
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.sdk_modules,
         _REQUIRED_SDK_MODULES,
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+        get_swift_toolchain_info(ctx),
     )
 
     # Recursively compiling headers of direct and transitive deps as PCM modules,
@@ -160,7 +169,7 @@ def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: t
     pcm_targets = get_swift_pcm_anon_targets(
         ctx,
         ctx.attrs.deps,
-        ["-target", get_target_triple(ctx)],
+        _get_target_flags(ctx),
         False,  # C++ Interop is disabled for now.
     )
 
@@ -170,7 +179,7 @@ def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: t
         ctx,
         False,
         direct_uncompiled_sdk_deps,
-        ["-target", get_target_triple(ctx)],
+        _get_target_flags(ctx),
     )
 
     # Recursively compile SDK and prebuilt_apple_framework's Swift dependencies.
@@ -188,7 +197,7 @@ def get_swift_anonymous_targets(ctx: AnalysisContext, get_apple_library_provider
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
         ctx.attrs.sdk_modules,
         _REQUIRED_SDK_CXX_MODULES if ctx.attrs.enable_cxx_interop else _REQUIRED_SDK_MODULES,
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info,
+        get_swift_toolchain_info(ctx),
     )
 
     # Recursively compiling headers of direct and transitive deps as PCM modules,
@@ -223,7 +232,7 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
 
     # Each target needs to propagate the compilers target triple.
     # This can vary depending on the deployment target of each library.
-    gather += ["-target", get_target_triple(ctx)]
+    gather += _get_target_flags(ctx)
 
     for f in ctx.attrs.swift_compiler_flags:
         if next:
@@ -270,7 +279,7 @@ def _get_compiled_underlying_pcm(
     )
 
 def _should_compile_with_swift_interface(ctx):
-    if not ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info.library_interface_uses_swiftinterface:
+    if not get_swift_toolchain_info(ctx).library_interface_uses_swiftinterface:
         return False
 
     if ctx.attrs._swift_enable_testing:
@@ -330,7 +339,6 @@ def compile_swift(
         private_compiled_underlying_pcm,
         exported_compiled_underlying_pcm,
         module_name,
-        exported_headers,
         private_objc_modulemap_pp_info,
         exported_objc_modulemap_pp_info,
         extra_search_paths_flags,
@@ -341,16 +349,7 @@ def compile_swift(
     if not srcs:
         return (None, swift_interface_info)
 
-    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
-
-    if ctx.attrs.serialize_debugging_options:
-        if exported_headers:
-            # TODO(T99100029): We cannot use VFS overlays with Buck2, so we have to disable
-            # serializing debugging options for mixed libraries to debug successfully
-            warning("Mixed libraries cannot serialize debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
-        elif not toolchain.prefix_serialized_debugging_options:
-            warning("The current toolchain does not support prefixing serialized debugging options, disabling for module `{}` in rule `{}`".format(module_name, ctx.label))
-
+    toolchain = get_swift_toolchain_info(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h")
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION)
 
@@ -500,6 +499,9 @@ def _compile_swiftmodule(
             "-Xfrontend",
             "-compile-module-from-interface",
             output_swiftinterface,
+            # The new driver will fail with "error: no input files"
+            # so use the legacy driver until we add functionality for this.
+            "-disallow-use-new-driver",
             "-o",
             output_swiftmodule.as_output(),
         ])
@@ -540,6 +542,9 @@ def _compile_swiftmodule(
                 swift_framework_output.swiftinterface.as_output(),
                 "-emit-private-module-interface-path",
                 swift_framework_output.private_swiftinterface.as_output(),
+                # Module verification fails here as the clang modules
+                # are not loaded correctly.
+                "-no-verify-emitted-module-interface",
             ])
 
             # There is no driver flag to specify the swiftdoc output path
@@ -644,6 +649,7 @@ def _compile_index_store(
         index_store_output.as_output(),
         "-c",
         "-disable-batch-mode",
+        "-disallow-use-new-driver",
     ])
 
     _compile_with_argsfile(
@@ -730,10 +736,16 @@ def _compile_with_argsfile(
     # Swift correctly handles relative paths and we can utilize the relative argsfile for Xcode.
     return CompileArgsfiles(relative = {extension: argsfile}, xcode = {extension: argsfile})
 
-def _get_serialize_debugging_options_attr_value(ctx: AnalysisContext):
-    if ctx.attrs.serialize_debugging_options == None:
-        return True
-    return ctx.attrs.serialize_debugging_options
+def _get_serialize_debugging_options(ctx: AnalysisContext, uses_explicit_modules: bool):
+    if ctx.attrs.serialize_debugging_options == False:
+        return False
+
+    if uses_explicit_modules:
+        # If the toolchain supports explicit modules we can
+        # enable, regardless if this is a mixed library or not
+        return get_swift_toolchain_info(ctx).supports_explicit_module_debug_serialization
+
+    return True
 
 def _get_shared_flags(
         ctx: AnalysisContext,
@@ -742,11 +754,10 @@ def _get_shared_flags(
         private_module: SwiftCompiledModuleInfo | None,
         public_module: SwiftCompiledModuleInfo | None,
         module_name: str,
-        objc_headers: list[CHeader],
         private_modulemap_pp_info: CPreprocessor | None,
         public_modulemap_pp_info: CPreprocessor | None,
         extra_search_paths_flags: list[ArgLike] = []) -> cmd_args:
-    toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args()
 
     if not toolchain.supports_relative_resource_dir:
@@ -755,16 +766,14 @@ def _get_shared_flags(
         # in the debug info.
         cmd.add(["-working-directory="])
 
+    cmd.add(get_sdk_flags(ctx))
+    cmd.add(_get_target_flags(ctx))
     cmd.add([
         # Always use color, consistent with clang.
         "-color-diagnostics",
         # Unset the working directory in the debug information.
         "-file-compilation-dir",
         ".",
-        "-sdk",
-        toolchain.sdk_path,
-        "-target",
-        get_target_triple(ctx),
         "-module-name",
         module_name,
         "-Xfrontend",
@@ -773,6 +782,10 @@ def _get_shared_flags(
         "-disable-cxx-interop-requirement-at-import",
         "-Xfrontend",
         "-emit-clang-header-nonmodular-includes",
+        # RE actions are run in a sandbox, which will fail to run macros as
+        # you cannot nest sandbox actions.
+        # https://github.com/swiftlang/swift/pull/70079
+        "-disable-sandbox",
     ])
 
     if parse_as_library:
@@ -818,14 +831,13 @@ def _get_shared_flags(
         # Swift compiler defaults to 5 and therefore so do we
         # use the version 5 for upcoming features passed to tools
         # like the ide-tool for swift-interface generation below
-        # https://www.internalfb.com/code/osmeta-external-swift/[toolchain%2Fpika%2F16%3A5e394d813955f6d922cc853d011eeb3b6bead4c6]/include/swift/Basic/LangOptions.h?lines=175-176
+        # include/swift/Basic/LangOptions.h?lines=175-176
         swift_version = SwiftVersion[0]  # "5"
 
     if ctx.attrs.enable_cxx_interop:
         cmd.add(["-cxx-interoperability-mode=default"])
 
-    serialize_debugging_options = _get_serialize_debugging_options_attr_value(ctx) and (not explicit_modules_enabled) and (not objc_headers) and toolchain.prefix_serialized_debugging_options
-    if serialize_debugging_options:
+    if _get_serialize_debugging_options(ctx, explicit_modules_enabled):
         cmd.add([
             "-Xfrontend",
             "-serialize-debugging-options",
@@ -859,6 +871,19 @@ def _get_shared_flags(
 
     if ctx.attrs._swift_enable_testing:
         cmd.add("-enable-testing")
+
+    if getattr(ctx.attrs, "application_extension", False):
+        cmd.add("-application-extension")
+
+    # Only apple_library has swift_macro_deps
+    swift_macros = getattr(ctx.attrs, "swift_macro_deps", [])
+    if swift_macros:
+        for m in ctx.plugins[SwiftMacroPlugin]:
+            macro_artifact = m[DefaultInfo].default_outputs[0]
+            cmd.add([
+                "-load-plugin-executable",
+                cmd_args(macro_artifact, format = "{}#" + macro_artifact.basename),
+            ])
 
     pcm_deps_tset = get_compiled_pcm_deps_tset(ctx, deps_providers)
 
@@ -1005,7 +1030,7 @@ def get_swift_pcm_uncompile_info(
         ctx: AnalysisContext,
         propagated_exported_preprocessor_info: [CPreprocessorInfo, None],
         exported_pre: [CPreprocessor, None]) -> [SwiftPCMUncompiledInfo, None]:
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
 
     if is_sdk_modules_provided(swift_toolchain):
         propagated_pp_args_cmd = cmd_args(propagated_exported_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc") if propagated_exported_preprocessor_info else None
@@ -1076,7 +1101,7 @@ def get_swift_dependency_info(
     )
 
 def uses_explicit_modules(ctx: AnalysisContext) -> bool:
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
     return ctx.attrs.uses_explicit_modules and is_sdk_modules_provided(swift_toolchain)
 
 def get_swiftmodule_linkable(swift_compile_output: [SwiftCompilationOutput, None]) -> [SwiftmoduleLinkable, None]:
@@ -1146,8 +1171,8 @@ def _create_compilation_database(
         argfile: CompileArgsfile) -> SwiftCompilationDatabase:
     module_name = get_module_name(ctx)
 
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
-    mk_comp_db = swift_toolchain.mk_swift_comp_db[RunInfo]
+    swift_toolchain = get_swift_toolchain_info(ctx)
+    mk_comp_db = swift_toolchain.mk_swift_comp_db
 
     identifier = module_name + ".swift_comp_db.json"
     cdb_artifact = ctx.actions.declare_output(identifier)
@@ -1168,7 +1193,7 @@ def _create_compilation_database(
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
 
 def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module_name: str) -> DefaultInfo:
-    swift_toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo].swift_toolchain_info
+    swift_toolchain = get_swift_toolchain_info(ctx)
     swift_ide_test_tool = swift_toolchain.swift_ide_test_tool
     if not swift_ide_test_tool:
         return DefaultInfo()

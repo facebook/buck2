@@ -52,8 +52,11 @@ pub struct ConfiguredTarget {
 /// Metadata about the execution to display
 #[derive(Debug, Clone, PartialEq, Allocative, Hash, Eq)]
 pub enum TestStage {
-    // Listing the test binary to discover tests. The String is the name of the suite at the binary
-    Listing(String),
+    // Listing the test binary to discover tests.
+    Listing {
+        suite: String,
+        cacheable: bool,
+    },
     // the name of the test(s) that we are running for the suite of a target
     Testing {
         suite: String,
@@ -64,7 +67,7 @@ pub enum TestStage {
 impl fmt::Display for TestStage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
-            TestStage::Listing(name) => write!(f, "Listing({})", name),
+            TestStage::Listing { suite, .. } => write!(f, "Listing({})", suite),
             TestStage::Testing { suite, testcases } => {
                 write!(f, "Testing({}:[{}])", suite, testcases.join(", "))
             }
@@ -107,6 +110,8 @@ pub struct TestResult {
     // the duration of the test run
     // TODO(skcd) should this be optional? why doesn't everything have duration
     pub duration: Option<Duration>,
+    // the max memory used by the test
+    pub max_memory_used_bytes: Option<u64>,
     // the output of the test execution (combining stdout and stderr)
     pub details: String,
 }
@@ -391,9 +396,15 @@ pub struct ExecutionResult2 {
     pub outputs: HashMap<OutputName, Output>,
     pub start_time: SystemTime,
     pub execution_time: Duration,
+    pub max_memory_used_bytes: Option<u64>,
     /// We don't try to convert this field, mostly because it shares with buck2.data, and that
     /// seems to have very little value. We just validate it's sent.
     pub execution_details: ExecutionDetails,
+}
+
+pub enum CancellationReason {
+    NotSpecified,
+    ReQueueTimeout,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -402,7 +413,7 @@ pub enum ExecuteResponse {
     Result(ExecutionResult2),
 
     /// The test run is being cancelled.
-    Cancelled,
+    Cancelled(Option<CancellationReason>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

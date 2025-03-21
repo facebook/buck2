@@ -56,13 +56,13 @@ fn the_panic_hook(fb: FacebookInit, info: &PanicHookInfo) {
 mod imp {
     use std::collections::HashMap;
     use std::panic::PanicHookInfo;
-    use std::time::Duration;
 
     use backtrace::Backtrace;
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::metadata;
     use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
+    use buck2_events::sink::remote::ScribeConfig;
     use buck2_events::BuckEvent;
     use buck2_util::threads::thread_spawn;
     use fbinit::FacebookInit;
@@ -124,22 +124,13 @@ mod imp {
     }
 
     /// Collects metadata from the current environment for use in LogView.
-    fn get_metadata_for_panic(options: &StructuredErrorOptions) -> HashMap<String, String> {
+    fn get_metadata_for_panic() -> HashMap<String, String> {
         #[cfg_attr(client_only, allow(unused_mut))]
         let mut map = metadata::collect();
         #[cfg(not(client_only))]
         if let Some(commands) = buck2_server::active_commands::try_active_commands() {
             let commands = commands.keys().map(|id| id.to_string()).collect::<Vec<_>>();
             map.insert("active_commands".to_owned(), commands.join(","));
-        }
-        if let Some(logview_key) = options
-            .low_cardinality_key_for_additional_logview_samples
-            .as_ref()
-        {
-            map.insert(
-                "low_cardinality_key_for_additional_logview_samples".to_owned(),
-                logview_key.to_string(),
-            );
         }
         map
     }
@@ -170,7 +161,10 @@ mod imp {
             format!("Soft Error: {}: {:#}", category, err),
             Vec::new(),
             &options,
-            Some(category),
+            Some(buck2_data::SoftError {
+                category: category.to_owned(),
+                is_quiet: options.quiet,
+            }),
         );
 
         // If the soft error was fired in a context with an ambient dispatcher, then we only send
@@ -200,9 +194,9 @@ mod imp {
         message: String,
         backtrace: Vec<buck2_data::structured_error::StackFrame>,
         options: &StructuredErrorOptions,
-        soft_error_category: Option<&str>,
+        soft_error_category: Option<buck2_data::SoftError>,
     ) -> buck2_data::StructuredError {
-        let metadata = get_metadata_for_panic(options);
+        let metadata = get_metadata_for_panic();
         buck2_data::StructuredError {
             location,
             payload: message,
@@ -210,7 +204,8 @@ mod imp {
             backtrace,
             quiet: options.quiet,
             task: Some(options.task),
-            soft_error_category: soft_error_category.map(ToOwned::to_owned),
+            soft_error_category: soft_error_category
+                .map(|arg0: buck2_data::SoftError| ToOwned::to_owned(&arg0)),
             daemon_in_memory_state_is_corrupted: options.daemon_in_memory_state_is_corrupted,
             daemon_materializer_state_is_corrupted: options.daemon_materializer_state_is_corrupted,
             action_cache_is_corrupted: options.action_cache_is_corrupted,
@@ -232,13 +227,7 @@ mod imp {
             return;
         }
 
-        let sink = match new_remote_event_sink_if_enabled(
-            fb,
-            /* buffer size */ 100,
-            /* retry_backoff */ Duration::from_millis(500),
-            /* retry_attempts */ 5,
-            /* message_batch_size */ None,
-        ) {
+        let sink = match new_remote_event_sink_if_enabled(fb, ScribeConfig::default()) {
             #[allow(unreachable_patterns)]
             Ok(Some(sink)) => sink,
             _ => {
@@ -259,7 +248,7 @@ mod imp {
         // Note that if we fail to spawn a writer thread, then we just won't log.
         let _err = thread_spawn("buck2-write-panic-to-scribe", move || {
             let runtime = Builder::new_current_thread().enable_all().build().unwrap();
-            runtime.block_on(
+            let _res = runtime.block_on(
                 sink.send_now(BuckEvent::new(
                     SystemTime::now(),
                     TraceId::new(),

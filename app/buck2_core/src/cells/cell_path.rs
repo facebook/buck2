@@ -11,6 +11,7 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use relative_path::RelativePath;
+use strong_hash::StrongHash;
 
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
@@ -19,6 +20,7 @@ use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(buck2_error::Error, Debug)]
 #[error("attempted to strip prefix of two CellPath with different cell names `{0}` and `{1}`")]
+#[buck2(tag = Tier0)]
 struct StripPrefixError(CellName, CellName);
 
 /// Represents a resolvable path corresponding to some path that is relative to the cell
@@ -32,7 +34,8 @@ struct StripPrefixError(CellName, CellName);
     PartialEq,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 #[display("{}", self.as_ref())]
 pub struct CellPath {

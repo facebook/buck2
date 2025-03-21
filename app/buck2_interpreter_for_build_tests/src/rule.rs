@@ -346,7 +346,7 @@ fn returns_documentation() -> buck2_error::Result<()> {
     }
 
     // Grab the default parameters that are inserted into every rule.
-    let empty_spec = AttributeSpec::from(vec![], false)?;
+    let empty_spec = AttributeSpec::testing_new(Default::default());
     let mut params = empty_spec
         .signature("foo_binary".to_owned())
         .documentation(empty_spec.starlark_types(), empty_spec.docstrings());

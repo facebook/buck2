@@ -235,7 +235,11 @@ impl FrozenModule {
     pub fn documentation(&self) -> DocModule {
         let members = self
             .all_items()
-            .filter(|n| Module::default_visibility(n.0.as_str()) == Visibility::Public)
+            .filter(|n| {
+                // We only want to show public symbols in the documentation
+                self.get_any_visibility_option(n.0.as_str())
+                    .map_or(false, |(_, vis)| vis == Visibility::Public)
+            })
             // FIXME(JakobDegen): Throws out information
             .map(|(k, v)| {
                 (
@@ -607,7 +611,7 @@ x = f(1)
             .unwrap();
         }
         let module = module.freeze().unwrap();
-        let heap_summary = module.heap_profile().unwrap().gen().unwrap();
+        let heap_summary = module.heap_profile().unwrap().gen_csv().unwrap();
         // Smoke test.
         assert!(heap_summary.contains("\"x.star.f\""), "{:?}", heap_summary);
     }

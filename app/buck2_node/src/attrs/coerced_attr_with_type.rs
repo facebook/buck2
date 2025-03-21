@@ -49,12 +49,12 @@ use crate::attrs::coerced_attr::CoercedSelector;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::values::TargetModifiersValue;
-use crate::configuration::resolved::ConfigurationSettingKey;
 use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum CoercedAttrWithTypeError {
     #[error(
         "attr and type mismatch: {}, {}; ({:?}) (internal error)",
@@ -97,7 +97,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     ),
     SplitTransitionDep(&'a ProvidersLabel, &'t SplitTransitionDepAttrType),
     ConfiguredDep(&'a DepAttr<ConfiguredProvidersLabel>),
-    ConfigurationDep(&'a ConfigurationSettingKey, ConfigurationDepAttrType),
+    ConfigurationDep(&'a ProvidersLabel, ConfigurationDepAttrType),
     PluginDep(&'a TargetLabel, &'t PluginDepAttrType),
     Dep(&'a ProvidersLabel, &'t DepAttrType),
     SourceLabel(&'a ProvidersLabel, SourceAttrType),
@@ -117,7 +117,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
     ) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match (attr, &ty.0.inner) {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
-            (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(c, ty)),
+            (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(&c.0, ty)),
 
             (CoercedAttr::None, _) => Ok(CoercedAttrWithType::None),
             (attr, AttrTypeInner::Option(t)) => Ok(CoercedAttrWithType::Some(attr, t)),

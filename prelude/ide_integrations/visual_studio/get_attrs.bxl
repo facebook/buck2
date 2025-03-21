@@ -135,22 +135,26 @@ def _get_exported_preprocessor_flags(attrs) -> list:
 
 ############## others ##############
 
-def _get_srcs(attrs) -> list:
+def _get_srcs(attrs) -> dict:
     """Returns list of source associated with its src property"""
 
     # take_values as genrule target src properties can be a map of target location to source
     # location, and this function is defined to always return the source location.
     raw_srcs = get_unified_value(attrs, "srcs", "platform_srcs", take_values = True)
 
-    srcs = []
+    srcs = {}
 
     for src in raw_srcs:
+        obj = None
+        if isinstance(src, Artifact):
+            obj = src.short_path + ".o"
+
         # Flatten the list to remove any per-file compile flags, these won't
         # get carried thru to the vcxproj file.
         if isinstance(src, tuple):
-            srcs.append(src[0])  # add just the source file
-        else:
-            srcs.append(src)
+            src = src[0]
+
+        srcs[src] = obj
 
     return srcs
 

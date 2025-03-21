@@ -196,8 +196,10 @@ def main(
     sln_path = os.path.normcase(
         os.path.join(generated_folder, sln_relative_to_gen_root)
     )
+    dest_sln_path = os.path.join(generated_folder, os.path.basename(sln_path))
+    shutil.move(sln_path, dest_sln_path)
 
-    return bxl_output | {"sln_path": sln_path}
+    return bxl_output | {"sln_path": dest_sln_path}
 
 
 DEFAULT_RECURSIVE_TARGET_TYPES = [

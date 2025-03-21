@@ -21,6 +21,9 @@ RustcOutput = record(
     # with unpredictable filenames.
     dwo_output_directory = field(Artifact | None),
     extra_external_debug_info = field(list[ArtifactTSet]),
+    # The output of the profiler. Set only if `rust_compile` was invoked with a
+    # `profile_mode`
+    profile_output = field(Artifact | None),
 )
 
 def output_as_diag_subtargets(o: RustcOutput, clippy: RustcOutput) -> dict[str, Artifact]:

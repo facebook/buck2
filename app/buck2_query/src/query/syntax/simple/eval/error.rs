@@ -15,6 +15,7 @@ use buck2_query_parser::spanned::Spanned;
 /// While this is a std Error type, we generally don't use it directly. It's instead wrapped in a Spanned and can be converted to a normal error
 /// with QueryError::convert_error (which will resolve the spans to context messages).
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 pub enum QueryError {
     #[error("unknown function `{0}`")]
     UnknownFunction(String),
@@ -102,7 +103,7 @@ impl QueryError {
             e => {
                 // TODO(cjhopman): This is going to drop the backtrace attached to the error, we should figure
                 // out how to keep that.
-                buck2_error::buck2_error!([], "{}:{}", e, context)
+                buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "{}:{}", e, context)
             }
         }
     }

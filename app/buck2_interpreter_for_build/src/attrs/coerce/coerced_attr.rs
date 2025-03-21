@@ -13,6 +13,7 @@ use buck2_error::internal_error;
 use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::coerced_attr::CoercedConcat;
 use buck2_node::attrs::coerced_attr::CoercedSelector;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
@@ -120,17 +121,17 @@ impl CoercedAttrExr for CoercedAttr {
                     }
                     let l = CoercedAttr::coerce(attr, configurable, ctx, l, None)?;
                     let mut l = match l {
-                        CoercedAttr::Concat(l) => l.into_vec(),
+                        CoercedAttr::Concat(l) => l.0.into_vec(),
                         l => vec![l],
                     };
                     let r = CoercedAttr::coerce(attr, configurable, ctx, r, None)?;
                     let r = match r {
-                        CoercedAttr::Concat(r) => r.into_vec(),
+                        CoercedAttr::Concat(r) => r.0.into_vec(),
                         r => vec![r],
                     };
 
                     l.extend(r);
-                    Ok(CoercedAttr::Concat(l.into_boxed_slice()))
+                    Ok(CoercedAttr::Concat(CoercedConcat(l.into_boxed_slice())))
                 }
             }
         } else {

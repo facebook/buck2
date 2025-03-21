@@ -7,6 +7,7 @@
 
 %% % @format
 -module(cth_tpx_test_tree).
+-eqwalizer(ignore).
 
 -include("method_ids.hrl").
 

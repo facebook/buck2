@@ -42,6 +42,7 @@ SharedLibrary = record(
     for_primary_apk = field(bool, False),
     soname = field(Soname),
     label = field(Label),
+    extra_outputs = field(dict[str, list[DefaultInfo]], default = {}),
 )
 
 def _ensure_str(soname: str | Artifact) -> str:

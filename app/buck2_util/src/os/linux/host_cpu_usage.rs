@@ -42,5 +42,8 @@ pub fn host_cpu_usage() -> buck2_error::Result<HostCpuUsage> {
             system_millis: system_millis_str.parse::<u64>()?,
         });
     }
-    Err(buck2_error!([], "Failed to get CPU stats from /proc/stat"))
+    Err(buck2_error!(
+        buck2_error::ErrorTag::Tier0,
+        "Failed to get CPU stats from /proc/stat"
+    ))
 }

@@ -8,8 +8,6 @@
  */
 
 use std::collections::HashMap;
-use std::fmt;
-use std::num::NonZeroU64;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -25,6 +23,7 @@ use crate::what_ran::WhatRanRelevantAction;
 use crate::what_ran::WhatRanState;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 enum SpanTrackerError<T: SpanTrackable> {
     #[error(
         "Tried to end a child (`{child:#?}`) that did not exist for its parent (`{parent:#?}`)."
@@ -543,7 +542,6 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::ConnectToInstaller(..)
             | Data::LocalResources(..)
             | Data::ReleaseLocalResources(..)
-            | Data::CreateOutputHashesFile(..)
             | Data::ActionErrorHandlerExecution(..)
             | Data::CqueryUniverseBuild(..),
         ) => true,
@@ -571,32 +569,11 @@ impl BuckEventSpanTracker {
 }
 
 impl WhatRanState for SpanTracker<Arc<BuckEvent>> {
-    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction<'_>> {
+    fn get(&self, span_id: SpanId) -> Option<WhatRanRelevantAction> {
         self.all
             .get(&span_id)
             .map(|e| e.info.event.data())
             .and_then(WhatRanRelevantAction::from_buck_data)
-    }
-}
-
-/// A wrapper type to make calls to emit_event_if_relevant more convenient, since parent_id is
-/// `Option<SpanId>` on BuckEvent.
-#[derive(From, Copy, Clone, Dupe, Eq, PartialEq, Hash)]
-pub struct OptionalSpanId(pub Option<SpanId>);
-
-impl OptionalSpanId {
-    pub fn from_u64(optional_span_id: u64) -> OptionalSpanId {
-        OptionalSpanId(NonZeroU64::new(optional_span_id).map(SpanId))
-    }
-}
-
-impl fmt::Display for OptionalSpanId {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(this) = self.0 {
-            write!(formatter, "{}", this)
-        } else {
-            write!(formatter, "(none)")
-        }
     }
 }
 

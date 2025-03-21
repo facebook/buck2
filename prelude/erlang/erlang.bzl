@@ -35,6 +35,7 @@ def erlang_application(
         erlang_app_rule,
         erlang_app_includes_rule,
         name,
+        app_name = None,
         applications = [],
         included_applications = [],
         extra_includes = [],
@@ -57,6 +58,7 @@ def erlang_application(
     return [
         erlang_app_rule(
             name = name,
+            app_name = app_name,
             applications = normalized_applications,
             included_applications = normalized_included_applications,
             extra_includes = [
@@ -68,7 +70,7 @@ def erlang_application(
         ),
         erlang_app_includes_rule(
             name = _extra_include_name(name),
-            application_name = name,
+            app_name = name if app_name == None else app_name,
             includes = kwargs.get("includes", []),
             visibility = kwargs.get("visibility", None),
             labels = ["generated", "app_includes"],

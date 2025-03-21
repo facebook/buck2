@@ -17,6 +17,14 @@ use crate::attrs::spec::AttributeSpec;
 use crate::nodes::unconfigured::RuleKind;
 use crate::rule_type::RuleType;
 
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, dupe::Dupe)]
+pub enum RuleIncomingTransition {
+    None,
+    Fixed(Arc<TransitionId>),
+    /// This rule has an `incoming_transition` attribute
+    FromAttribute,
+}
+
 /// Common rule data needed in `TargetNode`.
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct Rule {
@@ -28,7 +36,7 @@ pub struct Rule {
     /// The kind of rule, e.g. configuration or otherwise.
     pub rule_kind: RuleKind,
     /// Transition to apply to the target.
-    pub cfg: Option<Arc<TransitionId>>,
+    pub cfg: RuleIncomingTransition,
     /// The plugin kinds that are used by the target
     pub uses_plugins: Vec<PluginKind>,
 }

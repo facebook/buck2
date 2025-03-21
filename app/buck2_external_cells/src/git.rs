@@ -56,6 +56,7 @@ use dupe::Dupe;
 use tokio::sync::Semaphore;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Tier0)]
 enum GitError {
     #[error("Error fetching external cell with git, exit code: {exit_code:?}, stderr:\n{stderr}")]
     Unsuccessful {

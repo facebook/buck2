@@ -39,6 +39,7 @@ use itertools::Itertools;
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured::ConfiguredTargetNodeRef;
 use crate::nodes::configured_node_visit_all_deps::configured_node_visit_all_deps;
+use crate::rule_type::RuleType;
 
 pub static UNIVERSE_FROM_LITERALS: LateBinding<
     for<'c> fn(
@@ -201,12 +202,15 @@ impl CqueryUniverse {
     ) -> Vec<ConfiguredProvidersLabel> {
         let mut targets = Vec::new();
         for (package, spec) in &resolved_pattern.specs {
-            targets.extend(
-                self.get_from_package(package.dupe(), spec)
-                    .map(|(node, extra)| {
-                        ConfiguredProvidersLabel::new(node.label().dupe(), extra.into_providers())
-                    }),
-            );
+            targets.extend(self.get_from_package(package.dupe(), spec).filter_map(
+                |(node, extra)| match node.rule_type() {
+                    RuleType::Forward => None,
+                    RuleType::Starlark(..) => Some(ConfiguredProvidersLabel::new(
+                        node.label().dupe(),
+                        extra.into_providers(),
+                    )),
+                },
+            ));
         }
         targets
     }
@@ -331,7 +335,6 @@ mod tests {
                 target_label.dupe(),
                 "idris_library",
                 ExecutionPlatformResolution::new(None, Vec::new()),
-                vec![],
                 vec![],
                 None,
             )]))

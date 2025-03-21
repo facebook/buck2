@@ -15,8 +15,10 @@ runs:
   - name: Brew install
     run: brew install cmake python3 coreutils opam llvm protobuf zstd
     shell: bash
+  - name: Install uv
+    uses: astral-sh/setup-uv@v5
   - name: Install conan
-    run: sudo pip3 install --break-system-packages conan==1.*
+    run: uv tool install conan==1.*
     shell: bash
   - uses: "./.github/actions/print_versions"
   - uses: actions/setup-go@v5

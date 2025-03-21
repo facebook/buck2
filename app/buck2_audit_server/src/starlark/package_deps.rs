@@ -63,7 +63,7 @@ pub(crate) async fn server_execute(
                     let path = match module.path() {
                         StarlarkModulePath::LoadFile(path) => path,
                         StarlarkModulePath::BxlFile(_) => {
-                            return Err(buck2_error!([], "bxl be here"));
+                            return Err(buck2_error!(buck2_error::ErrorTag::Tier0, "bxl be here"));
                         }
                     };
 

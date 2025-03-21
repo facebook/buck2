@@ -7,8 +7,8 @@
 
 # pyre-strict
 
-
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -17,3 +17,12 @@ async def test_action_error_handler_types(buck: Buck) -> None:
     await buck.bxl(
         "//:test_action_error_handler_types.bxl:test_action_error_handler_types"
     )
+
+
+@buck_test()
+async def test_output_when_no_error_handler_used(buck: Buck) -> None:
+    failure = await expect_failure(
+        buck.build("//:does_not_use_error_handler"),
+    )
+
+    assert "Action sub-errors produced by error handlers: <empty>" not in failure.stderr

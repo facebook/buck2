@@ -21,6 +21,7 @@ use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ConfigValueError {
     #[error(
         "Invalid value for buckconfig `{section}.{key}`: conversion to {ty} failed, value as `{value}`"

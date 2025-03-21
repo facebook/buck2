@@ -66,13 +66,17 @@ export function GraphImpl2(props: {
   const [colorByCfg, setColorByCfg] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
   const [transitiveReduction, setTransitiveReduction] = useState(true)
-  const [includeContaining, setIncludeContaining] = useState<string[]>([])
-  const [excludeContaining, setExcludeContaining] = useState<string[]>([])
+  const [includeContaining, setIncludeContaining] = useState<string>('')
+  const [excludeContaining, setExcludeContaining] = useState<string>('')
   const [highlighted, setHighlighted] = useState<string | null>(null)
 
   let nodeCounter = 0
   let totalActionsAffectedByFileChanges = 0
   let totalTargetsWithActionsThatRan = 0
+
+  const includeRegex = new RegExp(includeContaining)
+  const excludeRegex = new RegExp(excludeContaining)
+
   // Apply filters
   for (const [k, node] of nodeMap) {
     const target = build.targets(k)!
@@ -108,24 +112,13 @@ export function GraphImpl2(props: {
     }
 
     // Including means we can hide everything that doesn't match the filter
-    if (includeContaining.length > 0) {
-      let contains = false
-      for (const v of includeContaining) {
-        if (label.includes(v)) {
-          contains = true
-          break
-        }
-      }
-      if (!contains) {
-        node.displayType = DisplayType.hidden
-      }
+    if (includeContaining.length > 1 && !includeRegex.test(label)) {
+      node.displayType = DisplayType.hidden
     }
 
     // Excluding can hide everything except root node
-    for (const v of excludeContaining) {
-      if (label.includes(v)) {
-        node.displayType = DisplayType.hidden
-      }
+    if (excludeContaining.length > 1 && excludeRegex.test(label)) {
+      node.displayType = DisplayType.hidden
     }
 
     // Prevent graph from having too many nodes
@@ -233,10 +226,8 @@ export function GraphImpl2(props: {
       (document.getElementById(id) as HTMLInputElement).value.trim()
 
     // Include exclude by label
-    const inc = inputValue('includeContaining')
-    setIncludeContaining(inc ? inc.split(',') : [])
-    const exc = inputValue('excludeContaining')
-    setExcludeContaining(exc ? exc.split(',') : [])
+    setIncludeContaining(inputValue('includeContaining'))
+    setExcludeContaining(inputValue('excludeContaining'))
 
     // Highlight by label
     setHighlighted(inputValue('highlightNode'))
@@ -280,7 +271,7 @@ export function GraphImpl2(props: {
                 id="includeContaining"
                 className="input is-small"
                 type="text"
-                placeholder="Only include containing"
+                placeholder={'Only include matching regex'}
               />
             </div>
             <div className="control">
@@ -288,7 +279,7 @@ export function GraphImpl2(props: {
                 id="excludeContaining"
                 className="input is-small"
                 type="text"
-                placeholder="Exclude containing"
+                placeholder={'Exclude matching regex'}
               />
             </div>
           </div>

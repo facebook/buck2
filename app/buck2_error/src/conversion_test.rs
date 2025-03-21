@@ -9,7 +9,7 @@
 
 //! Test conversion impls for different error types to 'buck2_error::Error'
 
-use crate::conversion::from_any;
+use crate::conversion::from_any_with_tag;
 
 #[derive(Debug, thiserror::Error)]
 #[error("My error")]
@@ -19,6 +19,6 @@ impl From<MyError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: MyError) -> Self {
-        from_any(value)
+        from_any_with_tag(value, crate::ErrorTag::Input)
     }
 }

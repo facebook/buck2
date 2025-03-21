@@ -10,6 +10,7 @@
 
 import json
 import platform
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -18,6 +19,10 @@ import pytest
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
+
+
+async def get_daemon_dir(buck: Buck) -> Path:
+    return Path((await buck.debug("daemon-dir")).stdout.strip())
 
 
 @buck_test()
@@ -40,6 +45,9 @@ async def test_inactivity_timeout(buck: Buck) -> None:
         time.sleep(1)
         result = await buck.status()
         if result.stderr.splitlines()[-1] == "no buckd running":
+            daemon_dir = await get_daemon_dir(buck)
+            stderr = (daemon_dir / "buckd.stderr").read_text()
+            assert "inactivity timeout elapsed" in stderr
             return
 
     raise AssertionError("Server did not die in 20 seconds")
@@ -53,8 +61,7 @@ async def test_inactivity_timeout(buck: Buck) -> None:
 async def test_corrupted_buckd_info(buck: Buck, corrupt: str) -> None:
     await buck.targets("//:rule")
 
-    daemon_dir_result = await buck.debug("daemon-dir")
-    daemon_dir = daemon_dir_result.stdout.strip()
+    daemon_dir = await get_daemon_dir(buck)
     with open(f"{daemon_dir}/buckd.info") as f:
         # Check file exists and valid.
         json.load(f)
@@ -134,3 +141,25 @@ async def test_buck_out_is_cache_dir(buck: Buck) -> None:
         .read_text(encoding="utf-8")
         .startswith("Signature: 8a477f597d28d172789f06886806bc55")
     )
+
+
+@buck_test()
+async def test_prev_daemon_dir(buck: Buck) -> None:
+    await buck.targets(":")  # Start a daemon
+    await buck.kill()
+    await buck.targets(":")  # Start another daemon
+    daemon_dir = await get_daemon_dir(buck)
+
+    def extract_pid(stderr: str) -> int:
+        pid = [re.match(r".* PID: (\d+)", line) for line in stderr.splitlines()]
+        pid = list(filter(None, pid))
+        assert len(pid) == 1, pid[0]
+        return int(pid[0].group(1))
+
+    new_daemon_stderr = (daemon_dir / "buckd.stderr").read_text()
+    killed_daemon_stderr = (daemon_dir / "prev/buckd.stderr").read_text()
+
+    # check logs contain buckd pid and don't match
+    assert extract_pid(new_daemon_stderr) != extract_pid(killed_daemon_stderr)
+
+    assert "triggered shutdown: `buck kill` was invoked" in killed_daemon_stderr

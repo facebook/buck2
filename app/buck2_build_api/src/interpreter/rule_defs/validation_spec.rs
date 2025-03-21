@@ -36,6 +36,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArt
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ValidationSpecError {
     #[error("Name of validation spec should not be empty")]
     EmptyName,

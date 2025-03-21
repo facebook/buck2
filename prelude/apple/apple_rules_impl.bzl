@@ -5,13 +5,14 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:attrs_validators.bzl", "ATTRS_VALIDATORS_NAME", "ATTRS_VALIDATORS_TYPE")
+load("@prelude//:attrs_validators.bzl", "validation_common")
 load(
     "@prelude//:validation_deps.bzl",
     "VALIDATION_DEPS_ATTR_NAME",
     "VALIDATION_DEPS_ATTR_TYPE",
 )
 load("@prelude//apple:apple_common.bzl", "apple_common")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rule_attributes", "meta_only_apple_rule_implementations")
 load("@prelude//apple/swift:swift_incremental_support.bzl", "SwiftCompilationMode")
 load("@prelude//apple/swift:swift_toolchain.bzl", "swift_toolchain_impl")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
@@ -62,12 +63,14 @@ implemented_rules = {
     "prebuilt_apple_framework": prebuilt_apple_framework_impl,
     "scene_kit_assets": scene_kit_assets_impl,
     "swift_toolchain": swift_toolchain_impl,
-}
+# @oss-disable[end= ]: } | meta_only_apple_rule_implementations()
+} # @oss-enable
 
 _APPLE_TOOLCHAIN_ATTR = get_apple_toolchain_attr()
 
 def _apple_binary_extra_attrs():
     attribs = {
+        "application_extension": attrs.bool(default = False),
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
         "enable_distributed_thinlto": attrs.bool(default = False),
@@ -91,8 +94,7 @@ def _apple_binary_extra_attrs():
         "_stripped_default": attrs.bool(default = False),
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-        ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
-    }
+    } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     attribs.update(constraint_overrides.attributes)
@@ -129,9 +131,8 @@ def _apple_library_extra_attrs():
             "config//features/apple:swift_enable_testing_enabled": True,
         })),
         APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME: attrs.option(attrs.bool(), default = None),
-        ATTRS_VALIDATORS_NAME: ATTRS_VALIDATORS_TYPE,
         VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-    }
+    } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_dsymutil_attrs())
     return attribs
@@ -168,6 +169,7 @@ extra_attributes = {
         "files": attrs.list(attrs.one_of(attrs.dep(), attrs.source()), default = []),
     } | apple_common.skip_universal_resource_dedupe_arg(),
     "apple_spm_package": apple_spm_package_extra_attrs(),
+    "apple_test": constraint_overrides.attributes,
     "apple_toolchain": {
         # The Buck v1 attribute specs defines those as `attrs.source()` but
         # we want to properly handle any runnable tools that might have
@@ -184,7 +186,7 @@ extra_attributes = {
         "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "extra_linker_outputs": attrs.set(attrs.string(), default = []),
         "ibtool": attrs.exec_dep(providers = [RunInfo]),
-        "installer": attrs.default_only(attrs.label(default = "fbsource//xplat/toolchains/android/sdk/src/com/facebook/buck/installer/apple:apple_installer")),
+        "installer": attrs.default_only(attrs.label(default = "prelude//toolchains/android/src/com/facebook/buck/installer/apple:apple_installer")),
         "libtool": attrs.exec_dep(providers = [RunInfo]),
         "lipo": attrs.exec_dep(providers = [RunInfo]),
         "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -204,7 +206,7 @@ extra_attributes = {
         "swift_toolchain": attrs.option(attrs.toolchain_dep(), default = None),
         "version": attrs.option(attrs.string(), default = None),
         "xcode_build_version": attrs.option(attrs.string(), default = None),
-        "xcode_version": attrs.option(attrs.string(), default = None),
+        "xcode_version": attrs.string(),
         "xctest": attrs.exec_dep(providers = [RunInfo]),
         # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
@@ -232,11 +234,8 @@ extra_attributes = {
     "scene_kit_assets": {
         "path": attrs.source(allow_directory = True),
     },
-    "swift_library": {
-        "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
-    },
     "swift_toolchain": {
-        "architecture": attrs.option(attrs.string(), default = None),  # TODO(T115173356): Make field non-optional
+        "architecture": attrs.string(),
         "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
         "make_swift_interface": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
         "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
@@ -244,18 +243,17 @@ extra_attributes = {
         # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
         # which requires setting up separate platform-specific aliases with the correct constraints.
         "placeholder_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
-        "platform_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_platform_path`
+        "platform_path": attrs.option(attrs.source(), default = None),
+        "sdk_module_path_prefixes": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         "sdk_modules": attrs.list(attrs.exec_dep(), default = []),  # A list or a root target that represent a graph of sdk modules (e.g Frameworks)
         "sdk_path": attrs.option(attrs.source(), default = None),  # Mark as optional until we remove `_internal_sdk_path`
         "swift_ide_test_tool": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "swift_stdlib_tool": attrs.exec_dep(providers = [RunInfo]),
         "swiftc": attrs.exec_dep(providers = [RunInfo]),
-        # TODO(T111858757): Mirror of `platform_path` but treated as a string. It allows us to
-        #                   pass abs paths during development and using the currently selected Xcode.
-        "_internal_platform_path": attrs.option(attrs.string(), default = None),
         # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
         #                   pass abs paths during development and using the currently selected Xcode.
         "_internal_sdk_path": attrs.option(attrs.string(), default = None),
         "_swiftc_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
     },
-}
+# @oss-disable[end= ]: } | meta_only_apple_rule_attributes()
+} # @oss-enable

@@ -61,6 +61,26 @@ message DeviceMetadata {
 message ErrorDetail {
   // Error message
   string message = 1;
+  // High level error category.
+  // Determines error_category logged to buck2_builds.
+  ErrorCategory category = 2;
+  // List of short, stable error identifiers.
+  // Should be UPPER_SNAKE_CASE to match serialized buck2 tags.
+  repeated string tags = 3;
+}
+
+// Should be kept in sync with buck2_error::ErrorTier.
+enum ErrorCategory {
+  ERROR_CATEGORY_UNSPECIFIED = 0;
+  // Unexpected errors in installer. AKA Infra error.
+  TIER_0 = 1;
+  // Expected errors in inputs explicitly tracked by buck. AKA User error.
+  INPUT = 2;
+  // Errors that may be triggered by issues with the host,
+  // resource limits, non-explicit dependencies or potentially
+  // ambiguous input errors.
+  // These can be tracked but not eliminated.
+  ENVIRONMENT = 3;
 }
 
 message ShutdownRequest {

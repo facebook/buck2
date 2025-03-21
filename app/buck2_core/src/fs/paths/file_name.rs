@@ -9,6 +9,7 @@
 
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::ffi::OsString;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
@@ -27,6 +28,7 @@ use crate::package::package_relative_path::PackageRelativePath;
 
 /// Errors from ForwardRelativePath creation
 #[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
 enum FileNameError {
     #[error("file name is empty")]
     Empty,
@@ -36,6 +38,8 @@ enum FileNameError {
     DotDot,
     #[error("slashes in path: `{0}`")]
     Slashes(String),
+    #[error("file name is not unicode: `{0:?}`")]
+    NotUnicode(OsString),
 }
 
 fn verify_file_name(file_name: &str) -> buck2_error::Result<()> {
@@ -152,6 +156,14 @@ impl FileName {
     pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> buck2_error::Result<&Self> {
         verify_file_name(s.as_ref())?;
         Ok(Self::unchecked_new(s.as_ref()))
+    }
+
+    pub fn from_os_string(file_name: &OsString) -> buck2_error::Result<&FileName> {
+        let file_name = file_name
+            .to_str()
+            .ok_or_else(|| FileNameError::NotUnicode(file_name.clone()))?;
+
+        FileName::new(file_name)
     }
 
     #[inline]

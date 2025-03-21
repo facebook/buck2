@@ -14,7 +14,6 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
 
-use crate::analysis::registry::AnalysisValueFetcher;
 use crate::analysis::registry::AnalysisValueStorage;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
@@ -40,12 +39,5 @@ impl ArtifactGroupRegistry {
                 TransitiveSet::new_from_values(key.dupe(), definition, value, children, eval)?;
             Ok(eval.heap().alloc_typed(set))
         })?)
-    }
-
-    pub(crate) fn ensure_bound(
-        self,
-        _analysis_value_fetcher: &AnalysisValueFetcher,
-    ) -> buck2_error::Result<()> {
-        Ok(())
     }
 }

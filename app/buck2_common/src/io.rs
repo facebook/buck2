@@ -23,6 +23,7 @@ use crate::file_ops::RawPathMetadata;
 use crate::ignores::file_ignores::FileIgnoreReason;
 
 #[derive(Debug, Allocative, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum ReadDirError {
     #[error("Directory `{0}` does not exist")]
     DirectoryDoesNotExist(CellPath),

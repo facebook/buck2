@@ -40,6 +40,11 @@ impl Tick {
 /// Each method will be called whenever an event occurs.
 #[async_trait]
 pub trait EventSubscriber: Send {
+    /// Name for debugging, only used for subscribers that have a finalize step.
+    fn name(&self) -> &'static str {
+        "default"
+    }
+
     /// Fired by the tailer for stdout, or by PartialResultHandler instances that wish to write to
     /// stdout.
     async fn handle_output(&mut self, _raw_output: &[u8]) -> buck2_error::Result<()> {
@@ -87,4 +92,10 @@ pub trait EventSubscriber: Send {
 
     fn handle_daemon_connection_failure(&mut self, _error: &buck2_error::Error) {}
     fn handle_daemon_started(&mut self, _reason: buck2_data::DaemonWasStartedReason) {}
+    fn handle_should_restart(&mut self) {}
+
+    /// Perform final clean up before exiting, upload logs etc.
+    async fn finalize(&mut self) -> buck2_error::Result<()> {
+        Ok(())
+    }
 }

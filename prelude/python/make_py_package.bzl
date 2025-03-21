@@ -178,8 +178,7 @@ def make_py_package(
     )
 
     # Add link metadata to manifest_module_entries if requested.
-    manifest_module_entries = _maybe_add_dep_metadata_to_manifest_module(ctx, map(lambda s: s[1], shared_libraries), link_args)
-
+    manifest_module_entries = _add_dep_metadata_to_manifest_module(ctx, map(lambda s: s[1], shared_libraries), link_args)
     startup_function = generate_startup_function_loader(ctx, manifest_module_entries)
     manifest_module = generate_manifest_module(ctx, manifest_module_entries, python_toolchain, srcs)
     common_modules_args, dep_artifacts, debug_artifacts = _pex_modules_common_args(
@@ -210,8 +209,6 @@ def make_py_package(
 
     # lets make a shell
     if ctx.attrs.repl_main:
-        # no more
-        # kjdfhgskjh
         repl_deps, _ = gather_dep_libraries(ctx.attrs.repl_only_deps)
         repl_manifests = manifests_to_interface(repl_deps[0].manifests)
 
@@ -374,7 +371,8 @@ def _make_py_package_impl(
     if standalone or make_py_package_cmd != None:
         # We support building _standalone_ packages locally to e.g. support fbcode's
         # current style of build info stamping (e.g. T10696178).
-        prefer_local = standalone and package_python_locally(ctx, python_toolchain)
+        # Inplace par should be built locally to avoid materialization cost
+        prefer_local = (standalone and package_python_locally(ctx, python_toolchain)) or not standalone
 
         cmd = cmd_args(
             make_py_package_cmd if make_py_package_cmd != None else python_toolchain.make_py_package_standalone,
@@ -384,7 +382,6 @@ def _make_py_package_impl(
         if ctx.attrs.runtime_env:
             for k, v in ctx.attrs.runtime_env.items():
                 cmd.add(cmd_args(["--passthrough", "--runtime_env={}={}".format(k, v)]))
-        cmd.add(cmd_args("--no-sitecustomize"))
         identifier_prefix = "standalone{}" if standalone else "inplace{}"
         ctx.actions.run(
             cmd,
@@ -442,6 +439,10 @@ def _debuginfo_subtarget(
         if type(name) == type(()):
             for_shared_libs.append((name[1], (artifact, name[0], name[2])))
         else:
+            if len(name) == 0:
+                # This is external debug information, most likely coming from execution
+                # platform, skip packaging them because they are not important.
+                continue
             other.append((artifact, name))
     out = gen_shared_libs_action(
         actions = ctx.actions,
@@ -723,7 +724,7 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources: lis
         if rule != "":
             msg += "Hidden srcs/resources for {}\n".format(rule)
         else:
-            msg += "Source files:\n"
+            msg += "Debug instructions:\n"
             msg += "Find the reason this file was included with `buck2 cquery 'allpaths({}, owner(%s))' <file paths>`\n".format(current_target.raw_target())
         for resource in sorted(resources):
             msg += "  {}\n".format(resource)
@@ -769,23 +770,22 @@ def _get_shared_library_dep_metadata(
 
     return dedupe_dep_metadata(metadatas)
 
-def _maybe_add_dep_metadata_to_manifest_module(
+def _add_dep_metadata_to_manifest_module(
         ctx: AnalysisContext,
         shared_libraries: list[SharedLibrary],
         link_args: list[LinkArgs]) -> dict[str, typing.Any] | None:
     """
-    Possibly updates manifest_module_entries with link metadata if requested.
+    Updates manifest_module_entries with link metadata if they exist.
     """
     manifest_module_entries = ctx.attrs.manifest_module_entries
     if manifest_module_entries == None:
         return None
 
     metadatas = _get_shared_library_dep_metadata(ctx, shared_libraries, link_args)
-    if metadatas:
-        manifest_module_entries["library_versions"] = [
-            metadata.version
-            for metadata in truncate_dep_metadata(metadatas)
-        ]
+    manifest_module_entries["library_versions"] = [
+        metadata.version
+        for metadata in truncate_dep_metadata(metadatas)
+    ]
 
     return manifest_module_entries
 

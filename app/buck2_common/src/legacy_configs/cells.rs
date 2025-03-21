@@ -51,6 +51,7 @@ use crate::legacy_configs::path::ExternalConfigSource;
 use crate::legacy_configs::path::ProjectConfigSource;
 use crate::legacy_configs::path::DEFAULT_EXTERNAL_CONFIG_SOURCES;
 use crate::legacy_configs::path::DEFAULT_PROJECT_CONFIG_SOURCES;
+use crate::legacy_configs::path::DOT_BUCKCONFIG_LOCAL;
 
 /// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
@@ -115,7 +116,52 @@ impl ExternalBuckconfigData {
         }
     }
 
-    pub fn get_buckconfig_components(&self) -> Vec<buck2_data::BuckconfigComponent> {
+    async fn get_local_config_components(
+        project_root: &ProjectRoot,
+    ) -> Vec<buck2_data::BuckconfigComponent> {
+        use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
+        let file_ops = &mut DefaultConfigParserFileOps {
+            project_fs: project_root.dupe(),
+        };
+        let mut local_config_components = Vec::new();
+        if let Ok(legacy_cells) =
+            BuckConfigBasedCells::parse_with_config_args(&project_root, &[]).await
+        {
+            let path = ForwardRelativePath::new(DOT_BUCKCONFIG_LOCAL).expect(
+                "Internal error: .buckconfig.local should always be a valid forward relative path",
+            );
+            for (_cell, cell_instance) in legacy_cells.cell_resolver.cells() {
+                let relative_path = cell_instance.path().as_project_relative_path().join(path);
+                let origin_path = relative_path.to_string();
+                let local_config = ConfigPath::Project(relative_path);
+
+                let mut parser = LegacyConfigParser::new();
+                if parser
+                    .parse_file(&local_config, None, true, file_ops)
+                    .await
+                    .is_ok()
+                {
+                    let values = parser.to_proto_external_config_values(false);
+                    if values.is_empty() {
+                        // Don't create an empty component for cells with non-existing .buckconfig.local
+                        continue;
+                    }
+                    local_config_components.push(buck2_data::BuckconfigComponent {
+                        data: Some(GlobalExternalConfigFile(buck2_data::GlobalExternalConfig {
+                            values,
+                            origin_path,
+                        })),
+                    });
+                }
+            }
+        }
+        local_config_components
+    }
+
+    pub async fn get_buckconfig_components(
+        &self,
+        project_root: &ProjectRoot,
+    ) -> Vec<buck2_data::BuckconfigComponent> {
         use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
         let mut res: Vec<buck2_data::BuckconfigComponent> = self
             .external_path_configs
@@ -131,6 +177,8 @@ impl ExternalBuckconfigData {
                 }
             })
             .collect();
+
+        res.extend(Self::get_local_config_components(project_root).await);
         res.extend(to_proto_config_args(&self.args));
         res
     }
@@ -450,6 +498,7 @@ impl BuckConfigBasedCells {
         config: &LegacyBuckConfig,
     ) -> buck2_error::Result<ExternalCellOrigin> {
         #[derive(buck2_error::Error, Debug)]
+        #[buck2(tag = Input)]
         enum ExternalCellOriginParseError {
             #[error("Unknown external cell origin `{0}`")]
             Unknown(String),
@@ -1090,7 +1139,7 @@ mod tests {
                     Ok(())
                 } else {
                     Err(buck2_error::buck2_error!(
-                        [],
+                        buck2_error::ErrorTag::Input,
                         "No bundled cell with name `{}`",
                         cell_name
                     ))

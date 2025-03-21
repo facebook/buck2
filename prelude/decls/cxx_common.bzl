@@ -262,6 +262,17 @@ def _local_linker_flags_arg():
 """),
     }
 
+# TODO(christylee): remove this arg once link group map migrates to its own rule
+def _local_linker_script_flags_arg():
+    return {
+        "local_linker_script_flags": attrs.list(attrs.arg(), default = [], doc = """
+    Linker script lags to add to the linker command line whenever the output
+     from this rule is used in a link operation *driven by this rule*. Used
+     by rules that need to treat linker script flags different from normal
+     linker flags.
+"""),
+    }
+
 def _platform_linker_flags_arg():
     return {
         "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = [], doc = """
@@ -477,6 +488,7 @@ cxx_common = struct(
     linker_extra_outputs_arg = _linker_extra_outputs_arg,
     linker_flags_arg = _linker_flags_arg,
     local_linker_flags_arg = _local_linker_flags_arg,
+    local_linker_script_flags_arg = _local_linker_script_flags_arg,
     platform_linker_flags_arg = _platform_linker_flags_arg,
     exported_linker_flags_arg = _exported_linker_flags_arg,
     exported_post_linker_flags_arg = _exported_post_linker_flags_arg,

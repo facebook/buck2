@@ -96,6 +96,7 @@ def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs)
 
     # `extension` is used both by `apple_test` and `apple_resource_bundle`, so provide default here
     kwargs["extension"] = kwargs.pop("extension", "xctest")
+
     apple_test_rule(
         _resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs),
         **kwargs

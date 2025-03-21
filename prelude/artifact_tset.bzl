@@ -21,7 +21,6 @@ ArtifactInfoTag = enum(
 
 ArtifactInfo = record(
     label = field(Label),
-    identity = field(Label | str),
     artifacts = field(list[Artifact]),
     tags = field(list[ArtifactInfoTag]),
 )
@@ -34,18 +33,9 @@ def stringify_artifact_label(value: Label | str) -> str:
 def _get_artifacts(entries: list[ArtifactInfo]) -> list[Artifact]:
     return flatten([entry.artifacts for entry in entries])
 
-def _get_identified_artifacts(entries: list[ArtifactInfo]) -> cmd_args:
-    args = cmd_args()
-    for entry in entries:
-        for artifact in entry.artifacts:
-            format_str = "identified'{}'=".format(stringify_artifact_label(entry.identity))
-            args.add(cmd_args(artifact, format = format_str + "{}"))
-    return args
-
 _ArtifactTSet = transitive_set(
     args_projections = {
         "artifacts": _get_artifacts,
-        "identified_artifacts": _get_identified_artifacts,
     },
 )
 
@@ -57,7 +47,6 @@ def make_artifact_tset(
         actions: AnalysisActions,
         # Must be non-`None` if artifacts are passed in to `artifacts`.
         label: Label | None = None,
-        identity: Label | str | None = None,
         artifacts: list[Artifact] = [],
         infos: list[ArtifactInfo] = [],
         children: list[ArtifactTSet] = [],
@@ -73,8 +62,7 @@ def make_artifact_tset(
     # Build list of all non-child values.
     values = []
     if artifacts:
-        artifact_identity = identity if identity else label
-        values.append(ArtifactInfo(label = label, identity = artifact_identity, artifacts = artifacts, tags = tags))
+        values.append(ArtifactInfo(label = label, artifacts = artifacts, tags = tags))
     values.extend(infos)
 
     # If there's no children or artifacts, return `None`.
@@ -107,20 +95,3 @@ def project_artifacts(
         return []
 
     return [tset._tset.project_as_args("artifacts")]
-
-def project_identified_artifacts(
-        actions: AnalysisActions,
-        tsets: list[ArtifactTSet] = []) -> list[TransitiveSetArgsProjection]:
-    """
-    Helper to project a list of optional tsets.
-    """
-
-    tset = make_artifact_tset(
-        actions = actions,
-        children = tsets,
-    )
-
-    if tset._tset == None:
-        return []
-
-    return [tset._tset.project_as_args("identified_artifacts")]

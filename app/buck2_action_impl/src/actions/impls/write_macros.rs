@@ -75,6 +75,7 @@ impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum WriteMacrosActionValidationError {
     #[error("At least one output file must be specified for a write macros action")]
     NoOutputsSpecified,

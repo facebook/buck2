@@ -52,7 +52,7 @@ def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_tool
         asm_compiler_type = default_toolchain.asm_compiler_type,
         rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None or ctx.attrs.rc_compiler == "rc.exe" else ctx.attrs.rc_compiler,
         cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None or ctx.attrs.cvtres_compiler == "cvtres.exe" else ctx.attrs.cvtres_compiler,
-        archiver = default_toolchain.archiver,
+        archiver = default_toolchain.archiver if ctx.attrs.archiver == None else ctx.attrs.archiver,
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
@@ -67,7 +67,7 @@ def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_
         asm_compiler_type = default_toolchain.asm_compiler_type if ctx.attrs.compiler_type == None else ctx.attrs.compiler_type,
         rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None else ctx.attrs.rc_compiler,
         cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None else ctx.attrs.cvtres_compiler,
-        archiver = default_toolchain.archiver,
+        archiver = default_toolchain.archiver if ctx.attrs.archiver == None else ctx.attrs.archiver,
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
@@ -124,6 +124,10 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     else:
         llvm_link = None
 
+    supports_two_phase_compilation = False
+    if hasattr(ctx.attrs, "supports_two_phase_compilation"):
+        supports_two_phase_compilation = ctx.attrs.supports_two_phase_compilation
+
     return [
         DefaultInfo(),
         CxxToolchainInfo(
@@ -174,6 +178,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
                 preprocessor_flags = [],
                 compiler_flags = ctx.attrs.cxx_flags,
                 compiler_type = cxx_tools_info.compiler_type,
+                supports_two_phase_compilation = supports_two_phase_compilation,
             ),
             c_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
@@ -215,6 +220,7 @@ def _run_info(args):
 system_cxx_toolchain = rule(
     impl = _system_cxx_toolchain_impl,
     attrs = {
+        "archiver": attrs.option(attrs.string(), default = None),
         "c_flags": attrs.list(attrs.string(), default = []),
         "compiler": attrs.option(attrs.string(), default = None),
         "compiler_type": attrs.option(attrs.string(), default = None),  # one of CxxToolProviderType

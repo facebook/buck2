@@ -66,6 +66,7 @@ pub struct CommonAttributeArgs {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ArgErrors {
     #[error("`--output-attributes` is deprecated, use `--output-attribute` instead")]
     OutputAttributesDeprecated,

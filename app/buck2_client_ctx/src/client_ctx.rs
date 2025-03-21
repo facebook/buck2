@@ -8,12 +8,14 @@
  */
 
 use std::future::Future;
+use std::time::Duration;
 
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
 use buck2_cli_proto::client_context::HostPlatformOverride as GrpcHostPlatformOverride;
 use buck2_cli_proto::client_context::PreemptibleWhen as GrpcPreemptibleWhen;
 use buck2_cli_proto::ClientContext;
 use buck2_common::argv::Argv;
+use buck2_common::init::LogDownloadMethod;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_core::error::buck2_hard_error_env;
@@ -21,7 +23,6 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
-use buck2_util::cleanup_ctx::AsyncCleanupContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Runtime;
@@ -34,14 +35,13 @@ use crate::common::HostArchOverride;
 use crate::common::HostPlatformOverride;
 use crate::common::PreemptibleWhen;
 use crate::console_interaction_stream::ConsoleInteractionStream;
-use crate::daemon::client::connect::BuckdConnectOptions;
-use crate::daemon::client::BuckdClientConnector;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::try_get_invocation_recorder;
+use crate::subscribers::subscriber::EventSubscriber;
 
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
@@ -56,7 +56,6 @@ pub struct ClientCommandContext<'a> {
         Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
     pub(crate) argv: Argv,
     pub trace_id: TraceId,
-    async_cleanup: AsyncCleanupContext<'a>,
     stdin: &'a mut Stdin,
     pub(crate) restarter: &'a mut Restarter,
     pub(crate) restarted_trace_id: Option<TraceId>,
@@ -76,7 +75,6 @@ impl<'a> ClientCommandContext<'a> {
         start_in_process_daemon: Option<Box<dyn FnOnce() -> buck2_error::Result<()> + Send + Sync>>,
         argv: Argv,
         trace_id: TraceId,
-        async_cleanup: AsyncCleanupContext<'a>,
         stdin: &'a mut Stdin,
         restarter: &'a mut Restarter,
         restarted_trace_id: Option<TraceId>,
@@ -94,7 +92,6 @@ impl<'a> ClientCommandContext<'a> {
             start_in_process_daemon,
             argv,
             trace_id,
-            async_cleanup,
             stdin,
             restarter,
             restarted_trace_id,
@@ -142,7 +139,7 @@ impl<'a> ClientCommandContext<'a> {
     ) -> buck2_error::Result<()>
     where
         Fut: Future<Output = buck2_error::Result<()>> + 'a,
-        F: FnOnce(ClientCommandContext<'a>) -> Fut,
+        F: FnOnce(ClientCommandContext<'a>) -> Fut + 'a,
     {
         let mut recorder = try_get_invocation_recorder(
             &self,
@@ -151,13 +148,23 @@ impl<'a> ClientCommandContext<'a> {
             std::env::args().collect(),
             Vec::new(),
             None,
+            None,
         )?;
 
         recorder.update_metadata_from_client_metadata(&self.client_metadata);
 
-        let result = self.with_runtime(func);
-
-        recorder.instant_command_outcome(result.is_ok());
+        let result = self.with_runtime(async move |ctx| {
+            let result = func(ctx).await;
+            recorder.instant_command_outcome(result.is_ok());
+            // TODO(ctolliday) reuse finalization from streaming commands
+            if tokio::time::timeout(Duration::from_secs(30), recorder.finalize())
+                .await
+                .is_err()
+            {
+                tracing::warn!("Timeout waiting for logging cleanup");
+            }
+            result
+        });
         result.into()
     }
 
@@ -170,7 +177,7 @@ impl<'a> ClientCommandContext<'a> {
     ) -> buck2_error::Result<()>
     where
         Fut: Future<Output = buck2_error::Result<()>> + 'a,
-        F: FnOnce(ClientCommandContext<'a>) -> Fut,
+        F: FnOnce(ClientCommandContext<'a>) -> Fut + 'a,
     {
         self.instant_command(
             command_name,
@@ -196,15 +203,6 @@ impl<'a> ClientCommandContext<'a> {
         }
 
         ConsoleInteractionStream::new(self.stdin)
-    }
-
-    pub async fn connect_buckd(
-        &self,
-        options: BuckdConnectOptions<'a>,
-    ) -> buck2_error::Result<BuckdClientConnector<'a>> {
-        BuckdConnectOptions { ..options }
-            .connect(self.paths()?)
-            .await
     }
 
     pub fn client_context<T: StreamingCommand>(
@@ -256,6 +254,7 @@ impl<'a> ClientCommandContext<'a> {
                 .map(|path| path.to_string())
                 .collect(),
             target_call_stacks: starlark_opts.target_call_stacks,
+            representative_config_flags: arg_matches.get_representative_config_flags_by_source()?,
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
@@ -264,6 +263,7 @@ impl<'a> ClientCommandContext<'a> {
     pub fn empty_client_context(&self, command_name: &str) -> buck2_error::Result<ClientContext> {
         #[derive(Debug, buck2_error::Error)]
         #[error("Current directory is not UTF-8")]
+        #[buck2(tag = Input)]
         struct CurrentDirIsNotUtf8;
 
         Ok(ClientContext {
@@ -296,10 +296,15 @@ impl<'a> ClientCommandContext<'a> {
                 .map(ClientMetadata::to_proto)
                 .collect(),
             preemptible: Default::default(),
+            representative_config_flags: Vec::new(),
         })
     }
 
-    pub fn async_cleanup_context(&self) -> &AsyncCleanupContext<'a> {
-        &self.async_cleanup
+    pub fn log_download_method(&self) -> buck2_error::Result<LogDownloadMethod> {
+        Ok(self
+            .immediate_config
+            .daemon_startup_config()?
+            .log_download_method
+            .clone())
     }
 }

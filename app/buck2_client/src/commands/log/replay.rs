@@ -62,10 +62,7 @@ impl ReplayCommand {
             let work = async {
                 let (replayer, invocation) =
                     Replayer::new(event_log.get(&ctx).await?, speed, preload).await?;
-                let build_count_dir = match ctx.paths() {
-                    Ok(paths) => Some(paths.build_count_dir()),
-                    Err(_) => None,
-                };
+
                 let console = get_console_with_root(
                     invocation.trace_id,
                     console_opts.console_type,
@@ -74,7 +71,7 @@ impl ReplayCommand {
                     speed,
                     "(replay)", // Could be better
                     console_opts.superconsole_config(),
-                    build_count_dir,
+                    None,
                 )?;
 
                 let res = EventsCtx::new(EventSubscribers::new(vec![console]))
@@ -104,9 +101,12 @@ impl ReplayCommand {
                 buck2_error::Ok(())
             };
 
-            with_simple_sigint_handler(work)
-                .await
-                .unwrap_or_else(|| Err(buck2_error!([], "Signal Interrupted")))
+            with_simple_sigint_handler(work).await.unwrap_or_else(|| {
+                Err(buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Signal Interrupted"
+                ))
+            })
         })
         .into()
     }

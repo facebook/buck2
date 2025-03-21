@@ -89,6 +89,8 @@ enum ErrorTag {
   DAEMON_IS_BUSY = 501;
   // Daemon was preempted during preemptible command by another command.
   DAEMON_PREEMPTED = 502;
+  // Daemon start up failed while initializing DaemonStateData.
+  DAEMON_STATE_INIT_FAILED = 503;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.
@@ -128,6 +130,8 @@ enum ErrorTag {
   NO_BUCK_ROOT = 27;
   // Clean stale command was interrupted
   CLEAN_INTERRUPT = 28;
+  // Functionality not implemented in Buck2
+  UNIMPLEMENTED = 29;
 
   ACTION_MISMATCHED_OUTPUTS = 601;
   ACTION_MISSING_OUTPUTS = 602;
@@ -136,6 +140,10 @@ enum ErrorTag {
 
   // Errors during buck2 install.
   INSTALL = 200;
+  INSTALLER_UNKNOWN = 2101;
+  INSTALLER_TIER0 = 2102;
+  INSTALLER_ENVIRONMENT = 2103;
+  INSTALLER_INPUT = 2104;
 
   //// High level descriptions of the "phase" of the build during which the
   // error occurred
@@ -161,6 +169,7 @@ enum ErrorTag {
   IO_NOT_CONNECTED = 1026;
   IO_TIMEOUT = 1027;
   IO_WINDOWS_SHARING_VIOLATION = 1028;
+  IO_READ_ONLY_FILESYSTEM = 1029;
 
   //
   // Eden IO Section
@@ -208,10 +217,38 @@ enum ErrorTag {
   RE_DATA_LOSS = 1315;
   RE_UNAUTHENTICATED = 1316;
 
+  RE_CAS_ARTIFACT_WRONG_NUMBER_OF_INPUTS = 1321;
+  RE_CAS_ARTIFACT_WRONG_NUMBER_OF_OUTPUTS = 1322;
+  RE_CAS_ARTIFACT_GET_DIGEST_EXPIRATION_ERROR = 1323;
+  RE_CAS_ARTIFACT_INVALID_EXPIRATION = 1324;
+
+  // Dice Errors
+  // Value: https://fburl.com/code/5dxzaw41
+  DICE_DUPLICATED_CHANGE = 1400;
+  DICE_CHANGED_TO_INVALID = 1401;
+  DICE_INJECTED_KEY_GOT_INVALIDATION = 1402;
+  DICE_CANCELLED = 1403;
+  DICE_UNEXPECTED_CYCLE_GUARD_TYPE = 1404;
+  DICE_DUPLICATE_ACTIVATION_DATA = 1405;
+
   // Error during attribute configuration during target configuration.
   CONFIGURE_ATTR = 3001;
+
+  // Dep only incompatible error
+  DEP_ONLY_INCOMPATIBLE = 3002;
+
   // Action execution
   DOWNLOAD_FILE_HEAD_REQUEST = 4001;
   // Tests
   TEST_DEADLINE_EXPIRED = 5001;
+
+  // Error from TestExecutor
+  TPX = 5500;
+  TestExecutor = 5501;
+
+  // None turned into an error. This carries no useful information whatsoever.
+  UNEXPECTED_NONE = 6001;
+
+  // Build errors.
+  BUILD_DEADLINE_EXPIRED = 7001;
 }

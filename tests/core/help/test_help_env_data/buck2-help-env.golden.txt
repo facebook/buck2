@@ -5,9 +5,10 @@ BUCK2_ARG0                              String
 BUCK2_DEBUG_RAWOUTPUT_CHUNK_SIZE        usize                 DEFAULT_CHUNK_SIZE
 BUCK2_DICE_DUMP_ON_PANIC                bool                  false
 BUCK2_DICE_SNAPSHOT_INTERVAL_MS         u64                   500
+BUCK2_DISABLE_EDEN_HEALTH_CHECK         bool                  false
 BUCK2_DISABLE_FILE_ATTR                 bool                  false
 BUCK2_DISABLE_MACOS_QOS                 bool                  false
-BUCK2_EDEN_SEMAPHORE                    usize                 2048
+BUCK2_EDEN_SEMAPHORE                    usize                 DEFAULT_MAX_OUTSTANDING_REQUESTS
 BUCK2_HARD_ERROR                        String
 BUCK2_IO_SEMAPHORE                      usize                 num_cpus::get()
 BUCK2_IO_THREADS                        usize                 4
@@ -21,6 +22,7 @@ BUCK2_SCRIBE_CATEGORY                   String
 BUCK2_TEST_BLOCK_ON_UPLOAD              bool                  false
 BUCK2_TEST_TPX_USE_TCP                  bool                  false
 BUCK2_WATCHMAN_TIMEOUT                  u64                   57
+BUCKD_STARTUP_INIT_TIMEOUT              u64
 BUCKD_STARTUP_TIMEOUT                   u64
 BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE usize                 5000
 BUCK_CONSOLE                            String
@@ -31,6 +33,7 @@ BUCK_LOG                                String
 BUCK_NO_INTERACTIVE_CONSOLE             String
 BUCK_OFFLINE_BUILD                      String
 BUCK_PARANOID                           bool
+BUCK_WRAPPER_START_TIME                 u64
 CI                                      bool                  false
 DICE_DETECT_CYCLES_UNSTABLE             DetectCycles
 ENFORCE_DISPATCHER_SET                  bool                  false
@@ -40,6 +43,7 @@ SANDCASTLE_ALIAS                        String
 SANDCASTLE_ID                           String
 SANDCASTLE_JOB_INFO                     String
 SANDCASTLE_SCHEDULE_TYPE                String
+SANDCASTLE_TYPE                         String
 SCHEDULE_TYPE                           String
 SKYCASTLE_WORKFLOW_ALIAS                String
 SKYCASTLE_WORKFLOW_RUN_ID               String

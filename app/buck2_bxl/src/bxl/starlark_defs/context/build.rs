@@ -21,6 +21,7 @@ use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::bxl::build_result::BxlBuildResult;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_cli_proto::build_request::Materializations;
+use buck2_cli_proto::build_request::Uploads;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use derive_more::Display;
@@ -178,6 +179,7 @@ pub(crate) fn build<'v>(
     spec: AnyProvidersExprArg<'v>,
     target_platform: ValueAsStarlarkTargetLabel<'v>,
     materializations: Materializations,
+    uploads: Uploads,
     eval: &Evaluator<'v, '_, '_>,
 ) -> buck2_error::Result<
     SmallMap<
@@ -206,7 +208,7 @@ pub(crate) fn build<'v>(
                             ctx.with_linear_recompute(|ctx| async move {
                                 build_configured_label(
                                     &ctx,
-                                    &materializations.into(),
+                                    &(materializations, uploads).into(),
                                     target,
                                     &ProvidersToBuild {
                                         default: true,
@@ -218,6 +220,7 @@ pub(crate) fn build<'v>(
                                         skippable: false,
                                         want_configured_graph_size: false,
                                     },
+                                    None, // TODO: support timeouts?
                                 )
                                 .await
                                 .collect::<Vec<_>>()

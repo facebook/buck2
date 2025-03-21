@@ -1,0 +1,45 @@
+load(":defs.bzl", "run_python", "transitioned")
+
+run_python(
+    name = "print_animal_hello",
+    script = select({
+        ":cat": 'print("hello cat")',
+        "DEFAULT": 'print("hello dog")',
+    }),
+    default_target_platform = ":p_default",
+)
+
+stub(
+    name = "cat_universe",
+    deps = [":print_animal_hello"],
+    default_target_platform = ":p_cat",
+)
+
+constraint_setting(
+    name = "animal",
+)
+
+constraint_value(
+    name = "cat",
+    constraint_setting = ":animal",
+)
+
+platform(
+    name = "p_cat",
+    constraint_values = [
+        ":cat",
+    ],
+)
+
+platform(
+    name = "p_default",
+    constraint_values = [],
+)
+
+transitioned(
+    name = "buck",
+    script = select({
+        ":cat": 'print("hello cat")',
+        "DEFAULT": 'print("hello buck")',
+    }),
+)

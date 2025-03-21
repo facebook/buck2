@@ -59,6 +59,7 @@ impl FsIoProvider {
 }
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ReadSymlinkAtExactPathError {
     #[error("The path does not exist")]
     DoesNotExist,
@@ -89,6 +90,7 @@ impl FsIoProvider {
 }
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum FsIoError {
     #[error("File name `{0:?}` is not UTF-8")]
     NotUtf8(OsString),

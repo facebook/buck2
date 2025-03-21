@@ -7,33 +7,35 @@
 
 # buildifier: keep sorted
 CLIPPY_ALLOW = [
-    "clippy::arc-with-non-send-sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
-    "clippy::assigning-clones",  # FIXME new in Rust 1.78.0
+    "clippy::arc_with_non_send_sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
+    "clippy::assigning_clones",  # FIXME new in Rust 1.78.0
     "clippy::await_holding_lock",  # FIXME new in Rust 1.74
-    "clippy::blocks-in-conditions",  # FIXME new in Rust 1.77.1
-    "clippy::bool-assert-comparison",  # Sometimes more clear to write it this way
-    "clippy::bool-to-int-with-if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
+    "clippy::blocks_in_conditions",  # FIXME new in Rust 1.77.1
+    "clippy::bool_assert_comparison",  # Sometimes more clear to write it this way
+    "clippy::bool_to_int_with_if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
     "clippy::cognitive_complexity",  # This is an arbitrary linter
-    "clippy::collapsible-else-if",  # Sometimes nesting better expresses intent
-    "clippy::collapsible-if",  # Sometimes nesting better expresses intent
+    "clippy::collapsible_else_if",  # Sometimes nesting better expresses intent
+    "clippy::collapsible_if",  # Sometimes nesting better expresses intent
     "clippy::comparison_chain",  # Generates worse code and harder to read
     "clippy::comparison_to_empty",  # x == "" is clearer than x.is_empty()
     "clippy::derive_partial_eq_without_eq",  # In generated protobuf code
     "clippy::disallowed_names",  # Not using foo, bar, baz in test data is silly
-    "clippy::enum-variant-names",  # Sometimes you do want the same prefixes
+    "clippy::enum_variant_names",  # Sometimes you do want the same prefixes
+    "clippy::extra_unused_lifetimes",  # FIXME new in Rust 1.84
     "clippy::from_iter_instead_of_collect",  # https://fb.workplace.com/groups/buck2core/posts/835300915330313
-    "clippy::implicit-hasher",  # Makes code more complex for little benefit
-    "clippy::len-without-is-empty",  # len() == 0 is perfectly clear
-    "clippy::manual-range-contains",  # a <= b && b <= c is way clearer than (a..=c).contains(&b)
+    "clippy::implicit_hasher",  # Makes code more complex for little benefit
+    "clippy::len_without_is_empty",  # len() == 0 is perfectly clear
+    "clippy::manual_range_contains",  # a <= b && b <= c is way clearer than (a..=c).contains(&b)
     "clippy::many_single_char_names",  # match(a,b,c,d,e) sometimes makes sense
-    "clippy::match-like-matches-macro",  # Using matches! is sometimes clearer, sometimes not
-    "clippy::match-wild-err-arm",  # Seems reasonable to panic on Err(_)
-    "clippy::missing-safety-doc",  # Documentation should be tailored to the reader, not the linter
+    "clippy::match_like_matches_macro",  # Using matches! is sometimes clearer, sometimes not
+    "clippy::match_wild_err_arm",  # Seems reasonable to panic on Err(_)
+    "clippy::missing_safety_doc",  # Documentation should be tailored to the reader, not the linter
     "clippy::module_inception",  # Unnecessary restriction.
-    "clippy::multiple-bound-locations",  # FIXME New in 1.78.0
+    "clippy::multiple_bound_locations",  # FIXME New in 1.78.0
     "clippy::mut_from_ref",  # Tries to check soundness, which Rust already does
     "clippy::mutable_key_type",  # FIXME new in Rust 1.80
-    "clippy::naive-bytecount",  # Requires an extra dependency for marginal gains.
+    "clippy::naive_bytecount",  # Requires an extra dependency for marginal gains.
+    "clippy::needless_as_bytes",  # FIXME new in Rust 1.84
     "clippy::needless_borrows_for_generic_args",  # FIXME new in Rust 1.74
     "clippy::needless_collect",  # False positives: doesn't understand lifetimes, or e.g. DoubleEndedIterator.
     "clippy::needless_lifetimes",  # This is throwing false positives
@@ -48,8 +50,9 @@ CLIPPY_ALLOW = [
     "clippy::too_many_arguments",  # This is an arbitrary limit set on number of arguments and not always useful
     "clippy::type_complexity",  # This is an arbitrary limit set on number of type parameterizations and not always useful
     "clippy::unconditional_recursion",  # FIXME new in Rust 1.77.1
-    "clippy::unnecessary-wraps",  # Sometimes unnecessary wraps provide the right API
-    "clippy::unwrap-or-default",  # Defaults aren't always more clear as it removes the type information when reading code
+    "clippy::unnecessary_map_or",  # FIXME new in Rust 1.84
+    "clippy::unnecessary_wraps",  # Sometimes unnecessary wraps provide the right API
+    "clippy::unwrap_or_default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix
     "clippy::wrong_self_convention",  # These rules are useless pedantry
 ]
@@ -82,9 +85,9 @@ CLIPPY_DENY = [
     "clippy::todo",
     "clippy::trivially_copy_pass_by_ref",
     "clippy::tuple_array_conversions",
-    "clippy::unnecessary-literal-unwrap",  # TBD if this should be CLIPPY_ALLOW
-    "clippy::useless-vec",  # TBD if this should be CLIPPY_ALLOW
+    "clippy::unnecessary_literal_unwrap",  # TBD if this should be CLIPPY_ALLOW
     "clippy::useless_transmute",
+    "clippy::useless_vec",  # TBD if this should be CLIPPY_ALLOW
     "clippy::verbose_file_reads",
     "dead_code",
     "let_underscore_drop",
@@ -109,5 +112,5 @@ CLIPPY_AUTOFIX = [
     "clippy::needless_borrow",
     "clippy::range_minus_one",
     "clippy::unwrap_or_default",
-    "clippy::useless-conversion",
+    "clippy::useless_conversion",
 ]

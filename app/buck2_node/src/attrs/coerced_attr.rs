@@ -11,6 +11,7 @@ use core::fmt;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
+use std::ops::Deref;
 
 use allocative::Allocative;
 use buck2_core::configuration::config_setting::ConfigSettingData;
@@ -40,6 +41,7 @@ use crate::attrs::attr_type::arg::StringWithMacros;
 use crate::attrs::attr_type::attr_config::source_file_display;
 use crate::attrs::attr_type::bool::BoolLiteral;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepAttrType;
+use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use crate::attrs::attr_type::configured_dep::UnconfiguredExplicitConfiguredDep;
 use crate::attrs::attr_type::dep::DepAttr;
@@ -66,16 +68,21 @@ use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum CoercedSelectorKeyRef<'a> {
     Target(&'a ConfigurationSettingKey),
     Default,
+}
+
+impl CoercedSelectorKeyRef<'_> {
+    pub const DEFAULT_KEY_STR: &'static str = "DEFAULT";
 }
 
 impl<'a> fmt::Display for CoercedSelectorKeyRef<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoercedSelectorKeyRef::Target(target) => write!(f, "{}", target.0),
-            CoercedSelectorKeyRef::Default => write!(f, "DEFAULT"),
+            CoercedSelectorKeyRef::Default => write!(f, "{}", Self::DEFAULT_KEY_STR),
         }
     }
 }
@@ -84,6 +91,40 @@ impl<'a> fmt::Display for CoercedSelectorKeyRef<'a> {
 pub struct CoercedSelector {
     pub(crate) entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
     pub(crate) default: Option<CoercedAttr>,
+}
+
+impl AttrDisplayWithContext for CoercedSelector {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "select(")?;
+        fmt_keyed_container(
+            f,
+            "{",
+            "}",
+            ": ",
+            self.all_entries().map(|(k, v)| {
+                (
+                    match k {
+                        CoercedSelectorKeyRef::Target(k) => format!("\"{}\"", k),
+                        CoercedSelectorKeyRef::Default => "\"DEFAULT\"".to_owned(),
+                    },
+                    v.as_display(ctx),
+                )
+            }),
+        )?;
+        write!(f, ")")?;
+        Ok(())
+    }
+}
+
+impl AttrSerializeWithContext for CoercedSelector {
+    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_json(ctx)
+            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .serialize(s)
+    }
 }
 
 impl CoercedSelector {
@@ -99,7 +140,10 @@ impl CoercedSelector {
         entries: &[(ConfigurationSettingKey, CoercedAttr)],
     ) -> buck2_error::Result<()> {
         fn duplicate_key(key: &ConfigurationSettingKey) -> buck2_error::Error {
-            buck2_error!([], "duplicate key `{key}` in `select()`")
+            buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "duplicate key `{key}` in `select()`"
+            )
         }
 
         // This is possible when select keys are specified like:
@@ -149,6 +193,72 @@ impl CoercedSelector {
     fn all_values(&self) -> impl Iterator<Item = &'_ CoercedAttr> {
         self.all_entries().map(|(_, v)| v)
     }
+
+    pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
+        let mut map = serde_json::Map::new();
+        for (key, value) in self.all_entries() {
+            match key {
+                CoercedSelectorKeyRef::Target(k) => {
+                    map.insert(k.to_string(), value.to_json(ctx)?);
+                }
+                CoercedSelectorKeyRef::Default => {
+                    map.insert("DEFAULT".to_owned(), value.to_json(ctx)?);
+                }
+            }
+        }
+        let select = serde_json::Value::Object(map);
+
+        Ok(serde_json::Value::Object(serde_json::Map::from_iter([
+            (
+                "__type".to_owned(),
+                serde_json::Value::String("selector".to_owned()),
+            ),
+            ("entries".to_owned(), select),
+        ])))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+pub struct CoercedConcat(pub Box<[CoercedAttr]>);
+
+impl Deref for CoercedConcat {
+    type Target = [CoercedAttr];
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl CoercedConcat {
+    pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
+        Ok(serde_json::Value::Object(serde_json::Map::from_iter([
+            (
+                "__type".to_owned(),
+                serde_json::Value::String("concat".to_owned()),
+            ),
+            (
+                "items".to_owned(),
+                serde_json::Value::Array(self.0.try_map(|item| CoercedAttr::to_json(item, ctx))?),
+            ),
+        ])))
+    }
+}
+
+impl AttrDisplayWithContext for CoercedConcat {
+    fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.iter().map(|a| a.as_display(ctx)).format("+").fmt(f)
+    }
+}
+
+impl AttrSerializeWithContext for CoercedConcat {
+    fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.to_json(ctx)
+            .map_err(|e| serde::ser::Error::custom(format!("{}", e)))?
+            .serialize(s)
+    }
 }
 
 /// CoercedAttr is the "coerced" representation of an attribute. It has been type-checked and converted to
@@ -165,7 +275,7 @@ impl CoercedSelector {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
 pub enum CoercedAttr {
     Selector(Box<CoercedSelector>),
-    Concat(Box<[Self]>),
+    Concat(CoercedConcat),
 
     Bool(BoolLiteral),
     Int(i64),
@@ -196,7 +306,7 @@ pub enum CoercedAttr {
     ExplicitConfiguredDep(Box<UnconfiguredExplicitConfiguredDep>),
     SplitTransitionDep(ProvidersLabel),
     ConfiguredDep(Box<DepAttr<ConfiguredProvidersLabel>>),
-    ConfigurationDep(ConfigurationSettingKey),
+    ConfigurationDep(ProvidersLabel),
     PluginDep(TargetLabel),
     Dep(ProvidersLabel),
     SourceLabel(ProvidersLabel),
@@ -220,29 +330,8 @@ static_assertions::assert_eq_size!(CoercedAttr, [usize; 3]);
 impl AttrDisplayWithContext for CoercedAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CoercedAttr::Selector(s) => {
-                write!(f, "select(")?;
-                fmt_keyed_container(
-                    f,
-                    "{",
-                    "}",
-                    ": ",
-                    s.all_entries().map(|(k, v)| {
-                        (
-                            match k {
-                                CoercedSelectorKeyRef::Target(k) => format!("\"{}\"", k),
-                                CoercedSelectorKeyRef::Default => "\"DEFAULT\"".to_owned(),
-                            },
-                            v.as_display(ctx),
-                        )
-                    }),
-                )?;
-                write!(f, ")")?;
-                Ok(())
-            }
-            CoercedAttr::Concat(items) => {
-                items.iter().map(|a| a.as_display(ctx)).format("+").fmt(f)
-            }
+            CoercedAttr::Selector(s) => s.fmt(ctx, f),
+            CoercedAttr::Concat(c) => c.fmt(ctx, f),
             CoercedAttr::Bool(v) => {
                 write!(f, "{}", v)
             }
@@ -295,42 +384,8 @@ impl CoercedAttr {
     /// in to_json it just appears as the string "//a:b").
     pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         match self {
-            CoercedAttr::Selector(s) => {
-                let mut map = serde_json::Map::new();
-                for (key, value) in s.all_entries() {
-                    match key {
-                        CoercedSelectorKeyRef::Target(k) => {
-                            map.insert(k.to_string(), value.to_json(ctx)?);
-                        }
-                        CoercedSelectorKeyRef::Default => {
-                            map.insert("DEFAULT".to_owned(), value.to_json(ctx)?);
-                        }
-                    }
-                }
-                let select = serde_json::Value::Object(map);
-
-                Ok(serde_json::Value::Object(serde_json::Map::from_iter([
-                    (
-                        "__type".to_owned(),
-                        serde_json::Value::String("selector".to_owned()),
-                    ),
-                    ("entries".to_owned(), select),
-                ])))
-            }
-            CoercedAttr::Concat(items) => {
-                Ok(serde_json::Value::Object(serde_json::Map::from_iter([
-                    (
-                        "__type".to_owned(),
-                        serde_json::Value::String("concat".to_owned()),
-                    ),
-                    (
-                        "items".to_owned(),
-                        serde_json::Value::Array(
-                            items.try_map(|item| CoercedAttr::to_json(item, ctx))?,
-                        ),
-                    ),
-                ])))
-            }
+            CoercedAttr::Selector(s) => s.to_json(ctx),
+            CoercedAttr::Concat(c) => c.to_json(ctx),
             CoercedAttr::Bool(v) => Ok(to_value(v)?),
             CoercedAttr::Int(v) => Ok(to_value(v)?),
             CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => Ok(to_value(v)?),
@@ -378,7 +433,7 @@ impl CoercedAttr {
         match CoercedAttrWithType::pack(self, t)? {
             CoercedAttrWithType::Selector(CoercedSelector { entries, default }, t) => {
                 for (condition, value) in entries.iter() {
-                    traversal.configuration_dep(condition)?;
+                    traversal.configuration_dep(&condition.0, ConfigurationDepKind::SelectKey)?;
                     value.traverse(t, pkg, traversal)?;
                 }
                 if let Some(v) = default {
@@ -453,17 +508,15 @@ impl CoercedAttr {
             CoercedAttrWithType::WithinView(..) => Ok(()),
             CoercedAttrWithType::ExplicitConfiguredDep(dep, _t) => dep.traverse(traversal),
             CoercedAttrWithType::SplitTransitionDep(dep, t) => {
-                traversal.split_transition_dep(dep.target(), &t.transition)
+                traversal.split_transition_dep(dep, &t.transition)
             }
-            CoercedAttrWithType::ConfiguredDep(dep) => {
-                traversal.dep(dep.label.target().unconfigured())
-            }
-            CoercedAttrWithType::ConfigurationDep(dep, _t) => traversal.configuration_dep(dep),
+            CoercedAttrWithType::ConfiguredDep(dep) => traversal.dep(&dep.label.unconfigured()),
+            CoercedAttrWithType::ConfigurationDep(dep, t) => traversal.configuration_dep(dep, t.0),
             CoercedAttrWithType::PluginDep(dep, t) => traversal.plugin_dep(dep, t.kind()),
             CoercedAttrWithType::Dep(dep, t) => {
                 DepAttr::<ProvidersLabel>::traverse(dep, t, traversal)
             }
-            CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s.target()),
+            CoercedAttrWithType::SourceLabel(s, _t) => traversal.dep(s),
             CoercedAttrWithType::Label(label, _t) => traversal.label(label),
             CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal, pkg),
             CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
@@ -543,7 +596,7 @@ impl CoercedAttr {
             )),
             [(.., x)] => Ok(Some(x)),
             [(x, ..), (y, ..), ..] => Err(buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Both select keys `{x}` and `{y}` match the configuration, but neither is more specific"
             )),
         }
@@ -554,18 +607,16 @@ impl CoercedAttr {
         select: &'a CoercedSelector,
     ) -> buck2_error::Result<&'a CoercedAttr> {
         let CoercedSelector { entries, default } = select;
-        let resolved_cfg_settings = ctx.resolved_cfg_settings();
-        let resolved_entries = entries.iter().filter_map(|(k, v)| {
-            resolved_cfg_settings
-                .setting_matches(k)
-                .map(|conf| (k, conf, v))
-        });
+        let matched_cfg_keys = ctx.matched_cfg_keys();
+        let resolved_entries = entries
+            .iter()
+            .filter_map(|(k, v)| matched_cfg_keys.setting_matches(k).map(|conf| (k, conf, v)));
         if let Some(v) = Self::select_the_most_specific(resolved_entries)? {
             Ok(v)
         } else {
             default.as_ref().ok_or_else(|| {
                 buck2_error!(
-                    [],
+                    buck2_error::ErrorTag::Input,
                     "None of {} conditions matched configuration `{}` and no default was set:\n{}",
                     entries.len(),
                     ctx.cfg().cfg(),
@@ -703,8 +754,8 @@ impl CoercedAttr {
                 }
                 Ok(false)
             }
-            CoercedAttr::Concat(items) => {
-                for item in &**items {
+            CoercedAttr::Concat(c) => {
+                for item in &*c.0 {
                     if item.any_matches(filter)? {
                         return Ok(true);
                     }

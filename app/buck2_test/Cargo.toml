@@ -44,6 +44,8 @@ buck2_execute = { workspace = true }
 buck2_execute_impl = { workspace = true }
 buck2_futures = { workspace = true }
 buck2_grpc = { workspace = true }
+buck2_interpreter = { workspace = true }
+buck2_interpreter_for_build = { workspace = true }
 buck2_node = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_test_api = { workspace = true }
@@ -54,3 +56,6 @@ libc = { workspace = true }
 
 [dev-dependencies]
 maplit = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }

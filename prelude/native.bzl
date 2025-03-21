@@ -11,6 +11,9 @@
 # This is buck2's shim import. Any public symbols here will be available within
 # **all** interpreted files.
 
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
+load("@prelude//:paths.bzl", "paths")
+load("@prelude//:rules.bzl", __rules__ = "rules")
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS", "CPU_FILTER_FOR_DEFAULT_PLATFORM")
 load("@prelude//apple:apple_macro_layer.bzl", "apple_binary_macro_impl", "apple_bundle_macro_impl", "apple_library_macro_impl", "apple_package_macro_impl", "apple_test_macro_impl", "apple_universal_executable_macro_impl", "apple_xcuitest_macro_impl", "prebuilt_apple_framework_macro_impl")
 load("@prelude//apple/swift:swift_toolchain_macro_layer.bzl", "swift_toolchain_macro_impl")
@@ -27,9 +30,6 @@ load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:buckconfig.bzl", _read_config = "read_config_with_logging", _read_root_config = "read_root_config_with_logging", log_buckconfigs = "LOG_BUCKCONFIGS")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:selects.bzl", "selects")
-load(":is_full_meta_repo.bzl", "is_full_meta_repo")
-load(":paths.bzl", "paths")
-load(":rules.bzl", __rules__ = "rules")
 
 def __struct_to_dict(s):
     vals = {}
@@ -204,9 +204,11 @@ def _android_binary_macro_stub(
             # Pin this to the primary for apps with no primary dex classes.
             "^com/facebook/buck_generated/AppWithoutResourcesStub^",
         ]
+
+    # TODO: T218493860 Accept `select` for `cpu_filters` and apply the same logic as for non-select cases
     __rules__["android_binary"](
         allow_r_dot_java_in_secondary_dex = allow_r_dot_java_in_secondary_dex,
-        cpu_filters = _get_valid_cpu_filters(cpu_filters),
+        cpu_filters = cpu_filters if type(cpu_filters) == "selector" else _get_valid_cpu_filters(cpu_filters),
         primary_dex_patterns = primary_dex_patterns,
         **kwargs
     )
@@ -215,7 +217,8 @@ def _android_bundle_macro_stub(
         cpu_filters = None,
         **kwargs):
     __rules__["android_bundle"](
-        cpu_filters = _get_valid_cpu_filters(cpu_filters),
+        # TODO: T218493860 Accept `select` for `cpu_filters` and apply the same logic as for non-select cases
+        cpu_filters = cpu_filters if type(cpu_filters) == "selector" else _get_valid_cpu_filters(cpu_filters),
         **kwargs
     )
 

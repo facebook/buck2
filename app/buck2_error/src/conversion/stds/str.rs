@@ -11,7 +11,7 @@ impl From<std::str::Utf8Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::str::Utf8Error) -> Self {
-        crate::conversion::from_any(value)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }
 
@@ -19,6 +19,6 @@ impl From<std::str::ParseBoolError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::str::ParseBoolError) -> Self {
-        crate::conversion::from_any(value)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }

@@ -58,7 +58,7 @@ impl TryFrom<buck2_test_proto::TestStage> for TestStage {
         use buck2_test_proto::Testing;
 
         let res = match s.item.context("Missing `item`")? {
-            Item::Listing(Listing { suite }) => Self::Listing(suite),
+            Item::Listing(Listing { suite, cacheable }) => Self::Listing { suite, cacheable },
             Item::Testing(Testing { suite, testcases }) => Self::Testing { suite, testcases },
         };
 
@@ -74,7 +74,7 @@ impl TryInto<buck2_test_proto::TestStage> for TestStage {
         use buck2_test_proto::Testing;
 
         let item = match self {
-            Self::Listing(suite) => Item::Listing(Listing { suite }),
+            Self::Listing { suite, cacheable } => Item::Listing(Listing { suite, cacheable }),
             Self::Testing { suite, testcases } => Item::Testing(Testing { suite, testcases }),
         };
 
@@ -207,7 +207,7 @@ impl TryFrom<i32> for TestStatus {
     type Error = anyhow::Error;
 
     fn try_from(s: i32) -> Result<Self, Self::Error> {
-        let s = buck2_test_proto::TestStatus::from_i32(s).context("Invalid `status`")?;
+        let s = buck2_test_proto::TestStatus::try_from(s).context("Invalid `status`")?;
 
         Ok(match s {
             buck2_test_proto::TestStatus::NotSet => {
@@ -257,6 +257,7 @@ impl TryFrom<buck2_test_proto::TestResult> for TestResult {
             msg,
             duration,
             details,
+            max_memory_used_bytes,
         } = s;
 
         let duration = duration
@@ -273,6 +274,7 @@ impl TryFrom<buck2_test_proto::TestResult> for TestResult {
             status: status.try_into().context("Invalid `status`")?,
             msg: msg.map(|m| m.msg),
             duration,
+            max_memory_used_bytes,
             details,
         })
     }
@@ -291,6 +293,7 @@ impl TryInto<buck2_test_proto::TestResult> for TestResult {
             details: self.details,
             msg: self.msg.map(|msg| OptionalMsg { msg }),
             duration: self.duration.try_map(|d| d.try_into())?,
+            max_memory_used_bytes: self.max_memory_used_bytes,
         })
     }
 }
@@ -733,6 +736,7 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             ),
             execution_time: Some(self.execution_time.try_into()?),
             execution_details: Some(self.execution_details),
+            max_memory_used_bytes: self.max_memory_used_bytes,
         })
     }
 }
@@ -749,6 +753,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             start_time,
             execution_time,
             execution_details,
+            max_memory_used_bytes,
         } = s;
         let status = status
             .context("Missing `status`")?
@@ -800,6 +805,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             start_time,
             execution_time,
             execution_details,
+            max_memory_used_bytes,
         })
     }
 }
@@ -1080,7 +1086,10 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            stage: TestStage::Listing("name".to_owned()),
+            stage: TestStage::Listing {
+                suite: "name".to_owned(),
+                cacheable: true,
+            },
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {
@@ -1140,6 +1149,7 @@ mod tests {
             start_time: SystemTime::UNIX_EPOCH + Duration::from_secs(123),
             execution_time: Duration::from_secs(456),
             execution_details: Default::default(),
+            max_memory_used_bytes: None,
         };
         assert_roundtrips::<buck2_test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }
@@ -1182,7 +1192,10 @@ mod tests {
         };
 
         let test_executable = TestExecutable {
-            stage: TestStage::Listing("name".to_owned()),
+            stage: TestStage::Listing {
+                suite: "name".to_owned(),
+                cacheable: true,
+            },
             target: ConfiguredTargetHandle(42),
             cmd: vec![
                 ArgValue {

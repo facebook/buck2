@@ -7,6 +7,7 @@
 
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode_macros//build_defs:python.bzl", "python")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
@@ -20,7 +21,7 @@ def buck_e2e_test(
         data = None,
         data_dir = None,
         srcs = None,
-        tags = None,
+        labels = None,
         deps = None,
         env = None,
         resources = None,
@@ -34,22 +35,22 @@ def buck_e2e_test(
         cfg_modifiers = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None):
+        compatible_with = None,
+        heavyweight_label: str | None = "heavyweight"):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
     srcs = srcs or []
-    tags = tags or []
+    labels = labels or []
     deps = deps or []
     cfg_modifiers = cfg_modifiers or []
 
     for s in skip_for_os:
         if s not in ["darwin", "windows"]:
             fail("Skipped os must be one of darwin or windows, not {}".format(s))
-    tags = list(tags) + [
-        # Running multiple bucks are expensive. This limits tpx to parallelism of 4.
-        "heavyweight",
-    ]
+    labels = list(labels)
+    if heavyweight_label:
+        labels += [heavyweight_label]
     env = env or {}
     env["RUST_BACKTRACE"] = "1"
     env["TEST_EXECUTABLE"] = executable
@@ -77,7 +78,7 @@ def buck_e2e_test(
     if serialize_test_cases:
         # This lets us pass stress runs by making all test cases inside of a test file serial
         # Test cases in different files can still run in parallel.
-        tags.append("serialize_test_cases")
+        labels.append("serialize_test_cases")
 
     if data and data_dir:
         fail("`data` and `data_dir` cannot be used together")
@@ -116,7 +117,6 @@ def buck_e2e_test(
     if not "conftest.py" in resources.values():
         resources["fbcode//buck2/tests/e2e_util:conftest.py"] = "conftest.py"
 
-    labels = []
     if "darwin" in skip_for_os:
         labels += ci.remove_labels(ci.mac(ci.aarch64(ci.opt())))
     if "windows" in skip_for_os:
@@ -129,7 +129,7 @@ def buck_e2e_test(
         name = name,
         base_module = base_module,
         srcs = srcs,
-        tags = tags,
+        labels = labels,
         deps = deps,
         env = env,
         emails = contacts,
@@ -140,7 +140,6 @@ def buck_e2e_test(
         pytest_marks = pytest_marks,
         pytest_expr = pytest_expr,
         pytest_confcutdir = pytest_confcutdir,
-        labels = labels,
         metadata = metadata,
         compatible_with = compatible_with,
     )
@@ -190,7 +189,7 @@ def buck2_e2e_test(
         data = None,
         data_dir = None,
         srcs = (),
-        tags = (),
+        labels = (),
         resources = None,
         pytest_config = None,
         pytest_marks = None,
@@ -200,7 +199,8 @@ def buck2_e2e_test(
         require_nano_prelude = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None):
+        compatible_with = None,
+        heavyweight_label: str | None = "heavyweight"):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -220,6 +220,11 @@ def buck2_e2e_test(
         A full prod archive is distinct from a normal build of buck2 in that it uses a client-only
         binary and additionally makes TPX available. Needed if you want to be able to `buck.test`
         Default is False.
+    heavyweight_label:
+        Running multiple bucks are expensive. This label specifies how many cpu slots each test gets
+        according to heavyweight_label. Default is 4. If set to None, then this label is not set.
+        See different possible values for heavyweight label here:
+        https://www.internalfb.com/wiki/TAE/tpx/Tpx_user_guide/#tests-that-oom-or-time-o.
     """
     kwargs = {
         "base_module": base_module,
@@ -229,6 +234,7 @@ def buck2_e2e_test(
         "contacts": contacts,
         "data": data,
         "data_dir": data_dir,
+        "labels": labels,
         "pytest_confcutdir": pytest_confcutdir,
         "pytest_config": pytest_config,
         "pytest_expr": pytest_expr,
@@ -237,7 +243,6 @@ def buck2_e2e_test(
         "resources": resources,
         "serialize_test_cases": serialize_test_cases,
         "srcs": srcs,
-        "tags": tags,
         "use_buck_api": use_buck_api,
     }
 
@@ -276,6 +281,7 @@ def buck2_e2e_test(
                 # Always run these tests under rust opt build
                 "ovr_config//build_mode:opt",
             ],
+            heavyweight_label = heavyweight_label,
             **kwargs
         )
 
@@ -290,6 +296,8 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
+            heavyweight_label = heavyweight_label,
+            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
 
@@ -302,6 +310,8 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
+            heavyweight_label = heavyweight_label,
+            cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
 

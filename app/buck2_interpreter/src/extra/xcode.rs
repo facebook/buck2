@@ -14,12 +14,13 @@ use allocative::Allocative;
 use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use regex::Regex;
 use serde::Deserialize;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum XcodeVersionError {
     #[error("XCode select symlink `{}` resolved to path without parent: `{}`", XCODE_SELECT_SYMLINK, _0.display())]
     XcodeSelectSymlinkResolvedToPathWithoutParent(AbsNormPathBuf),
@@ -85,7 +86,8 @@ impl XcodeVersionInfo {
                 return Ok(None);
             }
             Err(e) => {
-                return Err(from_any(e).context("Error deserializing Xcode `version.plist`"));
+                return Err(from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
+                    .context("Error deserializing Xcode `version.plist`"));
             }
         };
 

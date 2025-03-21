@@ -45,12 +45,12 @@ use futures::FutureExt;
 use tokio::sync::oneshot::Sender;
 use tracing::error;
 
+use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
+use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
-use crate::materializers::deferred::ArtifactMaterializationData;
 use crate::materializers::deferred::ArtifactMaterializationStage;
-use crate::materializers::deferred::ArtifactTree;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::sqlite::MaterializerStateSqliteDb;
 
@@ -150,7 +150,7 @@ impl<T: IoHandler> ExtensionCommand<T> for CleanStaleArtifactsExtensionCommand {
 }
 
 impl CleanStaleArtifactsCommand {
-    pub(crate) fn create_clean_fut<T: IoHandler>(
+    pub(super) fn create_clean_fut<T: IoHandler>(
         &self,
         processor: &mut DeferredMaterializerCommandProcessor<T>,
         trace_id: Option<TraceId>,
@@ -313,6 +313,7 @@ impl CleanStaleArtifactsCommand {
 
 #[derive(Debug, Clone, buck2_error::Error)]
 #[error("Internal error: materializer state exists (num db entries: {}) but no artifacts were found by clean ({:?}). Not cleaning untracked artifacts.", .db_size, .stats)]
+#[buck2(tag = Tier0)]
 pub(crate) struct CleanStaleError {
     db_size: usize,
     stats: buck2_data::CleanStaleStats,
@@ -449,7 +450,7 @@ pub struct CleanInvalidatedPathRequest {
 impl IoRequest for CleanInvalidatedPathRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         if !self.liveliness_observer.is_alive_sync() {
-            return Err(buck2_error!([ErrorTag::CleanInterrupt], "Interrupt").into());
+            return Err(buck2_error!(ErrorTag::CleanInterrupt, "Interrupt").into());
         }
         cleanup_path(project_fs, &self.path)?;
         Ok(())

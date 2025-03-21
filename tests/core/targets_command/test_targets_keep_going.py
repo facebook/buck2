@@ -48,7 +48,7 @@ async def test_streaming_keep_going_missing_targets(buck: Buck) -> None:
         "//a:bogus_target",
         "//a:worse_target",
         "//a:target5",
-        "//c:bogus_package",
+        "//d:bogus_package",
     ]
     result = await buck.targets(*targets, "--json", "--streaming", "--keep-going")
     xs = json.loads(result.stdout)
@@ -65,5 +65,55 @@ async def test_streaming_keep_going_missing_targets(buck: Buck) -> None:
             good_targets.append(x["name"])
     bad_packages.sort()
     good_targets.sort()
-    assert bad_packages == ["root//a", "root//c"]
+    assert bad_packages == ["root//a", "root//d"]
     assert good_targets == ["target1", "target2", "target5"]
+
+
+@buck_test()
+async def test_streaming_keep_going_with_single_failure(buck: Buck) -> None:
+    targets = [
+        "//a:does_not_exist",
+    ]
+    result = await buck.targets(*targets, "--json", "--streaming", "--keep-going")
+    xs = json.loads(result.stdout)
+    assert len(xs) == 1
+    assert xs[0]["buck.package"] == "root//a"
+    assert (
+        xs[0]["buck.error"]
+        == "Unknown targets `does_not_exist` from package `root//a`."
+    )
+
+
+@buck_test()
+async def test_streaming_keep_going_with_single_failing_target_and_one_other_target_in_different_package(
+    buck: Buck,
+) -> None:
+    targets = [
+        "//a:target1",
+        "//c:does_not_exist",
+    ]
+    result = await buck.targets(
+        *targets,
+        "-a",
+        "type",
+        "--streaming",
+        "--keep-going",
+    )
+
+    xs = json.loads(result.stdout)
+    assert len(xs) == 2
+
+    if "buck.error" in xs[0]:
+        good_target = xs[1]
+        bad_target = xs[0]
+    else:
+        good_target = xs[0]
+        bad_target = xs[1]
+
+    assert good_target["buck.type"] == "prelude//prelude.bzl:a_target"
+
+    assert bad_target["buck.package"] == "root//c"
+    assert (
+        bad_target["buck.error"]
+        == "Unknown targets `does_not_exist` from package `root//c`."
+    )

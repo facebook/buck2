@@ -9,6 +9,7 @@
 
 /// Errors from buck's starlark debugger
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum StarlarkDebuggerError {
     #[error("starlark debugger has not yet implemented this functionality")]
     Unimplemented,
@@ -18,6 +19,7 @@ pub(crate) enum StarlarkDebuggerError {
 
 /// Internal errors from buck's starlark debugger
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Tier0)]
 pub(crate) enum StarlarkDebuggerInternalError {
     #[error("Internal error: debbugger server shutdown unexpectedly")]
     UnexpectedDebuggerShutdown,

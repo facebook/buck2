@@ -8,7 +8,7 @@
 load("//:asserts.bzl", _asserts = "asserts")
 load("//:cfg_rules.bzl", _config_setting = "config_setting", _constraint_setting = "constraint_setting", _constraint_value = "constraint_value", _execution_platform = "execution_platform", _platform = "platform")
 load("//:execution_platforms.bzl", _execution_platforms = "execution_platforms")
-load("//:stub_rules.bzl", _stub = "stub", _trivial_build = "trivial_build")
+load("//:stub_rules.bzl", _stub = "stub", _stub_toolchain = "stub_toolchain", _trivial_build = "trivial_build")
 
 asserts = _asserts
 platform = _platform
@@ -18,4 +18,5 @@ constraint_value = _constraint_value
 execution_platform = _execution_platform
 execution_platforms = _execution_platforms
 stub = _stub
+stub_toolchain = _stub_toolchain
 trivial_build = _trivial_build

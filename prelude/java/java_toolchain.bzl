@@ -36,7 +36,6 @@ JavaToolchainInfo = provider(
         "gen_class_to_source_map_debuginfo": provider_field(typing.Any, default = None),  # optional
         "gen_class_to_source_map_include_sourceless_compiled_packages": provider_field(typing.Any, default = None),
         "global_code_config": provider_field(typing.Any, default = None),
-        "graalvm_java": provider_field(typing.Any, default = None),
         "is_bootstrap_toolchain": provider_field(typing.Any, default = None),
         "jar": provider_field(typing.Any, default = None),
         "jar_builder": provider_field(typing.Any, default = None),
@@ -61,7 +60,6 @@ JavaToolchainInfo = provider(
         "src_root_prefixes": provider_field(typing.Any, default = None),
         "target_level": provider_field(typing.Any, default = None),
         "track_class_usage": provider_field(bool, default = True),
-        "use_graalvm_java_for_javacd": provider_field(typing.Any, default = None),
         "zip_scrubber": provider_field(typing.Any, default = None),
     },
 )
@@ -70,16 +68,12 @@ JavaTestToolchainInfo = provider(
     # @unsorted-dict-items
     doc = "Java test toolchain info",
     fields = {
-        "java_custom_class_loader_class": provider_field(typing.Any, default = None),
-        "java_custom_class_loader_library_jar": provider_field(typing.Any, default = None),
-        "java_custom_class_loader_vm_args": provider_field(typing.Any, default = None),
         "junit5_test_runner_main_class_args": provider_field(typing.Any, default = None),
         "junit_test_runner_main_class_args": provider_field(typing.Any, default = None),
         "jvm_args": provider_field(typing.Any, default = None),
         "list_class_names": provider_field(typing.Any, default = None),
         "test_runner_library_jar": provider_field(typing.Any, default = None),
         "testng_test_runner_main_class_args": provider_field(typing.Any, default = None),
-        "use_java_custom_class_loader": provider_field(typing.Any, default = None),
     },
 )
 

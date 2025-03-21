@@ -173,6 +173,7 @@ fn ensure_source_artifact_staged<'a>(
 // These errors should be unreachable, they indicate misuse of the staged ensure artifact (or other buck
 // invariant violations), but it's still better to propagate them as Error than to panic!().
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 pub enum EnsureArtifactStagedError {
     #[error("Tried to unpack single artifact, but got transitive set")]
     UnpackSingleTransitiveSet,

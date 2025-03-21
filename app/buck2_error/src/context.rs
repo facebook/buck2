@@ -147,6 +147,7 @@ where
 
 #[derive(Debug, buck2_error_derive::Error)]
 #[error("NoneError")]
+#[buck2(tag = UnexpectedNone)]
 struct NoneError;
 
 impl<T> Sealed for Option<T> {}
@@ -219,6 +220,7 @@ mod tests {
     use allocative::Allocative;
 
     use super::*;
+    use crate::source_location::SourceLocation;
 
     #[derive(Debug, derive_more::Display)]
     struct TestError;
@@ -228,7 +230,12 @@ mod tests {
     impl From<TestError> for crate::Error {
         #[cold]
         fn from(_: TestError) -> Self {
-            crate::Error::new("".to_owned(), Some(file!().to_owned()), None)
+            crate::Error::new(
+                "".to_owned(),
+                crate::ErrorTag::Input,
+                SourceLocation::new(file!()),
+                None,
+            )
         }
     }
 

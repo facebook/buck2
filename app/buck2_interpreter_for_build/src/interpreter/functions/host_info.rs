@@ -150,9 +150,9 @@ pub(crate) fn register_host_info(builder: &mut GlobalsBuilder) {
 
 #[derive(Derivative, Clone, Debug, Allocative)]
 #[derivative(PartialEq)]
-pub(crate) struct HostInfo {
+pub struct HostInfo {
     // These first three fields are for equality only, otherwise not used
-    platform: InterpreterHostPlatform,
+    pub platform: InterpreterHostPlatform,
     arch: InterpreterHostArchitecture,
     xcode: Option<XcodeVersionInfo>,
     // The actual value which we ignore for equality, which is OK because of above

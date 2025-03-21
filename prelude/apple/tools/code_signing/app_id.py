@@ -25,8 +25,8 @@ class AppId:
         bundle_id = "bundle_id"
 
     _re_string: str = "^(?P<{team_id}>[A-Z0-9]{{10}})\\.(?P<{bundle_id}>.+)$".format(
-        team_id=_ReGroupName.team_id,
-        bundle_id=_ReGroupName.bundle_id,
+        team_id=_ReGroupName.team_id.value,
+        bundle_id=_ReGroupName.bundle_id.value,
     )
     _re_pattern: re.Pattern[str] = re.compile(_re_string)
 
@@ -43,8 +43,8 @@ class AppId:
                 )
             )
         return AppId(
-            match.group(cls._ReGroupName.team_id),
-            match.group(cls._ReGroupName.bundle_id),
+            match.group(cls._ReGroupName.team_id.value),
+            match.group(cls._ReGroupName.bundle_id.value),
         )
 
     # Returns the App ID if it can be inferred from keys in the entitlement. Otherwise, it returns `None`.

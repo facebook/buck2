@@ -125,4 +125,13 @@ impl FrozenCommandLineArg {
     pub fn as_command_line_arg<'v>(self) -> &'v dyn CommandLineArgLike {
         CommandLineArg(self.0.to_value()).as_command_line_arg()
     }
+
+    pub fn to_frozen_value(&self) -> FrozenValue {
+        self.0
+    }
+
+    pub fn slice_from_frozen_value_unchecked(v: &[FrozenValue]) -> &[FrozenCommandLineArg] {
+        // SAFETY: `#[repr(transparent)]`
+        unsafe { std::slice::from_raw_parts(v.as_ptr() as *const _, v.len()) }
+    }
 }

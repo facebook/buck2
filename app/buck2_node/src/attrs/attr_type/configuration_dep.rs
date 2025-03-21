@@ -8,11 +8,20 @@
  */
 
 use allocative::Allocative;
+use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
-use crate::configuration::resolved::ConfigurationSettingKey;
+
+/// Describes where a configuration dep appears
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Allocative, Dupe)]
+pub enum ConfigurationDepKind {
+    SelectKey,
+    CompatibilityAttribute,
+    ConfiguredDepPlatform,
+    Transition,
+}
 
 /// A configuration dep attribute accepts a target as a value. This is different from
 /// a dep in that the values themselves never undergo configuration and appear as bare
@@ -27,12 +36,12 @@ use crate::configuration::resolved::ConfigurationSettingKey;
 /// They resolve to just the string form of the target and so aren't particularly useful to UDR
 /// directly (they are used by the framework).
 #[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
-pub struct ConfigurationDepAttrType;
+pub struct ConfigurationDepAttrType(pub ConfigurationDepKind);
 
 impl ConfigurationDepAttrType {
     pub(crate) fn configure(
         _ctx: &dyn AttrConfigurationContext,
-        label: &ConfigurationSettingKey,
+        label: &ProvidersLabel,
     ) -> buck2_error::Result<ConfiguredAttr> {
         Ok(ConfiguredAttr::ConfigurationDep(label.dupe()))
     }

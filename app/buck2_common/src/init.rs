@@ -13,7 +13,7 @@ use std::time::Duration;
 use allocative::Allocative;
 use anyhow::Context;
 use buck2_core::buck2_env;
-use buck2_error::conversion::from_any;
+use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use serde::Deserialize;
 use serde::Serialize;
@@ -146,19 +146,11 @@ pub struct SystemWarningConfig {
     /// If None, we don't warn the user.
     /// The corresponding buckconfig is `buck2_system_warning.avg_re_download_bytes_per_sec_threshold`.
     pub avg_re_download_bytes_per_sec_threshold: Option<u64>,
-    /// A threshold that is used to determine if cache hit rate is too low and display a warning.
-    /// If None, we don't warn the user.
-    /// The corresponding buckconfig is `buck2_system_warning.min_cache_hit_threshold_percent`.
-    /// The value is in the range of [0, 100].
-    pub min_cache_hit_threshold_percent: Option<u64>,
-    /// Minimum % completion of the command before we start to warn the user about low cache hit rate.
-    /// If None, we warn the user immediately after the command starts based on cache misses.
-    /// The corresponding buckconfig is `buck2_system_warning.cache_warning_min_completion_threshold_percent`.
-    pub cache_warning_min_completion_threshold_percent: Option<u64>,
-    /// Minimum number of actions to run before we start to warn the user about low cache hit rate.
-    /// If None, we warn the user immediately after the command stats based on cache misses.
-    /// The corresponding buckconfig is `buck2_system_warning.cache_warning_min_actions_count`.
-    pub cache_warning_min_actions_count: Option<u64>,
+    /// A regex that controls which targets are opted into the vpn check.
+    /// The corresponding buckconfig is `buck2_health_check.optin_vpn_check_targets_regex`.
+    pub optin_vpn_check_targets_regex: Option<String>,
+    /// Whether to enable the stable revision check.
+    pub enable_stable_revision_check: Option<bool>,
 }
 
 impl SystemWarningConfig {
@@ -179,26 +171,21 @@ impl SystemWarningConfig {
             section: "buck2_system_warning",
             property: "avg_re_download_bytes_per_sec_threshold",
         })?;
-        let min_cache_hit_threshold_percent = config.parse(BuckconfigKeyRef {
-            section: "buck2_system_warning",
-            property: "min_cache_hit_threshold_percent",
+        let optin_vpn_check_targets_regex = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "optin_vpn_check_targets_regex",
         })?;
-        let cache_warning_min_completion_threshold_percent = config.parse(BuckconfigKeyRef {
-            section: "buck2_system_warning",
-            property: "cache_warning_min_completion_threshold_percent",
-        })?;
-        let cache_warning_min_actions_count = config.parse(BuckconfigKeyRef {
-            section: "buck2_system_warning",
-            property: "cache_warning_min_actions_count",
+        let enable_stable_revision_check = config.parse(BuckconfigKeyRef {
+            section: "buck2_health_check",
+            property: "enable_stable_revision_check",
         })?;
         Ok(Self {
             memory_pressure_threshold_percent,
             remaining_disk_space_threshold_gb,
             min_re_download_bytes_threshold,
             avg_re_download_bytes_per_sec_threshold,
-            min_cache_hit_threshold_percent,
-            cache_warning_min_completion_threshold_percent,
-            cache_warning_min_actions_count,
+            optin_vpn_check_targets_regex,
+            enable_stable_revision_check,
         })
     }
 
@@ -269,7 +256,7 @@ impl FromStr for ResourceControlStatus {
             "if_available" => Ok(Self::IfAvailable),
             "required" => Ok(Self::Required),
             _ => Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Input,
                 "Invalid resource control status: `{}`",
                 s
             )),
@@ -283,7 +270,8 @@ impl ResourceControlConfig {
             "BUCK2_TEST_RESOURCE_CONTROL_CONFIG",
             applicability = testing,
         )? {
-            Self::deserialize(env_conf).map_err(from_any)
+            Self::deserialize(env_conf)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         } else {
             let status = config
                 .parse(BuckconfigKeyRef {
@@ -321,6 +309,13 @@ impl ResourceControlConfig {
     }
 }
 
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum LogDownloadMethod {
+    Manifold,
+    Curl(String),
+    None,
+}
+
 /// Configurations that are used at startup by the daemon. Those are actually read by the client,
 /// and passed on to the daemon.
 ///
@@ -340,11 +335,46 @@ pub struct DaemonStartupConfig {
     pub materializations: Option<String>,
     pub http: HttpConfig,
     pub resource_control: ResourceControlConfig,
+    pub log_download_method: LogDownloadMethod,
 }
 
 impl DaemonStartupConfig {
     pub fn new(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         // Intepreted client side because we need the value here.
+
+        let log_download_method = {
+            // Determine the log download method to use. Only default to
+            // manifold in fbcode contexts, or when specifically asked.
+            let use_manifold_default = cfg!(fbcode_build);
+            let use_manifold = config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "log_use_manifold",
+                })?
+                .unwrap_or(use_manifold_default);
+
+            if use_manifold {
+                Ok(LogDownloadMethod::Manifold)
+            } else {
+                let log_url = config.get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "log_url",
+                });
+                if let Some(log_url) = log_url {
+                    if log_url.is_empty() {
+                        Err(buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "log_url is empty, but log_use_manifold is false"
+                        ))
+                    } else {
+                        Ok(LogDownloadMethod::Curl(log_url.to_owned()))
+                    }
+                } else {
+                    Ok(LogDownloadMethod::None)
+                }
+            }
+        }?;
+
         Ok(Self {
             daemon_buster: config
                 .get(BuckconfigKeyRef {
@@ -373,6 +403,7 @@ impl DaemonStartupConfig {
                 .map(ToOwned::to_owned),
             http: HttpConfig::from_config(config)?,
             resource_control: ResourceControlConfig::from_config(config)?,
+            log_download_method,
         })
     }
 
@@ -393,6 +424,11 @@ impl DaemonStartupConfig {
             materializations: None,
             http: HttpConfig::default(),
             resource_control: ResourceControlConfig::default(),
+            log_download_method: if cfg!(fbcode_build) {
+                LogDownloadMethod::Manifold
+            } else {
+                LogDownloadMethod::None
+            },
         }
     }
 }

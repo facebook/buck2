@@ -12,14 +12,12 @@ use std::fmt::Arguments;
 #[doc(hidden)]
 #[cold]
 #[track_caller]
-pub fn buck2_error_impl(tags: &[crate::ErrorTag], args: Arguments) -> crate::Error {
-    let line_number = std::panic::Location::caller().line().to_string();
-    let source_location = crate::source_location::from_file(
-        std::panic::Location::caller().file(),
-        Some(&line_number),
-    );
-    let root_error = crate::Error::new(format!("{}", args), source_location, None);
-    root_error.tag(tags.iter().copied())
+pub fn buck2_error_impl(tag: crate::ErrorTag, args: Arguments) -> crate::Error {
+    let line_number = std::panic::Location::caller().line();
+    let source_location =
+        crate::source_location::SourceLocation::new(std::panic::Location::caller().file())
+            .with_source_line(line_number);
+    crate::Error::new(format!("{}", args), tag, source_location, None)
 }
 
 #[doc(hidden)]
@@ -27,7 +25,7 @@ pub fn buck2_error_impl(tags: &[crate::ErrorTag], args: Arguments) -> crate::Err
 #[track_caller]
 pub fn internal_error_impl(args: Arguments) -> crate::Error {
     buck2_error_impl(
-        &[crate::ErrorTag::InternalError],
+        crate::ErrorTag::InternalError,
         format_args!("{args} (internal error)"),
     )
 }
@@ -38,7 +36,7 @@ macro_rules! buck2_error {
         $crate::buck2_error!($tags, $format,)
     };
     ($tags:expr, $format:expr, $($arg:tt)*) => {
-        $crate::macros::buck2_error_impl(&$tags, format_args!($format, $($arg)*))
+        $crate::macros::buck2_error_impl($tags, format_args!($format, $($arg)*))
     };
 }
 

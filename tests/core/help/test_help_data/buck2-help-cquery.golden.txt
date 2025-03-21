@@ -72,7 +72,7 @@ Options:
       --dot-compact
           Output in a more compact format than Graphviz Dot
 
-      --output-format <dot|dot_compact|json|starlark>
+      --output-format <dot|dot_compact|json|starlark|html>
           Output format (default: list).
 
                      dot -  dot graph format.
@@ -82,9 +82,10 @@ Options:
                      json - JSON format.
 
                      starlark - targets are printed like starlark code that would produce them.
+                     html - html file containing interactive target graph.
 
 
-          [possible values: dot, json, dot_compact, starlark]
+          [possible values: dot, json, dot_compact, starlark, html]
 
       --show-providers
           Show the providers of the query result instead of the attributes and labels
@@ -102,8 +103,7 @@ Target Configuration Options:
 
           This argument is particularly recommended on most non-trivial cqueries. In the absence of
           this argument, buck2 will use the target literals in your cquery expression as the value
-          for
-          this argument, which may not be what you want.
+          for this argument, which may not be what you want.
 
       --target-platforms <PLATFORM>
           Configuration target (one) to use to configure targets
@@ -228,9 +228,9 @@ Starlark Profiling Options:
           and merge the results into a single profile. The command may return cached profile data if
           `BUCK` files were not invalidated.
 
-          [possible values: time-flame, heap-flame-allocated, heap-flame-retained,
-          heap-summary-allocated, heap-summary-retained, statement, bytecode, bytecode-pairs,
-          typecheck, coverage, none]
+          [possible values: time-flame, heap-allocated, heap-retained, heap-flame-allocated,
+          heap-flame-retained, heap-summary-allocated, heap-summary-retained, statement, bytecode,
+          bytecode-pairs, typecheck, coverage, none]
 
       --profile-output <PROFILE_OUTPUT>
           Where to write profile output

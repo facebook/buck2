@@ -11,7 +11,7 @@ load("gen_vcxproj.bxl", "gen_vcxproj")
 load("get_attrs.bxl", "get_attrs")
 load("get_deps.bxl", "get_deps")
 load("get_vs_settings.bxl", "get_basic_vs_settings", "get_vs_settings")
-load("utils.bxl", "basename", "get_project_file_path", "get_root_path_relative_to", "log_debug")
+load("utils.bxl", "basename", "get_project_file_path", "log_debug")
 
 def _match_recursive_target_types(target: bxl.ConfiguredTargetNode, recursive_target_types: list[str], bxl_ctx) -> bool:
     for type_regex in recursive_target_types:
@@ -173,11 +173,9 @@ def _main(bxl_ctx):
 
     if bxl_ctx.cli_args.solution_name or len(targets) > 1:
         sln_path = (bxl_ctx.cli_args.solution_name or basename(bxl_ctx.root(), separator = "\\")) + ".sln"
-        root_relative_path = ""
     else:
         main_target_node = bxl_ctx.configured_targets(targets[0], modifiers = bxl_ctx.modifiers)
         sln_path = get_project_file_path(main_target_node.label, ".sln")
-        root_relative_path = get_root_path_relative_to(main_target_node.label)
 
     # Find out indices of final targets and vs_settings pair to pass on to generate sln file.
     deps_with_vcxproj_indices = {}
@@ -189,7 +187,6 @@ def _main(bxl_ctx):
         [s for (idx, s) in enumerate(basic_vs_settings_list) if idx in deps_with_vcxproj_indices],
         targets,
         bxl_ctx.cli_args.startup_target or targets[0],
-        root_relative_path,
         bxl_ctx,
     )
     sln_artifact = actions.declare_output(sln_path)

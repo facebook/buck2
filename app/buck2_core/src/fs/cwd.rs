@@ -118,6 +118,7 @@ pub type WorkingDirectory = WorkingDirectoryGen<unix_impl::UnixWorkingDirectoryI
 pub type WorkingDirectory = WorkingDirectoryGen<PortableWorkingDirectoryImpl>;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
 enum CwdError {
     #[error("cwd is already set to `{}`", _0.display())]
     CwdAlreadySet(AbsPathBuf),

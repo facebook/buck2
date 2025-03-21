@@ -121,12 +121,9 @@ async fn create_revision_data() -> buck2_data::VersionControlRevision {
         Ok(repo_vcs) => {
             match repo_vcs {
                 RepoVcs::Hg => {
-                    match add_hg_data(&mut revision).await {
-                        Err(e) => {
-                            revision.command_error = Some(e.to_string());
-                        }
-                        Ok(_) => {}
-                    };
+                    if let Err(e) = add_hg_data(&mut revision).await {
+                        revision.command_error = Some(e.to_string());
+                    }
                 }
                 RepoVcs::Git => {
                     // TODO(rajneeshl): Implement the git data

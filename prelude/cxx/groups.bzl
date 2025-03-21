@@ -16,7 +16,6 @@ load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
 )
-load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:strings.bzl",
     "strip_prefix",
@@ -90,8 +89,14 @@ def parse_groups_definitions(
         # callers to have different top-level types for the `root`s.
         parse_root: typing.Callable = lambda d: d) -> list[Group]:
     groups = []
+    group_names = set()
     for map_entry in map:
         name = map_entry[0]
+
+        # Dedup the link group specs, take the deinition from the first definition
+        if name in group_names:
+            continue
+        group_names.add(name)
         mappings = map_entry[1]
         attrs = (map_entry[2] or {}) if len(map_entry) > 2 else {}
 
@@ -269,13 +274,21 @@ def _find_targets_in_mapping(
 
     def populate_matching_targets(node):  # Label -> bool:
         graph_node = graph_map[node]
-        if not mapping.filters or lazy.is_all(lambda filter: filter.matches(node, graph_node.labels), mapping.filters):
-            matching_targets[node] = None
-            if mapping.traversal == Traversal("tree"):
-                # We can stop traversing the tree at this point because we've added the
-                # build target to the list of all targets that will be traversed by the
-                # algorithm that applies the groups.
-                return False
+
+        # This callsite was migrated away from `lazy.is_any()`
+        # because we saw a non-trivial increase in retained bytes
+        # associated with the lambda required by the function.
+        if mapping.filters:
+            for filter in mapping.filters:
+                if not filter.matches(node, graph_node.labels):
+                    return True
+
+        matching_targets[node] = None
+        if mapping.traversal == Traversal("tree"):
+            # We can stop traversing the tree at this point because we've added the
+            # build target to the list of all targets that will be traversed by the
+            # algorithm that applies the groups.
+            return False
         return True
 
     def populate_matching_targets_bfs_wrapper(node):  # (Label) -> list

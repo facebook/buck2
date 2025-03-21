@@ -81,7 +81,10 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                             }
                         }
                         buck2_core::pattern::pattern::PackageSpec::All => {
-                            unimplemented!()
+                            return Err(buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Unimplemented,
+                                "PackageSpec::All not implemented"
+                            ));
                         }
                     }
                 }

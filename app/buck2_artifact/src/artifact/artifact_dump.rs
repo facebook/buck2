@@ -10,13 +10,13 @@
 #![allow(clippy::ref_option_ref)] // within Serialize
 
 use std::fmt::Display;
-use std::path::Path;
+use std::path::PathBuf;
 
 use buck2_common::cas_digest::CasDigest;
-use buck2_common::cas_digest::DigestAlgorithmFamily;
+use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::FileDigestKind;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::RelativePath;
+use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_core::fs::paths::RelativePathBuf;
 use serde::Serialize;
 use serde::Serializer;
 
@@ -28,45 +28,46 @@ where
     serializer.collect_str(value)
 }
 
-#[derive(Serialize)]
-pub struct DirectoryInfo {}
+#[derive(Serialize, Debug)]
+pub struct DirectoryInfo {
+    #[serde(serialize_with = "stringify")]
+    pub digest: TrackedCasDigest<FileDigestKind>,
+}
 
-#[derive(Serialize)]
-pub struct FileInfo<'a> {
+#[derive(Serialize, Debug)]
+pub struct FileInfo {
     #[serde(serialize_with = "stringify")]
-    pub digest: &'a CasDigest<FileDigestKind>,
-    #[serde(serialize_with = "stringify")]
-    pub digest_kind: DigestAlgorithmFamily,
+    pub digest: CasDigest<FileDigestKind>,
     pub is_exec: bool,
 }
 
-#[derive(Serialize)]
-pub struct SymlinkInfo<'a> {
+#[derive(Serialize, Debug)]
+pub struct SymlinkInfo {
     #[serde(serialize_with = "stringify")]
-    pub symlink_rel_path: &'a RelativePath,
+    pub symlink_rel_path: RelativePathBuf,
 }
 
-#[derive(Serialize)]
-pub struct ExternalSymlinkInfo<'a> {
-    pub target: &'a Path,
-    pub remaining_path: Option<&'a ForwardRelativePath>,
+#[derive(Serialize, Debug)]
+pub struct ExternalSymlinkInfo {
+    pub target: PathBuf,
+    pub remaining_path: Option<ForwardRelativePathBuf>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(tag = "kind")]
 #[serde(rename_all = "snake_case")]
-pub enum ArtifactInfo<'a> {
+pub enum ArtifactInfo {
     Directory(DirectoryInfo),
-    File(FileInfo<'a>),
-    Symlink(SymlinkInfo<'a>),
-    ExternalSymlink(ExternalSymlinkInfo<'a>),
+    File(FileInfo),
+    Symlink(SymlinkInfo),
+    ExternalSymlink(ExternalSymlinkInfo),
 }
 
-#[derive(Serialize)]
-pub struct ArtifactMetadataJson<'a> {
-    pub path: &'a ForwardRelativePath,
+#[derive(Serialize, Debug)]
+pub struct ArtifactMetadataJson {
+    pub path: ForwardRelativePathBuf,
     #[serde(flatten)]
-    pub info: ArtifactInfo<'a>,
+    pub info: ArtifactInfo,
 }
 
 #[cfg(test)]
@@ -77,18 +78,29 @@ mod tests {
 
     #[test]
     fn test_dir_json() {
-        let path = ForwardRelativePath::unchecked_new("test");
+        let path = ForwardRelativePathBuf::unchecked_new("test".into());
+        let digest = CasDigest::parse_digest(
+            "fb19d5b1546753df5f7741efbabd0d24dcaacd65:20",
+            CasDigestConfig::testing_default(),
+        )
+        .expect("failed to create digest")
+        .0;
         let metadata = ArtifactMetadataJson {
             path,
-            info: ArtifactInfo::Directory(DirectoryInfo {}),
+            info: ArtifactInfo::Directory(DirectoryInfo {
+                digest: TrackedCasDigest::new(digest, CasDigestConfig::testing_default()),
+            }),
         };
         let json = serde_json::to_string(&metadata).expect("failed to serialize");
-        assert_eq!(json, r#"{"path":"test","kind":"directory"}"#,);
+        assert_eq!(
+            json,
+            r#"{"path":"test","kind":"directory","digest":"fb19d5b1546753df5f7741efbabd0d24dcaacd65:20"}"#,
+        );
     }
 
     #[test]
     fn test_file_json() {
-        let path = ForwardRelativePath::unchecked_new("test.txt");
+        let path = ForwardRelativePathBuf::unchecked_new("test.txt".into());
         let digest = CasDigest::parse_digest(
             "fb19d5b1546753df5f7741efbabd0d24dcaacd65:20",
             CasDigestConfig::testing_default(),
@@ -98,22 +110,21 @@ mod tests {
         let metadata = ArtifactMetadataJson {
             path,
             info: ArtifactInfo::File(FileInfo {
-                digest: &digest,
-                digest_kind: DigestAlgorithmFamily::Sha1,
+                digest,
                 is_exec: false,
             }),
         };
         let json = serde_json::to_string(&metadata).expect("failed to serialize");
         assert_eq!(
             json,
-            r#"{"path":"test.txt","kind":"file","digest":"fb19d5b1546753df5f7741efbabd0d24dcaacd65:20","digest_kind":"SHA1","is_exec":false}"#,
+            r#"{"path":"test.txt","kind":"file","digest":"fb19d5b1546753df5f7741efbabd0d24dcaacd65:20","is_exec":false}"#,
         );
     }
 
     #[test]
     fn test_symlink_json() {
-        let path = ForwardRelativePath::unchecked_new("test.txt");
-        let symlink_rel_path = RelativePath::new("../test.txt");
+        let path = ForwardRelativePathBuf::unchecked_new("test.txt".into());
+        let symlink_rel_path = RelativePathBuf::from("../test.txt");
         let metadata = ArtifactMetadataJson {
             path,
             info: ArtifactInfo::Symlink(SymlinkInfo { symlink_rel_path }),
@@ -127,10 +138,10 @@ mod tests {
 
     #[test]
     fn test_external_symlink_json() {
-        let path = ForwardRelativePath::unchecked_new("test.txt");
-        let target = Path::new("/mnt/gvfs");
+        let path = ForwardRelativePathBuf::unchecked_new("test.txt".into());
+        let target = PathBuf::from("/mnt/gvfs");
         let remaining =
-            ForwardRelativePath::new("test.txt").expect("failed to make remaining path");
+            ForwardRelativePathBuf::new("test.txt".into()).expect("failed to make remaining path");
         let metadata = ArtifactMetadataJson {
             path,
             info: ArtifactInfo::ExternalSymlink(ExternalSymlinkInfo {

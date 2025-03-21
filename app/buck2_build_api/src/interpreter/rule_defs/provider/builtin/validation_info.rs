@@ -27,10 +27,12 @@ use starlark::values::ValueOf;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueOfUncheckedGeneric;
 
+use crate as buck2_build_api;
 use crate::interpreter::rule_defs::validation_spec::FrozenStarlarkValidationSpec;
 use crate::interpreter::rule_defs::validation_spec::StarlarkValidationSpec;
 
 #[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
 enum ValidationInfoError {
     #[error("Expected `ValidationSpec` value, got `{0}`")]
     WrongSpecType(String),

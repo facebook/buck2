@@ -18,12 +18,12 @@ use buck2_node::attrs::attr::CoercedValue;
 use buck2_node::attrs::attr_type::string::StringLiteral;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::attrs::id::AttributeId;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
-use buck2_node::attrs::internal::attr_is_configurable;
-use buck2_node::attrs::internal::NAME_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::VISIBILITY_ATTRIBUTE_FIELD;
-use buck2_node::attrs::internal::WITHIN_VIEW_ATTRIBUTE_FIELD;
+use buck2_node::attrs::spec::internal::attr_is_configurable;
+use buck2_node::attrs::spec::internal::NAME_ATTRIBUTE;
+use buck2_node::attrs::spec::internal::VISIBILITY_ATTRIBUTE;
+use buck2_node::attrs::spec::internal::WITHIN_VIEW_ATTRIBUTE;
+use buck2_node::attrs::spec::AttributeId;
 use buck2_node::attrs::spec::AttributeSpec;
 use buck2_node::attrs::values::AttrValues;
 use buck2_util::arc_str::ArcStr;
@@ -86,7 +86,7 @@ impl AttributeSpecExt for AttributeSpec {
 
         let mut indices = self.attr_specs();
         let name = match indices.next() {
-            Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE_FIELD => {
+            Some((name_name, attr_idx, _attr)) if name_name == NAME_ATTRIBUTE.name => {
                 let name = param_parser.next()?;
                 attr_values.push_sorted(
                     attr_idx,
@@ -121,8 +121,8 @@ impl AttributeSpecExt for AttributeSpec {
                 None => Some(param_parser.next()?),
             };
 
-            let attr_is_visibility = attr_name == VISIBILITY_ATTRIBUTE_FIELD;
-            let attr_is_within_view = attr_name == WITHIN_VIEW_ATTRIBUTE_FIELD;
+            let attr_is_visibility = attr_name == VISIBILITY_ATTRIBUTE.name;
+            let attr_is_within_view = attr_name == WITHIN_VIEW_ATTRIBUTE.name;
             if let Some(v) = user_value {
                 let mut coerced = attribute
                     .coerce(
@@ -174,7 +174,7 @@ impl AttributeSpecExt for AttributeSpec {
         attr_values.shrink_to_fit();
 
         // For now `within_view` is always set, but let's make code more robust.
-        if let Some(within_view) = attr_values.get(AttributeSpec::within_view_attr_id()) {
+        if let Some(within_view) = attr_values.get(WITHIN_VIEW_ATTRIBUTE.id) {
             let within_view = match within_view {
                 CoercedAttr::WithinView(within_view) => within_view,
                 _ => return Err(internal_error!("`within_view` coerced incorrectly")),

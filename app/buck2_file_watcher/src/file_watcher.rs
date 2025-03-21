@@ -19,12 +19,16 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::is_open_source;
+#[cfg(fbcode_build)]
+use buck2_core::soft_error;
 use buck2_error::buck2_error;
 use buck2_error::BuckErrorContext;
 use dice::DiceTransactionUpdater;
 
 #[cfg(fbcode_build)]
 use crate::edenfs::interface::EdenFsFileWatcher;
+#[cfg(fbcode_build)]
+use crate::edenfs::interface::EdenFsWatcherError;
 use crate::fs_hash_crawler::FsHashCrawler;
 use crate::mergebase::Mergebase;
 use crate::notify::NotifyFileWatcher;
@@ -77,11 +81,40 @@ impl dyn FileWatcher {
                     .buck_error_context("Creating fs_crawler file watcher")?,
             )),
             #[cfg(fbcode_build)]
-            "edenfs" => Ok(Arc::new(
-                EdenFsFileWatcher::new(fb, project_root, root_config, cells, ignore_specs)
-                    .buck_error_context("Creating edenfs file watcher")?,
+            "edenfs" => {
+                match EdenFsFileWatcher::new(
+                    fb,
+                    project_root,
+                    root_config,
+                    cells.clone(),
+                    ignore_specs.clone(),
+                ) {
+                    Ok(edenfs) => Ok(Arc::new(edenfs)),
+                    Err(EdenFsWatcherError::NoEden) => {
+                        soft_error!(
+                            "edenfs_watcher_creation_failure",
+                            EdenFsWatcherError::NoEden.into()
+                        )?;
+                        // fallback to watchman if failed to create edenfs watcher
+                        Ok(Arc::new(
+                            WatchmanFileWatcher::new(
+                                project_root.root(),
+                                root_config,
+                                cells,
+                                ignore_specs,
+                            )
+                            .buck_error_context("Creating watchman file watcher")?,
+                        ))
+                    }
+                    Err(e) => Err(e.into()),
+                }
+            }
+
+            other => Err(buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "Invalid buck2.file_watcher: {}",
+                other
             )),
-            other => Err(buck2_error!([], "Invalid buck2.file_watcher: {}", other)),
         }
     }
 }

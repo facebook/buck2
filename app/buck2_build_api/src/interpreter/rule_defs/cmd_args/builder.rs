@@ -20,6 +20,7 @@ use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 pub enum CommandLineBuilderErrors {
     #[error(
         "write-to-file macro is only supported as a part of command line argument which is written to a file"
@@ -128,8 +129,9 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
         let executor_fs = self.0.fs();
         let mut path = executor_fs.fs().fs().root().to_path_buf();
         path.extend(self.0.next_macro_file_path()?.iter());
-        RelativePathBuf::from_path(path)
-            .map_err(|e| buck2_error::buck2_error!([], "{}", e.to_string()))
+        RelativePathBuf::from_path(path).map_err(|e| {
+            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "{}", e.to_string())
+        })
     }
 }
 

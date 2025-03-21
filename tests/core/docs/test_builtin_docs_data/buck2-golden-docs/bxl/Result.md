@@ -4,3 +4,4 @@
 ## Result.is\_ok
 ## Result.unwrap
 ## Result.unwrap\_err
+## Result.unwrap\_or

@@ -19,8 +19,7 @@ def failure_filter(
         required: Artifact,
         stderr: Artifact,
         identifier: str) -> Artifact:
-    toolchain_info = compile_ctx.toolchain_info
-    failure_filter_action = toolchain_info.failure_filter_action
+    failure_filter_action = compile_ctx.internal_tools_info.failure_filter_action
 
     if predeclared_output:
         output = predeclared_output

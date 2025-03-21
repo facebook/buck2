@@ -11,20 +11,21 @@ use std::fmt;
 use std::sync::Arc;
 
 use buck2_data::ActionError;
-use itertools::Itertools;
 use smallvec::SmallVec;
 
 use crate::classify::best_tag;
 use crate::classify::error_tag_category;
+use crate::classify::tag_is_generic;
+use crate::classify::tag_is_hidden;
 use crate::context_value::ContextValue;
 use crate::context_value::StarlarkContext;
 use crate::context_value::TypedContext;
 use crate::format::into_anyhow_for_format;
 use crate::root::ErrorRoot;
+use crate::source_location::SourceLocation;
 use crate::ErrorTag;
 use crate::Tier;
 use crate::UniqueRootId;
-
 pub type DynLateFormat = dyn Fn(&mut fmt::Formatter<'_>) -> fmt::Result + Send + Sync + 'static;
 
 /// The core error type provided by this crate.
@@ -62,12 +63,14 @@ impl Error {
     #[cold]
     pub fn new(
         error_msg: String,
-        source_location: Option<String>,
+        error_tag: ErrorTag,
+        source_location: SourceLocation,
         action_error: Option<ActionError>,
     ) -> Self {
-        let error_root = ErrorRoot::new(error_msg, source_location, action_error);
+        let error_root = ErrorRoot::new(error_msg, error_tag, source_location, action_error);
 
-        crate::Error(Arc::new(ErrorKind::Root(Box::new(error_root))))
+        let buck2_error = crate::Error(Arc::new(ErrorKind::Root(Box::new(error_root))));
+        buck2_error.tag([error_tag])
     }
 
     fn iter_kinds<'a>(&'a self) -> impl Iterator<Item = &'a ErrorKind> {
@@ -144,31 +147,52 @@ impl Error {
     }
 
     /// Stable identifier for grouping errors.
+    ///
+    /// This tries to include the least information possible that can be used to uniquely identify an error type.
     pub fn category_key(&self) -> String {
-        let tags = self
-            .tags()
-            .into_iter()
-            .filter(|tag| match tag {
-                ErrorTag::Input | ErrorTag::Environment | ErrorTag::Tier0 => false,
-                _ => true,
-            })
-            .map(|tag| tag.as_str_name());
+        let tags = self.tags();
 
-        let key_values = self.iter_context().filter_map(|kind| match kind {
+        let non_generic_tags: Vec<ErrorTag> = tags
+            .clone()
+            .into_iter()
+            .filter(|tag| !tag_is_generic(tag))
+            .collect();
+
+        let (source_location, key_tags) = if !non_generic_tags.is_empty() {
+            (None, non_generic_tags)
+        } else {
+            // Only include source location if there are no non-generic tags.
+            let source_location = if let Some(type_name) = self.source_location().type_name() {
+                // If type name available, include it and exclude source location.
+                Some(type_name.to_owned())
+            } else {
+                Some(self.source_location().to_string())
+            };
+
+            (
+                source_location,
+                // Only include generic tags if there are no non-generic tags. Always exclude hidden tags.
+                tags.into_iter().filter(|tag| !tag_is_hidden(tag)).collect(),
+            )
+        };
+
+        let key_tags = key_tags.into_iter().map(|tag| tag.as_str_name().to_owned());
+
+        let context_key_values = self.iter_context().filter_map(|kind| match kind {
             ContextValue::Key(val) => Some(val.to_string()),
             _ => None,
         });
 
-        let mut values = vec![self.source_location().unwrap_or("unknown_location")]
+        let values: Vec<String> = source_location
             .into_iter()
-            .chain(tags)
-            .map(|s| s.to_owned())
-            .chain(key_values);
+            .chain(key_tags)
+            .chain(context_key_values)
+            .collect();
 
         values.join(":").to_owned()
     }
 
-    pub fn source_location(&self) -> Option<&str> {
+    pub fn source_location(&self) -> &SourceLocation {
         self.root().source_location()
     }
 
@@ -309,11 +333,12 @@ mod tests {
     use std::sync::Arc;
 
     use crate as buck2_error;
-    use crate::conversion::from_any;
+    use crate::conversion::from_any_with_tag;
     use crate::Tier;
 
     #[derive(Debug, buck2_error_derive::Error)]
     #[error("Test")]
+    #[buck2(tag = Environment)]
     struct TestError;
 
     #[test]
@@ -323,7 +348,7 @@ mod tests {
         let e = e.mark_emitted(Arc::new(|_| Ok(())));
         assert!(e.is_emitted().is_some());
         let e: anyhow::Error = e.into();
-        let e: crate::Error = from_any(e.context("context"));
+        let e: crate::Error = from_any_with_tag(e.context("context"), crate::ErrorTag::Input);
         assert!(e.is_emitted().is_some());
     }
 
@@ -355,12 +380,22 @@ mod tests {
     #[test]
     fn test_category_key() {
         let err: crate::Error = TestError.into();
-        assert_eq!(err.category_key(), err.source_location().unwrap());
+        assert_eq!(err.category_key(), "TestError");
 
-        let err = err.tag([crate::ErrorTag::Analysis]);
+        let err = err.clone().tag([crate::ErrorTag::Analysis]);
         assert_eq!(
             err.category_key(),
-            format!("{}:{}", err.source_location().unwrap(), "ANALYSIS")
+            format!(
+                "{}:{}",
+                err.source_location().type_name().unwrap(),
+                "ANALYSIS"
+            )
         );
+
+        let err = err.clone().tag([
+            crate::ErrorTag::AnyActionExecution,
+            crate::ErrorTag::ReInternal,
+        ]);
+        assert_eq!(err.category_key(), format!("RE_INTERNAL"));
     }
 }

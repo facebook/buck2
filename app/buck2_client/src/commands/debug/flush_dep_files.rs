@@ -16,6 +16,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
@@ -38,12 +39,16 @@ impl StreamingCommand for FlushDepFilesCommand {
         buckd: &mut BuckdClientConnector,
         _matches: BuckArgMatches<'_>,
         _ctx: &mut ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         buckd
             .with_flushing()
-            .flush_dep_files(FlushDepFilesRequest {
-                retain_locally_produced_dep_files: self.retain_local,
-            })
+            .flush_dep_files(
+                FlushDepFilesRequest {
+                    retain_locally_produced_dep_files: self.retain_local,
+                },
+                events_ctx,
+            )
             .await??;
         ExitResult::success()
     }

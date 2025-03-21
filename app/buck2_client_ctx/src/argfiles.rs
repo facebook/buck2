@@ -30,6 +30,7 @@ use termwiz::istty::IsTty;
 use crate::immediate_config::ImmediateConfigContext;
 
 #[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
 enum ArgExpansionError {
     #[error("Missing flag file path after --flagfile argument")]
     MissingFlagFilePath,

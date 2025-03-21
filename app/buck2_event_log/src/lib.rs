@@ -57,7 +57,7 @@ pub async fn wait_for_child_and_log(child: FutureChildOutput, reason: &str) {
         if !res.status.success() {
             let stderr = String::from_utf8_lossy(&res.stderr);
             return Err(buck2_error::buck2_error!(
-                [],
+                buck2_error::ErrorTag::Tier0,
                 "Upload exited with status `{}`. Stderr: `{}`",
                 res.status,
                 stderr.trim(),

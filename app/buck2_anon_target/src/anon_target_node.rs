@@ -37,6 +37,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_data::ToProtoMessage;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
@@ -261,6 +262,10 @@ impl AnonTargetDyn for AnonTarget {
         }
 
         Ok(fulfilled_artifact_mappings)
+    }
+
+    fn eval_kind(self: Arc<Self>) -> StarlarkEvalKind {
+        StarlarkEvalKind::AnonTarget(self)
     }
 }
 

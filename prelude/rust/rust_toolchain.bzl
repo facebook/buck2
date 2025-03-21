@@ -43,6 +43,8 @@ rust_toolchain_attrs = {
     # Rustc flags, except that they are applied on the command line after the
     # target's rustc flags
     "extra_rustc_flags": provider_field(list[typing.Any], default = []),
+    # Path to search for custom target .json files
+    "rust_target_path": provider_field(Dependency | None, default = None),
     # Flags applied only on check builds
     "rustc_check_flags": provider_field(list[typing.Any], default = []),
     # Extra flags when building binaries
@@ -66,20 +68,6 @@ rust_toolchain_attrs = {
     "rustdoc": provider_field(RunInfo | None, default = None),
     # Clippy (linter) version of the compiler
     "clippy_driver": provider_field(RunInfo | None, default = None),
-    # Wrapper for rustc in actions
-    "rustc_action": provider_field(RunInfo | None, default = None),
-    # Wrapper for rustdoc-generated test executables
-    "rustdoc_test_with_resources": provider_field(RunInfo | None, default = None),
-    # Wrapper for rustdoc coverage
-    "rustdoc_coverage": provider_field(RunInfo | None, default = None),
-    # These two scripts are used to implement deferred linking, where the link action
-    # is separate from the rustc invocation action. The benefit here is that we can
-    # decouple the action graph such that rustc can compile libs without waiting for
-    # the link step from shared lib dependencies from completing.
-    "deferred_link_action": provider_field(RunInfo | None, default = None),
-    "extract_link_action": provider_field(RunInfo | None, default = None),
-    # Failure filter action
-    "failure_filter_action": provider_field(RunInfo | None, default = None),
     # The default edition to use, if not specified.
     "default_edition": provider_field(str | None, default = None),
     # Lints
@@ -103,8 +91,6 @@ rust_toolchain_attrs = {
     "deny_on_check_lints": provider_field(list[typing.Any], default = []),
     # Clippy configuration file clippy.toml
     "clippy_toml": provider_field(Artifact | None, default = None),
-    # Utilities used for building flagfiles containing dynamic crate names
-    "transitive_dependency_symlinks_tool": provider_field(RunInfo | None, default = None),
     # Setting this enables additional behaviors that improves linking at the
     # cost of using unstable implementation details of rustc. At the moment,
     # this is only used for linking rlibs into C++/C builds, instead of using
@@ -140,6 +126,14 @@ rust_toolchain_attrs = {
     # Setting this allows Rust rules to use features which are only available
     # on nightly release.
     "nightly_features": provider_field(bool, default = False),
+    # The `cargo llvm-lines` binary - if present, Rust targets have a
+    # `llvm-lines` subtarget
+    "llvm_lines_tool": provider_field(RunInfo | None, default = None),
+    # The `crox` binary from measure-me, if present, used to generate a
+    # self-profile trace subtarget
+    "measureme_crox": provider_field(RunInfo | None, default = None),
+    # Constructs an upload command for the given chrome trace
+    "make_trace_upload": provider_field(typing.Callable[[Artifact], RunInfo] | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

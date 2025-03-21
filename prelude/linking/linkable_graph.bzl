@@ -266,6 +266,41 @@ def create_linkable_graph(
         nodes = ctx.actions.tset(LinkableGraphTSet, **kwargs),
     )
 
+ReducedLinkableGraph = record(
+    # Label to information map for whole graph.
+    # Does not have entry for executable
+    nodes = field(dict[Label, LinkableNode]),
+
+    # Order of linkable in the graph as it would go into linker argsfile
+    # when building executable in static link strategy
+    link_order = field(dict[Label, int]),
+)
+
+def reduce_linkable_graph(graph: LinkableGraph) -> ReducedLinkableGraph:
+    linkable_nodes = {}
+    link_order = {}
+
+    # Link groups machinery may be used by something that does not
+    # store all information in dependency graph. E.g. python native dlopen
+    # So gathering link ordering starting from executable label may not collect all
+    # dependencies correctly. To account for that we add remaining pieces to
+    # final result. There is no particular reasoning behing putting remaining linkables first,
+    # but it is just more convenient to implement.
+    # So to make it work properly we start with `1` instead of `0` and return default `0` for linkables
+    # that we did not put into linkable graph nodes.
+    link_order_idx = 1
+
+    for node in filter(None, graph.nodes.traverse()):
+        if node.linkable:
+            linkable_nodes[node.label] = node.linkable
+            link_order[node.label] = link_order_idx
+            link_order_idx += 1
+
+    return ReducedLinkableGraph(
+        nodes = linkable_nodes,
+        link_order = link_order,
+    )
+
 def get_linkable_graph_node_map_func(graph: LinkableGraph):
     def get_linkable_graph_node_map() -> dict[Label, LinkableNode]:
         nodes = graph.nodes.traverse()

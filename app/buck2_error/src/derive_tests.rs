@@ -43,6 +43,7 @@ pub enum Error3 {
     #[buck2(tier0)]
     VariantB,
     #[error("baz")]
+    #[buck2(tag = Environment)]
     VariantC,
 }
 
@@ -55,11 +56,12 @@ fn test_derive_error3() {
     assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
 
     let e: crate::Error = Error3::VariantC.into();
-    assert_eq!(e.get_tier(), None);
+    assert_eq!(e.get_tier(), Some(crate::Tier::Environment));
 }
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Generic error")]
+#[buck2(tag = Environment)]
 pub struct GenericError<G>(G);
 
 #[test]
@@ -70,6 +72,7 @@ fn test_generic_error() {
 /// Test that no unused fields warning is emitted.
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
+#[buck2(tag = Environment)]
 pub struct WithField {
     x: u8,
 }
@@ -81,10 +84,12 @@ fn test_with_field() {
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
+#[buck2(tag = Environment)]
 struct NoAttrsStruct;
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
+#[buck2(tag = Tier0)]
 enum NoAttrsEnum {
     Variant,
 }
@@ -93,13 +98,13 @@ enum NoAttrsEnum {
 fn test_source_location_no_attrs() {
     let e: crate::Error = NoAttrsStruct.into();
     assert_eq!(
-        e.source_location(),
-        Some("buck2_error/src/derive_tests.rs::NoAttrsStruct")
+        e.source_location().to_string(),
+        "buck2_error/src/derive_tests.rs::NoAttrsStruct"
     );
     let e: crate::Error = NoAttrsEnum::Variant.into();
     assert_eq!(
-        e.source_location(),
-        Some("buck2_error/src/derive_tests.rs::NoAttrsEnum::Variant")
+        e.source_location().to_string(),
+        "buck2_error/src/derive_tests.rs::NoAttrsEnum::Variant"
     );
 }
 
@@ -115,8 +120,8 @@ fn test_enum_with_type_option() {
     let e: crate::Error = EnumWithTypeOption::Variant.into();
     assert_eq!(e.get_tier(), Some(crate::Tier::Input));
     assert_eq!(
-        e.source_location(),
-        Some("buck2_error/src/derive_tests.rs::EnumWithTypeOption::Variant"),
+        e.source_location().to_string(),
+        "buck2_error/src/derive_tests.rs::EnumWithTypeOption::Variant",
     );
 }
 
@@ -159,8 +164,8 @@ fn test_source_metadata_are_included() {
 
 #[test]
 fn test_error_tags() {
-    fn f() -> Option<crate::ErrorTag> {
-        Some(crate::ErrorTag::StarlarkFail)
+    fn f() -> crate::ErrorTag {
+        crate::ErrorTag::StarlarkFail
     }
 
     #[derive(buck2_error_derive::Error, Debug)]
@@ -194,6 +199,7 @@ fn test_correct_transparent() {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error(transparent)]
+    #[buck2(tag = Input)]
     struct T(E);
 
     let t: crate::Error = T(E).into();
@@ -204,6 +210,7 @@ fn test_correct_transparent() {
 fn test_error_message_with_provided_field() {
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("Some message {0} + {1}")]
+    #[buck2(tag = Environment)]
     struct SomeError(String, String);
 
     let t: crate::Error = SomeError("test123".to_owned(), "test222".to_owned()).into();
@@ -214,10 +221,12 @@ fn test_error_message_with_provided_field() {
 fn test_recovery_through_transparent_buck2_error() {
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("base_display")]
+    #[buck2(tag = Environment)]
     struct BaseError;
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error(transparent)]
+    #[buck2(tag = Tier0)]
     enum PartiallyStructured {
         #[error(transparent)]
         Other(buck2_error::Error),
@@ -227,5 +236,12 @@ fn test_recovery_through_transparent_buck2_error() {
     let wrapped_direct: crate::Error = PartiallyStructured::Other(base.clone()).into();
 
     assert!(format!("{:?}", wrapped_direct).contains("base_display"));
-    assert_eq!(&wrapped_direct.tags()[..], &[crate::ErrorTag::StarlarkFail]);
+    assert_eq!(
+        &wrapped_direct.tags()[..],
+        &[
+            crate::ErrorTag::Environment,
+            crate::ErrorTag::StarlarkFail,
+            crate::ErrorTag::Tier0
+        ]
+    );
 }

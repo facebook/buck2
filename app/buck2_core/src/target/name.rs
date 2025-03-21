@@ -13,6 +13,7 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_util::arc_str::ThinArcStr;
 use dupe::Dupe;
+use strong_hash::StrongHash;
 
 use crate::ascii_char_set::AsciiCharSet;
 
@@ -159,7 +160,16 @@ impl Deref for TargetName {
     }
 }
 
-#[derive(Debug, derive_more::Display, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(
+    Debug,
+    derive_more::Display,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    StrongHash
+)]
 #[repr(transparent)]
 pub struct TargetNameRef(str);
 
