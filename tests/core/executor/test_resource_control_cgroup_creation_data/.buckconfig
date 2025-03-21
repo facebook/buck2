@@ -1,0 +1,9 @@
+[buildfile]
+    name = TARGETS.fixture
+
+[repositories]
+    root = .
+    prelude = .
+
+[buck2_resource_control]
+    status = required
