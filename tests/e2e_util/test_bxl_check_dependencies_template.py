@@ -41,9 +41,15 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
         else:
             mode_argfile = get_mode_from_platform()
 
+        additional_argfile = os.environ.get("EXTRA_BUCK_ARGS_FILE", None)
+        additional_args = []
+        if additional_argfile:
+            additional_args.append(additional_argfile)
+
         bxl_call = buck.bxl(
             os.environ["BXL_MAIN"],
             mode_argfile,
+            *additional_args,
             "--",
             "--target",
             os.environ["TARGET"],

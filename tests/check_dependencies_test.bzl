@@ -6,6 +6,8 @@
 # of this source tree.
 
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
+load("@fbsource//tools/build_defs/windows:powershell.bzl", "powershell_cmd_exe")
 
 # This is meant to be Open-source friendly. In our e2e tests, we invoke a variant from
 # tools/build_defs/check_dependencies_test.bzl that passes additional arguments for meta specific allowlist.
@@ -49,6 +51,7 @@ def check_dependencies_test(
         expect_failure_msg = None,
         env = None,
         deps = None,
+        extra_buck_args = [],
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -97,6 +100,17 @@ def check_dependencies_test(
     if mode not in ("allowlist", "blocklist"):
         fail("mode must be one of: allowlist, blocklist")
 
+    extra_buck_args_target = "%s_extra_buck_args" % (name)
+    buck_args_str = " ".join(extra_buck_args)
+    buck_genrule(
+        name = extra_buck_args_target,
+        out = "extra_buck_args",
+        bash = "echo %s > $OUT" % (buck_args_str),
+        cmd_exe = powershell_cmd_exe([
+            "Set-Content $OUT '%s'" % (buck_args_str),
+        ]),
+    )
+
     _check_dependencies_test(
         contacts = contacts,
         name = name,
@@ -106,6 +120,7 @@ def check_dependencies_test(
             "BLOCKLIST": blocklist_patterns,
             "BXL_MAIN": bxl_main,
             "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "EXTRA_BUCK_ARGS_FILE": "@$(location :%s)" % (extra_buck_args_target),
             "FLAVOR": "check_dependencies_test",
             "TARGET": target,
             "VERIFICATION_MODE": mode,
