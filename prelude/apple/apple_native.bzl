@@ -69,14 +69,14 @@ def _update_platforms(**kwargs):
         optional_args["supported_build_modes"] = kwargs.pop("supported_build_modes")
 
     if base_config_backed_target_platform != None:
-        default_target_platform = config_backed_apple_target_platform(base_config_backed_target_platform, platform, *optional_args)
+        default_target_platform = config_backed_apple_target_platform(base_config_backed_target_platform, platform, **optional_args)
     elif default_target_platform == None:
         default_target_platform = get_default_target_platform_for_platform(platform)
 
     if default_target_platform != None:
         kwargs["default_target_platform"] = default_target_platform
 
-    kwargs = set_apple_platforms(platform, base_config_backed_target_platform, kwargs, *optional_args)
+    kwargs = set_apple_platforms(platform, base_config_backed_target_platform, kwargs, **optional_args)
 
     return kwargs
 
