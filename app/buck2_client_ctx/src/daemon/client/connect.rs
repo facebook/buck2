@@ -397,6 +397,9 @@ impl<'a> BuckdLifecycle<'a> {
             ))?;
         let mut cmd = if let Some(systemd_runner) = &systemd_runner {
             systemd_runner
+                .ensure_scope_stopped(&format!("{}.scope", &slice_name))
+                .await?;
+            systemd_runner
                 .background_command_linux(daemon_exe, &slice_name, &project_dir.root())
                 .into()
         } else {
