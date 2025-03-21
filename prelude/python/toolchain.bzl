@@ -83,6 +83,7 @@ PythonToolchainInfo = provider(
         "main_runner": provider_field(str, default = "__par__.bootstrap.run_as_main"),
         # Prefix to use when running a Python test/executable.
         "run_prefix": provider_field(list[typing.Any], default = []),
+        "python_error_handler": provider_field(typing.Any, default = None),
     },
 )
 

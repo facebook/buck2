@@ -389,6 +389,7 @@ def _make_py_package_impl(
             category = "par",
             identifier = identifier_prefix.format(output_suffix),
             allow_cache_upload = allow_cache_upload,
+            error_handler = python_toolchain.python_error_handler,
         )
 
     else:

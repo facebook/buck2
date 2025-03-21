@@ -327,6 +327,7 @@ def process_native_linking(ctx, deps, python_toolchain, extra, package_style, al
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
+        error_handler = python_toolchain.python_error_handler,
     )
 
     executable_info = cxx_executable(ctx, impl_params)
