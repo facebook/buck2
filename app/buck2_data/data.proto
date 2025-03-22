@@ -2400,6 +2400,9 @@ message ErrorReport {
     optional string type_name = 2;
     optional uint32 source_line = 3;
   }
+  message StringTag {
+    string tag = 1;
+  }
 
   reserved 1, 2;
   // The error message that is shown to users on the CLI
@@ -2416,6 +2419,7 @@ message ErrorReport {
   repeated buck.data.error.ErrorTag tags = 6;
   repeated string sub_error_categories = 7;
   optional string category_key = 8;
+  repeated StringTag string_tags = 9;
 }
 
 // Identical to `ErrorReport`, but with the tags converted to strings.

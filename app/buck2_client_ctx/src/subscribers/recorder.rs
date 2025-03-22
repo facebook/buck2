@@ -1649,6 +1649,16 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         Tier::Environment => ENVIRONMENT.to_owned(),
         Tier::Input => INPUT.to_owned(),
     };
+    let tags = error
+        .tags
+        .iter()
+        .copied()
+        .filter_map(|v| buck2_data::error::ErrorTag::try_from(v).ok())
+        .map(|t| t.as_str_name().to_owned());
+
+    let string_tags = error.string_tags.iter().map(|t| t.tag.clone());
+    let tags = tags.chain(string_tags).collect();
+
     buck2_data::ProcessedErrorReport {
         tier: None,
         message: error.message,
@@ -1656,13 +1666,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         source_location: error
             .source_location
             .map(|s| SourceLocation::from(s).to_string()),
-        tags: error
-            .tags
-            .iter()
-            .copied()
-            .filter_map(|v| buck2_data::error::ErrorTag::try_from(v).ok())
-            .map(|t| t.as_str_name().to_owned())
-            .collect(),
+        tags,
         best_tag: Some(best_tag),
         sub_error_categories: error.sub_error_categories,
         category_key: error.category_key,
