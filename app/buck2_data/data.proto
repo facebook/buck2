@@ -2395,6 +2395,12 @@ message DiceEqualityCheck {
 message NoActiveDiceState {}
 
 message ErrorReport {
+  message SourceLocation {
+    string path = 1;
+    optional string type_name = 2;
+    optional uint32 source_line = 3;
+  }
+
   reserved 1, 2;
   // The error message that is shown to users on the CLI
   string message = 3;
@@ -2406,7 +2412,7 @@ message ErrorReport {
   optional string telemetry_message = 4;
   // The location in source code where this error was created. Typically a Rust
   // source file, but the exact format is not guaranteed.
-  optional string source_location = 5;
+  SourceLocation source_location = 5;
   repeated buck.data.error.ErrorTag tags = 6;
   repeated string sub_error_categories = 7;
   optional string category_key = 8;

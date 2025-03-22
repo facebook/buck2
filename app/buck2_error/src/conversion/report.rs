@@ -26,7 +26,10 @@ impl From<ErrorReport> for crate::Error {
         crate::Error::new(
             value.message.clone(),
             *tags.first().unwrap_or(&ErrorTag::Tier0),
-            SourceLocation::new(file!()),
+            value
+                .source_location
+                .map(|s| s.into())
+                .unwrap_or(SourceLocation::new(file!())),
             None,
         )
         .tag(tags)
@@ -41,7 +44,6 @@ impl From<&crate::Error> for ErrorReport {
             (format!("{:?}", err), None)
         };
 
-        let source_location = Some(err.source_location().to_string());
         let category_key = err.category_key();
 
         let sub_error_categories = if let Some(error_diagnostics) = err
@@ -66,7 +68,7 @@ impl From<&crate::Error> for ErrorReport {
         buck2_data::ErrorReport {
             message,
             telemetry_message,
-            source_location,
+            source_location: Some(err.source_location().clone().into()),
             tags: err.tags().iter().map(|t| *t as i32).collect(),
             sub_error_categories,
             category_key: Some(category_key),

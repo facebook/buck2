@@ -42,6 +42,7 @@ use buck2_error::classify::source_area;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_error::internal_error;
+use buck2_error::source_location::SourceLocation;
 use buck2_error::BuckErrorContext;
 use buck2_error::Tier;
 use buck2_event_log::ttl::manifold_event_log_ttl;
@@ -1652,7 +1653,9 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         tier: None,
         message: error.message,
         telemetry_message: error.telemetry_message,
-        source_location: error.source_location,
+        source_location: error
+            .source_location
+            .map(|s| SourceLocation::from(s).to_string()),
         tags: error
             .tags
             .iter()
