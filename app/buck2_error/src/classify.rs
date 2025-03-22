@@ -41,11 +41,23 @@ struct TagMetadata {
     // If true and an error includes non-generic tags,
     // generic tags will be excluded from category key.
     generic: bool,
+    // Hidden tags are only used to determine category,
+    // they are excluded from both category keys and error_tags
+    // reported externally.
+    // These should be removed/avoided if possible.
+    hidden: bool,
 }
 
 impl TagMetadata {
     fn generic(self, generic: bool) -> Self {
         Self { generic, ..self }
+    }
+
+    fn hidden(self) -> Self {
+        Self {
+            hidden: true,
+            ..self
+        }
     }
 }
 
@@ -56,21 +68,25 @@ macro_rules! rank {
                 category: Some(Tier::Environment),
                 rank: line!(),
                 generic: false,
+                hidden: false,
             },
             "tier0" => TagMetadata {
                 category: Some(Tier::Tier0),
                 rank: line!(),
                 generic: false,
+                hidden: false,
             },
             "input" => TagMetadata {
                 category: Some(Tier::Input),
                 rank: line!(),
                 generic: false,
+                hidden: false,
             },
             "unspecified" => TagMetadata {
                 category: None,
                 rank: line!(),
                 generic: true,
+                hidden: false,
             },
             _ => unreachable!(),
         }
@@ -94,7 +110,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ServerStderrEmpty => rank!(environment),
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
-        ErrorTag::InstallerEnvironment => rank!(environment),
+        ErrorTag::InstallerEnvironment => rank!(environment).hidden(),
         ErrorTag::IoNotConnected => rank!(environment), // This typically means eden is not mounted
 
         // Tier 0 errors
@@ -160,10 +176,10 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
         ErrorTag::DiceDuplicateActivationData => rank!(tier0),
         ErrorTag::InstallerUnknown => rank!(tier0),
-        ErrorTag::InstallerTier0 => rank!(tier0),
+        ErrorTag::InstallerTier0 => rank!(tier0).hidden(),
 
-        ErrorTag::Environment => rank!(environment),
-        ErrorTag::Tier0 => rank!(tier0),
+        ErrorTag::Environment => rank!(environment).hidden(),
+        ErrorTag::Tier0 => rank!(tier0).hidden(),
 
         // Input errors
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
@@ -195,10 +211,10 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::HttpClient => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
         ErrorTag::Unimplemented => rank!(input),
-        ErrorTag::InstallerInput => rank!(input),
+        ErrorTag::InstallerInput => rank!(input).hidden(),
         ErrorTag::BuildDeadlineExpired => rank!(input),
 
-        ErrorTag::Input => rank!(input),
+        ErrorTag::Input => rank!(input).hidden(),
 
         // Tags with unspecified category, these can represent:
         // - Tags not specific enough to determine infra vs user categorization.
@@ -236,23 +252,13 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
 
 /// Errors can be categorized by tags only if they have any non-generic tags.
 pub fn tag_is_generic(tag: &ErrorTag) -> bool {
-    if tag_is_hidden(tag) {
-        return true;
-    }
-    tag_metadata(*tag).generic
+    let metadata = tag_metadata(*tag);
+    metadata.generic || metadata.hidden
 }
 
 /// Hidden tags only used internally, for categorization.
 pub fn tag_is_hidden(tag: &ErrorTag) -> bool {
-    match tag {
-        ErrorTag::Tier0 => true,
-        ErrorTag::Input => true,
-        ErrorTag::Environment => true,
-        ErrorTag::InstallerTier0 => true,
-        ErrorTag::InstallerInput => true,
-        ErrorTag::InstallerEnvironment => true,
-        _ => false,
-    }
+    tag_metadata(*tag).hidden
 }
 
 pub trait ErrorLike {
