@@ -9,6 +9,8 @@
 
 #![cfg(test)]
 
+use buck2_data::error::ErrorTag;
+
 use crate as buck2_error;
 
 #[derive(buck2_error_derive::Error, Debug)]
@@ -188,6 +190,32 @@ fn test_error_tags() {
     );
     let b: crate::Error = TaggedError::B.into();
     assert_eq!(&b.tags(), &[crate::ErrorTag::WatchmanTimeout]);
+}
+
+#[test]
+fn test_error_tags_vec_fn() {
+    fn calc_tags(extra_tag: bool) -> Vec<ErrorTag> {
+        if extra_tag {
+            vec![ErrorTag::StarlarkFail]
+        } else {
+            vec![]
+        }
+    }
+
+    #[derive(buck2_error_derive::Error, Debug)]
+    #[error("Unused")]
+    #[buck2(tag = WatchmanTimeout, tags = calc_tags(*extra_tag))]
+    struct TaggedError {
+        extra_tag: bool,
+    }
+
+    let a: crate::Error = TaggedError { extra_tag: true }.into();
+    assert_eq!(
+        &a.tags(),
+        &[ErrorTag::StarlarkFail, ErrorTag::WatchmanTimeout]
+    );
+    let b: crate::Error = TaggedError { extra_tag: false }.into();
+    assert_eq!(&b.tags(), &[ErrorTag::WatchmanTimeout]);
 }
 
 #[test]

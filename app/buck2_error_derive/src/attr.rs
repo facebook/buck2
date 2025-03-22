@@ -68,6 +68,7 @@ impl Parse for OptionStyle {
 
 enum MacroOption {
     Tag(OptionStyle),
+    Tags(OptionStyle),
 }
 
 impl Parse for MacroOption {
@@ -85,6 +86,9 @@ impl Parse for MacroOption {
         } else if name == "tag" {
             let _eq: Token![=] = input.parse()?;
             Ok(MacroOption::Tag(input.parse()?))
+        } else if name == "tags" {
+            let _eq: Token![=] = input.parse()?;
+            Ok(MacroOption::Tags(input.parse()?))
         } else {
             Err(syn::Error::new_spanned(name, "expected option"))
         }
@@ -96,6 +100,7 @@ pub struct Attrs<'a> {
     pub source: Option<&'a Attribute>,
     pub transparent: Option<Transparent<'a>>,
     pub tags: Vec<OptionStyle>,
+    pub tags_expr: Option<OptionStyle>,
 }
 
 #[derive(Clone)]
@@ -131,6 +136,7 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
         source: None,
         transparent: None,
         tags: Vec::new(),
+        tags_expr: None,
     };
 
     for attr in input {
@@ -150,6 +156,9 @@ pub fn get(input: &[Attribute]) -> Result<Attrs> {
                 match option {
                     MacroOption::Tag(style) => {
                         attrs.tags.push(style);
+                    }
+                    MacroOption::Tags(style) => {
+                        attrs.tags_expr = Some(style);
                     }
                 }
             }
