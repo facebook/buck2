@@ -35,20 +35,37 @@ pub enum Tier {
     Tier0,
 }
 
+struct TagMetadata {
+    category: Option<Tier>,
+    rank: u32,
+}
+
 macro_rules! rank {
     ( $tier:ident ) => {
         match stringify!($tier) {
-            "environment" => (Some(Tier::Environment), line!()),
-            "tier0" => (Some(Tier::Tier0), line!()),
-            "input" => (Some(Tier::Input), line!()),
-            "unspecified" => (None, line!()),
+            "environment" => TagMetadata {
+                category: Some(Tier::Environment),
+                rank: line!(),
+            },
+            "tier0" => TagMetadata {
+                category: Some(Tier::Tier0),
+                rank: line!(),
+            },
+            "input" => TagMetadata {
+                category: Some(Tier::Input),
+                rank: line!(),
+            },
+            "unspecified" => TagMetadata {
+                category: None,
+                rank: line!(),
+            },
             _ => unreachable!(),
         }
     };
 }
 
 /// Ordering determines tag rank, more interesting tags first
-pub(crate) fn category_and_rank(tag: ErrorTag) -> (Option<Tier>, u32) {
+fn tag_metadata(tag: ErrorTag) -> TagMetadata {
     match tag {
         // Environment errors
         ErrorTag::NoValidCerts => rank!(environment),
@@ -208,7 +225,7 @@ pub fn tag_is_generic(tag: &ErrorTag) -> bool {
     if tag_is_hidden(tag) {
         return true;
     }
-    category_and_rank(*tag).0.is_none()
+    tag_metadata(*tag).category.is_none()
 }
 
 /// Hidden tags only used internally, for categorization.
@@ -247,7 +264,7 @@ impl ErrorLike for buck2_data::ErrorReport {
 
     fn category(&self) -> Tier {
         self.best_tag()
-            .map(|t| category_and_rank(t).0)
+            .map(|t| tag_metadata(t).category)
             .flatten()
             .unwrap_or(Tier::Tier0)
     }
@@ -267,12 +284,12 @@ pub fn best_tag(tags: impl IntoIterator<Item = ErrorTag>) -> Option<ErrorTag> {
 
 /// Tag rank: smaller is more interesting.
 fn tag_rank(tag: ErrorTag) -> u32 {
-    category_and_rank(tag).1
+    tag_metadata(tag).rank
 }
 
 /// Some tags are known to be either infrastructure or user errors.
 pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
-    category_and_rank(tag).0
+    tag_metadata(tag).category
 }
 
 #[derive(derive_more::Display, Debug, PartialEq)]
