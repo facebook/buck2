@@ -221,8 +221,8 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     assert "buckd stderr:\n" in error["message"]
     assert "panicked at" in error["message"]
 
-    assert invocation_record["best_error_tag"] == "SERVER_PANICKED"
-    category_key = invocation_record["best_error_category_key"]
+    assert error["best_tag"] == "SERVER_PANICKED"
+    category_key = error["category_key"]
     assert category_key.startswith("SERVER_PANICKED")
 
     # TODO dump stack trace on windows
@@ -248,7 +248,7 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["daemon_connection_failure"] is True
     assert record["daemon_was_started"] is None
 
-    assert record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
+    assert record["errors"][0]["best_tag"] == "SERVER_STDERR_UNKNOWN"
 
 
 @buck_test()
@@ -265,19 +265,19 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     assert len(errors) == 1
     [error] = errors
 
-    category_key = invocation_record["best_error_category_key"]
+    category_key = error["category_key"]
 
     if is_running_on_windows():
         # TODO get windows to dump a stack trace
         assert "buckd stderr is empty" in error["message"]
         assert category_key == "SERVER_STDERR_EMPTY"
-        assert invocation_record["best_error_tag"] == "SERVER_STDERR_EMPTY"
+        assert error["best_tag"] == "SERVER_STDERR_EMPTY"
     else:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]
         assert "*** Signal 6 (SIGABRT)" in error["message"]
         assert category_key.startswith("SERVER_STDERR_UNKNOWN")
-        assert invocation_record["best_error_tag"] == "SERVER_STDERR_UNKNOWN"
+        assert error["best_tag"] == "SERVER_STDERR_UNKNOWN"
 
     # TODO dump stack trace on mac and windows
     if is_running_on_linux():
@@ -307,8 +307,9 @@ async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
         await expect_failure(build)
 
         invocation_record = read_invocation_record(record)
-        assert invocation_record["best_error_tag"] == "IO_MATERIALIZER_FILE_BUSY"
-        assert invocation_record["errors"][0]["category"] == "ENVIRONMENT"
+        best_error = invocation_record["errors"][0]
+        assert best_error["best_tag"] == "IO_MATERIALIZER_FILE_BUSY"
+        assert best_error["category"] == "ENVIRONMENT"
     else:
         await build
 
@@ -330,7 +331,7 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
         )
     )
     record = read_invocation_record(record_path)
-    category_key = record["best_error_category_key"]
+    category_key = record["errors"][0]["category_key"]
     assert category_key == "RE_NOT_FOUND:UNKNOWN"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
@@ -354,9 +355,10 @@ async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
     assert "Incompatible executor preferences" in res.stderr
 
     record = read_invocation_record(record_path)
-    assert record["error_category"] == "USER"
+    best_error = record["errors"][0]
+    assert best_error["category"] == "USER"
     assert (
-        record["best_error_category_key"]
+        best_error["category_key"]
         == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )
 

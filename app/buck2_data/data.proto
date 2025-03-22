@@ -1992,7 +1992,7 @@ enum DaemonWasStartedReason {
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 88, 89;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 82, 88, 89, 100, 234, 235;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -2124,9 +2124,6 @@ message InvocationRecord {
   repeated ClientMetadata client_metadata = 76;
   // The errors that occured during the command.
   repeated ProcessedErrorReport errors = 79;
-  // The most interesting error tag that occurred during the command.
-  // Uppercase of `ErrorTag` enum variant, e.g. `STARLARK_FAIL`.
-  optional string best_error_tag = 82;
   // Cache hit rate as it appears in the console
   float cache_hit_rate = 78;
   repeated string target_rule_type_names = 80;
@@ -2163,8 +2160,6 @@ message InvocationRecord {
   uint64 min_attempted_build_count_since_rebase = 98;
   // Metadata about devices installed to by an install command.
   repeated DeviceMetadata install_device_metadata = 99;
-  // The category key for the error with best error tag.
-  optional string best_error_category_key = 100;
   // The list of active network devices
   repeated NetworkKind active_networks_kinds = 102;
   // Configuration used during the build command.
@@ -2198,13 +2193,6 @@ message InvocationRecord {
   optional uint64 hedwig_download_bytes = 231;
   optional uint64 hedwig_upload_queries = 232;
   optional uint64 hedwig_upload_bytes = 233;
-
-  // If `errors` is not empty, the category of the error
-  // assumed to have triggered the command failure.
-  optional string error_category = 234;
-
-  // Larger subsystem where the best error originated, derived from best_tag.
-  optional string best_error_source_area = 235;
 
   // Local cache hits and misses stats
   optional int64 local_cache_hits_files = 236;

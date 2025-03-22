@@ -219,14 +219,6 @@ pub(crate) struct InvocationRecorder {
     health_check_tags: HashSet<String>,
 }
 
-struct ErrorsReport {
-    errors: Vec<ProcessedErrorReport>,
-    best_error_tag: Option<String>,
-    best_error_category_key: Option<String>,
-    best_error_source_area: Option<String>,
-    error_category: Option<String>,
-}
-
 impl InvocationRecorder {
     pub fn new(
         fb: FacebookInit,
@@ -422,7 +414,7 @@ impl InvocationRecorder {
         Ok(Default::default())
     }
 
-    fn finalize_errors(&mut self) -> ErrorsReport {
+    fn finalize_errors(&mut self) -> Vec<ProcessedErrorReport> {
         // Add stderr to GRPC connection errors if available
         let connection_errors: Vec<buck2_error::Error> = self
             .client_errors
@@ -461,30 +453,7 @@ impl InvocationRecorder {
         errors.extend(command_errors);
         errors.sort_by_key(|e| e.error_rank());
 
-        let best_error = errors
-            .first()
-            .map(|error| process_error_report(error.clone()));
-        let (best_error_category_key, best_error_tag, error_category, best_error_source_area) =
-            if let Some(best_error) = best_error {
-                (
-                    best_error.category_key,
-                    best_error.best_tag,
-                    best_error.category,
-                    best_error.source_area,
-                )
-            } else {
-                (None, None, None, None)
-            };
-
-        let errors = errors.into_map(process_error_report);
-
-        ErrorsReport {
-            errors,
-            best_error_tag,
-            best_error_category_key,
-            error_category,
-            best_error_source_area,
-        }
+        errors.into_map(process_error_report)
     }
 
     fn create_record_event(&mut self) -> BuckEvent {
@@ -653,7 +622,7 @@ impl InvocationRecorder {
         let mut metadata = Self::default_metadata();
         metadata.strings.extend(std::mem::take(&mut self.metadata));
 
-        let errors_report = self.finalize_errors();
+        let errors = self.finalize_errors();
 
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.to_owned()),
@@ -774,11 +743,7 @@ impl InvocationRecorder {
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
             client_metadata: std::mem::take(&mut self.client_metadata),
-            errors: errors_report.errors,
-            best_error_tag: errors_report.best_error_tag,
-            best_error_category_key: errors_report.best_error_category_key,
-            best_error_source_area: errors_report.best_error_source_area,
-            error_category: errors_report.error_category,
+            errors,
             target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
             new_configs_used: Some(self.has_new_buckconfigs),
             re_max_download_speed: self
