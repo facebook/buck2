@@ -378,3 +378,28 @@ async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
 
     assert "DAEMON_CONNECT" in error["tags"]
     assert "DAEMON_STATE_INIT_FAILED" in error["tags"]
+
+
+@buck_test(setup_eden=True, skip_for_os=["windows"])
+async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
+    targets_file = buck.cwd / "TARGETS.fixture"
+
+    # remove file read permissions during test execution, test setup will fail if permissions are set on any fixture earlier
+    targets_file.chmod(0o000)
+
+    # triggers file read IO error
+    record_path = tmp_path / "record.json"
+    await expect_failure(
+        buck.targets(
+            ":",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        )
+    )
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    assert len(errors) == 1
+    [error] = errors
+
+    assert "IO_EDEN" in error["tags"]
+    assert error["category_key"] == "IO_PERMISSION_DENIED"

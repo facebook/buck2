@@ -37,12 +37,25 @@ use crate::soft_error;
 
 impl IoError {
     pub fn new(op: String, e: io::Error) -> Self {
-        Self { op, e }
+        Self {
+            op,
+            e,
+            is_eden: false,
+        }
     }
 
     pub fn new_with_path<P: AsRef<AbsPath>>(op: &str, path: P, e: io::Error) -> Self {
-        let op = format!("{}({})", op, P::as_ref(&path).display());
-        Self { op, e }
+        let path = P::as_ref(&path);
+        #[cfg(fbcode_build)]
+        let is_eden = path
+            .parent()
+            .and_then(|p| detect_eden::is_eden(p.to_path_buf()).ok())
+            .unwrap_or(false);
+        #[cfg(not(fbcode_build))]
+        let is_eden = false;
+
+        let op = format!("{}({})", op, path.display());
+        Self { op, e, is_eden }
     }
 
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
@@ -57,13 +70,22 @@ impl IoError {
     }
 }
 
+fn io_error_tags(is_eden: bool) -> Vec<ErrorTag> {
+    let mut tags = vec![ErrorTag::IoSystem];
+    if is_eden {
+        tags.push(ErrorTag::IoEden);
+    }
+    tags
+}
+
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tag = IoSystem)]
+#[buck2(tags = io_error_tags(*is_eden))]
 #[error("{op}")]
 pub struct IoError {
     op: String,
     #[source]
     e: io::Error,
+    is_eden: bool,
 }
 
 fn is_retryable(err: &io::Error) -> bool {
