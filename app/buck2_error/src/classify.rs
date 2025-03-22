@@ -38,6 +38,15 @@ pub enum Tier {
 struct TagMetadata {
     category: Option<Tier>,
     rank: u32,
+    // If true and an error includes non-generic tags,
+    // generic tags will be excluded from category key.
+    generic: bool,
+}
+
+impl TagMetadata {
+    fn generic(self, generic: bool) -> Self {
+        Self { generic, ..self }
+    }
 }
 
 macro_rules! rank {
@@ -46,18 +55,22 @@ macro_rules! rank {
             "environment" => TagMetadata {
                 category: Some(Tier::Environment),
                 rank: line!(),
+                generic: false,
             },
             "tier0" => TagMetadata {
                 category: Some(Tier::Tier0),
                 rank: line!(),
+                generic: false,
             },
             "input" => TagMetadata {
                 category: Some(Tier::Input),
                 rank: line!(),
+                generic: false,
             },
             "unspecified" => TagMetadata {
                 category: None,
                 rank: line!(),
+                generic: true,
             },
             _ => unreachable!(),
         }
@@ -187,18 +200,19 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
 
         ErrorTag::Input => rank!(input),
 
-        // Generic tags, these can represent:
+        // Tags with unspecified category, these can represent:
         // - Tags not specific enough to determine infra vs user categorization.
         // - Tags not specific enough to usefully disambiguate category keys.
         // - Something that isn't actually an error.
         // - A phase of the build.
+        // By default these are generic (excluded from category keys)
         ErrorTag::ClientGrpc => rank!(unspecified),
         ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
         ErrorTag::IoNotFound => rank!(unspecified),
         ErrorTag::IoSource => rank!(unspecified),
         ErrorTag::IoSystem => rank!(unspecified),
-        ErrorTag::IoEden => rank!(unspecified),
+        ErrorTag::IoEden => rank!(unspecified).generic(false),
         ErrorTag::IoEdenConnectionError => rank!(unspecified),
         ErrorTag::IoEdenRequestError => rank!(unspecified),
         ErrorTag::IoEdenUnknownField => rank!(unspecified),
@@ -225,7 +239,7 @@ pub fn tag_is_generic(tag: &ErrorTag) -> bool {
     if tag_is_hidden(tag) {
         return true;
     }
-    tag_metadata(*tag).category.is_none()
+    tag_metadata(*tag).generic
 }
 
 /// Hidden tags only used internally, for categorization.

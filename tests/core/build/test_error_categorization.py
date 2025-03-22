@@ -402,4 +402,4 @@ async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
     [error] = errors
 
     assert "IO_EDEN" in error["tags"]
-    assert error["category_key"] == "IO_PERMISSION_DENIED"
+    assert error["category_key"] == "IO_EDEN:IO_PERMISSION_DENIED"
