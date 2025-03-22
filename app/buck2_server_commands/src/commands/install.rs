@@ -910,7 +910,7 @@ async fn send_file(
             error = error.tag([category_tag]);
 
             for tag in error_detail.tags {
-                error = error.context_for_key(&tag);
+                error = error.string_tag(&tag);
             }
             outcome = Err(error);
         }

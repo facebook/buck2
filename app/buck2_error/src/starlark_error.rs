@@ -97,7 +97,7 @@ fn error_with_starlark_context(
                     ContextValue::StarlarkError(_) => {
                         return buck2_error.context_for_starlark_backtrace(starlark_context);
                     }
-                    ContextValue::Tags(_) | ContextValue::Key(_) => {
+                    ContextValue::Tags(_) | ContextValue::StringTag(_) => {
                         context_stack.push(context_value.clone())
                     }
                 }
@@ -313,7 +313,7 @@ mod tests {
         let e = crate::Error::from(FullMetadataError);
         let e = e.context(context_error);
         let e = e.tag([error_tag]);
-        let e = e.context_for_key(context_key);
+        let e = e.string_tag(context_key);
 
         let context_popped = error_with_starlark_context(&e, starlark_context);
 
