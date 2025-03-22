@@ -34,7 +34,6 @@ use buck2_core::buck2_env;
 use buck2_data::DaemonWasStartedReason;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_error::source_location::SourceLocation;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_util::process::async_background_command;
@@ -1094,19 +1093,7 @@ async fn daemon_connect_error(
 
     let error = if let Ok(error_report) = error_report {
         // Daemon wrote an error and most likely quit.
-        // (note: not using tags() as a workaround for likely false positive ASAN failure)
-        let tags: Vec<ErrorTag> = error_report
-            .tags
-            .into_iter()
-            .filter_map(|v| buck2_error::ErrorTag::try_from(v).ok())
-            .collect();
-        let daemon_error = buck2_error::Error::new(
-            error_report.message.clone(),
-            *tags.first().unwrap_or(&ErrorTag::Tier0),
-            SourceLocation::new(file!()),
-            None,
-        )
-        .tag(tags);
+        let daemon_error: buck2_error::Error = error_report.into();
         if daemon_error.has_tag(ErrorTag::DaemonStateInitFailed) {
             // If error is in this stage of daemon init, exclude connection error details/workaround message.
             // TODO(ctolliday) always hide connection error details/workaround message if there is a structured error from daemon.

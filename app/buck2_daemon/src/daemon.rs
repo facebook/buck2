@@ -28,7 +28,6 @@ use buck2_core::fs::fs_util;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
-use buck2_events::errors::create_error_report;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -453,7 +452,7 @@ impl DaemonCommand {
         if let Err(err) = res.as_ref() {
             fs_util::write(
                 daemon_dir.buckd_error_log(),
-                serde_json::to_string(&create_error_report(err))?,
+                serde_json::to_string(&buck2_data::ErrorReport::from(err))?,
             )?;
         }
         res

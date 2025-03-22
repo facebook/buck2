@@ -50,7 +50,6 @@ use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::errors::create_error_report;
 use buck2_events::source::ChannelEventSource;
 use buck2_events::Event;
 use buck2_execute::digest_config::DigestConfig;
@@ -574,8 +573,7 @@ fn convert_positive_duration(proto_duration: &prost_types::Duration) -> Result<D
 }
 
 fn error_to_command_result(e: buck2_error::Error) -> CommandResult {
-    let report = create_error_report(&e.into());
-    let errors = vec![report];
+    let errors = vec![buck2_data::ErrorReport::from(&e)];
 
     CommandResult {
         result: Some(command_result::Result::Error(CommandError { errors })),

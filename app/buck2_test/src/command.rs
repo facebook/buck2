@@ -62,7 +62,6 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_events::errors::create_error_report;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
@@ -548,49 +547,41 @@ fn error_report_for_test_errors(
     exit_code: Option<i32>,
     status: &buck2_cli_proto::test_response::TestStatuses,
 ) -> Vec<buck2_data::ErrorReport> {
-    let mut errors = vec![];
+    let mut errors: Vec<buck2_error::Error> = vec![];
 
     if let Some(failed) = &status.failed {
         if failed.count > 0 {
-            errors.push(create_error_report(&buck2_error::Error::from(
-                TestError::TestFailed,
-            )));
+            errors.push(TestError::TestFailed.into());
         }
     }
     if let Some(fatal) = &status.fatals {
         if fatal.count > 0 {
-            errors.push(create_error_report(&buck2_error::Error::from(
-                TestError::Fatal,
-            )));
+            errors.push(TestError::Fatal.into());
         }
     }
     if let Some(listing_failed) = &status.listing_failed {
         if listing_failed.count > 0 {
-            errors.push(create_error_report(&buck2_error::Error::from(
-                TestError::ListingFailed,
-            )));
+            errors.push(TestError::ListingFailed.into());
         }
     }
     // If a test was skipped due to condition not being met a non-zero exit code will be returned,
     // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
     if let Some(skipped) = &status.skipped {
         if skipped.count > 0 && exit_code.is_none_or(|code| code != 0) {
-            errors.push(create_error_report(&buck2_error::Error::from(
-                TestError::TestSkipped,
-            )));
+            errors.push(TestError::TestSkipped.into());
         }
     }
 
     if let Some(code) = exit_code {
         if errors.is_empty() && code != 0 {
-            errors.push(create_error_report(&buck2_error::buck2_error!(
+            errors.push(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::TestExecutor,
                 "Test Executor Failed with exit code {code}"
-            )))
+            ))
         }
     }
 
-    errors
+    errors.iter().map(buck2_data::ErrorReport::from).collect()
 }
 
 async fn test_targets(
@@ -776,13 +767,13 @@ async fn test_targets(
 
     let mut errors = convert_error(&build_target_result)
         .iter()
-        .map(create_error_report)
+        .map(buck2_data::ErrorReport::from)
         .unique_by(|e| e.message.clone())
         .collect::<Vec<_>>();
 
     if let Some(timeout_observer) = timeout_observer {
         if !timeout_observer.is_alive().await {
-            errors.push(create_error_report(&DeadlineExpired.into()));
+            errors.push(buck2_data::ErrorReport::from(&DeadlineExpired.into()));
         }
     }
 

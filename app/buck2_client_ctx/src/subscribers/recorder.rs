@@ -49,7 +49,6 @@ use buck2_event_observer::action_stats;
 use buck2_event_observer::cache_hit_rate::total_cache_hit_rate;
 use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
-use buck2_events::errors::create_error_report;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::BuckEvent;
@@ -447,8 +446,7 @@ impl InvocationRecorder {
             self.client_errors.push(error);
         }
 
-        let mut errors =
-            std::mem::take(&mut self.client_errors).into_map(|e| create_error_report(&e));
+        let mut errors = std::mem::take(&mut self.client_errors).into_map(|e| (&e).into());
         let command_errors = std::mem::take(&mut self.command_errors);
         errors.extend(command_errors);
         errors.sort_by_key(|e| e.error_rank());

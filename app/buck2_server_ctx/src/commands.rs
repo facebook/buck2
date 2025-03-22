@@ -11,7 +11,6 @@ use std::collections::HashSet;
 
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::errors::create_error_report;
 
 /// Common code executed in the end of command to produce `CommandEnd`.
 pub fn command_end<R, D>(result: &buck2_error::Result<R>, data: D) -> buck2_data::CommandEnd
@@ -34,7 +33,7 @@ where
 {
     let (is_success, errors) = match result {
         Ok(r) => (is_success(r), additional_telemetry_errors(r)),
-        Err(e) => (false, vec![create_error_report(e)]),
+        Err(e) => (false, vec![e.into()]),
     };
     buck2_data::CommandEnd {
         is_success,

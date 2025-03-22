@@ -45,7 +45,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::span_async;
-use buck2_events::errors::create_error_report;
 use buck2_node::configured_universe::CqueryUniverse;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -305,7 +304,7 @@ async fn process_build_result(
         .build_errors
         .errors
         .iter()
-        .map(create_error_report)
+        .map(buck2_data::ErrorReport::from)
         .unique_by(|e| e.message.clone())
         .collect();
 

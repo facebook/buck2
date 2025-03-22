@@ -43,7 +43,6 @@ use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_events::errors::create_error_report;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
@@ -306,7 +305,7 @@ impl BxlServerCommand {
             Ok(_) => vec![],
             Err(errors) => errors
                 .iter()
-                .map(create_error_report)
+                .map(buck2_data::ErrorReport::from)
                 .unique_by(|e| e.message.clone())
                 .collect(),
         }

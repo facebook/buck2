@@ -21,6 +21,7 @@ pub mod prost;
 pub mod prost_types;
 pub mod regex;
 pub mod relative_path;
+pub mod report;
 pub mod rusqlite;
 pub mod serde_json;
 pub mod stds;
