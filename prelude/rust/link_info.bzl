@@ -241,12 +241,6 @@ RustCxxLinkGroupInfo = record(
     link_group_preferred_linkage = field(dict[Label, Linkage]),
 )
 
-def enable_link_groups(ctx: AnalysisContext):
-    if not cxx_is_gnu(ctx):
-        # check minimum requirements
-        return False
-    return ctx.attrs.auto_link_groups and ctx.attrs.link_group_map
-
 # Returns all first-order dependencies.
 def _do_resolve_deps(
         deps: list[Dependency],
@@ -411,13 +405,21 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        link_strategy: LinkStrategy) -> RustCxxLinkGroupInfo:
+        link_strategy: LinkStrategy) -> RustCxxLinkGroupInfo | None:
+    # Check minimum requirements
+    if not cxx_is_gnu(ctx) or not ctx.attrs.auto_link_groups:
+        return None
+
     link_graphs = inherited_linkable_graphs(ctx, dep_ctx)
+
+    link_group = get_link_group(ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
-    link_group = get_link_group(ctx)
     link_group_info = get_link_group_info(ctx, link_graphs, link_strategy)
+    if link_group_info == None:
+        return None
+
     link_groups = link_group_info.groups
     link_group_mappings = link_group_info.mappings
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
