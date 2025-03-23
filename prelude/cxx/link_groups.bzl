@@ -196,6 +196,8 @@ def build_link_group_info(
         graph = graph,
     )
 
+# `executable_deps` must be provided unless the `link_group_map` is a dependency
+# that outputs the `LinkGroupInfo` provider
 def get_link_group_info(
         ctx: AnalysisContext,
         executable_deps: [list[LinkableGraph], None] = None) -> [LinkGroupInfo, None]:
@@ -212,24 +214,23 @@ def get_link_group_info(
     if isinstance(link_group_map, Dependency):
         if LinkGroupDefinitions in link_group_map:
             definitions = link_group_map[LinkGroupDefinitions].definitions
-            return get_link_group_info_from_definitions(ctx, executable_deps, definitions)
+            return _get_link_group_info_from_definitions(ctx, executable_deps, definitions)
         return link_group_map[LinkGroupInfo]
 
     # Otherwise build one from our graph.
-    return get_link_group_info_from_linkable_graph(ctx, executable_deps, ctx.attrs.link_group_map)
+    return _get_link_group_info_from_linkable_graph(ctx, executable_deps, ctx.attrs.link_group_map)
 
-def get_link_group_info_from_linkable_graph(
+def _get_link_group_info_from_linkable_graph(
         ctx: AnalysisContext,
-        executable_deps: [list[LinkableGraph], None] = None,
-        link_group_map: list = []) -> [LinkGroupInfo, None]:
+        executable_deps: list[LinkableGraph],
+        link_group_map: list) -> LinkGroupInfo:
     link_groups = parse_groups_definitions(link_group_map)
-    return get_link_group_info_from_definitions(ctx, executable_deps, link_groups)
+    return _get_link_group_info_from_definitions(ctx, executable_deps, link_groups)
 
-def get_link_group_info_from_definitions(
+def _get_link_group_info_from_definitions(
         ctx: AnalysisContext,
-        executable_deps: [list[LinkableGraph], None] = None,
-        link_groups: list[Group] = []) -> [LinkGroupInfo, None]:
-    expect(executable_deps != None)
+        executable_deps: list[LinkableGraph],
+        link_groups: list[Group]) -> LinkGroupInfo:
     linkable_graph = create_linkable_graph(
         ctx,
         deps = (
