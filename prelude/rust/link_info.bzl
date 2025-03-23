@@ -411,13 +411,13 @@ def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionCon
 def inherited_rust_cxx_link_group_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        link_strategy: [LinkStrategy, None] = None) -> RustCxxLinkGroupInfo:
+        link_strategy: LinkStrategy) -> RustCxxLinkGroupInfo:
     link_graphs = inherited_linkable_graphs(ctx, dep_ctx)
 
     # Assume a rust executable wants to use link groups if a link group map
     # is present
     link_group = get_link_group(ctx)
-    link_group_info = get_link_group_info(ctx, link_graphs)
+    link_group_info = get_link_group_info(ctx, link_graphs, link_strategy)
     link_groups = link_group_info.groups
     link_group_mappings = link_group_info.mappings
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())

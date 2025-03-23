@@ -929,7 +929,11 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     link_style = attr_link_style(ctx)
 
     # Link Groups
-    link_group_info = get_link_group_info(ctx, filter_and_map_idx(LinkableGraph, attr_deps(ctx)))
+    link_group_info = get_link_group_info(
+        ctx,
+        filter_and_map_idx(LinkableGraph, attr_deps(ctx)),
+        to_link_strategy(link_style),
+    )
 
     # Profiling doesn't support shared libraries
     if enable_profiling and link_style == LinkStyle("shared"):

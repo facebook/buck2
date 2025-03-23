@@ -42,6 +42,7 @@ load(
 load(
     "@prelude//linking:link_info.bzl",
     "LinkArgs",  # @unused Used as a type
+    "LinkStrategy",
     "LinkedObject",
 )
 load(
@@ -173,12 +174,14 @@ def _get_link_group_info(
     link_group_map = ctx.attrs.link_group_map
     definitions = []
 
+    # Native python is only ever used with static-pic linking
+    link_strategy = LinkStrategy("static_pic")
     if isinstance(link_group_map, Dependency):
         if LinkGroupDefinitions in link_group_map:
-            definitions = link_group_map[LinkGroupDefinitions].definitions
+            definitions = link_group_map[LinkGroupDefinitions].definitions(ctx.label, link_strategy)
 
     if not definitions:
-        link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps])
+        link_group_info = get_link_group_info(ctx, [d.linkable_graph for d in link_deps], link_strategy)
 
         # Add link group specs from user-provided link group info.
         if link_group_info != None:

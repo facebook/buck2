@@ -8,6 +8,7 @@
 load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",
+    "LinkStrategy",
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load(":groups_types.bzl", "Group", "GroupFilterInfo", "Traversal")
@@ -47,7 +48,8 @@ LinkGroupInfo = provider(
 
 LinkGroupDefinitions = provider(
     fields = {
-        "definitions": provider_field(list[Group]),
+        # The label is the top-level target
+        "definitions": provider_field(typing.Callable[[Label, LinkStrategy], list[Group]]),
     },
 )
 
