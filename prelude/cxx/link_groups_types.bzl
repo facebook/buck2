@@ -49,7 +49,7 @@ LinkGroupInfo = provider(
 LinkGroupDefinitions = provider(
     fields = {
         # The label is the top-level target
-        "definitions": provider_field(typing.Callable[[Label, LinkStrategy], list[Group]]),
+        "definitions": provider_field(typing.Callable[[Label, LinkStrategy], list[Group] | None]),
     },
 )
 

@@ -215,6 +215,8 @@ def get_link_group_info(
     if isinstance(link_group_map, Dependency):
         if LinkGroupDefinitions in link_group_map:
             definitions = link_group_map[LinkGroupDefinitions].definitions(ctx.label, link_strategy)
+            if definitions == None:
+                return None
             return _get_link_group_info_from_definitions(ctx, executable_deps, definitions)
         return link_group_map[LinkGroupInfo]
 
