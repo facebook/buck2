@@ -2214,7 +2214,8 @@ message InvocationRecord {
   // CASd persistent cache mode used by the RE client
   optional string persistent_cache_mode = 245;
 
-  // The start time measured by the wrapper (Most accurate start_time we track)
+  // Buck2 binary start time, if invoked through the wrapper, then it will be
+  // the wrapper start time as that'd be more accurate
   optional uint64 wrapper_start_time = 246;
 }
 

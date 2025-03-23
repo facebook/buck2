@@ -17,7 +17,6 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
@@ -96,7 +95,7 @@ pub(crate) struct InvocationRecorder {
     cli_args: Vec<String>,
     representative_config_flags: Vec<String>,
     isolation_dir: String,
-    start_time: Instant,
+    start_time: u64,
     build_count_manager: Option<BuildCountManager>,
     trace_id: TraceId,
     command_end: Option<buck2_data::CommandEnd>,
@@ -234,6 +233,7 @@ impl InvocationRecorder {
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         client_metadata: Vec<buck2_data::ClientMetadata>,
         health_check_tags_receiver: Option<Receiver<Vec<String>>>,
+        start_time: u64,
     ) -> Self {
         Self {
             fb,
@@ -242,7 +242,7 @@ impl InvocationRecorder {
             cli_args: sanitized_argv,
             representative_config_flags,
             isolation_dir,
-            start_time: Instant::now(),
+            start_time,
             build_count_manager,
             trace_id,
             command_end: None,
@@ -627,9 +627,9 @@ impl InvocationRecorder {
             command_name: Some(self.command_name.to_owned()),
             command_end: self.command_end.take(),
             command_duration: self.command_duration.take(),
-            client_walltime: self.start_time.elapsed().try_into().ok(),
+            client_walltime: elapsed_since(self.start_time).try_into().ok(),
             wrapper_start_time: buck2_env!(BUCK_WRAPPER_START_TIME_ENV_VAR, type=u64)
-                .unwrap_or(None),
+                .unwrap_or(Some(self.start_time)),
             re_session_id: self.re_session_id.take().unwrap_or_default(),
             re_experiment_name: self.re_experiment_name.take().unwrap_or_default(),
             persistent_cache_mode: self.persistent_cache_mode.clone(),
@@ -870,7 +870,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
-        self.time_to_command_start = Some(self.start_time.elapsed());
+        self.time_to_command_start = Some(elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -929,7 +929,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.metadata.extend(command.metadata.clone());
-        self.time_to_command_critical_section = Some(self.start_time.elapsed());
+        self.time_to_command_critical_section = Some(elapsed_since(self.start_time));
         Ok(())
     }
     fn handle_command_critical_end(
@@ -947,7 +947,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         if self.time_to_first_action_execution.is_none() {
-            self.time_to_first_action_execution = Some(self.start_time.elapsed());
+            self.time_to_first_action_execution = Some(elapsed_since(self.start_time));
         }
         Ok(())
     }
@@ -997,7 +997,7 @@ impl InvocationRecorder {
             self.run_command_failure_count += 1;
         }
 
-        self.time_to_last_action_execution_end = Some(self.start_time.elapsed());
+        self.time_to_last_action_execution_end = Some(elapsed_since(self.start_time));
 
         Ok(())
     }
@@ -1008,7 +1008,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_analysis
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1018,7 +1018,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_load_first_build_file
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1031,7 +1031,7 @@ impl InvocationRecorder {
             Some(buck2_data::executor_stage_start::Stage::Re(re_stage)) => match &re_stage.stage {
                 Some(buck2_data::re_stage::Stage::Execute(_)) => {
                     self.time_to_first_command_execution_start
-                        .get_or_insert_with(|| self.start_time.elapsed());
+                        .get_or_insert_with(|| elapsed_since(self.start_time));
                 }
                 _ => {}
             },
@@ -1039,7 +1039,7 @@ impl InvocationRecorder {
                 match &local_stage.stage {
                     Some(buck2_data::local_stage::Stage::Execute(_)) => {
                         self.time_to_first_command_execution_start
-                            .get_or_insert_with(|| self.start_time.elapsed());
+                            .get_or_insert_with(|| elapsed_since(self.start_time));
                     }
                     _ => {}
                 }
@@ -1160,7 +1160,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_test_discovery
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1170,7 +1170,7 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         self.time_to_first_test_run
-            .get_or_insert_with(|| self.start_time.elapsed());
+            .get_or_insert_with(|| elapsed_since(self.start_time));
         Ok(())
     }
 
@@ -1900,6 +1900,7 @@ pub(crate) fn try_get_invocation_recorder(
             .map(ClientMetadata::to_proto)
             .collect(),
         health_check_tags_receiver,
+        ctx.start_time,
     );
     Ok(Box::new(recorder))
 }
@@ -1912,6 +1913,15 @@ fn truncate_stderr(stderr: &str) -> &str {
     let truncate_at = stderr.len().saturating_sub(max_len);
     let truncate_at = stderr.ceil_char_boundary(truncate_at);
     &stderr[truncate_at..]
+}
+
+fn elapsed_since(start_time: u64) -> Duration {
+    let current_time = SystemTime::now();
+    let buck2_start_time = SystemTime::UNIX_EPOCH + Duration::from_millis(start_time);
+
+    current_time
+        .duration_since(buck2_start_time)
+        .unwrap_or_default()
 }
 
 #[cfg(test)]

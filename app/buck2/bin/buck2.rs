@@ -13,6 +13,8 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 use buck2::exec;
 use buck2::panic;
@@ -125,6 +127,8 @@ fn main() -> ! {
     });
 
     fn main_with_result() -> ExitResult {
+        let start_time = get_unix_timestamp_millis();
+
         panic::initialize().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         check_cargo();
 
@@ -147,6 +151,7 @@ fn main() -> ! {
             log_reload_handle: &log_reload_handle,
             stdin: &mut stdin,
             working_dir: &cwd,
+            start_time,
             args: &args,
             restarter: &mut restarter,
             trace_id: first_trace_id.dupe(),
@@ -154,6 +159,8 @@ fn main() -> ! {
         });
 
         let restart = |res| {
+            let restart_start_time = get_unix_timestamp_millis();
+
             if !force_want_restart && !restarter.should_restart() {
                 tracing::debug!("No restart was requested");
                 return res;
@@ -172,6 +179,7 @@ fn main() -> ! {
             exec(ProcessContext {
                 log_reload_handle: &log_reload_handle,
                 stdin: &mut stdin,
+                start_time: restart_start_time,
                 working_dir: &cwd,
                 args: &args,
                 restarter: &mut restarter,
@@ -185,6 +193,15 @@ fn main() -> ! {
         } else {
             res.or_else(restart)
         }
+    }
+
+    pub fn get_unix_timestamp_millis() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+            .try_into()
+            .unwrap()
     }
 
     main_with_result().report()

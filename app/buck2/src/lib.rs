@@ -410,6 +410,7 @@ impl CommandKind {
             common_opts.oncall,
             common_opts.client_metadata,
             common_opts.isolation_dir,
+            process.start_time,
         );
 
         match self {

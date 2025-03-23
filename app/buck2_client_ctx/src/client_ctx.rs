@@ -63,6 +63,7 @@ pub struct ClientCommandContext<'a> {
     oncall: Option<String>,
     pub(crate) client_metadata: Vec<ClientMetadata>,
     pub(crate) isolation: FileNameBuf,
+    pub(crate) start_time: u64,
 }
 
 impl<'a> ClientCommandContext<'a> {
@@ -82,6 +83,7 @@ impl<'a> ClientCommandContext<'a> {
         oncall: Option<String>,
         client_metadata: Vec<ClientMetadata>,
         isolation: FileNameBuf,
+        start_time: u64,
     ) -> Self {
         ClientCommandContext {
             init,
@@ -99,6 +101,7 @@ impl<'a> ClientCommandContext<'a> {
             oncall,
             client_metadata,
             isolation,
+            start_time,
         }
     }
 
