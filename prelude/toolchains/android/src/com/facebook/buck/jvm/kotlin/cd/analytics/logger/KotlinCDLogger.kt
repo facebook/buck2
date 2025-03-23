@@ -9,7 +9,7 @@
 
 package com.facebook.buck.jvm.kotlin.cd.analytics.logger
 
-import com.facebook.buck.jvm.kotlin.cd.logger.model.KotlinCDLogEntry
+import com.facebook.buck.jvm.kotlin.cd.analytics.logger.model.KotlinCDLogEntry
 import java.util.ServiceLoader
 
 interface KotlinCDLogger {

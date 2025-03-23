@@ -10,7 +10,7 @@
 package com.facebook.buck.jvm.kotlin.cd.analytics.logger.noop
 
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLogger
-import com.facebook.buck.jvm.kotlin.cd.logger.model.KotlinCDLogEntry
+import com.facebook.buck.jvm.kotlin.cd.analytics.logger.model.KotlinCDLogEntry
 
 /** No-op implementation of [KotlinCDAnalytics] */
 class KotlinCDNoopLogger : KotlinCDLogger {
