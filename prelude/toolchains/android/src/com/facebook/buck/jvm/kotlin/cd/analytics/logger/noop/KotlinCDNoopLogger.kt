@@ -7,9 +7,13 @@
  * of this source tree.
  */
 
-package com.facebook.buck.jvm.kotlin.cd.analytics
+package com.facebook.buck.jvm.kotlin.cd.analytics.logger.noop
+
+import com.facebook.buck.jvm.kotlin.cd.logger.KotlinCDLogger
+import com.facebook.buck.jvm.kotlin.cd.logger.model.KotlinCDLogEntry
 
 /** No-op implementation of [KotlinCDAnalytics] */
-object KotlinCDNoopAnalytics : KotlinCDAnalytics() {
-  override fun log(context: KotlinCDLoggingContext): Unit = Unit
+class KotlinCDNoopLogger : KotlinCDLogger {
+
+  override fun log(logEntry: KotlinCDLogEntry): Boolean = false
 }

@@ -26,13 +26,11 @@ import com.facebook.buck.jvm.cd.serialization.kotlin.ActionMetadataSerializer;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.KotlinStepsBuilder;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
-import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDNoopAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.analytics.logger.KotlinCDLoggerAnalytics;
 import com.facebook.buck.jvm.kotlin.cd.logger.KotlinCDLogger;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriter;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PostExecutorsFactory;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriter;
-import com.facebook.buck.util.build.ToolchainBuild;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -179,26 +177,22 @@ public class KotlinCDCommand implements JvmCDCommand {
   }
 
   private KotlinCDAnalytics initKotlinCDAnalytics() {
-    if (ToolchainBuild.isOss()) {
-      return KotlinCDNoopAnalytics.INSTANCE;
-    } else {
-      ImmutableSortedSet<RelPath> sources = buildKotlinCommand.getBaseJarCommand().getJavaSrcs();
-      long numKotlinFiles = countSourceFiles(sources, KT_PATH_MATCHER);
-      long numJavaFiles = countSourceFiles(sources, JAVA_PATH_MATCHER);
-      String[] parts = actionId.split("[\\[\\]]");
-      String target = parts[0];
-      String subtarget = parts.length > 1 ? parts[1] : "library";
+    ImmutableSortedSet<RelPath> sources = buildKotlinCommand.getBaseJarCommand().getJavaSrcs();
+    long numKotlinFiles = countSourceFiles(sources, KT_PATH_MATCHER);
+    long numJavaFiles = countSourceFiles(sources, JAVA_PATH_MATCHER);
+    String[] parts = actionId.split("[\\[\\]]");
+    String target = parts[0];
+    String subtarget = parts.length > 1 ? parts[1] : "library";
 
-      return new KotlinCDLoggerAnalytics(
-          KotlinCDLogger.loadImplementation(),
-          buildUuid,
-          target,
-          subtarget,
-          executionPlatform,
-          numJavaFiles,
-          numKotlinFiles,
-          buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally());
-    }
+    return new KotlinCDLoggerAnalytics(
+        KotlinCDLogger.loadImplementation(),
+        buildUuid,
+        target,
+        subtarget,
+        executionPlatform,
+        numJavaFiles,
+        numKotlinFiles,
+        buildKotlinCommand.getKotlinExtraParams().getShouldKotlincRunIncrementally());
   }
 
   private static long countSourceFiles(
