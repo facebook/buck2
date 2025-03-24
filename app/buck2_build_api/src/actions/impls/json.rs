@@ -35,6 +35,8 @@ use starlark::values::ValueLike;
 use starlark::values::ValueTypedComplex;
 
 use crate::artifact_groups::ArtifactGroup;
+use crate::bxl::select::StarlarkSelectConcat;
+use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
@@ -154,6 +156,8 @@ pub enum JsonUnpack<'v> {
     CommandLine(CommandLineArg<'v>),
     Provider(ValueAsProviderLike<'v>),
     TaggedValue(&'v TaggedValue<'v>),
+    BxlSelectConcat(&'v StarlarkSelectConcat),
+    BxlSelectDict(&'v StarlarkSelectDict),
 }
 
 impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
@@ -243,6 +247,8 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 serializer.collect_map(x.0.items().iter().map(|(k, v)| (k, self.with_value(*v))))
             }
             JsonUnpack::TaggedValue(x) => self.with_value(*x.value()).serialize(serializer),
+            JsonUnpack::BxlSelectConcat(x) => x.serialize(serializer),
+            JsonUnpack::BxlSelectDict(x) => x.serialize(serializer),
         }
     }
 }
@@ -298,7 +304,9 @@ pub fn visit_json_artifacts(
         | JsonUnpack::Bool(_)
         | JsonUnpack::TargetLabel(_)
         | JsonUnpack::Enum(_)
-        | JsonUnpack::ConfiguredProvidersLabel(_) => {}
+        | JsonUnpack::ConfiguredProvidersLabel(_)
+        | JsonUnpack::BxlSelectConcat(_)
+        | JsonUnpack::BxlSelectDict(_) => {}
 
         JsonUnpack::List(x) => {
             for x in x.iter() {

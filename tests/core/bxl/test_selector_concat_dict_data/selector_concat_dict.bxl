@@ -84,3 +84,31 @@ selector_concat_attr = bxl_main(
     impl = _selector_concat_attr,
     cli_args = {},
 )
+
+def _selector_dict_write_json(ctx):
+    node = ctx.lazy.unconfigured_target_node("root//:select_dict").resolve()
+    flags = node.get_attr("flags")
+    asserts.true(isinstance(flags, bxl.SelectDict))
+
+    actions = ctx.bxl_actions().actions
+    output = actions.write_json("dict.json", flags)
+    ctx.output.print(ctx.output.ensure(output).abs_path())
+
+selector_dict_write_json = bxl_main(
+    impl = _selector_dict_write_json,
+    cli_args = {},
+)
+
+def _selector_concat_write_json(ctx):
+    node = ctx.lazy.unconfigured_target_node("root//:select_concat").resolve()
+    flags = node.get_attr("flags")
+    asserts.true(isinstance(flags, bxl.SelectConcat))
+
+    actions = ctx.bxl_actions().actions
+    output = actions.write_json("concat.json", flags)
+    ctx.output.print(ctx.output.ensure(output).abs_path())
+
+selector_concat_write_json = bxl_main(
+    impl = _selector_concat_write_json,
+    cli_args = {},
+)
