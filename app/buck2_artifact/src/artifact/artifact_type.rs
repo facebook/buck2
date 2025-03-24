@@ -557,7 +557,7 @@ pub mod testing {
                     BaseDeferredKey::TargetLabel(target.dupe()),
                     ForwardRelativePath::new(path).unwrap().to_buf(),
                 ),
-                ActionKey::unchecked_new(
+                ActionKey::new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     id,
                 ),
@@ -615,7 +615,7 @@ mod tests {
             OutputType::File,
             0,
         );
-        let key = ActionKey::unchecked_new(
+        let key = ActionKey::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target.dupe())),
             ActionIndex::new(0),
         );
@@ -637,7 +637,7 @@ mod tests {
         out.bind(key)?;
 
         // Binding again to a different key should fail
-        let other_key = ActionKey::unchecked_new(
+        let other_key = ActionKey::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
             ActionIndex::new(1),
         );

@@ -56,10 +56,6 @@ impl ActionIndex {
 }
 
 impl ActionKey {
-    pub fn unchecked_new(parent: DeferredHolderKey, id: ActionIndex) -> ActionKey {
-        ActionKey { parent, id }
-    }
-
     pub fn new(parent: DeferredHolderKey, id: ActionIndex) -> ActionKey {
         ActionKey { parent, id }
     }
