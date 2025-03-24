@@ -172,10 +172,17 @@ impl Display for IncompatiblePlatformReason {
                 f,
                 // WARN: CI uses this message to filter targets
                 // If you change this message, please also update https://fburl.com/code/nvdg28nv
-                "{}\n    is incompatible with {} ({} unsatisfied), check the target's compatibility attributes",
+                //
+                // Note: The regex filter for `--output-attribute` matches on `exec_compatible_with`
+                // attribute. In theory, we should filter that out. However, that would involving a much more
+                // complex regex pattern that could potentially involve pipes, which would then require us to
+                // figure out how to escape them in repro command. For simplicity, just use `--output-attribute=compatible_with`
+                // and ask users to explicitly check `compatible_with` or `target_compatible_with` attribute.
+                "{}\n    is incompatible with {} ({} unsatisfied). Check `compatible_with` or `target_compatible_with` attribute via `buck2 targets --reuse-current-config {} --output-attribute=compatible_with`",
                 self.target.unconfigured(),
                 self.target.cfg(),
                 unsatisfied_config,
+                self.target.unconfigured(),
             ),
             IncompatiblePlatformReasonCause::Dependency(previous) => {
                 if f.alternate() {
