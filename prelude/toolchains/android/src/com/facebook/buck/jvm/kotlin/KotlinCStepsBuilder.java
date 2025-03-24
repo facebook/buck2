@@ -100,6 +100,7 @@ public class KotlinCStepsBuilder {
                 invokingRule.isSourceOnlyAbi(),
                 buildCellRootPath,
                 outputDirectory.getParent().toAbsolutePath(),
+                parameters.getShouldTrackClassUsage(),
                 CompilerOutputPaths.getKotlinDepFilePath(
                     parameters.getOutputPaths().getOutputJarDirPath()),
                 extraParams,

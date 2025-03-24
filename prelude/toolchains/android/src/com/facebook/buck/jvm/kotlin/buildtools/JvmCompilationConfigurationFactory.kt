@@ -50,12 +50,14 @@ internal class JvmCompilationConfigurationFactory(
                       usePreciseCompilationResultsBackup(true)
                       keepIncrementalCompilationCachesInMemory(true)
 
-                      if (mode.kotlinClassUsageFile.toFile().exists().not()) {
+                      val kotlinClassUsageFile = mode.kotlinClassUsageFile
+                      if (kotlinClassUsageFile != null &&
+                          kotlinClassUsageFile.toFile().exists().not()) {
                         LOG.info(
-                            "Non-incremental compilation will be performed: ${mode.kotlinClassUsageFile.fileName} not found")
+                            "Non-incremental compilation will be performed: ${kotlinClassUsageFile.fileName} not found")
                         kotlinCDLoggingContext.addExtras(
                             JvmCompilationConfigurationFactory::class.java.simpleName,
-                            "Non-incremental compilation will be performed: ${mode.kotlinClassUsageFile.fileName} not found")
+                            "Non-incremental compilation will be performed: ${kotlinClassUsageFile.fileName} not found")
                         forceNonIncrementalMode(true)
                       }
 

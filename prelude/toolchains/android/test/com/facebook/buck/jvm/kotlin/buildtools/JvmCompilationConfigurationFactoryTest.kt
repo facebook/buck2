@@ -185,7 +185,16 @@ internal class JvmCompilationConfigurationFactoryTest {
   }
 
   @Test
-  fun `when jvmAbiGen output is null, non-incremental mode is forced`() {
+  fun `when dep files is disabled (kotlin dep file is null), incremental mode is used`() {
+    jvmCompilationConfigurationFactory.create(
+        createFakeIncrementalKotlincMode(kotlinDepFile = null))
+
+    verify(classpathSnapshotBasedIncrementalJvmCompilationConfiguration, never())
+        .forceNonIncrementalMode(true)
+  }
+
+  @Test
+  fun `when jvm-abi-gen is not used (jvmAbiGen output is null), incremental mode is used`() {
     jvmCompilationConfigurationFactory.create(
         createFakeIncrementalKotlincMode(jvmAbiGenWorkingDir = null))
 
@@ -214,13 +223,12 @@ internal class JvmCompilationConfigurationFactoryTest {
 
   private fun createFakeIncrementalKotlincMode(
       classpathChanges: ClasspathChanges = createFakeClasspathChanges(),
-      kotlinDepFile: AbsPath = createExistingFileMock(),
+      kotlinDepFile: AbsPath? = createExistingFileMock(),
       jvmAbiGenWorkingDir: AbsPath? = createExistingFileMock()
   ): KotlincMode.Incremental {
     val rootProjectDir = AbsPath.get("/home/root")
     val buildDir = AbsPath.get("/home/root/buildDir")
     val incrementalStateDir = AbsPath.get("/home/root/buildDir/incrementalState")
-    val kotlinDepFile: AbsPath = kotlinDepFile
 
     return KotlincMode.Incremental(
         rootProjectDir,
