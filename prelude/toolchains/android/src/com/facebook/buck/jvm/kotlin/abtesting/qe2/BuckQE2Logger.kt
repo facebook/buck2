@@ -7,7 +7,7 @@
  * of this source tree.
  */
 
-package com.facebook.buck.jvm.kotlin.abtesting
+package com.facebook.buck.jvm.kotlin.abtesting.qe2
 
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.tools.qe2.QE2Logger

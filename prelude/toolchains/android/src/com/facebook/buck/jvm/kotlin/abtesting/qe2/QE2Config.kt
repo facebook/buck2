@@ -7,32 +7,31 @@
  * of this source tree.
  */
 
-package com.facebook.buck.jvm.kotlin.abtesting
+package com.facebook.buck.jvm.kotlin.abtesting.qe2
 
 import com.facebook.tools.qe2.QE2Utils
 import org.json.JSONObject
 
-class ExperimentConfig
-private constructor(private val qE2Utils: QE2Utils, private val qe: JSONObject) {
+class QE2Config private constructor(private val qe2Utils: QE2Utils, private val qe: JSONObject) {
 
   fun getBoolParam(param: String, default: Boolean): Boolean {
-    return qE2Utils.getQEBoolParam(qe, param, default)
+    return qe2Utils.getQEBoolParam(qe, param, default)
   }
 
   fun getIntParam(param: String, default: Int): Int {
-    return qE2Utils.getQEIntParam(qe, param, default)
+    return qe2Utils.getQEIntParam(qe, param, default)
   }
 
   fun getStringParam(param: String, default: String): String {
-    return qE2Utils.getQEStringParam(qe, param, default)
+    return qe2Utils.getQEStringParam(qe, param, default)
   }
 
   companion object {
     @JvmStatic
-    fun create(universeName: String): ExperimentConfig {
-      val qE2Utils = QE2Utils(BuckQE2Logger)
+    fun create(universeName: String): QE2Config {
+      val qe2Utils = QE2Utils(BuckQE2Logger)
 
-      return ExperimentConfig(qE2Utils, qE2Utils.genQE(universeName))
+      return QE2Config(qe2Utils, qe2Utils.genQE(universeName))
     }
   }
 }
