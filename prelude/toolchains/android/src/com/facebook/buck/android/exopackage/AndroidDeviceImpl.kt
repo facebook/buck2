@@ -244,6 +244,13 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
         "find $rootDir -type d -exec chmod a+x {} +", "Failed to fix root dir $rootDir.")
   }
 
+  override fun setDebugAppPackageName(packageName: String?): Boolean {
+    if (packageName != null) {
+      executeAdbShellCommand(AdbUtils.getAmSetDebugAppCommand(packageName))
+    }
+    return true
+  }
+
   override fun getInstallerMethodName(): String = "adb_installer"
 
   override fun isEmulator(): Boolean {
@@ -268,10 +275,16 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
   }
 
   override fun deviceStartIntent(intent: AndroidIntent?): String {
+    if (intent == null) {
+      return ""
+    }
+
     try {
       // Use set-debug-app to silence ANRs while running.
-      AndroidIntent.getAmSetDebugAppCommand(intent)?.let { executeAdbShellCommand(it) }
-      AndroidIntent.getAmStartCommand(intent)?.let { executeAdbShellCommand(it) }
+      if (!intent.skipSetDebugApp) {
+        executeAdbShellCommand(AdbUtils.getAmSetDebugAppCommand(intent.packageName))
+      }
+      executeAdbShellCommand(AndroidIntent.getAmStartCommand(intent))
       return ""
     } catch (e: AdbCommandFailedException) {
       throw AndroidInstallException.adbCommandFailedException("Failed to start intent.", e.message)

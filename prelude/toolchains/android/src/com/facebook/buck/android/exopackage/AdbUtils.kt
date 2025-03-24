@@ -64,4 +64,16 @@ object AdbUtils {
         output = output.toString().trim(),
         error = if (errorOutput.isNotEmpty()) errorOutput.toString() else null)
   }
+
+  /**
+   * @return Command to register the app being installed as the system's current debug app,
+   *   silencing ANRs.
+   */
+  fun getAmSetDebugAppCommand(packageName: String): String {
+
+    // --persistent allows the developer to bypass ANRs on subsequent runs (i.e. if they resumed
+    // debugging later after disconnecting the device and relaunching), and set
+    // `Settings.Global.DEBUG_APP`. See: https://developer.android.com/studio/command-line/adb#am
+    return "am set-debug-app --persistent $packageName "
+  }
 }

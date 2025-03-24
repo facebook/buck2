@@ -914,6 +914,7 @@ public class AdbHelper implements AndroidDevicesHelper {
                   BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get()),
           true);
     }
+    adbCall("set debug app", (device) -> device.setDebugAppPackageName(packageName), true);
   }
 
   /**

@@ -106,6 +106,7 @@ public class ExopackageInstaller {
           AdbHelper.BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get());
     }
     installAndRestartApk(isolatedApkInfo);
+    device.setDebugAppPackageName(packageName);
   }
 
   public void installAndRestartApk(IsolatedApkInfo isolatedApkInfo) throws Exception {
