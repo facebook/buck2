@@ -13,8 +13,6 @@ use std::fmt::Formatter;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
-use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
 use buck2_error::starlark_error::from_starlark_with_options;
@@ -52,11 +50,13 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
-use crate::bxl::starlark_defs::select::StarlarkSelectConcat;
-use crate::bxl::starlark_defs::select::StarlarkSelectDict;
+use crate::bxl::select::StarlarkSelectConcat;
+use crate::bxl::select::StarlarkSelectDict;
+use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
+use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
 
 #[derive(Debug, ProvidesStaticType, From, Allocative)]
-pub(crate) struct StarlarkCoercedAttr(pub(crate) CoercedAttr, pub(crate) PackageLabel);
+pub struct StarlarkCoercedAttr(pub CoercedAttr, pub PackageLabel);
 
 starlark_simple_value!(StarlarkCoercedAttr);
 
@@ -126,7 +126,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub(crate) trait CoercedAttrExt {
+pub trait CoercedAttrExt {
     fn starlark_type(&self) -> buck2_error::Result<&'static str>;
 
     fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> buck2_error::Result<Value<'v>>;

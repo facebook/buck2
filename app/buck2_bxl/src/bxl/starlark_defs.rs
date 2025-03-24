@@ -30,7 +30,6 @@ pub(crate) mod nodes;
 pub(crate) mod providers_expr;
 mod query_util;
 pub(crate) mod result;
-pub(crate) mod select;
 pub(crate) mod target_expr;
 pub(crate) mod target_list_expr;
 pub(crate) mod target_universe;

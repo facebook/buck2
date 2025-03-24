@@ -10,6 +10,7 @@
 use std::convert::Infallible;
 
 use allocative::Allocative;
+use buck2_build_api::bxl::unconfigured_attribute::StarlarkCoercedAttr;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -36,9 +37,6 @@ use starlark::values::ValueLike;
 
 use super::node_attrs::NodeAttributeGetter;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
-use crate::bxl::starlark_defs::nodes::unconfigured::attribute::StarlarkCoercedAttr;
-
-pub(crate) mod attribute;
 
 #[derive(Debug, Display, ProvidesStaticType, Allocative, Clone, Dupe)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize

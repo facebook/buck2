@@ -9,6 +9,7 @@
 
 use buck2_analysis::attrs::resolve::configured_attr::ConfiguredAttrExt;
 use buck2_build_api::actions::query::PackageLabelOption;
+use buck2_build_api::bxl::unconfigured_attribute::CoercedAttrExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use starlark::collections::SmallMap;
 use starlark::values::none::NoneOr;
@@ -17,7 +18,6 @@ use starlark::values::StringValue;
 use starlark::values::Value;
 
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
-use crate::bxl::starlark_defs::nodes::unconfigured::attribute::CoercedAttrExt;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
 pub(crate) trait NodeAttributeGetter {

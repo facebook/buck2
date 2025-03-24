@@ -9,6 +9,8 @@
 
 #![allow(non_upper_case_globals)]
 
+use buck2_build_api::bxl::select::StarlarkSelectConcat;
+use buck2_build_api::bxl::select::StarlarkSelectDict;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use starlark::environment::GlobalsBuilder;
@@ -37,8 +39,6 @@ use crate::bxl::starlark_defs::nodes::configured::StarlarkLazyResolvedAttrs;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::result::StarlarkError;
 use crate::bxl::starlark_defs::result::StarlarkResult;
-use crate::bxl::starlark_defs::select::StarlarkSelectConcat;
-use crate::bxl::starlark_defs::select::StarlarkSelectDict;
 use crate::bxl::starlark_defs::target_universe::StarlarkTargetUniverse;
 use crate::bxl::starlark_defs::targetset::StarlarkTargetSet;
 use crate::bxl::starlark_defs::uquery::StarlarkUQueryCtx;

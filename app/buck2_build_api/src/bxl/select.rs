@@ -40,12 +40,12 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 
-use crate::bxl::starlark_defs::nodes::unconfigured::attribute::CoercedAttrExt;
+use crate::bxl::unconfigured_attribute::CoercedAttrExt;
 
 type SelectDictKey = Either<StarlarkProvidersLabel, FrozenStringValue>;
 
 #[derive(ProvidesStaticType, Derivative, Trace, Allocative, Clone, Debug)]
-pub(crate) struct StarlarkSelectDict {
+pub struct StarlarkSelectDict {
     selector: CoercedSelector,
     pkg: PackageLabel,
 }
@@ -82,7 +82,7 @@ enum SelectDictKeyArg<'v> {
 }
 
 impl StarlarkSelectDict {
-    pub(crate) fn new(selector: CoercedSelector, pkg: PackageLabel) -> Self {
+    pub fn new(selector: CoercedSelector, pkg: PackageLabel) -> Self {
         Self { selector, pkg }
     }
 
@@ -219,13 +219,13 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
 }
 
 #[derive(ProvidesStaticType, Derivative, Trace, Allocative, Clone, Debug)]
-pub(crate) struct StarlarkSelectConcat {
+pub struct StarlarkSelectConcat {
     concat: CoercedConcat,
     pkg: PackageLabel,
 }
 
 impl StarlarkSelectConcat {
-    pub(crate) fn new(concat: CoercedConcat, pkg: PackageLabel) -> Self {
+    pub fn new(concat: CoercedConcat, pkg: PackageLabel) -> Self {
         Self { concat, pkg }
     }
 }
