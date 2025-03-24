@@ -16,6 +16,11 @@ data class AdbCommandResult(val exitCode: Int, val output: String, val error: St
 
 class AdbCommandFailedException(message: String) : Exception(message)
 
+enum class SetDebugAppMode {
+  SKIP,
+  SET
+}
+
 object AdbUtils {
   fun executeAdbShellCommand(command: String, deviceId: String): String {
     return executeAdbCommand("shell $command", deviceId)

@@ -19,6 +19,7 @@ import com.android.ddmlib.IDevice;
 import com.facebook.buck.android.AdbHelper.AndroidDebugBridgeFacade;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.RealAndroidDevice;
+import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.installer.android.IsolatedAndroidInstallerPrinter;
 import com.facebook.buck.testutil.MoreAsserts;
@@ -97,7 +98,8 @@ public class AdbHelperTest {
         /* isZstdCompressionEnabled */ true,
         AGENT_PORT_BASE,
         0,
-        0);
+        0,
+        SetDebugAppMode.SET);
   }
 
   /** Verify that null is returned when no devices are present. */
@@ -569,7 +571,8 @@ public class AdbHelperTest {
         /* isZstdCompressionEnabled */ true,
         AGENT_PORT_BASE,
         0,
-        0) {
+        0,
+        SetDebugAppMode.SET) {
       @Override
       AndroidDebugBridgeFacade createAdb() {
         return facade;
@@ -600,7 +603,8 @@ public class AdbHelperTest {
         /* isZstdCompressionEnabled */ true,
         AGENT_PORT_BASE,
         0,
-        0);
+        0,
+        SetDebugAppMode.SET);
   }
 
   private static AdbOptions createAdbOptions() {
