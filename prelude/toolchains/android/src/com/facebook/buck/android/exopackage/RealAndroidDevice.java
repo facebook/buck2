@@ -342,14 +342,6 @@ public class RealAndroidDevice implements AndroidDevice {
             }
           };
 
-      if (!intent.skipSetDebugApp) {
-        // Use set-debug-app to silence ANRs while running.
-        final @Nullable String setDebugAppCommand =
-            AdbUtils.INSTANCE.getAmSetDebugAppCommand(intent.packageName);
-        device.executeShellCommand(
-            setDebugAppCommand, receiver, SET_DEBUG_APP_TIMEOUT, TimeUnit.MILLISECONDS);
-      }
-
       device.executeShellCommand(
           AndroidIntent.getAmStartCommand(intent),
           receiver,

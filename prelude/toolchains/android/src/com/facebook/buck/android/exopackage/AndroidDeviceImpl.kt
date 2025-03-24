@@ -280,10 +280,6 @@ class AndroidDeviceImpl(val serial: String) : AndroidDevice {
     }
 
     try {
-      // Use set-debug-app to silence ANRs while running.
-      if (!intent.skipSetDebugApp) {
-        executeAdbShellCommand(AdbUtils.getAmSetDebugAppCommand(intent.packageName))
-      }
       executeAdbShellCommand(AndroidIntent.getAmStartCommand(intent))
       return ""
     } catch (e: AdbCommandFailedException) {
