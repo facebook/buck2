@@ -42,8 +42,9 @@ impl Shard {
             .lookup(hash, |k| {
                 self.key_by_index
                     .get(k.get() as usize - 1)
-                    .map(|k| k.as_ref() == key)
-                    .unwrap_or(false)
+                    .unwrap()
+                    .as_ref()
+                    == key
             })
             .map(|k| k.get() - 1)
     }
