@@ -68,7 +68,7 @@
 }.
 
 -type outcome() ::
-    passed | failed | timeout | skipped.
+    passed | failed | timeout | skipped | omitted.
 
 -type group_path() :: [atom()].
 

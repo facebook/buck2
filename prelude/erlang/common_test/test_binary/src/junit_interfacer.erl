@@ -22,16 +22,20 @@
 
 -type test_result() :: success | failure | assumption_violation | disabled | excluded | dry_run.
 -type case_result() :: cth_tpx_test_tree:case_result().
+-type outcome() :: cth_tpx_test_tree:outcome().
 
 -type optional(Type) :: undefined | Type.
 
 % cth_tpx outcome are skipped failed passed omitted
+
+-spec outcome_to_result(outcome()) -> test_result().
 outcome_to_result(failed) -> failure;
 outcome_to_result(passed) -> success;
 outcome_to_result(omitted) -> excluded;
 outcome_to_result(skipped) -> failure.
 
 % %% See https://www.internalfb.com/code/fbsource/[20c96bf58ffecff08a87b89035518b392985308b]/fbcode/testinfra/tpx/tpx-output/src/buck_junitlike_xml.rs?lines=73%2C80
+-spec format_result(test_result()) -> string().
 format_result(success) -> "SUCCESS";
 format_result(failure) -> "FAILURE";
 format_result(assumption_violation) -> "ASSUMPTIONVIOLATION";
@@ -47,12 +51,14 @@ write_xml_output(OutputDir, TpxResults, Suite, Exit, Stdout) ->
     file:write_file(OutputFile, Export),
     {ok, OutputFile}.
 
+-spec test_case_to_xml(#test_case{}) -> xmerl:element().
 test_case_to_xml(#test_case{
     name = Name,
     tests = Tests
 }) ->
     {testcase, [{name, Name}], lists:map(fun test_to_xml/1, Tests)}.
 
+-spec test_to_xml(#test{}) -> xmerl:element().
 test_to_xml(
     #test{} = Test
 ) ->
@@ -83,14 +89,14 @@ method_result_to_test_info(MethodResult, Suite, Exit, StdOut) ->
             outcome := Outcome
         }
     } = MethodResult,
-    Details1 = unicode:characters_to_list(Details),
+    Details1 = unicode_characters_to_list(Details),
     #test{
         suite = atom_to_list(Suite),
         name = Name,
         type = format_result(outcome_to_result(Outcome)),
         time = End - Start,
         message = Details1,
-        stdout = unicode:characters_to_list(
+        stdout = unicode_characters_to_list(
             io_lib:format("ct exitted with Status ~p, ~n~s", [Exit, StdOut])
         )
     }.
@@ -104,3 +110,10 @@ results_to_test_case(ListsResults, Suite, Exit, StdOut) ->
         ListsResults
     ),
     #test_case{name = atom_to_list(Suite), tests = TestElements}.
+
+
+-spec unicode_characters_to_list(io_lib:chars()) -> string().
+unicode_characters_to_list(Chars) ->
+    case unicode:characters_to_list(Chars) of
+        String when is_list(String) -> String
+    end.
