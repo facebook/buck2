@@ -202,7 +202,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
         >,
         #[starlark(require = named, default = false)] unique_input_inodes: bool,
-        #[starlark(require = named)] error_handler: Option<StarlarkCallable<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] error_handler: NoneOr<
+            StarlarkCallable<'v>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
         #[starlark(require = named, default=UnpackList::default())]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
@@ -436,7 +438,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             artifacts.outputs,
             action,
             Some(starlark_values),
-            error_handler,
+            error_handler.into_option(),
         )?;
         Ok(NoneType)
     }
