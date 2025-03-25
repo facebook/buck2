@@ -992,17 +992,24 @@ impl<'b> BuckTestOrchestrator<'b> {
                 };
                 let (result, cached) = events
                     .span_async(start, async move {
-                        let (result, cached) = match executor
-                            .action_cache(manager, &prepared_command, cancellation)
-                            .await
-                        {
-                            ControlFlow::Continue(manager) => {
-                                let result = executor
-                                    .exec_cmd(manager, &prepared_command, cancellation)
-                                    .await;
-                                (result, false)
+                        let (result, cached) = if *cacheable {
+                            match executor
+                                .action_cache(manager, &prepared_command, cancellation)
+                                .await
+                            {
+                                ControlFlow::Continue(manager) => {
+                                    let result = executor
+                                        .exec_cmd(manager, &prepared_command, cancellation)
+                                        .await;
+                                    (result, false)
+                                }
+                                ControlFlow::Break(result) => (result, true),
                             }
-                            ControlFlow::Break(result) => (result, true),
+                        } else {
+                            let result = executor
+                                .exec_cmd(manager, &prepared_command, cancellation)
+                                .await;
+                            (result, false)
                         };
                         let end = TestDiscoveryEnd {
                             suite_name: suite.clone(),
@@ -1012,7 +1019,7 @@ impl<'b> BuckTestOrchestrator<'b> {
                                     .to_command_execution_proto(true, true, false)
                                     .await,
                             ),
-                            re_cache_enabled,
+                            re_cache_enabled: *cacheable && re_cache_enabled,
                         };
                         ((result, cached), end)
                     })

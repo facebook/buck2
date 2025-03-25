@@ -12,6 +12,17 @@ if '--list' in sys.argv:
 sys.exit(0)
 """
 
+def _impl_listing_uncacheable(ctx):
+    return [
+        DefaultInfo(),
+        ExternalRunnerTestInfo(
+            command = ["python3", "-c", script],
+            type = "lionhead",
+            env = {"seed": ctx.attrs.seed},
+            labels = ["tpx:listing_uncacheable"],
+        ),
+    ]
+
 def _impl_ok(ctx):
     return [
         DefaultInfo(),
@@ -41,3 +52,4 @@ def _seed_impl(ctx):
 
 seed = rule(attrs = {"seed": attrs.string()}, impl = _seed_impl)
 ok_test = rule(attrs = {"seed": attrs.string()}, impl = _impl_ok)
+listing_uncacheable = rule(attrs = {"seed": attrs.string()}, impl = _impl_listing_uncacheable)

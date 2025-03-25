@@ -53,6 +53,31 @@ async def test_discovery_cache_turned_off(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_listing_uncacheable(buck: Buck) -> None:
+    seed = random_string()
+    args = [
+        "-c",
+        "buck2.cache_test_listings=//:listing_uncacheable",
+        "-c",
+        f"test.seed={seed}",
+        "-c",
+        "test.remote_enabled=false",
+        "-c",
+        "test.local_enabled=true",
+        "-c",
+        "test.remote_cache_enabled=true",
+        "//:listing_uncacheable",
+    ]
+    # Check it executed locally consistently
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+    await buck.kill()
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+    # Check cache is not uploaded
+    cached = await _cache_uploads(buck)
+    assert len(cached) == 0
+
+
+@buck_test()
 async def test_discovery_cached_on_re(buck: Buck) -> None:
     seed = random_string()
     args = [
