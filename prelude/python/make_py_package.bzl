@@ -179,23 +179,8 @@ def make_py_package(
 
     # Add link metadata to manifest_module_entries if requested.
     manifest_module_entries = _add_dep_metadata_to_manifest_module(ctx, map(lambda s: s[1], shared_libraries), link_args)
-    generated_files = []
-
-    startup_functions_loader = generate_startup_function_loader(ctx, manifest_module_entries)
-    startup_function = ctx.actions.write_json(
-        "manifest/startup_function_loader.manifest",
-        [
-            ["__par__/__startup_function_loader__.py", startup_functions_loader, "prelude//python:make_py_package.bzl"],
-        ],
-        with_inputs = True,
-    )
-    generated_files.append((startup_functions_loader, "__par__/__startup_function_loader__.py"))
-
+    startup_function = generate_startup_function_loader(ctx, manifest_module_entries)
     manifest_module = generate_manifest_module(ctx, manifest_module_entries, python_toolchain, srcs)
-    if manifest_module:
-        generated_files.append((manifest_module.artifacts[1], "__manifest__.py"))
-        generated_files.append((manifest_module.artifacts[0], "__manifest__.json"))
-
     common_modules_args, dep_artifacts, debug_artifacts = _pex_modules_common_args(
         ctx,
         pex_modules,
@@ -287,15 +272,6 @@ def make_py_package(
     # cpp binaries already emit a `debuginfo` subtarget with a different format,
     # so we opt to use a more specific subtarget
     default.sub_targets["par-debuginfo"] = _debuginfo_subtarget(ctx, debug_artifacts)
-    live_par_providers = _make_py_package_live(
-        ctx,
-        pex_modules,
-        map(lambda s: (s[1], s[0]), shared_libraries),
-        generated_files,
-        "-live",
-        python_toolchain,
-    )
-    default.sub_targets["live"] = make_py_package_providers(live_par_providers)
     return default
 
 def _make_py_package_impl(
@@ -457,105 +433,6 @@ def _make_py_package_impl(
         run_cmd = cmd_args(
             run_args,
             hidden = runtime_files + hidden_resources + [python_toolchain.interpreter],
-        ),
-    )
-
-def _make_py_package_live(
-        ctx: AnalysisContext,
-        pex_modules: PexModules,
-        shared_libraries: list[(SharedLibrary, str)],
-        generated_files: list[(Artifact, str)],
-        output_suffix: str,
-        python_toolchain: PythonToolchainInfo) -> PexProviders:
-    sub_targets = {}
-    name = "{}{}".format(ctx.attrs.name, output_suffix)
-
-    symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
-    runtime_files = [symlink_tree_path]
-
-    cmd = cmd_args(python_toolchain.make_py_package_live)
-    cmd.add(cmd_args(symlink_tree_path.as_output(), format = "--output-path={}"))
-
-    # For each set of artifacts create a manifest file in the form: artifact_location::location_relative_to_linktree
-    # We declare the manifest using with_inputs=True to associate the required runtime artifacts to it
-    sources_manifest = ctx.actions.write("{}-sources.txt".format(name), pex_modules.manifests.sources_simple(), with_inputs = True)
-
-    # We explicitly do not include the associated artifacts when building the link-tree - this lets us run make_par in parallel
-    # and keeps us from re-running it on file changes
-    cmd.add(cmd_args(sources_manifest.without_associated_artifacts(), format = "--sources={}"))
-
-    # We include the original manifest as a required runtime file, so that all of the artifacts associated with it will be materialized
-    runtime_files.append(sources_manifest)
-
-    resource_manifest = ctx.actions.write("{}-resources.txt".format(name), pex_modules.manifests.resource_artifacts_simple(), with_inputs = True)
-    cmd.add(cmd_args(resource_manifest.without_associated_artifacts(), format = "--resources={}"))
-    runtime_files.append(resource_manifest)
-
-    if pex_modules.compile:
-        # bytecode is compiled per library so the actual bytecode artifacts are directories
-        # the compile command outputs json manifest in the form
-        # [(src, dst, origin),]
-        bytecode_manifests = pex_modules.manifests.bytecode_manifests(PycInvalidationMode("checked_hash"))
-        bytecode_manifests_path = ctx.actions.write(
-            "__bytecode_manifests{}.txt".format(output_suffix),
-            bytecode_manifests,
-        )
-        cmd.add(cmd_args(bytecode_manifests_path, format = "--bytecode={}", hidden = bytecode_manifests))
-
-        bytecode_artifacts = pex_modules.manifests.bytecode_artifacts(PycInvalidationMode("checked_hash"))
-        runtime_files.extend(bytecode_artifacts)
-
-    if pex_modules.extra_manifests != None:
-        extras_manifest = ctx.actions.write("{}-extra.txt".format(name), [cmd_args(a, p, delimiter = "::") for a, p in pex_modules.extra_manifests.artifacts], with_inputs = True)
-        cmd.add(cmd_args(extras_manifest.without_associated_artifacts(), format = "--extras={}"))
-        runtime_files.append(extras_manifest)
-
-    if pex_modules.extensions != None:
-        extensions_manifest = ctx.actions.write("{}-extensions.txt".format(name), [cmd_args(a, p, delimiter = "::") for a, p in pex_modules.extensions.artifacts], with_inputs = True)
-        cmd.add(cmd_args(extensions_manifest.without_associated_artifacts(), format = "--extensions={}"))
-        runtime_files.append(extensions_manifest)
-
-    native_libraries_manifest = gen_shared_libs_action(
-        actions = ctx.actions,
-        out = "{}-native_libraries.txt".format(name),
-        shared_libs = [shlib for shlib, _ in shared_libraries],
-        gen_action = lambda actions, output, shared_libs: actions.write(
-            output,
-            cmd_args(
-                [
-                    cmd_args(shlib.lib.output, paths.join(libdir, soname), delimiter = "::")
-                    for soname, shlib, libdir in zip_shlibs(shared_libs, shared_libraries)
-                ],
-            ),
-        ),
-    )
-    cmd.add(cmd_args(native_libraries_manifest.without_associated_artifacts(), format = "--shared-libs={}"))
-    runtime_files.append(native_libraries_manifest)
-
-    # Do to dynamic action weirdness we need to explicitly add the shared_libs to the output
-    runtime_files.extend([shlib.lib.output for shlib, _ in shared_libraries])
-    generated_manifest = ctx.actions.write("{}-generated.txt".format(name), [cmd_args(a, p, delimiter = "::") for a, p in generated_files], with_inputs = True)
-    cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
-    runtime_files.append(generated_manifest)
-
-    ctx.actions.run(cmd, category = "par", identifier = "make_live_par", prefer_local = True)
-
-    hidden_resources = pex_modules.manifests.hidden_resources(False)
-
-    sub_targets["link-tree"] = [DefaultInfo(
-        default_output = symlink_tree_path,
-        other_outputs = runtime_files + hidden_resources,
-        sub_targets = {},
-    )]
-
-    return PexProviders(
-        default_output = symlink_tree_path,
-        other_outputs = runtime_files,
-        other_outputs_prefix = symlink_tree_path.short_path,
-        hidden_resources = hidden_resources,
-        sub_targets = sub_targets,
-        run_cmd = cmd_args(
-            ["ls", symlink_tree_path],
         ),
     )
 
@@ -920,7 +797,7 @@ def _add_dep_metadata_to_manifest_module(
 
 def generate_startup_function_loader(
         ctx: AnalysisContext,
-        manifest_module_entries: dict[str, typing.Any] | None) -> Artifact:
+        manifest_module_entries: dict[str, typing.Any] | None) -> ArgLike:
     """
     Generate `__startup_function_loader__.py` used for early bootstrap of a par.
     Things that go here are also enumerated in `__manifest__['startup_functions']`
@@ -977,7 +854,13 @@ def load_startup_functions():
             },
         ),
     )
-    return src_startup_functions_path
+    return ctx.actions.write_json(
+        "manifest/startup_function_loader.manifest",
+        [
+            ["__par__/__startup_function_loader__.py", src_startup_functions_path, "prelude//python:make_py_package.bzl"],
+        ],
+        with_inputs = True,
+    )
 
 def generate_manifest_module(
         ctx: AnalysisContext,
