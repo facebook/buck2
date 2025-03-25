@@ -5,6 +5,8 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//cfg/modifier:name.bzl", "cfg_name")
+
 # NOTE: At the moment, target platforms and constraint values can't be propagated via build rule
 #       attributes all the way to configuration transitions. The reason is that the transition
 #       function is invoked before the rule, so any PlatformInfo and ConstraintValueInfo providers
@@ -179,14 +181,14 @@ def _apply(
     for constraint in constraints:
         new_constraints[constraint.setting.label] = constraint
 
-    new_platform = PlatformInfo(
-        label = platform.label,
-        configuration = ConfigurationInfo(
-            constraints = new_constraints,
-            values = platform.configuration.values,
-        ),
+    new_cfg = ConfigurationInfo(
+        constraints = new_constraints,
+        values = platform.configuration.values,
     )
-
+    new_platform = PlatformInfo(
+        label = cfg_name(new_cfg),
+        configuration = new_cfg,
+    )
     return new_platform
 
 def _impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
