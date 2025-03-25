@@ -12,19 +12,32 @@ package com.facebook.buck.jvm.kotlin;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
+import com.facebook.buck.io.file.MostFiles;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.java.ActionMetadata;
+import com.facebook.buck.jvm.kotlin.abtesting.ExperimentConfigService;
+import com.facebook.buck.jvm.kotlin.abtesting.ksic.KsicExperimentConstantsKt;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
 public class KotlincModeFactory {
   private static final Logger LOG = Logger.get(KotlincModeFactory.class);
 
-  private KotlincModeFactory() {}
+  private ExperimentConfigService experimentConfigService;
 
-  public static KotlincMode create(
+  public KotlincModeFactory() {
+    this(ExperimentConfigService.loadImplementation());
+  }
+
+  public KotlincModeFactory(ExperimentConfigService experimentConfigService) {
+    this.experimentConfigService = experimentConfigService;
+  }
+
+  public KotlincMode create(
       boolean isSourceOnly,
       final AbsPath rootProjectDir,
       final AbsPath buildDir,
@@ -47,11 +60,25 @@ public class KotlincModeFactory {
           extraParams
               .getIncrementalStateDir()
               .orElseThrow(() -> new IllegalStateException("incremental_state_dir is not created"));
+
+      if (!experimentConfigService
+          .loadConfig(KsicExperimentConstantsKt.UNIVERSE_NAME)
+          .getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true)) {
+        LOG.info(
+            "Non-incremental mode applied: experiment parameter "
+                + KsicExperimentConstantsKt.PARAM_KSIC_ENABLED
+                + "=false");
+        createCleanDirectory(incrementalStateDir);
+
+        return KotlincMode.NonIncremental.INSTANCE;
+      }
+
       @Nullable
       AbsPath kotlinClassUsageFileDir =
           isTrackClassUsageEnabled
               ? incrementalStateDir.resolve(kotlinClassUsageFile.getFileName())
               : null;
+
       AbsPath kotlicWorkingDir =
           extraParams
               .getKotlincWorkingDir()
@@ -62,7 +89,10 @@ public class KotlincModeFactory {
       ActionMetadata metadata =
           actionMetadata.orElseThrow(
               () -> new IllegalStateException("actionMetadata is not created"));
-      LOG.info("Incremental mode applied");
+      LOG.info(
+          "Incremental mode applied: experiment parameter "
+              + KsicExperimentConstantsKt.PARAM_KSIC_ENABLED
+              + "=true");
 
       return new KotlincMode.Incremental(
           rootProjectDir,
@@ -73,6 +103,15 @@ public class KotlincModeFactory {
           kotlinClassUsageFileDir,
           getJvmAbiGenWorkingDir(
               extraParams.getShouldUseJvmAbiGen(), extraParams.getJvmAbiGenWorkingDir()));
+    }
+  }
+
+  private static void createCleanDirectory(AbsPath dir) {
+    try {
+      MostFiles.deleteRecursivelyIfExists(dir.getPath());
+      Files.createDirectories(dir.getPath());
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 

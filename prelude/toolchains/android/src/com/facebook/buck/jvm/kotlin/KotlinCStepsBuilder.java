@@ -20,6 +20,7 @@ import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.java.CompilerOutputPaths;
 import com.facebook.buck.jvm.java.CompilerParameters;
+import com.facebook.buck.jvm.kotlin.abtesting.noop.NoopExperimentConfigService;
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDAnalytics;
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
@@ -96,16 +97,17 @@ public class KotlinCStepsBuilder {
             extraParams.getShouldVerifySourceOnlyAbiConstraints(),
             postKotlinCompilationFailureSteps.build(),
             extraParams.getDepTrackerPlugin(),
-            KotlincModeFactory.create(
-                invokingRule.isSourceOnlyAbi(),
-                buildCellRootPath,
-                outputDirectory.getParent().toAbsolutePath(),
-                parameters.getShouldTrackClassUsage(),
-                CompilerOutputPaths.getKotlinDepFilePath(
-                    parameters.getOutputPaths().getOutputJarDirPath()),
-                extraParams,
-                Optional.ofNullable(actionMetadata),
-                classpathSnapshots),
+            new KotlincModeFactory(new NoopExperimentConfigService())
+                .create(
+                    invokingRule.isSourceOnlyAbi(),
+                    buildCellRootPath,
+                    outputDirectory.getParent().toAbsolutePath(),
+                    parameters.getShouldTrackClassUsage(),
+                    CompilerOutputPaths.getKotlinDepFilePath(
+                        parameters.getOutputPaths().getOutputJarDirPath()),
+                    extraParams,
+                    Optional.ofNullable(actionMetadata),
+                    classpathSnapshots),
             kotlinCDAnalytics,
             kotlincLanguageVersion);
     steps.add(kotlincStep);
