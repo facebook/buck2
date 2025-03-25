@@ -1,6 +1,8 @@
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
-oncall("build_infra")
+oncall("plf_experience")
+
+prelude = native
 
 source_listing()
 
@@ -20,4 +22,16 @@ export_file(
     name = "_lpar_bootstrap.sh.template",
     src = "_lpar_bootstrap.sh.template",
     visibility = ["PUBLIC"],
+)
+
+prelude.rust_binary(
+    name = "rust_make_par",
+    srcs = ["rust_make_par/src/main.rs"],
+    visibility = ["PUBLIC"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
+    ],
 )
