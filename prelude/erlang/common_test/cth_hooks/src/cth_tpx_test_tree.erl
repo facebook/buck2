@@ -39,13 +39,15 @@
 
 -type option(Type) :: Type | none.
 
+-type name() :: string() | atom().
+
 -type tree_node() :: #{
-    name := string(),
+    name := name(),
     type := node,
     init_method := option(method_result()),
     end_method := option(method_result()),
     test_cases := #{string() => test_leaf()},
-    sub_groups := #{string() => tree_node()}
+    sub_groups := #{name() => tree_node()}
 }.
 
 -type test_leaf() :: #{
@@ -58,8 +60,8 @@
 
 -type method_result() :: #{
     name := string(),
-    startedTime := float(),
-    endedTime := float(),
+    startedTime => float(),
+    endedTime => float(),
     outcome := outcome(),
     details := string(),
     std_out := string()
@@ -84,12 +86,15 @@ qualified_name(Groups, TestCase) ->
     StringGroups = [atom_to_list(Group) || Group <- Groups],
     JoinedGroups = string:join(lists:reverse(StringGroups), ":"),
     Raw = io_lib:format("~s.~s", [JoinedGroups, TestCase]),
-    unicode:characters_to_list(Raw, latin1).
+    case unicode:characters_to_list(Raw, latin1) of
+        Res when is_list(Res) -> Res
+    end.
+
 
 %% Tree creation and update
 
 %% @doc Creates a new node
--spec new_node(Name :: string()) -> tree_node().
+-spec new_node(Name :: name()) -> tree_node().
 new_node(Name) ->
     #{
         name => Name,
@@ -193,15 +198,15 @@ report_end_failure(
 ) ->
     MergedOutcome = merge_outcome(EndOutcome, ResultOutcome),
     EndFailedDetails =
-        [io_lib:format("~p ~p because ~p failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails],
+        unicode_characters_to_string([io_lib:format("~p ~p because ~p failed with ~n", [TestName, MergedOutcome, EndName]), EndDetails]),
     MergedDetails =
         case ResultOutcome of
             passed ->
                 EndFailedDetails;
             _ ->
-                lists:flatten(
+                unicode_characters_to_string(lists:flatten(
                     io_lib:format("~s~n~n~s", [ResultDetails, EndFailedDetails])
-                )
+                ))
         end,
     report_end_failure(Rest, ResultAcc#{outcome => MergedOutcome, details => MergedDetails}).
 
@@ -326,7 +331,7 @@ merge_std_out(#{type := leaf} = TestLeaf) ->
             none -> "";
             _ -> maps:get(std_out, OptMethodEnd)
         end,
-    unicode:characters_to_list(InitStdOut ++ MainStdOut ++ EndStdOut).
+    unicode_characters_to_string(InitStdOut ++ MainStdOut ++ EndStdOut).
 
 %% @doc Creates a method_result for a requested method for which no result was registered.
 %% Attempts to locate if one of the inits is responsible for the missing result.
@@ -334,7 +339,7 @@ merge_std_out(#{type := leaf} = TestLeaf) ->
 get_missing_result(Inits, QualifiedName) ->
     MainResult =
         #{
-            name => unicode:characters_to_list(
+            name => unicode_characters_to_string(
                 io_lib:format("~s.[main_testcase]", [QualifiedName])
             ),
             outcome => failed,
@@ -348,14 +353,14 @@ get_missing_result(Inits, QualifiedName) ->
 handle_missing_results([], MainResult) ->
     MainResult;
 handle_missing_results([Init | Inits], MainResult) ->
-    InitStdOut = unicode:characters_to_list(
+    InitStdOut = unicode_characters_to_string(
         maps:get(name, Init) ++ " stdout: " ++ maps:get(std_out, Init)
     ),
     case maps:get(outcome, Init) of
         failed ->
             MainResult#{
                 details =>
-                    unicode:characters_to_list(
+                    unicode_characters_to_string(
                         io_lib:format(
                             "no results for this test were recorded because init ~s failed with error message : \n ~s",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -365,7 +370,7 @@ handle_missing_results([Init | Inits], MainResult) ->
             };
         timeout ->
             MainResult#{
-                details => unicode:characters_to_list(
+                details => unicode_characters_to_string(
                     io_lib:format(
                         "no results for this test were recorded because init ~s timed-out with error message : \n ~s",
                         [maps:get(name, Init), maps:get(details, Init)]
@@ -377,7 +382,7 @@ handle_missing_results([Init | Inits], MainResult) ->
             handle_skipped_result([Init | Inits], MainResult);
         omitted ->
             MainResult#{
-                details => unicode:characters_to_list(
+                details => unicode_characters_to_string(
                     io_lib:format(
                         "no results for this test were recorded because init ~s was omitted with message : \n ~s",
                         [maps:get(name, Init), maps:get(details, Init)]
@@ -397,7 +402,7 @@ handle_missing_results([Init | Inits], MainResult) ->
 handle_skipped_result([], MainResult) ->
     MainResult;
 handle_skipped_result([Init | Inits], MainResult) ->
-    InitStdOut = unicode:characters_to_list(
+    InitStdOut = unicode_characters_to_string(
         maps:get(name, Init) ++ " stdout: " ++ maps:get(std_out, Init)
     ),
     case maps:get(outcome, Init) of
@@ -405,7 +410,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
             MainResult#{
                 outcome => failed,
                 details =>
-                    unicode:characters_to_list(
+                    unicode_characters_to_string(
                         io_lib:format(
                             "Failed because init ~s failed, with error message : \n ~s",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -417,7 +422,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
             MainResult#{
                 outcome => timeout,
                 details =>
-                    unicode:characters_to_list(
+                    unicode_characters_to_string(
                         io_lib:format(
                             "Timed-out because init ~s timed-out, with error message : \n ~s",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -433,7 +438,7 @@ handle_skipped_result([Init | Inits], MainResult) ->
             MainResult#{
                 outcome => failed,
                 details =>
-                    unicode:characters_to_list(
+                    unicode_characters_to_string(
                         io_lib:format(
                             "Failed because init ~s was omitted, with error message : \n ~s",
                             [maps:get(name, Init), maps:get(details, Init)]
@@ -441,4 +446,10 @@ handle_skipped_result([Init | Inits], MainResult) ->
                     ),
                 std_out => InitStdOut
             }
+    end.
+
+-spec unicode_characters_to_string(io_lib:chars()) -> string().
+unicode_characters_to_string(Chars) ->
+    case unicode:characters_to_list(Chars) of
+        String when is_list(String) -> String
     end.
