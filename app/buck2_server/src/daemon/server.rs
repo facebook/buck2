@@ -399,6 +399,13 @@ impl BuckdServer {
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
+        if buck2_env!("BUCK2_TEST_FAIL_STREAMING", bool, applicability = testing).unwrap() {
+            Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Injected client streaming error"
+            ))?;
+        }
+
         let client_ctx = req.get_ref().client_context()?;
 
         // This will reset counters incorrectly if commands are running concurrently.

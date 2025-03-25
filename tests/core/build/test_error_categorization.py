@@ -408,3 +408,19 @@ async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
 
     assert "IO_EDEN" in error["tags"]
     assert error["category_key"] == "IO_EDEN:IO_PERMISSION_DENIED"
+
+
+@buck_test()
+@env("BUCK2_TEST_FAIL_STREAMING", "true")
+async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    res = await expect_failure(
+        buck.targets(":", "--unstable-write-invocation-record", str(record_path))
+    )
+    assert "Injected client streaming error" in res.stderr
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+
+    # TODO(minglunli): This is wrong, error is written to stderr but not to scuba
+    assert len(errors) == 0
