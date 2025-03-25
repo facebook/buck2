@@ -244,3 +244,13 @@ def get_and_insert_modifier_info(
     )
     add_to_constraint_setting_to_modifier_infos(constraint_setting_to_modifier_infos, constraint_setting_label, modifier_info)
     return (constraint_setting_label, modifier_info)
+
+def apply_buckconfig_backed_modifiers(
+        constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]],
+        modifiers: list[ConditionalModifierInfo]):
+    for conditional_modifier_info in modifiers:
+        add_to_constraint_setting_to_modifier_infos(
+            constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,
+            constraint_setting_label = conditional_modifier_info.key,
+            modifier_info = conditional_modifier_info.inner,
+        )

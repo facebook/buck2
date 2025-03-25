@@ -61,6 +61,8 @@ ConditionalModifierInfo = provider(fields = {
 })
 
 BuckconfigBackedModifierInfo = provider(fields = {
+    "post_platform_modifiers": list[ConditionalModifierInfo],
+    "pre_cli_modifiers": list[ConditionalModifierInfo],
     "pre_platform_modifiers": list[ConditionalModifierInfo],
 })
 
