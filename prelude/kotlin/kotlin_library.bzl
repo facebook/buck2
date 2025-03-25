@@ -280,8 +280,8 @@ def get_language_version(ctx: AnalysisContext) -> str:
     current_language_version = None
     for arg in ctx.attrs.extra_kotlinc_arguments:
         # If `-language-version` is defined multiple times, we use the last one, just like the compiler does
-        if isinstance(arg, str) and "-language-version" in arg:
-            current_language_version = arg.split("=")[1].strip()
+        if "-language-version" in str(arg):
+            current_language_version = str(arg).split("=")[1].strip(' "')
 
     if ctx.attrs.k2 == True and kotlin_toolchain.allow_k2_usage:
         if not current_language_version or current_language_version < "2.0":
