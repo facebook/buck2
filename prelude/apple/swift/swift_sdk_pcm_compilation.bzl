@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path", "get_disable_pch_validation_flags")
 load(":apple_sdk_modules_utility.bzl", "get_compiled_sdk_clang_deps_tset")
 load(
@@ -203,6 +204,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             identifier = module_name,
             # Swift compiler requires unique inodes for all input files.
             unique_input_inodes = True,
+            error_handler = apple_build_error_handler,
         )
 
         # Construct the args needed to be passed to the clang importer
