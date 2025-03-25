@@ -39,13 +39,13 @@ _SUPPORTED_MAC_CATALYST_PLATFORMS = [
     mac_catalyst_platforms.MACCATALYST_X86_64,
 ]
 
-_INVERSE_REMAPPED_BUILD_MODES = {v: k for k, v in REMAPPED_BUILD_MODES.items()}
-
 _ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode"]
 _DEFAULT_ANALYSIS_IOS_PLATFORM = ios_platforms.IPHONEOS_ARM64
 _DEFAULT_ANALYSIS_MACOS_PLATFORM = mac_platforms.MACOS_X86_64
 
 DEFAULT_SUPPORTED_CXX_PLATFORMS = _SUPPORTED_IOS_PLATFORMS
+
+INVERSE_REMAPPED_BUILD_MODES = {v: k for k, v in REMAPPED_BUILD_MODES.items()}
 
 def apple_target_platforms(
         base_name,
@@ -138,7 +138,7 @@ def config_backed_apple_target_platform(target_platform = None, platform = None,
     build_mode = get_build_mode() if build_mode == None else build_mode
     if build_mode not in supported_build_modes:
         # If build_mode is an unsupported build mode, attempt to map it to a supported one using the inverse map
-        build_mode = _INVERSE_REMAPPED_BUILD_MODES.get(build_mode, build_mode)
+        build_mode = INVERSE_REMAPPED_BUILD_MODES.get(build_mode, build_mode)
 
     if target_platform == None:
         return get_default_target_platform_for_platform(platform)
