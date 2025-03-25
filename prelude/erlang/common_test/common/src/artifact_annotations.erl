@@ -36,7 +36,10 @@
 
 %% Public API
 -export([serialize/1, create_artifact_annotation/2, default_annotation/1]).
--export_type([annotation_function/0]).
+-export_type([
+    annotation_function/0,
+    test_result_artifact_annotations/0
+]).
 
 -spec serialize(test_result_artifact_annotations()) -> binary().
 serialize(ArtifactAnnotation) -> json:encode(ArtifactAnnotation).
