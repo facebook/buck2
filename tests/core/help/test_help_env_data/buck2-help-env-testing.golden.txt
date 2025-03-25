@@ -32,6 +32,7 @@ BUCK2_TEST_EXTRA_EXTERNAL_CONFIG        String
 BUCK2_TEST_FAIL_BUCKD_AUTH              bool                  false
 BUCK2_TEST_FAIL_CONNECT                 bool                  false
 BUCK2_TEST_FAIL_RE_DOWNLOADS            bool                  false
+BUCK2_TEST_FAIL_STREAMING               bool                  false
 BUCK2_TEST_FORCE_CACHE_UPLOAD           bool                  false
 BUCK2_TEST_FORCE_DECLARE_MISMATCH       bool                  false
 BUCK2_TEST_INIT_DAEMON_ERROR            bool                  false
