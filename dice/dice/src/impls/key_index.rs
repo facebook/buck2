@@ -42,7 +42,7 @@ impl Shard {
             .lookup(hash, |k| {
                 self.key_by_index
                     .get(k.get() as usize - 1)
-                    .unwrap()
+                    .expect("no key in index indicates a bug in the underlying data structures")
                     .as_ref()
                     == key
             })
