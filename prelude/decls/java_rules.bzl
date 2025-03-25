@@ -274,6 +274,9 @@ java_library = prelude_rule(
                 List of additional arguments to pass into the Java compiler. These
                  arguments follow the ones specified in `.buckconfig`.
             """),
+            "concat_resources": attrs.bool(default = False, doc = """
+                Use parallel compression and concatenation of intermediary jars to speed up jar time generation.
+            """),
         } |
         jvm_common.remove_classes_arg() |
         jvm_common.exported_deps() |
