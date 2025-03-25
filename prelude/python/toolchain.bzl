@@ -67,6 +67,7 @@ PythonToolchainInfo = provider(
         "native_library_runtime_paths": provider_field(list[str], default = []),
         "make_source_db_no_deps": provider_field(typing.Any, default = None),
         "make_py_package_inplace": provider_field(typing.Any, default = None),
+        "make_py_package_live": provider_field(typing.Any, default = None),
         "make_py_package_standalone": provider_field(typing.Any, default = None),
         "make_py_package_manifest_module": provider_field(typing.Any, default = None),
         "make_py_package_modules": provider_field(typing.Any, default = None),
