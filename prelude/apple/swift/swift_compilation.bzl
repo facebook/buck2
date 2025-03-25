@@ -298,7 +298,9 @@ def compile_swift(
         exported_objc_modulemap_pp_info: [CPreprocessor, None],
         private_objc_modulemap_pp_info: [CPreprocessor, None],
         framework_search_paths_flags: cmd_args,
-        extra_search_paths_flags: list[ArgLike] = []) -> ([SwiftCompilationOutput, None], DefaultInfo):
+        extra_search_paths_flags: list[ArgLike] = [],
+        compile_category = "swift_compile",
+        compile_swiftmodule_category = "swiftmodule_compile") -> ([SwiftCompilationOutput, None], DefaultInfo):
     # If this target imports XCTest we need to pass the search path to its swiftmodule.
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
@@ -378,9 +380,10 @@ def compile_swift(
         output_header,
         output_symbols,
         swift_framework_output,
+        compile_swiftmodule_category,
     )
 
-    object_output = _compile_object(ctx, toolchain, shared_flags, srcs)
+    object_output = _compile_object(ctx, toolchain, shared_flags, srcs, compile_category)
 
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
@@ -460,7 +463,8 @@ def _compile_swiftmodule(
         output_swiftmodule: Artifact,
         output_header: Artifact,
         output_symbols: Artifact | None,
-        swift_framework_output: SwiftLibraryForDistributionOutput | None) -> CompileArgsfiles:
+        swift_framework_output: SwiftLibraryForDistributionOutput | None,
+        category: str) -> CompileArgsfiles:
     if output_swiftinterface:
         # We compile the interface in two passes:
         #  1. generate the ObjC header and swiftinterface file
@@ -560,7 +564,7 @@ def _compile_swiftmodule(
             output_tbd.as_output(),
         ])
 
-    ret = _compile_with_argsfile(ctx, "swiftmodule_compile", SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain, num_threads = 1)
+    ret = _compile_with_argsfile(ctx, category, SWIFTMODULE_EXTENSION, argfile_cmd, srcs, cmd, toolchain, num_threads = 1)
 
     if output_tbd != None:
         # Now we have run the TBD action we need to extract the symbols
@@ -580,7 +584,8 @@ def _compile_object(
         ctx: AnalysisContext,
         toolchain: SwiftToolchainInfo,
         shared_flags: cmd_args,
-        srcs: list[CxxSrcWithFlags]) -> SwiftObjectOutput:
+        srcs: list[CxxSrcWithFlags],
+        category: str) -> SwiftObjectOutput:
     if should_build_swift_incrementally(ctx, len(srcs)):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs)
         num_threads = incremental_compilation_output.num_threads
@@ -613,7 +618,7 @@ def _compile_object(
     if _should_compile_with_evolution(ctx):
         cmd.add(["-enable-library-evolution"])
 
-    argsfiles = _compile_with_argsfile(ctx, "swift_compile", SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain, num_threads = num_threads)
+    argsfiles = _compile_with_argsfile(ctx, category, SWIFT_EXTENSION, shared_flags, srcs, cmd, toolchain, num_threads = num_threads)
 
     return SwiftObjectOutput(
         object_files = objects,
