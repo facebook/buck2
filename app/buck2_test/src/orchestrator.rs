@@ -986,7 +986,7 @@ impl<'b> BuckTestOrchestrator<'b> {
         // instrument execution with a span.
         // TODO(brasselsprouts): migrate this into the executor to get better accuracy.
         let command_exec_result = match stage {
-            TestStage::Listing { suite, .. } => {
+            TestStage::Listing { suite, cacheable } => {
                 let start = TestDiscoveryStart {
                     suite_name: suite.clone(),
                 };
@@ -1017,7 +1017,10 @@ impl<'b> BuckTestOrchestrator<'b> {
                         ((result, cached), end)
                     })
                     .await;
-                if !cached && check_cache_listings_experiment(dice, &test_target_label).await? {
+                if !cached
+                    && *cacheable
+                    && check_cache_listings_experiment(dice, &test_target_label).await?
+                {
                     let info = CacheUploadInfo {
                         target: &test_target as _,
                         digest_config,
