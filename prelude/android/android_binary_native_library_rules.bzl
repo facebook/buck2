@@ -1706,9 +1706,9 @@ def create_relinker_version_script(actions: AnalysisActions, relinker_allowlist:
             keep_symbol = False
             if symbol in all_needed_symbols:
                 keep_symbol = True
-            elif "JNI_OnLoad" in symbol:
+            elif symbol == "JNI_OnLoad":
                 keep_symbol = True
-            elif "Java_" in symbol:
+            elif symbol.startswith("Java_"):
                 keep_symbol = True
             else:
                 for pattern in relinker_allowlist:
