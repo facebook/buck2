@@ -43,9 +43,18 @@ pub(crate) fn classify_server_stderr(
     } else {
         ErrorTag::ServerStderrUnknown
     };
+    let mut tags = vec![tag];
 
     let error = if let Some(trace) = extract_trace(stderr) {
         if tag != ErrorTag::ServerSigterm {
+            if trace
+                .stack_trace_lines
+                .iter()
+                .any(|line| line.contains("remote_execution"))
+            {
+                tags.push(ErrorTag::ReClientCrash);
+            }
+
             error.string_tag(&format!("crash({})", trace.trace_key()))
         } else if let Some(signal_line) = trace.signal_line {
             // Keep this because the PID that (might have) sent it could be useful.
@@ -58,7 +67,7 @@ pub(crate) fn classify_server_stderr(
         error
     };
 
-    error.tag([tag])
+    error.tag(tags)
 }
 
 //    0: rust_begin_unwind
