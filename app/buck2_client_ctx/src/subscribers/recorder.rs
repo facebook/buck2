@@ -1639,7 +1639,6 @@ const INPUT: &str = "USER";
 
 fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::ProcessedErrorReport {
     let best_tag = error.best_tag();
-    let source_area = best_tag.map(|tag| source_area(tag).to_string().to_ascii_uppercase());
     let best_tag = best_tag
         .map_or(
             // If we don't have tags on the errors,
@@ -1658,8 +1657,10 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         .tags
         .iter()
         .copied()
-        .filter_map(|v| buck2_data::error::ErrorTag::try_from(v).ok())
-        .map(|t| t.as_str_name().to_owned());
+        .filter_map(|v| buck2_data::error::ErrorTag::try_from(v).ok());
+
+    let source_area = source_area(tags.clone()).to_string().to_ascii_uppercase();
+    let tags = tags.map(|t| t.as_str_name().to_owned());
 
     let string_tags = error.string_tags.iter().map(|t| t.tag.clone());
     let tags = tags.chain(string_tags).collect();
@@ -1676,7 +1677,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         sub_error_categories: error.sub_error_categories,
         category_key: error.category_key,
         category: Some(category),
-        source_area,
+        source_area: Some(source_area),
     }
 }
 

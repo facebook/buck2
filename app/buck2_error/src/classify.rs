@@ -93,6 +93,42 @@ macro_rules! rank {
     };
 }
 
+#[derive(derive_more::Display, Debug, PartialEq)]
+pub enum ErrorSourceArea {
+    Buck2,
+    Eden,
+    Re,
+    Watchman,
+    Starlark,
+    TestExecutor,
+    Installer,
+}
+
+pub trait ErrorTagExtra {
+    fn source_area(&self) -> ErrorSourceArea;
+}
+
+impl ErrorTagExtra for ErrorTag {
+    fn source_area(&self) -> ErrorSourceArea {
+        let tag_name = self.as_str_name();
+        if tag_name.starts_with("IO_EDEN") {
+            ErrorSourceArea::Eden
+        } else if tag_name.starts_with("RE") {
+            ErrorSourceArea::Re
+        } else if tag_name.starts_with("WATCHMAN") {
+            ErrorSourceArea::Watchman
+        } else if tag_name.starts_with("STARLARK") {
+            ErrorSourceArea::Starlark
+        } else if *self == crate::ErrorTag::Tpx || *self == crate::ErrorTag::TestExecutor {
+            ErrorSourceArea::TestExecutor
+        } else if tag_name.starts_with("INSTALLER") {
+            ErrorSourceArea::Installer
+        } else {
+            ErrorSourceArea::Buck2
+        }
+    }
+}
+
 /// Ordering determines tag rank, more interesting tags first
 fn tag_metadata(tag: ErrorTag) -> TagMetadata {
     match tag {
@@ -316,34 +352,18 @@ pub(crate) fn error_tag_category(tag: ErrorTag) -> Option<Tier> {
     tag_metadata(tag).category
 }
 
-#[derive(derive_more::Display, Debug, PartialEq)]
-pub enum ErrorSourceArea {
-    Buck2,
-    Eden,
-    Re,
-    Watchman,
-    Starlark,
-    TestExecutor,
-    Installer,
-}
-
-pub fn source_area(tag: ErrorTag) -> ErrorSourceArea {
-    let tag_name = tag.as_str_name();
-    if tag_name.starts_with("IO_EDEN") {
-        ErrorSourceArea::Eden
-    } else if tag_name.starts_with("RE") {
-        ErrorSourceArea::Re
-    } else if tag_name.starts_with("WATCHMAN") {
-        ErrorSourceArea::Watchman
-    } else if tag_name.starts_with("STARLARK") {
-        ErrorSourceArea::Starlark
-    } else if tag == crate::ErrorTag::Tpx || tag == crate::ErrorTag::TestExecutor {
-        ErrorSourceArea::TestExecutor
-    } else if tag_name.starts_with("INSTALLER") {
-        ErrorSourceArea::Installer
-    } else {
-        ErrorSourceArea::Buck2
-    }
+// Buck2 is the fallback/default source area, use the first non-buck2 source area.
+pub fn source_area(tags: impl IntoIterator<Item = ErrorTag>) -> ErrorSourceArea {
+    tags.into_iter()
+        .find_map(|tag| {
+            let area = tag.source_area();
+            if area != ErrorSourceArea::Buck2 {
+                Some(area)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(ErrorSourceArea::Buck2)
 }
 
 #[cfg(test)]
@@ -439,20 +459,20 @@ mod tests {
     #[test]
     fn test_source_area() {
         assert_eq!(
-            source_area(ErrorTag::ServerStderrEmpty),
+            ErrorTag::ServerStderrEmpty.source_area(),
             ErrorSourceArea::Buck2
         );
-        assert_eq!(source_area(ErrorTag::ReAborted), ErrorSourceArea::Re);
+        assert_eq!(ErrorTag::ReAborted.source_area(), ErrorSourceArea::Re);
         assert_eq!(
-            source_area(ErrorTag::WatchmanConnect),
+            ErrorTag::WatchmanConnect.source_area(),
             ErrorSourceArea::Watchman
         );
         assert_eq!(
-            source_area(ErrorTag::IoEdenArgumentError),
+            ErrorTag::IoEdenArgumentError.source_area(),
             ErrorSourceArea::Eden
         );
         assert_eq!(
-            source_area(ErrorTag::TestExecutor),
+            ErrorTag::TestExecutor.source_area(),
             ErrorSourceArea::TestExecutor
         );
     }
