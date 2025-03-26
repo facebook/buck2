@@ -40,3 +40,20 @@ streaming_output_without_duplicates = bxl_main(
     cli_args = {},
     impl = _streaming_output_without_duplicates,
 )
+
+def _streaming_output_waits_on(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+    output0 = actions.write("output0.txt", "hello world!")
+    en0 = ctx.output.ensure(output0)
+
+    output1 = actions.write("output1.txt", "hello world!")
+    en1 = ctx.output.ensure(output1)
+
+    ctx.output.stream("Waits on two file", additional_waits = [en0, en1])
+    ctx.output.stream(en0)
+    ctx.output.stream(en1)
+
+streaming_output_waits_on = bxl_main(
+    cli_args = {},
+    impl = _streaming_output_waits_on,
+)

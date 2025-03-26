@@ -36,6 +36,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use futures::FutureExt;
 use gazebo::prelude::VecExt;
 use indexmap::IndexSet;
@@ -292,9 +293,13 @@ struct StreamingStrategy {
 }
 
 impl StreamingStrategy {
-    fn new(output_stream_state: OutputStreamState, streaming_writer: BxlStreamingWriter) -> Self {
+    fn new(
+        additional_waits: impl Iterator<Item = EnsuredArtifactOrGroup>,
+        output_stream_state: OutputStreamState,
+        streaming_writer: BxlStreamingWriter,
+    ) -> Self {
         Self {
-            waits_on_artifacts: Default::default(),
+            waits_on_artifacts: additional_waits.collect(),
             output_stream_state,
             buffer: Vec::new(),
             streaming_writer,
@@ -658,13 +663,30 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         this: &'v OutputStream,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(default = " ")] sep: &'v str,
+        #[starlark(require = named, default = UnpackList::default())] additional_waits: UnpackList<
+            Either<&'v EnsuredArtifact, &'v EnsuredArtifactGroup>,
+        >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
         let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
 
-        let streaming_strategy = StreamingStrategy::new(this.state.dupe(), streaming_writer);
+        let additional_waits = additional_waits
+            .into_iter()
+            .map(|wait_on| match wait_on {
+                Either::Left(ensured_artifact) => {
+                    vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
+                }
+                Either::Right(ensured_group) => ensured_group
+                    .inner()
+                    .iter()
+                    .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
+                    .collect(),
+            })
+            .flatten();
 
+        let streaming_strategy =
+            StreamingStrategy::new(additional_waits, this.state.dupe(), streaming_writer);
         this.print(args.into_iter(), sep, eval, streaming_strategy)?;
 
         Ok(NoneType)

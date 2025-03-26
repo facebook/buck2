@@ -108,3 +108,32 @@ async def test_streaming_output_without_duplicates(buck: Buck) -> None:
     assert (
         stdout.count(normal_output) == 1
     ), "Expected only one normal output when cached"
+
+
+@buck_test()
+async def test_streaming_output_waits_on(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//streaming.bxl:streaming_output_waits_on",
+    )
+
+    stdout = result.stdout
+
+    file0_idx = -1
+    file1_idx = -1
+    waits_on_output_idx = -1
+
+    for idx, line in enumerate(stdout.splitlines()):
+        if "output0.txt" in line:
+            file0_idx = idx
+        if "output1.txt" in line:
+            file1_idx = idx
+        if "Waits on two file" in line:
+            waits_on_output_idx = idx
+
+    assert (
+        file0_idx != -1 and file1_idx != -1 and waits_on_output_idx != -1
+    ), "Cound not find the streaming print"
+
+    assert (
+        file0_idx < waits_on_output_idx or file1_idx < waits_on_output_idx
+    ), "wait_on should after the one of the ensured artifact streaming print"
