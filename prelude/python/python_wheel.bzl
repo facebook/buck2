@@ -104,10 +104,12 @@ def _whl_cmd(
 def _rpath(dst, rpath):
     """
     Relative the given `rpath` to `dst`, via `$ORIGIN`.
+    If `rpath` is absolute, return it as-is.
     """
+    if paths.is_absolute(rpath):
+        return rpath
 
     expect(not paths.is_absolute(dst))
-    expect(not paths.is_absolute(rpath))
 
     base = "$ORIGIN"
     dirpath = paths.dirname(dst)
