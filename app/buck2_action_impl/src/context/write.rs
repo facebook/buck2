@@ -97,6 +97,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             UnregisteredWriteJsonAction::new(pretty, absolute),
             Some(content.value),
             None,
+            None,
         )?;
 
         let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
@@ -269,6 +270,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 action,
                 Some(content_cli.to_value()),
                 None,
+                None,
             )?;
 
             written_macro_files
@@ -297,6 +299,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             indexset![output_artifact],
             action,
             Some(content_cli.to_value()),
+            None,
             None,
         )?;
 

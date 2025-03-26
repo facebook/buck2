@@ -219,12 +219,14 @@ impl<'v> AnalysisRegistry<'v> {
         action: A,
         associated_value: Option<Value<'v>>,
         error_handler: Option<StarlarkCallable<'v>>,
+        action_inputs_hash: Option<Arc<str>>,
     ) -> buck2_error::Result<()> {
         let id = self.actions.register(
             &self.analysis_value_storage.self_key,
             inputs,
             outputs,
             action,
+            action_inputs_hash,
         )?;
         self.analysis_value_storage
             .set_action_data(id, (associated_value, error_handler))?;

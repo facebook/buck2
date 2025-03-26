@@ -439,6 +439,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             action,
             Some(starlark_values),
             error_handler.into_option(),
+            None,
         )?;
         Ok(NoneType)
     }

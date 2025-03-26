@@ -40,7 +40,7 @@ fn create_dir_tree<'v>(
     let mut this = this.state()?;
     let (declaration, output_artifact) =
         this.get_or_declare_output(eval, output, OutputType::Directory)?;
-    this.register_action(inputs, indexset![output_artifact], action, None, None)?;
+    this.register_action(inputs, indexset![output_artifact], action, None, None, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }
@@ -64,6 +64,7 @@ fn copy_file_impl<'v>(
         indexset![artifact],
         indexset![output_artifact],
         UnregisteredCopyAction::new(copy),
+        None,
         None,
         None,
     )?;

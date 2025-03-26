@@ -152,6 +152,7 @@ fn register_actions() -> anyhow::Result<()> {
         inputs,
         outputs,
         unregistered_action.clone(),
+        None,
     )?;
 
     assert_eq!(actions.testing_pending_action_keys(), vec![key]);
@@ -195,7 +196,7 @@ fn finalizing_actions() -> anyhow::Result<()> {
         None,
     );
     let holder_key = DeferredHolderKey::Base(base.dupe());
-    actions.register(&holder_key, inputs, outputs, unregistered_action)?;
+    actions.register(&holder_key, inputs, outputs, unregistered_action, None)?;
 
     let result = actions.ensure_bound(&AnalysisValueFetcher::testing_new(holder_key))?;
 
@@ -261,7 +262,7 @@ fn category_identifier_test(
             identifier.map(|i| i.to_owned()),
         );
 
-        actions.register(&base, indexset![], indexset![], unregistered_action)?;
+        actions.register(&base, indexset![], indexset![], unregistered_action, None)?;
     }
 
     actions.ensure_bound(&AnalysisValueFetcher::testing_new(base))?;

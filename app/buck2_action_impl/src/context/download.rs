@@ -78,6 +78,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
             ),
             None,
             None,
+            None,
         )?;
 
         Ok(declaration.into_declared_artifact(AssociatedArtifacts::new()))
@@ -143,6 +144,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
                 executable: is_executable,
                 kind,
             },
+            None,
             None,
             None,
         )?;

@@ -189,6 +189,7 @@ impl ActionsRegistry {
         inputs: IndexSet<ArtifactGroup>,
         outputs: IndexSet<OutputArtifact>,
         action: A,
+        action_inputs_hash: Option<Arc<str>>,
     ) -> buck2_error::Result<ActionKey> {
         let key = ActionKey::new(
             self_key.dupe(),
@@ -199,6 +200,14 @@ impl ActionsRegistry {
                 (self.declared_dynamic_outputs.len() + self.pending.len()).try_into()?,
             ),
         );
+
+        // We don't produce an action_inputs_hash for dynamic actions, since they may capture
+        // inputs that the hash does not.
+        let action_inputs_hash = match self.owner {
+            DeferredHolderKey::Base(_) => action_inputs_hash,
+            DeferredHolderKey::DynamicLambda(_) => None,
+        };
+
         let mut bound_outputs = IndexSet::with_capacity(outputs.len());
         for output in outputs {
             let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
@@ -209,6 +218,7 @@ impl ActionsRegistry {
             inputs,
             bound_outputs,
             action,
+            action_inputs_hash,
         ));
 
         Ok(key)
@@ -236,6 +246,7 @@ impl ActionsRegistry {
         for a in self.pending.into_iter() {
             let key = a.key().dupe();
             let (starlark_data, error_handler) = analysis_value_fetcher.get_action_data(&key)?;
+            let action_inputs_hash = a.action_inputs_hash();
             let action = a.register(starlark_data, error_handler)?;
             match (action.category(), action.identifier()) {
                 (category, Some(identifier)) => {
@@ -270,6 +281,7 @@ impl ActionsRegistry {
                     key,
                     action,
                     (*self.execution_platform.executor_config()?).dupe(),
+                    action_inputs_hash,
                 )),
             );
         }
