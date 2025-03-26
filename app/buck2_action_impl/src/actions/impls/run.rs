@@ -178,7 +178,9 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) force_full_hybrid_if_capable: bool,
     pub(crate) unique_input_inodes: bool,
     pub(crate) remote_execution_dependencies: Vec<RemoteExecutorDependency>,
-    pub(crate) remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
+    // Since this is usually None, use a Box to avoid using memory that is the size
+    // of RemoteExecutorCustomImage.
+    pub(crate) remote_execution_custom_image: Option<Box<RemoteExecutorCustomImage>>,
     pub(crate) meta_internal_extra_params: MetaInternalExtraParams,
 }
 
@@ -659,7 +661,9 @@ impl RunAction {
             .with_force_full_hybrid_if_capable(self.inner.force_full_hybrid_if_capable)
             .with_unique_input_inodes(self.inner.unique_input_inodes)
             .with_remote_execution_dependencies(self.inner.remote_execution_dependencies.clone())
-            .with_remote_execution_custom_image(self.inner.remote_execution_custom_image.clone())
+            .with_remote_execution_custom_image(
+                self.inner.remote_execution_custom_image.clone().map(|s| *s),
+            )
             .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
             .with_outputs_for_error_handler(outputs_for_error_handler);
 

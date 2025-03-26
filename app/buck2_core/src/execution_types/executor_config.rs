@@ -48,7 +48,7 @@ pub struct RemoteEnabledExecutorOptions {
     pub remote_cache_enabled: bool,
     pub remote_dep_file_cache_enabled: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
-    pub custom_image: Option<RemoteExecutorCustomImage>,
+    pub custom_image: Option<Box<RemoteExecutorCustomImage>>,
     pub meta_internal_extra_params: MetaInternalExtraParams,
 }
 

@@ -2110,7 +2110,7 @@ impl TestExecutor {
 
     pub fn re_dynamic_image(&self) -> Option<RemoteExecutorCustomImage> {
         if let Executor::RemoteEnabled(options) = &self.executor_config.executor {
-            options.custom_image.clone()
+            options.custom_image.clone().map(|image| *image)
         } else {
             None
         }
