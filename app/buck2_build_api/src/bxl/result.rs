@@ -73,7 +73,23 @@ pub struct PendingStreamingOutput {
 }
 
 impl PendingStreamingOutput {
-    fn new(waits_on: IndexSet<ArtifactGroup>, output: Vec<u8>) -> Self {
+    pub fn new(waits_on: IndexSet<ArtifactGroup>, output: Vec<u8>) -> Self {
         Self { waits_on, output }
+    }
+
+    pub fn waits_on(&self) -> &IndexSet<ArtifactGroup> {
+        &self.waits_on
+    }
+
+    pub fn output(&self) -> &[u8] {
+        &self.output
+    }
+
+    pub fn remove_wait_on(&mut self, artifact: &ArtifactGroup) -> bool {
+        self.waits_on.swap_remove(artifact)
+    }
+
+    pub fn is_pending(&self) -> bool {
+        !self.waits_on.is_empty()
     }
 }

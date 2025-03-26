@@ -1,0 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+def _streaming_output_ensured_artifact(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+    output = actions.write("output.txt", "hello world!")
+    ensured_output = ctx.output.ensure(output)
+
+    ctx.output.print("Line before streaming print")
+    ctx.output.stream(ensured_output.abs_path())
+
+streaming_output_ensured_artifact = bxl_main(
+    cli_args = {},
+    impl = _streaming_output_ensured_artifact,
+)
