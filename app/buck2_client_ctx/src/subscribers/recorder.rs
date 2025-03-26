@@ -418,7 +418,7 @@ impl InvocationRecorder {
         // Add stderr to GRPC connection errors if available
         let connection_errors: Vec<buck2_error::Error> = self
             .client_errors
-            .extract_if(|e| e.has_tag(ErrorTag::ClientGrpc))
+            .extract_if(.., |e| e.has_tag(ErrorTag::ClientGrpc))
             .collect();
 
         for error in connection_errors {

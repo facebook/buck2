@@ -25,6 +25,7 @@ CLIPPY_ALLOW = [
     "clippy::from_iter_instead_of_collect",  # https://fb.workplace.com/groups/buck2core/posts/835300915330313
     "clippy::implicit_hasher",  # Makes code more complex for little benefit
     "clippy::len_without_is_empty",  # len() == 0 is perfectly clear
+    "clippy::literal_string_with_formatting_args",  # FIXME new in Rust 1.85, fixed in Rust 1.87 (clippy PR 13953)
     "clippy::manual_range_contains",  # a <= b && b <= c is way clearer than (a..=c).contains(&b)
     "clippy::many_single_char_names",  # match(a,b,c,d,e) sometimes makes sense
     "clippy::match_like_matches_macro",  # Using matches! is sometimes clearer, sometimes not
