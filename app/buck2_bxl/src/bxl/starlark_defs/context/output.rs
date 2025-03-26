@@ -630,8 +630,14 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// Accepts an optional separator that defaults to " ".
     ///
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
-    /// and `pprint`. Note that `ctx.output.print()` is intended for simple outputs. For more complex
+    /// and `pprint`.
+    ///
+    /// **Note** that `ctx.output.print()` is intended for simple outputs. For more complex
     /// outputs, the recommendation would be to write them to a file.
+    ///
+    /// **Note** that the output of `ctx.output.print()` will be displayed to stdout at the end of bxl.
+    /// If you want to print something to stdout immediately or the when ensured artifacts are ready and also want this even when the script is cached,
+    /// use `ctx.output.stream()` instead.
     ///
     /// Sample usage:
     /// ```python
@@ -660,12 +666,16 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
     /// and `pprint`.
     ///
+    /// **Note** that the output of `ctx.output.print_json()` will be displayed to stdout at the end of bxl.
+    /// If you want to print something to stdout immediately or the when ensured artifacts are ready and also want this even when the script is cached,
+    /// use `ctx.output.stream_json()` instead.
+    ///
     /// Sample usage:
     /// ```python
     /// def _impl_print_json(ctx):
     ///     outputs = {}
     ///     outputs.update({"foo": bar})
-    ///     ctx.output.print_json("test")
+    ///     ctx.output.print_json(outputs)
     /// ```
     fn print_json<'v>(
         this: &'v OutputStream,
@@ -682,7 +692,35 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    /// TODO: add doc
+    /// Streaming outputs results to the console via stdout as pretty-printed json **immediately** when it is ready.
+    /// Pretty printing can be turned off by the `pretty` keyword-only parameter.
+    /// It will be displayed to stdout by buck2 even when the script is cached.
+    ///
+    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
+    /// and `pprint`.
+    ///
+    /// - If no artifacts in `args`, output is displayed **immediately** during evaluation.
+    /// - If artifacts are present (either in `args` or `additional_waits`), output is
+    ///   displayed **as soon as all required artifacts are materialized**.
+    ///
+    /// The `additional_waits` parameter allows specifying additional artifacts that must be materialized
+    /// before displaying the output, even if they're not directly included in the `args`.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_print(ctx):
+    ///     # Immediate output during evaluation
+    ///     ctx.output.stream("Starting process...")
+    ///     
+    ///     # Output as soon as artifact is materialized
+    ///     artifact = ctx.output.ensure(my_artifact)
+    ///     ctx.output.stream("Artifact ready:", artifact)
+    ///     
+    ///     # Output when both artifacts are materialized
+    ///     artifact1 = ctx.output.ensure(my_artifact1)
+    ///     artifact2 = ctx.output.ensure(my_artifact2)
+    ///     ctx.output.stream("First artifact:", artifact1, additional_waits=[artifact2])
+    /// ```
     fn stream<'v>(
         this: &'v OutputStream,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
@@ -716,7 +754,36 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         Ok(NoneType)
     }
 
-    // TODO: add doc
+    /// Streaming outputs results to the console via stdout **immediately** when it is ready.
+    /// It will be displayed to stdout by buck2 even when the script is cached.
+    /// Accepts an optional separator that defaults to " ".
+    ///
+    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
+    /// and `pprint`.
+    ///
+    /// - If no artifacts in `args`, output is displayed **immediately** during evaluation.
+    /// - If artifacts are present (either in `args` or `additional_waits`), output is
+    ///   displayed **as soon as all required artifacts are materialized**.
+    ///
+    /// The `additional_waits` parameter allows specifying additional artifacts that must be materialized
+    /// before displaying the output, even if they're not directly included in the `args`.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_print_json(ctx):
+    ///     outputs = {}
+    ///     outputs.update({"foo": bar})
+    ///     
+    ///     # Stream JSON output immediately
+    ///     ctx.output.stream_json({"status": "starting"})
+    ///     
+    ///     # Stream JSON when artifact is ready
+    ///     artifact = ctx.output.ensure(my_artifact)
+    ///     ctx.output.stream_json({"artifact": artifact})
+    ///
+    ///    # Stream JSON waiting on artifact to be ready
+    ///    ctx.output.stream_json({"status": "starting"}, additional_waits=[artifact])
+    /// ```
     fn stream_json<'v>(
         this: &'v OutputStream,
         value: Value<'v>,
