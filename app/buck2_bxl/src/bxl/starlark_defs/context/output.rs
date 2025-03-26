@@ -467,29 +467,30 @@ impl OutputStream {
         value: Value<'v>,
         pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
+        output_strategy: impl OutputStrategy,
     ) -> buck2_error::Result<()> {
-        // TODO: Add support for streaming json output
-
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
-        struct SerializeValue<'a, 'v, 'd> {
+        struct SerializeValue<'a, 'v, 'd, T: OutputStrategy> {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
             async_ctx: &'a Rc<RefCell<dyn BxlDiceComputations + 'd>>,
+            output_strategy: Rc<RefCell<T>>,
         }
 
-        impl<'v> SerializeValue<'_, 'v, '_> {
+        impl<'v, T: OutputStrategy> SerializeValue<'_, 'v, '_, T> {
             fn with_value(&self, x: Value<'v>) -> Self {
                 Self {
                     value: x,
                     artifact_fs: self.artifact_fs,
                     project_fs: self.project_fs,
                     async_ctx: self.async_ctx,
+                    output_strategy: self.output_strategy.dupe(),
                 }
             }
         }
 
-        impl Serialize for SerializeValue<'_, '_, '_> {
+        impl<T: OutputStrategy> Serialize for SerializeValue<'_, '_, '_, T> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: Serializer,
@@ -497,6 +498,10 @@ impl OutputStream {
                 if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value)
                     .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
                 {
+                    self.output_strategy
+                        .borrow_mut()
+                        .on_artifact(EnsuredArtifactOrGroup::Artifact(ensured.dupe()));
+
                     let path = get_artifact_path_display(
                         ensured.get_artifact_path(),
                         ensured.abs(),
@@ -508,6 +513,12 @@ impl OutputStream {
                 } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(self.value)
                     .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
                 {
+                    for artifact in ensured.inner() {
+                        self.output_strategy
+                            .borrow_mut()
+                            .on_artifact(EnsuredArtifactOrGroup::ArtifactGroup(artifact.dupe()));
+                    }
+
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
                     self.async_ctx
@@ -561,18 +572,27 @@ impl OutputStream {
         } else {
             serde_json::to_writer
         };
+
+        let output_strategy = Rc::new(RefCell::new(output_strategy));
+        let mut buffer = Vec::new();
         writer(
-            &mut *self.output(),
+            &mut buffer,
             &SerializeValue {
                 value,
                 artifact_fs: &self.artifact_fs,
                 project_fs: &self.project_fs,
                 async_ctx: &BxlEvalExtra::from_context(eval)?.dice,
+                output_strategy: output_strategy.dupe(),
             },
         )
         .buck_error_context("Error writing to JSON for `write_json`")?;
 
-        writeln!(self.output())?;
+        writeln!(buffer)?;
+
+        let mut output = output_strategy.borrow_mut();
+
+        output.write_all(&buffer)?;
+        output.flush()?;
 
         Ok(())
     }
@@ -653,7 +673,11 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=named, default=true)] pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        this.print_json(value, pretty, eval)?;
+        let buffer_strategy = BufferPrintStrategy {
+            output: this.output(),
+        };
+
+        this.print_json(value, pretty, eval, buffer_strategy)?;
 
         Ok(NoneType)
     }
@@ -688,6 +712,39 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         let streaming_strategy =
             StreamingStrategy::new(additional_waits, this.state.dupe(), streaming_writer);
         this.print(args.into_iter(), sep, eval, streaming_strategy)?;
+
+        Ok(NoneType)
+    }
+
+    // TODO: add doc
+    fn stream_json<'v>(
+        this: &'v OutputStream,
+        value: Value<'v>,
+        #[starlark(require=named, default=true)] pretty: bool,
+        #[starlark(require = named, default = UnpackList::default())] additional_waits: UnpackList<
+            Either<&'v EnsuredArtifact, &'v EnsuredArtifactGroup>,
+        >,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<NoneType> {
+        let extra = BxlEvalExtra::from_context(eval)?;
+        let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
+        let additional_waits = additional_waits
+            .into_iter()
+            .map(|wait_on| match wait_on {
+                Either::Left(ensured_artifact) => {
+                    vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
+                }
+                Either::Right(ensured_group) => ensured_group
+                    .inner()
+                    .iter()
+                    .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
+                    .collect(),
+            })
+            .flatten();
+        let streaming_strategy =
+            StreamingStrategy::new(additional_waits, this.state.dupe(), streaming_writer);
+
+        this.print_json(value, pretty, eval, streaming_strategy)?;
 
         Ok(NoneType)
     }

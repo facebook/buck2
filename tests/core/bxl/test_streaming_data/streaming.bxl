@@ -57,3 +57,25 @@ streaming_output_waits_on = bxl_main(
     cli_args = {},
     impl = _streaming_output_waits_on,
 )
+
+def _streaming_output_json(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+    output0 = actions.write("output0.txt", "hello world!")
+    en0 = ctx.output.ensure(output0)
+
+    output1 = actions.write("output1.txt", "hello world!")
+    en1 = ctx.output.ensure(output1)
+
+    output = {"waits_on": "This is streaming output!"}
+    output0 = {"output0": en0}
+    output1 = {"output1": en1}
+
+    ctx.output.print_json("Line before print streaming")
+    ctx.output.stream_json(output, additional_waits = [en0, en1], pretty = False)
+    ctx.output.stream_json(output0, pretty = False)
+    ctx.output.stream_json(output1, pretty = False)
+
+streaming_output_json = bxl_main(
+    cli_args = {},
+    impl = _streaming_output_json,
+)

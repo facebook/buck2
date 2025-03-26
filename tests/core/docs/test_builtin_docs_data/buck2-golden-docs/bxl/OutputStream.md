@@ -6,3 +6,4 @@
 ## OutputStream.print
 ## OutputStream.print\_json
 ## OutputStream.stream
+## OutputStream.stream\_json

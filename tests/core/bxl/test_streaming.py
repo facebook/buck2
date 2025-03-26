@@ -137,3 +137,55 @@ async def test_streaming_output_waits_on(buck: Buck) -> None:
     assert (
         file0_idx < waits_on_output_idx or file1_idx < waits_on_output_idx
     ), "wait_on should after the one of the ensured artifact streaming print"
+
+
+@buck_test()
+async def test_streaming_output_json(buck: Buck) -> None:
+    async def check_output() -> None:
+        result = await buck.bxl(
+            "//streaming.bxl:streaming_output_json",
+        )
+
+        stdout = result.stdout
+
+        file0_idx = -1
+        file1_idx = -1
+        waits_on_output_idx = -1
+        linde_before_streaming_idx = -1
+
+        for idx, line in enumerate(stdout.splitlines()):
+            json_line = None
+            if "output0.txt" in line:
+                file0_idx = idx
+                json_line = line
+            if "output1.txt" in line:
+                file1_idx = idx
+                json_line = line
+            if "waits_on" in line:
+                waits_on_output_idx = idx
+                json_line = line
+            if "Line before print streaming" in line:
+                linde_before_streaming_idx = idx
+            if json_line is not None:
+                json_line = json_line.strip()
+                assert json_line.startswith("{") and json_line.endswith(
+                    "}"
+                ), "Expected json line"
+
+        assert (
+            file0_idx != -1
+            and file1_idx != -1
+            and waits_on_output_idx != -1
+            and linde_before_streaming_idx != -1
+        ), "Cound not find the output"
+
+        assert (
+            file0_idx < waits_on_output_idx or file1_idx < waits_on_output_idx
+        ), "wait_on should after the one of the ensured artifact streaming print"
+
+        assert linde_before_streaming_idx > max(
+            file0_idx, file1_idx, waits_on_output_idx
+        ), "The streaming print is not after the normal print"
+
+    await check_output()
+    await check_output()
