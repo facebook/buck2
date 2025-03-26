@@ -144,7 +144,7 @@ fn mock_analysis_for_action_resolution(
         action_key.holder_key()
     );
 
-    let mut actions = RecordedActions::new();
+    let mut actions = RecordedActions::new(1);
     actions.insert(action_key.dupe(), registered_action_arc);
 
     dice_builder = dice_builder.mock_and_return(

@@ -237,7 +237,8 @@ impl ActionsRegistry {
             artifact.ensure_bound()?;
         }
 
-        let mut actions = RecordedActions::new();
+        let num_action_keys = self.declared_dynamic_outputs.len() + self.pending.len();
+        let mut actions = RecordedActions::new(num_action_keys);
 
         for (key, artifact) in self.declared_dynamic_outputs.into_iter() {
             actions.insert_dynamic_output(key, artifact.ensure_bound()?.action_key().dupe());
@@ -329,9 +330,9 @@ pub struct RecordedActions {
 }
 
 impl RecordedActions {
-    pub fn new() -> Self {
+    pub fn new(capacity: usize) -> Self {
         Self {
-            actions: Vec::new(),
+            actions: Vec::with_capacity(capacity),
         }
     }
 
