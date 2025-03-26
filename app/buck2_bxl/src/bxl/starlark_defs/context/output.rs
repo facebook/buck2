@@ -214,6 +214,30 @@ impl OutputStreamState {
     }
 }
 
+/// Trait for handling output behavior
+trait OutputStrategy: Write {
+    /// Called when an artifact is encountered
+    fn on_artifact(&mut self, artifact: EnsuredArtifactOrGroup);
+}
+
+struct BufferPrintStrategy<'a, T: Write> {
+    output: RefMut<'a, T>,
+}
+
+impl<'a, T: Write> OutputStrategy for BufferPrintStrategy<'a, T> {
+    fn on_artifact(&mut self, _artifact: EnsuredArtifactOrGroup) {}
+}
+
+impl<'a, T: Write> Write for BufferPrintStrategy<'a, T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.output.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 impl OutputStream {
     pub(crate) fn new(
         project_fs: ProjectRoot,
@@ -232,17 +256,24 @@ impl OutputStream {
         args: impl Iterator<Item = Value<'v>>,
         sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
+        mut output_strategy: impl OutputStrategy,
     ) -> buck2_error::Result<()> {
         let mut first = true;
-        let mut write = |d: &dyn Display| -> buck2_error::Result<()> {
-            if !first {
-                write!(self.output(), "{}{}", sep, d)?;
+
+        fn write_item(
+            output: &mut impl OutputStrategy,
+            sep: &str,
+            first: &mut bool,
+            item: &dyn std::fmt::Display,
+        ) -> buck2_error::Result<()> {
+            if !*first {
+                write!(output, "{}{}", sep, item)?;
             } else {
-                write!(self.output(), "{}", d)?;
-                first = false;
+                write!(output, "{}", item)?;
+                *first = false;
             }
             Ok(())
-        };
+        }
 
         for arg in args {
             if let Some(ensured) = <&EnsuredArtifact>::unpack_value(arg)? {
@@ -252,7 +283,8 @@ impl OutputStream {
                     &self.project_fs,
                     &self.artifact_fs,
                 )?;
-                write(&path)?;
+                write_item(&mut output_strategy, sep, &mut first, &path)?;
+                output_strategy.on_artifact(EnsuredArtifactOrGroup::Artifact(ensured.dupe()));
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg)? {
                 BxlEvalExtra::from_context(eval)?
                     .dice
@@ -267,18 +299,24 @@ impl OutputStream {
                                         &self.project_fs,
                                         &self.artifact_fs,
                                     )?;
-                                    write(&path)
+                                    write_item(&mut output_strategy, sep, &mut first, &path)
                                 },
                                 dice,
                             )
                             .boxed_local()
                     })?;
+                for artifact in ensured.inner() {
+                    output_strategy
+                        .on_artifact(EnsuredArtifactOrGroup::ArtifactGroup(artifact.dupe()));
+                }
             } else {
-                write(&arg.to_str())?;
+                write_item(&mut output_strategy, sep, &mut first, &arg.to_str())?;
             }
         }
 
-        writeln!(self.output())?;
+        writeln!(output_strategy)?;
+
+        output_strategy.flush()?;
 
         Ok(())
     }
@@ -443,7 +481,10 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = " ")] sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        this.print(args.into_iter(), sep, eval)?;
+        let buffer_strategy = BufferPrintStrategy {
+            output: this.output(),
+        };
+        this.print(args.into_iter(), sep, eval, buffer_strategy)?;
 
         Ok(NoneType)
     }
