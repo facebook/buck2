@@ -168,7 +168,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReAlreadyExists => rank!(tier0),
         ErrorTag::RePermissionDenied => rank!(tier0),
         ErrorTag::ReResourceExhausted => rank!(tier0),
-        ErrorTag::ReFailedPrecondition => rank!(tier0),
         ErrorTag::ReAborted => rank!(tier0),
         ErrorTag::ReOutOfRange => rank!(tier0),
         ErrorTag::ReUnimplemented => rank!(tier0),
@@ -219,6 +218,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Tier0 => rank!(tier0).hidden(),
 
         // Input errors
+        ErrorTag::ReFailedPrecondition => rank!(input),
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something
         // about that didn't work
