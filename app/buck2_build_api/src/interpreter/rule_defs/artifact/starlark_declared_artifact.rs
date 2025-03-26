@@ -24,6 +24,7 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
+use either::Either;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
@@ -293,6 +294,29 @@ impl CommandLineArgLike for StarlarkDeclaredArtifact {
         _visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        if self.artifact.is_bound() {
+            self.artifact.get_path().add_to_action_inputs_hash(hasher)
+        } else {
+            // Declared artifact that is not bound yet means that this is an "output" that
+            // is being written to an argsfile.
+            //
+            // For now, just hashing the path will do.
+            match self.artifact.get_path().base_path {
+                Either::Left(build) => {
+                    hasher.write(build.path().as_str().as_bytes());
+                }
+                Either::Right(source) => {
+                    hasher.write(source.path().as_str().as_bytes());
+                }
+            }
+            Ok(true)
+        }
     }
 }
 

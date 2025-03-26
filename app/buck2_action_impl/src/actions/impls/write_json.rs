@@ -301,4 +301,12 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> 
         // In the write_json implementation, the commandlinebuilders we use don't support args.
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        _hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        // TODO(ianc) implement this later in the stack
+        Ok(false)
+    }
 }

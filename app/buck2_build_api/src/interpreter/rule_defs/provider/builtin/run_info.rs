@@ -105,4 +105,14 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for RunInfoGen<V> {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
+            .expect("a command line from construction")
+            .0
+            .add_to_action_inputs_hash(hasher)
+    }
 }

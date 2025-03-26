@@ -108,4 +108,13 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TaggedCommandLineGen<V> {
             .0
             .visit_write_to_file_macros(visitor)
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        ValueAsCommandLineLike::unpack_value_err(self.inner.value().to_value())?
+            .0
+            .add_to_action_inputs_hash(hasher)
+    }
 }

@@ -266,6 +266,13 @@ impl CommandLineArgLike for StarlarkArtifact {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        self.artifact.get_path().add_to_action_inputs_hash(hasher)
+    }
 }
 
 #[starlark_value(type = "artifact")]

@@ -9,6 +9,7 @@
 
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -124,5 +125,43 @@ impl ResolvedQueryMacro {
             }
         }
         Ok(())
+    }
+
+    pub fn add_to_action_inputs_hash(&self, hasher: &mut dyn Hasher) -> buck2_error::Result<bool> {
+        match self {
+            Self::Outputs(list) => {
+                for target_outputs in list.iter() {
+                    for artifact in target_outputs.iter() {
+                        if !artifact
+                            .get_artifact_path()
+                            .add_to_action_inputs_hash(hasher)?
+                        {
+                            return Ok(false);
+                        }
+                    }
+                }
+                Ok(true)
+            }
+            Self::TargetsAndOutputs(targets_and_outputs) => {
+                for (target, target_outputs) in &*targets_and_outputs.list {
+                    for artifact in target_outputs.iter() {
+                        hasher.write(target.unconfigured().to_string().as_bytes());
+                        if !artifact
+                            .get_artifact_path()
+                            .add_to_action_inputs_hash(hasher)?
+                        {
+                            return Ok(false);
+                        }
+                    }
+                }
+                Ok(true)
+            }
+            Self::Targets(targets) => {
+                for target in targets.iter() {
+                    hasher.write(target.unconfigured().to_string().as_bytes());
+                }
+                Ok(true)
+            }
+        }
     }
 }

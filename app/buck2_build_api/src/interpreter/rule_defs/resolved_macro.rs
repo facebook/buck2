@@ -152,6 +152,28 @@ impl<'v> ResolvedMacro<'v> {
         }
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        match self {
+            Self::Location(info) => {
+                // TODO(ianc) Also take other_outputs into account?
+                for output in info.default_outputs() {
+                    if !output.add_to_action_inputs_hash(hasher)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            Self::ArgLike(command_line_like) => command_line_like
+                .as_command_line_arg()
+                .add_to_action_inputs_hash(hasher),
+            Self::Query(value) => value.add_to_action_inputs_hash(hasher),
+            Self::Source(artifact) => artifact.get_path().add_to_action_inputs_hash(hasher),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Allocative)]
@@ -306,6 +328,26 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
             }
         }
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        for part in &*self.parts {
+            match part {
+                ResolvedStringWithMacrosPart::String(s) => {
+                    hasher.write(s.as_bytes());
+                }
+                ResolvedStringWithMacrosPart::Macro(_write_to_file, val) => {
+                    hasher.write("@".as_bytes());
+                    if !val.add_to_action_inputs_hash(hasher)? {
+                        return Ok(false);
+                    };
+                }
+            }
+        }
+        Ok(true)
     }
 }
 

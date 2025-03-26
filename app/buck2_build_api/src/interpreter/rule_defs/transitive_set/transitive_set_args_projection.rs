@@ -182,6 +182,26 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
                     }
                 }
             }
+
+            fn add_to_action_inputs_hash(
+                &self,
+                hasher: &mut dyn std::hash::Hasher,
+            ) -> buck2_error::Result<bool> {
+                match self {
+                    Impl::Item(v) => v.add_to_action_inputs_hash(hasher),
+                    Impl::List(items) => {
+                        for v in *items {
+                            if !ValueAsCommandLineLike::unpack_value_err(*v)?
+                                .0
+                                .add_to_action_inputs_hash(hasher)?
+                            {
+                                return Ok(false);
+                            }
+                        }
+                        Ok(true)
+                    }
+                }
+            }
         }
 
         let value = v.to_value();
@@ -273,6 +293,14 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
         // TODO(cjhopman): This seems wrong, there's no verification that the projected
         // values don't have write_to_file_macros in them.
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        _hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        // TODO(ianc) support transitive set projections later in the stack once we have other pieces in place
+        Ok(false)
     }
 }
 

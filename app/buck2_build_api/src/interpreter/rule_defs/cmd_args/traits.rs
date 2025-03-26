@@ -111,6 +111,14 @@ pub trait CommandLineArgLike {
         &self,
         visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()>;
+
+    /// Adds a hash that uniquely identifies the argument.
+    ///
+    /// Returns true if it was able to do so, false otherwise.
+    fn add_to_action_inputs_hash(
+        &self,
+        _hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool>;
 }
 
 unsafe impl<'v> ProvidesStaticType<'v> for &'v dyn CommandLineArgLike {
@@ -141,6 +149,14 @@ impl CommandLineArgLike for &str {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        hasher.write(self.as_bytes());
+        Ok(true)
+    }
 }
 
 impl CommandLineArgLike for StarlarkStr {
@@ -166,6 +182,14 @@ impl CommandLineArgLike for StarlarkStr {
         _visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        hasher.write(self.as_bytes());
+        Ok(true)
     }
 }
 
@@ -193,6 +217,14 @@ impl CommandLineArgLike for StarlarkTargetLabel {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        hasher.write(self.to_string().as_bytes());
+        Ok(true)
+    }
 }
 
 impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
@@ -219,6 +251,14 @@ impl CommandLineArgLike for StarlarkConfiguredProvidersLabel {
     ) -> buck2_error::Result<()> {
         Ok(())
     }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        hasher.write(self.to_string().as_bytes());
+        Ok(true)
+    }
 }
 
 impl CommandLineArgLike for CellRoot {
@@ -244,6 +284,14 @@ impl CommandLineArgLike for CellRoot {
         _visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        hasher.write(self.cell_path().path().as_str().as_bytes());
+        Ok(true)
     }
 }
 
@@ -273,6 +321,13 @@ impl CommandLineArgLike for StarlarkProjectRoot {
         _visitor: &mut dyn WriteToFileMacroVisitor,
     ) -> buck2_error::Result<()> {
         Ok(())
+    }
+
+    fn add_to_action_inputs_hash(
+        &self,
+        _hasher: &mut dyn std::hash::Hasher,
+    ) -> buck2_error::Result<bool> {
+        Ok(true)
     }
 }
 
