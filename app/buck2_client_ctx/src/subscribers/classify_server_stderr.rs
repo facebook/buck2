@@ -35,6 +35,11 @@ pub(crate) fn classify_server_stderr(
         ErrorTag::ServerSegv
     } else if stderr.contains("Signal 15 (SIGTERM)") {
         ErrorTag::ServerSigterm
+    } else if stderr.contains("Signal 6 (SIGABRT)") {
+        ErrorTag::ServerSigabrt
+    } else if stderr.contains("(SIGBUS)") {
+        // Signal 7 or Signal 10 depending on OS
+        ErrorTag::ServerSigbus
     } else {
         ErrorTag::ServerStderrUnknown
     };

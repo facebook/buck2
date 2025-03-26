@@ -118,6 +118,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ServerStackOverflow => rank!(tier0),
         ErrorTag::ServerPanicked => rank!(tier0),
         ErrorTag::ServerSegv => rank!(tier0),
+        ErrorTag::ServerSigbus => rank!(tier0),
+        ErrorTag::ServerSigabrt => rank!(tier0),
         ErrorTag::ServerStderrUnknown => rank!(tier0),
         ErrorTag::InternalError => rank!(tier0),
         ErrorTag::DaemonWontDieFromKill => rank!(tier0),

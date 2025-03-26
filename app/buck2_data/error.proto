@@ -105,6 +105,10 @@ enum ErrorTag {
   SERVER_SEGV = 14;
   // Server received SIGTERM
   SERVER_SIGTERM = 400;
+  // Server received SIGABRT
+  SERVER_SIGABRT = 402;
+  // Server received SIGBUS
+  SERVER_SIGBUS = 403;
   // Server disconnect with no error but memory pressure was detected.
   SERVER_MEMORY_PRESSURE = 401;
   // Jemalloc assertion failure.

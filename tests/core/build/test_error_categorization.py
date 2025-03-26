@@ -269,7 +269,7 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     category_key = error["category_key"]
 
     if is_running_on_windows():
-        # TODO get windows to dump a stack trace
+        # TODO get windows to dump a stack trace / detect signals
         assert "buckd stderr is empty" in error["message"]
         assert category_key == "SERVER_STDERR_EMPTY"
         assert error["best_tag"] == "SERVER_STDERR_EMPTY"
@@ -277,8 +277,8 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]
         assert "*** Signal 6 (SIGABRT)" in error["message"]
-        assert category_key.startswith("SERVER_STDERR_UNKNOWN")
-        assert error["best_tag"] == "SERVER_STDERR_UNKNOWN"
+        assert category_key.startswith("SERVER_SIGABRT")
+        assert error["best_tag"] == "SERVER_SIGABRT"
 
     # TODO dump stack trace on mac and windows
     if is_running_on_linux():
