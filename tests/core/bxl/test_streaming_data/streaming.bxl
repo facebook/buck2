@@ -8,10 +8,10 @@
 def _streaming_output_ensured_artifact(ctx: bxl.Context):
     actions = ctx.bxl_actions().actions
     output = actions.write("output.txt", "hello world!")
-    ensured_output = ctx.output.ensure(output)
+    ensured_output = ctx.output.ensure(output).abs_path()
 
     ctx.output.print("Line before streaming print")
-    ctx.output.stream(ensured_output.abs_path())
+    ctx.output.stream(ensured_output, wait_on = [ensured_output])
 
 streaming_output_ensured_artifact = bxl_main(
     cli_args = {},
@@ -30,11 +30,11 @@ streaming_output = bxl_main(
 def _streaming_output_without_duplicates(ctx: bxl.Context):
     actions = ctx.bxl_actions().actions
     output = actions.write("output.txt", "hello world!")
-    ensured_output = ctx.output.ensure(output)
+    ensured_output = ctx.output.ensure(output).abs_path()
 
     ctx.output.print("This is the normal output")
     ctx.output.stream("This is the streaming output")
-    ctx.output.stream(ensured_output.abs_path())
+    ctx.output.stream(ensured_output, wait_on = [ensured_output])
 
 streaming_output_without_duplicates = bxl_main(
     cli_args = {},
@@ -49,9 +49,9 @@ def _streaming_output_waits_on(ctx: bxl.Context):
     output1 = actions.write("output1.txt", "hello world!")
     en1 = ctx.output.ensure(output1)
 
-    ctx.output.stream("Waits on two file", additional_waits = [en0, en1])
-    ctx.output.stream(en0)
-    ctx.output.stream(en1)
+    ctx.output.stream("Waits on two file", wait_on = [en0, en1])
+    ctx.output.stream(en0, wait_on = [en0])
+    ctx.output.stream(en1, wait_on = [en1])
 
 streaming_output_waits_on = bxl_main(
     cli_args = {},
@@ -71,9 +71,9 @@ def _streaming_output_json(ctx: bxl.Context):
     output1 = {"output1": en1}
 
     ctx.output.print_json("Line before print streaming")
-    ctx.output.stream_json(output, additional_waits = [en0, en1], pretty = False)
-    ctx.output.stream_json(output0, pretty = False)
-    ctx.output.stream_json(output1, pretty = False)
+    ctx.output.stream_json(output, wait_on = [en0, en1], pretty = False)
+    ctx.output.stream_json(output0, pretty = False, wait_on = [en0])
+    ctx.output.stream_json(output1, pretty = False, wait_on = [en1])
 
 streaming_output_json = bxl_main(
     cli_args = {},

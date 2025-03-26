@@ -261,21 +261,11 @@ impl OutputStreamState {
     }
 }
 
-/// Trait for handling output behavior
-trait OutputStrategy: Write {
-    /// Called when an artifact is encountered
-    fn on_artifact(&mut self, artifact: EnsuredArtifactOrGroup);
-}
-
-struct BufferPrintStrategy<'a, T: Write> {
+struct BufferPrintOutput<'a, T: Write> {
     output: RefMut<'a, T>,
 }
 
-impl<'a, T: Write> OutputStrategy for BufferPrintStrategy<'a, T> {
-    fn on_artifact(&mut self, _artifact: EnsuredArtifactOrGroup) {}
-}
-
-impl<'a, T: Write> Write for BufferPrintStrategy<'a, T> {
+impl<'a, T: Write> Write for BufferPrintOutput<'a, T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.output.write(buf)
     }
@@ -285,21 +275,21 @@ impl<'a, T: Write> Write for BufferPrintStrategy<'a, T> {
     }
 }
 
-struct StreamingStrategy {
-    waits_on_artifacts: SmallSet<EnsuredArtifactOrGroup>,
+struct StreamingOutput {
+    wait_on_artifacts: SmallSet<EnsuredArtifactOrGroup>,
     output_stream_state: OutputStreamState,
     streaming_writer: BxlStreamingWriter,
     buffer: Vec<u8>,
 }
 
-impl StreamingStrategy {
+impl StreamingOutput {
     fn new(
-        additional_waits: impl Iterator<Item = EnsuredArtifactOrGroup>,
+        wait_on: impl Iterator<Item = EnsuredArtifactOrGroup>,
         output_stream_state: OutputStreamState,
         streaming_writer: BxlStreamingWriter,
     ) -> Self {
         Self {
-            waits_on_artifacts: additional_waits.collect(),
+            wait_on_artifacts: wait_on.collect(),
             output_stream_state,
             buffer: Vec::new(),
             streaming_writer,
@@ -309,23 +299,17 @@ impl StreamingStrategy {
     fn insert_pending_streaming_output(&mut self, output: Vec<u8>) {
         self.output_stream_state
             .pending_streaming_outputs()
-            .push((self.waits_on_artifacts.clone(), output));
+            .push((self.wait_on_artifacts.clone(), output));
     }
 }
 
-impl OutputStrategy for StreamingStrategy {
-    fn on_artifact(&mut self, artifact: EnsuredArtifactOrGroup) {
-        self.waits_on_artifacts.insert(artifact);
-    }
-}
-
-impl Write for StreamingStrategy {
+impl Write for StreamingOutput {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.buffer.write(buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        if !self.waits_on_artifacts.is_empty() {
+        if !self.wait_on_artifacts.is_empty() {
             // We record the buffer as the pending message for the artifacts that are waiting to be materialized
             self.insert_pending_streaming_output(self.buffer.clone());
         } else {
@@ -397,12 +381,12 @@ impl OutputStream {
         args: impl Iterator<Item = Value<'v>>,
         sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
-        mut output_strategy: impl OutputStrategy,
+        mut output: impl Write,
     ) -> buck2_error::Result<()> {
         let mut first = true;
 
         fn write_item(
-            output: &mut impl OutputStrategy,
+            output: &mut impl Write,
             sep: &str,
             first: &mut bool,
             item: &dyn std::fmt::Display,
@@ -424,8 +408,7 @@ impl OutputStream {
                     &self.project_fs,
                     &self.artifact_fs,
                 )?;
-                write_item(&mut output_strategy, sep, &mut first, &path)?;
-                output_strategy.on_artifact(EnsuredArtifactOrGroup::Artifact(ensured.dupe()));
+                write_item(&mut output, sep, &mut first, &path)?;
             } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(arg)? {
                 BxlEvalExtra::from_context(eval)?
                     .dice
@@ -440,24 +423,20 @@ impl OutputStream {
                                         &self.project_fs,
                                         &self.artifact_fs,
                                     )?;
-                                    write_item(&mut output_strategy, sep, &mut first, &path)
+                                    write_item(&mut output, sep, &mut first, &path)
                                 },
                                 dice,
                             )
                             .boxed_local()
                     })?;
-                for artifact in ensured.inner() {
-                    output_strategy
-                        .on_artifact(EnsuredArtifactOrGroup::ArtifactGroup(artifact.dupe()));
-                }
             } else {
-                write_item(&mut output_strategy, sep, &mut first, &arg.to_str())?;
+                write_item(&mut output, sep, &mut first, &arg.to_str())?;
             }
         }
 
-        writeln!(output_strategy)?;
+        writeln!(output)?;
 
-        output_strategy.flush()?;
+        output.flush()?;
 
         Ok(())
     }
@@ -467,30 +446,28 @@ impl OutputStream {
         value: Value<'v>,
         pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
-        output_strategy: impl OutputStrategy,
+        mut output: impl Write,
     ) -> buck2_error::Result<()> {
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
-        struct SerializeValue<'a, 'v, 'd, T: OutputStrategy> {
+        struct SerializeValue<'a, 'v, 'd> {
             value: Value<'v>,
             artifact_fs: &'a ArtifactFs,
             project_fs: &'a ProjectRoot,
             async_ctx: &'a Rc<RefCell<dyn BxlDiceComputations + 'd>>,
-            output_strategy: Rc<RefCell<T>>,
         }
 
-        impl<'v, T: OutputStrategy> SerializeValue<'_, 'v, '_, T> {
+        impl<'v> SerializeValue<'_, 'v, '_> {
             fn with_value(&self, x: Value<'v>) -> Self {
                 Self {
                     value: x,
                     artifact_fs: self.artifact_fs,
                     project_fs: self.project_fs,
                     async_ctx: self.async_ctx,
-                    output_strategy: self.output_strategy.dupe(),
                 }
             }
         }
 
-        impl<T: OutputStrategy> Serialize for SerializeValue<'_, '_, '_, T> {
+        impl Serialize for SerializeValue<'_, '_, '_> {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
                 S: Serializer,
@@ -498,10 +475,6 @@ impl OutputStream {
                 if let Some(ensured) = <&EnsuredArtifact>::unpack_value(self.value)
                     .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
                 {
-                    self.output_strategy
-                        .borrow_mut()
-                        .on_artifact(EnsuredArtifactOrGroup::Artifact(ensured.dupe()));
-
                     let path = get_artifact_path_display(
                         ensured.get_artifact_path(),
                         ensured.abs(),
@@ -513,12 +486,6 @@ impl OutputStream {
                 } else if let Some(ensured) = <&EnsuredArtifactGroup>::unpack_value(self.value)
                     .map_err(|e| serde::ser::Error::custom(format!("{:#}", e)))?
                 {
-                    for artifact in ensured.inner() {
-                        self.output_strategy
-                            .borrow_mut()
-                            .on_artifact(EnsuredArtifactOrGroup::ArtifactGroup(artifact.dupe()));
-                    }
-
                     let mut seq_ser = serializer.serialize_seq(None)?;
 
                     self.async_ctx
@@ -573,25 +540,18 @@ impl OutputStream {
             serde_json::to_writer
         };
 
-        let output_strategy = Rc::new(RefCell::new(output_strategy));
-        let mut buffer = Vec::new();
         writer(
-            &mut buffer,
+            &mut output,
             &SerializeValue {
                 value,
                 artifact_fs: &self.artifact_fs,
                 project_fs: &self.project_fs,
                 async_ctx: &BxlEvalExtra::from_context(eval)?.dice,
-                output_strategy: output_strategy.dupe(),
             },
         )
         .buck_error_context("Error writing to JSON for `write_json`")?;
 
-        writeln!(buffer)?;
-
-        let mut output = output_strategy.borrow_mut();
-
-        output.write_all(&buffer)?;
+        writeln!(&mut output)?;
         output.flush()?;
 
         Ok(())
@@ -650,10 +610,10 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = " ")] sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        let buffer_strategy = BufferPrintStrategy {
+        let buffer_output = BufferPrintOutput {
             output: this.output(),
         };
-        this.print(args.into_iter(), sep, eval, buffer_strategy)?;
+        this.print(args.into_iter(), sep, eval, buffer_output)?;
 
         Ok(NoneType)
     }
@@ -683,28 +643,24 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(require=named, default=true)] pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        let buffer_strategy = BufferPrintStrategy {
+        let buffer_output = BufferPrintOutput {
             output: this.output(),
         };
 
-        this.print_json(value, pretty, eval, buffer_strategy)?;
+        this.print_json(value, pretty, eval, buffer_output)?;
 
         Ok(NoneType)
     }
 
-    /// Streaming outputs results to the console via stdout as pretty-printed json **immediately** when it is ready.
-    /// Pretty printing can be turned off by the `pretty` keyword-only parameter.
+    /// Streaming outputs results to the console via stdout **immediately** when it is ready.
     /// It will be displayed to stdout by buck2 even when the script is cached.
+    /// Accepts an optional separator that defaults to " ".
     ///
-    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
-    /// and `pprint`.
+    /// The streaming behavior is controlled by the `wait_on` parameter:
+    /// - If 'wait_on' is not specified or empty, output is displayed **immediately** during evaluation
+    /// - If 'wait_on' contains artifacts，output is displayed **as soon as all specified artifacts are materialized**
     ///
-    /// - If no artifacts in `args`, output is displayed **immediately** during evaluation.
-    /// - If artifacts are present (either in `args` or `additional_waits`), output is
-    ///   displayed **as soon as all required artifacts are materialized**.
-    ///
-    /// The `additional_waits` parameter allows specifying additional artifacts that must be materialized
-    /// before displaying the output, even if they're not directly included in the `args`.
+    /// The `wait_on` parameter explicitly specifies artifacts that must be materialized before showing output.
     ///
     /// Sample usage:
     /// ```python
@@ -714,18 +670,18 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     
     ///     # Output as soon as artifact is materialized
     ///     artifact = ctx.output.ensure(my_artifact)
-    ///     ctx.output.stream("Artifact ready:", artifact)
+    ///     ctx.output.stream("Artifact ready:", artifact, wait_on=[artifact])
     ///     
     ///     # Output when both artifacts are materialized
     ///     artifact1 = ctx.output.ensure(my_artifact1)
     ///     artifact2 = ctx.output.ensure(my_artifact2)
-    ///     ctx.output.stream("First artifact:", artifact1, additional_waits=[artifact2])
+    ///     ctx.output.stream("First artifact:", artifact1, wait_on=[artifact1, artifact2])
     /// ```
     fn stream<'v>(
         this: &'v OutputStream,
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(default = " ")] sep: &'v str,
-        #[starlark(require = named, default = UnpackList::default())] additional_waits: UnpackList<
+        #[starlark(require = named, default = UnpackList::default())] wait_on: UnpackList<
             Either<&'v EnsuredArtifact, &'v EnsuredArtifactGroup>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -733,7 +689,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         let extra = BxlEvalExtra::from_context(eval)?;
         let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
 
-        let additional_waits = additional_waits
+        let wait_on = wait_on
             .into_iter()
             .map(|wait_on| match wait_on {
                 Either::Left(ensured_artifact) => {
@@ -747,26 +703,21 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             })
             .flatten();
 
-        let streaming_strategy =
-            StreamingStrategy::new(additional_waits, this.state.dupe(), streaming_writer);
-        this.print(args.into_iter(), sep, eval, streaming_strategy)?;
+        let streaming_output = StreamingOutput::new(wait_on, this.state.dupe(), streaming_writer);
+        this.print(args.into_iter(), sep, eval, streaming_output)?;
 
         Ok(NoneType)
     }
 
-    /// Streaming outputs results to the console via stdout **immediately** when it is ready.
+    /// Streaming outputs results to the console via stdout as pretty-printed json **immediately** when it is ready.
+    /// Pretty printing can be turned off by the `pretty` keyword-only parameter.
     /// It will be displayed to stdout by buck2 even when the script is cached.
-    /// Accepts an optional separator that defaults to " ".
     ///
-    /// Prints that are not result of the bxl should be printed via stderr via the stdlib `print`
-    /// and `pprint`.
+    /// The streaming behavior is controlled by the `wait_on` parameter:
+    /// - If 'wait_on' is not specified or empty, output is displayed **immediately** during evaluation
+    /// - If 'wait_on' contains artifacts，output is displayed **as soon as all specified artifacts are materialized**
     ///
-    /// - If no artifacts in `args`, output is displayed **immediately** during evaluation.
-    /// - If artifacts are present (either in `args` or `additional_waits`), output is
-    ///   displayed **as soon as all required artifacts are materialized**.
-    ///
-    /// The `additional_waits` parameter allows specifying additional artifacts that must be materialized
-    /// before displaying the output, even if they're not directly included in the `args`.
+    /// The `wait_on` parameter explicitly specifies artifacts that must be materialized before showing output.
     ///
     /// Sample usage:
     /// ```python
@@ -779,23 +730,23 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ///     
     ///     # Stream JSON when artifact is ready
     ///     artifact = ctx.output.ensure(my_artifact)
-    ///     ctx.output.stream_json({"artifact": artifact})
+    ///     ctx.output.stream_json({"artifact": artifact}, wait_on=[artifact])
     ///
     ///    # Stream JSON waiting on artifact to be ready
-    ///    ctx.output.stream_json({"status": "starting"}, additional_waits=[artifact])
+    ///    ctx.output.stream_json({"status": "starting"}, wait_on=[artifact])
     /// ```
     fn stream_json<'v>(
         this: &'v OutputStream,
         value: Value<'v>,
         #[starlark(require=named, default=true)] pretty: bool,
-        #[starlark(require = named, default = UnpackList::default())] additional_waits: UnpackList<
+        #[starlark(require = named, default = UnpackList::default())] wait_on: UnpackList<
             Either<&'v EnsuredArtifact, &'v EnsuredArtifactGroup>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
         let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
-        let additional_waits = additional_waits
+        let wait_on = wait_on
             .into_iter()
             .map(|wait_on| match wait_on {
                 Either::Left(ensured_artifact) => {
@@ -808,10 +759,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                     .collect(),
             })
             .flatten();
-        let streaming_strategy =
-            StreamingStrategy::new(additional_waits, this.state.dupe(), streaming_writer);
+        let streaming_output = StreamingOutput::new(wait_on, this.state.dupe(), streaming_writer);
 
-        this.print_json(value, pretty, eval, streaming_strategy)?;
+        this.print_json(value, pretty, eval, streaming_output)?;
 
         Ok(NoneType)
     }
