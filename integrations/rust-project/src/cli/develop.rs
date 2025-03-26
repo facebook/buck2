@@ -250,6 +250,12 @@ impl Develop {
         let exclude_workspaces =
             std::env::var("RUST_PROJECT_EXCLUDE_WORKSPACES").is_ok_and(|it| it != "0");
 
+        // FIXME(JakobDegen): This should be set via a configuration mechanism of some kind.
+        #[cfg(not(fbcode_build))]
+        let extra_cfgs = &["test".to_owned()];
+        #[cfg(fbcode_build)]
+        let extra_cfgs = &["test".to_owned(), "fbcode_build".to_owned()];
+
         develop_with_sysroot(
             buck,
             targets,
@@ -257,6 +263,7 @@ impl Develop {
             exclude_workspaces,
             *check_cycles,
             *include_all_buildfiles,
+            extra_cfgs,
         )
     }
 
@@ -296,6 +303,7 @@ pub(crate) fn develop_with_sysroot(
     exclude_workspaces: bool,
     check_cycles: bool,
     include_all_buildfiles: bool,
+    extra_cfgs: &[String],
 ) -> Result<JsonProject, anyhow::Error> {
     info!("building generated code");
     let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
@@ -311,6 +319,7 @@ pub(crate) fn develop_with_sysroot(
         aliased_libraries,
         check_cycles,
         include_all_buildfiles,
+        extra_cfgs,
     )?;
 
     Ok(rust_project)

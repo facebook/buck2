@@ -84,6 +84,7 @@ pub(crate) fn resolve_buckconfig_sysroot(
         true,
         false,
         false,
+        &[], // sysroot doesn't get any extra cfgs
     )?;
     for krate in &mut sysroot_project.crates {
         if let Some(display_name) = &mut krate.display_name {
