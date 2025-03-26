@@ -8,7 +8,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::io;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -26,19 +25,15 @@ use buck2_cli_proto::build_request::Uploads;
 use buck2_cli_proto::BxlRequest;
 use buck2_cli_proto::BxlResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasIoProvider;
 use buck2_common::target_aliases::HasTargetAliasResolver;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::fs_util;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::soft_error;
-use buck2_core::tag_result;
 use buck2_data::BxlEnsureArtifactsEnd;
 use buck2_data::BxlEnsureArtifactsStart;
 use buck2_error::BuckErrorContext;
@@ -149,8 +144,7 @@ impl BxlServerCommand {
             .materialize_artifacts(&mut dice_ctx, bxl_result.dupe())
             .await;
 
-        self.copy_output(&mut dice_ctx, server_ctx, bxl_result, stdout)
-            .await?;
+        self.emit_outputs(server_ctx, bxl_result, stdout).await?;
 
         let serialized_build_report = self
             .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx)
@@ -344,16 +338,15 @@ impl BxlServerCommand {
         }
     }
 
-    /// We write the stdout and stderr to files in buck-out as cache
-    async fn copy_output(
+    /// Output the outputs from BxlResult to stdout and stderr
+    async fn emit_outputs(
         &self,
-        dice_ctx: &mut DiceTransaction,
         server_ctx: &dyn ServerCommandContextTrait,
         bxl_result: Arc<BxlResult>,
-        stdout: impl Write,
+        mut stdout: impl Write,
     ) -> buck2_error::Result<()> {
-        copy_output(stdout, dice_ctx, bxl_result.output_loc()).await?;
-        copy_output(server_ctx.stderr()?, dice_ctx, bxl_result.error_loc()).await?;
+        stdout.write_all(bxl_result.output())?;
+        server_ctx.stderr()?.write_all(bxl_result.error())?;
         Ok(())
     }
 
@@ -434,32 +427,6 @@ pub(crate) async fn get_bxl_cli_args(
     };
 
     resolve_cli_args(bxl_label, &cli_ctx, bxl_args, &frozen_callable).await
-}
-
-async fn copy_output<W: Write>(
-    mut output: W,
-    dice: &mut DiceComputations<'_>,
-    output_loc: &BuildArtifactPath,
-) -> buck2_error::Result<()> {
-    let loc = dice.global_data().get_io_provider().project_root().resolve(
-        &dice
-            .get_artifact_fs()
-            .await?
-            .buck_out_path_resolver()
-            .resolve_gen(output_loc),
-    );
-
-    // we write the output to a file in buck-out as cache so we don't use memory caching it in
-    // DICE. So now we open the file and read it all into the destination stream.
-    let mut file = tag_result!(
-        "bxl_output_missing",
-        fs_util::open_file(loc).map_err(Into::into),
-        quiet: true,
-        daemon_in_memory_state_is_corrupted: true,
-        task: false
-    )?;
-    io::copy(&mut file, &mut output)?;
-    Ok(())
 }
 
 #[derive(Debug, buck2_error::Error)]

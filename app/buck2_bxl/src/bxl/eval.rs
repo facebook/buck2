@@ -19,8 +19,6 @@ use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_common::target_aliases::BuckConfigTargetAliasResolver;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
-use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_data::BxlExecutionEnd;
 use buck2_data::BxlExecutionStart;
@@ -67,7 +65,7 @@ use tokio::sync::Semaphore;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
-use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
+use crate::bxl::starlark_defs::context::output::OutputStreamState;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
@@ -165,31 +163,9 @@ impl BxlInnerEvaluator {
         let env = Module::new();
         let key = data.key().dupe();
 
-        let output_stream = mk_stream_cache("output", &key);
-        let file_path = data
-            .artifact_fs()
-            .buck_out_path_resolver()
-            .resolve_gen(&output_stream);
+        let (actions, output_stream_outcome) = {
+            let stream_state = OutputStreamState::new();
 
-        let file = Rc::new(RefCell::new(
-            data.project_fs()
-                .create_file(&file_path, false)
-                .buck_error_context("Failed to create output cache for BXL")?,
-        ));
-
-        let error_stream = mk_stream_cache("error", &key);
-        let error_file_path = data
-            .artifact_fs()
-            .buck_out_path_resolver()
-            .resolve_gen(&error_stream);
-
-        let error_file = Rc::new(RefCell::new(
-            data.project_fs()
-                .create_file(&error_file_path, false)
-                .buck_error_context("Failed to create error cache for BXL")?,
-        ));
-
-        let (actions, ensured_artifacts) = {
             let resolved_args = ValueOfUnchecked::<StructRef>::unpack_value_err(
                 env.heap().alloc(AllocStruct(
                     key.cli_args()
@@ -199,7 +175,7 @@ impl BxlInnerEvaluator {
             )?;
 
             let print = EventDispatcherPrintHandler(dispatcher.clone());
-            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), error_file.dupe());
+            let extra = BxlEvalExtra::new(bxl_dice.dupe(), data.dupe(), stream_state.dupe());
 
             let (mut eval, _) = provider.make(&env)?;
             let bxl_function_name = key.label().name.clone();
@@ -213,10 +189,9 @@ impl BxlInnerEvaluator {
             let bxl_ctx = BxlContext::new(
                 eval.heap(),
                 data,
+                stream_state,
                 resolved_args,
                 bxl_dice,
-                file,
-                error_file,
                 digest_config,
             )?;
 
@@ -256,9 +231,9 @@ impl BxlInnerEvaluator {
         let recorded_values = actions_finalizer(&frozen_module)?;
 
         let bxl_result = BxlResult::new(
-            output_stream,
-            error_stream,
-            ensured_artifacts,
+            output_stream_outcome.output,
+            output_stream_outcome.error,
+            output_stream_outcome.ensured_artifacts,
             recorded_values,
         );
 
@@ -306,22 +281,6 @@ async fn eval_bxl_inner(
 
     let profile_data = profiler.finish(Some(&frozen_module))?;
     Ok((bxl_result, profile_data))
-}
-
-// We use a file as our output/error stream cache. The file is associated with the `BxlDynamicKey` (created from `BxlKey`),
-// which is super important, as it HAS to be the SAME as the DiceKey so that DICE is keeping the output file
-// cache up to date. `BxlDynamicKey` requires an execution platform. We set the execution platform to be unspecified here
-// because BXL functions do not have execution platform resolutions. exec_deps, toolchains, target_platform, and exec_compatible_with
-// are empty here for the same reason.
-pub(crate) fn mk_stream_cache(stream_type: &str, key: &BxlKey) -> BuildArtifactPath {
-    BuildArtifactPath::new(
-        key.dupe()
-            .into_base_deferred_key(BxlExecutionResolution::unspecified()),
-        ForwardRelativePathBuf::unchecked_new(format!(
-            "__bxl_internal__/{}stream_cache",
-            stream_type
-        )),
-    )
 }
 
 fn eval_bxl<'v>(

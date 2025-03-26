@@ -8,9 +8,10 @@
  */
 
 use std::cell::RefCell;
+use std::cell::RefMut;
 use std::io::Write;
 use std::iter;
-use std::ops::DerefMut;
+use std::ops::Deref;
 use std::rc::Rc;
 
 use allocative::Allocative;
@@ -32,6 +33,8 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
 use gazebo::prelude::VecExt;
+use indexmap::IndexSet;
+use itertools::Itertools;
 use serde::ser::SerializeSeq;
 use serde::Serialize;
 use serde::Serializer;
@@ -71,6 +74,41 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
+/// Represents the internal state of an output stream, including collected artifacts,
+/// standard output buffers, and error buffers.
+#[derive(Default, Derivative, Display, Allocative)]
+#[display("{:?}", self)]
+#[derivative(Debug)]
+struct OutputStreamStateInner {
+    /// The output string bytes where all non-streaming outputs are written to.
+    artifacts_to_ensure: SmallSet<EnsuredArtifactOrGroup>,
+    /// The output string bytes where all non-streaming outputs are written to.
+    output: Vec<u8>,
+    /// The error string bytes where all errors are written to.
+    pub(crate) error: Vec<u8>,
+}
+
+#[derive(Derivative, Display, Allocative, Dupe, Clone)]
+#[display("{:?}", self)]
+#[derivative(Debug)]
+pub(crate) struct OutputStreamState {
+    /// Wrapped in Rc<RefCell<Option<...>>> to allow
+    /// - Shared ownership (Rc), we also need to hold it in `BxlEvalExtra`
+    /// - Runtime borrow checking for innter mutability (RefCell)
+    /// - Optional state for take operations (Option)
+    inner: Rc<RefCell<Option<OutputStreamStateInner>>>,
+}
+
+/// Final result container for output stream processing.
+/// This structure is used to construct the final BxlResult.
+pub(crate) struct OutputStreamOutcome {
+    /// set of artifacts that need to be materialized, flattened from
+    /// the original EnsuredArtifactOrGroup entries.
+    pub(crate) ensured_artifacts: IndexSet<ArtifactGroup>,
+    pub(crate) output: Vec<u8>,
+    pub(crate) error: Vec<u8>,
+}
+
 #[derive(
     ProvidesStaticType,
     Derivative,
@@ -82,16 +120,9 @@ use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 #[display("{:?}", self)]
 #[derivative(Debug)]
 pub(crate) struct OutputStream {
-    #[derivative(Debug = "ignore")]
     #[trace(unsafe_ignore)]
-    #[allocative(skip)]
-    pub(crate) sink: Rc<RefCell<dyn Write>>,
-    #[derivative(Debug = "ignore")]
-    #[trace(unsafe_ignore)]
-    #[allocative(skip)]
-    pub(crate) error_sink: Rc<RefCell<dyn Write>>,
-    #[trace(unsafe_ignore)]
-    artifacts_to_ensure: RefCell<Option<SmallSet<EnsuredArtifactOrGroup>>>,
+    state: OutputStreamState,
+
     #[derivative(Debug = "ignore")]
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
@@ -127,24 +158,73 @@ impl EnsuredArtifactOrGroup {
     }
 }
 
+impl Deref for OutputStream {
+    type Target = OutputStreamState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
+}
+
+impl OutputStreamState {
+    pub(crate) fn new() -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(Some(OutputStreamStateInner::default()))),
+        }
+    }
+
+    pub(crate) fn take_state(&self) -> buck2_error::Result<OutputStreamOutcome> {
+        let state = self.inner.borrow_mut().take().unwrap();
+        let artifacts = state
+            .artifacts_to_ensure
+            .into_iter()
+            .map(EnsuredArtifactOrGroup::into_artifact_groups)
+            .flatten_ok()
+            .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
+        Ok(OutputStreamOutcome {
+            ensured_artifacts: artifacts,
+            output: state.output,
+            error: state.error,
+        })
+    }
+
+    fn populate_ensured_artifacts(
+        &self,
+        ensured: EnsuredArtifactOrGroup,
+    ) -> buck2_error::Result<()> {
+        self.inner
+            .borrow_mut()
+            .as_mut()
+            .expect("should not have been taken")
+            .artifacts_to_ensure
+            .insert(ensured);
+        Ok(())
+    }
+
+    fn output(&self) -> RefMut<'_, impl Write> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner.as_mut().expect("should not have been taken").output
+        })
+    }
+
+    pub(crate) fn error(&self) -> RefMut<'_, impl Write> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner.as_mut().expect("should not have been taken").error
+        })
+    }
+}
+
 impl OutputStream {
     pub(crate) fn new(
         project_fs: ProjectRoot,
         artifact_fs: ArtifactFs,
-        sink: Rc<RefCell<dyn Write>>,
-        error_sink: Rc<RefCell<dyn Write>>,
+        stream_state: OutputStreamState,
     ) -> Self {
         Self {
-            sink,
-            error_sink,
-            artifacts_to_ensure: RefCell::new(Some(Default::default())),
+            state: stream_state,
             project_fs,
             artifact_fs,
         }
-    }
-
-    pub(crate) fn take_artifacts(&self) -> SmallSet<EnsuredArtifactOrGroup> {
-        self.artifacts_to_ensure.borrow_mut().take().unwrap()
     }
 
     fn print<'v>(
@@ -156,9 +236,9 @@ impl OutputStream {
         let mut first = true;
         let mut write = |d: &dyn Display| -> buck2_error::Result<()> {
             if !first {
-                write!(self.sink.borrow_mut(), "{}{}", sep, d)?;
+                write!(self.output(), "{}{}", sep, d)?;
             } else {
-                write!(self.sink.borrow_mut(), "{}", d)?;
+                write!(self.output(), "{}", d)?;
                 first = false;
             }
             Ok(())
@@ -198,7 +278,7 @@ impl OutputStream {
             }
         }
 
-        writeln!(self.sink.borrow_mut())?;
+        writeln!(self.output())?;
 
         Ok(())
     }
@@ -301,7 +381,7 @@ impl OutputStream {
             serde_json::to_writer
         };
         writer(
-            self.sink.borrow_mut().deref_mut(),
+            &mut *self.output(),
             &SerializeValue {
                 value,
                 artifact_fs: &self.artifact_fs,
@@ -311,7 +391,7 @@ impl OutputStream {
         )
         .buck_error_context("Error writing to JSON for `write_json`")?;
 
-        writeln!(self.sink.borrow_mut())?;
+        writeln!(self.output())?;
 
         Ok(())
     }
@@ -414,7 +494,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         artifact: ArtifactArg<'v>,
     ) -> starlark::Result<EnsuredArtifact> {
         let artifact = artifact.into_ensured_artifact();
-        populate_ensured_artifacts(this, EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
+        this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(artifact.clone()))?;
 
         Ok(artifact)
     }
@@ -446,10 +526,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             EnsureMultipleArtifactsArg::EnsuredArtifactArgs(list) => {
                 let artifacts: Vec<EnsuredArtifact> = list.items.into_try_map(|artifact| {
                     let artifact = artifact.into_ensured_artifact();
-                    populate_ensured_artifacts(
-                        this,
-                        EnsuredArtifactOrGroup::Artifact(artifact.clone()),
-                    )?;
+                    this.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(
+                        artifact.clone(),
+                    ))?;
 
                     Ok::<EnsuredArtifact, buck2_error::Error>(artifact)
                 })?;
@@ -498,10 +577,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                 let mut result = Vec::new();
 
                 for artifact_group in &inputs.inputs {
-                    populate_ensured_artifacts(
-                        this,
-                        EnsuredArtifactOrGroup::ArtifactGroup(artifact_group.dupe()),
-                    )?;
+                    this.populate_ensured_artifacts(EnsuredArtifactOrGroup::ArtifactGroup(
+                        artifact_group.dupe(),
+                    ))?;
                     result.push(artifact_group.dupe());
                 }
 
@@ -536,19 +614,6 @@ pub(crate) fn get_artifact_path_display(
     })
 }
 
-fn populate_ensured_artifacts(
-    output_stream: &OutputStream,
-    ensured: EnsuredArtifactOrGroup,
-) -> buck2_error::Result<()> {
-    output_stream
-        .artifacts_to_ensure
-        .borrow_mut()
-        .as_mut()
-        .expect("should not have been taken")
-        .insert(ensured);
-    Ok(())
-}
-
 fn get_artifacts_from_bxl_build_result(
     bxl_build_result: &StarlarkBxlBuildResult,
     output_stream: &OutputStream,
@@ -571,10 +636,9 @@ fn get_artifacts_from_bxl_build_result(
             })
             .flatten()
             .map(|artifact| try {
-                populate_ensured_artifacts(
-                    output_stream,
-                    EnsuredArtifactOrGroup::Artifact(artifact.clone()),
-                )?;
+                output_stream.populate_ensured_artifacts(EnsuredArtifactOrGroup::Artifact(
+                    artifact.clone(),
+                ))?;
                 artifact
             })
             .collect::<buck2_error::Result<_>>(),

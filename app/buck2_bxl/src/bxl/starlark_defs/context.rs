@@ -18,7 +18,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
-use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
@@ -45,8 +44,6 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
-use indexmap::IndexSet;
-use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
@@ -64,6 +61,8 @@ use starlark::values::ValueTyped;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
 use crate::bxl::starlark_defs::context::output::OutputStream;
+use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
+use crate::bxl::starlark_defs::context::output::OutputStreamState;
 use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
@@ -351,10 +350,9 @@ impl<'v> BxlContext<'v> {
     pub(crate) fn new(
         heap: &'v Heap,
         core: Rc<BxlContextCoreData>,
+        stream_state: OutputStreamState,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
         async_ctx: Rc<RefCell<BxlSafeDiceComputations<'v, '_>>>,
-        output_sink: Rc<RefCell<dyn Write>>,
-        error_sink: Rc<RefCell<dyn Write>>,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<Self> {
         let root_data = RootBxlContextData {
@@ -362,8 +360,7 @@ impl<'v> BxlContext<'v> {
             output_stream: heap.alloc_typed(OutputStream::new(
                 core.project_fs.clone(),
                 core.artifact_fs.clone(),
-                output_sink,
-                error_sink,
+                stream_state,
             )),
         };
         let context_type = BxlContextType::Root(root_data);
@@ -450,7 +447,7 @@ impl<'v> BxlContext<'v> {
     /// Must take an `AnalysisContext` and `OutputStream` which has never had `take_state` called on it before.
     pub(crate) fn take_state(
         value: ValueTyped<'v, BxlContext<'v>>,
-    ) -> buck2_error::Result<(AnalysisRegistry<'v>, IndexSet<ArtifactGroup>)> {
+    ) -> buck2_error::Result<(AnalysisRegistry<'v>, OutputStreamOutcome)> {
         let this = value.as_ref();
         let root_data = this.data.context_type.unpack_root()?;
         let output_stream = &root_data.output_stream;
@@ -477,15 +474,9 @@ impl<'v> BxlContext<'v> {
             })?;
 
         // artifacts should be bound by now as the bxl has finished running
-        let artifacts = output_stream
-            .as_ref()
-            .take_artifacts()
-            .into_iter()
-            .map(|ensured_artifact| ensured_artifact.into_artifact_groups())
-            .flatten_ok()
-            .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
+        let state = output_stream.as_ref().take_state()?;
 
-        Ok((analysis_registry, artifacts))
+        Ok((analysis_registry, state))
     }
 
     /// Take the state for dynamic action or anon target
@@ -521,9 +512,7 @@ impl<'v> ErrorPrinter for BxlContextNoDice<'v> {
     // Used for caching error logs emitted from within the BXL core.
     fn print_to_error_stream(&self, msg: String) -> buck2_error::Result<()> {
         match &self.context_type {
-            BxlContextType::Root(root) => {
-                writeln!(root.output_stream.error_sink.borrow_mut(), "{}", msg)?
-            }
+            BxlContextType::Root(root) => writeln!(root.output_stream.error(), "{}", msg)?,
             BxlContextType::Dynamic(_) => console_message(msg),
             BxlContextType::AnonTarget => console_message(msg),
         }
