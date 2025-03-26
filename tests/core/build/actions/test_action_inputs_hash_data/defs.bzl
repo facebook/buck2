@@ -18,6 +18,19 @@ simple_write = rule(
     },
 )
 
+def _simple_write_json_impl(ctx):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.write_json(out, {"key": ctx.attrs.string_attr})
+
+    return [DefaultInfo(default_output = out)]
+
+simple_write_json = rule(
+    impl = _simple_write_json_impl,
+    attrs = {
+        "string_attr": attrs.string(),
+    },
+)
+
 def _simple_copy_impl(ctx):
     out = ctx.actions.declare_output("out")
     ctx.actions.copy_file(out, ctx.attrs.to_copy)

@@ -1,7 +1,16 @@
-load(":defs.bzl", "simple_copy", "simple_symlinked_dir", "simple_write")
+load(":defs.bzl", "simple_copy", "simple_symlinked_dir", "simple_write", "simple_write_json")
 
 simple_write(
     name = "simple_write",
+    string_attr = select({
+        ":constraint1": "hello-platform1",
+        ":constraint2": "hello-platform2",
+        "DEFAULT": "hello",
+    }),
+)
+
+simple_write_json(
+    name = "simple_write_json",
     string_attr = select({
         ":constraint1": "hello-platform1",
         ":constraint2": "hello-platform2",

@@ -91,9 +91,21 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] absolute: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<impl AllocValue<'v>> {
+        let compute_action_inputs_hash = this.compute_action_inputs_hash;
         let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
+
+        let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
+        let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
+
+        let mut hasher = DefaultHasher::new();
+        let action_inputs_hash =
+            if compute_action_inputs_hash && cli.add_to_action_inputs_hash(&mut hasher)? {
+                Some(Arc::from(format!("{:0>16x}", hasher.finish())))
+            } else {
+                None
+            };
 
         this.register_action(
             IndexSet::new(),
@@ -101,10 +113,9 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             UnregisteredWriteJsonAction::new(pretty, absolute),
             Some(content.value),
             None,
-            None,
+            action_inputs_hash,
         )?;
 
-        let value = declaration.into_declared_artifact(AssociatedArtifacts::new());
         // TODO(cjhopman): The with_inputs thing can go away once we have artifact dependencies (we'll still
         // need the UnregisteredWriteJsonAction::cli() to represent the dependency though).
         if with_inputs {
@@ -112,7 +123,6 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             //   is `write_json_cli_args`. We want just `cmd_args`,
             //   because users don't care about precise type.
             //   Do it when we migrate to new types not based on strings.
-            let cli = UnregisteredWriteJsonAction::cli(value.to_value(), content.value)?;
             Ok(Either::Right(cli))
         } else {
             Ok(Either::Left(value))

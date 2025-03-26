@@ -20,6 +20,7 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::actions::impls::json;
+use buck2_build_api::actions::impls::json::add_json_to_action_inputs_hash;
 use buck2_build_api::actions::impls::json::validate_json;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::actions::Action;
@@ -304,9 +305,16 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for WriteJsonCommandLineArgGen<V> 
 
     fn add_to_action_inputs_hash(
         &self,
-        _hasher: &mut dyn std::hash::Hasher,
+        hasher: &mut dyn std::hash::Hasher,
     ) -> buck2_error::Result<bool> {
-        // TODO(ianc) implement this later in the stack
-        Ok(false)
+        let artifact = self.artifact.to_value();
+        let content = self.content.to_value();
+        if !ValueAsCommandLineLike::unpack_value_err(artifact)?
+            .0
+            .add_to_action_inputs_hash(hasher)?
+        {
+            return Ok(false);
+        }
+        add_json_to_action_inputs_hash(content, hasher)
     }
 }
