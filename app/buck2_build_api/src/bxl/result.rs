@@ -21,6 +21,7 @@ pub struct BxlResult {
     /// The error string bytes
     error: Vec<u8>,
     artifacts: Vec<ArtifactGroup>,
+    pending_streaming_outputs: Vec<PendingStreamingOutput>,
     analysis_values: RecordedAnalysisValues,
 }
 
@@ -29,12 +30,17 @@ impl BxlResult {
         output: Vec<u8>,
         error: Vec<u8>,
         ensured_artifacts: IndexSet<ArtifactGroup>,
+        pending_streaming_outputs: Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>,
         analysis_values: RecordedAnalysisValues,
     ) -> Self {
         Self {
             output,
             error,
             artifacts: ensured_artifacts.into_iter().collect(),
+            pending_streaming_outputs: pending_streaming_outputs
+                .into_iter()
+                .map(|(waits_on, output)| PendingStreamingOutput::new(waits_on, output))
+                .collect(),
             analysis_values,
         }
     }
@@ -53,5 +59,21 @@ impl BxlResult {
 
     pub fn artifacts(&self) -> &Vec<ArtifactGroup> {
         &self.artifacts
+    }
+
+    pub fn pending_streaming_outputs(&self) -> &Vec<PendingStreamingOutput> {
+        &self.pending_streaming_outputs
+    }
+}
+
+#[derive(Allocative, Debug, Clone)]
+pub struct PendingStreamingOutput {
+    waits_on: IndexSet<ArtifactGroup>,
+    output: Vec<u8>,
+}
+
+impl PendingStreamingOutput {
+    fn new(waits_on: IndexSet<ArtifactGroup>, output: Vec<u8>) -> Self {
+        Self { waits_on, output }
     }
 }

@@ -5,3 +5,4 @@
 ## OutputStream.ensure\_multiple
 ## OutputStream.print
 ## OutputStream.print\_json
+## OutputStream.stream

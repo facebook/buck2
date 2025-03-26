@@ -86,6 +86,9 @@ struct OutputStreamStateInner {
     output: Vec<u8>,
     /// The error string bytes where all errors are written to.
     pub(crate) error: Vec<u8>,
+    /// Pairs of artifacts set and their corresponding streaming output string.
+    /// Used to track outputs that are waiting for their associated artifacts to be materialized.
+    pending_streaming_outputs: Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>,
 }
 
 #[derive(Derivative, Display, Allocative, Dupe, Clone)]
@@ -107,6 +110,7 @@ pub(crate) struct OutputStreamOutcome {
     pub(crate) ensured_artifacts: IndexSet<ArtifactGroup>,
     pub(crate) output: Vec<u8>,
     pub(crate) error: Vec<u8>,
+    pub(crate) pending_streaming_outputs: Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>,
 }
 
 #[derive(
@@ -132,7 +136,7 @@ pub(crate) struct OutputStream {
 /// We can ensure either an `Artifact` or an `ArtifactGroup`. When we want to ensure a `CommandLineArgLike` object,
 /// the result of visiting its artifacts is a list of `ArtifactGroup`s. It's convenient to preserve the group rather
 /// than extract the individual `Artifact`s from it, for perf/memory optimizations.
-#[derive(Display, Debug, Allocative, Hash, Eq, PartialEq)]
+#[derive(Display, Debug, Allocative, Hash, Eq, PartialEq, Clone, Dupe)]
 pub(crate) enum EnsuredArtifactOrGroup {
     Artifact(EnsuredArtifact),
     ArtifactGroup(ArtifactGroup),
@@ -181,10 +185,23 @@ impl OutputStreamState {
             .map(EnsuredArtifactOrGroup::into_artifact_groups)
             .flatten_ok()
             .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
+        let pending_streaming_outputs = state
+            .pending_streaming_outputs
+            .into_iter()
+            .map(|(ensured_artifact_set, output_str)| {
+                let artifacts = ensured_artifact_set
+                    .into_iter()
+                    .map(|ensured_artifact| ensured_artifact.into_artifact_groups())
+                    .flatten_ok()
+                    .collect::<buck2_error::Result<IndexSet<ArtifactGroup>>>()?;
+                Ok((artifacts, output_str))
+            })
+            .collect::<buck2_error::Result<Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>>>()?;
         Ok(OutputStreamOutcome {
             ensured_artifacts: artifacts,
             output: state.output,
             error: state.error,
+            pending_streaming_outputs,
         })
     }
 
@@ -212,6 +229,17 @@ impl OutputStreamState {
             &mut inner.as_mut().expect("should not have been taken").error
         })
     }
+
+    fn pending_streaming_outputs(
+        &self,
+    ) -> RefMut<'_, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner
+                .as_mut()
+                .expect("should not have been taken")
+                .pending_streaming_outputs
+        })
+    }
 }
 
 /// Trait for handling output behavior
@@ -234,6 +262,51 @@ impl<'a, T: Write> Write for BufferPrintStrategy<'a, T> {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+struct StreamingStrategy<'a> {
+    waits_on_artifacts: SmallSet<EnsuredArtifactOrGroup>,
+    pending_streaming_outputs: RefMut<'a, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>>,
+    buffer: Vec<u8>,
+}
+
+impl<'a> StreamingStrategy<'a> {
+    fn new(
+        pending_streaming_outputs: RefMut<'a, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>>,
+    ) -> Self {
+        Self {
+            waits_on_artifacts: Default::default(),
+            pending_streaming_outputs,
+            buffer: Vec::new(),
+        }
+    }
+
+    fn insert_pending_streaming_output(&mut self, output: Vec<u8>) {
+        self.pending_streaming_outputs
+            .push((self.waits_on_artifacts.clone(), output));
+    }
+}
+
+impl<'a> OutputStrategy for StreamingStrategy<'a> {
+    fn on_artifact(&mut self, artifact: EnsuredArtifactOrGroup) {
+        self.waits_on_artifacts.insert(artifact);
+    }
+}
+
+impl<'a> Write for StreamingStrategy<'a> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buffer.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        if !self.waits_on_artifacts.is_empty() {
+            self.insert_pending_streaming_output(self.buffer.clone());
+        } else {
+            // TODO: when streaming and no artifacts are waited on, we should directly print the streaming output
+        }
+
         Ok(())
     }
 }
@@ -327,6 +400,8 @@ impl OutputStream {
         pretty: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> buck2_error::Result<()> {
+        // TODO: Add support for streaming json output
+
         /// A wrapper with a Serialize instance so we can pass down the necessary context.
         struct SerializeValue<'a, 'v, 'd> {
             value: Value<'v>,
@@ -511,6 +586,20 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         this.print_json(value, pretty, eval)?;
+
+        Ok(NoneType)
+    }
+
+    /// TODO: add doc
+    fn stream<'v>(
+        this: &'v OutputStream,
+        #[starlark(args)] args: UnpackTuple<Value<'v>>,
+        #[starlark(default = " ")] sep: &'v str,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<NoneType> {
+        let streaming_strategy = StreamingStrategy::new(this.pending_streaming_outputs());
+
+        this.print(args.into_iter(), sep, eval, streaming_strategy)?;
 
         Ok(NoneType)
     }

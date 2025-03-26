@@ -234,6 +234,7 @@ impl BxlInnerEvaluator {
             output_stream_outcome.output,
             output_stream_outcome.error,
             output_stream_outcome.ensured_artifacts,
+            output_stream_outcome.pending_streaming_outputs,
             recorded_values,
         );
 
