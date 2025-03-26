@@ -42,10 +42,43 @@ fn create_dir_tree<'v>(
     let inputs = action.inputs();
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
+    let mut hasher = DefaultHasher::new();
+    let mut is_hash_valid = true;
+    if this.compute_action_inputs_hash {
+        for input in &inputs {
+            // TODO(ianc) this should also add the keys, but this is good enough for now.
+            match input {
+                ArtifactGroup::Artifact(artifact) => {
+                    if !artifact.get_path().add_to_action_inputs_hash(&mut hasher)? {
+                        is_hash_valid = false;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+    } else {
+        is_hash_valid = false;
+    };
+
+    let action_inputs_hash = if is_hash_valid {
+        Some(Arc::from(format!("{:0>16x}", hasher.finish())))
+    } else {
+        None
+    };
+
     let mut this = this.state()?;
     let (declaration, output_artifact) =
         this.get_or_declare_output(eval, output, OutputType::Directory)?;
-    this.register_action(inputs, indexset![output_artifact], action, None, None, None)?;
+
+    this.register_action(
+        inputs,
+        indexset![output_artifact],
+        action,
+        None,
+        None,
+        action_inputs_hash,
+    )?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }

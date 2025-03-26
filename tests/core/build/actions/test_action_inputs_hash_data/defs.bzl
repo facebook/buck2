@@ -30,3 +30,16 @@ simple_copy = rule(
         "to_copy": attrs.source(),
     },
 )
+
+def _simple_symlinked_dir_impl(ctx):
+    srcs = {str(k): v for (k, v) in enumerate(ctx.attrs.inputs)}
+    out = ctx.actions.symlinked_dir("out", srcs)
+
+    return [DefaultInfo(default_output = out)]
+
+simple_symlinked_dir = rule(
+    impl = _simple_symlinked_dir_impl,
+    attrs = {
+        "inputs": attrs.list(attrs.source()),
+    },
+)
