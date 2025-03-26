@@ -107,3 +107,36 @@ simple_tset = rule(
         "string_attr": attrs.string(),
     },
 )
+
+def _simple_dynamic_impl(ctx: AnalysisContext) -> list[Provider]:
+    input = ctx.actions.write("input", str("input"))
+    output = ctx.actions.declare_output("out")
+
+    def f(ctx: AnalysisContext, artifacts, outputs):
+        src = artifacts[input].read_string()
+        ctx.actions.write(outputs[output], src)
+
+    ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)
+    return [DefaultInfo(default_output = output)]
+
+simple_dynamic = rule(
+    impl = _simple_dynamic_impl,
+    attrs = {
+    },
+)
+
+def _write_arg(ctx: AnalysisContext) -> list[Provider]:
+    out, _ = ctx.actions.write(
+        "out.txt",
+        ctx.attrs.arg_command,
+        is_executable = True,
+        allow_args = True,
+    )
+    return [DefaultInfo(default_output = out)]
+
+write_arg = rule(
+    impl = _write_arg,
+    attrs = {
+        "arg_command": attrs.arg(),
+    },
+)

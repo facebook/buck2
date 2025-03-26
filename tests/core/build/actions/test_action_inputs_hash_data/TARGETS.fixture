@@ -1,4 +1,4 @@
-load(":defs.bzl", "simple_copy", "simple_run", "simple_symlinked_dir", "simple_tset", "simple_write", "simple_write_json")
+load(":defs.bzl", "simple_copy", "simple_dynamic", "simple_run", "simple_symlinked_dir", "simple_tset", "simple_write", "simple_write_json", "write_arg")
 
 simple_write(
     name = "simple_write",
@@ -44,6 +44,20 @@ simple_tset(
         ":constraint2": "hello-platform2",
         "DEFAULT": "hello",
     }),
+)
+
+simple_dynamic(
+    name = "simple_dynamic",
+)
+
+write_arg(
+    name = "write_arg_dynamic",
+    arg_command = "$(location :simple_dynamic)",
+)
+
+write_arg(
+    name = "write_arg_simple_write",
+    arg_command = "$(location :simple_write)",
 )
 
 platform(

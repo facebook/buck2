@@ -6,7 +6,6 @@
 # of this source tree.
 
 # pyre-strict
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
@@ -168,6 +167,56 @@ async def test_simple_tset_action_inputs_hash(buck: Buck) -> None:
     assert action_inputs_hash3 != action_inputs_hash2
 
     await buck.build("//:simple_tset", "--target-platforms=//:platform2")
+    action_inputs_hash4 = await get_last_action_inputs_hash(buck)
+
+    assert action_inputs_hash4 != action_inputs_hash2
+    assert action_inputs_hash4 != action_inputs_hash3
+
+
+@buck_test()
+async def test_simple_dynamic_action_inputs_hash(buck: Buck) -> None:
+    await buck.build(
+        "//:simple_dynamic",
+    )
+    action_inputs_hash = await get_last_action_inputs_hash(buck)
+    assert action_inputs_hash is None
+
+
+@buck_test()
+async def test_uses_dynamic_action_inputs_hash(buck: Buck) -> None:
+    await buck.build(
+        "//:write_arg_dynamic",
+    )
+    action_inputs_hash = await get_last_action_inputs_hash(buck)
+    assert action_inputs_hash is None
+
+
+@buck_test()
+async def test_write_arg_simple_write_action_inputs_hash(buck: Buck) -> None:
+    await buck.build(
+        "//:write_arg_simple_write",
+        "--target-platforms=//:default1",
+    )
+    action_inputs_hash1 = await get_last_action_inputs_hash(buck)
+
+    await buck.build(
+        "//:write_arg_simple_write",
+        "--target-platforms=//:default2",
+    )
+    action_inputs_hash2 = await get_last_action_inputs_hash(buck)
+    assert action_inputs_hash1 == action_inputs_hash2
+
+    await buck.build(
+        "//:write_arg_simple_write",
+        "--target-platforms=//:platform1",
+    )
+    action_inputs_hash3 = await get_last_action_inputs_hash(buck)
+    assert action_inputs_hash3 != action_inputs_hash2
+
+    await buck.build(
+        "//:write_arg_simple_write",
+        "--target-platforms=//:platform2",
+    )
     action_inputs_hash4 = await get_last_action_inputs_hash(buck)
 
     assert action_inputs_hash4 != action_inputs_hash2
