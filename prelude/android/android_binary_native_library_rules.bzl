@@ -670,6 +670,8 @@ def _get_native_libs_and_assets(
 
     combined_native_libs = ctx.actions.declare_output("combined_native_libs", dir = True)
     native_libs_metadata = ctx.actions.declare_output("native_libs_metadata.txt")
+    native_library_pick_first = getattr(ctx.attrs, "native_library_pick_first", [])
+    native_library_pick_first_arg = ["--pick-first"] + native_library_pick_first if native_library_pick_first else []
     ctx.actions.run(cmd_args([
         ctx.attrs._android_toolchain[AndroidToolchainInfo].combine_native_library_dirs[RunInfo],
         "--output-dir",
@@ -679,7 +681,7 @@ def _get_native_libs_and_assets(
         stripped_linkables.linkables,
         "--metadata-file",
         native_libs_metadata.as_output(),
-    ]), category = "combine_native_libs")
+    ] + native_library_pick_first_arg), category = "combine_native_libs")
 
     combined_native_libs_always_in_primary_apk = ctx.actions.declare_output("combined_native_libs_always_in_primary_apk", dir = True)
     ctx.actions.run(cmd_args([
