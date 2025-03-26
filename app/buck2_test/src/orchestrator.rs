@@ -552,6 +552,12 @@ impl Key for TestExecutionKey {
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         false
     }
+
+    fn validity(x: &Self::Value) -> bool {
+        // We don't want to cache any failed listings
+        x.as_ref()
+            .is_ok_and(|f| f.status == ExecutionStatus::Finished { exitcode: 0 })
+    }
 }
 
 async fn prepare_and_execute(

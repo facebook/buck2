@@ -53,8 +53,7 @@ async def test_failed_discovery_not_cached_on_dice(buck: Buck) -> None:
         stderr_regex="Failed to list tests",
     )
     whatran = (await buck.log("what-ran")).stdout
-    # FIXME(ianc) Don't cache failures on DICE
-    assert "test.discovery" not in whatran
+    assert "test.discovery" in whatran
 
 
 @buck_test()
