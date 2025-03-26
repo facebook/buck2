@@ -48,7 +48,7 @@ assert_eq_size!(ActionKey, [usize; 4]);
     derive_more::Display,
     Allocative
 )]
-pub struct ActionIndex(u32);
+pub struct ActionIndex(pub u32);
 impl ActionIndex {
     pub fn new(v: u32) -> ActionIndex {
         Self(v)
