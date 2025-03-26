@@ -99,7 +99,6 @@ pub enum ErrorSourceArea {
     Eden,
     Re,
     Watchman,
-    Starlark,
     TestExecutor,
     Installer,
 }
@@ -117,8 +116,6 @@ impl ErrorTagExtra for ErrorTag {
             ErrorSourceArea::Re
         } else if tag_name.starts_with("WATCHMAN") {
             ErrorSourceArea::Watchman
-        } else if tag_name.starts_with("STARLARK") {
-            ErrorSourceArea::Starlark
         } else if *self == crate::ErrorTag::Tpx || *self == crate::ErrorTag::TestExecutor {
             ErrorSourceArea::TestExecutor
         } else if tag_name.starts_with("INSTALLER") {

@@ -134,7 +134,7 @@ async def test_starlark_fail_error_categorization(buck: Buck, tmp_path: Path) ->
     errors = record["errors"]
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Fail")
-    assert errors[0]["source_area"] == "STARLARK"
+    assert errors[0]["source_area"] == "BUCK2"
     assert errors[0]["category"] == "USER"
 
 
@@ -155,7 +155,7 @@ async def test_starlark_parse_error_categorization(buck: Buck, tmp_path: Path) -
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Parser")
     assert errors[0]["tags"] == ["STARLARK_PARSER"]
-    assert errors[0]["source_area"] == "STARLARK"
+    assert errors[0]["source_area"] == "BUCK2"
     assert errors[0]["category"] == "USER"
 
 
@@ -176,7 +176,7 @@ async def test_starlark_scope_error_categorization(buck: Buck, tmp_path: Path) -
     assert len(errors) == 1
     assert errors[0]["source_location"].endswith("StarlarkError::Scope")
     assert errors[0]["tags"] == ["STARLARK_SCOPE"]
-    assert errors[0]["source_area"] == "STARLARK"
+    assert errors[0]["source_area"] == "BUCK2"
     assert errors[0]["category"] == "USER"
 
 
