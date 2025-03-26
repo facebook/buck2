@@ -255,6 +255,7 @@ mod tests {
                     crate::ErrorTag::StarlarkNativeInput,
                     crate::ErrorTag::StarlarkFail,
                 ],
+                string_tags: vec![],
             });
         }
     }

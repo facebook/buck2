@@ -89,12 +89,14 @@ use crate::source_location::SourceLocation;
 pub fn provide_metadata<'a, 'b>(
     request: &'b mut Request<'a>,
     tags: impl IntoIterator<Item = crate::ErrorTag>,
+    string_tags: impl IntoIterator<Item = String>,
     source_location: SourceLocation,
     action_error: Option<buck2_data::ActionError>,
 ) {
     let metadata = ProvidableMetadata {
         action_error,
         tags: tags.into_iter().collect(),
+        string_tags: string_tags.into_iter().collect(),
         source_location,
     };
     Request::provide_value(request, metadata);

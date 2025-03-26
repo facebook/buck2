@@ -359,8 +359,7 @@ async def test_re_execute_failure(buck: Buck, tmp_path: Path) -> None:
     )
     record = read_invocation_record(record_path)
     category_key = record["errors"][0]["category_key"]
-    # TODO TCodeReasonGroup suffix is missing
-    assert category_key == "RE_FAILED_PRECONDITION"
+    assert category_key == "RE_FAILED_PRECONDITION:UNKNOWN"
 
 
 @buck_test()
