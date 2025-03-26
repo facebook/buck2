@@ -23,11 +23,17 @@ def _select_platform():
         "config//react-native:macos": "macos",
         # TODO(T210407097): Remove after deleting //third-party/microsoft-fork-of-react-native
         "fbsource//tools/build_defs/js/config:macos_legacy": "macos_legacy",
+        # Delete config:platform_override after removing usages of the buck config:
         "fbsource//tools/build_defs/js/config:platform_override_android": "android",
         "fbsource//tools/build_defs/js/config:platform_override_ios": "ios",
         "fbsource//tools/build_defs/js/config:platform_override_macos": "macos",
         "fbsource//tools/build_defs/js/config:platform_override_vr": "vr",
         "fbsource//tools/build_defs/js/config:platform_override_windows": "windows",
+        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:android": "android",
+        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:ios": "ios",
+        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:macos": "macos",
+        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:vr": "vr",
+        "fbsource//tools/build_defs/js/constraints/metro_js_platform_override:windows": "windows",
     })
 
 def _is_release():
