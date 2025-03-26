@@ -600,7 +600,7 @@ impl FallbackTracker {
         };
 
         #[cfg(not(all(fbcode_build, target_os = "linux")))]
-        let max = None;
+        let max = None::<i64>;
 
         if let Some(max) = max {
             if retried >= max {

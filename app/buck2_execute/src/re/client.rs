@@ -1012,7 +1012,8 @@ impl RemoteExecutionClientImpl {
                             if let Some(re_queue_threshold) =
                                 re_cancel_on_estimated_queue_time_exceeds_s
                             {
-                                if anticipated_queue_duration.as_secs() >= re_queue_threshold.into()
+                                if anticipated_queue_duration.as_secs()
+                                    >= u64::from(re_queue_threshold)
                                 {
                                     return Ok(ResponseOrStateChange::Cancelled(Cancelled {
                                         reason: Some(CancellationReason::ReQueueTimeout),
