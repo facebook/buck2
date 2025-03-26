@@ -69,7 +69,6 @@ use crate::artifact_groups::deferred::TransitiveSetIndex;
 use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::artifact_groups::promise::PromiseArtifactId;
-use crate::artifact_groups::registry::ArtifactGroupRegistry;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
 use crate::dynamic::storage::DynamicLambdaParamsStorage;
@@ -90,8 +89,6 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
     pub actions: ActionsRegistry,
-    #[derivative(Debug = "ignore")]
-    artifact_groups: ArtifactGroupRegistry,
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     pub analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
@@ -118,7 +115,6 @@ impl<'v> AnalysisRegistry<'v> {
     ) -> buck2_error::Result<Self> {
         Ok(AnalysisRegistry {
             actions: ActionsRegistry::new(self_key.dupe(), execution_platform.dupe()),
-            artifact_groups: ArtifactGroupRegistry::new(),
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(self_key),
             short_path_assertions: HashMap::new(),
@@ -242,13 +238,13 @@ impl<'v> AnalysisRegistry<'v> {
         children: Option<Value<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, TransitiveSet<'v>>> {
-        self.artifact_groups.create_transitive_set(
-            definition,
-            value,
-            children,
-            &mut self.analysis_value_storage,
-            eval,
-        )
+        Ok(self
+            .analysis_value_storage
+            .register_transitive_set(move |key| {
+                let set =
+                    TransitiveSet::new_from_values(key.dupe(), definition, value, children, eval)?;
+                Ok(eval.heap().alloc_typed(set))
+            })?)
     }
 
     pub(crate) fn take_promises(&mut self) -> Option<Box<dyn AnonPromisesDyn<'v>>> {
@@ -290,7 +286,6 @@ impl<'v> AnalysisRegistry<'v> {
     > {
         let AnalysisRegistry {
             actions,
-            artifact_groups: _,
             anon_targets: _,
             analysis_value_storage,
             short_path_assertions: _,
