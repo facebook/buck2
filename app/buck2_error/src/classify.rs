@@ -112,6 +112,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::NoBuckRoot => rank!(environment),
         ErrorTag::InstallerEnvironment => rank!(environment).hidden(),
         ErrorTag::IoNotConnected => rank!(environment), // This typically means eden is not mounted
+        // Typically due to poor network performance and large artifacts.
+        ErrorTag::ReDeadlineExceeded => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -129,7 +131,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReCancelled => rank!(tier0),
         ErrorTag::ReUnknown => rank!(tier0),
         ErrorTag::ReInvalidArgument => rank!(tier0),
-        ErrorTag::ReDeadlineExceeded => rank!(tier0),
         ErrorTag::ReNotFound => rank!(tier0),
         ErrorTag::ReAlreadyExists => rank!(tier0),
         ErrorTag::RePermissionDenied => rank!(tier0),
