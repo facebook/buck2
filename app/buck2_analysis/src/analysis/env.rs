@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use buck2_build_api::actions::execute::dice_data::GetComputeActionInputsHashConfig;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
@@ -287,6 +288,9 @@ async fn run_analysis_with_env_underlying(
                 Some(plugins.into()),
                 registry,
                 dice.global_data().get_digest_config(),
+                dice.global_data()
+                    .get_compute_action_inputs_hash_config()
+                    .enabled,
             );
 
             let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;

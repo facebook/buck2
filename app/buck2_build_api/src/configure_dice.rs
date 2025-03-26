@@ -22,6 +22,7 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::WhichDice;
 
+use crate::actions::execute::dice_data::SetComputeActionInputsHashConfig;
 use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
 
 /// This is just a simple version number to allow us to more easily rollout modern dice.
@@ -67,6 +68,17 @@ pub async fn configure_dice_for_buck(
         None => false,
     };
     dice.set_invalidation_tracking_config(invalidation_tracking_enabled);
+
+    let compute_action_inputs_hash_enabled = match root_config {
+        Some(c) => c
+            .parse::<RolloutPercentage>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "compute_action_inputs_hash_enabled",
+            })?
+            .map_or(false, |v| v.roll()),
+        None => false,
+    };
+    dice.set_compute_action_inputs_hash_config(compute_action_inputs_hash_enabled);
 
     let dice = dice.build(detect_cycles);
     let mut dice_ctx = dice.updater();

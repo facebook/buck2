@@ -68,6 +68,8 @@ pub struct AnalysisActions<'v> {
     pub plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
     /// Digest configuration to use when interpreting digests passed in analysis.
     pub digest_config: DigestConfig,
+    /// Whether or not to compute an action inputs hash
+    pub compute_action_inputs_hash: bool,
 }
 
 impl<'v> AnalysisActions<'v> {
@@ -196,6 +198,7 @@ impl<'v> AnalysisContext<'v> {
         plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
+        compute_action_inputs_hash: bool,
     ) -> Self {
         Self {
             attrs,
@@ -204,6 +207,7 @@ impl<'v> AnalysisContext<'v> {
                 attributes: attrs,
                 plugins,
                 digest_config,
+                compute_action_inputs_hash,
             }),
             label,
             plugins,
@@ -217,6 +221,7 @@ impl<'v> AnalysisContext<'v> {
         plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
         registry: AnalysisRegistry<'v>,
         digest_config: DigestConfig,
+        compute_action_inputs_hash: bool,
     ) -> ValueTyped<'v, AnalysisContext<'v>> {
         let label = label.map(|label| {
             heap.alloc_typed(StarlarkConfiguredProvidersLabel::new(
@@ -224,7 +229,15 @@ impl<'v> AnalysisContext<'v> {
             ))
         });
 
-        let analysis_context = Self::new(heap, attrs, label, plugins, registry, digest_config);
+        let analysis_context = Self::new(
+            heap,
+            attrs,
+            label,
+            plugins,
+            registry,
+            digest_config,
+            compute_action_inputs_hash,
+        );
         heap.alloc_typed(analysis_context)
     }
 

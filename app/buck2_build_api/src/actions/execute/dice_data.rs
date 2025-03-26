@@ -153,3 +153,30 @@ impl GetInvalidationTrackingConfig for DiceComputations<'_> {
             .expect("InvalidationTrackingConfig should be set")
     }
 }
+
+#[derive(Debug, Clone, Copy, Dupe)]
+pub struct ComputeActionInputsHashConfig {
+    pub enabled: bool,
+}
+
+pub trait SetComputeActionInputsHashConfig {
+    fn set_compute_action_inputs_hash_config(&mut self, enabled: bool);
+}
+
+pub trait GetComputeActionInputsHashConfig {
+    fn get_compute_action_inputs_hash_config(&self) -> ComputeActionInputsHashConfig;
+}
+
+impl SetComputeActionInputsHashConfig for DiceDataBuilder {
+    fn set_compute_action_inputs_hash_config(&mut self, enabled: bool) {
+        self.set(ComputeActionInputsHashConfig { enabled });
+    }
+}
+
+impl GetComputeActionInputsHashConfig for DiceData {
+    fn get_compute_action_inputs_hash_config(&self) -> ComputeActionInputsHashConfig {
+        self.get::<ComputeActionInputsHashConfig>()
+            .expect("ComputeActionInputsHashConfig should be set")
+            .dupe()
+    }
+}
