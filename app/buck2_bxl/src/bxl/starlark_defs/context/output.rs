@@ -13,6 +13,7 @@ use std::io::Write;
 use std::iter;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -29,6 +30,8 @@ use buck2_error::buck2_error;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_server_ctx::bxl::BxlStreamingTracker;
+use buck2_server_ctx::bxl::GetBxlStreamingTracker;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use derivative::Derivative;
 use derive_more::Display;
@@ -86,6 +89,8 @@ struct OutputStreamStateInner {
     artifacts_to_ensure: SmallSet<EnsuredArtifactOrGroup>,
     /// The output string bytes where all non-streaming outputs are written to.
     output: Vec<u8>,
+    /// The output streaming string bytes where all streaming outputs that not waiting on anything are written to.
+    streaming: Vec<u8>,
     /// The error string bytes where all errors are written to.
     pub(crate) error: Vec<u8>,
     /// Pairs of artifacts set and their corresponding streaming output string.
@@ -111,6 +116,7 @@ pub(crate) struct OutputStreamOutcome {
     /// the original EnsuredArtifactOrGroup entries.
     pub(crate) ensured_artifacts: IndexSet<ArtifactGroup>,
     pub(crate) output: Vec<u8>,
+    pub(crate) streaming: Vec<u8>,
     pub(crate) error: Vec<u8>,
     pub(crate) pending_streaming_outputs: Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>,
 }
@@ -202,6 +208,7 @@ impl OutputStreamState {
         Ok(OutputStreamOutcome {
             ensured_artifacts: artifacts,
             output: state.output,
+            streaming: state.streaming,
             error: state.error,
             pending_streaming_outputs,
         })
@@ -229,6 +236,15 @@ impl OutputStreamState {
     pub(crate) fn error(&self) -> RefMut<'_, impl Write> {
         RefMut::map(self.inner.borrow_mut(), |inner| {
             &mut inner.as_mut().expect("should not have been taken").error
+        })
+    }
+
+    pub(crate) fn streaming(&self) -> RefMut<'_, impl Write> {
+        RefMut::map(self.inner.borrow_mut(), |inner| {
+            &mut inner
+                .as_mut()
+                .expect("should not have been taken")
+                .streaming
         })
     }
 
@@ -268,53 +284,92 @@ impl<'a, T: Write> Write for BufferPrintStrategy<'a, T> {
     }
 }
 
-struct StreamingStrategy<'a> {
+struct StreamingStrategy {
     waits_on_artifacts: SmallSet<EnsuredArtifactOrGroup>,
-    pending_streaming_outputs: RefMut<'a, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>>,
+    output_stream_state: OutputStreamState,
+    streaming_writer: BxlStreamingWriter,
     buffer: Vec<u8>,
-    partial_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
 }
 
-impl<'a> StreamingStrategy<'a> {
-    fn new(
-        pending_streaming_outputs: RefMut<'a, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>>,
-        partial_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-    ) -> Self {
+impl StreamingStrategy {
+    fn new(output_stream_state: OutputStreamState, streaming_writer: BxlStreamingWriter) -> Self {
         Self {
             waits_on_artifacts: Default::default(),
-            pending_streaming_outputs,
+            output_stream_state,
             buffer: Vec::new(),
-            partial_dispatcher,
+            streaming_writer,
         }
     }
 
     fn insert_pending_streaming_output(&mut self, output: Vec<u8>) {
-        self.pending_streaming_outputs
+        self.output_stream_state
+            .pending_streaming_outputs()
             .push((self.waits_on_artifacts.clone(), output));
     }
 }
 
-impl<'a> OutputStrategy for StreamingStrategy<'a> {
+impl OutputStrategy for StreamingStrategy {
     fn on_artifact(&mut self, artifact: EnsuredArtifactOrGroup) {
         self.waits_on_artifacts.insert(artifact);
     }
 }
 
-impl<'a> Write for StreamingStrategy<'a> {
+impl Write for StreamingStrategy {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.buffer.write(buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
         if !self.waits_on_artifacts.is_empty() {
+            // We record the buffer as the pending message for the artifacts that are waiting to be materialized
             self.insert_pending_streaming_output(self.buffer.clone());
         } else {
-            let mut writer = self.partial_dispatcher.as_writer();
-            writer.write_all(&self.buffer)?;
-            writer.flush()?;
+            // Streaming output the output through partial result dispatcher
+            self.streaming_writer.write_all(&self.buffer)?;
+
+            // write the buffer to the streaming sink which will be use as the cache
+            self.output_stream_state
+                .streaming()
+                .write_all(&self.buffer)?;
+
+            self.streaming_writer.flush()?;
         }
         self.buffer.clear();
+        Ok(())
+    }
+}
 
+struct BxlStreamingWriter {
+    inner: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+    streaming_tracker: Arc<BxlStreamingTracker>,
+}
+
+impl BxlStreamingWriter {
+    fn new(dice: &dyn BxlDiceComputations) -> Self {
+        let dispatcher = dice.per_transaction_data().get_dispatcher().dupe();
+        let partial_result_dispatcher = PartialResultDispatcher::new(dispatcher);
+        let streaming_tracker = dice
+            .per_transaction_data()
+            .get_bxl_streaming_tracker()
+            .expect("BxlStreamingTracker should be set");
+        Self {
+            inner: partial_result_dispatcher,
+            streaming_tracker,
+        }
+    }
+}
+
+impl Write for BxlStreamingWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.inner.emit(buck2_cli_proto::StdoutBytes {
+            data: buf.to_owned(),
+        });
+        self.streaming_tracker.mark_as_called();
+
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
     }
 }
@@ -606,17 +661,9 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
-        let dispatcher = extra
-            .dice
-            .borrow()
-            .per_transaction_data()
-            .get_dispatcher()
-            .dupe();
-        let partial_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes> =
-            PartialResultDispatcher::new(dispatcher);
+        let streaming_writer = BxlStreamingWriter::new(&*extra.dice.borrow_mut());
 
-        let streaming_strategy =
-            StreamingStrategy::new(this.pending_streaming_outputs(), partial_dispatcher);
+        let streaming_strategy = StreamingStrategy::new(this.state.dupe(), streaming_writer);
 
         this.print(args.into_iter(), sep, eval, streaming_strategy)?;
 

@@ -92,6 +92,7 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
+use buck2_server_ctx::bxl::InitBxlStreamingTracker;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
 use buck2_server_ctx::ctx::LockedPreviousCommandData;
@@ -764,6 +765,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         data.set_keep_going(self.keep_going);
         data.set_critical_path_backend(critical_path_backend);
         data.init_local_resource_registry();
+        data.init_bxl_streaming_tracker();
         data.spawner = self.cmd_ctx.base_context.daemon.spawner.dupe();
 
         let tags = vec![

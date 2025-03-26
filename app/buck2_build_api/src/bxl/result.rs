@@ -20,7 +20,11 @@ pub struct BxlResult {
     output: Vec<u8>,
     /// The error string bytes
     error: Vec<u8>,
+    /// The streaming output string bytes. This is where all streaming outputs not related to ensured artifacts will be written to.
+    streaming: Vec<u8>,
+    /// The artifacts that were called `ensure` during the execution of the bxl function.
     artifacts: Vec<ArtifactGroup>,
+    /// The streaming output that is waiting on ensured artifacts to be materialized.
     pending_streaming_outputs: Vec<PendingStreamingOutput>,
     analysis_values: RecordedAnalysisValues,
 }
@@ -29,6 +33,7 @@ impl BxlResult {
     pub fn new(
         output: Vec<u8>,
         error: Vec<u8>,
+        streaming: Vec<u8>,
         ensured_artifacts: IndexSet<ArtifactGroup>,
         pending_streaming_outputs: Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>,
         analysis_values: RecordedAnalysisValues,
@@ -36,6 +41,7 @@ impl BxlResult {
         Self {
             output,
             error,
+            streaming,
             artifacts: ensured_artifacts.into_iter().collect(),
             pending_streaming_outputs: pending_streaming_outputs
                 .into_iter()
@@ -55,6 +61,10 @@ impl BxlResult {
 
     pub fn error(&self) -> &Vec<u8> {
         &self.error
+    }
+
+    pub fn streaming(&self) -> &Vec<u8> {
+        &self.streaming
     }
 
     pub fn artifacts(&self) -> &Vec<ArtifactGroup> {

@@ -233,6 +233,7 @@ impl BxlInnerEvaluator {
         let bxl_result = BxlResult::new(
             output_stream_outcome.output,
             output_stream_outcome.error,
+            output_stream_outcome.streaming,
             output_stream_outcome.ensured_artifacts,
             output_stream_outcome.pending_streaming_outputs,
             recorded_values,

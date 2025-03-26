@@ -74,3 +74,37 @@ async def test_streaming_output(buck: Buck) -> None:
     assert (
         streaming_output_idx < line_before_print_idx
     ), "The streaming print is not before the normal print"
+
+
+@buck_test()
+async def test_streaming_output_without_duplicates(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//streaming.bxl:streaming_output_without_duplicates",
+    )
+
+    streaming_output = "This is the streaming output"
+    streaming_ensured_artifact_output = "output.txt"
+    normal_output = "This is the normal output"
+
+    stdout = result.stdout
+    assert stdout.count(streaming_output) == 1, "Expected only one streaming output"
+    assert (
+        stdout.count(streaming_ensured_artifact_output) == 1
+    ), "Expected only one streaming ensured artifact output"
+    assert stdout.count(normal_output) == 1, "Expected only one normal output"
+
+    # call again to check when bxl key is cached
+
+    result = await buck.bxl(
+        "//streaming.bxl:streaming_output_without_duplicates",
+    )
+    stdout = result.stdout
+    assert (
+        stdout.count(streaming_output) == 1
+    ), "Expected only one streaming output when cached"
+    assert (
+        stdout.count(streaming_ensured_artifact_output) == 1
+    ), "Expected only one streaming ensured artifact output when cached"
+    assert (
+        stdout.count(normal_output) == 1
+    ), "Expected only one normal output when cached"

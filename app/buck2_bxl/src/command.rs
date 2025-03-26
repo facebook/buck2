@@ -46,6 +46,7 @@ use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
 use buck2_interpreter::paths::module::StarlarkModulePath;
+use buck2_server_ctx::bxl::GetBxlStreamingTracker;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -144,6 +145,15 @@ impl BxlServerCommand {
         };
 
         let bxl_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await?;
+
+        // If the bxl result is cached, we need to output the streaming outputs to stdout
+        let bxl_streaming_tracker = dice_ctx
+            .per_transaction_data()
+            .get_bxl_streaming_tracker()
+            .expect("BXL streaming tracker should be set");
+        if !bxl_streaming_tracker.was_called() {
+            stdout.write_all(bxl_result.streaming())?;
+        }
 
         let errors = self
             .materialize_artifacts(&mut dice_ctx, bxl_result.dupe(), &mut stdout)

@@ -26,3 +26,17 @@ streaming_output = bxl_main(
     cli_args = {},
     impl = _streaming_output,
 )
+
+def _streaming_output_without_duplicates(ctx: bxl.Context):
+    actions = ctx.bxl_actions().actions
+    output = actions.write("output.txt", "hello world!")
+    ensured_output = ctx.output.ensure(output)
+
+    ctx.output.print("This is the normal output")
+    ctx.output.stream("This is the streaming output")
+    ctx.output.stream(ensured_output.abs_path())
+
+streaming_output_without_duplicates = bxl_main(
+    cli_args = {},
+    impl = _streaming_output_without_duplicates,
+)
