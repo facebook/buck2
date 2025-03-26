@@ -17,3 +17,12 @@ streaming_output_ensured_artifact = bxl_main(
     cli_args = {},
     impl = _streaming_output_ensured_artifact,
 )
+
+def _streaming_output(ctx: bxl.Context):
+    ctx.output.print("Line before streaming print")
+    ctx.output.stream("This is the streaming output")
+
+streaming_output = bxl_main(
+    cli_args = {},
+    impl = _streaming_output,
+)

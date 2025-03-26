@@ -22,12 +22,14 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
+use buck2_common::events::HasEvents;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::buck2_error;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_error::BuckErrorContext;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
@@ -270,16 +272,19 @@ struct StreamingStrategy<'a> {
     waits_on_artifacts: SmallSet<EnsuredArtifactOrGroup>,
     pending_streaming_outputs: RefMut<'a, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>>,
     buffer: Vec<u8>,
+    partial_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
 }
 
 impl<'a> StreamingStrategy<'a> {
     fn new(
         pending_streaming_outputs: RefMut<'a, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>>,
+        partial_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
     ) -> Self {
         Self {
             waits_on_artifacts: Default::default(),
             pending_streaming_outputs,
             buffer: Vec::new(),
+            partial_dispatcher,
         }
     }
 
@@ -304,8 +309,11 @@ impl<'a> Write for StreamingStrategy<'a> {
         if !self.waits_on_artifacts.is_empty() {
             self.insert_pending_streaming_output(self.buffer.clone());
         } else {
-            // TODO: when streaming and no artifacts are waited on, we should directly print the streaming output
+            let mut writer = self.partial_dispatcher.as_writer();
+            writer.write_all(&self.buffer)?;
+            writer.flush()?;
         }
+        self.buffer.clear();
 
         Ok(())
     }
@@ -597,7 +605,18 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = " ")] sep: &'v str,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneType> {
-        let streaming_strategy = StreamingStrategy::new(this.pending_streaming_outputs());
+        let extra = BxlEvalExtra::from_context(eval)?;
+        let dispatcher = extra
+            .dice
+            .borrow()
+            .per_transaction_data()
+            .get_dispatcher()
+            .dupe();
+        let partial_dispatcher: PartialResultDispatcher<buck2_cli_proto::StdoutBytes> =
+            PartialResultDispatcher::new(dispatcher);
+
+        let streaming_strategy =
+            StreamingStrategy::new(this.pending_streaming_outputs(), partial_dispatcher);
 
         this.print(args.into_iter(), sep, eval, streaming_strategy)?;
 

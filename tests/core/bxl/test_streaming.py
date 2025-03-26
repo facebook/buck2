@@ -49,3 +49,28 @@ async def test_streaming_output_ensured_artifact(buck: Buck) -> None:
     ), "The streaming print is not before the normal print"
 
     assert_file_content_matches(output_file_path, "hello world!")
+
+
+@buck_test()
+async def test_streaming_output(buck: Buck) -> None:
+    result = await buck.bxl(
+        "//streaming.bxl:streaming_output",
+    )
+
+    lines = result.stdout.splitlines()
+
+    streaming_output_idx = -1
+    line_before_print_idx = -1
+
+    for idx, line in enumerate(lines):
+        if "This is the streaming output" in line and streaming_output_idx == -1:
+            streaming_output_idx = idx
+        if "Line before streaming print" in line:
+            line_before_print_idx = idx
+
+    assert streaming_output_idx != -1, "Cound not find the streaming print"
+    assert line_before_print_idx != -1, "Cound not find the normal ctx.output.print"
+
+    assert (
+        streaming_output_idx < line_before_print_idx
+    ), "The streaming print is not before the normal print"
