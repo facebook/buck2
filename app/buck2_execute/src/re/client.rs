@@ -1152,6 +1152,10 @@ impl RemoteExecutionClientImpl {
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
+        if buck2_env!("BUCK2_TEST_FAIL_RE_EXECUTE", bool, applicability = testing)? {
+            return Err(test_re_error("Injected error", TCode::FAILED_PRECONDITION));
+        }
+
         let metadata = RemoteExecutionMetadata {
             platform: Some(re_platform(platform)),
             do_not_cache: skip_cache_write,

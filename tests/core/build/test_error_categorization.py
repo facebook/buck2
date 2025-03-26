@@ -343,6 +343,27 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
 
 
 @buck_test()
+async def test_re_execute_failure(buck: Buck, tmp_path: Path) -> None:
+    # Upload action if necessary
+    await buck.build("//:run_action", "--remote-only")
+    await buck.clean()
+    record_path = tmp_path / "record.json"
+    await expect_failure(
+        buck.build(
+            "//:run_action",
+            "--unstable-write-invocation-record",
+            str(record_path),
+            "--no-remote-cache",
+            env={"BUCK2_TEST_FAIL_RE_EXECUTE": "true"},
+        )
+    )
+    record = read_invocation_record(record_path)
+    category_key = record["errors"][0]["category_key"]
+    # TODO TCodeReasonGroup suffix is missing
+    assert category_key == "RE_FAILED_PRECONDITION"
+
+
+@buck_test()
 async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
     record_path = tmp_path / "record.json"
     res = await expect_failure(
