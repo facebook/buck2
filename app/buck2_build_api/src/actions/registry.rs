@@ -174,7 +174,8 @@ impl ActionsRegistry {
             Some(prefix) => (prefix.join(path), prefix.iter().count()),
         };
         self.claim_output_path(&path, declaration_location)?;
-        let out_path = BuildArtifactPath::with_dynamic_actions_action_key(self.owner.dupe(), path);
+        let out_path =
+            BuildArtifactPath::with_dynamic_actions_action_key(self.owner.dupe(), path, None);
         let declared = DeclaredArtifact::new(out_path, output_type, hidden);
         if !self.artifacts.insert(declared.dupe()) {
             panic!("not expected duplicate artifact after output path was successfully claimed");
@@ -210,7 +211,10 @@ impl ActionsRegistry {
 
         let mut bound_outputs = IndexSet::with_capacity(outputs.len());
         for output in outputs {
-            let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
+            let bound = output
+                .bind(key.dupe(), &action_inputs_hash)?
+                .as_base_artifact()
+                .dupe();
             bound_outputs.insert(bound);
         }
         self.pending.push(ActionToBeRegistered::new(

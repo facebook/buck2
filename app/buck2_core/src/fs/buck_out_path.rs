@@ -13,6 +13,7 @@ use std::hash::Hasher;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -31,13 +32,17 @@ use crate::provider::label::ConfiguredProvidersLabel;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProvidersName;
 
-#[derive(Clone, Debug, Display, Allocative, Hash, Eq, PartialEq)]
+#[derive(Derivative, Clone, Debug, Display, Allocative)]
+#[derivative(Eq, Hash, PartialEq)]
 #[display("({})/{}", owner, path.as_str())]
 struct BuildArtifactPathData {
     /// The owner responsible for creating this path.
     owner: DeferredHolderKey,
     /// The path relative to that target.
     path: Box<ForwardRelativePath>,
+    /// The hash of the action inputs for the action that produces this output.
+    #[derivative(Hash = "ignore", PartialEq = "ignore")]
+    action_inputs_hash: Option<Arc<str>>,
 }
 
 /// Represents a resolvable path corresponding to outputs of rules that are part
@@ -52,16 +57,38 @@ pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
 impl BuildArtifactPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
-        Self::with_dynamic_actions_action_key(DeferredHolderKey::Base(owner), path)
+        Self::new_with_action_inputs_hash(owner, path, None)
+    }
+
+    pub fn new_with_action_inputs_hash(
+        owner: BaseDeferredKey,
+        path: ForwardRelativePathBuf,
+        action_inputs_hash: Option<Arc<str>>,
+    ) -> Self {
+        Self::with_dynamic_actions_action_key(
+            DeferredHolderKey::Base(owner),
+            path,
+            action_inputs_hash,
+        )
     }
 
     pub fn with_dynamic_actions_action_key(
         owner: DeferredHolderKey,
         path: ForwardRelativePathBuf,
+        action_inputs_hash: Option<Arc<str>>,
     ) -> Self {
         BuildArtifactPath(Arc::new(BuildArtifactPathData {
             owner,
             path: path.into_box(),
+            action_inputs_hash,
+        }))
+    }
+
+    pub fn with_action_inputs_hash(&self, action_inputs_hash: &Arc<str>) -> Self {
+        BuildArtifactPath(Arc::new(BuildArtifactPathData {
+            owner: self.0.owner.dupe(),
+            path: self.0.path.to_box(),
+            action_inputs_hash: Some(action_inputs_hash.dupe()),
         }))
     }
 
@@ -75,6 +102,10 @@ impl BuildArtifactPath {
 
     pub fn path(&self) -> &ForwardRelativePath {
         &self.0.path
+    }
+
+    pub fn action_inputs_hash(&self) -> &Option<Arc<str>> {
+        &self.0.action_inputs_hash
     }
 }
 
@@ -473,6 +504,7 @@ mod tests {
                 DynamicLambdaIndex::new(17),
             ))),
             ForwardRelativePathBuf::unchecked_new("quux".to_owned()),
+            None,
         );
         let resolved_gen_path = path_resolver.resolve_gen(&path);
 

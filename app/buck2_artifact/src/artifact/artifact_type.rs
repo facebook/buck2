@@ -382,6 +382,13 @@ impl DeclaredArtifact {
             DeclaredArtifactKind::Unbound(_) => None,
         }
     }
+
+    pub fn action_inputs_hash(&self) -> Option<Arc<str>> {
+        match &*self.artifact.borrow() {
+            DeclaredArtifactKind::Bound(b) => b.get_path().action_inputs_hash().to_owned(),
+            DeclaredArtifactKind::Unbound(_) => None,
+        }
+    }
 }
 
 impl Hash for DeclaredArtifact {
@@ -438,7 +445,11 @@ impl From<DeclaredArtifact> for OutputArtifact {
 }
 
 impl OutputArtifact {
-    pub fn bind(&self, key: ActionKey) -> buck2_error::Result<BoundBuildArtifact> {
+    pub fn bind(
+        &self,
+        key: ActionKey,
+        action_inputs_hash: &Option<Arc<str>>,
+    ) -> buck2_error::Result<BoundBuildArtifact> {
         match &mut *self.0.artifact.borrow_mut() {
             DeclaredArtifactKind::Bound(a) => {
                 // NOTE: If the artifact was already bound to the same action, we leave it alone.
@@ -451,7 +462,7 @@ impl OutputArtifact {
             }
             a => take_mut::take(a, |artifact| match artifact {
                 DeclaredArtifactKind::Unbound(unbound) => {
-                    DeclaredArtifactKind::Bound(unbound.bind(key).unwrap())
+                    DeclaredArtifactKind::Bound(unbound.bind(key, action_inputs_hash).unwrap())
                 }
                 DeclaredArtifactKind::Bound(_) => {
                     unreachable!("should already be verified to be unbound")
@@ -489,8 +500,16 @@ impl Deref for OutputArtifact {
 pub struct UnboundArtifact(BuildArtifactPath, OutputType);
 
 impl UnboundArtifact {
-    fn bind(self, key: ActionKey) -> buck2_error::Result<BuildArtifact> {
-        BuildArtifact::new(self.0, key, self.1)
+    fn bind(
+        self,
+        key: ActionKey,
+        action_inputs_hash: &Option<Arc<str>>,
+    ) -> buck2_error::Result<BuildArtifact> {
+        let path = match action_inputs_hash {
+            Some(hash) => self.0.with_action_inputs_hash(hash),
+            None => self.0,
+        };
+        BuildArtifact::new(path, key, self.1)
     }
 }
 
@@ -621,7 +640,7 @@ mod tests {
         );
 
         let out = declared.as_output();
-        let bound = out.bind(key.dupe())?;
+        let bound = out.bind(key.dupe(), &None)?;
 
         assert_eq!(*bound.as_base_artifact().key(), key);
         assert_eq!(bound.get_path(), declared.get_path());
@@ -634,7 +653,7 @@ mod tests {
         };
 
         // Binding again to the same key should succeed
-        out.bind(key)?;
+        out.bind(key, &None)?;
 
         // Binding again to a different key should fail
         let other_key = ActionKey::new(
@@ -642,7 +661,7 @@ mod tests {
             ActionIndex::new(1),
         );
 
-        assert_matches!(out.bind(other_key), Err(..));
+        assert_matches!(out.bind(other_key, &None), Err(..));
 
         Ok(())
     }
