@@ -29,7 +29,6 @@ pub struct HealthCheckClient {
     warm_revision_check: Option<WarmRevisionCheck>,
     vpn_check: VpnCheck,
     // Writer to send tags to be logged to scuba.
-    // TODO(rajneeshl): Make this required when the event_observer reference is removed.
     tags_sender: Option<Sender<Vec<String>>>,
     // Writer to send health check reports to be displayed to the user.
     display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
