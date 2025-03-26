@@ -1,4 +1,4 @@
-load(":defs.bzl", "simple_write")
+load(":defs.bzl", "simple_copy", "simple_write")
 
 simple_write(
     name = "simple_write",
@@ -7,6 +7,11 @@ simple_write(
         ":constraint2": "hello-platform2",
         "DEFAULT": "hello",
     }),
+)
+
+simple_copy(
+    name = "simple_copy",
+    to_copy = ":simple_write",
 )
 
 platform(

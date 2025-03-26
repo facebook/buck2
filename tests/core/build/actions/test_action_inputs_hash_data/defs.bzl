@@ -17,3 +17,16 @@ simple_write = rule(
         "string_attr": attrs.string(),
     },
 )
+
+def _simple_copy_impl(ctx):
+    out = ctx.actions.declare_output("out")
+    ctx.actions.copy_file(out, ctx.attrs.to_copy)
+
+    return [DefaultInfo(default_output = out)]
+
+simple_copy = rule(
+    impl = _simple_copy_impl,
+    attrs = {
+        "to_copy": attrs.source(),
+    },
+)
