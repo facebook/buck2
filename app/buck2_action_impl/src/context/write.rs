@@ -7,6 +7,10 @@
  * of this source tree.
  */
 
+use std::hash::DefaultHasher;
+use std::hash::Hasher;
+use std::sync::Arc;
+
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::JsonUnpack;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -192,11 +196,8 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         fn get_cli_inputs(
             with_inputs: bool,
             cli: &dyn CommandLineArgLike,
-        ) -> buck2_error::Result<SmallSet<ArtifactGroup>> {
-            if !with_inputs {
-                return Ok(Default::default());
-            }
-
+            compute_action_inputs_hash: bool,
+        ) -> buck2_error::Result<(SmallSet<ArtifactGroup>, Option<Arc<str>>)> {
             #[derive(Default)]
             struct CommandLineInputVisitor {
                 inputs: SmallSet<ArtifactGroup>,
@@ -209,33 +210,52 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 fn visit_output(&mut self, _artifact: OutputArtifact, _tag: Option<&ArtifactTag>) {}
             }
 
-            let mut visitor = CommandLineInputVisitor::default();
-            cli.visit_artifacts(&mut visitor)?;
-            Ok(visitor.inputs)
+            let inputs = if !with_inputs {
+                Default::default()
+            } else {
+                let mut visitor = CommandLineInputVisitor::default();
+                cli.visit_artifacts(&mut visitor)?;
+                visitor.inputs
+            };
+
+            let mut hasher = DefaultHasher::new();
+            let action_inputs_hash =
+                if compute_action_inputs_hash && cli.add_to_action_inputs_hash(&mut hasher)? {
+                    Some(Arc::from(format!("{:0>16x}", hasher.finish())))
+                } else {
+                    None
+                };
+
+            Ok((inputs, action_inputs_hash))
         }
 
+        let compute_action_inputs_hash = this.compute_action_inputs_hash;
         let mut this = this.state()?;
         let (declaration, output_artifact) =
             this.get_or_declare_output(eval, output, OutputType::File)?;
 
-        let (content_cli, written_macro_count, mut associated_artifacts) = match content {
-            WriteContentArg::CommandLineArg(content) => {
-                let content_arg = content.as_command_line_arg();
-                let count = count_write_to_file_macros(allow_args, content_arg)?;
-                let cli_inputs = get_cli_inputs(with_inputs, content_arg)?;
-                (content, count, cli_inputs)
-            }
-            WriteContentArg::StarlarkCommandLineValueUnpack(content) => {
-                let cli = StarlarkCmdArgs::try_from_value_typed(content)?;
-                let count = count_write_to_file_macros(allow_args, &cli)?;
-                let cli_inputs = get_cli_inputs(with_inputs, &cli)?;
-                (
-                    CommandLineArg::from_cmd_args(eval.heap().alloc_typed(cli)),
-                    count,
-                    cli_inputs,
-                )
-            }
-        };
+        let (content_cli, written_macro_count, mut associated_artifacts, action_inputs_hash) =
+            match content {
+                WriteContentArg::CommandLineArg(content) => {
+                    let content_arg = content.as_command_line_arg();
+                    let count = count_write_to_file_macros(allow_args, content_arg)?;
+                    let (cli_inputs, action_inputs_hash) =
+                        get_cli_inputs(with_inputs, content_arg, compute_action_inputs_hash)?;
+                    (content, count, cli_inputs, action_inputs_hash)
+                }
+                WriteContentArg::StarlarkCommandLineValueUnpack(content) => {
+                    let cli = StarlarkCmdArgs::try_from_value_typed(content)?;
+                    let count = count_write_to_file_macros(allow_args, &cli)?;
+                    let (cli_inputs, action_inputs_hash) =
+                        get_cli_inputs(with_inputs, &cli, compute_action_inputs_hash)?;
+                    (
+                        CommandLineArg::from_cmd_args(eval.heap().alloc_typed(cli)),
+                        count,
+                        cli_inputs,
+                        action_inputs_hash,
+                    )
+                }
+            };
 
         let written_macro_files = if written_macro_count > 0 {
             let macro_directory_path = {
@@ -270,7 +290,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 action,
                 Some(content_cli.to_value()),
                 None,
-                None,
+                action_inputs_hash.dupe(),
             )?;
 
             written_macro_files
@@ -300,7 +320,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             action,
             Some(content_cli.to_value()),
             None,
-            None,
+            action_inputs_hash,
         )?;
 
         if allow_args {
