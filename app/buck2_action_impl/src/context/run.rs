@@ -8,6 +8,8 @@
  */
 
 use std::collections::HashMap;
+use std::hash::DefaultHasher;
+use std::hash::Hasher;
 use std::sync::Arc;
 
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
@@ -270,6 +272,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let starlark_args = StarlarkCmdArgs::try_from_value_typed(arguments)?;
         starlark_args.visit_artifacts(&mut artifact_visitor)?;
 
+        let mut hasher = DefaultHasher::new();
+        let mut hasher_is_valid = this.compute_action_inputs_hash;
+        if hasher_is_valid && !starlark_args.add_to_action_inputs_hash(&mut hasher)? {
+            hasher_is_valid = false;
+        }
+
         // TODO(nga): we should not accept output artifacts in worker.
         let (starlark_exe, starlark_worker, starlark_remote_worker) = match exe {
             Some(Either::Left(worker_run)) => {
@@ -277,6 +285,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 let remote_worker = worker_run.typed.remote_worker();
                 let worker_exe = worker_run.typed.exe();
                 worker_exe.as_ref().visit_artifacts(&mut artifact_visitor)?;
+                if hasher_is_valid && !worker_exe.as_ref().add_to_action_inputs_hash(&mut hasher)? {
+                    hasher_is_valid = false;
+                }
                 let starlark_exe = StarlarkCmdArgs::try_from_value(worker_exe.to_value())?;
                 starlark_exe.visit_artifacts(&mut artifact_visitor)?;
                 (starlark_exe, worker, remote_worker)
@@ -288,6 +299,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
             None => (StarlarkCmdArgs::default(), None, None),
         };
+
+        if hasher_is_valid && !starlark_exe.add_to_action_inputs_hash(&mut hasher)? {
+            hasher_is_valid = false;
+        }
 
         let weight = match (weight, weight_percentage) {
             (None, None) => WeightClass::Permits(1),
@@ -315,6 +330,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             Some(env) => {
                 for (_k, v) in &env.typed.entries {
                     v.0.visit_artifacts(&mut artifact_visitor)?;
+                    if hasher_is_valid && !v.0.add_to_action_inputs_hash(&mut hasher)? {
+                        hasher_is_valid = false;
+                    }
                 }
                 Some(env.as_unchecked().cast())
             }
@@ -439,7 +457,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             action,
             Some(starlark_values),
             error_handler.into_option(),
-            None,
+            if hasher_is_valid {
+                Some(Arc::from(format!("{:0>16x}", hasher.finish())))
+            } else {
+                None
+            },
         )?;
         Ok(NoneType)
     }

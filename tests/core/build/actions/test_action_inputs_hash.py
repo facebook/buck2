@@ -46,6 +46,9 @@ async def test_hash_not_calculated(buck: Buck) -> None:
     await buck.build("//:simple_symlinked_dir", "--target-platforms=//:default1")
     assert await get_last_action_inputs_hash(buck) is None
 
+    await buck.build("//:simple_run", "--target-platforms=//:default1")
+    assert await get_last_action_inputs_hash(buck) is None
+
 
 @buck_test()
 async def test_simple_write_action_inputs_hash(buck: Buck) -> None:
@@ -122,6 +125,26 @@ async def test_simple_symlinked_dir_action_inputs_hash(buck: Buck) -> None:
     assert action_inputs_hash3 != action_inputs_hash2
 
     await buck.build("//:simple_symlinked_dir", "--target-platforms=//:platform2")
+    action_inputs_hash4 = await get_last_action_inputs_hash(buck)
+
+    assert action_inputs_hash4 != action_inputs_hash2
+    assert action_inputs_hash4 != action_inputs_hash3
+
+
+@buck_test()
+async def test_simple_run_action_inputs_hash(buck: Buck) -> None:
+    await buck.build("//:simple_run", "--target-platforms=//:default1")
+    action_inputs_hash1 = await get_last_action_inputs_hash(buck)
+
+    await buck.build("//:simple_run", "--target-platforms=//:default2")
+    action_inputs_hash2 = await get_last_action_inputs_hash(buck)
+    assert action_inputs_hash1 == action_inputs_hash2
+
+    await buck.build("//:simple_run", "--target-platforms=//:platform1")
+    action_inputs_hash3 = await get_last_action_inputs_hash(buck)
+    assert action_inputs_hash3 != action_inputs_hash2
+
+    await buck.build("//:simple_run", "--target-platforms=//:platform2")
     action_inputs_hash4 = await get_last_action_inputs_hash(buck)
 
     assert action_inputs_hash4 != action_inputs_hash2

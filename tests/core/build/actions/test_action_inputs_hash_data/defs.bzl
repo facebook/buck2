@@ -56,3 +56,26 @@ simple_symlinked_dir = rule(
         "inputs": attrs.list(attrs.source()),
     },
 )
+
+def _simple_run_impl(ctx):
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write(sys.argv[2])",
+        ],
+    )
+
+    out = ctx.actions.declare_output("out")
+    args = cmd_args(["python3", script, out.as_output(), ctx.attrs.string_attr])
+    ctx.actions.run(args, category = "test_run")
+
+    return [DefaultInfo(default_output = out)]
+
+simple_run = rule(
+    impl = _simple_run_impl,
+    attrs = {
+        "string_attr": attrs.string(),
+    },
+)
