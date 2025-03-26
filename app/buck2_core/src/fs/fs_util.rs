@@ -70,16 +70,21 @@ impl IoError {
     }
 }
 
-fn io_error_tags(is_eden: bool) -> Vec<ErrorTag> {
+fn io_error_tags(e: &io::Error, is_eden: bool) -> Vec<ErrorTag> {
     let mut tags = vec![ErrorTag::IoSystem];
     if is_eden {
         tags.push(ErrorTag::IoEden);
+        // Eden timeouts are most likely caused by network issues.
+        // TODO check network health to be sure.
+        if e.kind() == io::ErrorKind::TimedOut {
+            tags.push(ErrorTag::Environment);
+        }
     }
     tags
 }
 
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tags = io_error_tags(*is_eden))]
+#[buck2(tags = io_error_tags(e, *is_eden))]
 #[error("{op}")]
 pub struct IoError {
     op: String,
