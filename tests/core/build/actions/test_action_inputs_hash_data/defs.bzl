@@ -79,3 +79,31 @@ simple_run = rule(
         "string_attr": attrs.string(),
     },
 )
+
+def project(f: Artifact):
+    return f
+
+NameSet = transitive_set(args_projections = {
+    "project": project,
+})
+
+NameInfo = provider(fields = ["tset"])
+
+def _simple_tset_impl(ctx):
+    artifact1 = ctx.actions.write("artifact1", "hello_artifact_1_{}".format(ctx.attrs.string_attr))
+    artifact2 = ctx.actions.write("artifact2", "hello_artifact_2_{}".format(ctx.attrs.string_attr))
+    tset = ctx.actions.tset(NameSet, children = [
+        ctx.actions.tset(NameSet, value = artifact1),
+        ctx.actions.tset(NameSet, value = artifact2),
+    ])
+
+    out = ctx.actions.write("tset_output", tset.project_as_args("project"))
+
+    return [DefaultInfo(default_output = out)]
+
+simple_tset = rule(
+    impl = _simple_tset_impl,
+    attrs = {
+        "string_attr": attrs.string(),
+    },
+)

@@ -297,10 +297,22 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike for TransitiveSetArgsProjectionGen
 
     fn add_to_action_inputs_hash(
         &self,
-        _hasher: &mut dyn std::hash::Hasher,
+        hasher: &mut dyn std::hash::Hasher,
     ) -> buck2_error::Result<bool> {
-        // TODO(ianc) support transitive set projections later in the stack once we have other pieces in place
-        Ok(false)
+        let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
+            .buck_error_context("Invalid transitive_set")?;
+
+        let projection_action_inputs_hash = set
+            .projection_action_inputs_hashes
+            .get(self.projection)
+            .buck_error_context("Invalid projection id")?;
+
+        if let Some(projection_action_inputs_hash) = projection_action_inputs_hash {
+            hasher.write_u64(*projection_action_inputs_hash);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 
