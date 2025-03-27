@@ -29,6 +29,7 @@ use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
@@ -343,7 +344,7 @@ impl<'v> ArtifactDeclaration<'v> {
 pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
-    transitive_sets: SmallMap<TransitiveSetKey, ValueTyped<'v, TransitiveSet<'v>>>,
+    transitive_sets: Vec<ValueTyped<'v, TransitiveSet<'v>>>,
     pub lambda_params: Box<dyn DynamicLambdaParamsStorage<'v>>,
     result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
 }
@@ -352,7 +353,7 @@ pub struct AnalysisValueStorage<'v> {
 pub struct FrozenAnalysisValueStorage {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
-    transitive_sets: SmallMap<TransitiveSetKey, FrozenValueTyped<'static, FrozenTransitiveSet>>,
+    transitive_sets: Vec<FrozenValueTyped<'static, FrozenTransitiveSet>>,
     pub lambda_params: Box<dyn FrozenDynamicLambdaParamsStorage>,
     result_value: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
 }
@@ -370,8 +371,7 @@ unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
             tracer.trace_static(k);
             v.trace(tracer);
         }
-        for (k, v) in transitive_sets.iter_mut() {
-            tracer.trace_static(k);
+        for v in transitive_sets.iter_mut() {
             v.trace(tracer);
         }
         lambda_params.trace(tracer);
@@ -400,12 +400,9 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                 .collect::<FreezeResult<_>>()?,
             transitive_sets: transitive_sets
                 .into_iter()
-                .map(|(k, v)| {
-                    Ok((
-                        k,
-                        FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
-                            .map_err(|e| FreezeError::new(e.to_string()))?,
-                    ))
+                .map(|v| {
+                    FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
+                        .map_err(|e| FreezeError::new(e.to_string()))
                 })
                 .collect::<FreezeResult<_>>()?,
             lambda_params: lambda_params.freeze(freezer)?,
@@ -438,7 +435,7 @@ impl<'v> AnalysisValueStorage<'v> {
         Self {
             self_key: self_key.dupe(),
             action_data: SmallMap::new(),
-            transitive_sets: SmallMap::new(),
+            transitive_sets: Vec::new(),
             lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
                 .get()
                 .unwrap()
@@ -472,7 +469,7 @@ impl<'v> AnalysisValueStorage<'v> {
             TransitiveSetIndex(self.transitive_sets.len().try_into()?),
         );
         let set = func(key.dupe())?;
-        self.transitive_sets.insert(key, set.dupe());
+        self.transitive_sets.push(set.dupe());
         Ok(set)
     }
 
@@ -585,11 +582,14 @@ impl RecordedAnalysisValues {
         actions: RecordedActions,
     ) -> Self {
         let heap = FrozenHeap::new();
-        let mut alloced_tsets = SmallMap::new();
-        for (key, tset) in transitive_sets {
+        let mut alloced_tsets = Vec::new();
+        for (_key, tset) in transitive_sets
+            .iter()
+            .sorted_by_key(|(key, _)| key.index().0)
+        {
             heap.add_reference(tset.owner());
             let tset = tset.owned_frozen_value_typed(&heap);
-            alloced_tsets.insert(key, tset);
+            alloced_tsets.push(tset);
         }
 
         let providers = FrozenProviderCollection::testing_new_default(&heap);
@@ -634,7 +634,7 @@ impl RecordedAnalysisValues {
         self.analysis_storage
             .as_ref()
             .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
-            .maybe_map(|v| v.value.transitive_sets.get(key).copied())
+            .maybe_map(|v| v.value.transitive_sets.get(key.index().0 as usize).copied())
             .with_internal_error(|| format!("Missing transitive set `{key}`"))
     }
 
