@@ -34,3 +34,20 @@ build_and_write = bxl_main(
         "target": cli_args.target_label(),
     },
 )
+
+def _write_json_cell_path(ctx):
+    actions = ctx.bxl_actions().actions
+    node = ctx.lazy.unconfigured_target_node("root//resolve_test:buildable").resolve()
+    output = actions.write_json(
+        "output.json",
+        {
+            node.label: node.inputs(),
+        },
+    )
+    output = ctx.output.ensure(output).abs_path()
+    ctx.output.print(output)
+
+write_json_cell_path = bxl_main(
+    impl = _write_json_cell_path,
+    cli_args = {},
+)

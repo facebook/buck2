@@ -7,6 +7,7 @@
 
 # pyre-strict
 
+import json
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -67,3 +68,14 @@ async def test_bxl_build_and_write(buck: Buck) -> None:
 
     assert res.process.returncode == 0
     assert "BXL SUCCEEDED" in res.stderr
+
+
+@buck_test()
+async def test_write_json_cell_path(buck: Buck) -> None:
+    res = await buck.bxl("//actions_test:actions.bxl:write_json_cell_path")
+    output_path = res.stdout.strip()
+    with open(output_path, "r") as f:
+        content = f.read()
+    data = json.loads(content)
+    expcted = {"root//resolve_test:buildable": ["root//resolve_test/foo.txt"]}
+    assert data == expcted

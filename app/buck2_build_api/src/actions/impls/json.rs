@@ -16,6 +16,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use dupe::Dupe;
@@ -153,6 +154,7 @@ pub enum JsonUnpack<'v> {
     TransitiveSetJsonProjection(&'v TransitiveSetJsonProjection<'v>),
     TargetLabel(&'v StarlarkTargetLabel),
     ConfiguredProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
+    CellPath(&'v StarlarkCellPath),
     Artifact(JsonArtifact<'v>),
     CommandLine(CommandLineArg<'v>),
     Provider(ValueAsProviderLike<'v>),
@@ -196,6 +198,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                 // Users could do this with `str(ctx.label)`, but a bit wasteful
                 x.serialize(serializer)
             }
+            JsonUnpack::CellPath(x) => x.serialize(serializer),
             JsonUnpack::Artifact(x) => {
                 match self.fs {
                     None => {
@@ -307,7 +310,8 @@ pub fn visit_json_artifacts(
         | JsonUnpack::Enum(_)
         | JsonUnpack::ConfiguredProvidersLabel(_)
         | JsonUnpack::BxlSelectConcat(_)
-        | JsonUnpack::BxlSelectDict(_) => {}
+        | JsonUnpack::BxlSelectDict(_)
+        | JsonUnpack::CellPath(_) => {}
 
         JsonUnpack::List(x) => {
             for x in x.iter() {
@@ -384,6 +388,10 @@ pub fn add_json_to_action_inputs_hash(
         }
         JsonUnpack::TargetLabel(x) => {
             hasher.write(x.label().to_string().as_bytes());
+            Ok(true)
+        }
+        JsonUnpack::CellPath(x) => {
+            hasher.write(x.to_string().as_bytes());
             Ok(true)
         }
         JsonUnpack::Enum(_) => {

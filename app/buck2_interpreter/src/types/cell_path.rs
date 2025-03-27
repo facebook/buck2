@@ -12,6 +12,8 @@ use std::hash::Hash;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
+use serde::Serialize;
+use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -22,15 +24,23 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 
-#[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(Debug, PartialEq, Display, ProvidesStaticType, Allocative)]
 pub struct StarlarkCellPath(pub CellPath);
 
 starlark_simple_value!(StarlarkCellPath);
+
+impl Serialize for StarlarkCellPath {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        s.collect_str(self)
+    }
+}
 
 #[starlark_value(type = "CellPath")]
 impl<'v> StarlarkValue<'v> for StarlarkCellPath {
