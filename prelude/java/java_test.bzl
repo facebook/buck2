@@ -178,7 +178,7 @@ def _get_native_libs_env(ctx: AnalysisContext) -> dict:
     if not ctx.attrs.use_cxx_libraries:
         return {}
 
-    deps_to_search = ctx.attrs.cxx_library_allowlist or ctx.attrs.cxx_library_whitelist or ctx.attrs.deps
+    deps_to_search = ctx.attrs.cxx_library_allowlist or ctx.attrs.deps
     shared_library_infos = filter(None, [x.get(SharedLibraryInfo) for x in deps_to_search])
 
     shared_library_info = merge_shared_libraries(
