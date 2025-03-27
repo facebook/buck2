@@ -49,6 +49,9 @@ jobs:
         $RUNNER_TEMP/artifacts/buck2 build //... -v 2
         $RUNNER_TEMP/artifacts/buck2 test //... -v 2
     - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/build_example_nativelink_no_prelude
+      with:
+        NATIVELINK_HEADER_RW_KEY_SECRET: ${{ secrets.NATIVELINK_HEADER_RW_KEY_SECRET }}
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
   linux-build-examples:
