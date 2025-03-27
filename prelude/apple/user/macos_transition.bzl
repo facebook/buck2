@@ -22,26 +22,25 @@ def _macos_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     #  - If the old SDK constraint was macCatalyst, replace with the equivalent macOS constraint.
     #  - Return a new platform with the updated constraints.
     constraint_os = refs.os[ConstraintSettingInfo]
-    is_os_macos = platform.configuration.constraints[constraint_os.label] == refs.macos[ConstraintValueInfo]
+    is_os_macos = platform.configuration.constraints[constraint_os.label] == refs.os_macos[ConstraintValueInfo]
     constraint_sdk = refs.sdk[ConstraintSettingInfo]
-    is_sdk_macos = platform.configuration.constraints[constraint_sdk.label] == refs.macos_sdk[ConstraintValueInfo]
+    is_sdk_macos = platform.configuration.constraints[constraint_sdk.label] == refs.sdk_macos[ConstraintValueInfo]
     if is_os_macos and is_sdk_macos:
         # Don't apply the transition more than once
         return platform
 
-    updated_constraints = filtered_platform_constraints(platform, [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label])
+    updated_constraints = filtered_platform_constraints(platform, [constraint_os.label, constraint_sdk.label])
 
-    macos = refs.macos[ConstraintValueInfo]
-    updated_constraints[refs.os[ConstraintSettingInfo].label] = macos
+    # Update OS constraint
+    updated_constraints[constraint_os.label] = refs.os_macos[ConstraintValueInfo]
 
     # Update SDK constraint
-    old_sdk = get_constraint_value(platform, refs.sdk[ConstraintSettingInfo])
-    maccatalyst_sdk = refs.maccatalyst_sdk[ConstraintValueInfo]
-    macosx_sdk = refs.macos_sdk[ConstraintValueInfo]
+    old_sdk = get_constraint_value(platform, constraint_sdk)
+    maccatalyst_sdk = refs.sdk_maccatalyst[ConstraintValueInfo]
 
     if old_sdk != None:
-        expect(old_sdk.label in [macosx_sdk.label, maccatalyst_sdk.label], "If present, SDK transitioned non-identically to macOS should be `macCatalyst`, got {}".format(old_sdk.label))
-    updated_constraints[refs.sdk[ConstraintSettingInfo].label] = macosx_sdk
+        expect(old_sdk.label == maccatalyst_sdk.label, "If present, SDK transitioned non-identically to macOS should be `macCatalyst`, got {}".format(old_sdk.label))
+    updated_constraints[constraint_sdk.label] = refs.sdk_macos[ConstraintValueInfo]
 
     constraint_target_sdk_version = refs.target_sdk_version[ConstraintSettingInfo]
     old_target_sdk_version = get_constraint_value(platform, constraint_target_sdk_version)
@@ -62,11 +61,11 @@ def _macos_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     )
 
 refs = {
-    "maccatalyst_sdk": "config//os/sdk/apple/constraints:maccatalyst",
-    "macos": "config//os/constraints:macos",
-    "macos_sdk": "config//os/sdk/apple/constraints:macosx",
     "os": "config//os/constraints:os",
+    "os_macos": "config//os/constraints:macos",
     "sdk": "config//os/sdk/apple/constraints:_",
+    "sdk_maccatalyst": "config//os/sdk/apple/constraints:maccatalyst",
+    "sdk_macos": "config//os/sdk/apple/constraints:macosx",
     "target_sdk_version": "config//version:constraint-setting-target-sdk-version",
 }
 refs.update(get_target_sdk_version_map())
