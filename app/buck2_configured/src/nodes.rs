@@ -1166,6 +1166,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     soft_error!(
                         "dep_only_incompatible_version_two", reason.to_soft_err().into(),
                         quiet: false,
+                        task: false,
                     )?;
                     if let Some(custom_soft_errors) = get_dep_only_incompatible_custom_soft_error(
                         ctx,
@@ -1178,6 +1179,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                                 &custom_soft_error,
                                 reason.to_soft_err().into(),
                                 quiet: true,
+                                task: false,
                             )?;
                         }
                     }
