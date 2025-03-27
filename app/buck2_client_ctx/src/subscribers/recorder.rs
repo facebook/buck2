@@ -880,13 +880,8 @@ impl InvocationRecorder {
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         let mut command = command.clone();
-
-        // TODO(minglunli): Build commands are special so errors are stored in CommandEnd but not CommandResult
-        // unlike everything else. We should fix this and only rely on CommandResult for command errors
-        if self.command_name == "build" {
-            self.command_errors
-                .extend(std::mem::take(&mut command.errors));
-        }
+        self.command_errors
+            .extend(std::mem::take(&mut command.errors));
 
         // Awkwardly unpacks the SpanEnd event so we can read its duration.
         let command_end = match event.data() {
@@ -1732,9 +1727,6 @@ impl EventSubscriber for InvocationRecorder {
                 let built_rule_type_names: Vec<String> =
                     unique_and_sorted(res.target_rule_type_names.clone().into_iter());
                 self.target_rule_type_names = built_rule_type_names;
-            }
-            Some(command_result::Result::Error(buck2_cli_proto::CommandError { errors })) => {
-                self.command_errors.extend(errors.clone());
             }
             _ => {}
         }
