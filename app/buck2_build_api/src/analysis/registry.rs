@@ -14,6 +14,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::actions::key::ActionIndex;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
@@ -343,7 +344,7 @@ impl<'v> ArtifactDeclaration<'v> {
 #[derive(Debug, Allocative, ProvidesStaticType)]
 pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
-    action_data: SmallMap<ActionKey, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
+    action_data: SmallMap<ActionIndex, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: Vec<ValueTyped<'v, TransitiveSet<'v>>>,
     pub lambda_params: Box<dyn DynamicLambdaParamsStorage<'v>>,
     result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
@@ -352,7 +353,7 @@ pub struct AnalysisValueStorage<'v> {
 #[derive(Debug, Allocative, ProvidesStaticType)]
 pub struct FrozenAnalysisValueStorage {
     pub self_key: DeferredHolderKey,
-    action_data: SmallMap<ActionKey, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
+    action_data: SmallMap<ActionIndex, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
     transitive_sets: Vec<FrozenValueTyped<'static, FrozenTransitiveSet>>,
     pub lambda_params: Box<dyn FrozenDynamicLambdaParamsStorage>,
     result_value: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
@@ -485,7 +486,7 @@ impl<'v> AnalysisValueStorage<'v> {
                 id
             ));
         }
-        self.action_data.insert(id, action_data);
+        self.action_data.insert(id.action_index(), action_data);
         Ok(())
     }
 
@@ -534,7 +535,7 @@ impl AnalysisValueFetcher {
             ));
         }
 
-        let Some(value) = storage.action_data.get(id) else {
+        let Some(value) = storage.action_data.get(&id.action_index()) else {
             return Ok((None, None));
         };
 
