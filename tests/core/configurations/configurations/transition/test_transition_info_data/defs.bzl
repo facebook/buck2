@@ -13,9 +13,8 @@ def _sanity_check_transition_info_provider():
         impl = _transition,
     )
 
-    # FIXME(JakobDegen): Bug
-    if hasattr(i, "impl"):
-        fail("Has `impl` attr")
+    if i.impl == None:
+        fail("impl is none!")
 
 _sanity_check_transition_info_provider()
 

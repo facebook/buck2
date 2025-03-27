@@ -64,7 +64,7 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub(crate) struct TransitionInfoGen<V: ValueLifetimeless> {
-    pub(crate) impl_: ValueOfUncheckedGeneric<V, StarlarkCallable<'static>>,
+    pub(crate) r#impl: ValueOfUncheckedGeneric<V, StarlarkCallable<'static>>,
     pub(crate) attrs: ValueOfUncheckedGeneric<V, NoneOr<UnpackListOrTuple<String>>>,
 }
 
@@ -81,7 +81,7 @@ fn transition_info_creator(globals: &mut GlobalsBuilder) {
     ) -> starlark::Result<TransitionInfo<'v>> {
         let attrs = attrs.map_or(Value::new_none(), |v| v.value);
         Ok(TransitionInfo {
-            impl_: ValueOfUncheckedGeneric::new(r#impl.0),
+            r#impl: ValueOfUncheckedGeneric::new(r#impl.0),
             attrs: ValueOfUncheckedGeneric::new(attrs),
         })
     }

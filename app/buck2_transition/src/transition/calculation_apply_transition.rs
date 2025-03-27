@@ -88,7 +88,7 @@ fn call_transition_function<'v>(
             args.push(("refs", refs));
             v.implementation.to_value()
         }
-        TransitionData::Target(v) => v.impl_.to_value().get(),
+        TransitionData::Target(v) => v.r#impl.to_value().get(),
     };
     if let Some(attrs) = attrs {
         args.push(("attrs", attrs));
