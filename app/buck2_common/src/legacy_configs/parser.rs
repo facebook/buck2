@@ -323,21 +323,13 @@ impl<'p> LegacyConfigFileParser<'p> {
         }
     }
 
-    async fn parse_lines<T>(
+    async fn parse_lines(
         &mut self,
         config_path: &ConfigPath,
-        lines: T,
+        lines: Vec<String>,
         parse_includes: bool,
         file_ops: &mut dyn ConfigParserFileOps,
-    ) -> buck2_error::Result<()>
-    where
-        T: IntoIterator<Item = Result<String, std::io::Error>>,
-    {
-        let lines: Vec<String> = lines
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(buck2_error::Error::from)?;
-
+    ) -> buck2_error::Result<()> {
         let lines = lines
             .into_iter()
             // Trim leading/trailing whitespace.

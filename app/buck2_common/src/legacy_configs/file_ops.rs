@@ -7,12 +7,12 @@
  * of this source tree.
  */
 
-use std::io;
 use std::io::BufRead;
 
 use allocative::Allocative;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::fs_util;
+use buck2_core::fs::fs_util::IoError;
 use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -82,7 +82,7 @@ pub trait ConfigParserFileOps: Send + Sync {
     async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> buck2_error::Result<Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>>;
+    ) -> buck2_error::Result<Option<Vec<String>>>;
 
     async fn read_dir(&mut self, path: &ConfigPath) -> buck2_error::Result<Vec<ConfigDirEntry>>;
 }
@@ -103,8 +103,7 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
     async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> buck2_error::Result<Option<Box<dyn Iterator<Item = Result<String, std::io::Error>> + Send>>>
-    {
+    ) -> buck2_error::Result<Option<Vec<String>>> {
         let path = path.resolve_absolute(&self.project_fs);
         let Some(f) = fs_util::open_file_if_exists(&path)
             .with_buck_error_context(|| format!("Reading file `{:?}`", path))?
@@ -112,7 +111,14 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
             return Ok(None);
         };
         let file = std::io::BufReader::new(f);
-        Ok(Some(Box::new(file.lines())))
+
+        let lines = file
+            .lines()
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| IoError::new_with_path("read_line", path, e))?;
+
+        Ok(Some(lines))
     }
 
     async fn read_dir(&mut self, path: &ConfigPath) -> buck2_error::Result<Vec<ConfigDirEntry>> {
@@ -184,9 +190,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
     async fn read_file_lines_if_exists(
         &mut self,
         path: &ConfigPath,
-    ) -> buck2_error::Result<
-        Option<Box<(dyn Iterator<Item = Result<String, io::Error>> + Send + 'static)>>,
-    > {
+    ) -> buck2_error::Result<Option<Vec<String>>> {
         let ConfigPath::Project(path) = path else {
             return self.io_ops.read_file_lines_if_exists(path).await;
         };
@@ -196,7 +200,7 @@ impl ConfigParserFileOps for DiceConfigFileOps<'_, '_> {
             return Ok(None);
         };
         let lines = data.lines().map(ToOwned::to_owned).collect::<Vec<_>>();
-        Ok(Some(Box::new(lines.into_iter().map(Ok))))
+        Ok(Some(lines))
     }
 
     async fn read_dir(&mut self, path: &ConfigPath) -> buck2_error::Result<Vec<ConfigDirEntry>> {
