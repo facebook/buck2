@@ -10,7 +10,7 @@ def _android_build_tools_cas_artifact_impl(ctx: AnalysisContext) -> list[Provide
         ctx.label.name,
         ctx.attrs.digest,
         "android_build_infra_tools",
-        expires_after_timestamp = 1900700695,  # Mon Mar 25 2030 20:24:55 GMT
+        expires_after_timestamp = 1900627200,  # Mon Mar 25 2030 00:00:00 GMT
     )
 
     return [DefaultInfo(default_output = out)]
