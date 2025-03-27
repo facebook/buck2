@@ -49,16 +49,14 @@ def cuda_compile(
         cmd.add("-_NVCC_DRYRUN_")
 
         # Create the following files for each CUDA file:
-        # - Plain dump of the dryrun output.
         # - Envvars to run the NVCC sub-commands with.
         # - A dependency graph of the NVCC sub-commands.
-        # TODO: Convert these to dynamic_output so that they can be used for
-        # actually generating the distributed actions.
-        nvcc_dryrun_dump = ctx.actions.declare_output(
+        # TODO: Use these in a dynamic_output action
+        nvcc_dryrun_dag = ctx.actions.declare_output(
             cuda_compile_info.output_prefix,
-            "{}.dryrun_dump".format(cuda_compile_info.filename),
+            "{}.json".format(cuda_compile_info.filename),
         )
-        cmd.add(["-_NVCC_DRYRUN_DUMP_OUT_", nvcc_dryrun_dump.as_output()])
+        cmd.add(["-_NVCC_DRYRUN_DAG_OUT_", nvcc_dryrun_dag.as_output()])
         nvcc_dryrun_env = ctx.actions.declare_output(
             cuda_compile_info.output_prefix,
             "{}.env".format(cuda_compile_info.filename),
@@ -73,6 +71,6 @@ def cuda_compile(
             allow_dep_file_cache_upload = allow_dep_file_cache_upload,
             **error_handler_args
         )
-        return nvcc_dryrun_dump
+        return nvcc_dryrun_dag
     else:
         fail("Unsupported CUDA compile style: {}".format(ctx.attrs.cuda_compile_style))
