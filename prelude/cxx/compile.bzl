@@ -51,7 +51,6 @@ load(
     ":headers.bzl",
     "CHeader",
     "CPrecompiledHeaderInfo",
-    "add_headers_dep_files",
 )
 load(":platform.bzl", "cxx_by_platform")
 load(
@@ -315,35 +314,38 @@ def _compile_single_cxx(
     )
 
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-
-    # For distributed NVCC compilation we will bind the object in the
-    # cuda_compile function.
-    output_args = None if src_compile_cmd.src.extension == ".cu" else get_output_flags(compiler_type, object)
     cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
         src_compile_cmd = src_compile_cmd,
         pic = pic,
         use_header_units = use_header_units,
-        output_args = output_args,
+        output_args = get_output_flags(compiler_type, object),
     )
     cmd.add(optimization_flags)
 
     action_dep_files = {}
 
     headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+    if headers_dep_files:
+        dep_file = ctx.actions.declare_output(
+            paths.join("__dep_files__", filename_base),
+        ).as_output()
 
-    # Distributed NVCC compilation doesn't support dep files because we'll
-    # dryrun cmd and the dep files won't be materialized.
-    # TODO (T219249723): investigate if dep files are needed for dist nvcc.
-    if headers_dep_files and src_compile_cmd.src.extension != ".cu":
-        cmd = add_headers_dep_files(
-            ctx,
+        processor_flags, compiler_flags = headers_dep_files.mk_flags(ctx.actions, filename_base, src_compile_cmd.src)
+        cmd.add(compiler_flags)
+
+        # API: First argument is the dep file source path, second is the
+        # dep file destination path, other arguments are the actual compile
+        # command.
+        cmd = cmd_args([
+            headers_dep_files.processor,
+            headers_dep_files.dep_tracking_mode.value,
+            processor_flags,
+            headers_dep_files.tag.tag_artifacts(dep_file),
             cmd,
-            headers_dep_files,
-            src_compile_cmd.src,
-            filename_base,
-            action_dep_files,
-        )
+        ])
+
+        action_dep_files["headers"] = headers_dep_files.tag
 
     clang_remarks = None
     if toolchain.clang_remarks and compiler_type == "clang":
@@ -389,7 +391,6 @@ def _compile_single_cxx(
         nvcc_dryrun = cuda_compile(
             ctx,
             cmd,
-            object,
             src_compile_cmd,
             CudaCompileInfo(filename = filename_base, identifier = identifier, output_prefix = folder_name),
             action_dep_files,
