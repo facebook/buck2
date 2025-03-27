@@ -35,8 +35,7 @@ def buck_e2e_test(
         cfg_modifiers = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None,
-        heavyweight_label: str | None = "heavyweight"):
+        compatible_with = None):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
@@ -49,8 +48,6 @@ def buck_e2e_test(
         if s not in ["darwin", "windows"]:
             fail("Skipped os must be one of darwin or windows, not {}".format(s))
     labels = list(labels)
-    if heavyweight_label:
-        labels += [heavyweight_label]
     env = env or {}
     env["RUST_BACKTRACE"] = "1"
     env["TEST_EXECUTABLE"] = executable
@@ -71,9 +68,22 @@ def buck_e2e_test(
     if e2e_flavor == "isolated":
         env["BUCK2_E2E_TEST_FLAVOR"] = "isolated"
         serialize_test_cases = serialize_test_cases or False
+        heavyweight_label = "heavyweight"
+        heavyweight_threads = "4"
     else:
         env["BUCK2_E2E_TEST_FLAVOR"] = "any"
         serialize_test_cases = serialize_test_cases if serialize_test_cases != None else True
+        heavyweight_label = "heavyweight8_experimental"
+        heavyweight_threads = "8"
+
+    # Running multiple bucks are expensive. This label specifies that each test gets 4 or 8 CPU slots
+    # when TPX schedules them. See different possible values for heavyweight label here:
+    # https://www.internalfb.com/wiki/TAE/tpx/Tpx_user_guide/#tests-that-oom-or-time-o.
+    labels.append(heavyweight_label)
+
+    # Use little threads. We don't do much work in tests but we do run lots of Bucks.
+    env["BUCK2_RUNTIME_THREADS"] = heavyweight_threads
+    env["BUCK2_MAX_BLOCKING_THREADS"] = heavyweight_threads
 
     if serialize_test_cases:
         # This lets us pass stress runs by making all test cases inside of a test file serial
@@ -199,8 +209,7 @@ def buck2_e2e_test(
         require_nano_prelude = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None,
-        heavyweight_label: str | None = "heavyweight"):
+        compatible_with = None):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -220,11 +229,6 @@ def buck2_e2e_test(
         A full prod archive is distinct from a normal build of buck2 in that it uses a client-only
         binary and additionally makes TPX available. Needed if you want to be able to `buck.test`
         Default is False.
-    heavyweight_label:
-        Running multiple bucks are expensive. This label specifies how many cpu slots each test gets
-        according to heavyweight_label. Default is 4. If set to None, then this label is not set.
-        See different possible values for heavyweight label here:
-        https://www.internalfb.com/wiki/TAE/tpx/Tpx_user_guide/#tests-that-oom-or-time-o.
     """
     kwargs = {
         "base_module": base_module,
@@ -281,7 +285,6 @@ def buck2_e2e_test(
                 # Always run these tests under rust opt build
                 "ovr_config//build_mode:opt",
             ],
-            heavyweight_label = heavyweight_label,
             **kwargs
         )
 
@@ -296,7 +299,6 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
-            heavyweight_label = heavyweight_label,
             cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
@@ -310,7 +312,6 @@ def buck2_e2e_test(
             executable = "buck2",
             skip_for_os = skip_for_os,
             deps = deps,
-            heavyweight_label = heavyweight_label,
             cfg_modifiers = python.get_opt_setup_modifiers(),
             **kwargs
         )
