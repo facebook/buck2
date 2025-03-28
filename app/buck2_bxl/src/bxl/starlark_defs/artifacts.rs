@@ -139,7 +139,7 @@ impl<'v> EnsuredArtifactGroup<'v> {
     }
 }
 
-#[starlark_value(type = "ensured_artifact_group", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.EnsuredArtifactGroup", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroup<'v>
 where
     Self: ProvidesStaticType<'v>,
