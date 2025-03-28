@@ -27,11 +27,15 @@ def _buck2_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     tpx = ctx.attrs.tpx[DefaultInfo].default_outputs[0]
     materialisations.extend(ctx.attrs.tpx[DefaultInfo].other_outputs)
 
+    buck2_health_check = ctx.attrs.buck2_health_check[DefaultInfo].default_outputs[0]
+    materialisations.extend(ctx.attrs.buck2_health_check[DefaultInfo].other_outputs)
+
     binary_extension = ".exe" if target_is_windows else ""
     buck2_binary = "buck2" + binary_extension
     buck2_tpx_binary = "buck2-tpx" + binary_extension
     buck2_daemon_binary = "buck2-daemon" + binary_extension
-    out = ctx.actions.copied_dir("out", {buck2_binary: buck2_client, buck2_tpx_binary: ctx.actions.symlink_file(buck2_tpx_binary, tpx), buck2_daemon_binary: buck2})
+    buck2_health_check_binary = "buck2-health-check" + binary_extension
+    out = ctx.actions.copied_dir("out", {buck2_binary: buck2_client, buck2_tpx_binary: ctx.actions.symlink_file(buck2_tpx_binary, tpx), buck2_daemon_binary: buck2, buck2_health_check_binary: buck2_health_check})
 
     return [DefaultInfo(out, other_outputs = materialisations), RunInfo(cmd_args(out.project("buck2" + binary_extension), hidden = materialisations))]
 
@@ -40,6 +44,7 @@ _buck2_bundle = rule(
     attrs = {
         "buck2": attrs.dep(),
         "buck2_client": attrs.dep(),
+        "buck2_health_check": attrs.dep(),
         "labels": attrs.list(attrs.string(), default = []),
         "tpx": attrs.dep(),
         "_target_os_type": buck.target_os_type_arg(),
