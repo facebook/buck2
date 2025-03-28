@@ -8,7 +8,6 @@
 """Module containing java macros."""
 
 load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
-load("@fbsource//tools/build_defs/features:feature_decorator.bzl", "consume_feature")
 load("@prelude//:native.bzl", "native")
 load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels", "is_oss_build")
 
@@ -131,7 +130,6 @@ def buck_java_graalvm_binary(name, **kwargs):
 def toolchain_prebuilt_jar(name, **kwargs):
     kwargs = _add_labels(**kwargs)
     kwargs = _set_buck2_dex_toolchain(**kwargs)
-    kwargs = consume_feature(kwargs)
     if kwargs.pop("should_generate_snapshot", True) == False:
         kwargs["_prebuilt_jar_toolchain"] = "toolchains//:prebuilt_jar_bootstrap_no_snapshot"
     else:
