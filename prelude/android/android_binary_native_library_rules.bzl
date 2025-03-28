@@ -66,7 +66,7 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal", "pre_order_traversal", "rust_matching_topological_traversal")
-load("@prelude//utils:set.bzl", "set", "set_type")  # @unused Used as a type
+load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
@@ -450,7 +450,7 @@ def _declare_library_subtargets(
                     sonames.add(soname)
 
         lib_outputs = {}
-        for soname in sonames.list():
+        for soname in sonames:
             output_path = _platform_output_path(soname, platform if len(original_shared_libs_by_platform) > 1 else None)
             lib_output = ctx.actions.declare_output(output_path, dir = True)
             dynamic_outputs.append(lib_output)
@@ -942,7 +942,7 @@ def write_merged_library_map(ctx: AnalysisContext, shared_libs_by_platform: dict
 
     lines = []
     for final_soname in sorted(solib_map.keys()):
-        for original_soname in solib_map[final_soname].list():
+        for original_soname in solib_map[final_soname]:
             lines.append("{} {}".format(original_soname, final_soname))
 
     # we wanted it sorted by original_soname
