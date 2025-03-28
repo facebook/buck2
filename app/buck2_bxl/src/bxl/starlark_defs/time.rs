@@ -88,7 +88,7 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
 
 starlark_simple_value!(StarlarkInstant);
 
-#[starlark_value(type = "instant")]
+#[starlark_value(type = "bxl.Instant")]
 impl<'v> StarlarkValue<'v> for StarlarkInstant {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
