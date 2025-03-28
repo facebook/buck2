@@ -24,7 +24,6 @@ def _apple_bundle_base_attrs():
                 "deps": attrs.list(attrs.dep(), default = []),
                 "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
                 "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
-                "ibtool_module_flag": attrs.option(attrs.bool(), default = None),
                 "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
                 "info_plist": attrs.source(),
                 "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),

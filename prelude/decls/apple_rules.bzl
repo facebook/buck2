@@ -379,7 +379,6 @@ apple_bundle = prelude_rule(
             "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
-            "ibtool_module_flag": attrs.option(attrs.bool(), default = None),
             "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),

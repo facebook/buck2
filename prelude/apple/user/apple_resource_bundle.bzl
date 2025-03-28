@@ -36,7 +36,6 @@ def _apple_resource_bundle_attrs():
         "deps": attrs.list(attrs.dep(), default = []),
         "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
         "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
-        "ibtool_module_flag": attrs.option(attrs.bool(), default = None),
         "info_plist": attrs.source(),
         "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
         "labels": attrs.list(attrs.string(), default = []),
