@@ -156,7 +156,7 @@ where
     }
 }
 
-#[starlark_value(type = "ensured_artifact_group_inner", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "bxl.EnsuredArtifactGroupInner", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroupInner
 where
     Self: ProvidesStaticType<'v>,
