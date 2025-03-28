@@ -7,9 +7,10 @@
 
 """Module containing java macros."""
 
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+# @oss-disable[end= ]: load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 load("@prelude//:native.bzl", "native")
 load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels", "is_oss_build")
+# @oss-enable load("@prelude//toolchains/android/tools/build_rules:fb_native_oss.bzl", "fb_native")
 
 OPEN_JDK_COMPILER_ARGS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",

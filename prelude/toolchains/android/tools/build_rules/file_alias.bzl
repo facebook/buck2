@@ -7,7 +7,8 @@
 
 """Provides file_alias macro."""
 
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+# @oss-disable[end= ]: load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
+# @oss-enable load("@prelude//toolchains/android/tools/build_rules:fb_native_oss.bzl", "fb_native")
 
 _DEFAULT_VISIBILITY = ["PUBLIC"]
 
