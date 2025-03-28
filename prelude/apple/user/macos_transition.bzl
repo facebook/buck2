@@ -24,7 +24,7 @@ def _macos_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     constraint_os = refs.os[ConstraintSettingInfo]
     is_os_macos = platform.configuration.constraints[constraint_os.label] == refs.os_macos[ConstraintValueInfo]
     constraint_sdk = refs.sdk[ConstraintSettingInfo]
-    is_sdk_macos = platform.configuration.constraints[constraint_sdk.label] == refs.sdk_macos[ConstraintValueInfo]
+    is_sdk_macos = platform.configuration.constraints.get(constraint_sdk.label) == refs.sdk_macos[ConstraintValueInfo]
     if is_os_macos and is_sdk_macos:
         # Don't apply the transition more than once
         return platform
