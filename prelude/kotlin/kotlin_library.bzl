@@ -468,11 +468,13 @@ def build_kotlin_library(
                 "srcs": srcs,
                 "target_level": target_level,
             }
+
             outputs, proto = create_jar_artifact_kotlincd(
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins),
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
                 incremental = ctx.attrs.incremental,
+                incremental_qe_applied = "incremental_qe_applied" in ctx.attrs.labels,
                 **common_kotlincd_kwargs
             )
 
@@ -506,6 +508,7 @@ def build_kotlin_library(
                         optional_dirs = [nullsafe_info.output.as_output()],
                         is_creating_subtarget = True,
                         incremental = False,
+                        incremental_qe_applied = False,
                         **common_kotlincd_kwargs
                     )
 

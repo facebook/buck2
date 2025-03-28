@@ -85,7 +85,7 @@ public final class KotlinCDProto {
       "e\0225\n\016baseJarCommand\030\002 \001(\0132\035.javacd.api.v" +
       "1.BaseJarCommand\022=\n\021kotlinExtraParams\030\003 " +
       "\001(\0132\".kotlincd.api.v1.KotlinExtraParams\"" +
-      "\266\010\n\021KotlinExtraParams\022\027\n\017extraClassPaths" +
+      "\334\010\n\021KotlinExtraParams\022\027\n\017extraClassPaths" +
       "\030\002 \003(\t\022 \n\030standardLibraryClassPath\030\003 \001(\t" +
       "\022%\n\035annotationProcessingClassPath\030\004 \001(\t\022" +
       "K\n\030annotationProcessingTool\030\005 \001(\0162).kotl" +
@@ -108,22 +108,23 @@ public final class KotlinCDProto {
       "ldKotlincRunViaBuildToolsApi\030\024 \001(\010\022%\n\035sh" +
       "ouldKotlincRunIncrementally\030\025 \001(\010\022\033\n\023inc" +
       "rementalStateDir\030\026 \001(\t\022\027\n\017languageVersio" +
-      "n\030\027 \001(\t\032[\n\032KotlinCompilerPluginsEntry\022\013\n" +
-      "\003key\030\001 \001(\t\022,\n\005value\030\002 \001(\0132\035.kotlincd.api" +
-      ".v1.PluginParams:\0028\001\032:\n\030KosabiPluginOpti" +
-      "onsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001" +
-      "\"x\n\014PluginParams\0229\n\006params\030\001 \003(\0132).kotli" +
-      "ncd.api.v1.PluginParams.ParamsEntry\032-\n\013P" +
-      "aramsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\002" +
-      "8\001\"y\n\016ActionMetadata\0223\n\020previousMetadata" +
-      "\030\001 \001(\0132\031.kotlincd.api.v1.Metadata\0222\n\017cur" +
-      "rentMetadata\030\002 \001(\0132\031.kotlincd.api.v1.Met" +
-      "adata\"5\n\010Metadata\022)\n\007digests\030\001 \003(\0132\030.kot" +
-      "lincd.api.v1.Digests\"\'\n\007Digests\022\014\n\004path\030" +
-      "\001 \001(\t\022\016\n\006digest\030\002 \001(\t*/\n\030AnnotationProce" +
-      "ssingTool\022\010\n\004KAPT\020\000\022\t\n\005JAVAC\020\001B4\n!com.fa" +
-      "cebook.buck.cd.model.kotlinB\rKotlinCDPro" +
-      "toP\001b\006proto3"
+      "n\030\027 \001(\t\022$\n\034shouldIncrementalKotlicRunQe\030" +
+      "\030 \001(\010\032[\n\032KotlinCompilerPluginsEntry\022\013\n\003k" +
+      "ey\030\001 \001(\t\022,\n\005value\030\002 \001(\0132\035.kotlincd.api.v" +
+      "1.PluginParams:\0028\001\032:\n\030KosabiPluginOption" +
+      "sEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"x" +
+      "\n\014PluginParams\0229\n\006params\030\001 \003(\0132).kotlinc" +
+      "d.api.v1.PluginParams.ParamsEntry\032-\n\013Par" +
+      "amsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001" +
+      "\"y\n\016ActionMetadata\0223\n\020previousMetadata\030\001" +
+      " \001(\0132\031.kotlincd.api.v1.Metadata\0222\n\017curre" +
+      "ntMetadata\030\002 \001(\0132\031.kotlincd.api.v1.Metad" +
+      "ata\"5\n\010Metadata\022)\n\007digests\030\001 \003(\0132\030.kotli" +
+      "ncd.api.v1.Digests\"\'\n\007Digests\022\014\n\004path\030\001 " +
+      "\001(\t\022\016\n\006digest\030\002 \001(\t*/\n\030AnnotationProcess" +
+      "ingTool\022\010\n\004KAPT\020\000\022\t\n\005JAVAC\020\001B4\n!com.face" +
+      "book.buck.cd.model.kotlinB\rKotlinCDProto" +
+      "P\001b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -148,7 +149,7 @@ public final class KotlinCDProto {
     internal_static_kotlincd_api_v1_KotlinExtraParams_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_kotlincd_api_v1_KotlinExtraParams_descriptor,
-        new java.lang.String[] { "ExtraClassPaths", "StandardLibraryClassPath", "AnnotationProcessingClassPath", "AnnotationProcessingTool", "ExtraKotlincArguments", "KotlinCompilerPlugins", "KosabiPluginOptions", "KosabiJvmAbiGenEarlyTerminationMessagePrefix", "FriendPaths", "KotlinHomeLibraries", "JvmTarget", "ShouldGenerateAnnotationProcessingStats", "ShouldUseJvmAbiGen", "JvmAbiGenPlugin", "ShouldVerifySourceOnlyAbiConstraints", "ShouldRemoveKotlinCompilerFromClassPath", "DepTrackerPlugin", "ShouldUseStandaloneKosabi", "ShouldKotlincRunViaBuildToolsApi", "ShouldKotlincRunIncrementally", "IncrementalStateDir", "LanguageVersion", });
+        new java.lang.String[] { "ExtraClassPaths", "StandardLibraryClassPath", "AnnotationProcessingClassPath", "AnnotationProcessingTool", "ExtraKotlincArguments", "KotlinCompilerPlugins", "KosabiPluginOptions", "KosabiJvmAbiGenEarlyTerminationMessagePrefix", "FriendPaths", "KotlinHomeLibraries", "JvmTarget", "ShouldGenerateAnnotationProcessingStats", "ShouldUseJvmAbiGen", "JvmAbiGenPlugin", "ShouldVerifySourceOnlyAbiConstraints", "ShouldRemoveKotlinCompilerFromClassPath", "DepTrackerPlugin", "ShouldUseStandaloneKosabi", "ShouldKotlincRunViaBuildToolsApi", "ShouldKotlincRunIncrementally", "IncrementalStateDir", "LanguageVersion", "ShouldIncrementalKotlicRunQe", });
     internal_static_kotlincd_api_v1_KotlinExtraParams_KotlinCompilerPluginsEntry_descriptor =
       internal_static_kotlincd_api_v1_KotlinExtraParams_descriptor.getNestedTypes().get(0);
     internal_static_kotlincd_api_v1_KotlinExtraParams_KotlinCompilerPluginsEntry_fieldAccessorTable = new

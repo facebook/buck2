@@ -351,4 +351,10 @@ java.lang.String defaultValue);
    */
   com.google.protobuf.ByteString
       getLanguageVersionBytes();
+
+  /**
+   * <code>bool shouldIncrementalKotlicRunQe = 24;</code>
+   * @return The shouldIncrementalKotlicRunQe.
+   */
+  boolean getShouldIncrementalKotlicRunQe();
 }

@@ -805,6 +805,17 @@ java.lang.String defaultValue) {
     }
   }
 
+  public static final int SHOULDINCREMENTALKOTLICRUNQE_FIELD_NUMBER = 24;
+  private boolean shouldIncrementalKotlicRunQe_ = false;
+  /**
+   * <code>bool shouldIncrementalKotlicRunQe = 24;</code>
+   * @return The shouldIncrementalKotlicRunQe.
+   */
+  @java.lang.Override
+  public boolean getShouldIncrementalKotlicRunQe() {
+    return shouldIncrementalKotlicRunQe_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -890,6 +901,9 @@ java.lang.String defaultValue) {
     }
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(languageVersion_)) {
       com.google.protobuf.GeneratedMessageV3.writeString(output, 23, languageVersion_);
+    }
+    if (shouldIncrementalKotlicRunQe_ != false) {
+      output.writeBool(24, shouldIncrementalKotlicRunQe_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -1008,6 +1022,10 @@ java.lang.String defaultValue) {
     if (!com.google.protobuf.GeneratedMessageV3.isStringEmpty(languageVersion_)) {
       size += com.google.protobuf.GeneratedMessageV3.computeStringSize(23, languageVersion_);
     }
+    if (shouldIncrementalKotlicRunQe_ != false) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeBoolSize(24, shouldIncrementalKotlicRunQe_);
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -1066,6 +1084,8 @@ java.lang.String defaultValue) {
         .equals(other.getIncrementalStateDir())) return false;
     if (!getLanguageVersion()
         .equals(other.getLanguageVersion())) return false;
+    if (getShouldIncrementalKotlicRunQe()
+        != other.getShouldIncrementalKotlicRunQe()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -1140,6 +1160,9 @@ java.lang.String defaultValue) {
     hash = (53 * hash) + getIncrementalStateDir().hashCode();
     hash = (37 * hash) + LANGUAGEVERSION_FIELD_NUMBER;
     hash = (53 * hash) + getLanguageVersion().hashCode();
+    hash = (37 * hash) + SHOULDINCREMENTALKOTLICRUNQE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
+        getShouldIncrementalKotlicRunQe());
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -1323,6 +1346,7 @@ java.lang.String defaultValue) {
       shouldKotlincRunIncrementally_ = false;
       incrementalStateDir_ = "";
       languageVersion_ = "";
+      shouldIncrementalKotlicRunQe_ = false;
       return this;
     }
 
@@ -1426,6 +1450,9 @@ java.lang.String defaultValue) {
       }
       if (((from_bitField0_ & 0x00200000) != 0)) {
         result.languageVersion_ = languageVersion_;
+      }
+      if (((from_bitField0_ & 0x00400000) != 0)) {
+        result.shouldIncrementalKotlicRunQe_ = shouldIncrementalKotlicRunQe_;
       }
     }
 
@@ -1583,6 +1610,9 @@ java.lang.String defaultValue) {
         bitField0_ |= 0x00200000;
         onChanged();
       }
+      if (other.getShouldIncrementalKotlicRunQe() != false) {
+        setShouldIncrementalKotlicRunQe(other.getShouldIncrementalKotlicRunQe());
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1731,6 +1761,11 @@ java.lang.String defaultValue) {
               bitField0_ |= 0x00200000;
               break;
             } // case 186
+            case 192: {
+              shouldIncrementalKotlicRunQe_ = input.readBool();
+              bitField0_ |= 0x00400000;
+              break;
+            } // case 192
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3363,6 +3398,38 @@ java.lang.String defaultValue) {
       checkByteStringIsUtf8(value);
       languageVersion_ = value;
       bitField0_ |= 0x00200000;
+      onChanged();
+      return this;
+    }
+
+    private boolean shouldIncrementalKotlicRunQe_ ;
+    /**
+     * <code>bool shouldIncrementalKotlicRunQe = 24;</code>
+     * @return The shouldIncrementalKotlicRunQe.
+     */
+    @java.lang.Override
+    public boolean getShouldIncrementalKotlicRunQe() {
+      return shouldIncrementalKotlicRunQe_;
+    }
+    /**
+     * <code>bool shouldIncrementalKotlicRunQe = 24;</code>
+     * @param value The shouldIncrementalKotlicRunQe to set.
+     * @return This builder for chaining.
+     */
+    public Builder setShouldIncrementalKotlicRunQe(boolean value) {
+
+      shouldIncrementalKotlicRunQe_ = value;
+      bitField0_ |= 0x00400000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>bool shouldIncrementalKotlicRunQe = 24;</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearShouldIncrementalKotlicRunQe() {
+      bitField0_ = (bitField0_ & ~0x00400000);
+      shouldIncrementalKotlicRunQe_ = false;
       onChanged();
       return this;
     }
