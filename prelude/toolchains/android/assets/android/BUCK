@@ -1,14 +1,10 @@
-load("@fbsource//tools/build_defs:manifold.bzl", "manifold_get")
+load("@prelude//android/tools:android_build_tools_cas_artifact.bzl", "android_build_tools_cas_artifact")
 
 oncall("android_devxx")
 
-manifold_get(
+# See README.txt
+android_build_tools_cas_artifact(
     name = "agent.apk",
-    out = "agent.apk",
-    api_key = "android_build_toolchains-key",
-    artifact_path = "tree/exo_agent/agent.apk",
-    bucket_name = "android_build_toolchains",
-    sha256 = "c5d06819679cc79db7b46d1cd71a79811768d2fb2d7fa391ddb5a83f24af087c",
-    timeout_msec = 30000,
+    digest = "1b188878f29e0875c5f5fa67ab69d3c53a0db264bb7b750a6b1e9bbc3a5060ef:3865223",
     visibility = ["PUBLIC"],
 )
