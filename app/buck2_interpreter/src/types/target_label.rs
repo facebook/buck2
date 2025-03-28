@@ -189,7 +189,7 @@ impl StarlarkConfiguredTargetLabel {
     }
 }
 
-#[starlark_value(type = "configured_target_label")]
+#[starlark_value(type = "ConfiguredTargetLabel")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
