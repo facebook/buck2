@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlinSourceChanges;
 import java.nio.file.Path;
@@ -24,10 +25,12 @@ import org.junit.Test;
 public class KotlinSourceChangesFactoryTest {
 
   private ActionMetadata mockActionMetadata;
+  private AbsPath rootProjectDir;
 
   @Before
   public void setUp() {
     mockActionMetadata = mock(ActionMetadata.class);
+    rootProjectDir = AbsPath.get("/");
   }
 
   @Test
@@ -53,13 +56,14 @@ public class KotlinSourceChangesFactoryTest {
               }
             });
 
-    KotlinSourceChanges sourceChanges = KotlinSourceChangesFactory.create(mockActionMetadata);
+    KotlinSourceChanges sourceChanges =
+        KotlinSourceChangesFactory.create(rootProjectDir, mockActionMetadata);
 
     assertTrue(sourceChanges instanceof KotlinSourceChanges.Known);
     assertTrue(
         ((KotlinSourceChanges.Known) sourceChanges)
             .getAddedAndModifiedFiles()
-            .contains(Paths.get("b.kt")));
+            .contains(rootProjectDir.resolve("b.kt")));
     assertTrue(((KotlinSourceChanges.Known) sourceChanges).getRemovedFiles().isEmpty());
   }
 
@@ -88,13 +92,14 @@ public class KotlinSourceChangesFactoryTest {
               }
             });
 
-    KotlinSourceChanges sourceChanges = KotlinSourceChangesFactory.create(mockActionMetadata);
+    KotlinSourceChanges sourceChanges =
+        KotlinSourceChangesFactory.create(rootProjectDir, mockActionMetadata);
 
     assertTrue(sourceChanges instanceof KotlinSourceChanges.Known);
     assertTrue(
         ((KotlinSourceChanges.Known) sourceChanges)
             .getAddedAndModifiedFiles()
-            .contains(Paths.get("b.kt")));
+            .contains(rootProjectDir.resolve("b.kt")));
     assertTrue(((KotlinSourceChanges.Known) sourceChanges).getRemovedFiles().isEmpty());
   }
 
@@ -121,11 +126,14 @@ public class KotlinSourceChangesFactoryTest {
               }
             });
 
-    KotlinSourceChanges sourceChanges = KotlinSourceChangesFactory.create(mockActionMetadata);
+    KotlinSourceChanges sourceChanges =
+        KotlinSourceChangesFactory.create(rootProjectDir, mockActionMetadata);
 
     assertTrue(sourceChanges instanceof KotlinSourceChanges.Known);
     assertTrue(
-        ((KotlinSourceChanges.Known) sourceChanges).getRemovedFiles().contains(Paths.get("b.kt")));
+        ((KotlinSourceChanges.Known) sourceChanges)
+            .getRemovedFiles()
+            .contains(rootProjectDir.resolve("b.kt")));
     assertTrue(((KotlinSourceChanges.Known) sourceChanges).getAddedAndModifiedFiles().isEmpty());
   }
 }

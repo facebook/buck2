@@ -9,13 +9,13 @@
 
 package com.facebook.buck.jvm.kotlin;
 
+import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.io.file.FileExtensionMatcher;
 import com.facebook.buck.io.file.PathMatcher;
 import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlinSourceChanges;
-import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +35,8 @@ public class KotlinSourceChangesFactory {
   }
 
   // TODO(ijurcikova): T210694438
-  public static KotlinSourceChanges create(ActionMetadata actionMetadata) {
+  public static KotlinSourceChanges create(
+      final AbsPath rootProjectDir, final ActionMetadata actionMetadata) {
     Map<Path, String> previousKotlinSourceFiles =
         filterKotlinSourceFiles(actionMetadata.getPreviousDigest());
     Map<Path, String> currentKotlinSourceFiles =
@@ -50,7 +51,8 @@ public class KotlinSourceChangesFactory {
         modifiedFiles, removedFiles);
 
     return new KotlinSourceChanges.Known(
-        ImmutableList.copyOf(modifiedFiles), ImmutableList.copyOf(removedFiles));
+        modifiedFiles.stream().map(rootProjectDir::resolve).collect(Collectors.toList()),
+        removedFiles.stream().map(rootProjectDir::resolve).collect(Collectors.toList()));
   }
 
   private static List<Path> getModifiedFiles(

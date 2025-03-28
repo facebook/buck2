@@ -9,7 +9,7 @@
 
 package com.facebook.buck.jvm.kotlin.kotlinc.incremental
 
-import java.nio.file.Path
+import com.facebook.buck.core.filesystems.AbsPath
 
 /** A hierarchy representing source files changes for incremental compilation */
 sealed interface KotlinSourceChanges {
@@ -23,6 +23,6 @@ sealed interface KotlinSourceChanges {
    * A class containing [modifiedFiles] and [removedFiles] calculated from source file changes by
    * the API consumer.
    */
-  data class Known(val addedAndModifiedFiles: List<Path>, val removedFiles: List<Path>) :
+  data class Known(val addedAndModifiedFiles: List<AbsPath>, val removedFiles: List<AbsPath>) :
       KotlinSourceChanges
 }
