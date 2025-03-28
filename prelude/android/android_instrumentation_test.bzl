@@ -210,7 +210,9 @@ def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_r
         "android-emulator": default_executor_override,
         "dynamic-listing": dynamic_listing_executor_override,
         "static-listing": CommandExecutorConfig(
-            local_enabled = True,
+            ## This was set to True as some point and it was causing listing to happen locally,
+            ## which is one of the contributing factors to S504068.
+            local_enabled = instrumentation_test_can_run_locally,
             remote_enabled = True,
             remote_execution_properties = {
                 "platform": "linux-remote-execution",
