@@ -15,7 +15,6 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:argfile.bzl", "argfile")
-load("@prelude//utils:set.bzl", "set")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)

@@ -66,7 +66,6 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:graph_utils.bzl", "post_order_traversal", "pre_order_traversal", "rust_matching_topological_traversal")
-load("@prelude//utils:set.bzl", "set_type")  # @unused Used as a type
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
 
 # Native libraries on Android are built for a particular Application Binary Interface (ABI). We
@@ -97,15 +96,15 @@ def get_android_binary_native_library_info(
         android_packageable_info: AndroidPackageableInfo,
         deps_by_platform: dict[str, list[Dependency]],
         apk_module_graph_file: Artifact | None = None,
-        prebuilt_native_library_dirs_to_exclude: [set_type, None] = None,
-        shared_libraries_to_exclude: [set_type, None] = None) -> AndroidBinaryNativeLibsInfo:
+        prebuilt_native_library_dirs_to_exclude: set[TargetLabel] = set(),
+        shared_libraries_to_exclude: set[TargetLabel] = set()) -> AndroidBinaryNativeLibsInfo:
     ctx = enhance_ctx.ctx
 
     traversed_prebuilt_native_library_dirs = android_packageable_info.prebuilt_native_library_dirs.traverse() if android_packageable_info.prebuilt_native_library_dirs else []
     all_prebuilt_native_library_dirs = [
         native_lib
         for native_lib in traversed_prebuilt_native_library_dirs
-        if not (prebuilt_native_library_dirs_to_exclude and prebuilt_native_library_dirs_to_exclude.contains(native_lib.raw_target))
+        if native_lib.raw_target not in prebuilt_native_library_dirs_to_exclude
     ]
 
     included_shared_lib_targets = []
@@ -840,7 +839,7 @@ def get_default_shared_libs(ctx: AnalysisContext, deps: list[Dependency], shared
     return {
         soname: shared_lib
         for soname, shared_lib in with_unique_str_sonames(traverse_shared_library_info(shared_library_info)).items()
-        if not (shared_libraries_to_exclude and shared_libraries_to_exclude.contains(shared_lib.label.raw_target()))
+        if shared_lib.label.raw_target() not in shared_libraries_to_exclude
     }
 
 _LinkableSharedNode = record(

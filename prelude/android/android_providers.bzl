@@ -130,15 +130,15 @@ AndroidAabInfo = provider(
 AndroidApkUnderTestInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "java_packaging_deps": provider_field(typing.Any, default = None),  # set_type("JavaPackagingDep")
+        "java_packaging_deps": provider_field(typing.Any, default = None),  # set(TargetLabel)
         "keystore": provider_field(typing.Any, default = None),  # "KeystoreInfo"
         "manifest_entries": provider_field(typing.Any, default = None),  # dict
-        "prebuilt_native_library_dirs": provider_field(typing.Any, default = None),  # set_type("PrebuiltNativeLibraryDir")
+        "prebuilt_native_library_dirs": provider_field(typing.Any, default = None),  # set(TargetLabel)
         "platforms": provider_field(typing.Any, default = None),  # [str]
         "primary_platform": provider_field(typing.Any, default = None),  # str
-        "resource_infos": provider_field(typing.Any, default = None),  # set_type("ResourceInfos")
-        "r_dot_java_packages": provider_field(typing.Any, default = None),  # set_type(str)
-        "shared_libraries": provider_field(typing.Any, default = None),  # set_type(raw_target)
+        "resource_infos": provider_field(typing.Any, default = None),  # set(TargetLabel)
+        "r_dot_java_packages": provider_field(typing.Any, default = None),  # set(str)
+        "shared_libraries": provider_field(typing.Any, default = None),  # set(TargetLabel)
     },
 )
 
