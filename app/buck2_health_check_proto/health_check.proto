@@ -15,3 +15,20 @@ import "data.proto";
 package buck.health_check;
 
 message Empty {};
+
+// Event to update the HealthCheckContext in the server.
+// This is a subset of the data from buck2 daemon events to avoid gRPC
+// overheads.
+message HealthCheckContextEvent {
+  oneof data {
+    buck.data.ParsedTargetPatterns parsed_target_patterns = 1;
+    buck.data.CommandStart command_start = 2;
+    string branched_from_revision = 3;
+    bool has_excess_cache_misses = 4;
+    buck.data.SystemInfo experiment_configurations = 5;
+  }
+}
+
+service HealthCheck {
+  rpc UpdateContext(HealthCheckContextEvent) returns (Empty);
+}
