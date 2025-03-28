@@ -40,7 +40,7 @@ impl CellRoot {
 
 starlark_simple_value!(CellRoot);
 
-#[starlark_value(type = "cell_root")]
+#[starlark_value(type = "CellRoot")]
 impl<'v> StarlarkValue<'v> for CellRoot {}
 
 #[starlark_module]
