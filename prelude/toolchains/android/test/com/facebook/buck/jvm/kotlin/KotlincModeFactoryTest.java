@@ -62,6 +62,7 @@ public class KotlincModeFactoryTest {
   public void when_sourceOnly_then_nonIncremental() {
     when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
     KotlincMode kotlincMode =
         new KotlincModeFactory(experimentConfigService)
@@ -82,6 +83,7 @@ public class KotlincModeFactoryTest {
   public void when_not_shouldKotlincRunViaBuildToolsApi_then_nonIncremental() {
     when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(false);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
     KotlincMode kotlincMode =
         new KotlincModeFactory(experimentConfigService)
@@ -102,6 +104,7 @@ public class KotlincModeFactoryTest {
   public void when_not_shouldKotlincRunIncrementally_then_nonIncremental() {
     when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(false);
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
 
     KotlincMode kotlincMode =
         new KotlincModeFactory(experimentConfigService)
@@ -124,6 +127,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
     when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
@@ -145,6 +149,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
     when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
@@ -168,6 +173,7 @@ public class KotlincModeFactoryTest {
     when(mockKotlinExtraParams.getIncrementalStateDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
     when(mockKotlinExtraParams.getJvmAbiGenWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
     when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(true);
 
@@ -187,12 +193,13 @@ public class KotlincModeFactoryTest {
   }
 
   @Test
-  public void when_qe_ksic_enabled_false_then_nonIncremental() throws IOException {
+  public void when_qe2_enabled_and_control_group_then_nonIncremental() throws IOException {
     when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
     when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.empty());
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(true);
     when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
         .thenReturn(false);
 
@@ -212,9 +219,88 @@ public class KotlincModeFactoryTest {
   }
 
   @Test
-  public void when_qe_ksic_enabled_false_then_incrementalStateDir_is_cleared() throws IOException {
+  public void when_qe2_disabled_and_control_group_then_incremental() throws IOException {
     when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
     when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir())
+        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
+        .thenReturn(false);
+
+    KotlincMode kotlincMode =
+        new KotlincModeFactory(experimentConfigService)
+            .create(
+                false,
+                absPath,
+                absPath,
+                true,
+                relPath,
+                mockKotlinExtraParams,
+                Optional.of(mockActionMetadata),
+                ImmutableList.of());
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+  }
+
+  @Test
+  public void when_qe2_enabled_and_test_group_then_incremental() throws IOException {
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir())
+        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(true);
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
+        .thenReturn(true);
+
+    KotlincMode kotlincMode =
+        new KotlincModeFactory(experimentConfigService)
+            .create(
+                false,
+                absPath,
+                absPath,
+                true,
+                relPath,
+                mockKotlinExtraParams,
+                Optional.of(mockActionMetadata),
+                ImmutableList.of());
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+  }
+
+  @Test
+  public void when_qe2_disabled_and_test_group_then_incremental() throws IOException {
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir())
+        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
+    when(experimentConfig.getBoolParam(KsicExperimentConstantsKt.PARAM_KSIC_ENABLED, true))
+        .thenReturn(true);
+
+    KotlincMode kotlincMode =
+        new KotlincModeFactory(experimentConfigService)
+            .create(
+                false,
+                absPath,
+                absPath,
+                true,
+                relPath,
+                mockKotlinExtraParams,
+                Optional.of(mockActionMetadata),
+                ImmutableList.of());
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+  }
+
+  @Test
+  public void when_control_group_then_incrementalStateDir_is_cleared() throws IOException {
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(true);
     when(mockKotlinExtraParams.getIncrementalStateDir())
         .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
     boolean fileCreated =
@@ -232,17 +318,16 @@ public class KotlincModeFactoryTest {
     assertNotNull(filesBefore);
     assertEquals(1, filesBefore.length);
 
-    KotlincMode kotlincMode =
-        new KotlincModeFactory(experimentConfigService)
-            .create(
-                false,
-                absPath,
-                absPath,
-                true,
-                relPath,
-                mockKotlinExtraParams,
-                Optional.of(mockActionMetadata),
-                ImmutableList.of());
+    new KotlincModeFactory(experimentConfigService)
+        .create(
+            false,
+            absPath,
+            absPath,
+            true,
+            relPath,
+            mockKotlinExtraParams,
+            Optional.of(mockActionMetadata),
+            ImmutableList.of());
 
     String[] filesAfter = temporaryPaths.getRoot().resolve("incrementalStateDir").toFile().list();
     assertNotNull(filesAfter);
