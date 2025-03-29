@@ -31,7 +31,6 @@ load(
     "LibOutputStyle",  # @unused Used as a type
     "LinkArgs",
     "LinkInfos",  # @unused Used as a type
-    "LinkOrdering",  # @unused Used as a type
     "LinkStrategy",  # @unused Used as a type
     "create_merged_link_info",
     "get_link_args_for_strategy",
@@ -50,7 +49,6 @@ load("@prelude//utils:cmd_script.bzl", "ScriptOs", "cmd_script")
 load(
     "@prelude//utils:utils.bzl",
     "flatten_dict",
-    "map_val",
 )
 load(
     ":build_params.bzl",
@@ -380,7 +378,6 @@ def generate_rustdoc_test(
                 params.dep_link_strategy,
             ),
         ],
-        link_ordering = map_val(LinkOrdering, compile_ctx.cxx_toolchain_info.linker_info.link_ordering),
     )
 
     link_args_output.link_args.add(ctx.attrs.doc_linker_flags or [])
@@ -622,7 +619,6 @@ def rust_compile(
                 inherited_link_args,
             ],
             output_short_path = emit_op.output.short_path,
-            link_ordering = map_val(LinkOrdering, compile_ctx.cxx_toolchain_info.linker_info.link_ordering),
         )
         linker_argsfile, _ = ctx.actions.write(
             "{}/__{}_linker_args.txt".format(subdir, tempfile),
