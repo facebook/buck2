@@ -63,7 +63,7 @@ impl<'a> Component for SystemWarningComponent<'a> {
         }
         if let Some(reports) = self.health_check_reports {
             for report in reports {
-                if let Some(warning) = &report.warning {
+                if let Some(warning) = &report.health_issue {
                     lines.push(warning_styled(&warning.to_string())?);
                 }
             }

@@ -14,10 +14,10 @@ use regex::Regex;
 
 use crate::health_check_context::HealthCheckContext;
 use crate::report::DisplayReport;
+use crate::report::HealthIssue;
 use crate::report::Remediation;
 use crate::report::Report;
 use crate::report::Severity;
-use crate::report::Warning;
 
 pub const REMEDIATION_LINK: &str = "https://fburl.com/buck2_vpn_enabled";
 pub const TAG: &str = "vpn_enabled";
@@ -86,12 +86,12 @@ impl VpnCheck {
     fn generate_display_report(&self, is_vpn_enabled: bool) -> Option<DisplayReport> {
         self.can_run().then(|| DisplayReport {
             health_check_type: crate::interface::HealthCheckType::VpnEnabled,
-            warning: self.generate_warning(is_vpn_enabled),
+            health_issue: self.generate_warning(is_vpn_enabled),
         })
     }
 
-    fn generate_warning(&self, is_vpn_enabled: bool) -> Option<Warning> {
-        is_vpn_enabled.then(|| Warning {
+    fn generate_warning(&self, is_vpn_enabled: bool) -> Option<HealthIssue> {
+        is_vpn_enabled.then(|| HealthIssue {
             severity: Severity::Warning,
             message: "For optimal build speed, consider disconnecting from VPN".to_owned(),
             remediation: Some(Remediation::Link(REMEDIATION_LINK.to_owned())),
