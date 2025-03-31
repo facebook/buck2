@@ -146,6 +146,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                 java_packaging_deps,
                 resources_info.proguard_config_file,
                 additional_jars,
+                ctx.attrs.android_sdk_proguard_config,
                 android_toolchain.proguard_config,
                 android_toolchain.optimized_proguard_config,
             )

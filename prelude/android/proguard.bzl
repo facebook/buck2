@@ -135,6 +135,7 @@ def get_proguard_output(
         java_packaging_deps: list[JavaPackagingDep],
         aapt_generated_proguard_config: Artifact | None,
         additional_jars: list[Artifact],
+        sdk_proguard_config_mode: str | None,
         sdk_proguard_config: Artifact | None,
         sdk_optimized_proguard_config: Artifact | None) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
@@ -167,7 +168,7 @@ def get_proguard_output(
         configuration,
         seeds,
         usage,
-        ctx.attrs.android_sdk_proguard_config,
+        sdk_proguard_config_mode,
         sdk_proguard_config,
         sdk_optimized_proguard_config,
     )
