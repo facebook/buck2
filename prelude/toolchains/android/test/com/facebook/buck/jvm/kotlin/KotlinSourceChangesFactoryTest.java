@@ -44,6 +44,8 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("B.jar"), "2");
                 put(Paths.get("b.kt"), "2");
                 put(Paths.get("c.sh"), "3");
+                put(Paths.get("d.java"), "3");
+                put(Paths.get("e.java"), "2");
               }
             });
     when(mockActionMetadata.getPreviousDigest())
@@ -53,6 +55,7 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("A.jar"), "1");
                 put(Paths.get("a.kt"), "1");
                 put(Paths.get("c.sh"), "3");
+                put(Paths.get("e.java"), "3");
               }
             });
 
@@ -64,6 +67,10 @@ public class KotlinSourceChangesFactoryTest {
         ((KotlinSourceChanges.Known) sourceChanges)
             .getAddedAndModifiedFiles()
             .contains(rootProjectDir.resolve("b.kt")));
+    assertTrue(
+        ((KotlinSourceChanges.Known) sourceChanges)
+            .getAddedAndModifiedFiles()
+            .contains(rootProjectDir.resolve("d.java")));
     assertTrue(((KotlinSourceChanges.Known) sourceChanges).getRemovedFiles().isEmpty());
   }
 
@@ -78,6 +85,7 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("B.jar"), "2");
                 put(Paths.get("b.kt"), "2");
                 put(Paths.get("c.sh"), "3");
+                put(Paths.get("d.java"), "4");
               }
             });
     when(mockActionMetadata.getPreviousDigest())
@@ -89,6 +97,7 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("B.jar"), "2");
                 put(Paths.get("b.kt"), "3");
                 put(Paths.get("c.sh"), "3");
+                put(Paths.get("d.java"), "3");
               }
             });
 
@@ -100,6 +109,10 @@ public class KotlinSourceChangesFactoryTest {
         ((KotlinSourceChanges.Known) sourceChanges)
             .getAddedAndModifiedFiles()
             .contains(rootProjectDir.resolve("b.kt")));
+    assertTrue(
+        ((KotlinSourceChanges.Known) sourceChanges)
+            .getAddedAndModifiedFiles()
+            .contains(rootProjectDir.resolve("d.java")));
     assertTrue(((KotlinSourceChanges.Known) sourceChanges).getRemovedFiles().isEmpty());
   }
 
@@ -123,6 +136,7 @@ public class KotlinSourceChangesFactoryTest {
                 put(Paths.get("B.jar"), "2");
                 put(Paths.get("b.kt"), "3");
                 put(Paths.get("c.sh"), "3");
+                put(Paths.get("d.java"), "3");
               }
             });
 
@@ -134,6 +148,10 @@ public class KotlinSourceChangesFactoryTest {
         ((KotlinSourceChanges.Known) sourceChanges)
             .getRemovedFiles()
             .contains(rootProjectDir.resolve("b.kt")));
+    assertTrue(
+        ((KotlinSourceChanges.Known) sourceChanges)
+            .getRemovedFiles()
+            .contains(rootProjectDir.resolve("d.java")));
     assertTrue(((KotlinSourceChanges.Known) sourceChanges).getAddedAndModifiedFiles().isEmpty());
   }
 }

@@ -27,6 +27,7 @@ public class KotlinSourceChangesFactory {
 
   private static final Logger LOG = Logger.get(KotlinSourceChangesFactory.class);
   private static final PathMatcher KT_PATH_MATCHER = FileExtensionMatcher.of("kt");
+  private static final PathMatcher JAVA_PATH_MATCHER = FileExtensionMatcher.of("java");
 
   // TODO(T210694438): use create(ActionMetadata) instead
   @Deprecated
@@ -37,17 +38,14 @@ public class KotlinSourceChangesFactory {
   // TODO(ijurcikova): T210694438
   public static KotlinSourceChanges create(
       final AbsPath rootProjectDir, final ActionMetadata actionMetadata) {
-    Map<Path, String> previousKotlinSourceFiles =
-        filterKotlinSourceFiles(actionMetadata.getPreviousDigest());
-    Map<Path, String> currentKotlinSourceFiles =
-        filterKotlinSourceFiles(actionMetadata.getCurrentDigest());
+    Map<Path, String> previousSourceFiles = filterSourceFiles(actionMetadata.getPreviousDigest());
+    Map<Path, String> currentSourceFiles = filterSourceFiles(actionMetadata.getCurrentDigest());
 
-    List<Path> modifiedFiles =
-        getModifiedFiles(previousKotlinSourceFiles, currentKotlinSourceFiles);
-    List<Path> removedFiles = getRemovedFiles(previousKotlinSourceFiles, currentKotlinSourceFiles);
+    List<Path> modifiedFiles = getModifiedFiles(previousSourceFiles, currentSourceFiles);
+    List<Path> removedFiles = getRemovedFiles(previousSourceFiles, currentSourceFiles);
 
     LOG.debug(
-        "Kotlin source file changes: \n" + "modified files: [%s], \n" + "removed files: [%s]",
+        "Source file changes: \n" + "modified files: [%s], \n" + "removed files: [%s]",
         modifiedFiles, removedFiles);
 
     return new KotlinSourceChanges.Known(
@@ -86,9 +84,12 @@ public class KotlinSourceChangesFactory {
     return removedFiles;
   }
 
-  private static Map<Path, String> filterKotlinSourceFiles(Map<Path, String> digest) {
+  private static Map<Path, String> filterSourceFiles(Map<Path, String> digest) {
     return digest.entrySet().stream()
-        .filter(pathStringEntry -> KT_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey())))
+        .filter(
+            pathStringEntry ->
+                KT_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey()))
+                    || JAVA_PATH_MATCHER.matches(RelPath.of(pathStringEntry.getKey())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

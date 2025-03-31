@@ -99,7 +99,7 @@ public class KotlincModeFactory {
           rootProjectDir,
           buildDir,
           kotlicWorkingDir,
-          KotlinSourceChangesFactory.create(),
+          KotlinSourceChangesFactory.create(rootProjectDir, metadata),
           ClasspathChangesFactory.create(metadata, classpathSnapshots),
           kotlinClassUsageFileDir,
           getJvmAbiGenWorkingDir(
