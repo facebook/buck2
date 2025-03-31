@@ -83,7 +83,9 @@ def _prepare_build_environment(
     full_dependencies = []
     input_mapping = {}
 
-    for name, dep in dependencies.items():
+    for name in dependencies:
+        dep = dependencies[name]
+
         if ErlangAppInfo in dep:
             dep_info = dep[ErlangAppInfo]
 
@@ -93,11 +95,11 @@ def _prepare_build_environment(
                 continue
 
             # collect beams
-            intersection = [key for key in beams if key in dep_info.beams[toolchain.name]]
-            if len(intersection):
-                fail("duplicated modules found in build: {}".format(repr(intersection)))
-
-            beams.update(dep_info.beams[toolchain.name])
+            dep_beams = dep_info.beams[toolchain.name]
+            for module in dep_beams:
+                if module in beams:
+                    fail("duplicated beam found in build: {}".format(module))
+                beams[module] = dep_beams[module]
 
             # collect dirs
             priv_dirs[name] = dep_info.priv_dir[toolchain.name]
@@ -293,12 +295,13 @@ def _generate_beam_artifacts(
 def _build_dep_info_data(build_environment: BuildEnvironment) -> dict[str, DepInfo]:
     """build input for dependency finalizer, this implements uniqueness checks for headers and beams"""
     data = {}
-    for path, dep_file in build_environment.deps_files.items():
+    dep_files = build_environment.deps_files
+    for path in dep_files:
         basename = paths.basename(path)
         if basename in data:
             fail("conflicting artifacts found in build: {} and {}".format(data[path].path, path))
         else:
-            data[basename] = DepInfo(dep_file = dep_file, path = path)
+            data[basename] = DepInfo(dep_file = dep_files[path], path = path)
     return data
 
 def _generate_chunk_artifacts(
@@ -673,7 +676,8 @@ def _get_erl_opts(
             ):
                 parse_transforms[parse_transform] = toolchain.parse_transforms[parse_transform]
 
-    for parse_transform, (beam, resource_folder) in parse_transforms.items():
+    for parse_transform in parse_transforms:
+        (beam, resource_folder) = parse_transforms[parse_transform]
         args.add(
             "+{parse_transform, %s}" % (parse_transform,),
             cmd_args(beam, format = "-pa{}", parent = 1),
@@ -794,7 +798,8 @@ def _build_dir(toolchain: Toolchain) -> str:
 def _generate_file_mapping_string(mapping: dict[str, (bool, [str, Artifact])]) -> cmd_args:
     """produces an easily parsable string for the file mapping"""
     items = {}
-    for file, (if_found, artifact) in mapping.items():
+    for file in mapping:
+        (if_found, artifact) = mapping[file]
         items[file] = (if_found, artifact)
 
     return to_term_args(items)
