@@ -298,11 +298,11 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
         self.parse_pattern(pattern)
     }
 
-    fn visit_query_function_literals(
+    fn visit_query_function_literals<'q>(
         &self,
-        visitor: &mut dyn QueryLiteralVisitor,
-        expr: &Spanned<Expr>,
-        query: &str,
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
+        query: &'q str,
     ) -> buck2_error::Result<()> {
         CONFIGURED_GRAPH_QUERY_FUNCTIONS
             .get()?

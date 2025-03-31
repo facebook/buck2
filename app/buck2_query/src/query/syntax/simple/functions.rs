@@ -40,8 +40,8 @@ pub mod description;
 pub mod docs;
 pub mod helpers;
 
-pub trait QueryLiteralVisitor {
-    fn target_pattern(&mut self, pattern: &str) -> buck2_error::Result<()>;
+pub trait QueryLiteralVisitor<'a> {
+    fn target_pattern(&mut self, pattern: &'a str) -> buck2_error::Result<()>;
 }
 
 pub trait HasModuleDescription {
@@ -58,23 +58,23 @@ pub trait QueryFunctions: Debug + Send + Sync {
 }
 
 pub trait QueryFunctionsVisitLiterals: Debug + Send + Sync {
-    fn visit_literals(
+    fn visit_literals<'q>(
         &self,
-        visitor: &mut dyn QueryLiteralVisitor,
-        expr: &Spanned<Expr>,
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
     ) -> QueryResult<()>;
 }
 
 impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
-    fn visit_literals(
+    fn visit_literals<'q>(
         &self,
-        visitor: &mut dyn QueryLiteralVisitor,
-        expr: &Spanned<Expr>,
+        visitor: &mut dyn QueryLiteralVisitor<'q>,
+        expr: &Spanned<Expr<'q>>,
     ) -> QueryResult<()> {
-        fn visit_literals_recurse<F: QueryFunctions>(
+        fn visit_literals_recurse<'q, F: QueryFunctions>(
             this: &F,
-            visitor: &mut dyn QueryLiteralVisitor,
-            expr: &Expr,
+            visitor: &mut dyn QueryLiteralVisitor<'q>,
+            expr: &Expr<'q>,
         ) -> Result<(), QueryError> {
             match expr {
                 Expr::Function {
@@ -111,7 +111,7 @@ impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
                 }
                 Expr::Set(args) => {
                     for arg in args {
-                        visitor.target_pattern(arg)?;
+                        visitor.target_pattern(arg.fragment())?;
                     }
                     Ok(())
                 }
@@ -124,10 +124,10 @@ impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
             }
         }
 
-        fn visit_literals_item<F: QueryFunctions>(
+        fn visit_literals_item<'q, F: QueryFunctions>(
             this: &F,
-            visitor: &mut dyn QueryLiteralVisitor,
-            expr: &Spanned<Expr>,
+            visitor: &mut dyn QueryLiteralVisitor<'q>,
+            expr: &Spanned<Expr<'q>>,
             is_target_expr: bool,
         ) -> QueryResult<()> {
             expr.map_res(|value| -> Result<(), QueryError> {

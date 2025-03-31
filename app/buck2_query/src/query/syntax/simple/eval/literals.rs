@@ -28,8 +28,8 @@ pub fn extract_target_literals<F: QueryFunctions>(
     struct LiteralExtractor {
         literals: SmallSet<String>,
     }
-    impl QueryLiteralVisitor for LiteralExtractor {
-        fn target_pattern(&mut self, pattern: &str) -> buck2_error::Result<()> {
+    impl<'q> QueryLiteralVisitor<'q> for LiteralExtractor {
+        fn target_pattern(&mut self, pattern: &'q str) -> buck2_error::Result<()> {
             if pattern != QUERY_PERCENT_S_PLACEHOLDER {
                 self.literals.get_or_insert_owned(pattern);
             }

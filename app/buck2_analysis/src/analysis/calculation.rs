@@ -149,11 +149,12 @@ async fn resolve_queries_impl(
                 async move {
                     let mut resolved_literals =
                         HashMap::with_capacity(resolved_literals_labels.0.len());
-                    for (literal, label) in resolved_literals_labels.0 {
+                    for ((offset, len), label) in resolved_literals_labels.0 {
+                        let literal = &query[offset..offset + len];
                         let node = deps.get(label.target()).with_internal_error(|| {
                             format!("Literal `{literal}` not found in `deps`")
                         })?;
-                        resolved_literals.insert(literal, node.dupe());
+                        resolved_literals.insert(literal.to_owned(), node.dupe());
                     }
 
                     let result =

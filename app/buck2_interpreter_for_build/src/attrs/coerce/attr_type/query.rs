@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_error::BuckErrorContext;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
@@ -43,17 +44,16 @@ impl QueryAttrTypeExt for QueryAttrType {
         // parse the expr to do validation and to extract the literals.
         let parsed_query = parse_expr(&query)?;
 
-        struct Collector<'a> {
-            ctx: &'a dyn AttrCoercionContext,
-            literals: BTreeMap<String, ProvidersLabel>,
+        struct Collector<'q> {
+            ctx: &'q dyn AttrCoercionContext,
+            literals: BTreeMap<&'q str, ProvidersLabel>,
         }
 
-        impl QueryLiteralVisitor for Collector<'_> {
-            fn target_pattern(&mut self, pattern: &str) -> buck2_error::Result<()> {
+        impl<'q> QueryLiteralVisitor<'q> for Collector<'q> {
+            fn target_pattern(&mut self, pattern: &'q str) -> buck2_error::Result<()> {
                 // TODO(cjhopman): We could probably parse the pattern first. This would likely at least give a better error message when the query contains a non-literal target pattern.
                 // We could optimize this to do less work for duplicates, but it's generally not helpful.
                 let label = self.ctx.coerce_providers_label(pattern)?;
-
                 /*
                 if label.name() != &ProvidersName::Default {
                     return Err(
@@ -61,7 +61,7 @@ impl QueryAttrTypeExt for QueryAttrType {
                     );
                 }*/
 
-                self.literals.insert(pattern.to_owned(), label);
+                self.literals.insert(pattern, label);
                 Ok(())
             }
         }
@@ -73,9 +73,21 @@ impl QueryAttrTypeExt for QueryAttrType {
 
         ctx.visit_query_function_literals(&mut collector, &parsed_query, &query)?;
 
+        let resolved_literals = ResolvedQueryLiterals(
+            collector
+                .literals
+                .into_iter()
+                .map(|(l, p)| {
+                    query
+                        .find(l)
+                        .map(|offset| ((offset, l.len()), p))
+                        .internal_error("Not found in query")
+                })
+                .try_collect()?,
+        );
         Ok(QueryAttrBase {
             query,
-            resolved_literals: ResolvedQueryLiterals(collector.literals),
+            resolved_literals,
         })
     }
 }
