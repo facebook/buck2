@@ -73,7 +73,6 @@ def _get_proguard_command_line_args(
 
 def run_proguard(
         ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
         java_toolchain: JavaToolchainInfo,
         command_line_args_file: Artifact,
         command_line_args: cmd_args,
@@ -85,9 +84,9 @@ def run_proguard(
         java_toolchain.java[RunInfo],
         "-XX:-MaxFDLimit",
         ctx.attrs.proguard_jvm_args,
-        "-Xmx{}".format(android_toolchain.proguard_max_heap_size),
+        "-Xmx{}".format(java_toolchain.proguard_max_heap_size),
         "-jar",
-        android_toolchain.proguard_jar,
+        java_toolchain.proguard_jar,
     )
     run_proguard_cmd.add(
         cmd_args(command_line_args_file, format = "@{}", hidden = command_line_args),
@@ -180,7 +179,6 @@ def get_proguard_output(
     else:
         run_proguard(
             ctx,
-            ctx.attrs._android_toolchain[AndroidToolchainInfo],
             ctx.attrs._java_toolchain[JavaToolchainInfo],
             command_line_args_file,
             command_line_args,
