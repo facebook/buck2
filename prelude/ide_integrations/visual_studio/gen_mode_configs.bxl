@@ -113,7 +113,7 @@ def _produce_proj_artifact_with_async_cxx_toolchain(bxl_ctx, actions, fbsource: 
     The flags are indirectly read after dynamically materializing them to an output artifact
     (i.e., write them to an artifact, and read them inside of `dynamic_output`'s callback).
     """
-    cxx_toolchain_analysis_result = bxl_ctx.analysis("fbcode//buck2/platform:cxx-platform010-clang")
+    cxx_toolchain_analysis_result = bxl_ctx.analysis("toolchains//:cxx", target_platform = "ovr_config//platform/linux:x86_64-fbcode")
     cxx_toolchain = cxx_toolchain_analysis_result.providers().get(CxxToolchainInfo)
 
     cxxflags_artifact, cxxflags_macro_artifacts = actions.write("cxxflags", cxx_toolchain.cxx_compiler_info.compiler_flags, allow_args = True)
