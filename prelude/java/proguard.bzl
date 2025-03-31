@@ -137,13 +137,14 @@ def get_proguard_output(
         additional_jars: list[Artifact],
         sdk_proguard_config_mode: str | None,
         sdk_proguard_config: Artifact | None,
-        sdk_optimized_proguard_config: Artifact | None) -> ProguardOutput:
+        sdk_optimized_proguard_config: Artifact | None,
+        skip_proguard: bool = False) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)
     proguard_configs.extend(additional_proguard_configs)
 
-    if ctx.attrs.skip_proguard:
+    if skip_proguard:
         input_jars_to_output_jars = {input_jar: input_jar for input_jar in input_jars.keys()}
         mapping = ctx.actions.write("proguard/mapping.txt", [])
         configuration = None
@@ -174,7 +175,7 @@ def get_proguard_output(
 
     command_line_args_file = ctx.actions.write("proguard/command-line.txt", command_line_args)
 
-    if ctx.attrs.skip_proguard:
+    if skip_proguard:
         return ProguardOutput(
             jars_to_owners = input_jars,
             proguard_configuration_output_file = None,
