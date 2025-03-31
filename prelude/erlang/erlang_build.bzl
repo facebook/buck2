@@ -782,6 +782,13 @@ def _dep_info_name(toolchain: Toolchain) -> str:
 
 def _merge(a: dict, b: dict) -> dict:
     """ sefely merge two dict """
+
+    # avoid copy, if not mutating
+    if not a:
+        return b
+    if not b:
+        return a
+
     r = dict(a)
     r.update(b)
     return r
