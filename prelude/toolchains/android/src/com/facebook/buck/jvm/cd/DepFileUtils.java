@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DepFileUtils {
@@ -44,17 +45,16 @@ public class DepFileUtils {
 
     List<Path> allUsedPaths = new ArrayList<>();
     for (Path usedClassesMapPath : usedClassesMapPaths) {
-      ImmutableMap<Path, ImmutableMap<Path, Integer>> usedClassesMap =
+      ImmutableMap<Path, Set<Path>> usedClassesMap =
           ObjectMappers.readValue(usedClassesMapPath, new TypeReference<>() {});
 
-      for (Map.Entry<Path, ImmutableMap<Path, Integer>> usedClassesEntry :
-          usedClassesMap.entrySet()) {
+      for (Map.Entry<Path, Set<Path>> usedClassesEntry : usedClassesMap.entrySet()) {
         Path usedJarPath = usedClassesEntry.getKey();
         Path usedJarDir = jarToJarDirMap.get(usedJarPath);
         if (usedJarDir == null) {
           allUsedPaths.add(usedJarPath);
         } else {
-          for (Path usedClass : usedClassesEntry.getValue().keySet()) {
+          for (Path usedClass : usedClassesEntry.getValue()) {
             allUsedPaths.add(usedJarDir.resolve(usedClass));
           }
         }
@@ -74,14 +74,12 @@ public class DepFileUtils {
     // Merge multiple used-classes.json files into a single map of jar to classes
     Map<Path, List<Path>> usedJarsToClasses = new HashMap<>();
     for (Path usedClassesJsonPath : usedClassesJsonPaths) {
-      ImmutableMap<Path, ImmutableMap<Path, Integer>> usedClassesMap =
+      ImmutableMap<Path, Set<Path>> usedClassesMap =
           ObjectMappers.readValue(usedClassesJsonPath, new TypeReference<>() {});
 
       usedClassesMap.forEach(
           (usedJarPath, classes) -> {
-            usedJarsToClasses
-                .computeIfAbsent(usedJarPath, k -> new ArrayList<>())
-                .addAll(classes.keySet());
+            usedJarsToClasses.computeIfAbsent(usedJarPath, k -> new ArrayList<>()).addAll(classes);
           });
     }
     ObjectMappers.WRITER.writeValue(usedJarsFileOutput.toFile(), usedJarsToClasses);

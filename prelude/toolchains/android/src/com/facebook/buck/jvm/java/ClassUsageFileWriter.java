@@ -13,12 +13,12 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
-import java.util.Map;
+import java.util.Set;
 
 public interface ClassUsageFileWriter {
 
   void writeFile(
-      ImmutableMap<Path, Map<Path, Integer>> classUsageMap,
+      ImmutableMap<Path, Set<Path>> classUsages,
       RelPath relativePath,
       AbsPath rootPath,
       RelPath configuredBuckOut);

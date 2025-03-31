@@ -15,7 +15,9 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Take URI input for class usage data, and output the total class usage as map */
@@ -28,13 +30,13 @@ public class ClassUsageURIParser {
   // Examples: First anonymous class is Foo$1.class. First local class named Bar is Foo$1Bar.class.
   private static final Pattern LOCAL_OR_ANONYMOUS_CLASS = Pattern.compile("^.*\\$\\d.*.class$");
 
-  private final Map<Path, Map<Path, Integer>> resultBuilder = new HashMap<>();
+  private final Map<Path, Set<Path>> resultBuilder = new HashMap<>();
 
   /**
    * Returns a map from JAR path on disk to .class file paths within the jar for any classes that
    * were used, and the count for how often those classes were read.
    */
-  public ImmutableMap<Path, Map<Path, Integer>> getClassUsageMap() {
+  public ImmutableMap<Path, Set<Path>> getClassUsageMap() {
     return ImmutableMap.copyOf(resultBuilder);
   }
 
@@ -70,9 +72,8 @@ public class ClassUsageURIParser {
     Preconditions.checkState(jarFilePath.isAbsolute());
     Preconditions.checkState(!classPath.isAbsolute());
 
-    Map<Path, Integer> classpaths =
-        resultBuilder.computeIfAbsent(jarFilePath, _path -> new HashMap<>());
-    classpaths.put(classPath, classpaths.getOrDefault(classPath, 0) + 1);
+    Set<Path> classpaths = resultBuilder.computeIfAbsent(jarFilePath, _path -> new HashSet<>());
+    classpaths.add(classPath);
   }
 
   private boolean isLocalOrAnonymousClass(String className) {

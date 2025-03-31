@@ -12,7 +12,7 @@ package com.facebook.buck.jvm.java;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.nio.file.Path;
-import java.util.Map;
+import java.util.Set;
 import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
@@ -29,7 +29,7 @@ class ClassUsageTracker implements FileManagerListener {
    * Returns a map from JAR path on disk to .class file paths within the jar for any classes that
    * were used, and the count for how often those classes were read.
    */
-  public ImmutableMap<Path, Map<Path, Integer>> getClassUsageMap() {
+  public ImmutableMap<Path, Set<Path>> getClassUsageMap() {
     return parser.getClassUsageMap();
   }
 
