@@ -15,7 +15,7 @@ from typing import Dict
 import pytest
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 output_cleanup_targets = [
     "local_action",
@@ -42,6 +42,9 @@ output_cleanup_targets = [
     "second",
     output_cleanup_targets,
 )
+# Temporarily disable hard errors so that we can use soft errors to check whether
+# immediate materializer is used anywhere
+@env("BUCK2_HARD_ERROR", "false")
 async def test_output_cleanup(
     buck: Buck, tmp_path: Path, materializations: str, first: str, second: str
 ) -> None:

@@ -16,6 +16,7 @@ use buck2_common::file_ops::FileMetadata;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::soft_error;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::ordered_entry_walk;
@@ -638,7 +639,17 @@ impl MaterializationMethod {
     pub fn try_new_from_config_value(config_value: Option<&str>) -> buck2_error::Result<Self> {
         match config_value {
             None | Some("") | Some("deferred") => Ok(MaterializationMethod::Deferred),
-            Some("all") => Ok(MaterializationMethod::Immediate),
+            Some("all") => {
+                soft_error!(
+                    "immediate_materializer_explicitly_set",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::InternalError,
+                        "Immediate materializer is explicitly set",
+                    ),
+                    quiet: true,
+                )?;
+                Ok(MaterializationMethod::Immediate)
+            }
             Some("deferred_skip_final_artifacts") => {
                 Ok(MaterializationMethod::DeferredSkipFinalArtifacts)
             }
