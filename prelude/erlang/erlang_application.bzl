@@ -267,7 +267,7 @@ def _generate_app_file(
         toolchain.app_file_script,
         app_build_cmd,
         category = "app_resource",
-        identifier = action_identifier(toolchain, paths.basename(app_file_name)),
+        identifier = action_identifier(toolchain, name),
     )
 
     build_environment.app_files[name] = output

@@ -58,6 +58,16 @@ BuildEnvironment = record(
     input_mapping = field(InputArtifactMapping, {}),
 )
 
+DepInfo = record(
+    dep_file = field(Artifact),
+    path = field(str),
+)
+
+Anchor = record(
+    artifact = field(Artifact),
+    dirname = field(str),
+)
+
 def _prepare_build_environment(
         ctx: AnalysisContext,
         toolchain: Toolchain,
@@ -204,7 +214,7 @@ def _generate_include_artifacts(
         # fields for public include directory
         includes = _merge(include_mapping, build_environment.includes)
         private_includes = build_environment.private_includes
-        include_dirs = _add(build_environment.include_dirs, name, anchor)
+        include_dirs = _add(build_environment.include_dirs, name, anchor.artifact)
         private_include_dir = build_environment.private_include_dir
         app_includes = include_mapping
     else:
@@ -212,7 +222,7 @@ def _generate_include_artifacts(
         includes = build_environment.includes
         private_includes = _merge(include_mapping, build_environment.private_includes)
         include_dirs = build_environment.include_dirs
-        private_include_dir = [anchor] + build_environment.private_include_dir
+        private_include_dir = [anchor.artifact] + build_environment.private_include_dir
         app_includes = build_environment.app_includes
 
     return BuildEnvironment(
@@ -247,7 +257,7 @@ def _generate_beam_artifacts(
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "ebin"))
 
     beam_mapping = {
-        module_name(src): ctx.actions.declare_output(beam_path(anchor, src.basename))
+        module_name(src): ctx.actions.declare_output(beam_path(anchor, src))
         for src in src_artifacts
     }
 
@@ -257,7 +267,7 @@ def _generate_beam_artifacts(
     updated_build_environment = BuildEnvironment(
         # updated fields
         beams = _merge(beam_mapping, build_environment.beams),
-        ebin_dirs = _add(build_environment.ebin_dirs, name, anchor),
+        ebin_dirs = _add(build_environment.ebin_dirs, name, anchor.artifact),
         deps_files = _merge(beam_deps, build_environment.deps_files),
         app_beams = beam_mapping,
         # copied fields
@@ -280,16 +290,15 @@ def _generate_beam_artifacts(
 
     return updated_build_environment
 
-def _build_dep_info_data(build_environment: BuildEnvironment) -> dict[str, dict[str, Artifact | str]]:
+def _build_dep_info_data(build_environment: BuildEnvironment) -> dict[str, DepInfo]:
     """build input for dependency finalizer, this implements uniqueness checks for headers and beams"""
-    seen = {}
     data = {}
-    for artifact, dep_file in build_environment.deps_files.items():
-        if paths.basename(artifact) in seen:
-            fail("conflicting artifacts found in build: {} and {}".format(seen[paths.basename(artifact)], artifact))
+    for path, dep_file in build_environment.deps_files.items():
+        basename = paths.basename(path)
+        if basename in data:
+            fail("conflicting artifacts found in build: {} and {}".format(data[path].path, path))
         else:
-            seen[paths.basename(artifact)] = artifact
-            data[paths.basename(artifact)] = {"dep_file": dep_file, "path": artifact}
+            data[basename] = DepInfo(dep_file = dep_file, path = path)
     return data
 
 def _generate_chunk_artifacts(
@@ -301,7 +310,7 @@ def _generate_chunk_artifacts(
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "chunks"))
 
     chunk_mapping = {
-        module_name(src): ctx.actions.declare_output(chunk_path(anchor, src.basename))
+        module_name(src): ctx.actions.declare_output(chunk_path(anchor, src))
         for src in src_artifacts
     }
 
@@ -332,16 +341,17 @@ def _generate_chunk_artifacts(
 
     return updated_build_environment
 
-def _make_dir_anchor(ctx: AnalysisContext, path: str) -> Artifact:
-    return ctx.actions.write(
+def _make_dir_anchor(ctx: AnalysisContext, path: str) -> Anchor:
+    artifact = ctx.actions.write(
         paths.normalize(paths.join(path, ".hidden")),
         cmd_args([""]),
     )
+    return Anchor(dirname = paths.dirname(artifact.short_path), artifact = artifact)
 
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
-        anchor: Artifact,
+        anchor: Anchor,
         srcs: list[Artifact]) -> dict[str, Artifact]:
     """Mapping from the output path to the deps file artifact for each srcs artifact."""
     return {
@@ -349,11 +359,11 @@ def _get_deps_files(
         for src in srcs
     }
 
-def _deps_key(anchor: Artifact, src: Artifact) -> str:
-    name, ext = paths.split_extension(src.basename)
-    if ext == ".erl":
-        ext = ".beam"
-    return anchor_path(anchor, name + ext)
+def _deps_key(anchor: Anchor, src: Artifact) -> str:
+    if _is_erl(src):
+        return beam_path(anchor, src)
+    else:
+        return anchor_path(anchor, src.basename)
 
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
@@ -704,43 +714,46 @@ def generated_erl_path(toolchain: Toolchain, appname: str, src: Artifact) -> str
         "%s.erl" % (module_name(src),),
     )
 
-def anchor_path(anchor: Artifact, basename: str) -> str:
+def anchor_path(anchor: Anchor, basename: str) -> str:
     """ Returns the output path for hrl files. """
-    return paths.join(paths.dirname(anchor.short_path), basename)
+    return paths.join(anchor.dirname, basename)
 
-def beam_path(anchor: Artifact, basename: str) -> str:
+def beam_path(anchor: Anchor, src: Artifact) -> str:
     """ Returns the output path for beam files. """
-    return anchor_path(anchor, paths.replace_extension(basename, ".beam"))
+    return anchor_path(anchor, module_name(src) + ".beam")
 
-def chunk_path(anchor: Artifact, basename: str) -> str:
+def chunk_path(anchor: Anchor, src: Artifact) -> str:
     """Returns the output path for chunk files."""
-    return anchor_path(anchor, paths.replace_extension(basename, ".chunk"))
+    return anchor_path(anchor, module_name(src) + ".chunk")
 
 def module_name(in_file: Artifact) -> str:
     """ Returns the basename of the artifact without extension """
-    name, _ = paths.split_extension(in_file.basename)
-    return name
+    end = in_file.basename.rfind(".")
+    return in_file.basename[:end]
 
 def _is_hrl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is a hrl file """
-    return _is_ext(in_file, [".hrl"])
+    return _is_ext(in_file, ".hrl")
 
 def _is_erl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is an erl file """
-    return _is_ext(in_file, [".erl"])
+    return _is_ext(in_file, ".erl")
 
 def _is_yrl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is a yrl file """
-    return _is_ext(in_file, [".yrl"])
+    return _is_ext(in_file, ".yrl")
 
 def _is_xrl(in_file: Artifact) -> bool:
     """ Returns True if the artifact is a xrl file """
-    return _is_ext(in_file, [".xrl"])
+    return _is_ext(in_file, ".xrl")
 
-def _is_ext(in_file: Artifact, extensions: list[str]) -> bool:
+def _is_config(in_file: Artifact) -> bool:
+    """ Returns True if the artifact is a config file """
+    return _is_ext(in_file, ".config")
+
+def _is_ext(in_file: Artifact, extension: str) -> bool:
     """ Returns True if the artifact has an extension listed in extensions """
-    _, ext = paths.split_extension(in_file.basename)
-    return ext in extensions
+    return in_file.basename.endswith(extension)
 
 def _dep_file_name(toolchain: Toolchain, src: Artifact) -> str:
     return paths.join(
@@ -884,6 +897,7 @@ erlang_build = struct(
         is_erl = _is_erl,
         is_yrl = _is_yrl,
         is_xrl = _is_xrl,
+        is_config = _is_config,
         module_name = module_name,
         private_include_name = private_include_name,
         make_dir_anchor = _make_dir_anchor,
