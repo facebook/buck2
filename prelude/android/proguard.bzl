@@ -5,7 +5,6 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load(
     "@prelude//java:java_providers.bzl",
     "JavaPackagingDep",  # @unused Used as type
@@ -27,26 +26,30 @@ def _get_proguard_command_line_args(
         ctx: AnalysisContext,
         input_jars_to_output_jars: dict[Artifact, Artifact],
         proguard_configs: list[Artifact],
-        additional_library_jars: list[Artifact],
+        additional_jars: list[Artifact],
         mapping: Artifact,
         configuration: Artifact | None,
         seeds: Artifact | None,
         usage: Artifact | None,
-        android_toolchain: AndroidToolchainInfo) -> (cmd_args, list[Artifact]):
+        sdk_proguard_config_mode: str | None,
+        sdk_proguard_config: Artifact | None,
+        sdk_optimized_proguard_config: Artifact | None) -> (cmd_args, list[Artifact]):
     cmd = cmd_args()
     hidden = []
     cmd.add("-basedirectory", "<user.dir>")
 
-    android_sdk_proguard_config = ctx.attrs.android_sdk_proguard_config or "none"
-    if android_sdk_proguard_config == "optimized":
-        cmd.add("-include", android_toolchain.optimized_proguard_config)
+    sdk_proguard_config_mode = sdk_proguard_config_mode or "none"
+    if sdk_proguard_config_mode == "optimized":
+        expect(sdk_optimized_proguard_config)
+        cmd.add("-include", sdk_optimized_proguard_config)
         cmd.add("-optimizationpasses", str(ctx.attrs.optimization_passes))
-        hidden.append(android_toolchain.optimized_proguard_config)
-    elif android_sdk_proguard_config == "default":
-        cmd.add("-include", android_toolchain.proguard_config)
-        hidden.append(android_toolchain.proguard_config)
+        hidden.append(sdk_optimized_proguard_config)
+    elif sdk_proguard_config_mode == "default":
+        expect(sdk_proguard_config)
+        cmd.add("-include", sdk_proguard_config)
+        hidden.append(sdk_proguard_config)
     else:
-        expect(android_sdk_proguard_config == "none")
+        expect(sdk_proguard_config_mode == "none")
 
     for proguard_config in dedupe(proguard_configs):
         cmd.add("-include")
@@ -56,10 +59,9 @@ def _get_proguard_command_line_args(
     for jar_input, jar_output in input_jars_to_output_jars.items():
         cmd.add("-injars", jar_input, "-outjars", jar_output if jar_output == jar_input else jar_output.as_output())
 
-    library_jars = android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars + additional_library_jars
     cmd.add("-libraryjars")
-    cmd.add(cmd_args(library_jars, delimiter = get_path_separator_for_exec_os(ctx)))
-    hidden.extend(library_jars)
+    cmd.add(cmd_args(additional_jars, delimiter = get_path_separator_for_exec_os(ctx)))
+    hidden.extend(additional_jars)
 
     cmd.add("-printmapping", mapping.as_output())
     if configuration:
@@ -132,7 +134,9 @@ def get_proguard_output(
         input_jars: dict[Artifact, TargetLabel],
         java_packaging_deps: list[JavaPackagingDep],
         aapt_generated_proguard_config: Artifact | None,
-        additional_library_jars: list[Artifact]) -> ProguardOutput:
+        additional_jars: list[Artifact],
+        sdk_proguard_config: Artifact | None,
+        sdk_optimized_proguard_config: Artifact | None) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)
@@ -158,12 +162,14 @@ def get_proguard_output(
         ctx,
         input_jars_to_output_jars,
         proguard_configs,
-        additional_library_jars,
+        additional_jars,
         mapping,
         configuration,
         seeds,
         usage,
-        ctx.attrs._android_toolchain[AndroidToolchainInfo],
+        ctx.attrs.android_sdk_proguard_config,
+        sdk_proguard_config,
+        sdk_optimized_proguard_config,
     )
 
     command_line_args_file = ctx.actions.write("proguard/command-line.txt", command_line_args)
