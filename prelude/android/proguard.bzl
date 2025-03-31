@@ -133,7 +133,7 @@ def get_proguard_output(
         ctx: AnalysisContext,
         input_jars: dict[Artifact, TargetLabel],
         java_packaging_deps: list[JavaPackagingDep],
-        aapt_generated_proguard_config: Artifact | None,
+        additional_proguard_configs: list[Artifact],
         additional_jars: list[Artifact],
         sdk_proguard_config_mode: str | None,
         sdk_proguard_config: Artifact | None,
@@ -141,8 +141,7 @@ def get_proguard_output(
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)
-    if not ctx.attrs.ignore_aapt_proguard_config and aapt_generated_proguard_config:
-        proguard_configs.append(aapt_generated_proguard_config)
+    proguard_configs.extend(additional_proguard_configs)
 
     if ctx.attrs.skip_proguard:
         input_jars_to_output_jars = {input_jar: input_jar for input_jar in input_jars.keys()}
