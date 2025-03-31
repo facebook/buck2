@@ -249,25 +249,17 @@ def _generate_beam_artifacts(
         toolchain: Toolchain,
         build_environment: BuildEnvironment,
         name: str,
-        src_artifacts: list[Artifact],
-        output_mapping: [None, dict[Artifact, str]] = None) -> BuildEnvironment:
+        src_artifacts: list[Artifact]) -> BuildEnvironment:
     # anchor for ebin dir
     anchor = _make_dir_anchor(ctx, paths.join(_build_dir(toolchain), name, "ebin"))
 
-    # output artifacts
-    def output_path(src: Artifact) -> str:
-        if output_mapping:
-            return output_mapping[src]
-        else:
-            return beam_path(anchor, src.basename)
-
     beam_mapping = {
-        module_name(src): ctx.actions.declare_output(output_path(src))
+        module_name(src): ctx.actions.declare_output(beam_path(anchor, src.basename))
         for src in src_artifacts
     }
 
     # dep files
-    beam_deps = _get_deps_files(ctx, toolchain, anchor, src_artifacts, output_mapping)
+    beam_deps = _get_deps_files(ctx, toolchain, anchor, src_artifacts)
 
     updated_build_environment = BuildEnvironment(
         # updated fields
@@ -357,15 +349,10 @@ def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         anchor: Artifact,
-        srcs: list[Artifact],
-        output_mapping: [None, dict[Artifact, str]] = None) -> dict[str, Artifact]:
+        srcs: list[Artifact]) -> dict[str, Artifact]:
     """Mapping from the output path to the deps file artifact for each srcs artifact."""
-
-    def output_path(src: Artifact) -> str:
-        return output_mapping[src] if output_mapping else _deps_key(anchor, src)
-
     return {
-        output_path(src): _get_deps_file(ctx, toolchain, src)
+        _deps_key(anchor, src): _get_deps_file(ctx, toolchain, src)
         for src in srcs
     }
 
