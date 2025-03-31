@@ -23,7 +23,6 @@ load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_DEFAULT_PLATFORM", "CP
 load("@prelude//android:dex_rules.bzl", "get_multi_dex", "get_single_primary_dex", "get_split_dex_merge_config", "merge_to_single_dex", "merge_to_split_dex")
 load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
-load("@prelude//android:proguard.bzl", "get_proguard_output")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
 load(
@@ -34,6 +33,7 @@ load(
     "get_all_java_packaging_deps",
     "get_all_java_packaging_deps_from_packaging_infos",
 )
+load("@prelude//java:proguard.bzl", "get_proguard_output")
 load("@prelude//utils:expect.bzl", "expect")
 
 AndroidBinaryInfo = record(
