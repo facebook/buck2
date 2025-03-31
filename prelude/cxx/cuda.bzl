@@ -6,6 +6,8 @@
 # of this source tree.
 
 load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
+load("@prelude//cxx:compiler.bzl", "get_output_flags")
+load("@prelude//cxx:headers.bzl", "add_headers_dep_files")
 
 CudaCompileInfo = record(
     # Output base filename without extension
@@ -28,11 +30,23 @@ CudaCompileStyle = enum(
 def cuda_compile(
         ctx: AnalysisContext,
         cmd: cmd_args,
+        object: Artifact,
         src_compile_cmd: CxxSrcCompileCommand,
         cuda_compile_info: CudaCompileInfo,
         action_dep_files: dict[str, ArtifactTag],
         allow_dep_file_cache_upload: bool,
         error_handler_args: dict[str, [typing.Callable, None]]) -> Artifact | None:
+    cmd.add(get_output_flags(src_compile_cmd.cxx_compile_cmd.compiler_type, object))
+    headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
+    if headers_dep_files:
+        cmd = add_headers_dep_files(
+            ctx,
+            cmd,
+            headers_dep_files,
+            src_compile_cmd.src,
+            cuda_compile_info.filename,
+            action_dep_files,
+        )
     if ctx.attrs.cuda_compile_style == CudaCompileStyle("mono").value:
         ctx.actions.run(
             cmd,
