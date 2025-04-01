@@ -242,6 +242,10 @@ enum ErrorTag {
 
   // Dep only incompatible error
   DEP_ONLY_INCOMPATIBLE = 3002;
+  // Generic compatibility error tag
+  COMPATIBILITY_ERROR = 3003;
+  // target configuration is incompatible error
+  TARGET_INCOMPATIBLE = 3004;
 
   // Action execution
   DOWNLOAD_FILE_HEAD_REQUEST = 4001;

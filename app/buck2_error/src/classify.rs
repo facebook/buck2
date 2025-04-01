@@ -227,6 +227,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DaemonPreempted => rank!(input),
         ErrorTag::ConfigureAttr => rank!(input),
         ErrorTag::DepOnlyIncompatible => rank!(input),
+        ErrorTag::TargetIncompatible => rank!(input),
         ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
         ErrorTag::IoExecutableFileBusy => rank!(input),
         ErrorTag::IoStorageFull => rank!(input),
@@ -260,6 +261,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         // - A phase of the build.
         // By default these are generic (excluded from category keys)
         ErrorTag::ClientGrpc => rank!(unspecified),
+        ErrorTag::CompatibilityError => rank!(unspecified),
         ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
         ErrorTag::IoNotFound => rank!(unspecified),
