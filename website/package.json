@@ -18,7 +18,7 @@
     "write-heading-ids": "docusaurus write-heading-ids"
   },
   "dependencies": {
-    "@babel/traverse": "^7.23.2",
+    "@babel/traverse": "^7.27.0",
     "@docusaurus/core": "3.7.0",
     "@docusaurus/plugin-client-redirects": "3.7.0",
     "@docusaurus/plugin-google-gtag": "3.7.0",
