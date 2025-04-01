@@ -13,11 +13,11 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_common::file_ops::SimpleDirEntry;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_query::query::syntax::simple::eval::file_set::FileNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use derive_more::Display;
+use dice::SimpleDirEntry;
 use display_container::fmt_container;
 use gazebo::prelude::VecExt;
 use indexmap::IndexSet;

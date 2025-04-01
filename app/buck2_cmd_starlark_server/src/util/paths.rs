@@ -12,7 +12,6 @@ use std::ops::Deref;
 use async_recursion::async_recursion;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::dice::file_ops::DiceFileComputations;
-use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::io::IoProvider;
 use buck2_core::build_file_path::BuildFilePath;
@@ -26,6 +25,7 @@ use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceComputations;
+use dice::FileType;
 use dupe::Dupe;
 
 #[derive(Debug, buck2_error::Error)]

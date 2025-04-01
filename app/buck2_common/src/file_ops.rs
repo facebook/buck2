@@ -23,6 +23,8 @@ use buck2_core::fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
 use compact_str::CompactString;
 use derive_more::Display;
+use dice::FileType;
+use dice::SimpleDirEntry;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
@@ -41,53 +43,6 @@ pub(crate) enum FileOpsError {
     #[buck2(input)]
     #[buck2(tag = IoNotFound)]
     FileNotFound(String),
-}
-
-/// std::fs::FileType is an opaque type that isn't constructible. This is
-/// basically the equivalent.
-#[derive(Clone, Dupe, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
-pub enum FileType {
-    Directory,
-    File,
-    Symlink,
-    /// Some special files (for example, unix domain sockets) will have a
-    /// filetype that we don't recognize.
-    Unknown,
-}
-
-impl From<std::fs::FileType> for FileType {
-    fn from(fs_type: std::fs::FileType) -> Self {
-        if fs_type.is_file() {
-            FileType::File
-        } else if fs_type.is_dir() {
-            FileType::Directory
-        } else if fs_type.is_symlink() {
-            FileType::Symlink
-        } else {
-            FileType::Unknown
-        }
-    }
-}
-
-impl FileType {
-    pub fn is_dir(&self) -> bool {
-        matches!(self, FileType::Directory)
-    }
-
-    pub fn is_file(&self) -> bool {
-        matches!(self, FileType::File)
-    }
-
-    pub fn is_symlink(&self) -> bool {
-        matches!(self, FileType::Symlink)
-    }
-}
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
-pub struct SimpleDirEntry {
-    // Put the `file_name` first so we sort by it (which is what people expect)
-    pub file_name: FileNameBuf,
-    pub file_type: FileType,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
@@ -403,6 +358,8 @@ pub mod testing {
     use buck2_core::fs::paths::file_name::FileNameBuf;
     use cmp_any::PartialEqAny;
     use dice::testing::DiceBuilder;
+    use dice::FileType;
+    use dice::SimpleDirEntry;
     use dupe::Dupe;
     use itertools::Itertools;
 
@@ -415,12 +372,10 @@ pub mod testing {
     use crate::external_symlink::ExternalSymlink;
     use crate::file_ops::FileMetadata;
     use crate::file_ops::FileOps;
-    use crate::file_ops::FileType;
     use crate::file_ops::RawDirEntry;
     use crate::file_ops::RawPathMetadata;
     use crate::file_ops::RawSymlink;
     use crate::file_ops::ReadDirOutput;
-    use crate::file_ops::SimpleDirEntry;
     use crate::file_ops::TrackedFileDigest;
     use crate::ignores::file_ignores::FileIgnoreResult;
 

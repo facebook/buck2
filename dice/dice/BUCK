@@ -38,6 +38,7 @@ rust_library(
         "fbsource//third-party/rust:triomphe",
         "fbsource//third-party/rust:typed-arena",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_futures:buck2_futures",
         "//buck2/dice/dice_error:dice_error",
         "//buck2/gazebo/cmp_any:cmp_any",

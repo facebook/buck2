@@ -21,12 +21,12 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use dice::DiceComputations;
+use dice::FileType;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;
 
 use crate::dice::file_ops::DiceFileComputations;
-use crate::file_ops::FileType;
 use crate::file_ops::RawPathMetadata;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]

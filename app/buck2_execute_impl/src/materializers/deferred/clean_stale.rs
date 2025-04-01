@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use buck2_common::file_ops::FileType;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessGuard;
@@ -38,6 +37,7 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Utc;
 use derivative::Derivative;
+use dice::FileType;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::FutureExt;

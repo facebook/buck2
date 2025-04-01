@@ -26,6 +26,7 @@ use cmp_any::PartialEqAny;
 use derivative::Derivative;
 use dice::DiceComputations;
 use dice::Key;
+use dice::SimpleDirEntry;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
@@ -37,7 +38,6 @@ use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
-use crate::file_ops::SimpleDirEntry;
 use crate::ignores::all_cells::HasCellFileIgnores;
 use crate::ignores::file_ignores::CellFileIgnores;
 use crate::ignores::file_ignores::FileIgnoreResult;

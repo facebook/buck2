@@ -16,7 +16,6 @@ use std::sync::OnceLock;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::dice::file_ops::delegate::FileOpsDelegate;
 use buck2_common::file_ops::FileMetadata;
-use buck2_common::file_ops::FileType;
 use buck2_common::file_ops::RawDirEntry;
 use buck2_common::file_ops::RawPathMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
@@ -54,6 +53,7 @@ use buck2_external_cells_bundled::BundledFile;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::FileType;
 use dice::Key;
 
 fn load_nano_prelude() -> buck2_error::Result<BundledCell> {

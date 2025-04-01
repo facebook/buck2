@@ -217,6 +217,8 @@ pub use crate::api::dice::DiceDataBuilder;
 pub use crate::api::dyn_key::DynKey;
 pub use crate::api::events::DiceEvent;
 pub use crate::api::events::DiceEventListener;
+pub use crate::api::file_ops::FileType;
+pub use crate::api::file_ops::SimpleDirEntry;
 pub use crate::api::injected::InjectedKey;
 pub use crate::api::invalidation_tracking::DiceInvalidationPath;
 pub use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
