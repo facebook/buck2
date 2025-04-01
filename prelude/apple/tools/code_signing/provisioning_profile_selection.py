@@ -331,10 +331,10 @@ def select_best_provisioning_profile(
 
     result = (
         # If there are multiple matching profiles, pick the one with expiration date furthest in the future
-        sorted(
+        max(
             all_matching_selected_profile_infos,
             key=lambda profile_info: profile_info.profile.expiration_date,
-        )[-1]
+        )
         if all_matching_selected_profile_infos
         else None
     )
