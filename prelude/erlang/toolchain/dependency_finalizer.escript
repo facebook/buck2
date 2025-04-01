@@ -63,7 +63,7 @@ collect_dependencies([], _, _, Acc) ->
     Acc;
 collect_dependencies([Key | Rest], DepFiles, Visited, Acc) ->
     case DepFiles of
-        #{Key := #{<<"dep_file">> := DepFile}} ->
+        #{Key := DepFile} ->
             {ok, Dependencies} = read_file(DepFile),
             {NextKeys, NextVisited, NextAcc} =
                 collect_dependencies_for_key(Dependencies, Key, Rest, Visited, Acc),

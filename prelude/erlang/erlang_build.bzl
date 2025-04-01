@@ -135,7 +135,11 @@ def _prepare_build_environment(
         includes.update(dep_info.includes[toolchain.name])
 
         # collect deps_files
-        deps_files.update(dep_info.deps_files[toolchain.name])
+        new_deps = dep_info.deps_files[toolchain.name]
+        for dep_file in new_deps:
+            if dep_file in deps_files and deps_files[dep_file] != new_deps[dep_file]:
+                fail("conflicting artifact found in build {}: {} and {}".format(dep_info.name, deps_files[dep_file], new_deps[dep_file]))
+        deps_files.update(new_deps)
 
     return BuildEnvironment(
         app_includes = includes_target.includes[toolchain.name] if includes_target else {},
@@ -213,7 +217,7 @@ def _generate_include_artifacts(
     }
 
     # dep files
-    include_deps = _get_deps_files(ctx, toolchain, anchor, header_artifacts)
+    deps_files = _get_deps_files(ctx, toolchain, header_artifacts, build_environment.deps_files)
 
     # generate actions
     for hrl in header_artifacts:
@@ -241,7 +245,7 @@ def _generate_include_artifacts(
         private_includes = private_includes,
         include_dirs = include_dirs,
         private_include_dir = private_include_dir,
-        deps_files = _merge(include_deps, build_environment.deps_files),
+        deps_files = deps_files,
         app_includes = app_includes,
         # copied fields
         beams = build_environment.beams,
@@ -272,13 +276,13 @@ def _generate_beam_artifacts(
     }
 
     # dep files
-    beam_deps = _get_deps_files(ctx, toolchain, anchor, src_artifacts)
+    deps_files = _get_deps_files(ctx, toolchain, src_artifacts, build_environment.deps_files)
 
     updated_build_environment = BuildEnvironment(
         # updated fields
         beams = _merge(beam_mapping, build_environment.beams),
         ebin_dirs = _add(build_environment.ebin_dirs, name, anchor.artifact),
-        deps_files = _merge(beam_deps, build_environment.deps_files),
+        deps_files = deps_files,
         app_beams = beam_mapping,
         # copied fields
         includes = build_environment.includes,
@@ -292,25 +296,12 @@ def _generate_beam_artifacts(
         input_mapping = build_environment.input_mapping,
     )
 
-    dep_info_content = _build_dep_info_data(updated_build_environment)
-    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), dep_info_content)
+    dep_info_file = ctx.actions.write_json(_dep_info_name(toolchain), updated_build_environment.deps_files)
 
     for erl in src_artifacts:
         _build_erl(ctx, toolchain, updated_build_environment, dep_info_file, erl, beam_mapping[module_name(erl)])
 
     return updated_build_environment
-
-def _build_dep_info_data(build_environment: BuildEnvironment) -> dict[str, DepInfo]:
-    """build input for dependency finalizer, this implements uniqueness checks for headers and beams"""
-    data = {}
-    dep_files = build_environment.deps_files
-    for path in dep_files:
-        basename = paths.basename(path)
-        if basename in data:
-            fail("conflicting artifacts found in build: {} and {}".format(data[path].path, path))
-        else:
-            data[basename] = DepInfo(dep_file = dep_files[path], path = path)
-    return data
 
 def _generate_chunk_artifacts(
         ctx: AnalysisContext,
@@ -362,19 +353,30 @@ def _make_dir_anchor(ctx: AnalysisContext, path: str) -> Anchor:
 def _get_deps_files(
         ctx: AnalysisContext,
         toolchain: Toolchain,
-        anchor: Anchor,
-        srcs: list[Artifact]) -> dict[str, Artifact]:
-    """Mapping from the output path to the deps file artifact for each srcs artifact."""
-    return {
-        _deps_key(anchor, src): _get_deps_file(ctx, toolchain, src)
-        for src in srcs
-    }
+        srcs: list[Artifact],
+        deps_deps: PathArtifactMapping) -> PathArtifactMapping:
+    """Mapping from the output path to the deps file artifact for each srcs artifact and dependencies."""
 
-def _deps_key(anchor: Anchor, src: Artifact) -> str:
+    # Avoid copy, if we don't have any extra local files
+    if not srcs:
+        return deps_deps
+
+    deps = dict(deps_deps)
+
+    for src in srcs:
+        key = _deps_key(src)
+        file = _get_deps_file(ctx, toolchain, src)
+        if key in deps_deps and file != deps_deps[key]:
+            fail("conflicting artifact found in build: {} and {}".format(file, deps[key]))
+        deps[key] = file
+
+    return deps
+
+def _deps_key(src: Artifact) -> str:
     if _is_erl(src):
-        return beam_path(anchor, src)
+        return module_name(src) + ".beam"
     else:
-        return anchor_path(anchor, src.basename)
+        return src.basename
 
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
     dependency_json = ctx.actions.declare_output(_dep_file_name(toolchain, src))
