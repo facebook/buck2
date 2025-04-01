@@ -220,6 +220,16 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             )
             extensions[extension] = link_result.linked_object
 
+    # Add sub-target for extensions.
+    sub_targets["extensions"] = [
+        DefaultInfo(
+            sub_targets = {
+                name: [DefaultInfo(default_output = ext.output)]
+                for name, ext in extensions.items()
+            },
+        ),
+    ]
+
     if extensions:
         srcs.append(
             create_manifest_for_entries(
