@@ -40,6 +40,7 @@ def erlang_application(
         included_applications = [],
         extra_includes = [],
         labels = [],
+        includes = [],
         **kwargs):
     if read_root_config("erlang", "application_only_dependencies"):
         kwargs["shell_libs"] = []
@@ -56,6 +57,13 @@ def erlang_application(
     ]
 
     return [
+        erlang_app_includes_rule(
+            name = _extra_include_name(name),
+            app_name = name if app_name == None else app_name,
+            includes = includes,
+            visibility = kwargs.get("visibility", None),
+            labels = ["generated", "app_includes"],
+        ),
         erlang_app_rule(
             name = name,
             app_name = app_name,
@@ -65,15 +73,10 @@ def erlang_application(
                 _extra_include_name(dep)
                 for dep in extra_includes
             ],
+            includes = [],
+            includes_target = ":" + _extra_include_name(name),
             labels = labels,
             **kwargs
-        ),
-        erlang_app_includes_rule(
-            name = _extra_include_name(name),
-            app_name = name if app_name == None else app_name,
-            includes = kwargs.get("includes", []),
-            visibility = kwargs.get("visibility", None),
-            labels = ["generated", "app_includes"],
         ),
     ]
 

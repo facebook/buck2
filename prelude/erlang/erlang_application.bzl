@@ -123,7 +123,12 @@ def build_application(ctx, toolchains, dependencies) -> list[Provider]:
 def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, dependencies: ErlAppDependencies) -> BuildEnvironment:
     name = app_name(ctx)
 
-    build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies)
+    include_info = None
+    if ctx.attrs.includes_target:
+        if ctx.attrs.includes:
+            fail("cannot specify both includes and includes_target")
+        include_info = ctx.attrs.includes_target[ErlangAppIncludeInfo]
+    build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies, include_info)
 
     # build generated inputs
     generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain, name)
@@ -147,14 +152,16 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
 
     # build output artifacts
 
-    # public includes
-    build_environment = erlang_build.build_steps.generate_include_artifacts(
-        ctx,
-        toolchain,
-        build_environment,
-        name,
-        header_artifacts,
-    )
+    # public includes only triggered if this won't called from erlang_application macro
+    # and includes weren't redirected to the includes_target dependency
+    if not include_info:
+        build_environment = erlang_build.build_steps.generate_include_artifacts(
+            ctx,
+            toolchain,
+            build_environment,
+            name,
+            header_artifacts,
+        )
 
     # private includes
     build_environment = erlang_build.build_steps.generate_include_artifacts(

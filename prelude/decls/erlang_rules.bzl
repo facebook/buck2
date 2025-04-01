@@ -130,6 +130,9 @@ rules_attributes = {
         "includes": attrs.list(attrs.source(), default = [], doc = """
                 The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
             """),
+        "includes_target": attrs.option(attrs.dep(), default = None, doc = """
+                Internal, used by the `erlang_application` macro to link the proper application target and include_only targets.
+            """),
         "mod": attrs.option(attrs.tuple(attrs.string(), attrs.string()), default = None, doc = """
                 The `mod` field specifies the equivalent field in the generated `*.app` files. The format is similar, with the
                 difference, that the module name, and the individual start arguments need to be given as the string representation

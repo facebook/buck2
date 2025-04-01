@@ -71,7 +71,8 @@ Anchor = record(
 def _prepare_build_environment(
         ctx: AnalysisContext,
         toolchain: Toolchain,
-        dependencies: ErlAppDependencies) -> BuildEnvironment:
+        dependencies: ErlAppDependencies,
+        includes_target: [ErlangAppIncludeInfo, None] = None) -> BuildEnvironment:
     """Prepare build environment and collect the context from all dependencies."""
     priv_dirs = {}
     include_dirs = {}
@@ -82,6 +83,12 @@ def _prepare_build_environment(
     app_files = {}
     full_dependencies = []
     input_mapping = {}
+
+    if includes_target:
+        include_dirs = {includes_target.name: includes_target.include_dir[toolchain.name]}
+        includes = dict(includes_target.includes[toolchain.name])
+        deps_files = dict(includes_target.deps_files[toolchain.name])
+        input_mapping = dict(includes_target.input_mapping[toolchain.name])
 
     for name in dependencies:
         dep = dependencies[name]
@@ -131,6 +138,7 @@ def _prepare_build_environment(
         deps_files.update(dep_info.deps_files[toolchain.name])
 
     return BuildEnvironment(
+        app_includes = includes_target.includes[toolchain.name] if includes_target else {},
         includes = includes,
         beams = beams,
         priv_dirs = priv_dirs,
