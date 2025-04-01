@@ -862,6 +862,9 @@ def _peek_private_includes(
         build_environment: BuildEnvironment,
         dependencies: ErlAppDependencies,
         force_peek: bool = False) -> BuildEnvironment:
+    if not (force_peek or ctx.attrs.peek_private_includes):
+        return build_environment
+
     # get mutable dict for private includes
     new_private_includes = dict(build_environment.private_includes)
     new_private_include_dir = list(build_environment.private_include_dir)
@@ -870,28 +873,25 @@ def _peek_private_includes(
     for dep in dependencies.values():
         if ErlangAppInfo in dep:
             if dep[ErlangAppInfo].private_include_dir:
-                new_private_include_dir = new_private_include_dir + dep[ErlangAppInfo].private_include_dir[toolchain.name]
+                new_private_include_dir.extend(dep[ErlangAppInfo].private_include_dir[toolchain.name])
                 new_private_includes.update(dep[ErlangAppInfo].private_includes[toolchain.name])
-    if force_peek or ctx.attrs.peek_private_includes:
-        return BuildEnvironment(
-            private_includes = new_private_includes,
-            private_include_dir = new_private_include_dir,
-            # copied fields
-            includes = build_environment.includes,
-            beams = build_environment.beams,
-            priv_dirs = build_environment.priv_dirs,
-            include_dirs = build_environment.include_dirs,
-            ebin_dirs = build_environment.ebin_dirs,
-            deps_files = build_environment.deps_files,
-            app_files = build_environment.app_files,
-            full_dependencies = build_environment.full_dependencies,
-            app_includes = build_environment.app_includes,
-            app_beams = build_environment.app_beams,
-            app_chunks = build_environment.app_chunks,
-            input_mapping = build_environment.input_mapping,
-        )
-    else:
-        return build_environment
+    return BuildEnvironment(
+        private_includes = new_private_includes,
+        private_include_dir = new_private_include_dir,
+        # copied fields
+        includes = build_environment.includes,
+        beams = build_environment.beams,
+        priv_dirs = build_environment.priv_dirs,
+        include_dirs = build_environment.include_dirs,
+        ebin_dirs = build_environment.ebin_dirs,
+        deps_files = build_environment.deps_files,
+        app_files = build_environment.app_files,
+        full_dependencies = build_environment.full_dependencies,
+        app_includes = build_environment.app_includes,
+        app_beams = build_environment.app_beams,
+        app_chunks = build_environment.app_chunks,
+        input_mapping = build_environment.input_mapping,
+    )
 
 # export
 
