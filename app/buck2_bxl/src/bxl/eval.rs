@@ -12,6 +12,7 @@ use std::future::Future;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use allocative::Allocative;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_common::events::HasEvents;
@@ -65,6 +66,7 @@ use tokio::sync::Semaphore;
 use crate::bxl::key::BxlKey;
 use crate::bxl::starlark_defs::bxl_function::FrozenBxlFunction;
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
+use crate::bxl::starlark_defs::context::output::OutputStreamOutcome;
 use crate::bxl::starlark_defs::context::output::OutputStreamState;
 use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -97,11 +99,48 @@ impl LimitedExecutor {
     }
 }
 
+#[derive(Debug, buck2_error::Error, Allocative, Clone, Dupe)]
+#[error("{error}")]
+#[buck2(tag = Input)]
+pub(crate) struct BxlEvalError {
+    pub(crate) ouput_stream_state: Option<Arc<OutputStreamOutcome>>,
+    pub(crate) error: buck2_error::Error,
+}
+
+pub(crate) type Result<T> = std::result::Result<T, BxlEvalError>;
+
+impl From<buck2_error::Error> for BxlEvalError {
+    fn from(value: buck2_error::Error) -> Self {
+        Self {
+            ouput_stream_state: None,
+            error: value,
+        }
+    }
+}
+
+impl From<starlark::Error> for BxlEvalError {
+    fn from(value: starlark::Error) -> Self {
+        Self {
+            ouput_stream_state: None,
+            error: value.into(),
+        }
+    }
+}
+
+impl From<tokio::task::JoinError> for BxlEvalError {
+    fn from(value: tokio::task::JoinError) -> Self {
+        Self {
+            ouput_stream_state: None,
+            error: value.into(),
+        }
+    }
+}
+
 pub(crate) async fn eval(
     ctx: &mut DiceComputations<'_>,
     key: BxlKey,
     liveness: CancellationObserver,
-) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     // Note: because we use `block_in_place`, that will prevent the inner future from being polled
     // and yielded. So, for cancellation observers to work properly within the dice cancellable
     // future context, we need the future that it's attached to the cancellation context can
@@ -123,7 +162,7 @@ pub(crate) async fn eval(
         scope_and_collect_with_dice(ctx, |ctx, s| {
             s.spawn_cancellable(
                 limited_executor.execute(eval_bxl_inner(ctx, dispatcher, key, liveness)),
-                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
+                || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled").into()),
             )
         })
     }
@@ -148,7 +187,7 @@ impl BxlInnerEvaluator {
         self,
         provider: &mut dyn StarlarkEvaluatorProvider,
         dice: &'a mut DiceComputations,
-    ) -> buck2_error::Result<(FrozenModule, BxlResult)> {
+    ) -> Result<(FrozenModule, BxlResult)> {
         let BxlInnerEvaluator {
             data,
             module,
@@ -189,7 +228,7 @@ impl BxlInnerEvaluator {
             let bxl_ctx = BxlContext::new(
                 eval.heap(),
                 data,
-                stream_state,
+                stream_state.dupe(),
                 resolved_args,
                 bxl_dice,
                 digest_config,
@@ -217,6 +256,18 @@ impl BxlInnerEvaluator {
                         },
                     )
                 })
+            })
+            // When eval fails, we want to include the streaming cache file in Error, so
+            // that we can still print out the streaming content even if the bxl is cached.
+            .map_err(|e| match stream_state.take_state() {
+                Ok(stream_outcome) => BxlEvalError {
+                    ouput_stream_state: Some(Arc::new(stream_outcome)),
+                    error: e,
+                },
+                Err(_) => BxlEvalError {
+                    ouput_stream_state: None,
+                    error: e,
+                },
             })?;
 
             BxlContext::take_state(bxl_ctx)?
@@ -248,7 +299,7 @@ async fn eval_bxl_inner(
     dispatcher: EventDispatcher,
     key: BxlKey,
     liveness: CancellationObserver,
-) -> buck2_error::Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
+) -> Result<(BxlResult, Option<StarlarkProfileDataAndStats>)> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
         .await?;
@@ -273,16 +324,22 @@ async fn eval_bxl_inner(
 
     let eval_kind = key.as_starlark_eval_kind();
     let mut profiler = ctx.get_starlark_profiler(&eval_kind).await?;
-    let (frozen_module, bxl_result) = with_starlark_eval_provider(
+    let result = with_starlark_eval_provider(
         ctx,
         &mut profiler.as_mut(),
         &eval_kind,
-        move |provider, ctx| eval_ctx.do_eval(provider, ctx),
+        // the closure here need return a buck2_error::Result, so we need to wrap the bxl::eval::Result we get from `do_eval` into a buck2_error::Result
+        move |provider, ctx| Ok(eval_ctx.do_eval(provider, ctx)),
     )
-    .await?;
-
-    let profile_data = profiler.finish(Some(&frozen_module))?;
-    Ok((bxl_result, profile_data))
+    .await;
+    match result {
+        Ok(eval_result) => {
+            let (frozen_module, bxl_result) = eval_result?;
+            let profile_data = profiler.finish(Some(&frozen_module))?;
+            Ok((bxl_result, profile_data))
+        }
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn eval_bxl<'v>(

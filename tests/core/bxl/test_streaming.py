@@ -9,6 +9,7 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -189,3 +190,18 @@ async def test_streaming_output_json(buck: Buck) -> None:
 
     await check_output()
     await check_output()
+
+
+@buck_test()
+async def test_stream_output_fail(buck: Buck) -> None:
+    async def check() -> None:
+        await expect_failure(
+            buck.bxl(
+                "//streaming.bxl:stream_output_fail",
+            ),
+            stdout_regex="Streaming output",
+        )
+
+    await check()
+    # check when cached, streaming output is still printed
+    await check()

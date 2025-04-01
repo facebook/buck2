@@ -79,3 +79,12 @@ streaming_output_json = bxl_main(
     cli_args = {},
     impl = _streaming_output_json,
 )
+
+def _stream_output_fail(ctx: bxl.Context):
+    ctx.output.stream("Streaming output")
+    fail()
+
+stream_output_fail = bxl_main(
+    cli_args = {},
+    impl = _stream_output_fail,
+)

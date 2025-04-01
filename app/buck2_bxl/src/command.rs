@@ -62,6 +62,7 @@ use futures::StreamExt;
 use itertools::Itertools;
 use starlark_map::ordered_map::OrderedMap;
 
+use crate::bxl;
 use crate::bxl::calculation::eval_bxl;
 use crate::bxl::eval::get_bxl_callable;
 use crate::bxl::eval::resolve_cli_args;
@@ -144,16 +145,21 @@ impl BxlServerCommand {
             }
         };
 
-        let bxl_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await?;
+        let bxl_eval_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await;
 
         // If the bxl result is cached, we need to output the streaming outputs to stdout
-        let bxl_streaming_tracker = dice_ctx
-            .per_transaction_data()
-            .get_bxl_streaming_tracker()
-            .expect("BXL streaming tracker should be set");
-        if !bxl_streaming_tracker.was_called() {
-            stdout.write_all(bxl_result.streaming())?;
-        }
+        let bxl_result = match bxl_eval_result {
+            Ok(bxl_result) => {
+                self.emit_streaming_output(&mut dice_ctx, bxl_result.streaming(), &mut stdout)?;
+                bxl_result
+            }
+            Err(e) => {
+                if let Some(output) = &e.ouput_stream_state {
+                    self.emit_streaming_output(&mut dice_ctx, &output.streaming, &mut stdout)?;
+                }
+                return Err(e.error);
+            }
+        };
 
         let errors = self
             .materialize_artifacts(&mut dice_ctx, bxl_result.dupe(), &mut stdout)
@@ -247,7 +253,7 @@ impl BxlServerCommand {
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &mut DiceTransaction,
         bxl_args: Arc<OrderedMap<String, CliArgValue>>,
-    ) -> buck2_error::Result<Arc<BxlResult>> {
+    ) -> bxl::eval::Result<Arc<BxlResult>> {
         let bxl_key = BxlKey::new(
             ctx.bxl_label.clone(),
             bxl_args,
@@ -398,6 +404,26 @@ impl BxlServerCommand {
         stdout.write_all(bxl_result.output())?;
         server_ctx.stderr()?.write_all(bxl_result.error())?;
         Ok(())
+    }
+
+    /// Output streaming output to stdout if BxlKey is cached.
+    /// Note that when cached, we do not eval the bxl, so we don't get the streaming output in the bxl script.
+    fn emit_streaming_output(
+        &self,
+        dice_ctx: &mut DiceTransaction,
+        streaming_output: &[u8],
+        stdout: &mut impl Write,
+    ) -> buck2_error::Result<()> {
+        let bxl_streaming_tracker = dice_ctx
+            .per_transaction_data()
+            .get_bxl_streaming_tracker()
+            .expect("BXL streaming tracker should be set");
+        if !bxl_streaming_tracker.was_called() {
+            stdout.write_all(streaming_output)?;
+            Ok(())
+        } else {
+            Ok(())
+        }
     }
 
     async fn generate_build_report(

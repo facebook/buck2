@@ -112,6 +112,9 @@ pub(crate) struct OutputStreamState {
 
 /// Final result container for output stream processing.
 /// This structure is used to construct the final BxlResult.
+#[derive(Derivative, Display, Allocative, Clone)]
+#[display("{:?}", self)]
+#[derivative(Debug)]
 pub(crate) struct OutputStreamOutcome {
     /// set of artifacts that need to be materialized, flattened from
     /// the original EnsuredArtifactOrGroup entries.
@@ -667,11 +670,11 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// def _impl_print(ctx):
     ///     # Immediate output during evaluation
     ///     ctx.output.stream("Starting process...")
-    ///     
+    ///
     ///     # Output as soon as artifact is materialized
     ///     artifact = ctx.output.ensure(my_artifact)
     ///     ctx.output.stream("Artifact ready:", artifact, wait_on=[artifact])
-    ///     
+    ///
     ///     # Output when both artifacts are materialized
     ///     artifact1 = ctx.output.ensure(my_artifact1)
     ///     artifact2 = ctx.output.ensure(my_artifact2)
@@ -724,10 +727,10 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     /// def _impl_print_json(ctx):
     ///     outputs = {}
     ///     outputs.update({"foo": bar})
-    ///     
+    ///
     ///     # Stream JSON output immediately
     ///     ctx.output.stream_json({"status": "starting"})
-    ///     
+    ///
     ///     # Stream JSON when artifact is ready
     ///     artifact = ctx.output.ensure(my_artifact)
     ///     ctx.output.stream_json({"artifact": artifact}, wait_on=[artifact])
