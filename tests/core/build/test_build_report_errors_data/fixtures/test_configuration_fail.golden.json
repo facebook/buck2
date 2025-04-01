@@ -14,7 +14,7 @@
           "cause_index": 0,
           "error_tags": [
             "ANALYSIS",
-            "INPUT"
+            "MISSING_TARGET"
           ],
           "message_content": "<STRING_HASH>"
         }

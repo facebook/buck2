@@ -234,6 +234,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoPermissionDenied => rank!(input),
         ErrorTag::IoEdenMountDoesNotExist => rank!(input),
         ErrorTag::IoEdenFileNotFound => rank!(input), // user likely specified non-existing path
+        ErrorTag::MissingTarget => rank!(input),
         ErrorTag::ActionMissingOutputs => rank!(input),
         ErrorTag::ActionWrongOutputType => rank!(input),
         ErrorTag::ActionCommandFailure => rank!(input),

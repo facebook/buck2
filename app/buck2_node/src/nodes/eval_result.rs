@@ -39,7 +39,7 @@ use crate::super_package::SuperPackage;
     "Unknown target `{target}` from package `{package}`.\n\
 Did you mean one of the {num_targets} targets in {buildfile_path}?{similar_targets}"
 )]
-#[buck2(input)]
+#[buck2(tag = MissingTarget)]
 pub struct MissingTargetError {
     pub target: TargetName,
     pub package: PackageLabel,

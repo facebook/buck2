@@ -136,6 +136,8 @@ enum ErrorTag {
   CLEAN_INTERRUPT = 28;
   // Functionality not implemented in Buck2
   UNIMPLEMENTED = 29;
+  // Target specified is not found in the package/build file
+  MISSING_TARGET = 30;
 
   ACTION_MISMATCHED_OUTPUTS = 601;
   ACTION_MISSING_OUTPUTS = 602;

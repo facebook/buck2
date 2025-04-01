@@ -83,7 +83,7 @@
           "cause_index": 2,
           "error_tags": [
             "ANALYSIS",
-            "INPUT"
+            "MISSING_TARGET"
           ],
           "message_content": "<STRING_HASH>"
         }
@@ -117,7 +117,7 @@
           "action_error": null,
           "cause_index": 4,
           "error_tags": [
-            "INPUT"
+            "MISSING_TARGET"
           ],
           "message_content": "<STRING_HASH>"
         }
