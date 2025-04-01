@@ -331,6 +331,7 @@ def _python_executable_attrs():
             `string`s, or a further `string`-keyed dictionary.""",
         ),
         "native_link_strategy": attrs.option(attrs.enum(NativeLinkStrategy), default = None),
+        "opt_by_default_enabled": attrs.bool(default = False),
         "package_split_dwarf_dwp": attrs.bool(default = False),
         "par_style": attrs.option(attrs.string(), default = None),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
