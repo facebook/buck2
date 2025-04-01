@@ -103,7 +103,7 @@ impl<'v> Display for StarlarkAnonTarget<'v> {
     }
 }
 
-#[starlark_value(type = "anon_target", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "AnonTarget", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAnonTarget<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -196,7 +196,7 @@ impl<'v> Display for StarlarkAnonTargets<'v> {
     }
 }
 
-#[starlark_value(type = "anon_targets", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "AnonTargets", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAnonTargets<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
