@@ -61,6 +61,9 @@ pub enum TestStage {
     Testing {
         suite: String,
         testcases: Vec<String>,
+        // Allows differentiating between otherwise identical suites, e.g. a different
+        // way of running the same tests that may require more memory.
+        variant: Option<String>,
     },
 }
 
@@ -68,7 +71,9 @@ impl fmt::Display for TestStage {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
             TestStage::Listing { suite, .. } => write!(f, "Listing({})", suite),
-            TestStage::Testing { suite, testcases } => {
+            TestStage::Testing {
+                suite, testcases, ..
+            } => {
                 write!(f, "Testing({}:[{}])", suite, testcases.join(", "))
             }
         }

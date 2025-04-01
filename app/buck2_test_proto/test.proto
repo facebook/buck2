@@ -19,6 +19,7 @@ message Testing {
   // A name for the current suite.
   string suite = 1;
   repeated string testcases = 2;
+  optional string variant = 3;
 }
 
 message TestStage {

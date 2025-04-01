@@ -227,6 +227,7 @@ impl TestOrchestratorClient {
                 testing: Some(Testing {
                     suite,
                     testcases: tests,
+                    variant: None,
                 }),
             })
             .await?;
@@ -427,7 +428,9 @@ where
                 .try_into()
                 .context("Invalid `target`")?;
 
-            let Testing { suite, testcases } = testing.context("Missing `testing`")?;
+            let Testing {
+                suite, testcases, ..
+            } = testing.context("Missing `testing`")?;
 
             self.inner
                 .report_tests_discovered(target, suite, testcases)

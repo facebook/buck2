@@ -961,19 +961,9 @@ impl<'b> BuckTestOrchestrator<'b> {
         );
         let digest_config = dice.global_data().get_digest_config();
 
-        let mut action_key_suffix = match &stage {
-            TestStage::Listing { .. } => "listing".to_owned(),
-            TestStage::Testing { testcases, .. } => testcases.join(" "),
-        };
-        if action_key_suffix.len() > MAX_SUFFIX_LEN {
-            let truncated = "(truncated)";
-            action_key_suffix.truncate(MAX_SUFFIX_LEN - truncated.len());
-            action_key_suffix += truncated;
-        }
-
         let test_target = TestTarget {
             target: test_target_label.target(),
-            action_key_suffix,
+            action_key_suffix: create_action_key_suffix(&stage),
         };
 
         // For test execution, we currently do not do any cache queries
@@ -1054,7 +1044,9 @@ impl<'b> BuckTestOrchestrator<'b> {
                 }
                 result
             }
-            TestStage::Testing { suite, testcases } => {
+            TestStage::Testing {
+                suite, testcases, ..
+            } => {
                 let command = executor.exec_cmd(manager, &prepared_command, cancellation);
                 let test_suite = Some(TestSuite {
                     suite_name: suite.clone(),
@@ -2062,6 +2054,27 @@ async fn check_cache_listings_experiment(
     Ok(false)
 }
 
+fn create_action_key_suffix(stage: &TestStage) -> String {
+    let mut action_key_suffix = match &stage {
+        TestStage::Listing { .. } => "listing".to_owned(),
+        TestStage::Testing {
+            testcases, variant, ..
+        } => {
+            if let Some(variant) = variant {
+                format!("{} {}", variant, testcases.join(" "),)
+            } else {
+                testcases.join(" ")
+            }
+        }
+    };
+    if action_key_suffix.len() > MAX_SUFFIX_LEN {
+        let truncated = "(truncated)";
+        action_key_suffix.truncate(MAX_SUFFIX_LEN - truncated.len());
+        action_key_suffix += truncated;
+    }
+    action_key_suffix
+}
+
 #[derive(Debug)]
 struct LocalResourceTarget<'a> {
     target: &'a ConfiguredTargetLabel,
@@ -2135,6 +2148,7 @@ mod tests {
     use buck2_core::cells::CellResolver;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_test_api::data::TestStage;
     use buck2_test_api::data::TestStatus;
     use dice::testing::DiceBuilder;
     use dice::UserComputationData;
@@ -2297,5 +2311,47 @@ mod tests {
         drop(channel);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_listing() {
+        let stage = TestStage::Listing {
+            suite: "test_suite".to_owned(),
+            cacheable: true,
+        };
+        assert_eq!(create_action_key_suffix(&stage), "listing");
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_testing_no_variant() {
+        let stage = TestStage::Testing {
+            suite: "test_suite".to_owned(),
+            testcases: vec!["test1".to_owned(), "test2".to_owned()],
+            variant: None,
+        };
+        assert_eq!(create_action_key_suffix(&stage), "test1 test2");
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_testing_with_variant() {
+        let stage = TestStage::Testing {
+            suite: "test_suite".to_owned(),
+            testcases: vec!["test1".to_owned(), "test2".to_owned()],
+            variant: Some("variant1".to_owned()),
+        };
+        assert_eq!(create_action_key_suffix(&stage), "variant1 test1 test2");
+    }
+
+    #[test]
+    fn test_create_action_key_suffix_truncation() {
+        let long_testcase = "a".repeat(MAX_SUFFIX_LEN + 100);
+        let stage = TestStage::Testing {
+            suite: "test_suite".to_owned(),
+            testcases: vec![long_testcase],
+            variant: None,
+        };
+        let result = create_action_key_suffix(&stage);
+        assert_eq!(result.len(), MAX_SUFFIX_LEN);
+        assert!(result.ends_with("(truncated)"));
     }
 }
