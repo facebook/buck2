@@ -22,6 +22,6 @@ sealed interface KotlincMode {
       val kotlinSourceChanges: KotlinSourceChanges,
       val classpathChanges: ClasspathChanges,
       val kotlinClassUsageFile: AbsPath?,
-      val jvmAbiGenWorkingDir: AbsPath?
+      val rebuildReason: RebuildReason?
   ) : KotlincMode
 }

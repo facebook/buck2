@@ -11,6 +11,7 @@ package com.facebook.buck.jvm.kotlin;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -23,6 +24,7 @@ import com.facebook.buck.jvm.kotlin.abtesting.ExperimentConfig;
 import com.facebook.buck.jvm.kotlin.abtesting.ExperimentConfigService;
 import com.facebook.buck.jvm.kotlin.abtesting.ksic.KsicExperimentConstantsKt;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
+import com.facebook.buck.jvm.kotlin.kotlinc.incremental.RebuildReason;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -332,5 +334,123 @@ public class KotlincModeFactoryTest {
     String[] filesAfter = temporaryPaths.getRoot().resolve("incrementalStateDir").toFile().list();
     assertNotNull(filesAfter);
     assertEquals(0, filesAfter.length);
+  }
+
+  @Test
+  public void when_is_track_class_usage_disabled_then_does_not_require_rebuild()
+      throws IOException {
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir())
+        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
+
+    KotlincMode kotlincMode =
+        new KotlincModeFactory(experimentConfigService)
+            .create(
+                false,
+                absPath,
+                absPath,
+                false,
+                relPath,
+                mockKotlinExtraParams,
+                Optional.of(mockActionMetadata),
+                ImmutableList.of());
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+    assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
+  }
+
+  @Test
+  public void
+      when_is_track_class_usage_enabled_but_kotlinClassUsage_file_does_not_exist_then_requires_rebuild()
+          throws IOException {
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir())
+        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
+
+    KotlincMode kotlincMode =
+        new KotlincModeFactory(experimentConfigService)
+            .create(
+                false,
+                absPath,
+                absPath,
+                true,
+                RelPath.get("kotlin_used_classes.json"),
+                mockKotlinExtraParams,
+                Optional.of(mockActionMetadata),
+                ImmutableList.of());
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+    assertTrue(
+        ((KotlincMode.Incremental) kotlincMode).getRebuildReason()
+            instanceof RebuildReason.PreviousKotlinUsedClassesFileNotFound);
+  }
+
+  @Test
+  public void when_jvm_abi_gen_disabled_then_does_not_require_rebuild() throws IOException {
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldUseJvmAbiGen()).thenReturn(false);
+    when(mockKotlinExtraParams.getIncrementalStateDir())
+        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
+
+    KotlincMode kotlincMode =
+        new KotlincModeFactory(experimentConfigService)
+            .create(
+                false,
+                absPath,
+                absPath,
+                false,
+                relPath,
+                mockKotlinExtraParams,
+                Optional.of(mockActionMetadata),
+                ImmutableList.of());
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+    assertNull(((KotlincMode.Incremental) kotlincMode).getRebuildReason());
+  }
+
+  @Test
+  public void
+      when_jvm_abi_gen_enabled_but_jvmAbiGenWorkingDir_does_not_exist_then_requires_rebuild()
+          throws IOException {
+    when(mockKotlinExtraParams.getShouldKotlincRunViaBuildToolsApi()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldKotlincRunIncrementally()).thenReturn(true);
+    when(mockKotlinExtraParams.getShouldUseJvmAbiGen()).thenReturn(true);
+    when(mockKotlinExtraParams.getIncrementalStateDir())
+        .thenReturn(Optional.of(temporaryPaths.newFolder("incrementalStateDir")));
+    when(mockKotlinExtraParams.getJvmAbiGenWorkingDir())
+        .thenReturn(
+            Optional.of(
+                temporaryPaths
+                    .getRoot()
+                    .resolve("incrementalStateDir")
+                    .resolve("jvm_abi_gen_working_dir")));
+    when(mockKotlinExtraParams.getKotlincWorkingDir()).thenReturn(Optional.of(AbsPath.get("/")));
+    when(mockKotlinExtraParams.getShouldIncrementalKotlicRunQe()).thenReturn(false);
+
+    KotlincMode kotlincMode =
+        new KotlincModeFactory(experimentConfigService)
+            .create(
+                false,
+                absPath,
+                absPath,
+                false,
+                relPath,
+                mockKotlinExtraParams,
+                Optional.of(mockActionMetadata),
+                ImmutableList.of());
+
+    assertTrue(kotlincMode instanceof KotlincMode.Incremental);
+    assertTrue(
+        ((KotlincMode.Incremental) kotlincMode).getRebuildReason()
+            instanceof RebuildReason.JvmAbiGenWorkingDirNotFound);
   }
 }
