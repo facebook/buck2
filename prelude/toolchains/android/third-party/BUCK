@@ -52,13 +52,13 @@ buck_java_library(
         ":sdklib",
     ],
     exported_deps = [
-        ":common",
+        ":android-common",
         ":sdk-common",
     ],
 )
 
 third_party_jar(
-    name = "common",
+    name = "android-common",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/common:common",
     sha1 = "c3df7b51ee1a72acf051e0e5efbeb8023fb4ea57",
     url = "mvn:com.android.tools:common:jar:31.7.3",
@@ -90,7 +90,7 @@ third_party_jar(
     url = "mvn:com.android.tools.ddms:ddmlib:jar:31.7.3",
     visibility = ["PUBLIC"],
     deps = [
-        ":common",
+        ":android-common",
         ":guava",
         ":kxml2",
         ":protobuf",
