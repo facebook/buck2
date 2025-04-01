@@ -130,9 +130,6 @@ rules_attributes = {
         "includes": attrs.list(attrs.source(), default = [], doc = """
                 The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
             """),
-        "includes_target": attrs.option(attrs.dep(), default = None, doc = """
-                Internal, used by the `erlang_application` macro to link the proper application target and include_only targets.
-            """),
         "mod": attrs.option(attrs.tuple(attrs.string(), attrs.string()), default = None, doc = """
                 The `mod` field specifies the equivalent field in the generated `*.app` files. The format is similar, with the
                 difference, that the module name, and the individual start arguments need to be given as the string representation
@@ -165,6 +162,9 @@ rules_attributes = {
         "yrl_includefile": attrs.option(attrs.source(), default = None, doc = """
                 Customised prologue file to replace the default. See [`includefile` option](https://www.erlang.org/doc/apps/parsetools/yecc.html#file/2) for details.
         """),
+        "_includes_target": attrs.option(attrs.dep(), default = None, doc = """
+                Internal, used by the `erlang_application` macro to link the proper application target and include_only targets.
+            """),
     } | common_application_attributes,
     "erlang_app_includes": {
         "app_name": attrs.string(),

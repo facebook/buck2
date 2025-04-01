@@ -25,7 +25,10 @@ ErlangAppCommonFields = [
 
 # target type to break circular dependencies
 ErlangAppIncludeInfo = provider(
-    fields = ErlangAppCommonFields,
+    fields = ErlangAppCommonFields + [
+        # original inclues, used for validating _include_only app against the original
+        "_original_includes",
+    ],
 )
 
 ErlangAppInfo = provider(

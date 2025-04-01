@@ -47,6 +47,7 @@ def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
         include_dir = multidict_projection_key(build_environments, "include_dirs", name),
         deps_files = multidict_projection(build_environments, "deps_files"),
         input_mapping = multidict_projection(build_environments, "input_mapping"),
+        _original_includes = ctx.attrs.includes,
     )
 
     return [
