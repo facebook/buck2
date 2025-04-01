@@ -39,19 +39,14 @@ public class AppleInstallerMain {
     CmdLineParser parser = new CmdLineParser(options);
     try {
       parser.parseArgument(args);
-      installer.run(options, getLogger(options.getLogPath()));
+      Logger.getLogger("").addHandler(getFileHandler(options.getLogPath()));
+      installer.run(options);
       System.exit(0);
     } catch (CmdLineException e) {
       System.err.println(e.getMessage());
       parser.printUsage(System.err);
       System.exit(1);
     }
-  }
-
-  private static Logger getLogger(String logPath) throws IOException {
-    Logger logger = Logger.getLogger(AppleInstallerMain.class.getName());
-    logger.addHandler(getFileHandler(logPath));
-    return logger;
   }
 
   private static FileHandler getFileHandler(String logPath) throws IOException {
@@ -61,11 +56,10 @@ public class AppleInstallerMain {
     return fileHandler;
   }
 
-  private void run(AppleCommandLineOptions options, Logger logger)
-      throws IOException, InterruptedException {
-    AppleInstallerManager am = new AppleInstallerManager(logger, options);
+  private void run(AppleCommandLineOptions options) throws IOException, InterruptedException {
+    AppleInstallerManager am = new AppleInstallerManager(options);
     /** Starts the GRPC Server */
-    InstallerServer server = new InstallerServer(am, logger, options.getTcpPort());
+    InstallerServer server = new InstallerServer(am, options.getTcpPort());
     server.run();
   }
 }

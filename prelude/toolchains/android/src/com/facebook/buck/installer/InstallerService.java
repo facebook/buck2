@@ -83,16 +83,14 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
   private static final ListeningExecutorService LISTENING_EXECUTOR_SERVICE =
       MoreExecutors.listeningDecorator(THREAD_POOL);
 
+  private static final Logger LOG = Logger.getLogger(InstallerService.class.getName());
   private final InstallCommand installer;
   private final SettableFuture<Unit> installFinished;
-  private final Logger logger;
   private final Map<InstallId, Map<String, Optional<Path>>> installIdToFilesMap = new HashMap<>();
 
-  public InstallerService(
-      InstallCommand installer, SettableFuture<Unit> installFinished, Logger logger) {
+  public InstallerService(InstallCommand installer, SettableFuture<Unit> installFinished) {
     this.installer = installer;
     this.installFinished = installFinished;
-    this.logger = logger;
   }
 
   @Override
@@ -110,7 +108,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
   private InstallResponse handleInstallRequest(InstallInfoRequest request) {
     InstallId installId = InstallId.of(request.getInstallId());
     Map<String, String> filesMap = request.getFilesMap();
-    logger.info(
+    LOG.info(
         String.format(
             "Received install id: %s to files map request info: %s",
             installId.getValue(), filesMap));
@@ -139,7 +137,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
     InstallId installId = InstallId.of(request.getInstallId());
     String name = request.getName();
     String path = request.getPath();
-    logger.info(
+    LOG.info(
         String.format(
             "Received artifact %s located at %s for install id: %s",
             name, path, installId.getValue()));
@@ -198,7 +196,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
 
   private InstallResult fileReady(InstallId installId, Map<String, Path> filesMap)
       throws InterruptedException {
-    logger.info(String.format("Starting install for install id: %s", installId.getValue()));
+    LOG.info(String.format("Starting install for install id: %s", installId.getValue()));
 
     Set<InstallError> installErrors = new HashSet<>();
     CountDownLatch latch = new CountDownLatch(filesMap.size());
@@ -239,7 +237,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
     }
     InstallResult installResult =
         new InstallResult(deviceMetadata, mergeInstallErrors(installErrors));
-    logger.info("Install [" + installId.getValue() + "] finished with result: " + installResult);
+    LOG.info("Install [" + installId.getValue() + "] finished with result: " + installResult);
     return installResult;
   }
 
@@ -271,7 +269,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
       public void onSuccess(InstallResult installResult) {
         if (installResult.isError()) {
           InstallError installError = installResult.getInstallError();
-          logger.info(
+          LOG.info(
               String.format(
                   "Installation of file name: %s and path: %s failed with error: %s",
                   name, path, installError));
@@ -285,7 +283,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
       @Override
       public void onFailure(Throwable thrown) {
         String stackTraceAsString = Throwables.getStackTraceAsString(thrown);
-        logger.info(
+        LOG.info(
             String.format(
                 "Installation of file name: %s and path: %s failed with error: %s",
                 name, path, stackTraceAsString));
@@ -312,14 +310,14 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
   }
 
   private void handleShutdownServerRequest(StreamObserver<ShutdownResponse> responseObserver) {
-    logger.info("Received shutting down request");
+    LOG.info("Received shutting down request");
     responseObserver.onNext(ShutdownResponse.getDefaultInstance());
     responseObserver.onCompleted();
     installFinished.set(Unit.UNIT);
   }
 
   private void handleException(StreamObserver<?> responseObserver, Exception e) {
-    logger.log(Level.SEVERE, "Unexpected exception", e);
+    LOG.log(Level.SEVERE, "Unexpected exception", e);
     responseObserver.onError(
         io.grpc.Status.INTERNAL
             .withDescription("Unexpected exception: " + Throwables.getStackTraceAsString(e))
