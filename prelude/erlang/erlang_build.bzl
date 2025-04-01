@@ -519,14 +519,8 @@ def _build_edoc(
     args = _erlc_dependency_args(_dependency_include_dirs(build_environment), [], False)
     eval_cmd.add(args)
 
-    eval_cmd_hidden = []
-    for include in build_environment.includes.values():
-        eval_cmd_hidden.append(include)
-
-    for include in build_environment.private_includes.values():
-        eval_cmd_hidden.append(include)
-
-    eval_cmd.add(cmd_args(hidden = eval_cmd_hidden))
+    eval_cmd.add(cmd_args(hidden = build_environment.includes.values()))
+    eval_cmd.add(cmd_args(hidden = build_environment.private_includes.values()))
 
     _run_with_env(
         ctx,
@@ -602,28 +596,19 @@ def _dependencies_to_args(
     return cmd_args(hidden = args_hidden), input_mapping
 
 def _full_dependencies(build_environment: BuildEnvironment) -> cmd_args:
-    erlc_cmd_hidden = []
-    for artifact in build_environment.full_dependencies:
-        erlc_cmd_hidden.append(artifact)
-    return cmd_args(hidden = erlc_cmd_hidden)
+    return cmd_args(hidden = build_environment.full_dependencies)
 
 def _dependency_include_dirs(build_environment: BuildEnvironment) -> list[cmd_args]:
-    includes = [
-        cmd_args(include_dir_anchor, parent = 1)
-        for include_dir_anchor in build_environment.private_include_dir
+    private = build_environment.private_include_dir
+    public = build_environment.include_dirs.values()
+    return [
+        cmd_args(private, parent = 1),
+        cmd_args(public, parent = 1),
+        cmd_args(public, parent = 3),
     ]
-
-    for include_dir_anchor in build_environment.include_dirs.values():
-        includes.append(cmd_args(include_dir_anchor, parent = 3))
-        includes.append(cmd_args(include_dir_anchor, parent = 1))
-
-    return includes
 
 def _dependency_code_paths(build_environment: BuildEnvironment) -> list[cmd_args]:
-    return [
-        cmd_args(ebin_dir_anchor, parent = 1)
-        for ebin_dir_anchor in build_environment.ebin_dirs.values()
-    ]
+    return [cmd_args(build_environment.ebin_dirs.values(), parent = 1)]
 
 def _erlc_dependency_args(
         includes: list[cmd_args],
@@ -638,21 +623,15 @@ def _erlc_dependency_args(
 
     # build -I options
     if path_in_arg:
-        for include in includes:
-            args.add(cmd_args(include, format = "-I{}"))
+        args.add(cmd_args(includes, format = "-I{}"))
     else:
-        for include in includes:
-            args.add("-I")
-            args.add(include)
+        args.add(cmd_args(includes, prepend = "-I"))
 
     # build -pa options
     if path_in_arg:
-        for code_path in code_paths:
-            args.add(cmd_args(code_path, format = "-pa{}"))
+        args.add(cmd_args(code_paths, format = "-pa{}"))
     else:
-        for code_path in code_paths:
-            args.add("-pa")
-            args.add(code_path)
+        args.add(cmd_args(code_paths, prepend = "-pa"))
 
     return args
 
