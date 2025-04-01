@@ -384,9 +384,10 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
-    nvcc_dryrun = None
+    dist_nvcc_dag = None
+    dist_nvcc_env = None
     if src_compile_cmd.src.extension == ".cu":
-        nvcc_dryrun = cuda_compile(
+        cuda_compile_output = cuda_compile(
             ctx,
             cmd,
             object,
@@ -396,6 +397,8 @@ def _compile_single_cxx(
             allow_dep_file_cache_upload = False,
             error_handler_args = error_handler_args,
         )
+        if cuda_compile_output:
+            dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
     else:
         ctx.actions.run(
             cmd,
@@ -517,7 +520,8 @@ def _compile_single_cxx(
         assembly = assembly,
         diagnostics = diagnostics,
         preproc = preproc,
-        nvcc_dryrun = nvcc_dryrun,
+        nvcc_dag = dist_nvcc_dag,
+        nvcc_env = dist_nvcc_env,
     )
 
 def _get_base_compile_cmd(
@@ -870,8 +874,10 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
         if obj.preproc:
             sub_targets["preprocessed"] = [DefaultInfo(obj.preproc)]
-        if obj.nvcc_dryrun:
-            sub_targets["nvcc-dryrun"] = [DefaultInfo(obj.nvcc_dryrun)]
+        if obj.nvcc_dag:
+            sub_targets["nvcc-dag"] = [DefaultInfo(obj.nvcc_dag)]
+        if obj.nvcc_env:
+            sub_targets["nvcc-env"] = [DefaultInfo(obj.nvcc_env)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,
