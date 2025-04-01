@@ -623,7 +623,7 @@ impl DaemonState {
                     static_metadata.respect_file_symlinks
                 ),
                 format!(
-                    "disable-eager-write-dispatch:{}",
+                    "disable-eager-write-dispatch-v2:{}",
                     disable_eager_write_dispatch,
                 ),
             ];
