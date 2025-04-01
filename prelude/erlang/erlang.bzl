@@ -73,7 +73,7 @@ def erlang_application(
                 _extra_include_name(dep)
                 for dep in extra_includes
             ],
-            includes = [],
+            includes = includes,
             includes_target = ":" + _extra_include_name(name),
             labels = labels,
             **kwargs

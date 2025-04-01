@@ -125,8 +125,6 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
 
     include_info = None
     if ctx.attrs.includes_target:
-        if ctx.attrs.includes:
-            fail("cannot specify both includes and includes_target")
         include_info = ctx.attrs.includes_target[ErlangAppIncludeInfo]
     build_environment = erlang_build.prepare_build_environment(ctx, toolchain, dependencies, include_info)
 
@@ -140,14 +138,16 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
         if erlang_build.utils.is_erl(src) and erlang_build.utils.module_name(src) not in generated_source_artifacts
     ] + generated_source_artifacts.values()
 
-    header_artifacts = ctx.attrs.includes
-
     private_header_artifacts = [header for header in ctx.attrs.srcs if erlang_build.utils.is_hrl(header)]
 
     # build input mapping
+    sources = src_artifacts + private_header_artifacts
+    if not include_info:
+        sources.extend(ctx.attrs.includes)
+
     build_environment = erlang_build.build_steps.generate_input_mapping(
         build_environment,
-        src_artifacts + header_artifacts + private_header_artifacts,
+        sources,
     )
 
     # build output artifacts
@@ -160,7 +160,7 @@ def _build_erlang_application(ctx: AnalysisContext, toolchain: Toolchain, depend
             toolchain,
             build_environment,
             name,
-            header_artifacts,
+            ctx.attrs.includes,
         )
 
     # private includes
