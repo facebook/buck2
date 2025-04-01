@@ -75,8 +75,7 @@ public class KotlinClassUsageHelper {
    * output in the desired format since beginning.
    */
   @VisibleForTesting
-  static ImmutableMap<Path, Map<Path, Integer>> readJsonBasedClassUsageReport(Path path)
-      throws IOException {
+  static ImmutableMap<Path, Set<Path>> readJsonBasedClassUsageReport(Path path) throws IOException {
     if (!Files.exists(path)) {
       return ImmutableMap.of();
     }

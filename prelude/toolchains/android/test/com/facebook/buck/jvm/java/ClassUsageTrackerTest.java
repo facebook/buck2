@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.Set;
 import javax.tools.FileObject;
 import javax.tools.JavaFileObject;
@@ -282,7 +281,6 @@ public class ClassUsageTrackerTest {
 
     javaFileObject.openReader(false);
     javaFileObject.openReader(false);
-    assertFileWasReadWithCount(TEST_JAR_PATH, SINGLE_FILE_NAME, 2);
   }
 
   @Test
@@ -342,22 +340,16 @@ public class ClassUsageTrackerTest {
   }
 
   private boolean fileWasRead(Path jarPath, String fileName) {
-    ImmutableMap<Path, Map<Path, Integer>> classUsageMap = tracker.getClassUsageMap();
-    Set<Path> paths = classUsageMap.get(jarPath).keySet();
+    ImmutableMap<Path, Set<Path>> classUsageMap = tracker.getClassUsageMap();
+    Set<Path> paths = classUsageMap.get(jarPath);
 
     return paths.contains(Paths.get(fileName));
   }
 
-  private void assertFileWasReadWithCount(Path jarPath, String fileName, int count) {
-    ImmutableMap<Path, Map<Path, Integer>> classUsageMap = tracker.getClassUsageMap();
-
-    assertEquals(Integer.valueOf(count), classUsageMap.get(jarPath).get(Paths.get(fileName)));
-  }
-
   private void assertFilesRead(Path jarPath, String... files) {
-    ImmutableMap<Path, Map<Path, Integer>> classUsageMap = tracker.getClassUsageMap();
+    ImmutableMap<Path, Set<Path>> classUsageMap = tracker.getClassUsageMap();
 
-    Set<Path> paths = classUsageMap.get(jarPath).keySet();
+    Set<Path> paths = classUsageMap.get(jarPath);
 
     assertEquals(files.length, paths.size());
 

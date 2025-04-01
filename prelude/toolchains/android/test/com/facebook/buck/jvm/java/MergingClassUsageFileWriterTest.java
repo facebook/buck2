@@ -102,7 +102,7 @@ public class MergingClassUsageFileWriterTest {
   }
 
   private static String getDefaultJsonContent() {
-    return "\"default.jar\":{\"A\":1,\"B\":1,\"C\":1,\"D\":1,\"E\":1,\"F\":1,\"HTML\":1,\"NonJava\":1,\"OTHER\":1,\"SOURCE\":1},"
-               + "\"test.jar\":{\"A\":1,\"B\":1,\"C\":1,\"D\":1,\"E\":1,\"F\":1}";
+    return "\"default.jar\":[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\",\"HTML\",\"NonJava\",\"OTHER\",\"SOURCE\"],"
+               + "\"test.jar\":[\"A\",\"B\",\"C\",\"D\",\"E\",\"F\"]";
   }
 }
