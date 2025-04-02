@@ -17,17 +17,18 @@ import java.nio.file.Path
 
 class AndroidDeviceFactoryImpl : AndroidDeviceFactory {
   override fun createAndroidDevice(
-      androidInstallPrinter: AndroidInstallPrinter,
+      androidInstallPrinter: AndroidInstallPrinter?,
       device: IDevice,
-      console: Console,
+      console: Console?,
       agentApkPath: Path?,
       agentPort: Int,
       isZstdCompressionEnabled: Boolean,
       maxRetries: Int,
-      retryDelayMs: Long
-  ): AndroidDevice {
+      retryDelayMs: Long,
+      adbExecutable: String?
+  ): AndroidDevice? {
     LOG.info("Creating AndroidDeviceImpl for %s", device.serialNumber)
-    return AndroidDeviceImpl(device.serialNumber)
+    return AndroidDeviceImpl(device.serialNumber, adbExecutable)
   }
 
   companion object {

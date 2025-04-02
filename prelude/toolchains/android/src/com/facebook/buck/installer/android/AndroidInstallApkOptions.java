@@ -21,13 +21,14 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.logging.Logger;
 
 /**
  * Constructs configurations for an android install that are set in install_android_options.json and
  * sent to the AndroidInstaller
  */
 public class AndroidInstallApkOptions {
-
+  private static final Logger LOG = Logger.getLogger(AndroidInstallApkOptions.class.getName());
   public final String adbExecutable;
   public final boolean restartAdbOnFailure;
   public final boolean stagedInstallMode;
@@ -65,13 +66,18 @@ public class AndroidInstallApkOptions {
     return Integer.parseInt(readValue);
   }
 
+  /*
+   * Here is the order of precedence for adb_executable:
+   * 1. adb_executable from json artifact
+   * 2. adb from PATH
+   * 3. /opt/android_sdk/platform-tools/adb
+   */
   private String getAdbExecutable(Map<String, String> jsonData) {
-    String adbExecutableFromJsonArtifact = jsonData.get("adb_executable");
-    if (adbExecutableFromJsonArtifact != null) {
-      return adbExecutableFromJsonArtifact;
-    }
-
-    return getAdbFromPath().orElse("/opt/android_sdk/platform-tools/adb");
+    String adbExecutable =
+        Optional.ofNullable(jsonData.get("adb_executable"))
+            .orElse(getAdbFromPath().orElse("/opt/android_sdk/platform-tools/adb"));
+    LOG.info("adbExecutable: " + adbExecutable);
+    return adbExecutable;
   }
 
   private Optional<String> getAdbFromPath() {
@@ -87,7 +93,31 @@ public class AndroidInstallApkOptions {
         }
       }
     }
-
     return Optional.empty();
+  }
+
+  @Override
+  public String toString() {
+    return "AndroidInstallApkOptions{"
+        + "adbExecutable='"
+        + adbExecutable
+        + '\''
+        + ", restartAdbOnFailure="
+        + restartAdbOnFailure
+        + ", stagedInstallMode="
+        + stagedInstallMode
+        + ", skipInstallMetadata="
+        + skipInstallMetadata
+        + ", isZstdCompressionEnabled="
+        + isZstdCompressionEnabled
+        + ", agentPortBase="
+        + agentPortBase
+        + ", adbMaxRetries="
+        + adbMaxRetries
+        + ", adbRetryDelayMs="
+        + adbRetryDelayMs
+        + ", apexMode="
+        + apexMode
+        + '}';
   }
 }

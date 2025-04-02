@@ -9,6 +9,7 @@
 
 package com.facebook.buck.android.exopackage
 
+import com.facebook.buck.core.util.log.Logger
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
@@ -21,7 +22,8 @@ enum class SetDebugAppMode {
   SET
 }
 
-object AdbUtils {
+class AdbUtils(val adb: String) {
+
   fun executeAdbShellCommand(command: String, deviceId: String): String {
     return executeAdbCommand("shell $command", deviceId)
   }
@@ -44,7 +46,8 @@ object AdbUtils {
   }
 
   private fun runAdbCommand(input: String): AdbCommandResult {
-    val command = "adb $input"
+    val command = "$adb $input"
+    LOG.info("Running command: $command")
     val processBuilder = ProcessBuilder(*command.split(" ").toTypedArray())
     val process = processBuilder.start()
     val output = StringBuilder()
@@ -80,5 +83,9 @@ object AdbUtils {
     // debugging later after disconnecting the device and relaunching), and set
     // `Settings.Global.DEBUG_APP`. See: https://developer.android.com/studio/command-line/adb#am
     return "am set-debug-app --persistent $packageName "
+  }
+
+  companion object {
+    val LOG: Logger = Logger.get(AdbUtils::class.java.name)
   }
 }

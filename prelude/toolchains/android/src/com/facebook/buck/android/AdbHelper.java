@@ -688,7 +688,8 @@ public class AdbHelper implements AndroidDevicesHelper {
             nextAgentPort.getAndIncrement(),
             isZstdCompressionEnabled,
             maxRetries,
-            retryDelayMs);
+            retryDelayMs,
+            adbExecutable.orElse(null));
   }
 
   @VisibleForTesting

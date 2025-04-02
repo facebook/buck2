@@ -13,16 +13,18 @@ import com.android.ddmlib.IDevice;
 import com.facebook.buck.android.AndroidInstallPrinter;
 import com.facebook.buck.util.Console;
 import java.nio.file.Path;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public interface AndroidDeviceFactory {
   AndroidDevice createAndroidDevice(
       AndroidInstallPrinter androidInstallPrinter,
-      IDevice device,
+      @Nonnull IDevice device,
       Console console,
       @Nullable Path agentApkPath,
       int agentPort,
       boolean isZstdCompressionEnabled,
       int maxRetries,
-      long retryDelayMs);
+      long retryDelayMs,
+      String adbExecutable);
 }
