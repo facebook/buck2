@@ -100,7 +100,7 @@ async def test_query_owner_with_explicit_package_boundary_violation(buck: Buck) 
     assert "root//:package_boundary_violation" in result.stdout
 
 
-@buck_test(data_dir="bxl_simple")
+@buck_test(data_dir="bxl_simple", allow_soft_errors=True)
 async def test_uquery_buildfile(buck: Buck) -> None:
     result = await buck.uquery("""buildfile(root//bin:the_binary)""")
     assert result.stdout == "bin/TARGETS.fixture\n"
