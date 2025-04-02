@@ -103,6 +103,7 @@ impl StreamingCommand for RunCommand {
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
+        let has_target_universe = !self.target_cfg.target_universe.is_empty();
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
         let response = buckd
             .with_flushing()
@@ -148,6 +149,12 @@ impl StreamingCommand for RunCommand {
 
         if response.build_targets.len() > 1 {
             return ExitResult::err(RunCommandError::MultipleTargets.into());
+        }
+
+        if has_target_universe && response.build_targets.is_empty() {
+            return ExitResult::err(
+                RunCommandError::TargetNotFoundInTargetUniverse(self.target).into(),
+            );
         }
 
         // TODO(rafaelc): use absolute paths for artifacts in the cli
@@ -258,4 +265,6 @@ pub enum RunCommandError {
     EmitShellNotSupportedOnWindows,
     #[error("`buck2 run` only supports a single target, but multiple targets were requested.")]
     MultipleTargets,
+    #[error("Target `{0}` is not found in the specified target universe")]
+    TargetNotFoundInTargetUniverse(String),
 }

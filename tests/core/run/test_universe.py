@@ -58,6 +58,5 @@ async def test_run_target_not_in_universe(buck: Buck) -> None:
             "--target-universe",
             "root//:print_animal_goodbye",
         ),
-        # TODO(ianc) This error message is not helpful, fix it.
-        stderr_regex=r"Target `root//:print_animal_hello` is not a binary rule \(only binary rules can be `run`\)",
+        stderr_regex="Target `root//:print_animal_hello` is not found in the specified target universe",
     )
