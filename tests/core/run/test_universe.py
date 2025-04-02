@@ -9,6 +9,7 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -47,3 +48,16 @@ async def test_run_with_transition_with_target_universe(buck: Buck) -> None:
     # The transition (deliberately) loses the configuration so that we get the
     # DEFAULT 'hello buck' from the select in the target definition.
     assert result.stdout.strip() == "hello buck"
+
+
+@buck_test()
+async def test_run_target_not_in_universe(buck: Buck) -> None:
+    await expect_failure(
+        buck.run(
+            "root//:print_animal_hello",
+            "--target-universe",
+            "root//:print_animal_goodbye",
+        ),
+        # TODO(ianc) This error message is not helpful, fix it.
+        stderr_regex=r"Target `root//:print_animal_hello` is not a binary rule \(only binary rules can be `run`\)",
+    )

@@ -9,6 +9,15 @@ run_python(
     default_target_platform = ":p_default",
 )
 
+run_python(
+    name = "print_animal_goodbye",
+    script = select({
+        ":cat": 'print("goodbye cat")',
+        "DEFAULT": 'print("goodbye dog")',
+    }),
+    default_target_platform = ":p_default",
+)
+
 stub(
     name = "cat_universe",
     deps = [":print_animal_hello"],
