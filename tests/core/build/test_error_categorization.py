@@ -442,5 +442,7 @@ async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
     record = read_invocation_record(record_path)
     errors = record["errors"]
 
-    # TODO(minglunli): This is wrong, error is written to stderr but not to scuba
-    assert len(errors) == 0
+    assert len(errors) == 1
+    [error] = errors
+
+    assert "Injected client streaming error" in error["message"]

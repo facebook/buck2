@@ -879,10 +879,6 @@ impl InvocationRecorder {
         command: &buck2_data::CommandEnd,
         event: &BuckEvent,
     ) -> buck2_error::Result<()> {
-        let mut command = command.clone();
-        self.command_errors
-            .extend(std::mem::take(&mut command.errors));
-
         // Awkwardly unpacks the SpanEnd event so we can read its duration.
         let command_end = match event.data() {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
@@ -920,7 +916,7 @@ impl InvocationRecorder {
         self.min_attempted_build_count_since_rebase = build_count.attempted_build_count;
         self.min_build_count_since_rebase = build_count.successful_build_count;
 
-        self.command_end = Some(command);
+        self.command_end = Some(command.clone());
         Ok(())
     }
     fn handle_command_critical_start(
@@ -1722,11 +1718,19 @@ impl EventSubscriber for InvocationRecorder {
                             .unwrap_or_else(|| "NULL".to_owned())
                     }));
                 self.target_rule_type_names = built_rule_type_names;
+                self.command_errors.extend(res.errors.clone())
             }
             Some(command_result::Result::TestResponse(res)) => {
                 let built_rule_type_names: Vec<String> =
                     unique_and_sorted(res.target_rule_type_names.clone().into_iter());
                 self.target_rule_type_names = built_rule_type_names;
+                self.command_errors.extend(res.errors.clone())
+            }
+            Some(command_result::Result::BxlResponse(res)) => {
+                self.command_errors.extend(res.errors.clone())
+            }
+            Some(command_result::Result::Error(buck2_cli_proto::CommandError { errors })) => {
+                self.command_errors.extend(errors.clone());
             }
             _ => {}
         }
