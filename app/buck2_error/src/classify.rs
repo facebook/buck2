@@ -180,6 +180,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReCasArtifactGetDigestExpirationError => rank!(tier0),
         ErrorTag::ReCasArtifactInvalidExpiration => rank!(tier0),
 
+        ErrorTag::SuperConsoleInvalidWhitespace => rank!(tier0),
         ErrorTag::IoConnectionAborted => rank!(tier0),
         ErrorTag::IoTimeout => rank!(tier0),
         ErrorTag::IoEdenMountNotReady => rank!(tier0),

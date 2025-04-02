@@ -22,7 +22,6 @@ pub(crate) struct CommandsComponent<'a> {
 impl<'a> Component for CommandsComponent<'a> {
     fn draw_unchecked(
         &self,
-
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
     ) -> anyhow::Result<superconsole::Lines> {

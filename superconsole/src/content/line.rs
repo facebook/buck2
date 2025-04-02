@@ -24,6 +24,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::vec_as_fmt_write::VecAsFmtWrite;
 use crate::Span;
+use crate::SpanError;
 
 /// A `Line` is an abstraction for a collection of stylized or unstylized strings.
 /// Since each `Span` denotes a portion of a single line, an ordered collection represents a single line of text.
@@ -36,7 +37,7 @@ pub struct Line(
 );
 
 impl Line {
-    pub fn unstyled(text: &str) -> anyhow::Result<Line> {
+    pub fn unstyled(text: &str) -> Result<Line, SpanError> {
         Ok(Line::from_iter([Span::new_unstyled(text)?]))
     }
 
@@ -240,24 +241,24 @@ impl FromIterator<Span> for Line {
 }
 
 impl TryFrom<Vec<String>> for Line {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(other: Vec<String>) -> Result<Self, Self::Error> {
         other
             .into_iter()
             .map(Span::new_unstyled)
-            .collect::<anyhow::Result<Line>>()
+            .collect::<Result<Line, SpanError>>()
     }
 }
 
 impl TryFrom<Vec<&str>> for Line {
-    type Error = anyhow::Error;
+    type Error = SpanError;
 
     fn try_from(other: Vec<&str>) -> Result<Self, Self::Error> {
         other
             .into_iter()
             .map(Span::new_unstyled)
-            .collect::<anyhow::Result<Line>>()
+            .collect::<Result<Line, SpanError>>()
     }
 }
 
@@ -360,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_trim_ends() -> anyhow::Result<()> {
-        let line = |spans: &[&str]| -> anyhow::Result<Line> { spans.to_vec().try_into() };
+        let line = |spans: &[&str]| -> Result<Line, SpanError> { spans.to_vec().try_into() };
         let mut test = line(&["hello", "cat", "world"])?;
         test.trim_ends(0, 15);
         assert_eq!(test, line(&["hello", "cat", "world"])?);

@@ -263,4 +263,6 @@ enum ErrorTag {
 
   // Build errors.
   BUILD_DEADLINE_EXPIRED = 7001;
+
+  SUPER_CONSOLE_INVALID_WHITESPACE = 8001;
 }

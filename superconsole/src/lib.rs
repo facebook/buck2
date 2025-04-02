@@ -29,6 +29,7 @@ pub use components::DrawMode;
 pub use content::Line;
 pub use content::Lines;
 pub use content::Span;
+pub use content::SpanError;
 pub use dimensions::Dimensions;
 pub use dimensions::Direction;
 

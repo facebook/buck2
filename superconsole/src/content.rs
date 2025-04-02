@@ -12,6 +12,7 @@
 pub use line::Line;
 pub use lines::Lines;
 pub use span::Span;
+pub use span::SpanError;
 
 mod line;
 mod lines;

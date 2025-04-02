@@ -25,6 +25,7 @@ pub mod report;
 pub mod rusqlite;
 pub mod serde_json;
 pub mod stds;
+pub mod superconsole;
 pub mod tokio;
 pub mod tonic;
 pub mod uuid;

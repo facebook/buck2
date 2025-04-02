@@ -8,7 +8,6 @@
  */
 
 use buck2_data::Snapshot;
-use buck2_error::conversion::from_any_with_tag;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
@@ -125,9 +124,7 @@ impl ReState {
             "{name:<20}: \
             {stat:>5} bytes"
         );
-        Ok(Some(Line::unstyled(&line).map_err(|e| {
-            from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
-        })?))
+        Ok(Some(Line::unstyled(&line)?))
     }
 
     fn render_detailed_items(
@@ -149,9 +146,7 @@ impl ReState {
             {finished_successfully:>5} success, \
             {finished_with_error:>5} error"
         );
-        Ok(Some(Line::unstyled(&line).map_err(|e| {
-            from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
-        })?))
+        Ok(Some(Line::unstyled(&line)?))
     }
 
     fn render_local_cache_stat(
@@ -172,9 +167,7 @@ impl ReState {
             HumanizedBytes::new(misses_bytes as u64),
             misses_files,
         );
-        Ok(Some(Line::unstyled(&line).map_err(|e| {
-            from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
-        })?))
+        Ok(Some(Line::unstyled(&line)?))
     }
 
     fn render_detailed(&self, two_snapshots: &TwoSnapshots) -> buck2_error::Result<Vec<Line>> {
@@ -249,10 +242,7 @@ impl ReState {
             Some(header) => header,
             None => return Ok(Lines::new()),
         };
-        let mut lines = vec![
-            Line::unstyled(&header)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
-        ];
+        let mut lines = vec![Line::unstyled(&header)?];
         if detailed {
             lines.extend(self.render_detailed(two_snapshots)?);
         }
