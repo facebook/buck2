@@ -229,11 +229,6 @@ def create_compile_cmds(
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
 
-    # only specify error_handler if one exists
-    error_handler_args = {}
-    if impl_params.error_handler:
-        error_handler_args["error_handler"] = impl_params.error_handler
-
     for src in srcs_with_flags:
         src_args = []
         src_args.extend(src.flags)
@@ -255,7 +250,16 @@ def create_compile_cmds(
             src_args.append("-c")
         src_args.append(src.file)
 
-        src_compile_command = CxxSrcCompileCommand(src = src.file, cxx_compile_cmd = cxx_compile_cmd, args = src_args, index = src.index, is_header = src.is_header, index_store_factory = impl_params.index_store_factory, **error_handler_args)
+        src_compile_command = CxxSrcCompileCommand(
+            src = src.file,
+            cxx_compile_cmd = cxx_compile_cmd,
+            args = src_args,
+            index = src.index,
+            is_header = src.is_header,
+            index_store_factory = impl_params.index_store_factory,
+            error_handler = impl_params.error_handler,
+        )
+
         if src.is_header:
             hdr_compile_cmds.append(src_compile_command)
         else:
@@ -395,7 +399,7 @@ def _compile_single_cxx(
             CudaCompileInfo(filename = filename_base, identifier = identifier, output_prefix = folder_name),
             action_dep_files,
             allow_dep_file_cache_upload = False,
-            error_handler_args = error_handler_args,
+            error_handler = src_compile_cmd.error_handler,
         )
         if cuda_compile_output:
             dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
@@ -407,7 +411,7 @@ def _compile_single_cxx(
             dep_files = action_dep_files,
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            **error_handler_args
+            error_handler = src_compile_cmd.error_handler,
         )
 
     # If we're building with split debugging, where the debug info is in the
@@ -462,7 +466,7 @@ def _compile_single_cxx(
             identifier = identifier + " (assembly)",
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            **error_handler_args
+            error_handler = src_compile_cmd.error_handler,
         )
     else:
         assembly = None
@@ -488,7 +492,7 @@ def _compile_single_cxx(
             identifier = short_path,
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = False,
-            **error_handler_args
+            error_handler = src_compile_cmd.error_handler,
         )
     else:
         diagnostics = None
@@ -505,7 +509,7 @@ def _compile_single_cxx(
         identifier = identifier + " (preprocessor)",
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = False,
-        **error_handler_args
+        error_handler = src_compile_cmd.error_handler,
     )
 
     return CxxCompileOutput(

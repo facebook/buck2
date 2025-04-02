@@ -36,7 +36,7 @@ def cuda_compile(
         cuda_compile_info: CudaCompileInfo,
         action_dep_files: dict[str, ArtifactTag],
         allow_dep_file_cache_upload: bool,
-        error_handler_args: dict[str, [typing.Callable, None]]) -> list[Artifact] | None:
+        error_handler: [typing.Callable, None]) -> list[Artifact] | None:
     if ctx.attrs.cuda_compile_style == CudaCompileStyle("mono").value:
         # Bind the object output for monolithic NVCC compilation.
         cmd.add(get_output_flags(src_compile_cmd.cxx_compile_cmd.compiler_type, object))
@@ -57,7 +57,7 @@ def cuda_compile(
             dep_files = action_dep_files,
             allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
             allow_dep_file_cache_upload = allow_dep_file_cache_upload,
-            **error_handler_args
+            error_handler = error_handler,
         )
         return None
     elif ctx.attrs.cuda_compile_style == CudaCompileStyle("dist").value:
