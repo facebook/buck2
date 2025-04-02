@@ -117,11 +117,21 @@ class AndroidDeviceImpl(val serial: String, val adbExecutable: String?) : Androi
 
   override fun rmFiles(dirPath: String, filesToDelete: Iterable<String>) {
     val elapsed: Long = measureTimeMillis {
-      for (file in filesToDelete) {
-        executeAdbShellCommandCatching("rm $dirPath/$file", "Failed to delete $dirPath/$file.")
+      val tempFile = File.createTempFile("files_to_delete", ".txt")
+      try {
+        tempFile.writeText(
+            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() })
+        executeAdbCommand("push -z brotli ${tempFile.absolutePath} /data/local/tmp")
+        executeAdbShellCommand("rm -f @/data/local/tmp/${tempFile.name}")
+      } catch (e: AdbCommandFailedException) {
+        throw AndroidInstallException.adbCommandFailedException(
+            "Failed delete ${filesToDelete.count()} files from $dirPath.", e.message)
+      } finally {
+        tempFile.delete()
+        executeAdbShellCommand("rm -f /data/local/tmp/${tempFile.name}")
       }
     }
-    LOG.info("Deleted ${filesToDelete.count()} files in $dirPath in ${elapsed/1000.0} seconds.")
+    LOG.info("Deleted ${filesToDelete.count()} files from $dirPath in ${elapsed/1000.0} seconds.")
   }
 
   @Throws(Exception::class)
