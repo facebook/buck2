@@ -373,11 +373,6 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(hidden = gcno_file.as_output()))
 
-    # only specify error_handler if one exists
-    error_handler_args = {}
-    if src_compile_cmd.error_handler:
-        error_handler_args["error_handler"] = src_compile_cmd.error_handler
-
     external_debug_info = None
     extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
     use_external_debug_info = getattr(ctx.attrs, "separate_debug_info", False) and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
