@@ -108,9 +108,8 @@ private fun KStub.renderType(stubType: KStub.Type): TypeSpec {
                   .build())
         }
         extends?.let {
-          if (stubType != INTERFACE) {
-            superclass(it.asTypeName())
-          }
+          if (stubType == INTERFACE) addSuperinterface(it.asTypeName())
+          else superclass(it.asTypeName())
         }
         implements.map { it.asTypeName() }.forEach { addSuperinterface(it) }
         propertyStubs.map { addProperty(it.render()) }
