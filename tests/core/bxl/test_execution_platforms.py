@@ -16,10 +16,11 @@ from pathlib import Path
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
 @buck_test()
-async def test_bxl_exec_platform_dynamic_output(buck: Buck) -> None:
+async def test_bxl_exec_platform_dynamic_output(buck: Buck, tmp_path: Path) -> None:
     result = await buck.bxl(
         "//executor_fallback_tests/dynamic.bxl:test_dynamic_output",
         "-c",
@@ -30,15 +31,25 @@ async def test_bxl_exec_platform_dynamic_output(buck: Buck) -> None:
     output = result.stdout.splitlines()[0]
     assert os.path.exists(buck.cwd / Path(output))
 
+    record_path = tmp_path / "record.json"
+
     await expect_failure(
         buck.bxl(
             "//executor_fallback_tests/dynamic.bxl:test_dynamic_output",
             "-c",
             f"test.cache_buster={random_string()}",
             "--remote-only",
+            "--unstable-write-invocation-record",
+            str(record_path),
         ),
         stderr_regex="Incompatible executor preferences",
     )
+
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+
+    assert len(errors) == 1
+    assert errors[0]["category"] == "USER"
 
 
 @buck_test()
