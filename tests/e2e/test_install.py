@@ -109,29 +109,49 @@ if linux_only():
         ]
 
     @buck_test(inplace=True)
-    async def test_fail_to_build_artifact(buck: Buck) -> None:
-        await expect_failure(
-            buck.install("fbcode//buck2/tests/targets/rules/install:bad_artifacts"),
-            stderr_regex=r"Failed to build",
-        )
-
-    @buck_test(inplace=True)
-    async def test_install_id_mismatch(buck: Buck) -> None:
+    async def test_fail_to_build_artifact(buck: Buck, tmp_path: Path) -> None:
+        record_path = tmp_path / "record.json"
         await expect_failure(
             buck.install(
-                "fbcode//buck2/tests/targets/rules/install:installer_server_sends_wrong_install_info_response"
+                "fbcode//buck2/tests/targets/rules/install:bad_artifacts",
+                "--unstable-write-invocation-record",
+                str(record_path),
+            ),
+            stderr_regex=r"Failed to build",
+        )
+        record = read_invocation_record(record_path)
+        errors = record["errors"]
+        assert len(errors) == 1
+
+    @buck_test(inplace=True)
+    async def test_install_id_mismatch(buck: Buck, tmp_path: Path) -> None:
+        record_path = tmp_path / "record.json"
+        await expect_failure(
+            buck.install(
+                "fbcode//buck2/tests/targets/rules/install:installer_server_sends_wrong_install_info_response",
+                "--unstable-write-invocation-record",
+                str(record_path),
             ),
             stderr_regex=r"doesn't match with the sent one",
         )
+        record = read_invocation_record(record_path)
+        errors = record["errors"]
+        assert len(errors) == 1
 
     @buck_test(inplace=True)
-    async def test_installer_needs_forwarded_params(buck: Buck) -> None:
+    async def test_installer_needs_forwarded_params(buck: Buck, tmp_path: Path) -> None:
+        record_path = tmp_path / "record.json"
         await expect_failure(
             buck.install(
-                "fbcode//buck2/tests/targets/rules/install:installer_server_requires_forwarded_params"
+                "fbcode//buck2/tests/targets/rules/install:installer_server_requires_forwarded_params",
+                "--unstable-write-invocation-record",
+                str(record_path),
             ),
             stderr_regex=r"-r_-e_-d_-s_-x_-a_-i_-w_-u_-k_must_be_passed_to_installer",
         )
+        record = read_invocation_record(record_path)
+        errors = record["errors"]
+        assert len(errors) == 1
 
     @buck_test(inplace=True)
     async def test_install_forwards_params(buck: Buck) -> None:
@@ -173,8 +193,16 @@ if linux_only():
 
 
 @buck_test(inplace=True)
-async def test_fail_to_build_installer(buck: Buck) -> None:
+async def test_fail_to_build_installer(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
     await expect_failure(
-        buck.install("fbcode//buck2/tests/targets/rules/install:bad_installer_target"),
+        buck.install(
+            "fbcode//buck2/tests/targets/rules/install:bad_installer_target",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
         stderr_regex=r"Failed to build installer",
     )
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    assert len(errors) == 1
