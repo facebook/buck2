@@ -631,7 +631,6 @@ mod tests {
         let end = CommandEnd {
             data: Default::default(),
             is_success: true,
-            errors: vec![],
         };
 
         (start, end)

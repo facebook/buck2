@@ -953,7 +953,7 @@ message ExpandExternalCellsCommandStart {}
 message CompleteCommandStart {}
 
 message CommandEnd {
-  reserved 3;
+  reserved 3, 4;
   oneof data {
     BuildCommandEnd build = 20;
     TargetsCommandEnd targets = 21;
@@ -981,7 +981,6 @@ message CommandEnd {
   }
 
   bool is_success = 2;
-  repeated ErrorReport errors = 4;
 }
 
 // Marks the exit of the `CommandCriticalStart` event, such that the command has

@@ -110,13 +110,6 @@ impl ServerCommandTemplate for BxlServerCommand {
             .await
     }
 
-    fn additional_telemetry_errors(
-        &self,
-        response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
-    }
-
     fn is_success(&self, response: &Self::Response) -> bool {
         response.errors.is_empty()
     }

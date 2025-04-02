@@ -250,13 +250,6 @@ impl ServerCommandTemplate for TestServerCommand {
         }
     }
 
-    fn additional_telemetry_errors(
-        &self,
-        response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
-    }
-
     async fn command(
         &self,
         server_ctx: &dyn ServerCommandContextTrait,

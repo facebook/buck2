@@ -117,13 +117,6 @@ impl ServerCommandTemplate for BuildServerCommand {
     fn is_success(&self, response: &Self::Response) -> bool {
         response.errors.is_empty()
     }
-
-    fn additional_telemetry_errors(
-        &self,
-        response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        response.errors.clone()
-    }
 }
 
 fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions {

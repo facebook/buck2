@@ -53,15 +53,6 @@ pub trait ServerCommandTemplate: Send + Sync {
         None
     }
 
-    /// Additional errors that should be reported via the invocation record, even if the command
-    /// successfully produces a response.
-    fn additional_telemetry_errors(
-        &self,
-        _response: &Self::Response,
-    ) -> Vec<buck2_data::ErrorReport> {
-        Vec::new()
-    }
-
     /// Command implementation.
     async fn command(
         &self,
@@ -101,12 +92,9 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
             )
             .await
             .map_err(Into::into);
-        let end_event = command_end_ext(
-            &result,
-            command.end_event(&result),
-            |result| command.is_success(result),
-            |result| command.additional_telemetry_errors(result),
-        );
+        let end_event = command_end_ext(&result, command.end_event(&result), |result| {
+            command.is_success(result)
+        });
         (result.map_err(Into::into), end_event)
     })
     .await
