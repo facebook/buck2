@@ -431,7 +431,7 @@ public class RealAndroidDevice implements AndroidDevice {
   @Override
   public boolean setDebugAppPackageName(String packageName) throws Exception {
     device.executeShellCommand(
-        AdbUtils.INSTANCE.getAmSetDebugAppCommand(packageName),
+        "am set-debug-app --persistent " + packageName,
         new CollectingOutputReceiver(),
         SET_DEBUG_APP_TIMEOUT,
         TimeUnit.MILLISECONDS);
