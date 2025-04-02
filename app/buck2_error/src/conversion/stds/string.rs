@@ -7,11 +7,13 @@
  * of this source tree.
  */
 
+use crate::conversion::from_any_with_tag;
+
 impl From<std::string::FromUtf8Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::string::FromUtf8Error) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }
 
@@ -23,5 +25,21 @@ impl From<std::string::String> for crate::Error {
             crate::source_location::SourceLocation::new(std::panic::Location::caller().file());
 
         crate::Error::new(value, crate::ErrorTag::Tier0, source_location, None)
+    }
+}
+
+impl From<std::str::Utf8Error> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::str::Utf8Error) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<std::str::ParseBoolError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::str::ParseBoolError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }

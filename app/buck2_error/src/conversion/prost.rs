@@ -22,3 +22,19 @@ impl From<prost::DecodeError> for crate::Error {
         crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
     }
 }
+
+impl From<prost_types::DurationError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: prost_types::DurationError) -> Self {
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<prost_types::TimestampError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: prost_types::TimestampError) -> Self {
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}

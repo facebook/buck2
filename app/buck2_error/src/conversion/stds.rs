@@ -7,11 +7,63 @@
  * of this source tree.
  */
 
-mod array;
-mod convert;
 pub(crate) mod io;
-mod num;
-mod path;
-mod str;
 mod string;
-mod time;
+
+use crate::conversion::from_any_with_tag;
+
+impl From<std::array::TryFromSliceError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::array::TryFromSliceError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<std::time::SystemTimeError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::time::SystemTimeError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<std::convert::Infallible> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::convert::Infallible) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<std::path::StripPrefixError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::path::StripPrefixError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<std::num::ParseIntError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::num::ParseIntError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<std::num::ParseFloatError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::num::ParseFloatError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
+
+impl From<std::num::TryFromIntError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::num::TryFromIntError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::Tier0)
+    }
+}
