@@ -48,13 +48,8 @@ def create_dbg_source_db(
         args = dependencies,
     ))
 
-    # only specify error_handler if one exists
-    error_handler_args = {}
-    if python_toolchain.python_error_handler:
-        error_handler_args["error_handler"] = python_toolchain.python_error_handler
-
     artifacts.append(dep_manifests.project_as_args("source_artifacts"))
-    ctx.actions.run(cmd, category = "py_dbg_source_db", **error_handler_args)
+    ctx.actions.run(cmd, category = "py_dbg_source_db", error_handler = python_toolchain.python_error_handler)
 
     return DefaultInfo(default_output = output, other_outputs = artifacts)
 

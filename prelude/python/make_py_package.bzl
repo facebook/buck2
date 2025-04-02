@@ -399,11 +399,6 @@ def _make_py_package_impl(
         # Inplace par should be built locally to avoid materialization cost
         prefer_local = (standalone and package_python_locally(ctx, python_toolchain)) or not standalone
 
-        # only specify error_handler if one exists
-        error_handler_args = {}
-        if python_toolchain.python_error_handler:
-            error_handler_args["error_handler"] = python_toolchain.python_error_handler
-
         cmd = cmd_args(
             make_py_package_cmd if make_py_package_cmd != None else python_toolchain.make_py_package_standalone,
         )
@@ -419,7 +414,7 @@ def _make_py_package_impl(
             category = "par",
             identifier = identifier_prefix.format(output_suffix),
             allow_cache_upload = allow_cache_upload,
-            **error_handler_args
+            error_handler = python_toolchain.python_error_handler,
         )
 
     else:
