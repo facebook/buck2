@@ -66,7 +66,7 @@ pub struct StarlarkCommandExecutorConfig(pub Arc<CommandExecutorConfig>);
 
 starlark_simple_value!(StarlarkCommandExecutorConfig);
 
-#[starlark_value(type = "command_executor_config")]
+#[starlark_value(type = "CommandExecutorConfig")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandExecutorConfig {}
 
 #[starlark_module]
