@@ -36,10 +36,11 @@ SwiftCompilationMode = enum(*SwiftCompilationModes)
 # The maxmium number of threads, we don't use
 # host_info to prevent cache misses across
 # different hardware models.
-_MAX_NUM_THREADS = 4
+_MAX_NUM_THREADS = 6
 
-# The maximum number of srcs per parallel action
-_SRCS_PER_THREAD = 50
+# This is the default, but specifying it explicitly
+# is clearer.
+_SWIFT_BATCH_SIZE = 25
 
 def should_build_swift_incrementally(ctx: AnalysisContext) -> bool:
     toolchain = get_swift_toolchain_info(ctx)
@@ -58,13 +59,12 @@ def _get_incremental_num_threads(num_srcs: int) -> int:
     if num_srcs == 0:
         return 1
 
-    src_threads = (num_srcs + _SRCS_PER_THREAD - 1) // _SRCS_PER_THREAD
+    src_threads = (num_srcs + _SWIFT_BATCH_SIZE - 1) // _SWIFT_BATCH_SIZE
     return min(_MAX_NUM_THREADS, src_threads)
 
 def _get_incremental_compilation_flags_and_objects(
         output_file_map: _WriteOutputFileMapOutput,
         num_srcs: int) -> IncrementalCompilationOutput:
-    num_threads = _get_incremental_num_threads(num_srcs)
     cmd = cmd_args(
         [
             "-disable-cmo",
@@ -73,7 +73,9 @@ def _get_incremental_compilation_flags_and_objects(
             "-enable-incremental-imports",
             "-incremental",
             "-j",
-            str(num_threads),
+            str(_MAX_NUM_THREADS),
+            "-driver-batch-size-limit",
+            str(_SWIFT_BATCH_SIZE),
             "-output-file-map",
             output_file_map.output_map_artifact.as_output() if _SKIP_INCREMENTAL_OUTPUTS else output_file_map.output_map_artifact,
             "-skip-incremental-outputs" if _SKIP_INCREMENTAL_OUTPUTS else "",
@@ -85,7 +87,7 @@ def _get_incremental_compilation_flags_and_objects(
         incremental_flags_cmd = cmd,
         artifacts = output_file_map.artifacts,
         output_map_artifact = output_file_map.output_map_artifact,
-        num_threads = num_threads,
+        num_threads = _get_incremental_num_threads(num_srcs),
         swiftdeps = output_file_map.swiftdeps,
     )
 
