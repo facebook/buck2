@@ -56,6 +56,8 @@ assert_eq_size!(DepAttrType, [usize; 3]);
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
 pub struct DepAttr<T: ProvidersLabelMaybeConfigured + AttrLike> {
+    // FIXME(JakobDegen): Storing this on every dep - and then having to box this value as a result
+    // - is a pretty sad waste of memory
     pub attr_type: DepAttrType,
     pub label: T,
 }
