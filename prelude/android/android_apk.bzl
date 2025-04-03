@@ -84,6 +84,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             java_packaging_deps = set([dep.label.raw_target() for dep in java_packaging_deps]),
             keystore = keystore,
             manifest_entries = ctx.attrs.manifest_entries,
+            min_sdk_version = ctx.attrs.min_sdk_version,
             prebuilt_native_library_dirs = set([native_lib.raw_target for native_lib in native_library_info.prebuilt_native_library_dirs]),
             platform_configurations = set([str(x.label.configured_target().config()) for x in flatten(android_binary_info.deps_by_platform.values())]),
             platforms = android_binary_info.deps_by_platform.keys(),

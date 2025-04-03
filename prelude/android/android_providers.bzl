@@ -133,6 +133,7 @@ AndroidApkUnderTestInfo = provider(
         "java_packaging_deps": provider_field(typing.Any, default = None),  # set(TargetLabel)
         "keystore": provider_field(typing.Any, default = None),  # "KeystoreInfo"
         "manifest_entries": provider_field(typing.Any, default = None),  # dict
+        "min_sdk_version": provider_field(typing.Any, default = None),  # int
         "platform_configurations": provider_field(typing.Any, default = None),  # [str]
         "platforms": provider_field(typing.Any, default = None),  # [str]
         "prebuilt_native_library_dirs": provider_field(typing.Any, default = None),  # set(TargetLabel)

@@ -27,6 +27,17 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
 
     apk_under_test_info = ctx.attrs.apk[AndroidApkUnderTestInfo]
 
+    expect(
+        ctx.attrs.min_sdk_version == apk_under_test_info.min_sdk_version,
+        """
+Android instrumentation APK must have the same min_sdk_version as the APK-under-test! 
+This is important because the min_sdk_version affects the configuration of all deps. 
+Instrumentation APK min_sdk_version: {}, APK-under-test min_sdk_version: {}""".format(
+            ctx.attrs.min_sdk_version,
+            apk_under_test_info.min_sdk_version,
+        ),
+    )
+
     # android_instrumentation_apk uses the same platforms as the APK-under-test
     unfiltered_deps_by_platform = get_deps_by_platform(ctx)
     for platform in apk_under_test_info.platforms:
