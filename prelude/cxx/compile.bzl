@@ -748,6 +748,7 @@ module "{}" {{
 
 def _precompile_single_cxx(
         ctx: AnalysisContext,
+        toolchain: CxxToolchainInfo,
         impl_params: CxxRuleConstructorParams,
         group_name: str,
         src_compile_cmd: CxxSrcPrecompileCommand) -> HeaderUnit:
@@ -764,6 +765,14 @@ def _precompile_single_cxx(
     cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
     cmd.add(src_compile_cmd.args)
     cmd.add(["-o", module.as_output()])
+
+    clang_trace = None
+    if toolchain.clang_trace and toolchain.cxx_compiler_info.compiler_type == "clang":
+        cmd.add(["-ftime-trace"])
+        clang_trace = ctx.actions.declare_output(
+            paths.join("__pcm_files__", "{}.json".format(identifier)),
+        )
+        cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
     action_dep_files = {}
     headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
@@ -806,6 +815,7 @@ def _precompile_single_cxx(
         module = module,
         include_dir = src_compile_cmd.src,
         import_include = _get_import_filename(ctx, group_name) if impl_params.export_header_unit == "preload" else None,
+        clang_trace = clang_trace,
     )
 
 def precompile_cxx(
@@ -839,7 +849,7 @@ def precompile_cxx(
             extra_preprocessors = [],
             cmd = cmd,
         )
-        header_unit = _precompile_single_cxx(ctx, impl_params, "", precompile_cmd)
+        header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, "", precompile_cmd)
         header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
     else:
         # Chain preprocessors in order.
@@ -855,7 +865,7 @@ def precompile_cxx(
                 extra_preprocessors = header_unit_preprocessors,
                 cmd = cmd,
             )
-            header_unit = _precompile_single_cxx(ctx, impl_params, name, precompile_cmd)
+            header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, name, precompile_cmd)
             header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
             i += 1
 
