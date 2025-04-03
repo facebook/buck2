@@ -108,31 +108,14 @@ mod collector {
 #[cfg(target_os = "windows")]
 mod collector {
     use std::collections::HashMap;
-    use std::io::Error;
-    use std::slice::from_raw_parts;
 
+    use buck2_util::os::win::network_interface_table::NetworkInterfaceTable;
     use dupe::Dupe;
-    use winapi::shared::ipifcons;
-    use winapi::shared::netioapi::FreeMibTable;
-    use winapi::shared::netioapi::GetIfTable2;
-    use winapi::shared::netioapi::MIB_IF_TABLE2;
-    use winapi::shared::ntdef::FALSE;
-    use winapi::shared::winerror::NO_ERROR;
 
     use super::*;
 
     #[derive(Clone, Debug, Dupe)]
     pub struct SystemNetworkIoCollector;
-
-    struct TableGuard {
-        table: *mut MIB_IF_TABLE2,
-    }
-
-    impl Drop for TableGuard {
-        fn drop(&mut self) {
-            unsafe { FreeMibTable(self.table as *mut _) }
-        }
-    }
 
     impl SystemNetworkIoCollector {
         pub fn new() -> Self {
@@ -141,53 +124,31 @@ mod collector {
 
         pub fn collect(&self) -> buck2_error::Result<Option<HashMap<String, NetworkStat>>> {
             let mut counters = HashMap::new();
-            let (_guard, entries) = unsafe {
-                let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+            let table = NetworkInterfaceTable::new()?;
 
-                if GetIfTable2(&mut table) != NO_ERROR {
-                    return Err(buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
-                        "Failed to retrieve MIB-II interface table: {}",
-                        Error::last_os_error()
-                    ));
-                };
-
-                // Ensure the table gets freed
-                let _guard = TableGuard { table };
-
-                let num_entries = (*table).NumEntries;
-                let table_ptr = (*table).Table.as_ptr();
-                (_guard, from_raw_parts(table_ptr, num_entries as usize))
-            };
-
-            for entry in entries {
-                if entry.InterfaceAndOperStatusFlags.HardwareInterface() == FALSE {
+            for interface in table {
+                if !interface.hardware_interface() {
                     continue;
                 }
 
-                let name_len = entry
-                    .Alias
-                    .iter()
-                    .position(|c| *c == 0)
-                    .unwrap_or(entry.Alias.len());
-                let interface_name = String::from_utf16(&entry.Alias[..name_len])
-                    .unwrap_or_else(|_| String::from("<Unknown>"));
-                let bytes_sent = entry.OutOctets;
-                let bytes_recv = entry.InOctets;
-                let network_kind = match entry.Type {
-                    ipifcons::IF_TYPE_ETHERNET_CSMACD => NetworkKind::Ethernet,
-                    ipifcons::IF_TYPE_IEEE80211 => NetworkKind::WiFi,
-                    _ => NetworkKind::Unknown,
-                };
                 counters.insert(
-                    interface_name,
+                    interface.name(),
                     NetworkStat {
-                        bytes_sent,
-                        bytes_recv,
-                        network_kind,
+                        bytes_sent: interface.bytes_sent(),
+                        bytes_recv: interface.bytes_recv(),
+                        network_kind: match interface.network_kind() {
+                            buck2_util::os::win::network_interface::NetworkKind::Ethernet => {
+                                NetworkKind::Ethernet
+                            }
+                            buck2_util::os::win::network_interface::NetworkKind::WiFi => {
+                                NetworkKind::WiFi
+                            }
+                            _ => NetworkKind::Unknown,
+                        },
                     },
                 );
             }
+
             Ok(Some(counters))
         }
     }
