@@ -237,6 +237,15 @@ fn symlink_bytecode(manifest: &Path, output_path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn xplat_symlink(src: &Path, dst: &Path) -> std::io::Result<()> {
+    #[cfg(windows)]
+    return std::os::windows::fs::symlink_file(src, dst);
+    #[cfg(unix)]
+    return std::os::unix::fs::symlink(src, dst);
+    #[cfg(all(not(unix), not(windows)))]
+    compile_error!("symlink is not supported by the system");
+}
+
 fn symlink_file(
     link_path: impl AsRef<Path>,
     input_path: impl AsRef<Path>,
@@ -254,7 +263,7 @@ fn symlink_file(
 
     fs::create_dir_all(parent)?;
 
-    match std::os::unix::fs::symlink(&target, link_path) {
+    match xplat_symlink(&target, link_path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == io::ErrorKind::AlreadyExists && allow_duplicates => Ok(()),
         Err(err) => Err(anyhow::anyhow!(
