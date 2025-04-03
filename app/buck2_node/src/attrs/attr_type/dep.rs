@@ -21,7 +21,6 @@ use static_assertions::assert_eq_size;
 
 use crate::attrs::attr_type::attr_like::AttrLike;
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::attr_type::configured_dep::ConfiguredExplicitConfiguredDep;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -133,23 +132,5 @@ impl DepAttrType {
             attr_type: self.dupe(),
             label: configured_label,
         })))
-    }
-}
-
-/// Represents both configured and unconfigured forms.
-pub trait ExplicitConfiguredDepMaybeConfigured: Display + Allocative {
-    fn to_json(&self) -> buck2_error::Result<serde_json::Value>;
-    fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool>;
-}
-
-impl ConfiguredExplicitConfiguredDep {
-    pub(crate) fn traverse<'a>(
-        &'a self,
-        traversal: &mut dyn ConfiguredAttrTraversal,
-    ) -> buck2_error::Result<()> {
-        traversal.dep(&self.label)
     }
 }

@@ -14,9 +14,9 @@ use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
-use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
+use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
@@ -73,7 +73,41 @@ impl ConfiguredExplicitConfiguredDep {
     }
 }
 
+impl ConfiguredExplicitConfiguredDep {
+    pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
+        Ok(serde_json::to_value(self.to_string())?)
+    }
+
+    pub(crate) fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        filter(&self.to_string())
+    }
+
+    pub(crate) fn traverse<'a>(
+        &'a self,
+        traversal: &mut dyn ConfiguredAttrTraversal,
+    ) -> buck2_error::Result<()> {
+        traversal.dep(&self.label)
+    }
+}
+
 impl UnconfiguredExplicitConfiguredDep {
+    pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
+        Ok(serde_json::to_value([
+            self.label.to_string(),
+            self.platform.to_string(),
+        ])?)
+    }
+
+    pub(crate) fn any_matches(
+        &self,
+        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
+    ) -> buck2_error::Result<bool> {
+        filter(&self.to_string())
+    }
+
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
@@ -81,34 +115,5 @@ impl UnconfiguredExplicitConfiguredDep {
         traversal.dep(&self.label)?;
         let label = ProvidersLabel::default_for(self.platform.dupe());
         traversal.configuration_dep(&label, ConfigurationDepKind::ConfiguredDepPlatform)
-    }
-}
-
-impl ExplicitConfiguredDepMaybeConfigured for ConfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
-        Ok(serde_json::to_value(self.to_string())?)
-    }
-
-    fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        filter(&self.to_string())
-    }
-}
-
-impl ExplicitConfiguredDepMaybeConfigured for UnconfiguredExplicitConfiguredDep {
-    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
-        Ok(serde_json::to_value([
-            self.label.to_string(),
-            self.platform.to_string(),
-        ])?)
-    }
-
-    fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        filter(&self.to_string())
     }
 }
