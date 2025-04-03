@@ -77,11 +77,13 @@ def _get_incremental_compilation_flags_and_objects(
             "-driver-batch-size-limit",
             str(_SWIFT_BATCH_SIZE),
             "-output-file-map",
-            output_file_map.output_map_artifact.as_output() if _SKIP_INCREMENTAL_OUTPUTS else output_file_map.output_map_artifact,
-            "-skip-incremental-outputs" if _SKIP_INCREMENTAL_OUTPUTS else "",
+            output_file_map.output_map_artifact,
         ],
         hidden = [output.as_output() for output in output_file_map.outputs],
     )
+
+    if _SKIP_INCREMENTAL_OUTPUTS:
+        cmd.add("-skip-incremental-outputs")
 
     return IncrementalCompilationOutput(
         incremental_flags_cmd = cmd,
@@ -94,13 +96,19 @@ def _get_incremental_compilation_flags_and_objects(
 def _write_output_file_map(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags]) -> _WriteOutputFileMapOutput:
-    artifacts = []
-    all_outputs = []
-    swiftdeps = []
+    if _SKIP_INCREMENTAL_OUTPUTS:
+        output_file_map = {}
+        all_outputs = []
+        swiftdeps = []
+        artifacts = []
 
-    output_file_map = {}
+        for src in srcs:
+            file_name = src.file.basename
+            output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o")
+            artifacts.append(output_artifact)
+            all_outputs.append(output_artifact)
 
-    if not _SKIP_INCREMENTAL_OUTPUTS:
+    else:
         # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
         module_swiftdeps = ctx.actions.declare_output("__swift_incremental__/swiftdeps/module-build-record.priors")
         output_file_map = {
@@ -110,14 +118,13 @@ def _write_output_file_map(
         }
         all_outputs = [module_swiftdeps]
         swiftdeps = [module_swiftdeps]
+        artifacts = []
 
-    for src in srcs:
-        file_name = src.file.basename
-        output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o")
-        artifacts.append(output_artifact)
-        all_outputs.append(output_artifact)
-
-        if not _SKIP_INCREMENTAL_OUTPUTS:
+        for src in srcs:
+            file_name = src.file.basename
+            output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o")
+            artifacts.append(output_artifact)
+            all_outputs.append(output_artifact)
             swiftdeps_artifact = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + file_name + ".swiftdeps")
             output_file_map[src.file] = {
                 "object": output_artifact,
@@ -126,10 +133,7 @@ def _write_output_file_map(
             swiftdeps.append(swiftdeps_artifact)
             all_outputs.append(swiftdeps_artifact)
 
-    if _SKIP_INCREMENTAL_OUTPUTS:
-        output_map_artifact = ctx.actions.declare_output("__swift_incremental__/output_file_map.json")
-    else:
-        output_map_artifact = ctx.actions.write_json("__swift_incremental__/output_file_map.json", output_file_map, pretty = True)
+    output_map_artifact = ctx.actions.write_json("__swift_incremental__/output_file_map.json", output_file_map, pretty = True)
 
     return _WriteOutputFileMapOutput(
         artifacts = artifacts,
