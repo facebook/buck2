@@ -7,4 +7,6 @@
  * of this source tree.
  */
 
+pub mod network_interface;
+pub mod network_interface_table;
 pub mod os_str;
