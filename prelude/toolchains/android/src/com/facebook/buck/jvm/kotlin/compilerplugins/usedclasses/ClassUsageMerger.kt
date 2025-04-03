@@ -21,7 +21,7 @@ fun mergeClassUsageMaps(
     return currentClassUsages
   }
   if (currentClassUsages.isEmpty()) {
-    return currentClassUsages
+    return prevClassUsages
   }
 
   val mergedClassUsageMap: MutableMap<Path, MutableSet<Path>> =
