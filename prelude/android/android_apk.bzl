@@ -15,6 +15,7 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:argfile.bzl", "argfile")
+load("@prelude//utils:utils.bzl", "flatten")
 
 def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = False)
@@ -84,6 +85,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             keystore = keystore,
             manifest_entries = ctx.attrs.manifest_entries,
             prebuilt_native_library_dirs = set([native_lib.raw_target for native_lib in native_library_info.prebuilt_native_library_dirs]),
+            platform_configurations = set([str(x.label.configured_target().config()) for x in flatten(android_binary_info.deps_by_platform.values())]),
             platforms = android_binary_info.deps_by_platform.keys(),
             primary_platform = android_binary_info.primary_platform,
             resource_infos = set([info.raw_target for info in resources_info.unfiltered_resource_infos]),

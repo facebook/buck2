@@ -19,6 +19,7 @@ load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//java/utils:java_utils.bzl", "get_class_to_source_map_info")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:utils.bzl", "flatten")
 
 def android_instrumentation_apk_impl(ctx: AnalysisContext):
     # jar preprocessing cannot be used when the jars were dexed already, so we have to disable predex when we want to preprocess the jars.
@@ -32,6 +33,15 @@ def android_instrumentation_apk_impl(ctx: AnalysisContext):
         expect(
             platform in unfiltered_deps_by_platform,
             "Android instrumentation APK must have any platforms that are in the APK-under-test!",
+        )
+
+    test_apk_platform_configurations = set([str(x.label.configured_target().config()) for x in flatten(unfiltered_deps_by_platform.values())])
+    for platform_configuration in apk_under_test_info.platform_configurations:
+        expect(
+            platform_configuration in test_apk_platform_configurations,
+            """
+APK-under-test has deps that are configured in a different manner than the Android instrumentation APK! 
+This will lead to overbuilding and is not supported. Configuration {} not found in {}""".format(platform_configuration, test_apk_platform_configurations),
         )
     filtered_deps_by_platform = {platform: deps for platform, deps in unfiltered_deps_by_platform.items() if platform in apk_under_test_info.platforms}
 
