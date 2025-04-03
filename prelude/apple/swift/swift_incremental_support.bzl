@@ -33,8 +33,6 @@ IncrementalCompilationOutput = record(
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
 
-_INCREMENTAL_SRC_THRESHOLD = 20
-
 # The maxmium number of threads, we don't use
 # host_info to prevent cache misses across
 # different hardware models.
@@ -43,19 +41,14 @@ _MAX_NUM_THREADS = 4
 # The maximum number of srcs per parallel action
 _SRCS_PER_THREAD = 50
 
-def should_build_swift_incrementally(ctx: AnalysisContext, srcs_count: int) -> bool:
+def should_build_swift_incrementally(ctx: AnalysisContext) -> bool:
     toolchain = get_swift_toolchain_info(ctx)
 
     # Incremental builds are only supported when object files are generated.
     if toolchain.object_format != SwiftObjectFormat("object"):
         return False
 
-    mode = SwiftCompilationMode(ctx.attrs.swift_compilation_mode)
-    if mode == SwiftCompilationMode("wmo"):
-        return False
-    elif mode == SwiftCompilationMode("incremental"):
-        return True
-    return srcs_count >= _INCREMENTAL_SRC_THRESHOLD
+    return SwiftCompilationMode(ctx.attrs.swift_compilation_mode) == SwiftCompilationMode("incremental")
 
 def get_incremental_object_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
     output_file_map = _write_output_file_map(ctx, srcs)

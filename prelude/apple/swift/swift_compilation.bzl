@@ -586,7 +586,7 @@ def _compile_object(
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags],
         category: str) -> SwiftObjectOutput:
-    if should_build_swift_incrementally(ctx, len(srcs)):
+    if should_build_swift_incrementally(ctx):
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs)
         num_threads = incremental_compilation_output.num_threads
         output_map_artifact = incremental_compilation_output.output_map_artifact
@@ -693,7 +693,7 @@ def _compile_with_argsfile(
     cmd.add(additional_flags)
     cmd.add(cmd_form)
 
-    build_swift_incrementally = should_build_swift_incrementally(ctx, len(srcs))
+    build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
 
     # If we prefer to execute locally (e.g., for perf reasons), ensure we upload to the cache,
