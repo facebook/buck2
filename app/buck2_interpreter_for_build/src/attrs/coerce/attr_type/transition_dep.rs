@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
+
+use buck2_core::configuration::transition::id::TransitionId;
 use buck2_node::attrs::attr_type::transition_dep::CoercedTransitionDep;
 use buck2_node::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
+use starlark::values::UnpackValue;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
@@ -25,10 +29,21 @@ impl AttrTypeCoerce for TransitionDepAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        let label = ctx.coerce_providers_label(value.unpack_str_err()?)?;
+        let (dep, transition) = if self.transition.is_some() {
+            (ctx.coerce_providers_label(value.unpack_str_err()?)?, None)
+        } else {
+            let (dep, transition) = UnpackValue::unpack_value_err(value)?;
+            (
+                ctx.coerce_providers_label(dep)?,
+                Some(Arc::new(TransitionId::Target(
+                    ctx.coerce_providers_label(transition)?,
+                ))),
+            )
+        };
 
         Ok(CoercedAttr::TransitionDep(Box::new(CoercedTransitionDep {
-            dep: label,
+            dep,
+            transition,
         })))
     }
 

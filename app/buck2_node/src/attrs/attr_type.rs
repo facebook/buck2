@@ -268,7 +268,10 @@ impl AttrType {
     ///
     /// If `required_providers` is non-empty, the dependency must return those providers
     /// from its implementation function. Otherwise an error will result at resolution time.
-    pub fn transition_dep(required_providers: ProviderIdSet, cfg: Arc<TransitionId>) -> Self {
+    pub fn transition_dep(
+        required_providers: ProviderIdSet,
+        cfg: Option<Arc<TransitionId>>,
+    ) -> Self {
         Self(Arc::new(AttrTypeInner2 {
             inner: AttrTypeInner::TransitionDep(TransitionDepAttrType::new(
                 required_providers,

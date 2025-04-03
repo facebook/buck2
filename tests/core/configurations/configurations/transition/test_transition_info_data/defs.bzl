@@ -58,6 +58,13 @@ stub_transition = rule(
     },
 )
 
+stub_with_dynamic_outgoing_transition = rule(
+    impl = _impl,
+    attrs = {
+        "dep": attrs.transition_dep(),
+    },
+)
+
 stub_with_incoming_transition = rule(
     impl = _impl,
     attrs = {

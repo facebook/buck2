@@ -27,11 +27,11 @@ use crate::provider_id_set::ProviderIdSet;
 #[derive(Debug, PartialEq, Eq, Hash, Allocative)]
 pub struct TransitionDepAttrType {
     pub required_providers: ProviderIdSet,
-    pub transition: Arc<TransitionId>,
+    pub transition: Option<Arc<TransitionId>>,
 }
 
 impl TransitionDepAttrType {
-    pub fn new(required_providers: ProviderIdSet, transition: Arc<TransitionId>) -> Self {
+    pub fn new(required_providers: ProviderIdSet, transition: Option<Arc<TransitionId>>) -> Self {
         TransitionDepAttrType {
             required_providers,
             transition,
@@ -45,10 +45,20 @@ impl TransitionDepAttrType {
     ) -> buck2_error::Result<ConfiguredAttr> {
         Ok(ConfiguredAttr::TransitionDep(Box::new(
             ConfiguredTransitionDep {
-                dep: ctx.configure_transition_target(&attr.dep, &self.transition)?,
+                dep: ctx.configure_transition_target(&attr.dep, self.get_transition(attr))?,
                 required_providers: self.required_providers.dupe(),
             },
         )))
+    }
+
+    pub(crate) fn get_transition<'a>(
+        &'a self,
+        attr: &'a CoercedTransitionDep,
+    ) -> &'a Arc<TransitionId> {
+        match self.transition.as_ref() {
+            Some(t) => t,
+            None => attr.transition.as_ref().unwrap(),
+        }
     }
 }
 
@@ -88,11 +98,21 @@ impl ConfiguredTransitionDep {
 #[display("{}", dep)]
 pub struct CoercedTransitionDep {
     pub dep: ProvidersLabel,
+    /// `Some` iff the transition in the attr type is `None`
+    ///
+    /// Stored as a `TransitionId`, but always a `TransitionId::Target` if set
+    pub transition: Option<Arc<TransitionId>>,
 }
 
 impl CoercedTransitionDep {
     pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
-        Ok(serde_json::to_value(self.dep.to_string())?)
+        match self.get_dynamic_transition() {
+            Some(tr) => Ok(serde_json::to_value([
+                self.dep.to_string(),
+                tr.to_string(),
+            ])?),
+            None => Ok(serde_json::to_value(self.dep.to_string())?),
+        }
     }
 
     pub(crate) fn any_matches(
@@ -107,12 +127,21 @@ impl CoercedTransitionDep {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
         t: &TransitionDepAttrType,
     ) -> buck2_error::Result<()> {
-        match &*t.transition {
+        let transition = t.get_transition(self);
+        match &**transition {
             TransitionId::MagicObject { .. } => (),
             TransitionId::Target(label) => {
                 traversal.configuration_dep(label, ConfigurationDepKind::Transition)?
             }
         };
-        traversal.transition_dep(&self.dep, &t.transition)
+        traversal.transition_dep(&self.dep, &transition)
+    }
+
+    /// If there's a dynamic transition, return the target
+    pub fn get_dynamic_transition(&self) -> Option<&ProvidersLabel> {
+        match &**self.transition.as_ref()? {
+            TransitionId::Target(t) => Some(t),
+            TransitionId::MagicObject { .. } => unreachable!(),
+        }
     }
 }

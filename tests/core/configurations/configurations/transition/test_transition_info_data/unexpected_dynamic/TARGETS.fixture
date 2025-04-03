@@ -1,0 +1,10 @@
+load(
+    "//:defs.bzl",
+    "stub_transition",
+)
+
+stub_transition(
+    name = "unexpected_dynamic",
+    dep = ("root//:base", "root//:transition"),
+    default_target_platform = "root//:empty_platform",
+)
