@@ -53,7 +53,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
     commit: C,
     mergegase_with: M,
 ) -> buck2_error::Result<Option<MergebaseDetails>> {
-    let output = async_background_command("sl")
+    let output = async_background_command("hg")
         .current_dir(current_dir)
         .env("HGPLAIN", "1")
         .args([
@@ -81,7 +81,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
 }
 
 fn parse_log_output(output: Vec<u8>) -> buck2_error::Result<Option<MergebaseDetails>> {
-    let output = String::from_utf8(output).buck_error_context("Failed to parse sl log output")?;
+    let output = String::from_utf8(output).buck_error_context("Failed to parse hg log output")?;
     if output.is_empty() {
         return Ok(None);
     }
@@ -127,7 +127,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
         args.push(second.as_ref());
     }
 
-    let mut output = async_background_command("sl")
+    let mut output = async_background_command("hg")
         .current_dir(current_dir)
         .args(args.as_slice())
         .stdout(Stdio::piped())
@@ -137,7 +137,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
     let stdout = output.stdout.take().ok_or_else(|| {
         buck2_error!(
             buck2_error::ErrorTag::Sapling,
-            "Failed to read stdout when invoking 'sl status'."
+            "Failed to read stdout when invoking 'hg status'."
         )
     })?;
     let reader = BufReader::new(stdout);
@@ -201,7 +201,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sl_status_line() -> buck2_error::Result<()> {
+    fn test_hg_status_line() -> buck2_error::Result<()> {
         assert_eq!(
             process_one_status_line("M buck2/app/buck2_file_watcher/src/edenfs/sapling.rs")?,
             Some((
