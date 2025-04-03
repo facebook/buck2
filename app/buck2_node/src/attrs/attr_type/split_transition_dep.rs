@@ -51,15 +51,6 @@ impl SplitTransitionDepAttrType {
     }
 }
 
-/// Configured or unconfigured.
-pub trait SplitTransitionDepMaybeConfigured: Display + Allocative {
-    fn to_json(&self) -> buck2_error::Result<serde_json::Value>;
-    fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool>;
-}
-
 #[derive(Hash, PartialEq, Eq, Debug, Clone, Allocative)]
 pub struct ConfiguredSplitTransitionDep {
     pub deps: SortedMap<String, ConfiguredProvidersLabel>,
@@ -80,8 +71,8 @@ impl Display for ConfiguredSplitTransitionDep {
     }
 }
 
-impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
-    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
+impl ConfiguredSplitTransitionDep {
+    pub(crate) fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
         let mut map = serde_json::Map::with_capacity(self.deps.len());
         for (label, target) in &self.deps {
             map.insert(label.clone(), serde_json::to_value(target.to_string())?);
@@ -89,7 +80,7 @@ impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
         Ok(serde_json::Value::Object(map))
     }
 
-    fn any_matches(
+    pub(crate) fn any_matches(
         &self,
         filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
     ) -> buck2_error::Result<bool> {
@@ -99,26 +90,5 @@ impl SplitTransitionDepMaybeConfigured for ConfiguredSplitTransitionDep {
             }
         }
         Ok(false)
-    }
-}
-
-#[derive(derive_more::Display, Debug, Hash, PartialEq, Eq, Clone, Allocative)]
-#[display("{}", label)]
-pub struct SplitTransitionDep {
-    pub label: ProvidersLabel,
-    pub transition: Arc<TransitionId>,
-    pub required_providers: ProviderIdSet,
-}
-
-impl SplitTransitionDepMaybeConfigured for SplitTransitionDep {
-    fn to_json(&self) -> buck2_error::Result<serde_json::Value> {
-        Ok(serde_json::to_value(self.to_string())?)
-    }
-
-    fn any_matches(
-        &self,
-        filter: &dyn Fn(&str) -> buck2_error::Result<bool>,
-    ) -> buck2_error::Result<bool> {
-        filter(&self.to_string())
     }
 }

@@ -16,7 +16,6 @@ use serde_json::to_value;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 use crate::attrs::attr_type::dep::ExplicitConfiguredDepMaybeConfigured;
-use crate::attrs::attr_type::split_transition_dep::SplitTransitionDepMaybeConfigured;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::coerced_path::CoercedPath;
 use crate::attrs::configured_attr::ConfiguredAttr;
