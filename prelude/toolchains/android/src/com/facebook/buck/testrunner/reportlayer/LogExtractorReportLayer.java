@@ -74,8 +74,8 @@ public class LogExtractorReportLayer extends ReportLayer {
       String logcatMainBufferFile = logcatMainBufferTraPath.toString();
       for (ExtractorConfig extractorConfig : extractors) {
         Path traPath =
-            this.runner.createTRA(
-                "generic_text_log", extractorConfig.traName, extractorConfig.traDescription);
+            this.runner.createTRAPlainTextLog(
+                extractorConfig.traName, extractorConfig.traDescription);
         Pattern pattern = Pattern.compile(extractorConfig.regex);
 
         FileWriter writer = new FileWriter(traPath.toFile());

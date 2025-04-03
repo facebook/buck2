@@ -845,6 +845,15 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return createTRA(annotationTemplate, name);
   }
 
+  public Path createTRAPlainTextLog(String description, String name) throws IOException {
+    // Use PLAIN_TEXT type(id = 5 https://fburl.com/code/8xzvasdf)
+    String annotationTemplate =
+        String.format(
+            "{\"type\": {\"formatted_log\": {\"log_source\": 4}}, \"description\": \"%s\"}",
+            description);
+    return createTRA(annotationTemplate, name);
+  }
+
   private Path createTRA(String annotationTemplate, String name) throws IOException {
     /// get TRA directories
     String testArtifactsPath = getenv(TEST_RESULT_ARTIFACTS_ENV);
