@@ -510,6 +510,37 @@ def _make_py_package_live(
         generated_files: list[(Artifact, str)],
         python_toolchain: PythonToolchainInfo,
         output_suffix: str) -> PexProviders:
+    """
+    Bundle contents of par into symlink dir
+    * generated_files
+      * _bootstrap.sh
+      * __manifest__.py
+      * __manifest__.json
+      * __run_lpar_main__.py
+      * __par__/__startup_function_loader__.py
+    * source files
+    * resources
+    * bytecode
+    * extras
+      * dbg-db.json
+      * sitecustomize.py
+      * static_extension_finder.py
+      * cxx_python_extension stub files
+    * extensions
+      * cxx_python_extensions ".so" files - when using native linking these are the "unembedable" extensions
+    * native-libraries
+      * All of the required shared cxx libraries
+      * Link group libraries
+      * native-executable
+    * TODO: bundled-runtime
+    * Debug info:
+      * External debug info is included in runtime_files so that it is materialized at build time
+      since we are building an inplace par and the .so files symlink to their
+      actual build location the debug-info does not need to be included in the
+      link tree
+      * EXCLUDED: dwp files - we do not package dwp files in inplace pars
+      * EXCLUDED: debuginfo - we do not package debug-info for inplace pars
+    """
     sub_targets = {}
     name = "{}{}".format(ctx.attrs.name, output_suffix)
 
@@ -563,7 +594,7 @@ def _make_py_package_live(
 
     native_libraries_manifest = gen_shared_libs_action(
         actions = ctx.actions,
-        out = "{}-native_libraries.txt".format(name),
+        out = "{}-native-libraries.txt".format(name),
         shared_libs = [shlib for shlib, _ in shared_libraries],
         gen_action = lambda actions, output, shared_libs: actions.write(
             output,
@@ -578,8 +609,18 @@ def _make_py_package_live(
     cmd.add(cmd_args(native_libraries_manifest.without_associated_artifacts(), format = "--shared-libs={}"))
     runtime_files.append(native_libraries_manifest)
 
-    # Do to dynamic action weirdness we need to explicitly add the shared_libs to the output
+    # Due to dynamic action weirdness we need to explicitly add the shared_libs to the output
     runtime_files.extend([shlib.lib.output for shlib, _ in shared_libraries])
+
+    # Make sure all external debug-info is materialized at runtime
+    runtime_files.extend(project_artifacts(
+        ctx.actions,
+        [
+            shlib.lib.external_debug_info
+            for shlib, _ in shared_libraries
+        ],
+    ))
+
     generated_manifest = ctx.actions.write("{}-generated.txt".format(name), [cmd_args(a, p, delimiter = "::") for a, p in generated_files], with_inputs = True)
     cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
     runtime_files.append(generated_manifest)

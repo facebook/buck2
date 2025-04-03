@@ -283,51 +283,31 @@ fn write_inits(output_path: &Path, module_map: &mut HashMap<String, bool>) -> an
 }
 
 fn main() -> anyhow::Result<()> {
-    // Get the command-line arguments
     let args = Args::parse();
 
-    // Create the output directory
     fs::create_dir_all(&args.output_path)?;
 
-    // {module_name : should_write_init}
     let mut module_map = HashMap::<String, bool>::new();
     module_map.insert("".to_string(), false);
-
-    // Process sources
     symlink_sources(&args.sources, &args.output_path, &mut module_map)?;
-
-    // Process extras if provided
     if let Some(extras) = &args.extras {
         symlink_sources(extras, &args.output_path, &mut module_map)?;
     }
-
-    // Process resources if provided
     if let Some(resources) = &args.resources {
         symlink_sources(resources, &args.output_path, &mut module_map)?;
     }
-
-    // Process extensions if provided
     if let Some(extensions) = &args.extensions {
         symlink_sources(extensions, &args.output_path, &mut module_map)?;
     }
-
-    // Process shared_libs if provided
     if let Some(shared_libs) = &args.shared_libs {
         symlink_files(shared_libs, &args.output_path)?;
     }
-
-    // Process generated files if provided
     if let Some(generated) = &args.generated {
         symlink_files(generated, &args.output_path)?;
     }
-
-    // Process bytecode if provided
     if let Some(bytecode) = &args.bytecode {
         symlink_bytecode(bytecode, &args.output_path)?;
     }
-
-    // Write __init__.py files
     write_inits(&args.output_path, &mut module_map)?;
-
     Ok(())
 }
