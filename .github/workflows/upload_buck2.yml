@@ -46,6 +46,7 @@ jobs:
   build:
     needs:
       - get_prelude_hash
+      - set_version_info
     strategy:
       fail-fast: false
       matrix:
@@ -111,6 +112,10 @@ jobs:
       - name: Build
         shell: bash
         env:
+          # BUCK2 prefixed variables used within the build to stamp in a version information
+          # BUCK2_SET_EXPLICIT_VERSION will populate the buck2 --version string
+          BUCK2_RELEASE_TIMESTAMP: ${{ github.event.repository.updated_at }}
+          BUCK2_SET_EXPLICIT_VERSION: ${{ needs.set_version_info.outputs.buck2_version }}
           RUSTFLAGS: "-C strip=debuginfo -C codegen-units=1"
         run: |
           # aarch64-linux builds need JEMALLOC_SYS_WITH_LG_PAGE=16
@@ -124,10 +129,6 @@ jobs:
           else
             CARGO=cargo
           fi
-          # Specify the release version information
-          commit_date=$(echo "${{ github.event.repository.updated_at }}" | sed 's/T.*//')
-          export BUCK2_SET_EXPLICIT_VERSION="$commit_date-${{ github.sha }}"
-          export BUCK2_RELEASE_TIMESTAMP="${{ github.event.repository.updated_at }}"
           $CARGO build --release --bin buck2 --bin rust-project --target ${{ matrix.target.triple }}
       - name: Sanity check with examples/with_prelude
         if: ${{ !matrix.target.cross }}
