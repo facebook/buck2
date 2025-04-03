@@ -631,7 +631,7 @@ impl EdenFsFileWatcher {
         };
         let mergebase_info = self.mergebase.read().await.clone();
         let mergebase = mergebase_info.as_ref().map(|m| m.mergebase.clone());
-        let branched_from_revision_timestamp = mergebase_info.as_ref().map(|m| m.timestamp);
+        let branched_from_revision_timestamp = mergebase_info.as_ref().and_then(|m| m.timestamp);
         let branched_from_global_rev = mergebase_info.as_ref().and_then(|m| m.global_rev);
         Ok(buck2_data::FileWatcherStats {
             branched_from_revision: mergebase,

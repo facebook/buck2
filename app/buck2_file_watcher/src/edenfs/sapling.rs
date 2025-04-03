@@ -38,7 +38,7 @@ pub(crate) enum SaplingGetStatusResult {
 #[derive(Allocative, Clone)]
 pub(crate) struct MergebaseDetails {
     pub mergebase: String,
-    pub timestamp: u64,
+    pub timestamp: Option<u64>,
     pub global_rev: Option<u64>,
 }
 
@@ -92,9 +92,8 @@ fn parse_log_output(output: Vec<u8>) -> buck2_error::Result<Option<MergebaseDeta
         .to_string();
     let timestamp = v
         .get(1)
-        .buck_error_context("Failed to parse mergebase timestamp")?
-        .parse::<f64>() // hg returns the fractional seconds
-        .buck_error_context("Failed to parse mergebase timestamp")? as u64;
+        .and_then(|t| t.parse::<f64>().ok())
+        .map(|t| t as u64); // hg returns the fractional seconds
     let global_rev = if let Some(global_rev) = v.get(2) {
         Some(
             global_rev
@@ -306,7 +305,7 @@ mod tests {
             details.mergebase,
             "71de423b796418e8ff5300dbe9bd9ad3aef63a9c"
         );
-        assert_eq!(details.timestamp, 1739790802);
+        assert_eq!(details.timestamp, Some(1739790802));
         assert_eq!(details.global_rev, Some(1020164040));
         Ok(())
     }
@@ -321,7 +320,7 @@ mod tests {
             "71de423b796418e8ff5300dbe9bd9ad3aef63a9c"
         );
         assert_eq!(details.global_rev, None);
-        assert_eq!(details.timestamp, 1739790802);
+        assert_eq!(details.timestamp, Some(1739790802));
         Ok(())
     }
 }
