@@ -21,6 +21,7 @@ use crate::interpreter::rule_defs::artifact_tagging::artifact_tag::register_arti
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
 use crate::interpreter::rule_defs::context::register_analysis_context;
+use crate::interpreter::rule_defs::digest_config::register_digest_config_type;
 use crate::interpreter::rule_defs::provider::callable::register_provider;
 use crate::interpreter::rule_defs::provider::collection::register_provider_collection;
 use crate::interpreter::rule_defs::provider::dependency::register_dependency;
@@ -52,6 +53,7 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_action_error_types(globals);
     register_validation_spec(globals);
     register_required_test_local_resource(globals);
+    register_digest_config_type(globals);
 }
 
 fn register_build_api_internals(globals: &mut GlobalsBuilder) {
