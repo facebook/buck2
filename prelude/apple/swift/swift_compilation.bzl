@@ -655,6 +655,7 @@ def _compile_index_store(
         "-c",
         "-disable-batch-mode",
         "-disallow-use-new-driver",
+        "-ignore-errors",
     ])
 
     _compile_with_argsfile(

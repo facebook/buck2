@@ -107,6 +107,10 @@ def main():
     if should_remove_module_prefixes:
         command.remove("-remove-module-prefixes")
 
+    should_ignore_errors = "-ignore-errors" in command
+    if should_ignore_errors:
+        command.remove("-ignore-errors")
+
     # Use relative paths for debug information and index information,
     # so we generate relocatable files.
     #
@@ -159,7 +163,10 @@ def main():
     if should_remove_module_prefixes:
         _remove_swiftinterface_module_prefixes(command)
 
-    sys.exit(result.returncode)
+    if should_ignore_errors:
+        sys.exit(0)
+    else:
+        sys.exit(result.returncode)
 
 
 _SKIP_INCREMENTAL_OUTPUTS_ARG = "-skip-incremental-outputs"
