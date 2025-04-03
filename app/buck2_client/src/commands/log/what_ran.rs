@@ -470,7 +470,7 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                         reproducer: command.repro.to_string(),
                         std_err: std_err_formatted,
                     })
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
                 Ok(())
             }
         }

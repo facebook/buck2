@@ -76,7 +76,8 @@ impl NotifyFileData {
         cells: &CellResolver,
         ignore_specs: &HashMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<()> {
-        let event = event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        let event =
+            event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
 
         for path in event.paths {
             // Testing shows that we get absolute paths back from the `notify` library.
@@ -252,10 +253,10 @@ impl NotifyFileWatcher {
                 }
             }
         })
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
         watcher
             .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
         Ok(Self { watcher, data })
     }
 

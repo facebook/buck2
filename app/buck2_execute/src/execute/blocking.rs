@@ -62,7 +62,7 @@ impl dyn BlockingExecutor {
             Ok(())
         }))
         .await
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::IoBlockingExecutor))?;
         res.buck_error_context("Inline I/O did not execute")
     }
 }

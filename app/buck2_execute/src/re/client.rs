@@ -390,7 +390,7 @@ impl RemoteExecutionClient {
             .client
             .client()
             .get_experiment_name()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::ReExperimentName))
     }
 
     pub fn fill_network_stats(&self, stats: &mut RemoteExecutionClientStats) {
@@ -1270,7 +1270,7 @@ impl RemoteExecutionClientImpl {
         // This shouldn't happen, but we can't just assume the CAS won't ever break
         if blobs.len() != expected_blobs {
             return Err(buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::CasBlobCountMismatch,
                 "CAS client returned fewer blobs than expected."
             ));
         }

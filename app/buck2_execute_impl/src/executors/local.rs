@@ -355,7 +355,10 @@ impl LocalExecutor {
             None => {
                 return manager.error(
                     "no_dispatcher",
-                    buck2_error!(buck2_error::ErrorTag::Tier0, "No dispatcher available"),
+                    buck2_error!(
+                        buck2_error::ErrorTag::DispatcherUnavailable,
+                        "No dispatcher available"
+                    ),
                 );
             }
         };

@@ -295,7 +295,7 @@ impl BuckdClient {
         match outcome? {
             CommandOutcome::Success(r) => Ok(r),
             CommandOutcome::Failure(_) => Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::DaemonStatus,
                 "Unexpected failure message in status()"
             )),
         }

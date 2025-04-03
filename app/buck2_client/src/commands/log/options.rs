@@ -29,7 +29,7 @@ use dupe::Dupe;
 use rand::Rng;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = LogCmd)]
 enum EventLogOptionsError {
     #[error("{0} failed; stderr:\n{}", indent("  ", _1))]
     DownloadFailed(String, String),

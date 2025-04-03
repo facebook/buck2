@@ -265,7 +265,7 @@ impl DaemonState {
         )? {
             // TODO(minglunli): Errors here don't actually make it to invocation records which should be fixed
             return Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                ErrorTag::TestOnly,
                 "Injected init daemon error"
             ));
         }

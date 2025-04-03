@@ -130,7 +130,7 @@ fn write_config_value<'a>(
         LogCommandOutputFormatWithWriter::Csv(writer) => {
             writer
                 .serialize(external_config)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
         }
     }
     Ok(())
@@ -169,7 +169,7 @@ fn write_config_file(
         LogCommandOutputFormatWithWriter::Csv(writer) => {
             writer
                 .serialize(config_file)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
         }
     }
     Ok(())

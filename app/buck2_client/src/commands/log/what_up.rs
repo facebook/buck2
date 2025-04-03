@@ -62,7 +62,7 @@ impl WhatUpCommand {
 
             let mut super_console = StatefulSuperConsole::console_builder()
                 .build_forced(StatefulSuperConsole::FALLBACK_SIZE)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
 
             let mut super_console_state = SuperConsoleState::new(
                 None,
@@ -104,7 +104,7 @@ impl WhatUpCommand {
                         super_console.emit(result);
                         super_console
                             .finalize(&Self::component(&super_console_state))
-                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
                         buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                         return Ok(());
                     }
@@ -113,7 +113,7 @@ impl WhatUpCommand {
 
             super_console
                 .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
             buck2_error::Ok(())
         })?;
 

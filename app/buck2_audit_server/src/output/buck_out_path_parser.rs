@@ -28,7 +28,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = InvalidBuckOutPath)]
 enum BuckOutPathParserError {
     #[error(
         "Malformed buck-out path. Expected format: `buck-out/<isolation_prefix>/<gen|tmp|test|gen-anon|gen-bxl>/<cell_name>/<cfg_hash>/<target_path?>/__<target_name>__/<__action__id__?>/<outputs>`. Actual path was: `{0}`"
@@ -389,7 +389,7 @@ impl BuckOutPathParser {
                         })
                     }
                     _ => Err(buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
+                        buck2_error::ErrorTag::InvalidBuckOutPath,
                         "Directory after isolation dir is invalid (should be gen, gen-bxl, gen-anon, tmp, or test)"
                     )),
                 };
@@ -397,14 +397,17 @@ impl BuckOutPathParser {
                 // Validate for non-test outputs that the target name is not the last element in the path
                 if part != "test" && iter.peek().is_none() {
                     Err(buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
+                        buck2_error::ErrorTag::InvalidBuckOutPath,
                         "No output artifacts found"
                     ))
                 } else {
                     result
                 }
             }
-            None => Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Path is empty")),
+            None => Err(buck2_error!(
+                buck2_error::ErrorTag::InvalidBuckOutPath,
+                "Path is empty"
+            )),
         }
     }
 }

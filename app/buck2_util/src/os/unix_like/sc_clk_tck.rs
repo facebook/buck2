@@ -25,7 +25,7 @@ pub fn sc_clk_tck() -> buck2_error::Result<u32> {
                 .buck_error_context("Integer overflow converting ticks per second")?;
             if rate <= 0 || rate > 10_000 {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::CpuStats,
                     "Invalid ticks per second: {}",
                     rate
                 ));

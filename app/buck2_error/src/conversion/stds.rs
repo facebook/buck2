@@ -67,3 +67,11 @@ impl From<std::num::TryFromIntError> for crate::Error {
         from_any_with_tag(value, crate::ErrorTag::IntConversion)
     }
 }
+
+impl From<std::ffi::NulError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: std::ffi::NulError) -> Self {
+        from_any_with_tag(value, crate::ErrorTag::CstringNul)
+    }
+}

@@ -91,7 +91,7 @@ struct NoAttrsStruct;
 
 #[derive(buck2_error_derive::Error, Debug)]
 #[error("Unused")]
-#[buck2(tag = Tier0)]
+#[buck2(tag = TestOnly)]
 enum NoAttrsEnum {
     Variant,
 }
@@ -254,7 +254,7 @@ fn test_recovery_through_transparent_buck2_error() {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error(transparent)]
-    #[buck2(tag = Tier0)]
+    #[buck2(tag = TestOnly)]
     enum PartiallyStructured {
         #[error(transparent)]
         Other(buck2_error::Error),
@@ -269,7 +269,7 @@ fn test_recovery_through_transparent_buck2_error() {
         &[
             crate::ErrorTag::Environment,
             crate::ErrorTag::StarlarkFail,
-            crate::ErrorTag::Tier0
+            crate::ErrorTag::TestOnly
         ]
     );
 }

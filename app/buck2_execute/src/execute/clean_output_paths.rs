@@ -79,7 +79,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
             Some(path) => path,
             None => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::CleanOutputs,
                     "Internal Error: reached root before finding a directory that exists!"
                 ));
             }

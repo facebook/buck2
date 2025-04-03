@@ -312,7 +312,7 @@ impl CleanStaleArtifactsCommand {
 
 #[derive(Debug, Clone, buck2_error::Error)]
 #[error("Internal error: materializer state exists (num db entries: {}) but no artifacts were found by clean ({:?}). Not cleaning untracked artifacts.", .db_size, .stats)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = CleanStale)]
 pub(crate) struct CleanStaleError {
     db_size: usize,
     stats: buck2_data::CleanStaleStats,

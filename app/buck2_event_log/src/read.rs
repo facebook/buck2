@@ -254,7 +254,7 @@ impl EventLogPathBuf {
                     Ok(StreamValue::PartialResult(result))
                 }
                 None => Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::InvalidEvent,
                     "Event type not recognized"
                 )),
             }
@@ -347,7 +347,7 @@ impl EventLogPathBuf {
             .await?
             .ok_or_else(|| {
                 buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    buck2_error::ErrorTag::EventLog,
                     "{}",
                     EventLogErrors::EndOfFile(self.path.to_str().unwrap().to_owned())
                 )

@@ -149,7 +149,7 @@ mod tests {
 
     #[derive(buck2_error_derive::Error, Debug)]
     #[error("test error")]
-    #[buck2(tag = Tier0)]
+    #[buck2(tag = TestOnly)]
     struct TestError;
 
     #[test]

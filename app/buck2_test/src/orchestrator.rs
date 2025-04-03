@@ -80,6 +80,7 @@ use buck2_data::TestSuite;
 use buck2_data::ToProtoMessage;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -546,7 +547,7 @@ impl Key for TestExecutionKey {
                 .boxed()
             })
             .await
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?)
+            .map_err(|e| from_any_with_tag(e, ErrorTag::TestOrchestrator))?)
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -1606,7 +1607,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             CommandExecutionStatus::Failure { .. }
             | CommandExecutionStatus::WorkerFailure { .. } => {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::LocalResourceSetup,
                     "Local resource setup command failed with `{}` exit code, stdout:\n{}\nstderr:\n{}\n",
                     exit_code.unwrap_or(1),
                     String::from_utf8_lossy(&std_streams.stdout),
@@ -1615,7 +1616,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::LocalResourceSetup,
                     "Local resource setup command timed out after `{}s`, stdout:\n{}\nstderr:\n{}\n",
                     duration.as_secs(),
                     String::from_utf8_lossy(&std_streams.stdout),
@@ -1627,7 +1628,7 @@ impl<'b> BuckTestOrchestrator<'b> {
             }
             CommandExecutionStatus::Cancelled { .. } => {
                 return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::LocalResourceSetup,
                     "Local resource setup command cancelled"
                 )
                 .into());
@@ -1637,10 +1638,10 @@ impl<'b> BuckTestOrchestrator<'b> {
         let string_content = String::from_utf8_lossy(&std_streams.stdout);
         let data: LocalResourcesSetupResult = serde_json::from_str(&string_content)
             .context("Error parsing local resource setup command output")
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, ErrorTag::LocalResourceSetup))?;
         let state = data
             .into_state(context.target.clone(), &context.env_var_mapping)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, ErrorTag::LocalResourceSetup))?;
 
         Ok(state)
     }

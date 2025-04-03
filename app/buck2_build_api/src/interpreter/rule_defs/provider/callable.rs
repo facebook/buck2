@@ -523,7 +523,7 @@ fn provider_field_parse_type<'v>(
 ) -> buck2_error::Result<TypeCompiled<FrozenValue>> {
     TypeCompiled::new(ty, eval.heap())
         .map(|ty| ty.to_frozen(eval.frozen_heap()))
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))
 }
 
 #[starlark_module]

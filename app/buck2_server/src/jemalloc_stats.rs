@@ -23,7 +23,7 @@ pub fn get_allocator_stats() -> buck2_error::Result<AllocatorStats> {
             Ok(())
         } else {
             Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::MallocStats,
                 "Allocator stat '{}' not found.",
                 val
             ))
@@ -63,7 +63,7 @@ mod tests {
                 return Ok(());
             }
             return Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::MallocStats,
                 "{}",
                 "Allocator stats not found"
             ));

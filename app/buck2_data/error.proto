@@ -74,6 +74,8 @@ enum ErrorTag {
   WATCHMAN_CHECKOUT_IN_PROGRESS = 212;
   WATCHMAN_CLIENT = 213;
 
+  NOTIFY_WATCHER = 250;
+
   HTTP = 3;
   // Client error (4xx).
   HTTP_CLIENT = 301;
@@ -92,6 +94,8 @@ enum ErrorTag {
   DAEMON_PREEMPTED = 502;
   // Daemon start up failed while initializing DaemonStateData.
   DAEMON_STATE_INIT_FAILED = 503;
+  DAEMON_STATUS = 504;
+  DAEMON_REDIRECT = 505;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.
@@ -127,14 +131,16 @@ enum ErrorTag {
   INTERRUPTED_BY_DAEMON_SHUTDOWN = 23;
   // The daemon couldn't be killed
   DAEMON_WONT_DIE_FROM_KILL = 24;
+  // A process couldn't be killed
+  FAILED_TO_KILL = 8027;
+
   // No valid internal or VPNless certs could be found
   NO_VALID_CERTS = 25;
   // Build failed during materialization
   MATERIALIZATION_ERROR = 26;
   // Could not find buck project root
   NO_BUCK_ROOT = 27;
-  // Clean stale command was interrupted
-  CLEAN_INTERRUPT = 28;
+
   // Functionality not implemented in Buck2
   UNIMPLEMENTED = 29;
   // Target specified is not found in the package/build file
@@ -147,6 +153,7 @@ enum ErrorTag {
 
   // Errors during buck2 install.
   INSTALL = 200;
+  INSTALL_ID_MISMATCH = 2110;
   INSTALLER_UNKNOWN = 2101;
   INSTALLER_TIER0 = 2102;
   INSTALLER_ENVIRONMENT = 2103;
@@ -177,6 +184,7 @@ enum ErrorTag {
   IO_TIMEOUT = 1027;
   IO_WINDOWS_SHARING_VIOLATION = 1028;
   IO_READ_ONLY_FILESYSTEM = 1029;
+  IO_BLOCKING_EXECUTOR = 8033;
 
   //
   // Eden IO Section
@@ -200,6 +208,11 @@ enum ErrorTag {
   IO_MATERIALIZER_FILE_BUSY = 1161;
   IO_EDEN_FILE_NOT_FOUND = 1162;
   IO_EDEN_LIST_MOUNTS = 1163;
+  IO_EDEN_CONFIG_ERROR = 1164;
+  IO_EDEN_VERSION_ERROR = 1165;
+  IO_EDEN_THRIFT_ERROR = 1166;
+
+  SAPLING = 12000;
 
   // Client IO
   // Broken pipe specifically from client stdio streams
@@ -224,6 +237,7 @@ enum ErrorTag {
   RE_UNAVAILABLE = 1314;
   RE_DATA_LOSS = 1315;
   RE_UNAUTHENTICATED = 1316;
+  RE_EXPERIMENT_NAME = 1317;
 
   RE_CLIENT_CRASH = 1320;
 
@@ -253,24 +267,79 @@ enum ErrorTag {
 
   // Action execution
   DOWNLOAD_FILE_HEAD_REQUEST = 4001;
+  DOWNLOAD_SIZE_MISMATCH = 4002;
+  DIGEST_TTL_MISMATCH = 4103;
+  DIGEST_TTL_INVALID_RESPONSE = 4104;
+
   // Tests
   TEST_DEADLINE_EXPIRED = 5001;
+  TEST_ORCHESTRATOR = 5002;
+  TEST_STATUS = 5003;
+  TEST_STATUS_INVALID = 5004;
+  LOCAL_RESOURCE_SETUP = 5005;
 
   // Error from TestExecutor
   TPX = 5500;
   TestExecutor = 5501;
 
-  // None turned into an error. This carries no useful information whatsoever.
-  UNEXPECTED_NONE = 6001;
+  // Errors while cleaning stale artifacts
+  CLEAN_STALE = 280;
+  // Clean stale command was interrupted
+  CLEAN_INTERRUPT = 28;
 
   INVALID_ERROR_REPORT = 6002;
+  INVALID_EVENT = 6003;
+  INVALID_AUTH_TOKEN = 6004;
+  INVALID_DIGEST = 6005;
+  INVALID_DURATION = 6006;
+  INVALID_USERNAME = 6007;
+  INVALID_ABS_PATH = 6008;
+  INVALID_BUCK_OUT_PATH = 6009;
 
   // Build errors.
   BUILD_DEADLINE_EXPIRED = 7001;
 
+  SUPER_CONSOLE = 8000;
   SUPER_CONSOLE_INVALID_WHITESPACE = 8001;
 
   // Misc external error conversions
+  WORKER_INIT = 8500;
+  WORKER_DIRECTORY_EXISTS = 8501;
+  WORKER_CANCELLED = 8502;
+
+  EVENT_LOG = 8036;
+  EVENT_LOG_UPLOAD = 8035;
+
+  CACHE_UPLOAD_FAILED = 906;
+  SYMLINK_PARENT_MISSING = 909;
+
+  DISPATCHER_UNAVAILABLE = 912;
+  CSV_PARSE = 917;
+  CAS_BLOB_COUNT_MISMATCH = 918;
+
+  CLEAN_OUTPUTS = 8017;
+  COPY_OUTPUTS = 8029;
+  LOG_FILTER = 8030;
+
+  WINDOWS_UNSUPPORTED = 8007;
+  MALLOC_STATS = 8008;
+  MALLCTL = 8038;
+  CPU_STATS = 8026;
+
+  // Misc phases/subsystem tags
+  BXL = 11000;
+  CERTS = 22000;
+  LOG_CMD = 13000;
+  OFFLINE_ARCHIVE = 14000;
+  PROFILE = 15000;
+  LSP = 16000;
+  HEALTH_CHECK = 17000;
+  EXPLAIN = 18000;
+  STARLARK_SERVER = 19000;
+  INTERPRETER = 20000;
+  KILL_ALL = 21000;
+
+  // Misc error conversions
   CLAP = 9001;
   HEX = 9002;
   HYPER = 9003;
@@ -292,4 +361,14 @@ enum ErrorTag {
   INT_CONVERSION = 9014;
   STRING_UTF8 = 9015;
   STRING_CONVERSION = 9016;
+  CSTRING_NUL = 9023;
+
+  // From `buck2 debug crash`
+  CRASH_REQUESTED = 8022;
+
+  // None turned into an error. This carries no useful information whatsoever.
+  UNEXPECTED_NONE = 6001;
+
+  // Only used by tests, should not occur outside test execution.
+  TEST_ONLY = 8031;
 }

@@ -561,7 +561,7 @@ pub fn format_test_result(
         ..
     } = test_result;
     let status = TestStatus::try_from(*status)
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestStatusInvalid))?;
 
     // Pass results normally have no details, unless the --print-passing-details is set.
     // Do not display anything for passing tests unless details are present to avoid
@@ -583,6 +583,7 @@ pub fn format_test_result(
         TestStatus::LISTING_FAILED => Span::new_styled("⚠ Listing failed".to_owned().red()),
     }?;
     let mut base = Line::from_iter([prefix, Span::new_unstyled(format!(": {}", name,))?]);
+
     if let Some(duration) = duration {
         if let Ok(duration) = Duration::try_from(duration.clone()) {
             base.push(Span::new_unstyled(format!(

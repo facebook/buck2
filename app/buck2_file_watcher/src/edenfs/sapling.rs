@@ -70,7 +70,7 @@ pub(crate) async fn get_mergebase<D: AsRef<Path>, C: AsRef<str>, M: AsRef<str>>(
 
     if !output.status.success() || !output.stderr.is_empty() {
         buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::Sapling,
             "Failed to obtain mergebase:\n{}",
             String::from_utf8(output.stderr)
                 .buck_error_context("Failed to stderr reported by get_mergebase.")?
@@ -136,7 +136,7 @@ pub(crate) async fn get_status<D: AsRef<Path>, F: AsRef<str>, S: AsRef<str>>(
 
     let stdout = output.stdout.take().ok_or_else(|| {
         buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::Sapling,
             "Failed to read stdout when invoking 'sl status'."
         )
     })?;
@@ -190,7 +190,7 @@ fn process_one_status_line(line: &str) -> buck2_error::Result<Option<(SaplingSta
         })
     } else {
         Err(buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::Sapling,
             "Invalid status line: {line}"
         ))
     }

@@ -195,7 +195,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
             link.parent()
                 .ok_or_else(|| {
                     buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
+                        buck2_error::ErrorTag::SymlinkParentMissing,
                         "Expected path with a parent in symlink target"
                     )
                 })?
@@ -603,10 +603,8 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
         use std::mem::MaybeUninit;
         use std::os::unix::ffi::OsStrExt;
 
-        use buck2_error::conversion::from_any_with_tag;
-
         let path_c = CString::new(path.as_os_str().as_bytes())
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+            .map_err(buck2_error::Error::from)
             .with_buck_error_context(|| format!("Failed to convert path to CString: {:?}", path))?;
         let mut statvfs = unsafe { MaybeUninit::<libc::statvfs>::zeroed().assume_init() };
         unsafe {

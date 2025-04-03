@@ -388,7 +388,7 @@ impl InvocationRecorder {
                     None => {
                         if is_success {
                             return Err(buck2_error!(
-                                buck2_error::ErrorTag::Tier0,
+                                ErrorTag::InvalidEvent,
                                 "successful {} commands should have resolved target patterns",
                                 command_name
                             ));
@@ -885,7 +885,7 @@ impl InvocationRecorder {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_command_end was passed a CommandEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1109,7 +1109,7 @@ impl InvocationRecorder {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_bxl_ensure_artifacts_end was passed a BxlEnsureArtifacts not contained in a SpanEndEvent"
                 ));
             }
@@ -1428,7 +1428,7 @@ impl InvocationRecorder {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_dice_block_concurrent_command_end was passed a DiceBlockConcurrentCommandEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1455,7 +1455,7 @@ impl InvocationRecorder {
             buck2_data::buck_event::Data::SpanEnd(ref end) => end.clone(),
             _ => {
                 return Err(buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
+                    ErrorTag::InvalidEvent,
                     "handle_dice_cleanup_end was passed a DiceCleanupEnd not contained in a SpanEndEvent"
                 ));
             }
@@ -1649,7 +1649,7 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
         .tags
         .iter()
         .copied()
-        .filter_map(|v| buck2_data::error::ErrorTag::try_from(v).ok());
+        .filter_map(|v| ErrorTag::try_from(v).ok());
 
     let source_area = source_area(tags.clone()).to_string().to_ascii_uppercase();
     let tags = tags.map(|t| t.as_str_name().to_owned());

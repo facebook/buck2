@@ -160,7 +160,7 @@ pub fn username() -> buck2_error::Result<Option<String>> {
     {
         use buck2_error::conversion::from_any_with_tag;
         Ok(Some(user::current_username().map_err(|e| {
-            from_any_with_tag(e, buck2_error::ErrorTag::Tier0)
+            from_any_with_tag(e, buck2_error::ErrorTag::InvalidUsername)
         })?))
     }
     #[cfg(not(fbcode_build))]

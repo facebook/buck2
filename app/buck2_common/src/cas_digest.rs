@@ -675,7 +675,7 @@ pub struct TinyDigest<'a, Kind: CasDigestKind> {
 }
 
 #[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = InvalidDigest)]
 pub enum CasDigestParseError {
     #[error("The digest is missing a size separator, it should look like `HASH:SIZE`")]
     MissingSizeSeparator,

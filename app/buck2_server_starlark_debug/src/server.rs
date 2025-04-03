@@ -306,7 +306,7 @@ impl VariableId {
     pub fn new(top_frame: bool, thread_id: u32, variable_id: u32) -> buck2_error::Result<Self> {
         if thread_id > 0xFFFFF {
             return Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Tier0,
+                buck2_error::ErrorTag::StarlarkServer,
                 "{}",
                 format!(
                     "Thread ID exceeds 20-bit limit: max is 0xFFFFF, received {}",
@@ -383,12 +383,12 @@ impl DebugServer for ServerState {
 
         // We currently just resolve new breakpoints against the current state of the file. This isn't quite correct, but oh well.
         let resolved = resolve_breakpoints(&x, &self.get_ast(&project_relative)?)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         for hook_state in self.current_hooks.values() {
             hook_state
                 .adapter
                 .set_breakpoints(&source, &resolved)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         }
         let response = resolved.to_response();
         self.set_breakpoints.insert(source, resolved);
@@ -435,7 +435,7 @@ impl DebugServer for ServerState {
         let mut trace_response = hook
             .adapter
             .stack_trace(x)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         for frame in &mut trace_response.stack_frames {
             // rewrite the sources to be absolute (like vscode sent us)
             if let Some(source) = &mut frame.source {
@@ -462,7 +462,7 @@ impl DebugServer for ServerState {
         let scopes_info = hook
             .adapter
             .scopes()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         Ok(dap::ScopesResponseBody {
             scopes: vec![dap::Scope {
                 name: "Locals".to_owned(),
@@ -502,7 +502,7 @@ impl DebugServer for ServerState {
             let vars_info = hook
                 .adapter
                 .variables()
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
             let known_variables = self
                 .variables_by_thread
                 .entry(thread_id)
@@ -531,7 +531,7 @@ impl DebugServer for ServerState {
                 let inspect_result = hook
                     .adapter
                     .inspect_variable(path.to_owned())
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
                 let current_frame_vars = self
                     .variables_by_thread
                     .get_mut(&thread_id)
@@ -568,7 +568,7 @@ impl DebugServer for ServerState {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
         hook.adapter
             .continue_()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
 
         Ok(dap::ContinueResponseBody {
             all_threads_continued: Some(false),
@@ -579,7 +579,7 @@ impl DebugServer for ServerState {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
         hook.adapter
             .step(StepKind::Over)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         Ok(())
     }
 
@@ -587,7 +587,7 @@ impl DebugServer for ServerState {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
         hook.adapter
             .step(StepKind::Into)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         Ok(())
     }
 
@@ -595,7 +595,7 @@ impl DebugServer for ServerState {
         let hook = self.find_hook_by_pseudo_thread(x.thread_id)?;
         hook.adapter
             .step(StepKind::Out)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         Ok(())
     }
 
@@ -767,7 +767,10 @@ impl ServerState {
             } => {
                 let resp = self.new_hook(handle, description)?;
                 response_channel.send(resp).map_err(|_| {
-                    buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "channel closed")
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::StarlarkServer,
+                        "channel closed"
+                    )
                 })?;
             }
             ServerMessage::NewHandle { id, events } => self.new_handle(id, events),
@@ -828,7 +831,7 @@ impl ServerState {
             hook_state
                 .adapter
                 .set_breakpoints(source, breakpoints)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         }
         self.current_hooks.insert(hook_id, hook_state);
 
@@ -904,7 +907,7 @@ impl ServerState {
             }
         }
         Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            buck2_error::ErrorTag::StarlarkServer,
             "can't find evaluator thread"
         ))
     }
@@ -913,7 +916,11 @@ impl ServerState {
         debug!("tried to get ast `{}`", source);
         let abs_path = self.project_root.resolve(source);
         let content = fs_util::read_to_string_if_exists(abs_path)?.ok_or_else(|| {
-            buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "file not found: {}", source)
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::StarlarkServer,
+                "file not found: {}",
+                source
+            )
         })?;
         match AstModule::parse(
             source.as_ref(),

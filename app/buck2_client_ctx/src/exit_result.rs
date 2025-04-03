@@ -421,7 +421,7 @@ impl From<csv::Error> for ClientIoError {
     fn from(error: csv::Error) -> Self {
         match error.kind() {
             csv::ErrorKind::Io(_) => {}
-            _ => return ClientIoError::Other(from_any_with_tag(error, ErrorTag::Tier0)),
+            _ => return ClientIoError::Other(from_any_with_tag(error, ErrorTag::CsvParse)),
         }
         match error.into_kind() {
             csv::ErrorKind::Io(io_error) => ClientIoError::from(io_error),

@@ -322,7 +322,7 @@ impl InterpreterForCell {
         env.set_extra_value_no_overwrite(env.heap().alloc_complex(StarlarkAnyComplex {
             value: InterpreterExtraValue::default(),
         }))
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))?;
 
         Ok(env)
     }

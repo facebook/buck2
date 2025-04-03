@@ -258,7 +258,7 @@ pub async fn new_daemon_api_client(
         channel,
         BuckAddAuthTokenInterceptor {
             auth_token: AsciiMetadataValue::try_from(auth_token)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
+                .map_err(|e| from_any_with_tag(e, ErrorTag::InvalidAuthToken))?,
         },
     )
     .max_encoding_message_size(usize::MAX)
@@ -1026,7 +1026,7 @@ async fn get_constraints(
     let status: buck2_cli_proto::StatusResponse = match status {
         CommandOutcome::Success(r) => Ok(r),
         CommandOutcome::Failure(_) => Err(buck2_error!(
-            buck2_error::ErrorTag::Tier0,
+            ErrorTag::DaemonStatus,
             "Unexpected failure message in status()"
         )),
     }?;

@@ -621,7 +621,7 @@ mod tests {
                     },
                     DrawMode::Normal,
                 )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
             header
                 .draw(
                     Dimensions {
@@ -630,7 +630,7 @@ mod tests {
                     },
                     DrawMode::Final,
                 )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         }
         Ok(())
     }
@@ -667,10 +667,10 @@ mod tests {
                 &mut all_output,
                 "{}",
                 draw(width, true, &phase_stats())
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
                     .fmt_for_test()
             )
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         }
 
         for width in [60, 140] {
@@ -678,10 +678,10 @@ mod tests {
                 &mut all_output,
                 "{}",
                 draw(width, false, &phase_stats())
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
                     .fmt_for_test()
             )
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         }
 
         let expected = indoc::indoc!(
@@ -785,7 +785,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         let expected = "testRemaining: 3/3. Cache hits: 100%. Ti\n".to_owned();
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -817,7 +817,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
 
         let expected = "test                      Remaining: 2/2. Time elapsed: 0.0s\n".to_owned();
 
@@ -850,7 +850,7 @@ mod tests {
             },
             DrawMode::Normal,
         )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         let expected =
             "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s\n"
                 .to_owned();
@@ -884,7 +884,7 @@ mod tests {
             },
             DrawMode::Final,
         )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         let expected = indoc::indoc!(
             r#"
             Jobs completed: 0. Time elapsed: 0.0s.
