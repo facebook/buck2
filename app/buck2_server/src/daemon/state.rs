@@ -146,9 +146,6 @@ pub struct DaemonStateData {
     #[allocative(skip)]
     pub scribe_sink: Option<Arc<dyn EventSinkWithStats>>,
 
-    /// Whether or not to hash all commands
-    pub hash_all_commands: bool,
-
     /// Whether to consult the offline-cache buck-out dir for network action
     /// outputs prior to running them. If no cached output exists, the action
     /// (download_file, cas_artifact) will execute normally.
@@ -557,14 +554,6 @@ impl DaemonState {
                 )
             })?;
 
-            let hash_all_commands = root_config
-                .parse::<RolloutPercentage>(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "hash_all_commands",
-                })?
-                .unwrap_or_else(RolloutPercentage::never)
-                .roll();
-
             let use_network_action_output_cache = root_config
                 .parse(BuckconfigKeyRef {
                     section: "buck2",
@@ -609,7 +598,8 @@ impl DaemonState {
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
                 format!("which-dice:{}", dice.which_dice().variant_name()),
-                format!("hash-all-commands:{}", hash_all_commands),
+                // TODO(scottcao): Delete this tag since now hash all commands is always enabled.
+                "hash-all-commands:true".to_owned(),
                 format!(
                     "sqlite-materializer-state:{}",
                     disk_state_options.sqlite_materializer_state
@@ -645,7 +635,6 @@ impl DaemonState {
                 materializer,
                 forkserver,
                 scribe_sink,
-                hash_all_commands,
                 use_network_action_output_cache,
                 disk_state_options,
                 start_time: std::time::Instant::now(),

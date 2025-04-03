@@ -305,7 +305,7 @@ enum ExecuteResult {
     LocalDepFileHit(ActionOutputs, ActionExecutionMetadata),
     ExecutedOrReHit {
         result: CommandExecutionResult,
-        dep_file_bundle: Option<DepFileBundle>,
+        dep_file_bundle: DepFileBundle,
         executor_preference: ExecutorPreference,
         prepared_action: PreparedAction,
         input_files_bytes: u64,
@@ -573,45 +573,37 @@ impl RunAction {
         request: &CommandExecutionRequest,
         action_digest: &ActionDigest,
         result: CommandExecutionResult,
-        dep_file_bundle: &Option<DepFileBundle>,
+        dep_file_bundle: &DepFileBundle,
     ) -> buck2_error::Result<ControlFlow<CommandExecutionResult, CommandExecutionManager>> {
         // If it's served by the regular action cache no need to verify anything here.
         if !result.was_served_by_remote_dep_file_cache() {
             return Ok(ControlFlow::Break(result));
         }
 
-        if let Some(bundle) = dep_file_bundle {
-            if let Some(found_dep_file_entry) = &result.dep_file_metadata {
-                let can_use = span_async_simple(
-                    buck2_data::MatchDepFilesStart {
-                        checking_filtered_inputs: true,
-                        remote_cache: true,
-                    },
-                    bundle.check_remote_dep_file_entry(
-                        ctx.digest_config(),
-                        ctx.fs(),
-                        ctx.materializer(),
-                        found_dep_file_entry,
-                    ),
-                    buck2_data::MatchDepFilesEnd {},
-                )
-                .await?;
+        if let Some(found_dep_file_entry) = &result.dep_file_metadata {
+            let can_use = span_async_simple(
+                buck2_data::MatchDepFilesStart {
+                    checking_filtered_inputs: true,
+                    remote_cache: true,
+                },
+                dep_file_bundle.check_remote_dep_file_entry(
+                    ctx.digest_config(),
+                    ctx.fs(),
+                    ctx.materializer(),
+                    found_dep_file_entry,
+                ),
+                buck2_data::MatchDepFilesEnd {},
+            )
+            .await?;
 
-                if can_use {
-                    tracing::info!(
-                        "Action result is cached via remote dep file cache, skipping execution of :\n```\n$ {}\n```\n for action `{}` with remote dep file key `{}`",
-                        request.all_args_str(),
-                        action_digest,
-                        bundle.remote_dep_file_action.action,
-                    );
-                    return Ok(ControlFlow::Break(result));
-                }
-            } else {
-                // This should not happen as we check for the metadata on the cache querier side.
-                tracing::debug!(
-                    "The remote dep file cache returned a hit for `{}`, but there is no metadata",
-                    bundle.remote_dep_file_action.action
+            if can_use {
+                tracing::info!(
+                    "Action result is cached via remote dep file cache, skipping execution of :\n```\n$ {}\n```\n for action `{}` with remote dep file key `{}`",
+                    request.all_args_str(),
+                    action_digest,
+                    dep_file_bundle.remote_dep_file_action.action,
                 );
+                return Ok(ControlFlow::Break(result));
             }
         }
         // Continue through other options below
@@ -622,18 +614,8 @@ impl RunAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<ExecuteResult, ExecuteError> {
-        let knobs = ctx.run_action_knobs();
-        let process_dep_files = !self.inner.dep_files.labels.is_empty() || knobs.hash_all_commands;
-        let (prepared_run_action, dep_file_visitor) = if !process_dep_files {
-            (
-                self.prepare(&mut SimpleCommandLineArtifactVisitor::new(), ctx)?,
-                None,
-            )
-        } else {
-            let mut visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
-            let prepared = self.prepare(&mut visitor, ctx)?;
-            (prepared, Some(visitor))
-        };
+        let mut dep_file_visitor = DepFilesCommandLineVisitor::new(&self.inner.dep_files);
+        let prepared_run_action = self.prepare(&mut dep_file_visitor, ctx)?;
         let cmdline_digest = prepared_run_action.expanded.fingerprint();
         let input_files_bytes = prepared_run_action.paths.input_files_bytes();
         // Run actions are assumed to be shared
@@ -667,33 +649,24 @@ impl RunAction {
             .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
             .with_outputs_for_error_handler(outputs_for_error_handler);
 
-        let (dep_file_bundle, req) = if let Some(visitor) = dep_file_visitor {
-            let bundle = make_dep_file_bundle(ctx, visitor, cmdline_digest, req.paths())?;
-            // Enable remote dep file cache lookup for actions that have remote depfile uploads enabled.
-            let req = if self.inner.allow_dep_file_cache_upload {
-                req.with_remote_dep_file_key(&bundle.remote_dep_file_action.action.coerce())
-            } else {
-                req
-            };
-            (Some(bundle), req)
+        let dep_file_bundle =
+            make_dep_file_bundle(ctx, dep_file_visitor, cmdline_digest, req.paths())?;
+        // Enable remote dep file cache lookup for actions that have remote depfile uploads enabled.
+        let req = if self.inner.allow_dep_file_cache_upload {
+            req.with_remote_dep_file_key(&dep_file_bundle.remote_dep_file_action.action.coerce())
         } else {
-            (None, req)
+            req
         };
 
         // First, check in the local dep file cache if an identical action can be found there.
         // Do this before checking the action cache as we can avoid a potentially large download.
         // Once the action cache lookup misses, we will do the full dep file cache look up.
-        let should_fully_check_dep_file_cache = if let Some(dep_file_bundle) = &dep_file_bundle {
-            let (outputs, should_fully_check_dep_file_cache) = dep_file_bundle
-                .check_local_dep_file_cache_for_identical_action(ctx, self.outputs.as_slice())
-                .await?;
-            if let Some((outputs, metadata)) = outputs {
-                return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
-            }
-            should_fully_check_dep_file_cache
-        } else {
-            false
-        };
+        let (outputs, should_fully_check_dep_file_cache) = dep_file_bundle
+            .check_local_dep_file_cache_for_identical_action(ctx, self.outputs.as_slice())
+            .await?;
+        if let Some((outputs, metadata)) = outputs {
+            return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
+        }
 
         // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
         let prepared_action = ctx.prepare_action(&req)?;
@@ -720,25 +693,21 @@ impl RunAction {
         let mut result = match result {
             ControlFlow::Break(res) => res,
             ControlFlow::Continue(manager) => {
-                if let Some(dep_file_bundle) = &dep_file_bundle {
-                    if should_fully_check_dep_file_cache {
-                        let lookup = dep_file_bundle
-                            .check_local_dep_file_cache(ctx, self.outputs.as_slice())
-                            .await?;
-                        if let Some((outputs, metadata)) = lookup {
-                            return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
-                        }
+                if should_fully_check_dep_file_cache {
+                    let lookup = dep_file_bundle
+                        .check_local_dep_file_cache(ctx, self.outputs.as_slice())
+                        .await?;
+                    if let Some((outputs, metadata)) = lookup {
+                        return Ok(ExecuteResult::LocalDepFileHit(outputs, metadata));
                     }
-                };
+                }
 
                 ctx.exec_cmd(manager, &req, &prepared_action).await
             }
         };
 
         // If the action has a dep file, log the remote dep file key so we can look out for collisions
-        if let Some(bundle) = &dep_file_bundle {
-            result.dep_file_key = Some(bundle.remote_dep_file_action.action.coerce())
-        }
+        result.dep_file_key = Some(dep_file_bundle.remote_dep_file_action.action.coerce());
 
         Ok(ExecuteResult::ExecutedOrReHit {
             result,
@@ -942,7 +911,7 @@ impl Action for RunAction {
         };
 
         // If there is a dep file entry AND if dep file cache upload is enabled, upload it
-        let upload_dep_file = self.inner.allow_dep_file_cache_upload && dep_file_bundle.is_some();
+        let upload_dep_file = self.inner.allow_dep_file_cache_upload;
         if result.was_success()
             && !result.was_served_by_remote_dep_file_cache()
             && (self.inner.allow_cache_upload || upload_dep_file || force_cache_upload()?)
@@ -954,11 +923,10 @@ impl Action for RunAction {
                     &result,
                     re_result,
                     // match needed for coercion, https://github.com/rust-lang/rust/issues/108999
-                    match dep_file_bundle.as_mut() {
-                        Some(dep_file_bundle) if self.inner.allow_dep_file_cache_upload => {
-                            Some(dep_file_bundle)
-                        }
-                        _ => None,
+                    if self.inner.allow_dep_file_cache_upload {
+                        Some(&mut dep_file_bundle)
+                    } else {
+                        None
                     },
                 )
                 .await?;
@@ -976,9 +944,7 @@ impl Action for RunAction {
             Some(input_files_bytes),
         )?;
 
-        if let Some(dep_file_bundle) = dep_file_bundle {
-            populate_dep_files(ctx, dep_file_bundle, &outputs, was_locally_executed).await?;
-        }
+        populate_dep_files(ctx, dep_file_bundle, &outputs, was_locally_executed).await?;
 
         Ok((outputs, metadata))
     }

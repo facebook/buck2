@@ -367,7 +367,6 @@ impl<'a> ServerCommandContext<'a> {
         };
 
         let run_action_knobs = RunActionKnobs {
-            hash_all_commands: self.base_context.daemon.hash_all_commands,
             use_network_action_output_cache: self
                 .base_context
                 .daemon
