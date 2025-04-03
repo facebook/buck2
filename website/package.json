@@ -49,6 +49,6 @@
   "resolutions": {
     "shelljs": "^0.8.5",
     "ansi-html": "0.0.8",
-    "@babel/traverse": "^7.23.2"
+    "dompurify": "^3.2.4"
   }
 }
