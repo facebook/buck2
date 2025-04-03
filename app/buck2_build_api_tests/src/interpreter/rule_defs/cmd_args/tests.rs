@@ -95,7 +95,7 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
     expect_error(
         tester.run_starlark_bzl_test(contents),
         contents,
-        "Expected `CellPath | CellRoot | TargetLabel",
+        "Expected `CellPath | CellRoot | ProjectRoot",
     );
 
     Ok(())
@@ -252,12 +252,12 @@ fn command_line_builder() -> buck2_error::Result<()> {
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_1),
         content_invalid_type_1,
-        "Expected `CellPath | CellRoot | TargetLabel",
+        "Expected `CellPath | CellRoot | ProjectRoot",
     );
     expect_error(
         tester.run_starlark_bzl_test(content_invalid_type_3),
         content_invalid_type_3,
-        "Expected `CellPath | CellRoot | TargetLabel",
+        "Expected `CellPath | CellRoot | ProjectRoot",
     );
 
     Ok(())

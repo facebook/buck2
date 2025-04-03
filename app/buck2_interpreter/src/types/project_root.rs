@@ -27,7 +27,7 @@ use starlark::values::Value;
 #[derive(Debug, PartialEq, Display, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkProjectRoot;
 
-#[starlark_value(type = "project_root", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "ProjectRoot", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkProjectRoot {}
 
 fn instance() -> FrozenValue {
