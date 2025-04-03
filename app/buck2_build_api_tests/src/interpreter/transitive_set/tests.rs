@@ -552,7 +552,7 @@ fn test_definition_type() -> anyhow::Result<()> {
             QuxSet = transitive_set();
             assert_eq("FooSet", FooSet.type)
             assert_eq("BarSet", BarSet.type)
-            assert_eq("transitive_set_definition", QuxSet.type)
+            assert_eq("TransitiveSetDefinition", QuxSet.type)
         "#
     ))?;
 
