@@ -77,6 +77,45 @@ def make_py_package_providers(
     ]
     return providers
 
+def live_par_generated_files(
+        ctx: AnalysisContext,
+        output: Artifact,
+        python_toolchain: PythonToolchainInfo,
+        build_args: list[ArgLike],
+        main: EntryPoint,
+        preload_libraries: ArgLike,
+        output_suffix: str) -> list[(Artifact, str)]:
+    artifacts = []
+    artifacts.append((python_toolchain.run_lpar_main, "__run_lpar_main__.py"))
+
+    lpar_bootstrap = ctx.actions.declare_output("_bootstrap.sh")
+    gen_bootstrap = cmd_args(python_toolchain.gen_lpar_bootstrap[RunInfo])
+
+    # Add passthrough args
+    gen_bootstrap.add(cmd_args([cmd_args(arg, replace_regex = ("--passthrough=", "")) for arg in build_args]))
+
+    if main[0] == EntryPointKind("module"):
+        gen_bootstrap.add(["--main-module", main[1]])
+    else:
+        gen_bootstrap.add(["--main-function", main[1]])
+    if ctx.attrs.runtime_env:
+        for k, v in ctx.attrs.runtime_env.items():
+            gen_bootstrap.add(cmd_args(["--runtime_env={}={}".format(k, v)]))
+
+    gen_bootstrap.add([
+        "--python",
+        python_toolchain.interpreter,
+    ])
+    gen_bootstrap.add(["--main-runner", python_toolchain.main_runner])
+
+    gen_bootstrap.add(preload_libraries)
+
+    gen_bootstrap.add(["--bootstrap-output", lpar_bootstrap.as_output()])
+    gen_bootstrap.add(["--output", output.as_output()])
+    ctx.actions.run(gen_bootstrap, category = "par", identifier = "lpar_gen_bootstrap".format(output_suffix))
+    artifacts.append((lpar_bootstrap, "_bootstrap.sh"))
+    return artifacts
+
 def make_default_info(pex: PexProviders) -> Provider:
     return DefaultInfo(
         default_output = pex.default_output,
@@ -292,8 +331,12 @@ def make_py_package(
             ctx,
             python_toolchain.make_py_package_live[RunInfo],
             pex_modules,
+            build_args,
+            preload_libraries,
+            main,
             map(lambda s: (s[1], s[0]), shared_libraries),
             generated_files,
+            python_toolchain,
             "-live",
         )
         default.sub_targets["live"] = make_py_package_providers(live_par_providers)
@@ -460,14 +503,21 @@ def _make_py_package_live(
         ctx: AnalysisContext,
         make_py_package_live: RunInfo,
         pex_modules: PexModules,
+        build_args: list[ArgLike],
+        preload_libraries: cmd_args,
+        main: EntryPoint,
         shared_libraries: list[(SharedLibrary, str)],
         generated_files: list[(Artifact, str)],
+        python_toolchain: PythonToolchainInfo,
         output_suffix: str) -> PexProviders:
     sub_targets = {}
     name = "{}{}".format(ctx.attrs.name, output_suffix)
 
     symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
     runtime_files = [symlink_tree_path]
+
+    output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension))
+    generated_files.extend(live_par_generated_files(ctx, output, python_toolchain, build_args, main, preload_libraries, output_suffix))
 
     cmd = cmd_args(make_py_package_live)
     cmd.add(cmd_args(symlink_tree_path.as_output(), format = "--output-path={}"))
@@ -545,13 +595,14 @@ def _make_py_package_live(
     )]
 
     return PexProviders(
-        default_output = symlink_tree_path,
+        default_output = output,
         other_outputs = runtime_files,
         other_outputs_prefix = symlink_tree_path.short_path,
         hidden_resources = hidden_resources,
         sub_targets = sub_targets,
         run_cmd = cmd_args(
-            ["ls", symlink_tree_path],
+            [output],
+            hidden = runtime_files + hidden_resources + [python_toolchain.interpreter],
         ),
     )
 

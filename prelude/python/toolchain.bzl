@@ -60,6 +60,7 @@ PythonToolchainInfo = provider(
         "wheel_linker_flags": provider_field(list[typing.Any], default = []),
         # site-packages-relative rpaths to emebed into libs/bins in the wheel
         "wheel_rpaths": provider_field(list[str], default = []),
+        "gen_lpar_bootstrap": provider_field(typing.Any, default = None),
         "generate_static_extension_info": provider_field(typing.Any, default = None),
         "package_style": provider_field(typing.Any, default = None),
         "strip_libpar": provider_field(typing.Any, default = None),
@@ -82,6 +83,7 @@ PythonToolchainInfo = provider(
         # The fully qualified name of a function that handles invoking the
         # executable's entry point
         "main_runner": provider_field(str, default = "__par__.bootstrap.run_as_main"),
+        "run_lpar_main": provider_field(typing.Any, default = None),
         # Prefix to use when running a Python test/executable.
         "run_prefix": provider_field(list[typing.Any], default = []),
         "python_error_handler": provider_field(typing.Any, default = None),
