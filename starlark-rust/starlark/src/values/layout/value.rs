@@ -466,6 +466,12 @@ impl<'v> Value<'v> {
         self.unpack_starlark_str().map(|s| s.as_str())
     }
 
+    /// Obtain the underlying `str` if it is a string, otherwise return an error for users.
+    #[inline]
+    pub fn unpack_str_err(self) -> crate::Result<&'v str> {
+        UnpackValue::unpack_value_err(self)
+    }
+
     /// Get a pointer to a [`AValue`].
     #[inline]
     pub(crate) fn get_ref(self) -> AValueDyn<'v> {
