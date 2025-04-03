@@ -71,4 +71,8 @@ impl NetworkInterface {
         String::from_utf16(&self.mib_entry.Description[..desc_len])
             .unwrap_or_else(|_| String::from("<Unknown>"))
     }
+
+    pub fn is_connected(&self) -> bool {
+        self.mib_entry.MediaConnectState == winapi::shared::ifdef::MediaConnectStateConnected
+    }
 }

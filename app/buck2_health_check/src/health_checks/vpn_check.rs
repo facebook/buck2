@@ -34,7 +34,7 @@ impl VpnCheck {
     }
 
     pub(crate) fn run(&self) -> Option<Report> {
-        let is_vpn_enabled = Self::is_vpn_enabled();
+        let is_vpn_enabled = Self::cisco_iface_connected().unwrap_or(false);
 
         Some(Report {
             display_report: self.generate_display_report(is_vpn_enabled),
@@ -98,15 +98,27 @@ impl VpnCheck {
         })
     }
 
-    fn is_vpn_enabled() -> bool {
-        if !cfg!(target_os = "macos") {
-            // TODO(rajneeshl): Add support for Windows
-            return false;
-        }
-
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn cisco_iface_connected() -> buck2_error::Result<bool> {
         // Brittle check based on Cisco client's current behaviour.
         // Small section copied from https://fburl.com/code/g7ttsdz3
-        std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists()
+        Ok(std::path::Path::new("/opt/cisco/secureclient/vpn/ac_pf.token").exists())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn cisco_iface_connected() -> buck2_error::Result<bool> {
+        let table = buck2_util::os::win::network_interface_table::NetworkInterfaceTable::new()?;
+
+        for interface in table {
+            if interface
+                .description()
+                .contains("Cisco AnyConnect Virtual Miniport Adapter")
+            {
+                // This is a hack for VPN check: The presence of a connected interface with the Cisco name.
+                return Ok(interface.is_connected());
+            }
+        }
+        Ok(false)
     }
 }
 
