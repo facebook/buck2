@@ -792,8 +792,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
    * @throws IOException when fail to create the path
    */
   public Path createPathForLogcatBuffer(String bufferName) throws IOException {
-    return this.createTRA(
-        "generic_text_log",
+    return this.createTRALogcatLog(
         String.format("Logcat `%s` Buffer Output", bufferName),
         String.format("logcat_%s_buffer_logs", bufferName));
   }
@@ -831,6 +830,22 @@ public class InstrumentationTestRunner extends DeviceRunner {
    * @throws IOException the exception may throw from file writing.
    */
   public Path createTRA(String type, String description, String name) throws IOException {
+    // create the annotation file
+    String annotationTemplate =
+        String.format("{\"type\": {\"%s\": {}}, \"description\": \"%s\"}", type, description);
+    return createTRA(annotationTemplate, name);
+  }
+
+  public Path createTRALogcatLog(String description, String name) throws IOException {
+    // Use Logcat type(id = 4 https://fburl.com/code/8xzvasdf)
+    String annotationTemplate =
+        String.format(
+            "{\"type\": {\"formatted_log\": {\"log_source\": 4}}, \"description\": \"%s\"}",
+            description);
+    return createTRA(annotationTemplate, name);
+  }
+
+  private Path createTRA(String annotationTemplate, String name) throws IOException {
     /// get TRA directories
     String testArtifactsPath = getenv(TEST_RESULT_ARTIFACTS_ENV);
     String testArtifactsAnnotationsPath = getenv(TEST_RESULT_ARTIFACTS_ANNOTATIONS_ENV);
@@ -838,13 +853,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
       System.out.printf("The environment variables for TRA were not provided.\n");
       return null;
     }
-
-    // create the annotation file
-    String annotationTemplate =
-        String.format("{\"type\": {\"%s\": {}}, \"description\": \"%s\"}", type, description);
-    Path annotations_path =
+    Path annotationsPath =
         Paths.get(testArtifactsAnnotationsPath, String.format("%s.annotation", name));
-    Files.write(annotations_path, annotationTemplate.getBytes(Charset.forName("UTF-8")));
+    Files.write(annotationsPath, annotationTemplate.getBytes(Charset.forName("UTF-8")));
 
     // create the artifact file
     return Paths.get(testArtifactsPath, name);
