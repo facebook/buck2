@@ -169,7 +169,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::Selector(_) => Ok("SelectorDict"),
             // TODO(@wendyy) - starlark concat is not implemented.
             CoercedAttr::Concat(_) => Ok("concat"),
-            CoercedAttr::ConfiguredDep(_) => {
+            CoercedAttr::ConfiguredDepForForwardNode(_) => {
                 Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
             }
         }
@@ -216,9 +216,9 @@ impl CoercedAttrExt for CoercedAttr {
                 // TODO(@wendyy) - this needs better support
                 StarlarkProvidersLabel::new(d.as_ref().label.dupe()),
             ),
-            CoercedAttr::ConfiguredDep(d) => heap.alloc(StarlarkConfiguredProvidersLabel::new(
-                d.as_ref().label.dupe(),
-            )),
+            CoercedAttr::ConfiguredDepForForwardNode(d) => heap.alloc(
+                StarlarkConfiguredProvidersLabel::new(d.as_ref().label.dupe()),
+            ),
             CoercedAttr::SplitTransitionDep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dupe())),
             CoercedAttr::ConfigurationDep(c) => {
                 // TODO(T198210718)

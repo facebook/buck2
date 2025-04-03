@@ -152,7 +152,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::SplitTransitionDep(d), AttrTypeInner::SplitTransitionDep(t)) => {
                 Ok(CoercedAttrWithType::SplitTransitionDep(d, t))
             }
-            (CoercedAttr::ConfiguredDep(d), _) => Ok(CoercedAttrWithType::ConfiguredDep(d)),
+            (CoercedAttr::ConfiguredDepForForwardNode(d), _) => {
+                Ok(CoercedAttrWithType::ConfiguredDep(d))
+            }
             (CoercedAttr::ConfigurationDep(d), AttrTypeInner::ConfigurationDep(t)) => {
                 Ok(CoercedAttrWithType::ConfigurationDep(d, *t))
             }
@@ -226,7 +228,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             | CoercedAttr::WithinView(_)
             | CoercedAttr::ExplicitConfiguredDep(_)
             | CoercedAttr::SplitTransitionDep(_)
-            | CoercedAttr::ConfiguredDep(_)
+            | CoercedAttr::ConfiguredDepForForwardNode(_)
             | CoercedAttr::ConfigurationDep(_)
             | CoercedAttr::PluginDep(_)
             | CoercedAttr::Dep(_)
