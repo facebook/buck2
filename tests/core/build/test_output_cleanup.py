@@ -28,13 +28,6 @@ output_cleanup_targets = [
 
 @buck_test(skip_for_os=["windows"])
 @pytest.mark.parametrize(
-    "materializations",
-    [
-        "deferred",
-        "all",
-    ],
-)
-@pytest.mark.parametrize(
     "first",
     output_cleanup_targets,
 )
@@ -42,11 +35,8 @@ output_cleanup_targets = [
     "second",
     output_cleanup_targets,
 )
-# Temporarily disable hard errors so that we can use soft errors to check whether
-# immediate materializer is used anywhere
-@env("BUCK2_HARD_ERROR", "false")
 async def test_output_cleanup(
-    buck: Buck, tmp_path: Path, materializations: str, first: str, second: str
+    buck: Buck, tmp_path: Path, first: str, second: str
 ) -> None:
     def read_dir(d: Path) -> Dict[str, str]:
         steps = 0
@@ -63,10 +53,6 @@ async def test_output_cleanup(
                 steps += 1
 
         return out
-
-    with open(buck.cwd / ".buckconfig", "a") as buckconfig:
-        buckconfig.write(f"\n[buck2]\nmaterializations = {materializations}")
-    await buck.kill()  # Ensure the config gets picked up
 
     rebuild = tmp_path / "rebuild"
     clean = tmp_path / "clean"

@@ -60,7 +60,6 @@ use buck2_execute_impl::materializers::deferred::AccessTimesUpdates;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializer;
 use buck2_execute_impl::materializers::deferred::DeferredMaterializerConfigs;
 use buck2_execute_impl::materializers::deferred::TtlRefreshConfiguration;
-use buck2_execute_impl::materializers::immediate::ImmediateMaterializer;
 use buck2_execute_impl::materializers::sqlite::MaterializerState;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateIdentity;
 use buck2_execute_impl::materializers::sqlite::MaterializerStateSqliteDb;
@@ -711,13 +710,6 @@ impl DaemonState {
         daemon_dispatcher: EventDispatcher,
     ) -> buck2_error::Result<Arc<dyn Materializer>> {
         match materializations {
-            MaterializationMethod::Immediate => Ok(Arc::new(ImmediateMaterializer::new(
-                fs,
-                digest_config,
-                re_client_manager,
-                blocking_executor,
-                http_client,
-            ))),
             MaterializationMethod::Deferred | MaterializationMethod::DeferredSkipFinalArtifacts => {
                 Ok(Arc::new(DeferredMaterializer::new(
                     fs,
