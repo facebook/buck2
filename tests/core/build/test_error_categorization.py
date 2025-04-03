@@ -94,7 +94,7 @@ async def test_attr_coercion(buck: Buck, tmp_path: Path) -> None:
     errors = record["errors"]
     assert len(errors) == 1
     # Just make sure there's some kind of error metadata
-    assert "CoercionError::TypeError" in errors[0]["source_location"]
+    assert "StarlarkError::Value" in errors[0]["source_location"]
 
 
 @buck_test()

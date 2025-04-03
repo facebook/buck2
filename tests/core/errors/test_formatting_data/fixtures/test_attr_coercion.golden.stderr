@@ -19,4 +19,4 @@ Caused by:
          |
     1: Error coercing attribute `x` of type `attrs.int()`
     2: Error coercing "foobar"
-    3: Expected value of type `int`, got value with type `string` (value was `"foobar"`)
+    3: Expected `int`, but got `string (repr: "foobar")`

@@ -14,7 +14,6 @@ use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use dupe::Dupe;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
@@ -28,23 +27,19 @@ impl AttrTypeCoerce for EnumAttrType {
         _ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        match value.unpack_str() {
-            Some(s) => {
-                // Enum names in Buck can be specified upper or lower case,
-                // so we normalise them to lowercase to make rule implementations easier
-                let s = s.to_lowercase();
-                if let Some(s) = self.variants.get(s.as_str()) {
-                    Ok(CoercedAttr::EnumVariant(StringLiteral(s.dupe())))
-                } else {
-                    let wanted = self
-                        .variants
-                        .iter()
-                        .map(|x| x.as_str().to_owned())
-                        .collect();
-                    Err(CoercionError::InvalidEnumVariant(s, wanted).into())
-                }
-            }
-            None => Err(CoercionError::type_error(STRING_TYPE, value).into()),
+        let s = value.unpack_str_err()?;
+        // Enum names in Buck can be specified upper or lower case,
+        // so we normalise them to lowercase to make rule implementations easier
+        let s = s.to_lowercase();
+        if let Some(s) = self.variants.get(s.as_str()) {
+            Ok(CoercedAttr::EnumVariant(StringLiteral(s.dupe())))
+        } else {
+            let wanted = self
+                .variants
+                .iter()
+                .map(|x| x.as_str().to_owned())
+                .collect();
+            Err(CoercionError::InvalidEnumVariant(s, wanted).into())
         }
     }
 

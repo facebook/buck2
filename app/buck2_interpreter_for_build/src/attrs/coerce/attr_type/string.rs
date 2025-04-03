@@ -13,11 +13,9 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 impl AttrTypeCoerce for StringAttrType {
@@ -27,10 +25,9 @@ impl AttrTypeCoerce for StringAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        match value.unpack_str() {
-            Some(s) => Ok(CoercedAttr::String(StringLiteral(ctx.intern_str(s)))),
-            None => Err(CoercionError::type_error(STRING_TYPE, value).into()),
-        }
+        Ok(CoercedAttr::String(StringLiteral(
+            ctx.intern_str(value.unpack_str_err()?),
+        )))
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

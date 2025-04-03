@@ -22,11 +22,9 @@ use buck2_node::provider_id_set::ProviderIdSet;
 use buck2_query::query::syntax::simple::functions::QueryLiteralVisitor;
 use buck2_query_parser::parse_expr;
 use starlark::typing::Ty;
-use starlark::values::string::STRING_TYPE;
 use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-use crate::attrs::coerce::error::CoercionError;
 use crate::attrs::coerce::AttrTypeCoerce;
 
 pub trait QueryAttrTypeExt {
@@ -99,12 +97,8 @@ impl AttrTypeCoerce for QueryAttrType {
         ctx: &dyn AttrCoercionContext,
         value: Value,
     ) -> buck2_error::Result<CoercedAttr> {
-        let query = value
-            .unpack_str()
-            .ok_or_else(|| CoercionError::type_error(STRING_TYPE, value))?;
-
         Ok(CoercedAttr::Query(Box::new(QueryAttr {
-            query: Self::coerce(ctx, query.to_owned())?,
+            query: Self::coerce(ctx, value.unpack_str_err()?.to_owned())?,
             providers: ProviderIdSet::EMPTY,
         })))
     }
