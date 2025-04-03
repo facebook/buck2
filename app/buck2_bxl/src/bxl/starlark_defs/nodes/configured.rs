@@ -591,7 +591,7 @@ impl Serialize for StarlarkConfiguredAttr {
 
 starlark_simple_value!(StarlarkConfiguredAttr);
 
-#[starlark_value(type = "configured_attr")]
+#[starlark_value(type = "bxl.ConfiguredAttr")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredAttr {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
