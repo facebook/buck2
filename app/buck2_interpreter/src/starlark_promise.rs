@@ -121,9 +121,6 @@ enum PromiseError {
 }
 
 impl<'v> StarlarkPromise<'v> {
-    /// The result of calling `type()` on promise.
-    pub const TYPE: &'static str = "promise";
-
     /// Create a new unresolved promise.
     /// Must have [`StarlarkPromise::resolve`] called on it later.
     pub fn new_unresolved() -> Self {
@@ -305,7 +302,7 @@ impl<'v> UnpackValue<'v> for &'v StarlarkPromise<'v> {
     }
 }
 
-#[starlark_value(type = StarlarkPromise::TYPE)]
+#[starlark_value(type = "Promise")]
 impl<'v> StarlarkValue<'v> for StarlarkPromise<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -369,7 +366,7 @@ mod tests {
     #[display("{:?}", self)]
     struct Promises<'v>(RefCell<Vec<(String, ValueTyped<'v, StarlarkPromise<'v>>)>>);
 
-    #[starlark_value(type = "promises")]
+    #[starlark_value(type = "Promises")]
     impl<'v> StarlarkValue<'v> for Promises<'v> {}
 
     #[starlark_module]
