@@ -11,6 +11,6 @@ impl From<hex::FromHexError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: hex::FromHexError) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Hex)
     }
 }

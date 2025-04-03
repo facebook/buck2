@@ -72,6 +72,7 @@ enum ErrorTag {
   WATCHMAN_CONNECT = 210;
   WATCHMAN_ROOT_NOT_CONNECTED_ERROR = 211;
   WATCHMAN_CHECKOUT_IN_PROGRESS = 212;
+  WATCHMAN_CLIENT = 213;
 
   HTTP = 3;
   // Client error (4xx).
@@ -198,6 +199,7 @@ enum ErrorTag {
   IO_EDEN_UNKNOWN_FIELD = 1160;
   IO_MATERIALIZER_FILE_BUSY = 1161;
   IO_EDEN_FILE_NOT_FOUND = 1162;
+  IO_EDEN_LIST_MOUNTS = 1163;
 
   // Client IO
   // Broken pipe specifically from client stdio streams
@@ -261,8 +263,33 @@ enum ErrorTag {
   // None turned into an error. This carries no useful information whatsoever.
   UNEXPECTED_NONE = 6001;
 
+  INVALID_ERROR_REPORT = 6002;
+
   // Build errors.
   BUILD_DEADLINE_EXPIRED = 7001;
 
   SUPER_CONSOLE_INVALID_WHITESPACE = 8001;
+
+  // Misc external error conversions
+  CLAP = 9001;
+  HEX = 9002;
+  HYPER = 9003;
+  NIX = 9004;
+  PROST = 9005;
+  REGEX = 9006;
+  RELATIVE_PATH = 9007;
+  RUSQLITE = 9008;
+  TOKIO = 9018;
+  TONIC = 9019;
+  UUID = 9020;
+  SERDE_JSON = 9021;
+  STD_SLICE = 9009;
+  STD_TIME = 9010;
+  STD_INFALLIBLE = 9011;
+  STD_STRIP_PREFIX = 9012;
+  PARSE_NUM = 9013;
+  PARSE_BOOL = 9017;
+  INT_CONVERSION = 9014;
+  STRING_UTF8 = 9015;
+  STRING_CONVERSION = 9016;
 }

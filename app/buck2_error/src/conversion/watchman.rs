@@ -11,6 +11,6 @@ impl From<watchman_client::Error> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: watchman_client::Error) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::WatchmanClient)
     }
 }

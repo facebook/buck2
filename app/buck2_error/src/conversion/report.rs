@@ -28,7 +28,7 @@ impl From<ErrorReport> for crate::Error {
 
         let mut error = crate::Error::new(
             value.message.clone(),
-            *tags.first().unwrap_or(&ErrorTag::Tier0),
+            *tags.first().unwrap_or(&ErrorTag::InvalidErrorReport),
             value
                 .source_location
                 .map(|s| s.into())

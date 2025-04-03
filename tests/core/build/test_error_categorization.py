@@ -217,7 +217,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     else:
         assert "stream closed because of a broken pipe" in error["message"]
 
-    assert error["tags"][0:3] == ["CLIENT_GRPC", "SERVER_PANICKED", "TIER0"]
+    assert error["tags"][0:3] == ["CLIENT_GRPC", "SERVER_PANICKED", "TONIC"]
     assert error["tags"][3].startswith("crash")
     assert "buckd stderr:\n" in error["message"]
     assert "panicked at" in error["message"]
@@ -271,8 +271,7 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     if is_running_on_windows():
         # TODO get windows to dump a stack trace / detect signals
         assert "buckd stderr is empty" in error["message"]
-        assert category_key == "SERVER_STDERR_EMPTY"
-        assert error["best_tag"] == "SERVER_STDERR_EMPTY"
+        assert category_key == "SERVER_STDERR_EMPTY:TONIC"
     else:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]

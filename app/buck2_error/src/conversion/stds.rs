@@ -16,7 +16,7 @@ impl From<std::array::TryFromSliceError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::array::TryFromSliceError) -> Self {
-        from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::StdSlice)
     }
 }
 
@@ -24,7 +24,7 @@ impl From<std::time::SystemTimeError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::time::SystemTimeError) -> Self {
-        from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::StdTime)
     }
 }
 
@@ -32,7 +32,7 @@ impl From<std::convert::Infallible> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::convert::Infallible) -> Self {
-        from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::StdInfallible)
     }
 }
 
@@ -40,7 +40,7 @@ impl From<std::path::StripPrefixError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::path::StripPrefixError) -> Self {
-        from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::StdStripPrefix)
     }
 }
 
@@ -48,7 +48,7 @@ impl From<std::num::ParseIntError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::num::ParseIntError) -> Self {
-        from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::ParseNum)
     }
 }
 
@@ -56,7 +56,7 @@ impl From<std::num::ParseFloatError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::num::ParseFloatError) -> Self {
-        from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::ParseNum)
     }
 }
 
@@ -64,6 +64,6 @@ impl From<std::num::TryFromIntError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: std::num::TryFromIntError) -> Self {
-        from_any_with_tag(value, crate::ErrorTag::Tier0)
+        from_any_with_tag(value, crate::ErrorTag::IntConversion)
     }
 }

@@ -11,6 +11,6 @@ impl From<relative_path::FromPathError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: relative_path::FromPathError) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::RelativePath)
     }
 }

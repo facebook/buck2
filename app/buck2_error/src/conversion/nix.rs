@@ -12,6 +12,6 @@ impl From<nix::errno::Errno> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: nix::errno::Errno) -> Self {
-        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Tier0)
+        crate::conversion::from_any_with_tag(value, crate::ErrorTag::Nix)
     }
 }
