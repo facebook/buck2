@@ -1,18 +1,6 @@
-load(":defs.bzl", "dep_only_incompatible_info", "dep_only_incompatible_info_with_exclusions")
+load(":defs.bzl", "dep_only_incompatible_info")
 
 dep_only_incompatible_info(
-    name = "dep_only_incompatible_info",
-    custom_soft_errors = {
-        "soft_error_one": [
-            "root//dep_incompatible:dep_incompatible",
-        ],
-        "soft_error_two": [
-            "root//dep_incompatible:transitive_dep_incompatible",
-        ],
-    },
-)
-
-dep_only_incompatible_info_with_exclusions(
     name = "dep_only_incompatible_info_with_exclusions",
     custom_soft_errors = {
         "soft_error_one": {
