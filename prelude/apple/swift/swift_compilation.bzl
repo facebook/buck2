@@ -370,20 +370,32 @@ def compile_swift(
     if cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_headers")):
         output_symbols = ctx.actions.declare_output("__tbd__/" + module_name + ".swift_symbols.txt")
 
-    _compile_swiftmodule(
+    # When compiling with WMO (ie, not incrementally), we compile the
+    # swiftmodule seperately. In incremental mode, we generate the swiftmodule
+    # as part of the compile action to make use of incrementality.
+    if not should_build_swift_incrementally(ctx):
+        _compile_swiftmodule(
+            ctx,
+            toolchain,
+            shared_flags,
+            srcs,
+            swiftinterface_output,
+            output_swiftmodule,
+            output_header,
+            output_symbols,
+            swift_framework_output,
+            compile_swiftmodule_category,
+        )
+
+    object_output = _compile_object(
         ctx,
         toolchain,
         shared_flags,
         srcs,
-        swiftinterface_output,
         output_swiftmodule,
         output_header,
-        output_symbols,
-        swift_framework_output,
-        compile_swiftmodule_category,
+        compile_category,
     )
-
-    object_output = _compile_object(ctx, toolchain, shared_flags, srcs, compile_category)
 
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
@@ -585,9 +597,11 @@ def _compile_object(
         toolchain: SwiftToolchainInfo,
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags],
+        output_swiftmodule: Artifact,
+        output_header: Artifact,
         category: str) -> SwiftObjectOutput:
     if should_build_swift_incrementally(ctx):
-        incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs)
+        incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_header)
         num_threads = incremental_compilation_output.num_threads
         output_map_artifact = incremental_compilation_output.output_map_artifact
         objects = incremental_compilation_output.artifacts

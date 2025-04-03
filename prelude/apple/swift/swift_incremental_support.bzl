@@ -51,9 +51,18 @@ def should_build_swift_incrementally(ctx: AnalysisContext) -> bool:
 
     return SwiftCompilationMode(ctx.attrs.swift_compilation_mode) == SwiftCompilationMode("incremental")
 
-def get_incremental_object_compilation_flags(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> IncrementalCompilationOutput:
+def get_incremental_object_compilation_flags(
+        ctx: AnalysisContext,
+        srcs: list[CxxSrcWithFlags],
+        output_swiftmodule: Artifact,
+        output_header: Artifact) -> IncrementalCompilationOutput:
     output_file_map = _write_output_file_map(ctx, srcs)
-    return _get_incremental_compilation_flags_and_objects(output_file_map, len(srcs))
+    return _get_incremental_compilation_flags_and_objects(
+        output_file_map,
+        output_swiftmodule,
+        output_header,
+        len(srcs),
+    )
 
 def _get_incremental_num_threads(num_srcs: int) -> int:
     if num_srcs == 0:
@@ -64,6 +73,8 @@ def _get_incremental_num_threads(num_srcs: int) -> int:
 
 def _get_incremental_compilation_flags_and_objects(
         output_file_map: _WriteOutputFileMapOutput,
+        output_swiftmodule: Artifact,
+        output_header: Artifact,
         num_srcs: int) -> IncrementalCompilationOutput:
     cmd = cmd_args(
         [
@@ -71,6 +82,7 @@ def _get_incremental_compilation_flags_and_objects(
             "-emit-object",
             "-enable-batch-mode",
             "-enable-incremental-imports",
+            "-experimental-emit-module-separately",
             "-incremental",
             "-j",
             str(_MAX_NUM_THREADS),
@@ -78,6 +90,12 @@ def _get_incremental_compilation_flags_and_objects(
             str(_SWIFT_BATCH_SIZE),
             "-output-file-map",
             output_file_map.output_map_artifact,
+            "-emit-objc-header",
+            "-emit-objc-header-path",
+            output_header.as_output(),
+            "-emit-module",
+            "-emit-module-path",
+            output_swiftmodule.as_output(),
         ],
         hidden = [output.as_output() for output in output_file_map.outputs],
     )
