@@ -18,7 +18,6 @@ use buck2_core::package::PackageLabel;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
-use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContext;
@@ -40,11 +39,8 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
-use starlark::values::list::ListRef;
-use starlark::values::none::NoneType;
 use starlark::values::starlark_value;
 use starlark::values::tuple::AllocTuple;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
@@ -53,7 +49,6 @@ use starlark_map::small_map::SmallMap;
 use crate::bxl::select::StarlarkSelectConcat;
 use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use crate::interpreter::rule_defs::provider::dependency::DependencyGen;
 
 #[derive(Debug, ProvidesStaticType, From, Allocative)]
 pub struct StarlarkCoercedAttr(pub CoercedAttr, pub PackageLabel);
@@ -107,9 +102,11 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     ///     node = ctx.uquery().owner("bin/TARGETS")[0]
     ///     ctx.output.print(node.attrs.name.type)
     /// ```
+    // FIXME(JakobDegen): Strings as types are mostly dead, users should be getting the value and
+    // using `isinstance` instead. Remove this.
     #[starlark(attribute)]
-    fn r#type<'v>(this: &StarlarkCoercedAttr) -> starlark::Result<&'v str> {
-        Ok(this.0.starlark_type()?)
+    fn r#type<'v>(this: &StarlarkCoercedAttr, heap: &'v Heap) -> starlark::Result<&'v str> {
+        Ok(this.0.to_value(this.1.dupe(), heap)?.get_type())
     }
 
     /// Returns the value of this attribute. Limited support of selects, concats, and explicit configuration deps
@@ -127,54 +124,10 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
 }
 
 pub trait CoercedAttrExt {
-    fn starlark_type(&self) -> buck2_error::Result<&'static str>;
-
     fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> buck2_error::Result<Value<'v>>;
 }
 
 impl CoercedAttrExt for CoercedAttr {
-    /// Returns the starlark type of this attr
-    fn starlark_type(&self) -> buck2_error::Result<&'static str> {
-        match self {
-            CoercedAttr::Bool(_) => Ok(starlark::values::bool::BOOL_TYPE),
-            CoercedAttr::Int(_) => Ok(starlark::values::int::INT_TYPE),
-            CoercedAttr::String(_) | CoercedAttr::EnumVariant(_) => {
-                Ok(starlark::values::string::STRING_TYPE)
-            }
-            CoercedAttr::List(_) => Ok(starlark::values::list::ListRef::TYPE),
-            CoercedAttr::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
-            CoercedAttr::Dict(_) => Ok(Dict::TYPE),
-            CoercedAttr::None => Ok(NoneType::TYPE),
-            CoercedAttr::OneOf(l, _) => l.as_ref().starlark_type(),
-            CoercedAttr::Visibility(..) => Ok(ListRef::TYPE),
-            CoercedAttr::WithinView(..) => Ok(ListRef::TYPE),
-            CoercedAttr::ExplicitConfiguredDep(_) => {
-                Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
-            }
-            CoercedAttr::SplitTransitionDep(_) => Ok(Dict::TYPE),
-            CoercedAttr::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
-            CoercedAttr::PluginDep(_) => Ok(StarlarkTargetLabel::get_type_value_static().as_str()),
-            CoercedAttr::Dep(_) => Ok(StarlarkProvidersLabel::get_type_value_static().as_str()),
-            CoercedAttr::SourceLabel(_) => {
-                Ok(StarlarkProvidersLabel::get_type_value_static().as_str())
-            }
-            CoercedAttr::Label(_) => Ok(StarlarkProvidersLabel::get_type_value_static().as_str()),
-            CoercedAttr::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
-            CoercedAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
-            CoercedAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
-            CoercedAttr::Metadata(..) => Ok(OpaqueMetadata::get_type_value_static().as_str()),
-            CoercedAttr::TargetModifiers(..) => {
-                Ok(OpaqueMetadata::get_type_value_static().as_str())
-            }
-            CoercedAttr::Selector(_) => Ok("SelectorDict"),
-            // TODO(@wendyy) - starlark concat is not implemented.
-            CoercedAttr::Concat(_) => Ok("concat"),
-            CoercedAttr::ConfiguredDepForForwardNode(_) => {
-                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
-            }
-        }
-    }
-
     /// Converts the coerced attr to a starlark value
     fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> buck2_error::Result<Value<'v>> {
         Ok(match &self {

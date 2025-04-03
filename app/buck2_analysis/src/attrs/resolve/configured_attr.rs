@@ -12,7 +12,6 @@ use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_build_api::actions::query::PackageLabelOption;
 use buck2_build_api::actions::query::CONFIGURED_ATTR_TO_VALUE;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
-use buck2_build_api::interpreter::rule_defs::provider::dependency::DependencyGen;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::package::PackageLabel;
@@ -33,12 +32,8 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
-use starlark::values::list::ListRef;
-use starlark::values::none::NoneType;
 use starlark::values::tuple::AllocTuple;
-use starlark::values::FrozenValue;
 use starlark::values::Heap;
-use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark_map::small_map::SmallMap;
 
@@ -70,8 +65,6 @@ pub trait ConfiguredAttrExt {
         pkg: PackageLabel,
         ctx: &dyn AttrResolutionContext<'v>,
     ) -> buck2_error::Result<Value<'v>>;
-
-    fn starlark_type(&self) -> buck2_error::Result<&'static str>;
 
     fn to_value<'v>(
         &self,
@@ -169,48 +162,6 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             )),
             ConfiguredAttr::Metadata(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
             ConfiguredAttr::TargetModifiers(..) => Ok(ctx.heap().alloc(OpaqueMetadata)),
-        }
-    }
-
-    /// Returns the starlark type of this attr without resolving
-    fn starlark_type(&self) -> buck2_error::Result<&'static str> {
-        match self {
-            ConfiguredAttr::Bool(_) => Ok(starlark::values::bool::BOOL_TYPE),
-            ConfiguredAttr::Int(_) => Ok(starlark::values::int::INT_TYPE),
-            ConfiguredAttr::String(_) | ConfiguredAttr::EnumVariant(_) => {
-                Ok(starlark::values::string::STRING_TYPE)
-            }
-            ConfiguredAttr::List(_) => Ok(starlark::values::list::ListRef::TYPE),
-            ConfiguredAttr::Tuple(_) => Ok(starlark::values::tuple::TupleRef::TYPE),
-            ConfiguredAttr::Dict(_) => Ok(Dict::TYPE),
-            ConfiguredAttr::None => Ok(NoneType::TYPE),
-            ConfiguredAttr::OneOf(box l, _) => l.starlark_type(),
-            ConfiguredAttr::Visibility(..) => Ok(ListRef::TYPE),
-            ConfiguredAttr::WithinView(..) => Ok(ListRef::TYPE),
-            ConfiguredAttr::ExplicitConfiguredDep(_) => {
-                Ok(DependencyGen::<FrozenValue>::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::SplitTransitionDep(_) => Ok(Dict::TYPE),
-            ConfiguredAttr::ConfigurationDep(_) => Ok(starlark::values::string::STRING_TYPE),
-            ConfiguredAttr::PluginDep(..) => {
-                Ok(StarlarkTargetLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::Dep(_) => {
-                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::SourceLabel(_) => {
-                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::Label(_) => {
-                Ok(StarlarkConfiguredProvidersLabel::get_type_value_static().as_str())
-            }
-            ConfiguredAttr::Arg(_) => Ok(starlark::values::string::STRING_TYPE),
-            ConfiguredAttr::Query(_) => Ok(starlark::values::string::STRING_TYPE),
-            ConfiguredAttr::SourceFile(_) => Ok(StarlarkArtifact::get_type_value_static().as_str()),
-            ConfiguredAttr::Metadata(..) => Ok(OpaqueMetadata::get_type_value_static().as_str()),
-            ConfiguredAttr::TargetModifiers(..) => {
-                Ok(OpaqueMetadata::get_type_value_static().as_str())
-            }
         }
     }
 

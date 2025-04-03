@@ -611,9 +611,14 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     ///     attrs = node.attrs_eager()
     ///     ctx.output.print(attrs.name.type)
     /// ```
+    // FIXME(JakobDegen): Strings as types are mostly dead, users should be getting the value and
+    // using `isinstance` instead. Remove this.
     #[starlark(attribute)]
-    fn r#type<'v>(this: &StarlarkConfiguredAttr) -> starlark::Result<&'v str> {
-        Ok(this.0.starlark_type()?)
+    fn r#type<'v>(this: &StarlarkConfiguredAttr, heap: &'v Heap) -> starlark::Result<&'v str> {
+        Ok(this
+            .0
+            .to_value(PackageLabelOption::PackageLabel(this.1.dupe()), heap)?
+            .get_type())
     }
 
     /// Returns the value of this attribute. The value here is not fully resolved like in rules.
