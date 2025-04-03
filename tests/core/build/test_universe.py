@@ -29,3 +29,17 @@ async def test_build_universe(buck: Buck) -> None:
     build_report = result.get_build_report()
     output = build_report.output_for_target("//:test")
     assert output.read_text().rstrip() == "cat"
+
+
+@buck_test()
+async def test_build_target_not_found_in_universe(buck: Buck) -> None:
+    result = await buck.build(
+        "//:test",
+        "--target-universe",
+        "//:different_universe",
+    )
+
+    assert (
+        "No targets found inside the specified universe, nothing will be built"
+        in result.stderr
+    )

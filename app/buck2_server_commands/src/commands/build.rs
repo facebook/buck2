@@ -368,6 +368,12 @@ fn build_targets_in_universe<'a>(
 ) -> impl Stream<Item = ConfiguredBuildEvent> + Unpin + 'a {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
     let provider_labels = universe.get_provider_labels(&spec);
+    if provider_labels.is_empty() {
+        console_message(
+            "\nNo targets found inside the specified universe, nothing will be built\n\n"
+                .to_owned(),
+        );
+    }
     provider_labels
         .into_iter()
         .map(|p| {
