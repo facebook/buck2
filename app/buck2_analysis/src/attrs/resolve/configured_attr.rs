@@ -23,6 +23,7 @@ use buck2_node::attrs::attr_type::configured_dep::ExplicitConfiguredDepAttrType;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
+use buck2_node::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
@@ -41,6 +42,7 @@ use crate::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
 use crate::attrs::resolve::attr_type::configuration_dep::ConfigurationDepAttrTypeExt;
 use crate::attrs::resolve::attr_type::dep::DepAttrTypeExt;
 use crate::attrs::resolve::attr_type::dep::ExplicitConfiguredDepAttrTypeExt;
+use crate::attrs::resolve::attr_type::dep::TransitionDepAttrTypeExt;
 use crate::attrs::resolve::attr_type::query::ConfiguredQueryAttrExt;
 use crate::attrs::resolve::attr_type::source::SourceAttrTypeExt;
 use crate::attrs::resolve::attr_type::split_transition_dep::SplitTransitionDepAttrTypeExt;
@@ -141,6 +143,9 @@ impl ConfiguredAttrExt for ConfiguredAttr {
             ConfiguredAttr::ExplicitConfiguredDep(d) => {
                 ExplicitConfiguredDepAttrType::resolve_single(ctx, d.as_ref())
             }
+            ConfiguredAttr::TransitionDep(d) => {
+                TransitionDepAttrType::resolve_single(ctx, d.as_ref())
+            }
             ConfiguredAttr::SplitTransitionDep(d) => {
                 SplitTransitionDepAttrType::resolve_single(ctx, d.as_ref())
             }
@@ -214,6 +219,9 @@ fn configured_attr_to_value<'v>(
         ConfiguredAttr::ExplicitConfiguredDep(d) => heap.alloc(
             StarlarkConfiguredProvidersLabel::new(d.as_ref().label.dupe()),
         ),
+        ConfiguredAttr::TransitionDep(t) => {
+            heap.alloc(StarlarkConfiguredProvidersLabel::new(t.dep.dupe()))
+        }
         ConfiguredAttr::SplitTransitionDep(t) => {
             let mut map = SmallMap::with_capacity(t.deps.len());
 

@@ -172,6 +172,7 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::ConfiguredDepForForwardNode(d) => heap.alloc(
                 StarlarkConfiguredProvidersLabel::new(d.as_ref().label.dupe()),
             ),
+            CoercedAttr::TransitionDep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dep.dupe())),
             CoercedAttr::SplitTransitionDep(d) => heap.alloc(StarlarkProvidersLabel::new(d.dupe())),
             CoercedAttr::ConfigurationDep(c) => {
                 // TODO(T198210718)
