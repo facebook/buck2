@@ -7,4 +7,5 @@
  * of this source tree.
  */
 
+pub(crate) mod health_check_rpc_client;
 pub mod health_check_server;
