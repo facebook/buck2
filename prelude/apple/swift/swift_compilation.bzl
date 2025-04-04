@@ -697,15 +697,20 @@ def _compile_with_argsfile(
         identifier: str | None = None,
         num_threads: int = 1,
         cacheable: bool = True) -> CompileArgsfiles:
-    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
-    argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True)
-    input_args = [shared_flags]
-    cmd_form = cmd_args(cmd_args(argsfile, format = "@{}", delimiter = ""), hidden = input_args)
-    cmd_form.add([s.file for s in srcs])
-
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
-    cmd.add(cmd_form)
+
+    # Assemble argsfile with compiler flags
+    shell_quoted_args = cmd_args(shared_flags, quote = "shell")
+    argsfile, _ = ctx.actions.write(extension + "_compile_argsfile", shell_quoted_args, allow_args = True, with_inputs = True)
+    argsfile_cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "")
+    cmd.add(argsfile_cmd_form)
+
+    # Assemble argsfile with Swift source files
+    swift_quoted_files = cmd_args([s.file for s in srcs], quote = "shell")
+    swift_files, _ = ctx.actions.write(extension + "_files", swift_quoted_files, allow_args = True, with_inputs = True)
+    swift_files_cmd_form = cmd_args(swift_files, format = "@{}", delimiter = "")
+    cmd.add(swift_files_cmd_form)
 
     build_swift_incrementally = should_build_swift_incrementally(ctx)
     explicit_modules_enabled = uses_explicit_modules(ctx)
@@ -747,8 +752,8 @@ def _compile_with_argsfile(
 
     argsfile = CompileArgsfile(
         file = argsfile,
-        cmd_form = cmd_form,
-        input_args = input_args,
+        cmd_form = argsfile_cmd_form,
+        input_args = [shared_flags],
         args = shell_quoted_args,
         args_without_file_prefix_args = shared_flags,
     )
