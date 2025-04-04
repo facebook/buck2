@@ -34,6 +34,16 @@ prelude.rust_library(
     ],
 )
 
+prelude.rust_test(
+    name = "rust_make_par_lib_test",
+    srcs = ["rust_make_par/src/lib.rs"],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tempfile",
+    ],
+)
+
 prelude.rust_binary(
     name = "rust_make_par",
     srcs = ["rust_make_par/src/main.rs"],

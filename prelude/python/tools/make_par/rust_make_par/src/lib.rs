@@ -281,3 +281,294 @@ pub fn process_maybe_add_init(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::io::Write;
+    use std::path::Path;
+
+    use tempfile::tempdir;
+
+    use super::*;
+
+    #[test]
+    fn test_relpath() {
+        // Test case 1: Same directory
+        let link = Path::new("/a/b/c");
+        let target = Path::new("/a/b/c/file.txt");
+        let result = relpath(link, target);
+        assert_eq!(result, PathBuf::from("file.txt"));
+
+        // Test case 2: Target in subdirectory
+        let link = Path::new("/a/b/c");
+        let target = Path::new("/a/b/c/d/file.txt");
+        let result = relpath(link, target);
+        assert_eq!(result, PathBuf::from("d/file.txt"));
+
+        // Test case 3: Target in parent directory
+        let link = Path::new("/a/b/c/d");
+        let target = Path::new("/a/b/file.txt");
+        let result = relpath(link, target);
+        assert_eq!(result, PathBuf::from("../../file.txt"));
+
+        // Test case 4: Target in different branch
+        let link = Path::new("/a/b/c");
+        let target = Path::new("/a/d/e/file.txt");
+        let result = relpath(link, target);
+        assert_eq!(result, PathBuf::from("../../d/e/file.txt"));
+
+        // Test case 5: Completely different paths
+        let link = Path::new("/a/b/c");
+        let target = Path::new("/x/y/z/file.txt");
+        let result = relpath(link, target);
+        assert_eq!(result, PathBuf::from("../../../x/y/z/file.txt"));
+    }
+
+    #[test]
+    fn test_write_inits() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("test_output");
+        std::fs::create_dir_all(output_path.join("pkg1/subpkg")).unwrap();
+        std::fs::create_dir_all(output_path.join("pkg2")).unwrap();
+
+        let mut info = ParInfo::new(output_path.clone());
+
+        // Add some module paths
+        info.module_map.insert("pkg1".to_string(), true);
+        info.module_map.insert("pkg1/subpkg".to_string(), true);
+        info.module_map.insert("pkg2".to_string(), false); // This one shouldn't get an __init__.py
+
+        // Write the __init__.py files
+        write_inits(&mut info).unwrap();
+
+        // Check that __init__.py files were created in the right places
+        assert!(output_path.join("pkg1").join("__init__.py").exists());
+        assert!(
+            output_path
+                .join("pkg1")
+                .join("subpkg")
+                .join("__init__.py")
+                .exists()
+        );
+        assert!(!output_path.join("pkg2").join("__init__.py").exists());
+
+        // Check that the root doesn't have an __init__.py
+        assert!(!output_path.join("__init__.py").exists());
+    }
+
+    #[test]
+    fn test_process_symlink() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("test_output");
+        let mut info = ParInfo::new(output_path.clone());
+
+        // Create output directory
+        info.create_output_dir().unwrap();
+
+        // Create a source file
+        let source_file = temp_dir.path().join("source_file.txt");
+        let mut file = fs::File::create(&source_file).unwrap();
+        writeln!(file, "test content").unwrap();
+
+        // Create a symlink to the source file
+        let dest_path = PathBuf::from("dest_dir/dest_file.txt");
+        process_symlink(&source_file, &dest_path, &mut info).unwrap();
+
+        // Check that the symlink was created
+        let symlink_path = output_path.join("dest_dir").join("dest_file.txt");
+        assert!(symlink_path.exists());
+        assert!(
+            fs::symlink_metadata(&symlink_path)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+    }
+
+    #[test]
+    fn test_process_maybe_add_init() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("test_output");
+        let mut info = ParInfo::new(output_path.clone());
+
+        // Create output directory and some nested directories
+        info.create_output_dir().unwrap();
+        fs::create_dir_all(output_path.join("pkg1/subpkg")).unwrap();
+
+        // Create a Python file
+        let py_file_path = output_path.join("pkg1/subpkg/module.py");
+        let mut file = fs::File::create(&py_file_path).unwrap();
+        writeln!(file, "# Test Python file").unwrap();
+
+        // Process the Python file
+        let source_path = PathBuf::from("dummy_source");
+        let dest_path = PathBuf::from("pkg1/subpkg/module.py");
+        process_maybe_add_init(&source_path, &dest_path, &mut info).unwrap();
+
+        // Check that the module map was updated correctly
+        assert!(info.module_map.contains_key("pkg1"));
+        assert!(info.module_map.contains_key("pkg1/subpkg"));
+        assert_eq!(info.module_map.get("pkg1").unwrap(), &true);
+        assert_eq!(info.module_map.get("pkg1/subpkg").unwrap(), &true);
+    }
+
+    #[test]
+    fn test_process_maybe_add_init_traverse_dir() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("test_output");
+        let mut info = ParInfo::new(output_path.clone());
+
+        // Create output directory and some nested directories
+        info.create_output_dir().unwrap();
+        fs::create_dir_all(output_path.join("pkg1/subpkg")).unwrap();
+
+        // Create a Python file
+        let py_file_path = output_path.join("pkg1/subpkg/module.py");
+        let mut file = fs::File::create(&py_file_path).unwrap();
+        writeln!(file, "# Test Python file").unwrap();
+
+        // Process the Python file
+        let source_path = PathBuf::from("dummy_source");
+        let dest_path = PathBuf::from("pkg1");
+        process_maybe_add_init(&source_path, &dest_path, &mut info).unwrap();
+
+        // Check that the module map was updated correctly
+        assert!(info.module_map.contains_key("pkg1"));
+        assert!(info.module_map.contains_key("pkg1/subpkg"));
+        assert_eq!(info.module_map.get("pkg1").unwrap(), &true);
+        assert_eq!(info.module_map.get("pkg1/subpkg").unwrap(), &true);
+    }
+
+    #[test]
+    fn test_read_text_manifest() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("test_output");
+        let mut info = ParInfo::new(output_path.clone());
+
+        // Create output directory
+        info.create_output_dir().unwrap();
+
+        // Create a source file
+        let source_file = temp_dir.path().join("source_file.py");
+        let mut file = fs::File::create(&source_file).unwrap();
+        writeln!(file, "# Test Python file").unwrap();
+
+        // Create a manifest file
+        let manifest_path = temp_dir.path().join("manifest.txt");
+        let mut manifest_file = fs::File::create(&manifest_path).unwrap();
+        writeln!(manifest_file, "{}::pkg1/module.py", source_file.display()).unwrap();
+
+        // Define a simple processor function for testing
+        let processor: fn(&Path, &Path, &mut ParInfo) -> anyhow::Result<()> = |_src, dest, info| {
+            // Just update the module map for testing
+            if let Some(parent) = dest.parent() {
+                if let Some(path_str) = parent.to_str() {
+                    info.module_map.insert(path_str.to_string(), true);
+                }
+            }
+            Ok(())
+        };
+
+        // Read the manifest
+        let processors = vec![processor];
+        read_text_manifest(&manifest_path, &mut info, &processors).unwrap();
+
+        // Check that the module map was updated
+        assert!(info.module_map.contains_key("pkg1"));
+        assert_eq!(info.module_map.get("pkg1").unwrap(), &true);
+    }
+
+    #[test]
+    fn test_read_json_manifest() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("test_output");
+        let mut info = ParInfo::new(output_path.clone());
+
+        // Create output directory
+        info.create_output_dir().unwrap();
+
+        // Create a source file
+        let source_file = temp_dir.path().join("source_file.py");
+        let mut file = fs::File::create(&source_file).unwrap();
+        writeln!(file, "# Test Python file").unwrap();
+
+        // Create a JSON manifest file
+        let manifest_path = temp_dir.path().join("manifest.json");
+        let mut manifest_file = fs::File::create(&manifest_path).unwrap();
+        writeln!(
+            manifest_file,
+            r#"[["pkg1/module.py", "{}", "origin"]]"#,
+            source_file.display().to_string().replace("\\", "\\\\")
+        )
+        .unwrap();
+
+        // Define a simple processor function for testing
+        let processor: fn(&Path, &Path, &mut ParInfo) -> anyhow::Result<()> = |_src, dest, info| {
+            // Just update the module map for testing
+            if let Some(parent) = dest.parent() {
+                if let Some(path_str) = parent.to_str() {
+                    info.module_map.insert(path_str.to_string(), true);
+                }
+            }
+            Ok(())
+        };
+
+        // Read the manifest
+        let processors = vec![processor];
+        read_json_manifest(&manifest_path, &mut info, &processors).unwrap();
+
+        // Check that the module map was updated
+        assert!(info.module_map.contains_key("pkg1"));
+        assert_eq!(info.module_map.get("pkg1").unwrap(), &true);
+    }
+
+    #[test]
+    fn test_read_manifest_list() {
+        let temp_dir = tempdir().unwrap();
+        let output_path = temp_dir.path().join("test_output");
+        let mut info = ParInfo::new(output_path.clone());
+
+        // Create output directory
+        info.create_output_dir().unwrap();
+
+        // Create a source file
+        let source_file = temp_dir.path().join("source_file.py");
+        let mut file = fs::File::create(&source_file).unwrap();
+        writeln!(file, "# Test Python file").unwrap();
+
+        // Create a JSON manifest file
+        let json_manifest_path = temp_dir.path().join("manifest.json");
+        let mut json_manifest_file = fs::File::create(&json_manifest_path).unwrap();
+        writeln!(
+            json_manifest_file,
+            r#"[["pkg1/module.py", "{}", "origin"]]"#,
+            source_file.display().to_string().replace("\\", "\\\\")
+        )
+        .unwrap();
+
+        // Create a manifest list file
+        let manifest_list_path = temp_dir.path().join("manifest_list.txt");
+        let mut manifest_list_file = fs::File::create(&manifest_list_path).unwrap();
+        writeln!(manifest_list_file, "{}", json_manifest_path.display()).unwrap();
+
+        // Define a simple processor function for testing
+        let processor: fn(&Path, &Path, &mut ParInfo) -> anyhow::Result<()> = |_src, dest, info| {
+            // Just update the module map for testing
+            if let Some(parent) = dest.parent() {
+                if let Some(path_str) = parent.to_str() {
+                    info.module_map.insert(path_str.to_string(), true);
+                }
+            }
+            Ok(())
+        };
+
+        // Read the manifest list
+        let processors = vec![processor];
+        read_manifest_list(&manifest_list_path, &mut info, &processors).unwrap();
+
+        // Check that the module map was updated
+        assert!(info.module_map.contains_key("pkg1"));
+        assert_eq!(info.module_map.get("pkg1").unwrap(), &true);
+    }
+}
