@@ -53,11 +53,8 @@ impl HealthCheckClient {
         }
     }
 
-    pub async fn update_command_data(
-        &mut self,
-        command_data: Option<buck2_data::command_start::Data>,
-    ) {
-        self.health_check_context.command_data = command_data;
+    pub async fn update_command_data(&mut self, command_start: buck2_data::CommandStart) {
+        self.health_check_context.command_data = command_start.data;
         self.try_update_warm_revision_check().await;
     }
 
