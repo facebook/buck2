@@ -33,8 +33,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkResultExt;
 
+use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::artifact_tagging::TaggedCommandLine;
-use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 
 /// ArtifactTag allows wrapping input and output artifacts in a command line with tags. Those tags
@@ -105,8 +105,8 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-    ) -> starlark::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
-        let value = TaggedValue::new(inner, this.dupe());
+    ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, TaggedCommandLine<'v>>> {
+        let value = StarlarkTaggedValue::new(inner, this.dupe());
 
         Ok(
             if ValueAsCommandLineLike::unpack_value(inner)
@@ -123,8 +123,8 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_inputs<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-    ) -> starlark::Result<Either<TaggedValue<'v>, TaggedCommandLine<'v>>> {
-        let value = TaggedValue::inputs_only(inner, this.dupe());
+    ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, TaggedCommandLine<'v>>> {
+        let value = StarlarkTaggedValue::inputs_only(inner, this.dupe());
 
         Ok(
             if ValueAsCommandLineLike::unpack_value(inner)

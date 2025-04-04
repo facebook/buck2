@@ -42,7 +42,7 @@ use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
-use crate::interpreter::rule_defs::artifact_tagging::TaggedValue;
+use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
@@ -158,7 +158,7 @@ pub enum JsonUnpack<'v> {
     Artifact(JsonArtifact<'v>),
     CommandLine(CommandLineArg<'v>),
     Provider(ValueAsProviderLike<'v>),
-    TaggedValue(&'v TaggedValue<'v>),
+    TaggedValue(&'v StarlarkTaggedValue<'v>),
     BxlSelectConcat(&'v StarlarkSelectConcat),
     BxlSelectDict(&'v StarlarkSelectDict),
 }

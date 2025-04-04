@@ -23,7 +23,7 @@ use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 
-use super::TaggedValueGen;
+use super::StarlarkTaggedValueGen;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
@@ -48,11 +48,11 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 #[repr(C)]
 #[display("TaggedCommandLine({})", inner)]
 pub struct TaggedCommandLineGen<V: ValueLifetimeless> {
-    inner: TaggedValueGen<V>,
+    inner: StarlarkTaggedValueGen<V>,
 }
 
 impl<V: ValueLifetimeless> TaggedCommandLineGen<V> {
-    pub fn new(inner: TaggedValueGen<V>) -> Self {
+    pub fn new(inner: StarlarkTaggedValueGen<V>) -> Self {
         Self { inner }
     }
 }
