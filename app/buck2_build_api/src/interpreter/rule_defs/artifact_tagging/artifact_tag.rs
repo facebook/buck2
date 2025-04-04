@@ -33,8 +33,8 @@ use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::StarlarkResultExt;
 
+use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedCommandLine;
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
-use crate::interpreter::rule_defs::artifact_tagging::TaggedCommandLine;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 
 /// ArtifactTag allows wrapping input and output artifacts in a command line with tags. Those tags
@@ -105,7 +105,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-    ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, TaggedCommandLine<'v>>> {
+    ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, StarlarkTaggedCommandLine<'v>>> {
         let value = StarlarkTaggedValue::new(inner, this.dupe());
 
         Ok(
@@ -113,7 +113,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
                 .into_anyhow_result()?
                 .is_some()
             {
-                Either::Right(TaggedCommandLine::new(value))
+                Either::Right(StarlarkTaggedCommandLine::new(value))
             } else {
                 Either::Left(value)
             },
@@ -123,7 +123,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
     fn tag_inputs<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
-    ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, TaggedCommandLine<'v>>> {
+    ) -> starlark::Result<Either<StarlarkTaggedValue<'v>, StarlarkTaggedCommandLine<'v>>> {
         let value = StarlarkTaggedValue::inputs_only(inner, this.dupe());
 
         Ok(
@@ -131,7 +131,7 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
                 .into_anyhow_result()?
                 .is_some()
             {
-                Either::Right(TaggedCommandLine::new(value))
+                Either::Right(StarlarkTaggedCommandLine::new(value))
             } else {
                 Either::Left(value)
             },

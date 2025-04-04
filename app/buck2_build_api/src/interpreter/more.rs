@@ -18,6 +18,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_value::register_a
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::register_output_artifact;
 use crate::interpreter::rule_defs::artifact::starlark_promise_artifact::register_promise_artifact;
 use crate::interpreter::rule_defs::artifact_tagging::artifact_tag::register_artifact_tag;
+use crate::interpreter::rule_defs::artifact_tagging::register_tagged_command_line;
 use crate::interpreter::rule_defs::artifact_tagging::register_tagged_value;
 use crate::interpreter::rule_defs::cmd_args::register_cmd_args;
 use crate::interpreter::rule_defs::command_executor_config::register_command_executor_config;
@@ -56,6 +57,7 @@ fn register_build_api_globals(globals: &mut GlobalsBuilder) {
     register_required_test_local_resource(globals);
     register_digest_config_type(globals);
     register_tagged_value(globals);
+    register_tagged_command_line(globals);
 }
 
 fn register_build_api_internals(globals: &mut GlobalsBuilder) {
