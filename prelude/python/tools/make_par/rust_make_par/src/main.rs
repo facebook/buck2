@@ -54,6 +54,11 @@ struct Args {
     generated: Option<PathBuf>,
 }
 
+struct ParInfo {
+    output_path: PathBuf,
+    module_map: HashMap<String, bool>,
+}
+
 fn relpath(link: &Path, target: &Path) -> PathBuf {
     let mut from = link.components().peekable();
     let mut to = target.components().peekable();
@@ -70,83 +75,33 @@ fn relpath(link: &Path, target: &Path) -> PathBuf {
     result
 }
 
-fn process_file(
-    output_path: &Path,
-    file_path: impl AsRef<Path>,
-    module_map: &mut HashMap<String, bool>,
-) -> anyhow::Result<()> {
-    let mut path = file_path.as_ref();
-    const SOURCE_EXTENSIONS: [&str; 5] = ["py", "so", "empty_stub", "pyd", "pyc"];
-    const IGNORE_PATHS: [&str; 1] = ["runtime/lib"];
-
-    if IGNORE_PATHS.iter().any(|&ignore| path.starts_with(ignore)) {
-        return Ok(());
-    }
-    if let Some(file_ext) = path.extension() {
-        if !SOURCE_EXTENSIONS.iter().any(|&ext| ext == file_ext) {
-            return Ok(());
+fn write_inits(info: &mut ParInfo) -> anyhow::Result<()> {
+    // Insert an empty string to make sure we do not generate a __init__ file at the root of the
+    // par
+    info.module_map.insert("".to_string(), false);
+    for (key, value) in info.module_map.iter() {
+        if *value {
+            let mut init_path = info.output_path.join(key);
+            init_path.push("__init__.py");
+            File::create(&init_path).with_context(|| {
+                format!(
+                    "Failed to create __init__.py file {}: ",
+                    init_path.display()
+                )
+            })?;
         }
-    } else {
-        // For directories we recursively traverse to find any source files
-        let dir_path = output_path.join(path);
-        if dir_path.is_dir() {
-            for entry in fs::read_dir(dir_path)? {
-                let entry = entry?;
-                let entry_path = entry.path();
-                let relative_path = entry_path.strip_prefix(output_path)?;
-                process_file(output_path, relative_path, module_map)?;
-            }
-        }
-        return Ok(());
-    }
-    if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
-        if file_name == "__init__.py" {
-            if let Some(dir) = path.parent().and_then(|d| d.to_str()) {
-                module_map.insert(dir.to_string(), false);
-            }
-        }
-    }
-
-    while let Some(parent) = path.parent() {
-        if let Some(path_str) = parent.to_str() {
-            module_map.entry(path_str.to_string()).or_insert(true);
-        }
-        path = parent;
     }
     Ok(())
 }
 
-fn symlink_files(manifest: &Path, output_path: &Path) -> anyhow::Result<()> {
-    let file = File::open(manifest)
-        .with_context(|| format!("Failed to open manifest: {}", manifest.display()))?;
+type FileProcessor = fn(&Path, &Path, &mut ParInfo) -> anyhow::Result<()>;
 
-    let reader = BufReader::new(file);
-
-    for (line_num, line) in reader.lines().enumerate() {
-        let line =
-            line.with_context(|| format!("Failed to read manifest: {}", manifest.display()))?;
-
-        let parts: Vec<&str> = line.split("::").collect();
-        if parts.len() != 2 {
-            return Err(anyhow::anyhow!(
-                "Invalid manifest format at {}: {}",
-                line_num + 1,
-                line
-            ));
-        }
-
-        let source = parts[0].trim();
-        let dest = parts[1].trim();
-        symlink_file(output_path.join(dest), PathBuf::from(source), true)?;
-    }
-
-    Ok(())
-}
-
-fn symlink_sources(
+// A text manifest is a newline separated list of:
+// path/to/source_artifact::path/in/par
+fn read_text_manifest(
     manifest: &Path,
-    output_path: &Path,
-    module_map: &mut HashMap<String, bool>,
+    info: &mut ParInfo,
+    processors: &Vec<FileProcessor>,
 ) -> anyhow::Result<()> {
     let file = File::open(manifest).with_context(|| {
         format!(
@@ -170,16 +125,51 @@ fn symlink_sources(
             ));
         };
 
-        let source = parts[0].trim();
-        let dest = parts[1].trim();
-        symlink_file(output_path.join(dest), PathBuf::from(source), true)?;
-        process_file(output_path, PathBuf::from(dest), module_map)?;
+        let src = PathBuf::from(parts[0].trim());
+        let dest = PathBuf::from(parts[1].trim());
+        for processor in processors {
+            processor(&src, &dest, info).with_context(|| {
+                format!(
+                    "failed to process src: {}, dest: {}",
+                    src.display(),
+                    dest.display()
+                )
+            })?;
+        }
     }
 
     Ok(())
 }
 
-fn symlink_bytecode_manifest(manifest: &Path, output_path: &Path) -> anyhow::Result<()> {
+// A manifest list is a newline separated list of json manifests
+// path/to/json_manifest
+fn read_manifest_list(
+    manifest: &Path,
+    info: &mut ParInfo,
+    processors: &Vec<FileProcessor>,
+) -> anyhow::Result<()> {
+    let file = File::open(manifest)
+        .with_context(|| format!("Failed to open manifest file: {}", manifest.display()))?;
+
+    let reader = BufReader::new(file);
+
+    for line in reader.lines() {
+        let line =
+            line.with_context(|| format!("Failed to read manifest: {}", manifest.display()))?;
+        read_json_manifest(&PathBuf::from(line), info, processors)?;
+    }
+
+    Ok(())
+}
+
+// A json manifest is a json list tuples:
+// [(dest, source, origin),]
+// * origin is ignored
+fn read_json_manifest(
+    manifest: &PathBuf,
+    info: &mut ParInfo,
+    processors: &Vec<FileProcessor>,
+) -> anyhow::Result<()> {
     let json_str = fs::read_to_string(manifest).with_context(|| {
         format!(
             "Failed to read bytecode manifest file {}",
@@ -214,24 +204,19 @@ fn symlink_bytecode_manifest(manifest: &Path, output_path: &Path) -> anyhow::Res
             ));
         }
 
-        if let (Some(dest), Some(src)) = (item_arr[0].as_str(), item_arr[1].as_str()) {
-            symlink_file(output_path.join(dest), PathBuf::from(src), true)?;
+        if let (Some(dest_str), Some(src_str)) = (item_arr[0].as_str(), item_arr[1].as_str()) {
+            let src = PathBuf::from(src_str);
+            let dest = PathBuf::from(dest_str);
+            for processor in processors {
+                processor(&src, &dest, info).with_context(|| {
+                    format!(
+                        "failed to process src: {}, dest: {}",
+                        src.display(),
+                        dest.display()
+                    )
+                })?;
+            }
         }
-    }
-
-    Ok(())
-}
-
-fn symlink_bytecode(manifest: &Path, output_path: &Path) -> anyhow::Result<()> {
-    let file = File::open(manifest)
-        .with_context(|| format!("Failed to open manifest file: {}", manifest.display()))?;
-
-    let reader = BufReader::new(file);
-
-    for line in reader.lines() {
-        let line =
-            line.with_context(|| format!("Failed to read manifest: {}", manifest.display()))?;
-        symlink_bytecode_manifest(&PathBuf::from(line), output_path)?;
     }
 
     Ok(())
@@ -246,14 +231,10 @@ fn xplat_symlink(src: &Path, dst: &Path) -> std::io::Result<()> {
     compile_error!("symlink is not supported by the system");
 }
 
-fn symlink_file(
-    link_path: impl AsRef<Path>,
-    input_path: impl AsRef<Path>,
-    allow_duplicates: bool,
-) -> anyhow::Result<()> {
+fn process_symlink(source: &Path, dest: &Path, info: &mut ParInfo) -> anyhow::Result<()> {
     // Create a relative symlink from the input path to the output path
-    let link_path = link_path.as_ref();
-    let input_path = input_path.as_ref();
+    let input_path = source;
+    let link_path = info.output_path.join(dest);
 
     let parent = link_path
         .parent()
@@ -263,9 +244,9 @@ fn symlink_file(
 
     fs::create_dir_all(parent)?;
 
-    match xplat_symlink(&target, link_path) {
+    match xplat_symlink(&target, &link_path) {
         Ok(()) => Ok(()),
-        Err(err) if err.kind() == io::ErrorKind::AlreadyExists && allow_duplicates => Ok(()),
+        Err(err) if err.kind() == io::ErrorKind::AlreadyExists => Ok(()),
         Err(err) => Err(anyhow::anyhow!(
             "Failed to create symlink {} -> {}: {}",
             link_path.display(),
@@ -275,48 +256,83 @@ fn symlink_file(
     }
 }
 
-fn write_inits(output_path: &Path, module_map: &mut HashMap<String, bool>) -> anyhow::Result<()> {
-    for (key, value) in module_map {
-        if *value {
-            let mut init_path = output_path.join(key);
-            init_path.push("__init__.py");
-            File::create(&init_path).with_context(|| {
-                format!(
-                    "Failed to create __init__.py file {}: ",
-                    init_path.display()
-                )
-            })?;
+fn process_maybe_add_init(_source: &Path, dest: &Path, info: &mut ParInfo) -> anyhow::Result<()> {
+    let mut path = dest;
+
+    const SOURCE_EXTENSIONS: [&str; 5] = ["py", "so", "empty_stub", "pyd", "pyc"];
+    // When adding __init__ files we ignore everything included with the bundled runtime
+    if path.starts_with(PathBuf::from("runtime/lib")) {
+        return Ok(());
+    }
+
+    if let Some(file_ext) = path.extension() {
+        if !SOURCE_EXTENSIONS.iter().any(|&ext| ext == file_ext) {
+            return Ok(());
         }
+    } else {
+        // For directories we recursively traverse to find any source files
+        let dir_path = info.output_path.join(path);
+        if dir_path.is_dir() {
+            for entry in fs::read_dir(dir_path)? {
+                let entry = entry?;
+                let entry_path = entry.path();
+                let relative_path = PathBuf::from(entry_path.strip_prefix(&info.output_path)?);
+                process_maybe_add_init(_source, &relative_path, info)?;
+            }
+        }
+        return Ok(());
+    }
+    if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
+        if file_name == "__init__.py" {
+            if let Some(dir) = path.parent().and_then(|d| d.to_str()) {
+                info.module_map.insert(dir.to_string(), false);
+            }
+        }
+    }
+
+    while let Some(parent) = path.parent() {
+        if let Some(path_str) = parent.to_str() {
+            info.module_map.entry(path_str.to_string()).or_insert(true);
+        }
+        path = parent;
     }
     Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    let mut info = ParInfo {
+        output_path: args.output_path.clone(),
+        module_map: HashMap::new(),
+    };
 
-    fs::create_dir_all(&args.output_path)?;
+    fs::create_dir_all(&info.output_path)?;
 
-    let mut module_map = HashMap::<String, bool>::new();
-    module_map.insert("".to_string(), false);
-    symlink_sources(&args.sources, &args.output_path, &mut module_map)?;
+    let source_processors: Vec<FileProcessor> = vec![process_symlink, process_maybe_add_init];
+
+    read_text_manifest(&args.sources, &mut info, &source_processors)?;
+
     if let Some(extras) = &args.extras {
-        symlink_sources(extras, &args.output_path, &mut module_map)?;
+        read_text_manifest(extras, &mut info, &source_processors)?;
     }
     if let Some(resources) = &args.resources {
-        symlink_sources(resources, &args.output_path, &mut module_map)?;
+        read_text_manifest(resources, &mut info, &source_processors)?;
     }
     if let Some(extensions) = &args.extensions {
-        symlink_sources(extensions, &args.output_path, &mut module_map)?;
+        read_text_manifest(extensions, &mut info, &source_processors)?;
     }
+
+    let file_processors: Vec<FileProcessor> = vec![process_symlink];
+
     if let Some(shared_libs) = &args.shared_libs {
-        symlink_files(shared_libs, &args.output_path)?;
+        read_text_manifest(shared_libs, &mut info, &file_processors)?;
     }
     if let Some(generated) = &args.generated {
-        symlink_files(generated, &args.output_path)?;
+        read_text_manifest(generated, &mut info, &file_processors)?;
     }
     if let Some(bytecode) = &args.bytecode {
-        symlink_bytecode(bytecode, &args.output_path)?;
+        read_manifest_list(bytecode, &mut info, &file_processors)?;
     }
-    write_inits(&args.output_path, &mut module_map)?;
+    write_inits(&mut info)?;
     Ok(())
 }
