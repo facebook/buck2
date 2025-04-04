@@ -73,7 +73,10 @@ def _apple_binary_extra_attrs():
         "application_extension": attrs.bool(default = False),
         "binary_linker_flags": attrs.list(attrs.arg(), default = []),
         "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-        "enable_distributed_thinlto": attrs.bool(default = False),
+        "enable_distributed_thinlto": attrs.bool(default = select({
+            "DEFAULT": False,
+            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+        })),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "link_execution_preference": link_execution_preference_attr(),
@@ -103,7 +106,10 @@ def _apple_binary_extra_attrs():
 def _apple_library_extra_attrs():
     attribs = {
         "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-        "enable_distributed_thinlto": attrs.bool(default = False),
+        "enable_distributed_thinlto": attrs.bool(default = select({
+            "DEFAULT": False,
+            "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+        })),
         "enable_library_evolution": attrs.option(attrs.bool(), default = None),
         "extra_xcode_sources": attrs.list(attrs.source(allow_directory = True), default = []),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
