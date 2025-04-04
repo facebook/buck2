@@ -57,7 +57,7 @@ impl StarlarkArtifactValue {
     }
 }
 
-#[starlark_value(type = "artifact_value")]
+#[starlark_value(type = "ArtifactValue")]
 impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
