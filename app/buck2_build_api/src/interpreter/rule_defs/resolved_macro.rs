@@ -351,7 +351,7 @@ impl CommandLineArgLike for ResolvedStringWithMacros {
     }
 }
 
-#[starlark_value(type = "resolved_macro")]
+#[starlark_value(type = "ResolvedStringWithMacros")]
 impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         match ResolvedStringWithMacros::from_value(other) {
