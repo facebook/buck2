@@ -49,7 +49,6 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     # Extract prebuilt wheel and wrap in python library provider.
-    # TODO(nmj): Make sure all attrs are used if necessary, esp compile
     entry_points = ctx.actions.declare_output("entry_points.manifest")
     entry_points_dir = ctx.actions.declare_output("__entry_points__", dir = True)
     extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True)
