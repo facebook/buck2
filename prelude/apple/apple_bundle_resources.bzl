@@ -197,11 +197,15 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
         if apple_library_for_distribution_info == None:
             continue
         module_name = apple_library_for_distribution_info.module_name
-        swiftmodule_files.update({
-            apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
-            apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
-            apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
-        })
+        if apple_library_for_distribution_info.swiftinterface != None:
+            swiftmodule_files.update({
+                apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
+                apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
+            })
+        if apple_library_for_distribution_info.swiftdoc != None:
+            swiftmodule_files.update({
+                apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
+            })
 
     if len(swiftmodule_files) == 0 or module_name == None:
         return []
