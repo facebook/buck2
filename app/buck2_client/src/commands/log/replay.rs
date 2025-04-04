@@ -8,6 +8,7 @@
  */
 
 use buck2_client_ctx::client_ctx::ClientCommandContext;
+use buck2_client_ctx::common::ui::get_console_with_root;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::daemon::client::NoPartialResultHandler;
@@ -15,7 +16,6 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::replayer::Replayer;
 use buck2_client_ctx::signal_handler::with_simple_sigint_handler;
-use buck2_client_ctx::subscribers::get::get_console_with_root;
 use buck2_client_ctx::subscribers::subscribers::EventSubscribers;
 use buck2_error::buck2_error;
 

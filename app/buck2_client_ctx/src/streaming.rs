@@ -18,6 +18,7 @@ use dupe::Dupe;
 use tokio::sync::Mutex;
 
 use crate::client_ctx::ClientCommandContext;
+use crate::common::ui::get_console_with_root;
 use crate::common::ui::CommonConsoleOptions;
 use crate::common::BuckArgMatches;
 use crate::common::CommonBuildConfigurationOptions;
@@ -33,7 +34,6 @@ use crate::exit_result::ExitCode;
 use crate::exit_result::ExitResult;
 use crate::path_arg::PathArg;
 use crate::signal_handler::with_simple_sigint_handler;
-use crate::subscribers::get::get_console_with_root;
 use crate::subscribers::get::try_get_build_graph_stats;
 use crate::subscribers::get::try_get_build_id_writer;
 use crate::subscribers::get::try_get_event_log_subscriber;
