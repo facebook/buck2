@@ -2572,6 +2572,7 @@ message SystemInfo {
   optional uint64 avg_re_download_bytes_per_sec_threshold = 6;
   optional string optin_vpn_check_targets_regex = 8;
   optional bool enable_stable_revision_check = 9;
+  optional bool enable_health_check_process_isolation = 10;
 }
 
 message CpuCounter {

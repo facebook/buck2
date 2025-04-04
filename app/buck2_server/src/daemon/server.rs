@@ -445,6 +445,8 @@ impl BuckdServer {
                 .optin_vpn_check_targets_regex
                 .clone(),
             enable_stable_revision_check: system_warning_config.enable_stable_revision_check,
+            enable_health_check_process_isolation: system_warning_config
+                .enable_health_check_process_isolation,
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
