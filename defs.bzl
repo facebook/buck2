@@ -35,7 +35,12 @@ def _buck2_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     buck2_tpx_binary = "buck2-tpx" + binary_extension
     buck2_daemon_binary = "buck2-daemon" + binary_extension
     buck2_health_check_binary = "buck2-health-check" + binary_extension
-    out = ctx.actions.copied_dir("out", {buck2_binary: buck2_client, buck2_tpx_binary: ctx.actions.symlink_file(buck2_tpx_binary, tpx), buck2_daemon_binary: buck2, buck2_health_check_binary: buck2_health_check})
+    out = ctx.actions.copied_dir("out", {
+        buck2_binary: buck2_client,
+        buck2_tpx_binary: ctx.actions.symlink_file(buck2_tpx_binary, tpx),
+        buck2_daemon_binary: buck2,
+        buck2_health_check_binary: buck2_health_check,
+    })
 
     return [DefaultInfo(out, other_outputs = materialisations), RunInfo(cmd_args(out.project("buck2" + binary_extension), hidden = materialisations))]
 
