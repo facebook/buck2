@@ -320,7 +320,7 @@ mod fbcode {
         }
     }
 
-    pub fn scribe_category() -> buck2_error::Result<String> {
+    pub(crate) fn scribe_category() -> buck2_error::Result<String> {
         const DEFAULT_SCRIBE_CATEGORY: &str = "buck2_events";
         // Note that both daemon and client are emitting events, and that changing this variable has
         // no effect on the daemon until buckd is restarted but has effect on the client.
