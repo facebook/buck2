@@ -34,9 +34,10 @@ def create_modulemap(
         headers: list[CHeader],
         swift_header: Artifact | None,
         mark_headers_private: bool,
-        additional_args: CPreprocessorArgs | None) -> (CPreprocessor, Artifact):
+        additional_args: CPreprocessorArgs | None,
+        is_framework: bool = False) -> (CPreprocessor, Artifact):
     # We don't want to name this module.modulemap to avoid implicit importing
-    if name == "module":
+    if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
     # Create a map of header import path to artifact location
@@ -77,8 +78,11 @@ def create_modulemap(
             swift_header,
         ])
 
-    if ctx.attrs.use_submodules:
+    if getattr(ctx.attrs, "use_submodules", False):
         cmd.add("--use-submodules")
+
+    if is_framework:
+        cmd.add("--framework")
 
     for hdr in sorted(header_map.keys()):
         # Don't include the Swift header in the mappings, this is handled separately.
