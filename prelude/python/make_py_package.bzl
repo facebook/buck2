@@ -94,6 +94,11 @@ def live_par_generated_files(
     # Add passthrough args
     gen_bootstrap.add(cmd_args([cmd_args(arg, replace_regex = ("--passthrough=", "")) for arg in build_args]))
 
+    # in tools/make_par/buck.py we add "os.curdir" to the ld_library_path
+    gen_bootstrap.add("--ld-library=.")
+    for lib_path in python_toolchain.native_library_runtime_paths:
+        gen_bootstrap.add("--ld-library={}".format(lib_path))
+
     if main[0] == EntryPointKind("module"):
         gen_bootstrap.add(["--main-module", main[1]])
     else:
