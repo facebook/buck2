@@ -715,11 +715,10 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         })?;
 
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
-        data.set_re_client(
-            self.re_connection
-                .get_client()
-                .with_re_use_case_override(override_use_case),
-        );
+        // This client is only used in places that do not use the RE use case specified in the executor config.
+        // They currently use either a usecase specified in actions (cas_artifact), or a global default (buck2.default_remote_execution_use_case).
+        // We should not override the cas_artifact usecase or else the ttl may not match the action declaration.
+        data.set_re_client(self.re_connection.get_client());
         let resource_control_config = ResourceControlConfig::from_config(root_config)?;
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
