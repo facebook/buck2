@@ -7,11 +7,4 @@
  * of this source tree.
  */
 
-pub mod convert;
-pub mod health_check_client;
-pub(crate) mod health_check_context;
-pub(crate) mod health_checks;
-pub mod interface;
-pub mod report;
-
-pub mod rpc;
+pub mod health_check_server;

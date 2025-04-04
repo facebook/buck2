@@ -11,9 +11,11 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_util = { workspace = true }
+buck2_grpc = { workspace = true }
 buck2_health_check_proto = { workspace = true }
 regex = { workspace = true }
 tokio = { workspace = true }
+tonic = { workspace = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fbcode_build)'] }
