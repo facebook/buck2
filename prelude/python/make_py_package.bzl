@@ -553,6 +553,7 @@ def _make_py_package_live(
     runtime_files = [symlink_tree_path]
 
     output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension))
+
     generated_files.extend(live_par_generated_files(ctx, output, python_toolchain, build_args, main, preload_libraries, output_suffix))
 
     cmd = cmd_args(make_py_package_live)
@@ -593,9 +594,8 @@ def _make_py_package_live(
         runtime_files.append(extras_manifest)
 
     if pex_modules.extensions != None:
-        extensions_manifest = ctx.actions.write("{}-extensions.txt".format(name), [cmd_args(a, p, delimiter = "::") for a, p in pex_modules.extensions.artifacts], with_inputs = True)
-        cmd.add(cmd_args(extensions_manifest.without_associated_artifacts(), format = "--extensions={}"))
-        runtime_files.append(extensions_manifest)
+        cmd.add(cmd_args(pex_modules.extensions.manifest, format = "--extensions={}"))
+        runtime_files.extend([a[0] for a in pex_modules.extensions.artifacts])
 
     native_libraries_manifest = gen_shared_libs_action(
         actions = ctx.actions,

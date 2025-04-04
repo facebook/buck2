@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use rust_make_par::process_maybe_add_init;
 use rust_make_par::process_symlink;
+use rust_make_par::read_json_manifest;
 use rust_make_par::read_manifest_list;
 use rust_make_par::read_text_manifest;
 use rust_make_par::write_inits;
@@ -71,7 +72,7 @@ fn main() -> anyhow::Result<()> {
         read_text_manifest(resources, &mut info, &source_processors)?;
     }
     if let Some(extensions) = &args.extensions {
-        read_text_manifest(extensions, &mut info, &source_processors)?;
+        read_json_manifest(extensions, &mut info, &source_processors)?;
     }
 
     let file_processors: Vec<FileProcessor> = vec![process_symlink];
