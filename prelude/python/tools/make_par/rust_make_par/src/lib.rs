@@ -18,17 +18,20 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use serde_json::Value;
+use walkdir::WalkDir;
 
-pub struct ParInfo {
+pub struct ParInfo<'a> {
     pub output_path: PathBuf,
     module_map: HashMap<String, bool>,
+    source_extensions: [&'a str; 5],
 }
 
-impl ParInfo {
-    pub fn new(output_path: PathBuf) -> ParInfo {
+impl<'a> ParInfo<'a> {
+    pub fn new(output_path: PathBuf) -> ParInfo<'a> {
         ParInfo {
             output_path,
             module_map: HashMap::new(),
+            source_extensions: ["py", "so", "empty_stub", "pyd", "pyc"],
         }
     }
     pub fn create_output_dir(&self) -> anyhow::Result<()> {
@@ -235,36 +238,15 @@ pub fn process_symlink(source: &Path, dest: &Path, info: &mut ParInfo) -> anyhow
     }
 }
 
-pub fn process_maybe_add_init(
-    _source: &Path,
-    dest: &Path,
-    info: &mut ParInfo,
-) -> anyhow::Result<()> {
-    let mut path = dest;
-
-    const SOURCE_EXTENSIONS: [&str; 5] = ["py", "so", "empty_stub", "pyd", "pyc"];
-    // When adding __init__ files we ignore everything included with the bundled runtime
-    if path.starts_with(PathBuf::from("runtime/lib")) {
-        return Ok(());
-    }
-
-    if let Some(file_ext) = path.extension() {
-        if !SOURCE_EXTENSIONS.iter().any(|&ext| ext == file_ext) {
+fn _process_maybe_add_init(dest: &Path, info: &mut ParInfo) -> anyhow::Result<()> {
+    if let Some(file_ext) = dest.extension() {
+        if !info.source_extensions.iter().any(|&ext| ext == file_ext) {
             return Ok(());
         }
-    } else {
-        // For directories we recursively traverse to find any source files
-        let dir_path = info.output_path.join(path);
-        if dir_path.is_dir() {
-            for entry in fs::read_dir(dir_path)? {
-                let entry = entry?;
-                let entry_path = entry.path();
-                let relative_path = PathBuf::from(entry_path.strip_prefix(&info.output_path)?);
-                process_maybe_add_init(_source, &relative_path, info)?;
-            }
-        }
-        return Ok(());
     }
+
+    let mut path = dest;
+
     if let Some(file_name) = path.file_name().and_then(|f| f.to_str()) {
         if file_name == "__init__.py" {
             if let Some(dir) = path.parent().and_then(|d| d.to_str()) {
@@ -280,6 +262,36 @@ pub fn process_maybe_add_init(
         path = parent;
     }
     Ok(())
+}
+
+pub fn process_maybe_add_init(
+    _source: &Path,
+    dest: &Path,
+    info: &mut ParInfo,
+) -> anyhow::Result<()> {
+    // When adding __init__ files we ignore everything included with the bundled runtime
+    if dest.starts_with(PathBuf::from("runtime/lib")) {
+        return Ok(());
+    }
+
+    if let Some(file_ext) = dest.extension() {
+        if !info.source_extensions.iter().any(|&ext| ext == file_ext) {
+            return Ok(());
+        }
+    } else {
+        // For directories we recursively traverse to find any source files
+        let dir_path = info.output_path.join(dest);
+        if dir_path.is_dir() {
+            for entry in WalkDir::new(dir_path) {
+                let entry = entry?;
+                let entry_path = entry.path();
+                let relative_path = PathBuf::from(entry_path.strip_prefix(&info.output_path)?);
+                _process_maybe_add_init(&relative_path, info)?;
+            }
+        }
+        return Ok(());
+    }
+    _process_maybe_add_init(dest, info)
 }
 
 #[cfg(test)]

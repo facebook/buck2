@@ -31,6 +31,7 @@ prelude.rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:walkdir",
     ],
 )
 
@@ -41,6 +42,7 @@ prelude.rust_test(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tempfile",
+        "fbsource//third-party/rust:walkdir",
     ],
 )
 
