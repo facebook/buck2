@@ -39,6 +39,7 @@ use starlark::typing::Ty;
 use starlark::values::list::ListRef;
 use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
+use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
 use starlark::values::AllocStaticSimple;
@@ -999,7 +1000,7 @@ impl Display for StarlarkCommandLineInputs {
     }
 }
 
-#[starlark_value(type = "command_line_inputs")]
+#[starlark_value(type = "CommandLineInputs")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
     fn length(&self) -> starlark::Result<i32> {
         self.inputs
@@ -1015,4 +1016,10 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
             Ok(false)
         }
     }
+}
+
+#[starlark_module]
+pub(crate) fn register_command_line_inputs(globals: &mut GlobalsBuilder) {
+    const CommandLineInputs: StarlarkValueAsType<StarlarkCommandLineInputs> =
+        StarlarkValueAsType::new();
 }
