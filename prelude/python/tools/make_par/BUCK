@@ -24,6 +24,16 @@ prelude.export_file(
     visibility = ["PUBLIC"],
 )
 
+prelude.rust_library(
+    name = "rust_make_par_lib",
+    srcs = ["rust_make_par/src/lib.rs"],
+    crate = "rust_make_par",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:serde_json",
+    ],
+)
+
 prelude.rust_binary(
     name = "rust_make_par",
     srcs = ["rust_make_par/src/main.rs"],
@@ -32,7 +42,7 @@ prelude.rust_binary(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:serde_json",
+        ":rust_make_par_lib",
     ],
 )
 
