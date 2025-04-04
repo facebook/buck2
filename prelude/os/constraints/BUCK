@@ -36,7 +36,7 @@ constraint_value(
 )
 
 constraint_value(
-    name = "ios",
+    name = "iphoneos",
     constraint_setting = ":os",
     visibility = ["PUBLIC"],
 )
