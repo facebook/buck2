@@ -14,4 +14,5 @@ pub(crate) mod health_checks;
 pub mod interface;
 pub mod report;
 
+pub(crate) mod health_check_executor;
 pub mod rpc;

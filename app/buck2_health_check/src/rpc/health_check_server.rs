@@ -9,6 +9,8 @@
 
 #![allow(dead_code)]
 
+use std::sync::Arc;
+
 use buck2_grpc::spawn_oneshot;
 use buck2_grpc::to_tonic;
 use buck2_grpc::ServerHandle;
@@ -18,12 +20,19 @@ use buck2_health_check_proto::HealthCheckContextEvent;
 use buck2_health_check_proto::HealthCheckResult;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
+use tokio::sync::Mutex;
 
-pub struct HealthCheckServer {}
+use crate::health_check_executor::HealthCheckExecutor;
+
+pub struct HealthCheckServer {
+    executor: Arc<Mutex<HealthCheckExecutor>>,
+}
 
 impl HealthCheckServer {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            executor: Arc::new(Mutex::new(HealthCheckExecutor::new())),
+        }
     }
 }
 
@@ -31,20 +40,28 @@ impl HealthCheckServer {
 impl health_check_server::HealthCheck for HealthCheckServer {
     async fn update_context(
         &self,
-        _request: tonic::Request<HealthCheckContextEvent>,
+        request: tonic::Request<HealthCheckContextEvent>,
     ) -> Result<tonic::Response<Empty>, tonic::Status> {
-        // TODO(rajneeshl): Forward the calls to a health check executor.
-        to_tonic(async move { Ok(Empty {}) }).await
+        to_tonic(async move {
+            let event = request.into_inner();
+            let mut executor = self.executor.lock().await;
+            executor.update_context(&event).await?;
+            Ok(Empty {})
+        })
+        .await
     }
 
     async fn run_checks(
         &self,
         _request: tonic::Request<Empty>,
     ) -> Result<tonic::Response<HealthCheckResult>, tonic::Status> {
-        // TODO(rajneeshl): Forward the calls to a health check executor.
         to_tonic(async move {
+            let reports = self.executor.lock().await.run_checks().await;
             Ok(HealthCheckResult {
-                ..Default::default()
+                reports: reports
+                    .into_iter()
+                    .map(|report| report.try_into())
+                    .collect::<Result<Vec<_>, _>>()?,
             })
         })
         .await
