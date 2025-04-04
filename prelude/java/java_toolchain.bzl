@@ -40,6 +40,7 @@ JavaToolchainInfo = provider(
         "jar": provider_field(typing.Any, default = None),
         "jar_builder": provider_field(typing.Any, default = None),
         "java": provider_field(typing.Any, default = None),
+        "java_base_jar": provider_field(typing.Any, default = None),
         "java_error_handler": provider_field(typing.Any, default = None),
         "java_for_tests": provider_field(typing.Any, default = None),
         "javac": provider_field(typing.Any, default = None),
