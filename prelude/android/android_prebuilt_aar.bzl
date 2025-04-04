@@ -97,6 +97,7 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         proguard_config = proguard_config,
         lint_jar = lint_jar,
         sources_jar = ctx.attrs.source_jar,
+        dex_weight_factor = ctx.attrs.dex_weight_factor,
     )
 
     native_library = PrebuiltNativeLibraryDir(

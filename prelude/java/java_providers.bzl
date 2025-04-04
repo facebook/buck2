@@ -575,7 +575,8 @@ def _create_non_template_providers(
         sources_jar: Artifact | None = None,
         proguard_config: Artifact | None = None,
         gwt_module: Artifact | None = None,
-        first_order_compiling_deps_without_library_itself: JavaCompilingDepsTSet | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, JavaGlobalCodeInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
+        first_order_compiling_deps_without_library_itself: JavaCompilingDepsTSet | None = None,
+        dex_weight_factor: int = 1) -> (JavaLibraryInfo, JavaPackagingInfo, JavaGlobalCodeInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph):
     """Creates java library providers of type `JavaLibraryInfo` and `JavaPackagingInfo`.
 
     Args:
@@ -606,6 +607,7 @@ def _create_non_template_providers(
         sources_jar,
         proguard_config = proguard_config,
         gwt_module = gwt_module,
+        dex_weight_factor = dex_weight_factor,
     )
 
     java_packaging_info = get_java_packaging_info(
@@ -668,7 +670,8 @@ def create_java_library_providers(
         gwt_module: Artifact | None = None,
         lint_jar: Artifact | None = None,
         preprocessed_library: Artifact | None = None,
-        used_jars_json: Artifact | None = None) -> (JavaLibraryInfo, JavaPackagingInfo, JavaGlobalCodeInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
+        used_jars_json: Artifact | None = None,
+        dex_weight_factor: int = 1) -> (JavaLibraryInfo, JavaPackagingInfo, JavaGlobalCodeInfo, SharedLibraryInfo, ResourceInfo, LinkableGraph, TemplatePlaceholderInfo, JavaLibraryIntellijInfo):
     first_order_classpath_deps = filter(None, [x.get(JavaLibraryInfo) for x in declared_deps + exported_deps + runtime_deps])
     first_order_classpath_libs = [dep.output_for_classpath_macro for dep in first_order_classpath_deps]
 
@@ -692,6 +695,7 @@ def create_java_library_providers(
         proguard_config = proguard_config,
         gwt_module = gwt_module,
         first_order_compiling_deps_without_library_itself = compiling_deps,
+        dex_weight_factor = dex_weight_factor,
     )
 
     first_order_libs = first_order_classpath_libs + [library_info.library_output.full_library] if library_info.library_output else first_order_classpath_libs
