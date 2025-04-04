@@ -1,10 +1,12 @@
-load("@prelude//android/tools:android_build_tools_cas_artifact.bzl", "android_build_tools_cas_artifact")
+load("@prelude//toolchains/android/tools/build_rules:java_rules.bzl", "buck_prebuilt_artifact")
 
 oncall("android_devxx")
 
 # See README.txt
-android_build_tools_cas_artifact(
+buck_prebuilt_artifact(
     name = "agent.apk",
-    digest = "1b188878f29e0875c5f5fa67ab69d3c53a0db264bb7b750a6b1e9bbc3a5060ef:3865223",
+    # @oss-disable[end= ]: cas_digest = "1b188878f29e0875c5f5fa67ab69d3c53a0db264bb7b750a6b1e9bbc3a5060ef:3865223",
+    oss_sha1 = "0000000000000000000000000000000000000000",
+    oss_url = "UNUSED",
     visibility = ["PUBLIC"],
 )
