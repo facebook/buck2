@@ -26,6 +26,7 @@ pub mod os;
 pub mod per_thread_instruction_counter;
 pub mod process;
 pub mod process_stats;
+pub mod properly_reaped_child;
 pub mod rtabort;
 pub mod self_ref;
 pub mod sliding_window;

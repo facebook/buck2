@@ -7,16 +7,8 @@
  * of this source tree.
  */
 
-use std::mem;
-use std::process::Output;
-use std::process::Stdio;
-
-use buck2_error::internal_error;
-use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_util::process::async_background_command;
-use tokio::io::AsyncReadExt;
-use tokio::process::Child;
+use buck2_util::properly_reaped_child::reap_on_drop_command;
 use tokio::sync::OnceCell;
 
 /// Spawn tasks to collect version control information
@@ -46,73 +38,6 @@ enum RepoVcs {
     Hg,
     Git,
     Unknown,
-}
-
-/// A wrapper over a child process that will reap the child process on drop.
-/// On Unix platforms, a child process becomes a zombie until it is reaped by its parent.
-struct ProperlyReapedChild {
-    child: Option<Child>,
-}
-
-impl ProperlyReapedChild {
-    async fn output(mut self) -> buck2_error::Result<Output> {
-        let mut stdout = Vec::new();
-        let mut stderr = Vec::new();
-        let mut child = mem::take(&mut self.child).internal_error("child field must be set")?;
-        let mut stdout_pipe = child
-            .stdout
-            .take()
-            .buck_error_context("stdout is not piped")?;
-        let mut stderr_pipe = child
-            .stderr
-            .take()
-            .buck_error_context("stderr is not piped")?;
-        let (stdout_error, stderr_error, status) = tokio::join!(
-            stdout_pipe.read_to_end(&mut stdout),
-            stderr_pipe.read_to_end(&mut stderr),
-            child.wait(),
-        );
-
-        let result = match stdout_error.is_ok() || stderr_error.is_ok() {
-            true => Ok(Output {
-                status: status?,
-                stdout,
-                stderr,
-            }),
-            false => Err(internal_error!("Failed to read stdout and stderr")),
-        };
-        reap_child(child);
-        result
-    }
-}
-
-impl Drop for ProperlyReapedChild {
-    fn drop(&mut self) {
-        if let Some(child) = mem::take(&mut self.child) {
-            reap_child(child);
-        }
-    }
-}
-
-fn reap_on_drop_command(command: &str, args: &[&str]) -> buck2_error::Result<ProperlyReapedChild> {
-    async_background_command(command)
-        .args(args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .map(|child| ProperlyReapedChild { child: Some(child) })
-        .map_err(|e| e.into())
-}
-
-fn reap_child(mut child: Child) {
-    tokio::spawn(async move {
-        if let Some(child_id) = child.id() {
-            // If a child process has already exited, the child.id() is None.
-            tracing::warn!("Killed child process: {:?}", child_id);
-        }
-        drop(child.kill().await);
-    });
 }
 
 async fn create_revision_data() -> buck2_data::VersionControlRevision {
