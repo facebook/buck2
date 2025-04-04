@@ -80,7 +80,7 @@ impl fmt::Display for ArtifactTag {
 
 starlark_simple_value!(ArtifactTag);
 
-#[starlark_value(type = "artifact_tag")]
+#[starlark_value(type = "ArtifactTag")]
 impl<'v> StarlarkValue<'v> for ArtifactTag {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
