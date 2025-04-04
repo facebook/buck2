@@ -84,7 +84,7 @@ impl<'v, V: ValueLike<'v>> Display for TransitiveSetArgsProjectionGen<V> {
             ")",
             iter_display_chain(
                 iter::once(projection_name),
-                iter::once(display_pair("transitive_set", "=", &self.transitive_set)),
+                iter::once(display_pair("TransitiveSet", "=", &self.transitive_set)),
             ),
         )
     }
