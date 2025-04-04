@@ -62,7 +62,7 @@ class Module:
         if name in _RESERVED_KEYWORDS:
             name = f"{name}_"
         if self.is_framework:
-            f.write(f"framework{space}module {name} {{\n")
+            f.write(f"{space}framework module {name} {{\n")
         else:
             f.write(f"{space}module {name} {{\n")
 
