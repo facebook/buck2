@@ -24,6 +24,17 @@ def preprocessor_info_for_modulemap(
         swift_header: Artifact | None,
         mark_headers_private: bool,
         additional_args: CPreprocessorArgs | None) -> CPreprocessor:
+    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header, mark_headers_private, additional_args)
+    return preprocessor_info
+
+def create_modulemap(
+        ctx: AnalysisContext,
+        name: str,
+        module_name: str,
+        headers: list[CHeader],
+        swift_header: Artifact | None,
+        mark_headers_private: bool,
+        additional_args: CPreprocessorArgs | None) -> (CPreprocessor, Artifact):
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module":
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
@@ -86,7 +97,7 @@ def preprocessor_info_for_modulemap(
         ),
         modular_args = _args_for_modulemap(output, symlink_tree, swift_header),
         modulemap_path = cmd_args(output, hidden = cmd_args(symlink_tree)),
-    )
+    ), output
 
 def _args_for_modulemap(
         modulemap: Artifact,
