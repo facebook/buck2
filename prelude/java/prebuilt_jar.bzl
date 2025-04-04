@@ -27,12 +27,12 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         list of created providers
     """
 
-    expected_extension = ".jar"
+    expected_extensions = [".jar", ".jmod"]
     binary_jar = ctx.attrs.binary_jar
     extension = binary_jar.extension
-    if extension != expected_extension:
-        fail("Extension of the binary_jar attribute has to be equal to '{}' but '{}' has an extension '{}'".format(
-            expected_extension,
+    if extension not in expected_extensions:
+        fail("Extension of the binary_jar attribute has to be one of '{}' but '{}' has an extension '{}'".format(
+            expected_extensions,
             binary_jar,
             extension,
         ))
