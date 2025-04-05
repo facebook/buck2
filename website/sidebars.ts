@@ -63,6 +63,7 @@ export const sidebars: SidebarsConfig = {
         'concepts/target_pattern',
         'concepts/buck_out',
         'concepts/visibility',
+        'concepts/toolchain',
         'concepts/daemon',
         'concepts/labels',
         'concepts/isolation_dir',
@@ -138,6 +139,7 @@ export const sidebars: SidebarsConfig = {
       label: 'Rule Authors',
       items: [
         'rule_authors/writing_rules',
+        'rule_authors/writing_toolchains',
         'rule_authors/transitive_sets',
         'rule_authors/configurations',
         'rule_authors/configurations_by_example',
