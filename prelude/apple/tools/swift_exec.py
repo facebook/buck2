@@ -8,10 +8,7 @@
 
 import json
 import os
-import pathlib
-import platform
 import re
-import shutil
 import subprocess
 import sys
 
@@ -206,7 +203,6 @@ def _process_skip_incremental_outputs(command):
             "swift-dependencies": swiftdeps_artifact,
         }
 
-    _make_path_user_writable(output_file_map)
     with open(output_file_map, "w") as f:
         json.dump(output_file_map_content, f, indent=2)
 
@@ -224,44 +220,6 @@ def _get_swift_files_to_compile(command):
                 ]
 
     raise Exception(f"No {_SWIFT_FILES_ARGSFILE} found!")
-
-
-def _make_path_user_writable(path: str) -> None:
-    if not os.path.exists(path):
-        return
-    # On Linux, `os.chmod()` does not support setting the permissions on a symlink.
-    # `chmod` manpage says:
-    #   > AT_SYMLINK_NOFOLLOW     If pathname is a symbolic link, do not
-    #   >     dereference it: instead operate on the link itself.
-    #   >     This flag is not currently implemented.
-    #
-    # In Python, an exception will be thrown:
-    # > NotImplementedError: chmod: follow_symlinks unavailable on this platform
-    #
-    # Darwin supports permission setting on symlinks.
-    follow_symlinks = platform.system() != "Darwin"
-
-    backup_path = f"{path}.bak"
-
-    shutil.move(path, backup_path)
-    shutil.copy2(backup_path, path)
-
-    try:
-        os.chmod(path, 0o777, follow_symlinks=follow_symlinks)
-    except FileNotFoundError as e:
-        path_obj = pathlib.Path(path)
-        if path_obj.is_symlink():
-            resolved_path_obj = path_obj.resolve()
-            if not resolved_path_obj.exists():
-                # On Linux systems, all symlinks are followed when `chmod`-ing
-                # (see comment above about `AT_SYMLINK_NOFOLLOW`). If that happens,
-                # we can ignore the `chmod` error as its harmless.
-                print(
-                    f"Tried setting permission on a symlink to a non-existing path, ignoring error... {e}",
-                    file=sys.stderr,
-                )
-                return
-        raise e
 
 
 if __name__ == "__main__":

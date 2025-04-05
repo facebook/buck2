@@ -89,7 +89,9 @@ def _get_incremental_compilation_flags_and_objects(
             "-driver-batch-size-limit",
             str(_SWIFT_BATCH_SIZE),
             "-output-file-map",
-            output_file_map.output_map_artifact,
+            # When skipping incremental outputs, we write the contents of the output_file_map in the swift wrapper
+            # and need to ensure this is an output file (vs being an input in normal cases)
+            output_file_map.output_map_artifact.as_output() if _SKIP_INCREMENTAL_OUTPUTS else output_file_map.output_map_artifact,
             "-emit-objc-header",
             "-emit-objc-header-path",
             output_header.as_output(),
@@ -115,7 +117,6 @@ def _write_output_file_map(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags]) -> _WriteOutputFileMapOutput:
     if _SKIP_INCREMENTAL_OUTPUTS:
-        output_file_map = {}
         all_outputs = []
         swiftdeps = []
         artifacts = []
@@ -125,6 +126,10 @@ def _write_output_file_map(
             output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o")
             artifacts.append(output_artifact)
             all_outputs.append(output_artifact)
+
+        # When skipping incremental outputs, we write the contents of the output_file_map in the swift wrapper
+        # and need to ensure this is an output file (vs being an input in normal cases)
+        output_map_artifact = ctx.actions.declare_output("__swift_incremental__/output_file_map.json")
 
     else:
         # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
@@ -151,7 +156,7 @@ def _write_output_file_map(
             swiftdeps.append(swiftdeps_artifact)
             all_outputs.append(swiftdeps_artifact)
 
-    output_map_artifact = ctx.actions.write_json("__swift_incremental__/output_file_map.json", output_file_map, pretty = True)
+        output_map_artifact = ctx.actions.write_json("__swift_incremental__/output_file_map.json", output_file_map, pretty = True)
 
     return _WriteOutputFileMapOutput(
         artifacts = artifacts,
