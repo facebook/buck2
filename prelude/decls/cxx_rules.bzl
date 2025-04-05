@@ -1013,7 +1013,6 @@ cxx_toolchain = prelude_rule(
             "cxx_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "debug_path_prefix_map_sanitizer_format": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "detailed_untracked_header_messages": attrs.bool(default = False),
             "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
             "executable_linker_flags": attrs.list(
                 attrs.arg(anon_target_compatible = True),
@@ -1023,7 +1022,6 @@ cxx_toolchain = prelude_rule(
                 """,
             ),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "headers_whitelist": attrs.list(attrs.string(), default = []),
             "hip_compiler": attrs.option(attrs.source(), default = None),
             "hip_compiler_flags": attrs.list(attrs.arg(), default = []),
             "hip_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
