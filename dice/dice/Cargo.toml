@@ -10,6 +10,7 @@ allocative = { workspace = true }
 anyhow = "1.0.65"
 anymap = "1.0.0-beta.2"
 async-trait = "0.1.24"
+buck2_core = { workspace = true }
 buck2_futures = { path = "../../app/buck2_futures" }
 cmp_any = { workspace = true }
 dashmap = "5.5.3"

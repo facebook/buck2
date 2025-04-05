@@ -19,7 +19,6 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use blake3::Hash;
 use buck2_common::dice::file_ops::FileChangeTracker;
-use buck2_common::file_ops::FileType;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::cell_path::CellPath;
@@ -36,6 +35,7 @@ use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
 use compact_str::CompactString;
 use dice::DiceTransactionUpdater;
+use dice::FileType;
 use dupe::Dupe;
 
 use crate::file_watcher::FileWatcher;

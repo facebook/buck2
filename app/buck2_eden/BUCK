@@ -24,6 +24,7 @@ rust_library(
         # @oss-disable[end= ]: "//buck2/app/buck2_common:buck2_common",
         # @oss-disable[end= ]: "//buck2/app/buck2_core:buck2_core",
         # @oss-disable[end= ]: "//buck2/app/buck2_error:buck2_error",
+        # @oss-disable[end= ]: "//buck2/dice/dice:dice",
         # @oss-disable[end= ]: "//buck2/gazebo/dupe:dupe",
         # @oss-disable[end= ]: "//common/rust/shed/fbinit:fbinit",
         # @oss-disable[end= ]: "//common/rust/shed/sorted_vector_map:sorted_vector_map",
