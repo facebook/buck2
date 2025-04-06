@@ -12,8 +12,8 @@ import sys
 
 from par_builder import ParBuilder
 from util import (
-    _make_clean_dir,
     get_user_main,
+    make_clean_dir,
     make_ld_library_path,
     make_ld_preload,
     RUN_LIVEPAR_MAIN_MODULE,
@@ -50,7 +50,7 @@ class LiveBuilder(ParBuilder):
             manifest.add_autogen_module(RUN_LIVEPAR_MAIN_MODULE, f.read())
 
         linktree = self.linktree
-        _make_clean_dir(linktree)
+        make_clean_dir(linktree)
 
         dirs = {linktree}
         for entry in manifest.entries:
