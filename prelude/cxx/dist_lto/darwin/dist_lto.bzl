@@ -89,6 +89,10 @@ _IndexLinkData = record(
     link_data = field([_LazyBitcodeLinkData, _EagerBitcodeLinkData, _ArchiveLinkData, _DynamicLibraryLinkData]),
 )
 
+# TODO(nuriamari) Delete once link actions over RE measured
+def _execute_link_actions_locally() -> bool:
+    return read_root_config("user", "dthin_lto_link_actions_over_re", "false") not in ("True", "true")
+
 def cxx_darwin_dist_link(
         ctx: AnalysisContext,
         # The destination for the link output.
@@ -480,7 +484,7 @@ def cxx_darwin_dist_link(
                 index_args,
             ]))
 
-            ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = True)
+            ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = _execute_link_actions_locally())
 
         # TODO(T117513091) - dynamic_output does not allow for an empty list of dynamic inputs. If we have no archives
         # to process, we will have no dynamic inputs, and the plan action can be non-dynamic.
@@ -697,6 +701,8 @@ def cxx_darwin_dist_link(
         for artifact in sorted_index_link_data:
             if artifact.data_type == _DataType("archive"):
                 link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
+                link_cmd_hidden.append(artifact.link_data.objects_dir)
+
         link_cmd.add(at_argfile(
             actions = ctx.actions,
             name = outputs[linker_argsfile_out],
@@ -714,7 +720,7 @@ def cxx_darwin_dist_link(
         link_cmd.add(link_cmd_parts.post_linker_flags)
         link_cmd.add(cmd_args(hidden = link_cmd_hidden))
 
-        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True)
+        ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = _execute_link_actions_locally())
 
     final_link_inputs = [link_plan_out, final_link_index] + archive_opt_manifests
     final_link_outputs = [output.as_output(), linker_argsfile_out.as_output()]
