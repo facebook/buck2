@@ -80,7 +80,12 @@ def _get_root_link_group_specs(
     specs = []
 
     # Add link group specs for dlopen-able libs.
+    found_libs = set()
     for dep in libs:
+        if dep.linkable_graph.label in found_libs:
+            continue
+        else:
+            found_libs.add(dep.linkable_graph.label)
         specs.append(
             LinkGroupLibSpec(
                 name = dep.linkable_root_info.name,
@@ -103,8 +108,14 @@ def _get_root_link_group_specs(
             ),
         )
 
+    found_extensions = set()
+
     # Add link group specs for extensions.
     for name, extension in extensions.items():
+        if extension.linkable_graph.label in found_extensions:
+            continue
+        else:
+            found_extensions.add(extension.linkable_graph.label)
         specs.append(
             LinkGroupLibSpec(
                 name = name,
