@@ -17,6 +17,7 @@ pub(crate) mod demand;
 pub(crate) mod dice;
 pub(crate) mod dyn_key;
 pub(crate) mod events;
+pub(crate) mod file_ops;
 pub(crate) mod injected;
 pub(crate) mod invalidation_tracking;
 pub mod key;
