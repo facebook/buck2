@@ -254,13 +254,6 @@ impl HealthCheckClient {
 
     fn send_display_reports(&mut self, display_reports: Vec<DisplayReport>) {
         // Even if there are no reports, publish an empty list to signify that we have run the health checks.
-
-        // TODO(rajneeshl): Move this description of reporting to a HealthCheck trait when that is ready.
-        // There are 3 ways a health check can report back to the console:
-        // All OK: With a valid DisplayReport with `warning` field being None.
-        // User warning: With a valid DisplayReport with `warning` field set to user message and remediation.
-        // Cannot run: When a health check cannot run it will return an empty Report e.g. target-specific checks.
-
         if let Some(display_reports_sender) = &mut self.display_reports_sender {
             match display_reports_sender.try_send(display_reports) {
                 Err(TrySendError::Closed(_)) => {
