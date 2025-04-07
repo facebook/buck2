@@ -13,6 +13,7 @@ use buck2_core::soft_error;
 use regex::Regex;
 
 use crate::health_check_context::HealthCheckContext;
+use crate::interface::HealthCheck;
 use crate::report::DisplayReport;
 use crate::report::HealthIssue;
 use crate::report::Remediation;
@@ -46,7 +47,7 @@ impl VpnCheck {
         self.can_run.unwrap_or(false)
     }
 
-    pub fn try_update_can_run(&mut self, context: &HealthCheckContext) {
+    pub(crate) fn try_update_can_run(&mut self, context: &HealthCheckContext) {
         if self.can_run.is_some() {
             return;
         }
@@ -119,6 +120,17 @@ impl VpnCheck {
             }
         }
         Ok(false)
+    }
+}
+
+#[async_trait::async_trait]
+impl HealthCheck for VpnCheck {
+    fn run_check(&self) -> buck2_error::Result<Option<Report>> {
+        Ok(self.run())
+    }
+
+    async fn handle_context_update(&mut self, context: &HealthCheckContext) {
+        self.try_update_can_run(context)
     }
 }
 
