@@ -10,7 +10,6 @@
 use std::time::Duration;
 use std::time::SystemTime;
 
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_miniperf_proto::MiniperfCounter;
@@ -52,7 +51,6 @@ pub trait RemoteActionResult: Send + Sync {
     fn std_streams(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) -> RemoteCommandStdStreams;
 
@@ -103,10 +101,9 @@ impl RemoteActionResult for ExecuteResponse {
     fn std_streams(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.action_result, client, use_case, digest_config)
+        RemoteCommandStdStreams::new(&self.action_result, client, digest_config)
     }
 
     fn ttl(&self) -> i64 {
@@ -157,10 +154,9 @@ impl RemoteActionResult for ActionCacheResult {
     fn std_streams(
         &self,
         client: &ManagedRemoteExecutionClient,
-        use_case: RemoteExecutorUseCase,
         digest_config: DigestConfig,
     ) -> RemoteCommandStdStreams {
-        RemoteCommandStdStreams::new(&self.0.action_result, client, use_case, digest_config)
+        RemoteCommandStdStreams::new(&self.0.action_result, client, digest_config)
     }
 
     fn ttl(&self) -> i64 {

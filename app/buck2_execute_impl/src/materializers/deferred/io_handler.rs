@@ -225,31 +225,28 @@ impl DefaultIoHandler {
                     .sum();
 
                 let connection = self.re_client_manager.get_re_connection();
-                let re_client = connection.get_client();
+                let re_client = connection.get_client().with_use_case(info.re_use_case);
 
-                re_client
-                    .materialize_files(files, info.re_use_case)
-                    .await
-                    .map_err(|e| {
-                        let e: buck2_error::Error = e.into();
-                        match e.find_typed_context::<RemoteExecutionError>() {
-                            Some(re_error) if re_error.code == TCode::NOT_FOUND => {
-                                let e: buck2_error::Error = e.into();
-                                MaterializeEntryError::NotFound(CasNotFoundError {
-                                    path: Arc::from(path),
-                                    info: info.dupe(),
-                                    directory: entry,
-                                    error: Arc::from(e),
-                                })
-                            }
-                            _ => MaterializeEntryError::Error(e.context({
-                                format!(
-                                    "Error materializing files declared by action: {}",
-                                    info.origin
-                                )
-                            })),
+                re_client.materialize_files(files).await.map_err(|e| {
+                    let e: buck2_error::Error = e.into();
+                    match e.find_typed_context::<RemoteExecutionError>() {
+                        Some(re_error) if re_error.code == TCode::NOT_FOUND => {
+                            let e: buck2_error::Error = e.into();
+                            MaterializeEntryError::NotFound(CasNotFoundError {
+                                path: Arc::from(path),
+                                info: info.dupe(),
+                                directory: entry,
+                                error: Arc::from(e),
+                            })
                         }
-                    })?;
+                        _ => MaterializeEntryError::Error(e.context({
+                            format!(
+                                "Error materializing files declared by action: {}",
+                                info.origin
+                            )
+                        })),
+                    }
+                })?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {
                 async {
@@ -564,7 +561,9 @@ pub(super) fn create_ttl_refresh(
                 tracing::debug!("Update {} TTLs", chunk.len());
 
                 let digests_expires = re_client
-                    .get_digest_expirations(chunk.iter().map(|d| d.to_re()).collect(), use_case)
+                    .dupe()
+                    .with_use_case(use_case)
+                    .get_digest_expirations(chunk.iter().map(|d| d.to_re()).collect())
                     .await?;
 
                 let mut digests_expires = digests_expires.into_try_map(|(digest, expires)| {

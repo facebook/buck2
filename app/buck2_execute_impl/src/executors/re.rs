@@ -14,7 +14,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -72,7 +71,6 @@ pub struct ReExecutor {
     pub project_fs: ProjectRoot,
     pub materializer: Arc<dyn Materializer>,
     pub re_client: ManagedRemoteExecutionClient,
-    pub re_use_case: RemoteExecutorUseCase,
     pub re_action_key: Option<String>,
     pub knobs: ExecutorGlobalKnobs,
     pub skip_cache_read: bool,
@@ -104,7 +102,6 @@ impl ReExecutor {
                     blobs,
                     ProjectRelativePath::empty(),
                     paths.input_directory(),
-                    self.re_use_case,
                     Some(identity),
                     digest_config,
                 )
@@ -171,7 +168,6 @@ impl ReExecutor {
                 action_digest.dupe(),
                 platform,
                 dependencies,
-                self.re_use_case,
                 &identity,
                 &mut manager,
                 self.skip_cache_read,
@@ -199,7 +195,7 @@ impl ReExecutor {
             action_digest.dupe(),
             None,
             self.re_client.get_session_id().await.ok(),
-            self.re_use_case,
+            self.re_client.use_case,
             &platform,
         );
 
@@ -234,11 +230,7 @@ impl ReExecutor {
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),
-                    CommandStdStreams::Remote(response.std_streams(
-                        &self.re_client,
-                        self.re_use_case,
-                        digest_config,
-                    )),
+                    CommandStdStreams::Remote(response.std_streams(&self.re_client, digest_config)),
                     response.timing(),
                     additional_message,
                 )
@@ -311,7 +303,7 @@ impl PreparedCommandExecutor for ReExecutor {
             command.prepared_action.digest(),
             command.request.remote_dep_file_key,
             self.re_client.get_session_id().await.ok(),
-            self.re_use_case,
+            self.re_client.use_case,
             &platform,
         );
         let manager = manager.with_execution_kind(CommandExecutionKind::Remote {
@@ -367,7 +359,6 @@ impl PreparedCommandExecutor for ReExecutor {
             request,
             &*self.materializer,
             &self.re_client,
-            self.re_use_case,
             *digest_config,
             manager,
             &identity,

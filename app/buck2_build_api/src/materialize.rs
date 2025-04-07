@@ -128,13 +128,13 @@ async fn ensure_uploaded(
         .unwrap_or_else(RemoteExecutorUseCase::buck2_default);
     ctx.per_transaction_data()
         .get_re_client()
+        .with_use_case(re_use_case)
         .upload(
             artifact_fs.fs(),
             &ctx.per_transaction_data().get_materializer(),
             &ActionBlobs::new(digest_config),
             ProjectRelativePath::empty(),
             &dir,
-            re_use_case,
             None,
             digest_config,
         )

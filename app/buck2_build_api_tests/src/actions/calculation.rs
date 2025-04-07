@@ -91,7 +91,7 @@ use buck2_execute::execute::testing_dry_run::DryRunEntry;
 use buck2_execute::execute::testing_dry_run::DryRunExecutor;
 use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::materialize::nodisk::NoDiskMaterializer;
-use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_http::HttpClientBuilder;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -231,7 +231,7 @@ async fn make_default_dice_state(
     extra.set_command_executor(Box::new(CommandExecutorProvider { dry_run_tracker }));
     extra.set_blocking_executor(Arc::new(DummyBlockingExecutor { fs }));
     extra.set_materializer(Arc::new(NoDiskMaterializer));
-    extra.set_re_client(ManagedRemoteExecutionClient::testing_new_dummy());
+    extra.set_re_client(UnconfiguredRemoteExecutionClient::testing_new_dummy());
     extra.set_http_client(HttpClientBuilder::https_with_system_roots().await?.build());
     extra.set_mergebase(Default::default());
     extra.data.set(EventDispatcher::null());

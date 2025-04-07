@@ -22,7 +22,6 @@ use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::FileDigest;
 use buck2_common::file_ops::FileMetadata;
 use buck2_common::file_ops::TrackedFileDigest;
-use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
@@ -248,7 +247,6 @@ where
 pub async fn re_directory_to_re_tree(
     directory: RE::Directory,
     client: &ManagedRemoteExecutionClient,
-    use_case: RemoteExecutorUseCase,
 ) -> buck2_error::Result<RE::Tree> {
     let mut children: Vec<RE::Directory> = vec![];
     let mut frontier = directory.directories.clone();
@@ -263,7 +261,7 @@ pub async fn re_directory_to_re_tree(
             })
             .collect();
         let mut retrieved = client
-            .download_typed_blobs::<RE::Directory>(None, digests, use_case)
+            .download_typed_blobs::<RE::Directory>(None, digests)
             .await?;
         frontier = retrieved
             .iter()

@@ -120,9 +120,9 @@ pub async fn cas_download<'a, 'b>(
     }
 
     let re_conn = re.get_re_connection();
-    let re_client = re_conn.get_client();
+    let re_client = re_conn.get_client().with_use_case(info.re_use_case);
     cancellations
-        .critical_section(|| re_client.materialize_files(files, info.re_use_case))
+        .critical_section(|| re_client.materialize_files(files))
         .await?;
     Ok(())
 }

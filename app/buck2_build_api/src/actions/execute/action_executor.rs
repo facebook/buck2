@@ -54,7 +54,7 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::output_size::OutputCountAndBytes;
 use buck2_execute::output_size::OutputSize;
-use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_futures::cancellation::CancellationContext;
@@ -282,7 +282,7 @@ pub struct BuckActionExecutor {
     blocking_executor: Arc<dyn BlockingExecutor>,
     materializer: Arc<dyn Materializer>,
     events: EventDispatcher,
-    re_client: ManagedRemoteExecutionClient,
+    re_client: UnconfiguredRemoteExecutionClient,
     digest_config: DigestConfig,
     run_action_knobs: RunActionKnobs,
     io_provider: Arc<dyn IoProvider>,
@@ -297,7 +297,7 @@ impl BuckActionExecutor {
         blocking_executor: Arc<dyn BlockingExecutor>,
         materializer: Arc<dyn Materializer>,
         events: EventDispatcher,
-        re_client: ManagedRemoteExecutionClient,
+        re_client: UnconfiguredRemoteExecutionClient,
         digest_config: DigestConfig,
         run_action_knobs: RunActionKnobs,
         io_provider: Arc<dyn IoProvider>,
@@ -368,7 +368,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.executor.blocking_executor.as_ref()
     }
 
-    fn re_client(&self) -> ManagedRemoteExecutionClient {
+    fn re_client(&self) -> UnconfiguredRemoteExecutionClient {
         self.executor.re_client.dupe()
     }
 
@@ -731,7 +731,7 @@ mod tests {
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
-    use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+    use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_futures::cancellation::CancellationContext;
     use buck2_http::HttpClientBuilder;
     use dupe::Dupe;
@@ -788,7 +788,7 @@ mod tests {
             }),
             Arc::new(NoDiskMaterializer),
             EventDispatcher::null(),
-            ManagedRemoteExecutionClient::testing_new_dummy(),
+            UnconfiguredRemoteExecutionClient::testing_new_dummy(),
             DigestConfig::testing_default(),
             Default::default(),
             Arc::new(FsIoProvider::new(

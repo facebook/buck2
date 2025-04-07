@@ -19,7 +19,7 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::execute::cache_uploader::UploadCache;
 use buck2_execute::execute::prepared::PreparedCommandExecutor;
 use buck2_execute::execute::prepared::PreparedCommandOptionalExecutor;
-use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceDataBuilder;
@@ -104,23 +104,23 @@ pub fn set_fallback_executor_config(data: &mut DiceData, config: Arc<CommandExec
 }
 
 pub trait SetReClient {
-    fn set_re_client(&mut self, re_client: ManagedRemoteExecutionClient);
+    fn set_re_client(&mut self, re_client: UnconfiguredRemoteExecutionClient);
 }
 
 pub trait GetReClient {
-    fn get_re_client(&self) -> ManagedRemoteExecutionClient;
+    fn get_re_client(&self) -> UnconfiguredRemoteExecutionClient;
 }
 
 impl SetReClient for UserComputationData {
-    fn set_re_client(&mut self, re_client: ManagedRemoteExecutionClient) {
+    fn set_re_client(&mut self, re_client: UnconfiguredRemoteExecutionClient) {
         self.data.set(re_client);
     }
 }
 
 impl GetReClient for UserComputationData {
-    fn get_re_client(&self) -> ManagedRemoteExecutionClient {
+    fn get_re_client(&self) -> UnconfiguredRemoteExecutionClient {
         self.data
-            .get::<ManagedRemoteExecutionClient>()
+            .get::<UnconfiguredRemoteExecutionClient>()
             .expect("Materializer should be set")
             .dupe()
     }

@@ -52,7 +52,7 @@ use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
-use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
@@ -251,7 +251,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
 
-    fn re_client(&self) -> ManagedRemoteExecutionClient;
+    fn re_client(&self) -> UnconfiguredRemoteExecutionClient;
 
     fn re_platform(&self) -> &remote_execution::Platform;
 
