@@ -1166,7 +1166,6 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     soft_error!(
                         "dep_only_incompatible_version_two", reason.to_soft_err().into(),
                         quiet: false,
-                        task: false,
                         // Log at least one sample per unique package.
                         low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg())),
                     )?;
