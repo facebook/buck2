@@ -97,13 +97,13 @@ impl Uploader {
                     DirectoryEntry::Leaf(..) => continue,
                 };
 
-                if digest.expires() <= ttl_deadline {
+                if digest.expires()? <= ttl_deadline {
                     input_digests.insert(digest);
                 }
             }
 
             let root_dir_digest = input_dir.fingerprint();
-            if root_dir_digest.expires() <= ttl_deadline {
+            if root_dir_digest.expires()? <= ttl_deadline {
                 input_digests.insert(root_dir_digest);
             }
 
@@ -308,7 +308,7 @@ impl Uploader {
                                         buck2_error::ErrorTag::Input,
                                         "{} (expires = {}) is missing in the CAS but expected to exist as per: {:#}",
                                         file.digest,
-                                        file.digest.expires(),
+                                        file.digest.expires()?,
                                         err
                                     ),
                                     quiet: true

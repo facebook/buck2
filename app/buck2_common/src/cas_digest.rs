@@ -851,9 +851,20 @@ impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
         self.inner.data.size()
     }
 
-    pub fn expires(&self) -> DateTime<Utc> {
-        Utc.timestamp_opt(self.inner.expires.load(Ordering::Relaxed), 0)
-            .unwrap()
+    pub fn expires(&self) -> buck2_error::Result<DateTime<Utc>> {
+        match Utc.timestamp_opt(self.inner.expires.load(Ordering::Relaxed), 0) {
+            chrono::MappedLocalTime::Single(t) => Ok(t),
+            chrono::MappedLocalTime::None => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "CAS Digest expiration is an invalid local time"
+            )),
+            chrono::MappedLocalTime::Ambiguous(t1, t2) => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "Cas Digest expiration is ambiguous, ranging from {:?} to {:?}",
+                t1,
+                t2
+            )),
+        }
     }
 
     pub fn update_expires(&self, time: DateTime<Utc>) {

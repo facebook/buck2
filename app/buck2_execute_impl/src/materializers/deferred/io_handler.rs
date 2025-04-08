@@ -522,7 +522,8 @@ pub(super) fn create_ttl_refresh(
                     let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));
                     while let Some((_entry_path, entry)) = walk.next() {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
-                            let needs_refresh = file.digest.expires() < ttl_deadline;
+                            let needs_refresh =
+                                file.digest.expires().unwrap_or_default() < ttl_deadline;
                             tracing::trace!("{} needs_refresh: {}", file, needs_refresh);
                             if needs_refresh {
                                 digests_to_refresh
