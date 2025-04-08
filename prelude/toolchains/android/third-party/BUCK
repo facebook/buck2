@@ -811,6 +811,12 @@ third_party_jar(
     visibility = ["PUBLIC"],
 )
 
+alias(
+    name = "kotlin-compiler",
+    actual = ":kotlin-compiler-embeddable",
+    visibility = ["PUBLIC"],
+)
+
 third_party_jar(
     name = "trove",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/jetbrains/intellij/deps/trove4j:trove4j",
