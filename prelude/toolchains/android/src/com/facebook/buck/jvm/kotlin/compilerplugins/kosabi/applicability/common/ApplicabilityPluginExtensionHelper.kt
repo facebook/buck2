@@ -9,7 +9,6 @@
 
 package com.facebook.kotlin.compilerplugins.kosabi.applicability.common
 
-import android.annotation.SuppressLint
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers.Checker
 import com.facebook.kotlin.compilerplugins.kosabi.applicability.common.checkers.Violation
 import java.io.BufferedReader
@@ -74,7 +73,6 @@ fun addViolationsPaths(
  * We skip the generated sources by recognizing its path, some framework will rewrite the sources
  * into a LightVirtualFile.
  */
-@SuppressLint("NewApi")
 fun filterOutGeneratedFiles(files: Collection<KtFile>): List<KtFile> =
     files.filter { Path(it.virtualFilePath).parent != Path("/") }
 
