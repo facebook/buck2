@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 
 use crate::commands::log::options::EventLogOptions;
@@ -27,26 +29,26 @@ pub struct WhatCmdCommand {
     expand: bool,
 }
 
-impl WhatCmdCommand {
-    pub(crate) fn exec(
+impl BuckSubcommand for WhatCmdCommand {
+    const COMMAND_NAME: &'static str = "log-what-cmd";
+
+    async fn exec_impl(
         self,
         _matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let WhatCmdCommand { event_log, expand } = self;
 
-        ctx.instant_command_no_log("log-what-cmd", |ctx| async move {
-            let log_path = event_log.get(&ctx).await?;
-            let (invocation, _events) = log_path.unpack_stream().await?;
+        let log_path = event_log.get(&ctx).await?;
+        let (invocation, _events) = log_path.unpack_stream().await?;
 
-            buck2_client_ctx::println!("# cd {}", invocation.working_dir)?;
-            if expand {
-                buck2_client_ctx::println!("{}", invocation.display_expanded_command_line())?;
-            } else {
-                buck2_client_ctx::println!("{}", invocation.display_command_line())?;
-            }
-            Ok(())
-        })
-        .into()
+        buck2_client_ctx::println!("# cd {}", invocation.working_dir)?;
+        if expand {
+            buck2_client_ctx::println!("{}", invocation.display_expanded_command_line())?;
+        } else {
+            buck2_client_ctx::println!("{}", invocation.display_command_line())?;
+        }
+        ExitResult::success()
     }
 }

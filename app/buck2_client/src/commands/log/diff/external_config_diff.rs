@@ -9,8 +9,10 @@
 
 use std::collections::BTreeMap;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_event_log::stream_value::StreamValue;
 use derive_more::Display;
@@ -144,48 +146,52 @@ impl<'a> Display for DiffType<'a> {
     }
 }
 
-impl ExternalConfigDiffCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.instant_command_no_log("log-diff-buckconfig", |ctx| async move {
-            let (log_path1, log_path2) = self.diff_event_log.get(&ctx).await?;
+impl BuckSubcommand for ExternalConfigDiffCommand {
+    const COMMAND_NAME: &'static str = "log-diff-buckconfig";
 
-            let (invocation1, events1) = log_path1.unpack_stream().await?;
-            let (invocation2, events2) = log_path2.unpack_stream().await?;
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        let (log_path1, log_path2) = self.diff_event_log.get(&ctx).await?;
 
-            buck2_client_ctx::println!(
-                "Identifying the diff of external buckconfigs between: \n{} and \n{}",
-                invocation1.display_command_line(),
-                invocation2.display_command_line()
-            )?;
+        let (invocation1, events1) = log_path1.unpack_stream().await?;
+        let (invocation2, events2) = log_path2.unpack_stream().await?;
 
-            // External buckconfigs are stored in the event log in order and can have overrides
-            // We first resolve them into a single dict
-            let dict1 = get_external_buckconfig_dict(events1).await?;
-            let dict2 = get_external_buckconfig_dict(events2).await?;
-            let mut diffs = Vec::new();
-            for (key, value) in dict1.iter() {
-                if let Some(new_value) = dict2.get(key) {
-                    if new_value != value {
-                        diffs.push(DiffType::Changed {
-                            key,
-                            old_value: value,
-                            new_value,
-                        });
-                    }
-                } else {
-                    diffs.push(DiffType::FirstOnly { key, value });
+        buck2_client_ctx::println!(
+            "Identifying the diff of external buckconfigs between: \n{} and \n{}",
+            invocation1.display_command_line(),
+            invocation2.display_command_line()
+        )?;
+
+        // External buckconfigs are stored in the event log in order and can have overrides
+        // We first resolve them into a single dict
+        let dict1 = get_external_buckconfig_dict(events1).await?;
+        let dict2 = get_external_buckconfig_dict(events2).await?;
+        let mut diffs = Vec::new();
+        for (key, value) in dict1.iter() {
+            if let Some(new_value) = dict2.get(key) {
+                if new_value != value {
+                    diffs.push(DiffType::Changed {
+                        key,
+                        old_value: value,
+                        new_value,
+                    });
                 }
+            } else {
+                diffs.push(DiffType::FirstOnly { key, value });
             }
+        }
 
-            for (key, value) in dict2.iter() {
-                if !dict1.contains_key(key) {
-                    diffs.push(DiffType::SecondOnly { key, value });
-                }
+        for (key, value) in dict2.iter() {
+            if !dict1.contains_key(key) {
+                diffs.push(DiffType::SecondOnly { key, value });
             }
-            let json_diffs = serde_json::to_string_pretty(&diffs)?;
-            buck2_client_ctx::println!("{}", json_diffs)?;
-            buck2_error::Ok(())
-        })
-        .into()
+        }
+        let json_diffs = serde_json::to_string_pretty(&diffs)?;
+        buck2_client_ctx::println!("{}", json_diffs)?;
+        ExitResult::success()
     }
 }

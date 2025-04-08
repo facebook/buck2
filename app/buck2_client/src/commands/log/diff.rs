@@ -25,8 +25,8 @@ pub enum DiffCommand {
 impl DiffCommand {
     pub fn exec(self, matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
         match self {
-            Self::ExternalConfigs(cmd) => cmd.exec(matches, ctx),
-            Self::ActionDivergence(cmd) => cmd.exec(matches, ctx),
+            Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches),
+            Self::ActionDivergence(cmd) => ctx.exec(cmd, matches),
         }
     }
 }

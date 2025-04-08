@@ -13,8 +13,10 @@ use std::fmt::Formatter;
 use std::time::Duration;
 use std::time::SystemTime;
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::subscribers::recorder::process_memory;
 use buck2_data::ActionExecutionKind;
@@ -242,42 +244,46 @@ pub struct SummaryCommand {
     event_log: EventLogOptions,
 }
 
-impl SummaryCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
-        ctx.instant_command_no_log("log-summary", |ctx| async move {
-            let log_path = self.event_log.get(&ctx).await?;
+impl BuckSubcommand for SummaryCommand {
+    const COMMAND_NAME: &'static str = "log-summary";
 
-            let (invocation, mut events) = log_path.unpack_stream().await?;
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        let log_path = self.event_log.get(&ctx).await?;
 
-            buck2_client_ctx::eprintln!(
-                "Showing summary from: {}",
-                invocation.display_command_line()
-            )?;
-            buck2_client_ctx::eprintln!("build ID: {}", invocation.trace_id)?;
+        let (invocation, mut events) = log_path.unpack_stream().await?;
 
-            let mut stats = Stats {
-                re_max_download_speeds: vec![
-                    SlidingWindow::new(Duration::from_secs(1)),
-                    SlidingWindow::new(Duration::from_secs(5)),
-                    SlidingWindow::new(Duration::from_secs(10)),
-                ],
-                re_max_upload_speeds: vec![
-                    SlidingWindow::new(Duration::from_secs(1)),
-                    SlidingWindow::new(Duration::from_secs(5)),
-                    SlidingWindow::new(Duration::from_secs(10)),
-                ],
-                ..Default::default()
-            };
+        buck2_client_ctx::eprintln!(
+            "Showing summary from: {}",
+            invocation.display_command_line()
+        )?;
+        buck2_client_ctx::eprintln!("build ID: {}", invocation.trace_id)?;
 
-            while let Some(event) = events.try_next().await? {
-                match event {
-                    StreamValue::Event(event) => stats.update_with_event(&event),
-                    StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
-                }
+        let mut stats = Stats {
+            re_max_download_speeds: vec![
+                SlidingWindow::new(Duration::from_secs(1)),
+                SlidingWindow::new(Duration::from_secs(5)),
+                SlidingWindow::new(Duration::from_secs(10)),
+            ],
+            re_max_upload_speeds: vec![
+                SlidingWindow::new(Duration::from_secs(1)),
+                SlidingWindow::new(Duration::from_secs(5)),
+                SlidingWindow::new(Duration::from_secs(10)),
+            ],
+            ..Default::default()
+        };
+
+        while let Some(event) = events.try_next().await? {
+            match event {
+                StreamValue::Event(event) => stats.update_with_event(&event),
+                StreamValue::Result(..) | StreamValue::PartialResult(..) => {}
             }
-            buck2_client_ctx::eprintln!("{}", stats)?;
-            buck2_error::Ok(())
-        })
-        .into()
+        }
+        buck2_client_ctx::eprintln!("{}", stats)?;
+        ExitResult::success()
     }
 }

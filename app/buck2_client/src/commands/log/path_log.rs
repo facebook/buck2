@@ -7,8 +7,10 @@
  * of this source tree.
  */
 
+use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
+use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::file_names::retrieve_all_logs;
@@ -27,27 +29,31 @@ pub struct PathLogCommand {
     all: bool,
 }
 
-impl PathLogCommand {
-    pub fn exec(self, _matches: BuckArgMatches<'_>, ctx: ClientCommandContext<'_>) -> ExitResult {
+impl BuckSubcommand for PathLogCommand {
+    const COMMAND_NAME: &'static str = "log-path";
+
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
         let Self {
             event_log_options,
             all,
         } = self;
 
-        ctx.instant_command_no_log("log-path", |ctx| async move {
-            let paths = if all {
-                retrieve_all_logs(
-                    ctx.paths()
-                        .buck_error_context("Error identifying log dir")?,
-                )?
-            } else {
-                vec![event_log_options.get(&ctx).await?]
-            };
-            for path in paths {
-                buck2_client_ctx::println!("{}", path.path().display())?;
-            }
-            buck2_error::Ok(())
-        })
-        .into()
+        let paths = if all {
+            retrieve_all_logs(
+                ctx.paths()
+                    .buck_error_context("Error identifying log dir")?,
+            )?
+        } else {
+            vec![event_log_options.get(&ctx).await?]
+        };
+        for path in paths {
+            buck2_client_ctx::println!("{}", path.path().display())?;
+        }
+        ExitResult::success()
     }
 }
