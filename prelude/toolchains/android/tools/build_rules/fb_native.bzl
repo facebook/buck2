@@ -5,6 +5,7 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
-load("@prelude//:native.bzl", "native")
+# @oss-disable[end= ]: load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", _fb_native = "fb_native")
+# @oss-enable load("@prelude//:native.bzl", _fb_native = "native")
 
-fb_native = native
+fb_native = _fb_native
