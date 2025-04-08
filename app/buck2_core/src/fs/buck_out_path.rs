@@ -57,19 +57,7 @@ pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 
 impl BuildArtifactPath {
     pub fn new(owner: BaseDeferredKey, path: ForwardRelativePathBuf) -> Self {
-        Self::new_with_action_inputs_hash(owner, path, None)
-    }
-
-    pub fn new_with_action_inputs_hash(
-        owner: BaseDeferredKey,
-        path: ForwardRelativePathBuf,
-        action_inputs_hash: Option<Arc<str>>,
-    ) -> Self {
-        Self::with_dynamic_actions_action_key(
-            DeferredHolderKey::Base(owner),
-            path,
-            action_inputs_hash,
-        )
+        Self::with_dynamic_actions_action_key(DeferredHolderKey::Base(owner), path, None)
     }
 
     pub fn with_dynamic_actions_action_key(
