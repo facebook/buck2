@@ -123,7 +123,7 @@ impl<'v> Dependency<'v> {
     }
 }
 
-#[starlark_value(type = "dependency")]
+#[starlark_value(type = "Dependency")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
 where
     Self: ProvidesStaticType<'v>,

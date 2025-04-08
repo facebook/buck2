@@ -30,7 +30,7 @@ async def test_bxl_analysis(buck: Buck) -> None:
     )
 
     assert result.stdout.splitlines() == [
-        "dependency",
+        "Dependency",
         "root//:stub (<unspecified>)",
     ]
 
