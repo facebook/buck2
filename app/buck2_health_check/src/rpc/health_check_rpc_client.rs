@@ -26,6 +26,7 @@ use futures::FutureExt;
 use tokio::net::TcpListener;
 use tonic::transport::Channel;
 
+use crate::health_check_service::HealthCheckService;
 use crate::report::Report;
 
 const CLI_NAME: &str = "buck2-health-check";
@@ -40,6 +41,7 @@ pub(crate) struct HealthCheckRpcClient {
     // The connection is lazily created when the first event to update the context or to run checks is received.
     connection: AsyncOnceCell<buck2_error::Result<HealthCheckServerConnection>>,
 }
+
 impl HealthCheckRpcClient {
     pub fn new() -> Self {
         Self {
@@ -61,40 +63,6 @@ impl HealthCheckRpcClient {
 
     async fn rpc_client(&self) -> buck2_error::Result<HealthCheckClient<Channel>> {
         Ok(self.connection().await?.rpc_client.clone())
-    }
-
-    pub(crate) async fn update_context(
-        &self,
-        event: buck2_health_check_proto::HealthCheckContextEvent,
-    ) -> buck2_error::Result<()> {
-        self.rpc_client()
-            .await?
-            .update_context(event)
-            .await
-            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
-        Ok(())
-    }
-
-    pub(crate) async fn run_checks(&self) -> buck2_error::Result<Vec<Report>> {
-        let empty_request = buck2_health_check_proto::Empty {};
-        let mut reports = Vec::new();
-        let response = self
-            .rpc_client()
-            .await?
-            .run_checks(empty_request)
-            .await
-            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
-
-        let result = response.into_inner();
-        for report in result.reports {
-            match Report::try_from(report) {
-                Ok(report) => reports.push(report),
-                Err(e) => {
-                    soft_error!("health_check_rpc_client", e)?;
-                }
-            }
-        }
-        Ok(reports)
     }
 
     async fn spawn_out_of_process_health_check_server()
@@ -147,5 +115,42 @@ impl HealthCheckRpcClient {
         let cli_name = format!("{}{}", CLI_NAME, ext);
 
         Ok(exe_dir.join(cli_name).to_string())
+    }
+}
+
+#[async_trait::async_trait]
+impl HealthCheckService for HealthCheckRpcClient {
+    async fn update_context(
+        &mut self,
+        event: &buck2_health_check_proto::HealthCheckContextEvent,
+    ) -> buck2_error::Result<()> {
+        self.rpc_client()
+            .await?
+            .update_context(event.clone())
+            .await
+            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
+        Ok(())
+    }
+
+    async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
+        let empty_request = buck2_health_check_proto::Empty {};
+        let mut reports = Vec::new();
+        let response = self
+            .rpc_client()
+            .await?
+            .run_checks(empty_request)
+            .await
+            .map_err(|e| from_any_with_tag(e, ErrorTag::HealthCheck))?;
+
+        let result = response.into_inner();
+        for report in result.reports {
+            match Report::try_from(report) {
+                Ok(report) => reports.push(report),
+                Err(e) => {
+                    soft_error!("health_check_rpc_client", e)?;
+                }
+            }
+        }
+        Ok(reports)
     }
 }

@@ -23,15 +23,17 @@ use tokio::io::AsyncWrite;
 use tokio::sync::Mutex;
 
 use crate::health_check_executor::HealthCheckExecutor;
+use crate::health_check_service::HealthCheckService;
 
 pub struct HealthCheckServer {
-    executor: Arc<Mutex<HealthCheckExecutor>>,
+    executor: Arc<Mutex<Box<dyn HealthCheckService>>>,
 }
 
 impl HealthCheckServer {
     pub fn new() -> Self {
+        let executor = Box::new(HealthCheckExecutor::new());
         Self {
-            executor: Arc::new(Mutex::new(HealthCheckExecutor::new())),
+            executor: Arc::new(Mutex::new(executor)),
         }
     }
 }
@@ -56,7 +58,7 @@ impl health_check_server::HealthCheck for HealthCheckServer {
         _request: tonic::Request<Empty>,
     ) -> Result<tonic::Response<HealthCheckResult>, tonic::Status> {
         to_tonic(async move {
-            let reports = self.executor.lock().await.run_checks().await;
+            let reports = self.executor.lock().await.run_checks().await?;
             Ok(HealthCheckResult {
                 reports: reports
                     .into_iter()

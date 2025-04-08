@@ -14,6 +14,7 @@ use buck2_health_check_proto::health_check_context_event::Data;
 use buck2_health_check_proto::HealthCheckContextEvent;
 
 use crate::health_check_context::HealthCheckContext;
+use crate::health_check_service::HealthCheckService;
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
@@ -50,11 +51,11 @@ impl HealthCheckExecutor {
 
         health_checks
     }
+}
 
-    pub(crate) async fn update_context(
-        &mut self,
-        event: &HealthCheckContextEvent,
-    ) -> buck2_error::Result<()> {
+#[async_trait::async_trait]
+impl HealthCheckService for HealthCheckExecutor {
+    async fn update_context(&mut self, event: &HealthCheckContextEvent) -> buck2_error::Result<()> {
         let data = event
             .data
             .as_ref()
@@ -87,13 +88,13 @@ impl HealthCheckExecutor {
         Ok(())
     }
 
-    pub(crate) async fn run_checks(&self) -> Vec<Report> {
+    async fn run_checks(&mut self) -> buck2_error::Result<Vec<Report>> {
         let mut reports = Vec::new();
         for check in &self.health_checks {
             if let Some(report) = check.run_check().ok().flatten() {
                 reports.push(report);
             }
         }
-        reports
+        Ok(reports)
     }
 }

@@ -9,27 +9,23 @@
 
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
-use buck2_core::is_open_source;
 use buck2_health_check_proto::health_check_context_event;
 use buck2_health_check_proto::HealthCheckContextEvent;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::mpsc::Sender;
 
-use crate::health_check_executor::HealthCheckExecutor;
+use crate::health_check_service::HealthCheckService;
 use crate::report::DisplayReport;
 #[cfg(fbcode_build)]
 use crate::rpc::health_check_rpc_client::HealthCheckRpcClient;
 
 /// This client maintains the context and make requests to the health check server.
 pub struct HealthCheckClient {
-    health_check_executor: HealthCheckExecutor,
+    health_check_service: Box<dyn HealthCheckService>,
     // Writer to send tags to be logged to scuba.
     tags_sender: Option<Sender<Vec<String>>>,
     // Writer to send health check reports to be displayed to the user.
     display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
-    #[cfg(fbcode_build)]
-    rpc_client: HealthCheckRpcClient,
-    run_server_out_of_process: bool,
 }
 
 impl HealthCheckClient {
@@ -38,12 +34,21 @@ impl HealthCheckClient {
         display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
     ) -> Self {
         Self {
-            health_check_executor: HealthCheckExecutor::new(),
             tags_sender,
             display_reports_sender,
-            #[cfg(fbcode_build)]
-            rpc_client: HealthCheckRpcClient::new(),
-            run_server_out_of_process: !is_open_source(),
+            health_check_service: Self::create_service(),
+        }
+    }
+
+    fn create_service() -> Box<dyn HealthCheckService> {
+        #[cfg(fbcode_build)]
+        {
+            Box::new(HealthCheckRpcClient::new())
+        }
+        #[cfg(not(fbcode_build))]
+        {
+            // There is no easy binary distribution mechanism for OSS, hence default to in-process execution.
+            Box::new(crate::health_check_executor::HealthCheckExecutor::new())
         }
     }
 
@@ -56,7 +61,7 @@ impl HealthCheckClient {
                 command_start,
             )),
         };
-        self.update_context(event).await
+        self.health_check_service.update_context(&event).await
     }
 
     pub async fn update_parsed_target_patterns(
@@ -68,7 +73,7 @@ impl HealthCheckClient {
                 parsed_target_patterns.clone(),
             )),
         };
-        self.update_context(event).await
+        self.health_check_service.update_context(&event).await
     }
 
     pub async fn update_branched_from_revision(
@@ -80,7 +85,7 @@ impl HealthCheckClient {
                 branched_from_revision.to_owned(),
             )),
         };
-        self.update_context(event).await
+        self.health_check_service.update_context(&event).await
     }
 
     pub async fn update_excess_cache_misses(
@@ -95,7 +100,7 @@ impl HealthCheckClient {
             let event = HealthCheckContextEvent {
                 data: Some(health_check_context_event::Data::HasExcessCacheMisses(true)),
             };
-            self.update_context(event).await?
+            self.health_check_service.update_context(&event).await?
         }
         Ok(())
     }
@@ -109,44 +114,29 @@ impl HealthCheckClient {
                 experiment_configurations.clone(),
             )),
         };
-        self.update_context(event).await
-    }
-
-    async fn update_context(&mut self, event: HealthCheckContextEvent) -> buck2_error::Result<()> {
-        if !self.run_server_out_of_process {
-            self.health_check_executor.update_context(&event).await?;
-        }
-        #[cfg(fbcode_build)]
-        self.rpc_client.update_context(event).await?;
-        Ok(())
+        self.health_check_service.update_context(&event).await
     }
 
     pub async fn run_checks(
         &mut self,
         _snapshot: &buck2_data::Snapshot,
     ) -> buck2_error::Result<()> {
-        #[cfg(fbcode_build)]
-        {
-            let mut tags: Vec<String> = Vec::new();
-            let mut display_reports: Vec<DisplayReport> = Vec::new();
-            let reports = if self.run_server_out_of_process {
-                self.rpc_client.run_checks().await?
-            } else {
-                self.health_check_executor.run_checks().await
-            };
+        let mut tags: Vec<String> = Vec::new();
+        let mut display_reports: Vec<DisplayReport> = Vec::new();
 
-            for report in reports {
-                if let Some(tag) = report.tag {
-                    tags.push(tag);
-                }
+        let reports = self.health_check_service.run_checks().await?;
 
-                if let Some(display_report) = report.display_report {
-                    display_reports.push(display_report);
-                }
+        for report in reports {
+            if let Some(tag) = report.tag {
+                tags.push(tag);
             }
-            self.send_tags(tags)?;
-            self.send_display_reports(display_reports)?;
+
+            if let Some(display_report) = report.display_report {
+                display_reports.push(display_report);
+            }
         }
+        self.send_tags(tags)?;
+        self.send_display_reports(display_reports)?;
         Ok(())
     }
 
