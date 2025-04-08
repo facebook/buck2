@@ -36,6 +36,7 @@ use crate::common::HostPlatformOverride;
 use crate::common::PreemptibleWhen;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
+use crate::exit_result::ExitResult;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
 use crate::stdin::Stdin;
@@ -132,6 +133,20 @@ impl<'a> ClientCommandContext<'a> {
         F: FnOnce(ClientCommandContext<'a>) -> Fut,
     {
         self.runtime.block_on(func(self))
+    }
+
+    // TODO(ctolliday) handle logging here.
+    pub fn exec<T: BuckSubcommand>(self, cmd: T, matches: BuckArgMatches<'_>) -> ExitResult {
+        self.with_runtime(|ctx| ctx.exec_async(cmd, matches))
+    }
+
+    // TODO(ctolliday) handle logging here.
+    pub async fn exec_async<T: BuckSubcommand>(
+        self,
+        cmd: T,
+        matches: BuckArgMatches<'_>,
+    ) -> ExitResult {
+        cmd.exec_impl(matches, self).await
     }
 
     pub fn instant_command<Fut, F>(
@@ -310,4 +325,15 @@ impl<'a> ClientCommandContext<'a> {
             .log_download_method
             .clone())
     }
+}
+
+/// Provides a common interface for buck subcommands that use event subscribers for logging.
+/// Executed by a ClientCommandContext.
+#[allow(async_fn_in_trait)]
+pub trait BuckSubcommand {
+    async fn exec_impl(
+        self,
+        matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+    ) -> ExitResult;
 }

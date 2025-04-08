@@ -20,7 +20,6 @@ use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
-use buck2_client_ctx::streaming::BuckSubcommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
@@ -86,7 +85,7 @@ impl CleanCommand {
                 dry_run: self.dry_run,
                 tracked_only: self.tracked_only,
             };
-            return cmd.exec(matches, ctx);
+            return ctx.exec(cmd, matches);
         }
 
         ctx.instant_command(
