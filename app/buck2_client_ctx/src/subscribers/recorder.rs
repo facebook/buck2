@@ -1888,7 +1888,9 @@ pub(crate) fn try_get_invocation_recorder(
         filesystem = "default".to_owned();
     }
 
-    let build_count = paths.map(|p| BuildCountManager::new(p.build_count_dir()));
+    let build_count = paths
+        .map(|p| BuildCountManager::new(p.build_count_dir()))
+        .transpose()?;
 
     let recorder = InvocationRecorder::new(
         ctx.fbinit(),
