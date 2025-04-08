@@ -51,10 +51,10 @@ impl BuildCount {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct BuildCountMap(HashMap<String, BuildCount>);
+struct BuildCountMap(HashMap<String, BuildCount>);
 
 impl BuildCountMap {
-    pub fn increment(&mut self, patterns: &ParsedTargetPatterns, is_success: bool) {
+    fn increment(&mut self, patterns: &ParsedTargetPatterns, is_success: bool) {
         for target in patterns.target_patterns.iter() {
             match self.0.get_mut(&target.value) {
                 Some(count) => {
@@ -71,7 +71,7 @@ impl BuildCountMap {
         }
     }
 
-    pub fn min_count(&self, patterns: &ParsedTargetPatterns) -> BuildCount {
+    fn min_count(&self, patterns: &ParsedTargetPatterns) -> BuildCount {
         if patterns.target_patterns.is_empty() {
             return Default::default();
         }
@@ -158,7 +158,8 @@ impl BuildCountManager {
     }
 
     /// Returns the existing min build count for the set of targets.
-    pub async fn min_count(
+    #[cfg(test)]
+    async fn min_count(
         &self,
         merge_base: &str,
         target_patterns: &ParsedTargetPatterns,
