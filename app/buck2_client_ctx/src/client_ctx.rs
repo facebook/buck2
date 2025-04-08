@@ -162,7 +162,16 @@ impl<'a> ClientCommandContext<'a> {
 
         let result = async {
             let mut events_ctx = exec_events_ctx.lock().await;
-            cmd.exec_impl(matches, self, &mut events_ctx).await
+            let is_streaming_command = cmd.is_streaming_command();
+            let result = cmd.exec_impl(matches, self, &mut events_ctx).await;
+
+            // TODO(ctolliday) always send ExitResult to recorder and remove this check.
+            if !is_streaming_command {
+                events_ctx
+                    .subscribers
+                    .handle_instant_command_outcome(result.is_success());
+            }
+            result
         }
         .await;
 
@@ -214,7 +223,7 @@ impl<'a> ClientCommandContext<'a> {
 
         let result = self.with_runtime(async move |ctx| {
             let result = func(ctx).await;
-            recorder.instant_command_outcome(result.is_ok());
+            recorder.handle_instant_command_outcome(result.is_ok());
             // TODO(ctolliday) reuse finalization from streaming commands
             if tokio::time::timeout(Duration::from_secs(30), recorder.finalize())
                 .await
@@ -240,10 +249,7 @@ impl<'a> ClientCommandContext<'a> {
     {
         self.instant_command(
             command_name,
-            &CommonEventLogOptions {
-                no_event_log: true,
-                ..CommonEventLogOptions::default()
-            },
+            CommonEventLogOptions::no_event_log_ref(),
             func,
         )
     }
@@ -388,9 +394,32 @@ pub trait BuckSubcommand {
 
     fn subscribers(
         &self,
-        matches: BuckArgMatches<'_>,
+        _matches: BuckArgMatches<'_>,
         ctx: &ClientCommandContext,
-    ) -> buck2_error::Result<EventSubscribers>;
+    ) -> buck2_error::Result<EventSubscribers> {
+        let mut recorder = try_get_invocation_recorder(
+            ctx,
+            self.event_log_opts(),
+            self.logging_name(),
+            std::env::args().collect(),
+            Vec::new(),
+            None,
+            None,
+        )?;
 
-    fn event_log_opts(&self) -> &CommonEventLogOptions;
+        recorder.update_metadata_from_client_metadata(&ctx.client_metadata);
+
+        Ok(EventSubscribers::new(vec![recorder]))
+    }
+
+    fn event_log_opts(&self) -> &CommonEventLogOptions {
+        CommonEventLogOptions::no_event_log_ref()
+    }
+
+    // The outcome of a streaming command is based on the CommandEnd event.
+    // If a command is not a streaming command it should send instant_command_success.
+    // TODO(ctolliday): send ExitResult and clean this up.
+    fn is_streaming_command(&self) -> bool {
+        false
+    }
 }

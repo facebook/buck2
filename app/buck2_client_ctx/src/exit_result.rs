@@ -107,6 +107,14 @@ impl ExitResult {
         Self::status(ExitCode::Success)
     }
 
+    pub fn is_success(&self) -> bool {
+        if let ExitResultVariant::Status(ExitCode::Success) = &self.variant {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn status(status: ExitCode) -> Self {
         Self {
             variant: ExitResultVariant::Status(status),

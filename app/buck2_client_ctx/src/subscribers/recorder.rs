@@ -373,10 +373,6 @@ impl InvocationRecorder {
         }
     }
 
-    pub fn instant_command_outcome(&mut self, is_success: bool) {
-        self.instant_command_is_success = Some(is_success);
-    }
-
     async fn build_count(
         &mut self,
         is_success: bool,
@@ -1737,6 +1733,10 @@ impl EventSubscriber for InvocationRecorder {
             _ => {}
         }
         Ok(())
+    }
+
+    fn handle_instant_command_outcome(&mut self, is_success: bool) {
+        self.instant_command_is_success = Some(is_success);
     }
 
     async fn handle_error(&mut self, error: &buck2_error::Error) -> buck2_error::Result<()> {

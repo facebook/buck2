@@ -240,6 +240,10 @@ impl<T: StreamingCommand> BuckSubcommand for T {
     fn logging_name(&self) -> &'static str {
         Self::COMMAND_NAME
     }
+
+    fn is_streaming_command(&self) -> bool {
+        true
+    }
 }
 
 /// Given the command arguments, conditionally create an event log.
