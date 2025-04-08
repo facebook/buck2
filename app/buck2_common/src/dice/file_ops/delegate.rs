@@ -26,6 +26,7 @@ use cmp_any::PartialEqAny;
 use derivative::Derivative;
 use dice::DiceComputations;
 use dice::Key;
+use dice::UserComputationData;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;
@@ -34,6 +35,7 @@ use crate::dice::file_ops::delegate::keys::FileOpsKey;
 use crate::dice::file_ops::delegate::keys::FileOpsValue;
 use crate::dice::file_ops::CheckIgnores;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
+use crate::file_ops::HasReadDirCache;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
 use crate::file_ops::ReadDirOutput;
@@ -181,15 +183,15 @@ impl Key for FileOpsKey {
                 .get()?
                 .get_file_ops_delegate(ctx, self.cell, origin.dupe())
                 .await?;
-            FileOpsDelegateWithIgnores::new(ignores, delegate)
+            FileOpsDelegateWithIgnores::new(self.cell, ignores, delegate)
         } else {
             let io = ctx.global_data().get_io_provider();
             let delegate = IoFileOpsDelegate {
                 io,
-                cells,
+                cells: cells.dupe(),
                 cell: self.cell,
             };
-            FileOpsDelegateWithIgnores::new(ignores, Arc::new(delegate))
+            FileOpsDelegateWithIgnores::new(self.cell, ignores, Arc::new(delegate))
         };
 
         Ok(FileOpsValue(out))
@@ -223,6 +225,7 @@ pub(crate) async fn get_delegated_file_ops(
 
 #[derive(Clone, Dupe)]
 pub struct FileOpsDelegateWithIgnores {
+    cell: CellName,
     ignores: Option<Arc<CellFileIgnores>>,
     delegate: Arc<dyn FileOpsDelegate>,
 }
@@ -235,10 +238,15 @@ impl PartialEq for FileOpsDelegateWithIgnores {
 
 impl FileOpsDelegateWithIgnores {
     pub(crate) fn new(
+        cell: CellName,
         ignores: Option<Arc<CellFileIgnores>>,
         delegate: Arc<dyn FileOpsDelegate>,
     ) -> Self {
-        Self { ignores, delegate }
+        Self {
+            cell,
+            ignores,
+            delegate,
+        }
     }
 }
 
@@ -250,6 +258,10 @@ impl FileOpsDelegateWithIgnores {
         }
     }
 
+    fn resolve(&self, path: &CellRelativePath) -> CellPath {
+        CellPath::new(self.cell, path.to_owned())
+    }
+
     pub async fn read_file_if_exists(
         &self,
         path: &CellRelativePath,
@@ -258,7 +270,15 @@ impl FileOpsDelegateWithIgnores {
     }
 
     /// Return the list of file outputs, sorted.
-    pub async fn read_dir(&self, path: &CellRelativePath) -> buck2_error::Result<ReadDirOutput> {
+    pub async fn read_dir(
+        &self,
+        user_data: &UserComputationData,
+        path: &CellRelativePath,
+    ) -> buck2_error::Result<ReadDirOutput> {
+        let cell_path = self.resolve(path);
+        if let Some(cached) = user_data.get_read_dir_cache().get(&cell_path) {
+            return Ok(cached);
+        };
         // TODO(cjhopman): This should also probably verify that the parent chain is not ignored.
         self.check_ignores(UncheckedCellRelativePath::new(path))
             .into_result()?;
@@ -308,10 +328,11 @@ impl FileOpsDelegateWithIgnores {
                 });
             }
         }
-
-        Ok(ReadDirOutput {
+        let read_dir_output = ReadDirOutput {
             included: included_entries.into(),
-        })
+        };
+        user_data.update_read_dir_cache(cell_path, &read_dir_output);
+        Ok(read_dir_output)
     }
 
     pub async fn read_path_metadata_if_exists(

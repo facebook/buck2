@@ -560,6 +560,7 @@ pub mod testing {
 
         pub fn mock_in_cell(&self, cell: CellName, builder: DiceBuilder) -> DiceBuilder {
             let data = Ok(FileOpsValue(FileOpsDelegateWithIgnores::new(
+                cell,
                 None,
                 Arc::new(TestCellFileOps(
                     cell,

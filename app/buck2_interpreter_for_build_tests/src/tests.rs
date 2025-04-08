@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use buck2_common::dice::cells::SetCellResolver;
 use buck2_common::dice::data::testing::SetTestingIoProvider;
+use buck2_common::file_ops::HasReadDirCache;
 use buck2_common::legacy_configs::cells::ExternalBuckconfigData;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_core::bzl::ImportPath;
@@ -32,6 +33,7 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::context::SetInterpreterContext;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
+use dashmap::DashMap;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceTransaction;
@@ -50,6 +52,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
     let dice = dice.build(DetectCycles::Enabled);
 
     let mut per_transaction_data = UserComputationData::new();
+    per_transaction_data.set_read_dir_cache(DashMap::new());
     per_transaction_data.data.set(EventDispatcher::null());
     per_transaction_data.set_starlark_debugger_handle(None);
     let mut ctx = dice.updater_with_data(per_transaction_data);
