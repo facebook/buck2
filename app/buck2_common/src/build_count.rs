@@ -421,4 +421,42 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_rebase() -> buck2_error::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let merge_base1 = "merge_base1";
+        let merge_base2 = "merge_base2";
+        let target_patterns = make_patterns(vec!["//some:target"]);
+        let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?);
+        let _ = bcm.increment(merge_base1, &target_patterns, true).await?;
+        assert_eq!(
+            bcm.min_count(merge_base1, &target_patterns).await?,
+            BuildCount::new(1, 1),
+        );
+        assert_eq!(
+            bcm.min_count(merge_base2, &target_patterns).await?,
+            BuildCount::new(0, 0),
+        );
+        let _ = bcm.increment(merge_base2, &target_patterns, true).await?;
+        assert_eq!(
+            bcm.min_count(merge_base1, &target_patterns).await?,
+            BuildCount::new(1, 1),
+        );
+        assert_eq!(
+            bcm.min_count(merge_base2, &target_patterns).await?,
+            BuildCount::new(1, 1),
+        );
+        let _ = bcm.increment(merge_base1, &target_patterns, true).await?;
+        assert_eq!(
+            bcm.min_count(merge_base1, &target_patterns).await?,
+            BuildCount::new(2, 2),
+        );
+        assert_eq!(
+            bcm.min_count(merge_base2, &target_patterns).await?,
+            BuildCount::new(1, 1),
+        );
+
+        Ok(())
+    }
 }
