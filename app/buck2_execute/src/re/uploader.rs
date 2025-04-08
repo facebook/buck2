@@ -39,8 +39,6 @@ use remote_execution::GetDigestsTtlRequest;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::REClient;
-use remote_execution::REClientError;
-use remote_execution::TCode;
 use remote_execution::TDigest;
 use remote_execution::UploadRequest;
 
@@ -56,6 +54,7 @@ use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
+use crate::re::error::with_error_handler;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 
 #[derive(Clone, Debug, Default)]
@@ -74,7 +73,7 @@ impl Uploader {
         use_case: &RemoteExecutorUseCase,
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<(
+    ) -> buck2_error::Result<(
         Vec<InlinedBlobWithDigest>,
         HashSet<&'a TrackedCasDigest<FileDigestKind>>,
     )> {
@@ -113,10 +112,12 @@ impl Uploader {
                 digests: input_digests.iter().map(|d| d.to_re()).collect(),
                 ..Default::default()
             };
+
             client
                 .get_digests_ttl(use_case.metadata(identity), request)
                 .boxed()
-                .await?
+                .await
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::ReInvalidGetCasResponse))?
                 .digests_with_ttl
         };
 
@@ -128,7 +129,7 @@ impl Uploader {
         input_digests.sort();
 
         let mut digest_ttls = digest_ttls.into_try_map(|d| {
-            anyhow::Ok((
+            buck2_error::Ok((
                 FileDigest::from_re(&d.digest, digest_config).map_err(buck2_error::Error::from)?,
                 d.ttl,
             ))
@@ -136,7 +137,8 @@ impl Uploader {
         digest_ttls.sort();
 
         if input_digests.len() != digest_ttls.len() {
-            return Err(anyhow::anyhow!(
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::ReInvalidGetCasResponse,
                 "Invalid response from get_digests_ttl: expected {}, got {} digests",
                 input_digests.len(),
                 digest_ttls.len()
@@ -147,7 +149,10 @@ impl Uploader {
 
         for (digest, (matching_digest, digest_ttl)) in input_digests.into_iter().zip(digest_ttls) {
             if *digest.data() != matching_digest {
-                return Err(anyhow::anyhow!("Invalid response from get_digests_ttl"));
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::ReInvalidGetCasResponse,
+                    "Invalid response from get_digests_ttl"
+                ));
             }
 
             if digest_ttl <= ttl_wanted {
@@ -185,7 +190,7 @@ impl Uploader {
         use_case: RemoteExecutorUseCase,
         identity: Option<&ReActionIdentity<'_>>,
         digest_config: DigestConfig,
-    ) -> anyhow::Result<UploadStats> {
+    ) -> buck2_error::Result<UploadStats> {
         let (mut upload_blobs, mut missing_digests) =
             Self::find_missing(client, input_dir, blobs, &use_case, identity, digest_config)
                 .await?;
@@ -286,7 +291,8 @@ impl Uploader {
                                         action_cache_is_corrupted: info.origin.guaranteed_by_action_cache()
                                     )?;
 
-                                    return Err(anyhow::anyhow!(
+                                    return Err(buck2_error::buck2_error!(
+                                        buck2_error::ErrorTag::ReCasArtifactExpired,
                                         "Your build requires an artifact that has expired in the RE CAS \
                                         and Buck does not have it. This likely happened because your Buck daemon \
                                         has been online for a long time. This error is currently unrecoverable. \
@@ -337,7 +343,7 @@ impl Uploader {
             materializer
                 .ensure_materialized(paths_to_materialize)
                 .await
-                .buck_error_context_anyhow("Error materializing paths for upload")?;
+                .buck_error_context("Error materializing paths for upload")?;
         }
 
         // Compute stats of digests we're about to upload so we can report them
@@ -374,29 +380,36 @@ impl Uploader {
 
         // Upload
         if !upload_files.is_empty() || !upload_blobs.is_empty() {
-            client
-                .upload(
-                    use_case.metadata(identity),
-                    UploadRequest {
-                        files_with_digest: Some(upload_files),
-                        inlined_blobs_with_digest: Some(upload_blobs),
-                        // all find missing checks are done previously
-                        // and we can skip them and upload all digests
-                        upload_only_missing: false,
-                        ..Default::default()
-                    },
-                )
-                .boxed()
-                .await
-                .map_err(|e| match e.downcast_ref::<REClientError>() {
-                    Some(re_client_error) if re_client_error.code == TCode::INVALID_ARGUMENT =>
-                         anyhow::anyhow!(
-                                "RE Upload failed. It looks like you might have modified files while the build \
-                                was in progress. Retry your build to proceed. Debug information: {:#}",
-                                e
-                        ),
-                    _ => e,
-                })?;
+            with_error_handler(
+                "upload",
+                client.get_session_id(),
+                client
+                    .upload(
+                        use_case.metadata(identity),
+                        UploadRequest {
+                            files_with_digest: Some(upload_files),
+                            inlined_blobs_with_digest: Some(upload_blobs),
+                            // all find missing checks are done previously
+                            // and we can skip them and upload all digests
+                            upload_only_missing: false,
+                            ..Default::default()
+                        },
+                    )
+                    .await,
+            )
+            .await
+            .map_err(|e| {
+                if e.tags().contains(&buck2_error::ErrorTag::ReInvalidArgument) {
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::ReInvalidArgument,
+                        "RE Upload failed. It looks like you might have modified files while the build \
+                        was in progress. Retry your build to proceed. Debug information: {:#}",
+                        e
+                    )
+                } else {
+                    e
+                }
+            })?;
         };
 
         Ok(stats)
@@ -434,8 +447,9 @@ where
 fn error_for_missing_file(
     digest: &TDigest,
     cause: &ArtifactNotMaterializedReason,
-) -> anyhow::Error {
-    anyhow::anyhow!(
+) -> buck2_error::Error {
+    buck2_error::buck2_error!(
+        buck2_error::ErrorTag::ReInvalidGetCasResponse,
         "Action execution requires artifact `{}` but the materializer did not return a matching \
         file for this path. This error is unrecoverable and you should restart Buck using \
         `buck2 killall`. We would appreciate a bug report. Debug information: {:#}",
@@ -449,12 +463,12 @@ fn error_for_missing_file(
 fn add_injected_missing_digests<'a>(
     input_digests: &HashSet<&'a TrackedFileDigest>,
     missing_digests: &mut HashSet<&'a TrackedFileDigest>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     fn convert_digests(val: &str) -> buck2_error::Result<Vec<FileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDigest))
                     .with_buck_error_context(|| format!("Invalid digest: `{}`", digest))?;
                 // This code does not run in a test but it is only used for testing.
                 let digest = FileDigest::from_re(&digest, DigestConfig::testing_default())?;

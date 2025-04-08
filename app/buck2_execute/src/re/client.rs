@@ -878,21 +878,16 @@ impl RemoteExecutionClientImpl {
         // Actually upload to CAS
         let _cas = self.cas_semaphore.acquire().await;
 
-        with_error_handler(
-            "upload",
-            self.get_session_id(),
-            Uploader::upload(
-                fs,
-                self.client().get_cas_client(),
-                materializer,
-                dir_path,
-                input_dir,
-                blobs,
-                use_case,
-                identity,
-                digest_config,
-            )
-            .await,
+        Uploader::upload(
+            fs,
+            self.client().get_cas_client(),
+            materializer,
+            dir_path,
+            input_dir,
+            blobs,
+            use_case,
+            identity,
+            digest_config,
         )
         .await
     }

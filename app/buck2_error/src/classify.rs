@@ -179,6 +179,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReCasArtifactWrongNumberOfOutputs => rank!(tier0),
         ErrorTag::ReCasArtifactGetDigestExpirationError => rank!(tier0),
         ErrorTag::ReCasArtifactInvalidExpiration => rank!(tier0),
+        ErrorTag::ReCasArtifactExpired => rank!(tier0),
+        ErrorTag::ReInvalidGetCasResponse => rank!(tier0),
 
         ErrorTag::Clap => rank!(tier0),
         ErrorTag::Hex => rank!(tier0),
