@@ -44,13 +44,11 @@ pub struct HealthCheckClient {
 
 impl HealthCheckClient {
     pub fn new(
-        trace_id: String,
         tags_sender: Option<Sender<Vec<String>>>,
         display_reports_sender: Option<Sender<Vec<DisplayReport>>>,
     ) -> Self {
         Self {
             health_check_context: HealthCheckContext {
-                trace_id,
                 ..Default::default()
             },
             #[cfg(fbcode_build)]

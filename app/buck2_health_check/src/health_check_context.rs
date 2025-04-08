@@ -13,9 +13,6 @@
 /// This is intentionally kept as a small set to avoid serialization costs.
 #[derive(Default)]
 pub(crate) struct HealthCheckContext {
-    /// The unique trace id for the command.
-    pub trace_id: String,
-
     /// Data from the command start.
     /// Example use: Run a check only on a subset of commands.
     pub command_data: Option<buck2_data::command_start::Data>,

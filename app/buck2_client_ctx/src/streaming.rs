@@ -103,7 +103,6 @@ fn default_subscribers<T: StreamingCommand>(
     subscribers.push(recorder);
 
     subscribers.push(HealthCheckSubscriber::new(
-        ctx.trace_id.dupe(),
         health_check_tags_sender,
         health_check_display_reports_sender,
     ));
