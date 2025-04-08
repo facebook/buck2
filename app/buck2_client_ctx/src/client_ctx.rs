@@ -149,8 +149,8 @@ impl<'a> ClientCommandContext<'a> {
         cmd: T,
         matches: BuckArgMatches<'_>,
     ) -> ExitResult {
-        let buck_log_dir = &self.paths()?.log_dir();
-        let command_report_path = &cmd
+        let buck_log_dir = self.paths().map(|paths| paths.log_dir()).ok();
+        let command_report_path = cmd
             .event_log_opts()
             .command_report_path
             .as_ref()
