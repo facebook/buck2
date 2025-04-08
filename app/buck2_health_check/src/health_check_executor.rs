@@ -17,15 +17,13 @@ use crate::health_check_context::HealthCheckContext;
 #[cfg(fbcode_build)]
 use crate::health_checks::facebook::warm_revision::warm_revision_check::WarmRevisionCheck;
 use crate::health_checks::vpn_check::VpnCheck;
+use crate::interface::HealthCheck;
 use crate::report::Report;
 
 /// This executor is responsible for maintaining the health check context and running the checks.
 pub struct HealthCheckExecutor {
     health_check_context: HealthCheckContext,
-    // TODO(rajneeshl): Create a trait for health checks and store these as a vec.
-    #[cfg(fbcode_build)]
-    warm_revision_check: Option<WarmRevisionCheck>,
-    vpn_check: VpnCheck,
+    health_checks: Vec<Box<dyn HealthCheck>>,
 }
 
 impl HealthCheckExecutor {
@@ -34,17 +32,29 @@ impl HealthCheckExecutor {
             health_check_context: HealthCheckContext {
                 ..Default::default()
             },
-            #[cfg(fbcode_build)]
-            warm_revision_check: WarmRevisionCheck::new().ok(),
-            vpn_check: VpnCheck::new(),
+            health_checks: Self::register_health_checks(),
         }
+    }
+
+    #[allow(clippy::vec_init_then_push)] // Ignore warning in OSS build
+    fn register_health_checks() -> Vec<Box<dyn HealthCheck>> {
+        let mut health_checks: Vec<Box<dyn HealthCheck>> = Vec::new();
+        #[cfg(fbcode_build)]
+        {
+            // Facebook-only health checks
+            if let Ok(stable_revision_check) = WarmRevisionCheck::new() {
+                health_checks.push(Box::new(stable_revision_check));
+            }
+        }
+        health_checks.push(Box::new(VpnCheck::new()));
+
+        health_checks
     }
 
     pub(crate) async fn update_context(
         &mut self,
         event: &HealthCheckContextEvent,
     ) -> buck2_error::Result<()> {
-        // TODO(rajneeshl): Convert this to the rust HealthCheckContext and pass that to the checks instead to simplify this code.
         let data = event
             .data
             .as_ref()
@@ -52,91 +62,38 @@ impl HealthCheckExecutor {
 
         match data {
             Data::ParsedTargetPatterns(parsed_target_patterns) => {
-                self.update_parsed_target_patterns(&parsed_target_patterns)
-                    .await
+                self.health_check_context.parsed_target_patterns =
+                    Some(parsed_target_patterns.clone());
             }
             Data::CommandStart(command_start) => {
-                self.update_command_data(command_start.data.clone()).await
+                self.health_check_context.command_data = command_start.data.clone();
             }
             Data::BranchedFromRevision(branched_from_revision) => {
-                self.update_branched_from_revision(&branched_from_revision)
-                    .await
+                self.health_check_context.branched_from_revision =
+                    Some(branched_from_revision.to_owned());
             }
-            Data::HasExcessCacheMisses(_) => self.update_excess_cache_misses().await,
+            Data::HasExcessCacheMisses(_) => {
+                self.health_check_context.has_excess_cache_misses = true;
+            }
             Data::ExperimentConfigurations(system_info) => {
-                self.update_experiment_configurations(&system_info).await
+                self.health_check_context.experiment_configurations = Some(system_info.clone());
             }
+        }
+        for check in self.health_checks.iter_mut() {
+            check
+                .handle_context_update(&self.health_check_context)
+                .await;
         }
         Ok(())
     }
 
     pub(crate) async fn run_checks(&self) -> Vec<Report> {
         let mut reports = Vec::new();
-        #[cfg(fbcode_build)]
-        {
-            if let Some(report) = self
-                .warm_revision_check
-                .as_ref()
-                .map(|check| check.run())
-                .flatten()
-            {
+        for check in &self.health_checks {
+            if let Some(report) = check.run_check().ok().flatten() {
                 reports.push(report);
             }
         }
-        if let Some(report) = self.vpn_check.run() {
-            reports.push(report);
-        }
         reports
-    }
-
-    async fn update_command_data(&mut self, command_data: Option<buck2_data::command_start::Data>) {
-        self.health_check_context.command_data = command_data;
-        self.try_update_warm_revision_check().await;
-    }
-
-    async fn update_parsed_target_patterns(
-        &mut self,
-        parsed_target_patterns: &buck2_data::ParsedTargetPatterns,
-    ) {
-        self.health_check_context.parsed_target_patterns = Some(parsed_target_patterns.clone());
-        self.vpn_check
-            .try_update_can_run(&self.health_check_context);
-        self.try_update_warm_revision_check().await;
-    }
-
-    async fn update_branched_from_revision(&mut self, branched_from_revision: &str) {
-        self.health_check_context.branched_from_revision = Some(branched_from_revision.to_owned());
-        self.try_update_warm_revision_check().await;
-    }
-
-    async fn update_excess_cache_misses(&mut self) {
-        if self.health_check_context.has_excess_cache_misses {
-            // If we already know that we have excess cache misses, we don't need updates again.
-            return;
-        }
-        self.health_check_context.has_excess_cache_misses = true;
-        self.try_update_warm_revision_check().await;
-    }
-
-    async fn update_experiment_configurations(
-        &mut self,
-        experiment_configurations: &buck2_data::SystemInfo,
-    ) {
-        self.health_check_context.experiment_configurations =
-            Some(experiment_configurations.clone());
-        self.vpn_check
-            .try_update_can_run(&self.health_check_context);
-        self.try_update_warm_revision_check().await;
-    }
-
-    async fn try_update_warm_revision_check(&mut self) {
-        #[cfg(fbcode_build)]
-        {
-            if let Some(check) = &mut self.warm_revision_check {
-                check
-                    .try_compute_targets_not_on_stable(&self.health_check_context)
-                    .await;
-            }
-        }
     }
 }

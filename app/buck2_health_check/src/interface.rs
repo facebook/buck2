@@ -7,8 +7,6 @@
  * of this source tree.
  */
 
-#![allow(dead_code)] // Remove when trait used in executor
-
 use crate::health_check_context::HealthCheckContext;
 use crate::report::Report;
 
