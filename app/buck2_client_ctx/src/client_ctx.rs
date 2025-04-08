@@ -372,12 +372,19 @@ impl<'a> ClientCommandContext<'a> {
 /// Executed by a ClientCommandContext.
 #[allow(async_fn_in_trait)]
 pub trait BuckSubcommand {
+    /// Give the command a name for printing, debugging, etc.
+    const COMMAND_NAME: &'static str;
+
     async fn exec_impl(
         self,
         matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult;
+
+    fn logging_name(&self) -> &'static str {
+        Self::COMMAND_NAME
+    }
 
     fn subscribers(
         &self,

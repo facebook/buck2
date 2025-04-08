@@ -118,7 +118,6 @@ fn default_subscribers<T: StreamingCommand>(
 /// (e.g `status`)
 #[async_trait]
 pub trait StreamingCommand: Sized + Send + Sync {
-    /// Give the command a name for printing, debugging, etc.
     const COMMAND_NAME: &'static str;
 
     /// Run the command.
@@ -156,10 +155,6 @@ pub trait StreamingCommand: Sized + Send + Sync {
         argv.no_need_to_sanitize()
     }
 
-    fn logging_name(&self) -> &'static str {
-        Self::COMMAND_NAME
-    }
-
     /// Some commands should always be displaying
     /// at least 1 ongoing process in the terminal, aka "spans".
     /// In the simple console, we want to display a "Waiting for daemon..." message
@@ -175,6 +170,8 @@ pub trait StreamingCommand: Sized + Send + Sync {
 }
 
 impl<T: StreamingCommand> BuckSubcommand for T {
+    const COMMAND_NAME: &'static str = T::COMMAND_NAME;
+
     /// Actual call that runs a `StreamingCommand`.
     /// Handles the business of setting up a server connection for streaming.
     async fn exec_impl(
@@ -238,6 +235,10 @@ impl<T: StreamingCommand> BuckSubcommand for T {
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
         self.event_log_opts()
+    }
+
+    fn logging_name(&self) -> &'static str {
+        Self::COMMAND_NAME
     }
 }
 
