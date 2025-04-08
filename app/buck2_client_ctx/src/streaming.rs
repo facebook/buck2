@@ -9,13 +9,11 @@
 
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use dupe::Dupe;
-use tokio::sync::Mutex;
 
 use crate::client_ctx::BuckSubcommand;
 use crate::client_ctx::ClientCommandContext;
@@ -178,24 +176,13 @@ pub trait StreamingCommand: Sized + Send + Sync {
 
 impl<T: StreamingCommand> BuckSubcommand for T {
     /// Actual call that runs a `StreamingCommand`.
-    /// Handles all of the business of setting up a runtime, server, and subscribers.
+    /// Handles the business of setting up a server connection for streaming.
     async fn exec_impl(
         self,
         matches: BuckArgMatches<'_>,
         mut ctx: ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let buck_log_dir = &ctx.paths()?.log_dir();
-        let command_report_path = &self
-            .event_log_opts()
-            .command_report_path
-            .as_ref()
-            .map(|path| path.resolve(&ctx.working_dir));
-
-        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(default_subscribers(
-            &self, matches, &ctx,
-        )?)));
-        let exec_events_ctx = events_ctx.dupe();
-
         let work = async {
             let mut constraints = if T::existing_only() {
                 BuckdConnectConstraints::ExistingOnly
@@ -205,9 +192,8 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 ctx.restarter.apply_to_constraints(&mut req);
                 BuckdConnectConstraints::Constraints(req)
             };
-            let mut events_ctx = exec_events_ctx.lock().await;
             let buckd = match ctx.start_in_process_daemon.take() {
-                None => connect_buckd(constraints, &mut events_ctx, ctx.paths()?).await,
+                None => connect_buckd(constraints, events_ctx, ctx.paths()?).await,
                 Some(start_in_process_daemon) => {
                     // Start in-process daemon, wait until it is ready to accept connections.
                     start_in_process_daemon()?;
@@ -216,7 +202,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                     // Connect should not fail.
                     constraints = BuckdConnectConstraints::ExistingOnly;
 
-                    connect_buckd(constraints, &mut events_ctx, ctx.paths()?).await
+                    connect_buckd(constraints, events_ctx, ctx.paths()?).await
                 }
             };
 
@@ -228,41 +214,30 @@ impl<T: StreamingCommand> BuckSubcommand for T {
             };
 
             let command_result = self
-                .exec_impl(&mut buckd, matches, &mut ctx, &mut events_ctx)
+                .exec_impl(&mut buckd, matches, &mut ctx, events_ctx)
                 .await;
 
-            ctx.restarter.observe(&buckd, &mut events_ctx);
+            ctx.restarter.observe(&buckd, events_ctx);
 
             command_result
         };
 
-        let result = with_simple_sigint_handler(work)
+        // FIXME: move this into client_ctx
+        with_simple_sigint_handler(work)
             .await
-            .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt));
+            .unwrap_or_else(|| ExitResult::status(ExitCode::SignalInterrupt))
+    }
 
-        let finalize_events = async {
-            let mut events_ctx = events_ctx.lock().await;
-            events_ctx.finalize().await
-        };
+    fn subscribers(
+        &self,
+        matches: BuckArgMatches<'_>,
+        ctx: &ClientCommandContext,
+    ) -> buck2_error::Result<EventSubscribers> {
+        default_subscribers(self, matches, ctx)
+    }
 
-        let logging_timeout = Duration::from_secs(30);
-        let finalizing_errors = tokio::time::timeout(logging_timeout, finalize_events)
-            .await
-            .unwrap_or_else(|_| {
-                vec![format!(
-                    "Timeout after {:?} waiting for logging cleanup",
-                    logging_timeout
-                )]
-            });
-
-        // Don't fail the command if command report fails to write. TODO(ctolliday) show a warning?
-        let _unused = result.write_command_report(
-            ctx.trace_id,
-            buck_log_dir,
-            command_report_path,
-            finalizing_errors,
-        );
-        result
+    fn event_log_opts(&self) -> &CommonEventLogOptions {
+        self.event_log_opts()
     }
 }
 

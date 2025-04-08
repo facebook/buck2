@@ -8,6 +8,7 @@
  */
 
 use std::future::Future;
+use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_cli_proto::client_context::HostArchOverride as GrpcHostArchOverride;
@@ -26,6 +27,7 @@ use buck2_event_observer::verbosity::Verbosity;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Runtime;
+use tokio::sync::Mutex;
 
 use crate::client_metadata::ClientMetadata;
 use crate::common::ui::CommonConsoleOptions;
@@ -36,6 +38,7 @@ use crate::common::HostPlatformOverride;
 use crate::common::PreemptibleWhen;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::daemon_constraints::get_possibly_nested_invocation_daemon_uuid;
+use crate::events_ctx::EventsCtx;
 use crate::exit_result::ExitResult;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
@@ -43,6 +46,7 @@ use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
 use crate::subscribers::recorder::try_get_invocation_recorder;
 use crate::subscribers::subscriber::EventSubscriber;
+use crate::subscribers::subscribers::EventSubscribers;
 
 pub struct ClientCommandContext<'a> {
     init: fbinit::FacebookInit,
@@ -135,18 +139,55 @@ impl<'a> ClientCommandContext<'a> {
         self.runtime.block_on(func(self))
     }
 
-    // TODO(ctolliday) handle logging here.
     pub fn exec<T: BuckSubcommand>(self, cmd: T, matches: BuckArgMatches<'_>) -> ExitResult {
         self.with_runtime(|ctx| ctx.exec_async(cmd, matches))
     }
 
-    // TODO(ctolliday) handle logging here.
+    // Handles setting up subscribers, executing a command and finalizing logging.
     pub async fn exec_async<T: BuckSubcommand>(
         self,
         cmd: T,
         matches: BuckArgMatches<'_>,
     ) -> ExitResult {
-        cmd.exec_impl(matches, self).await
+        let buck_log_dir = &self.paths()?.log_dir();
+        let command_report_path = &cmd
+            .event_log_opts()
+            .command_report_path
+            .as_ref()
+            .map(|path| path.resolve(&self.working_dir));
+        let trace_id = self.trace_id.clone();
+
+        let events_ctx = Arc::new(Mutex::new(EventsCtx::new(cmd.subscribers(matches, &self)?)));
+        let exec_events_ctx = events_ctx.dupe();
+
+        let result = async {
+            let mut events_ctx = exec_events_ctx.lock().await;
+            cmd.exec_impl(matches, self, &mut events_ctx).await
+        }
+        .await;
+
+        let finalize_events = async {
+            let mut events_ctx = events_ctx.lock().await;
+            events_ctx.finalize().await
+        };
+
+        let logging_timeout = Duration::from_secs(30);
+        let finalizing_errors = tokio::time::timeout(logging_timeout, finalize_events)
+            .await
+            .unwrap_or_else(|_| {
+                vec![format!(
+                    "Timeout after {:?} waiting for logging cleanup",
+                    logging_timeout
+                )]
+            });
+        // Don't fail the command if command report fails to write. TODO(ctolliday) show a warning?
+        let _unused = result.write_command_report(
+            trace_id,
+            buck_log_dir,
+            command_report_path,
+            finalizing_errors,
+        );
+        result
     }
 
     pub fn instant_command<Fut, F>(
@@ -335,5 +376,14 @@ pub trait BuckSubcommand {
         self,
         matches: BuckArgMatches<'_>,
         ctx: ClientCommandContext<'_>,
+        events_ctx: &mut EventsCtx,
     ) -> ExitResult;
+
+    fn subscribers(
+        &self,
+        matches: BuckArgMatches<'_>,
+        ctx: &ClientCommandContext,
+    ) -> buck2_error::Result<EventSubscribers>;
+
+    fn event_log_opts(&self) -> &CommonEventLogOptions;
 }
