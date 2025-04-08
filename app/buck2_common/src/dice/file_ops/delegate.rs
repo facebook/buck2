@@ -35,6 +35,7 @@ use crate::dice::file_ops::delegate::keys::FileOpsKey;
 use crate::dice::file_ops::delegate::keys::FileOpsValue;
 use crate::dice::file_ops::CheckIgnores;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
+use crate::file_ops::DirectorySubListingMatchingOutput;
 use crate::file_ops::HasReadDirCache;
 use crate::file_ops::RawDirEntry;
 use crate::file_ops::RawPathMetadata;
@@ -333,6 +334,26 @@ impl FileOpsDelegateWithIgnores {
         };
         user_data.update_read_dir_cache(cell_path, &read_dir_output);
         Ok(read_dir_output)
+    }
+
+    pub(crate) async fn read_matching_files_from_dir(
+        &self,
+        directory: &CellRelativePath,
+        file_name: &FileNameBuf,
+        dice: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<DirectorySubListingMatchingOutput> {
+        let dir = self
+            .read_dir(dice.per_transaction_data(), directory)
+            .await?;
+        let mut sublisting = Vec::new();
+        for entry in dir.included.iter() {
+            if entry.file_name.as_str().to_lowercase() == file_name.as_str() {
+                sublisting.push(entry.to_owned());
+            }
+        }
+        Ok(DirectorySubListingMatchingOutput {
+            included: sublisting.into(),
+        })
     }
 
     pub async fn read_path_metadata_if_exists(
