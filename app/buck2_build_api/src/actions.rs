@@ -334,7 +334,7 @@ impl RegisteredAction {
     }
 
     /// Gets the action key, uniquely identifying this action in a target.
-    pub fn action_key(&self) -> ForwardRelativePathBuf {
+    pub(crate) fn action_key(&self) -> ForwardRelativePathBuf {
         // We want the action key to not cause instability in the RE action.
         // As an artifact can only be bound as an output to one action, we know it uniquely identifies the action and we can
         // derive the scratch path from that and that will be no unstable than the artifact already is.
@@ -352,7 +352,7 @@ impl RegisteredAction {
         &self.key
     }
 
-    pub fn execution_config(&self) -> &CommandExecutorConfig {
+    pub(crate) fn execution_config(&self) -> &CommandExecutorConfig {
         &self.executor_config
     }
 
@@ -364,7 +364,7 @@ impl RegisteredAction {
         self.action.identifier()
     }
 
-    pub fn action_inputs_hash(&self) -> Option<Arc<str>> {
+    pub(crate) fn action_inputs_hash(&self) -> Option<Arc<str>> {
         self.action_inputs_hash.as_ref().map(|hash| hash.dupe())
     }
 }
@@ -405,11 +405,11 @@ impl ActionToBeRegistered {
         }
     }
 
-    pub fn key(&self) -> &ActionKey {
+    pub(crate) fn key(&self) -> &ActionKey {
         &self.key
     }
 
-    pub fn action_inputs_hash(&self) -> Option<Arc<str>> {
+    pub(crate) fn action_inputs_hash(&self) -> Option<Arc<str>> {
         self.action_inputs_hash.as_ref().map(|hash| hash.dupe())
     }
 
