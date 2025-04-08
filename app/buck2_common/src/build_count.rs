@@ -114,6 +114,7 @@ impl BuildCountMap {
 pub struct BuildCountManager {
     base_dir: AbsNormPathBuf,
     file_path: AbsNormPathBuf,
+    lock_file_path: AbsNormPathBuf,
 }
 
 impl BuildCountManager {
@@ -122,9 +123,11 @@ impl BuildCountManager {
 
     pub fn new(base_dir: AbsNormPathBuf) -> buck2_error::Result<Self> {
         let file_path = base_dir.join(FileName::new(&BUILD_COUNT_VERSION.to_string())?);
+        let lock_file_path = base_dir.join(FileName::new(Self::LOCK_FILE_NAME)?);
         Ok(Self {
             base_dir,
             file_path,
+            lock_file_path,
         })
     }
 
@@ -158,14 +161,14 @@ impl BuildCountManager {
         async_fs_util::write(&self.file_path, &serde_json::to_vec(build_count)?).await
     }
 
-    async fn lock_with_timeout(&self, timeout: Duration) -> buck2_error::Result<FileLockGuard> {
+    async fn lock_with_timeout(&self) -> buck2_error::Result<FileLockGuard> {
         self.ensure_dir().await?;
-        let file = std::fs::File::create(self.base_dir.join(FileName::new(Self::LOCK_FILE_NAME)?))?;
+        let file = std::fs::File::create(&self.lock_file_path)?;
         let fileref = &file;
         client_utils::retrying(
             Duration::from_millis(5),
             Duration::from_millis(100),
-            timeout,
+            Self::LOCK_TIMEOUT,
             || async { buck2_error::Ok(fs4::FileExt::try_lock_exclusive(fileref)?) },
         )
         .await?;
@@ -179,7 +182,7 @@ impl BuildCountManager {
         target_patterns: &ParsedTargetPatterns,
         is_success: bool,
     ) -> buck2_error::Result<BuildCount> {
-        let _guard = self.lock_with_timeout(Self::LOCK_TIMEOUT).await?;
+        let _guard = self.lock_with_timeout().await?;
         let mut build_count_map = self.read_mergebase(merge_base).await?;
         build_count_map.increment(target_patterns, is_success);
         self.write(&build_count_map).await?;
