@@ -42,6 +42,7 @@ use buck2_cli_proto::ConfigOverride;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::cycles::CycleDetectorAdapter;
 use buck2_common::dice::cycles::PairDiceCycleDetector;
+use buck2_common::file_ops::HasReadDirCache;
 use buck2_common::http::SetHttpClient;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::invocation_paths::InvocationPaths;
@@ -106,6 +107,7 @@ use buck2_test::local_resource_registry::InitLocalResourceRegistry;
 use buck2_util::arc_str::ArcS;
 use buck2_util::truncate::truncate_container;
 use buck2_validation::enabled_optional_validations_key::SetEnabledOptionalValidations;
+use dashmap::DashMap;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceTransactionUpdater;
@@ -764,6 +766,7 @@ impl<'a, 's> DiceCommandUpdater<'a, 's> {
         data.set_critical_path_backend(critical_path_backend);
         data.init_local_resource_registry();
         data.init_bxl_streaming_tracker();
+        data.set_read_dir_cache(DashMap::new());
         data.spawner = self.cmd_ctx.base_context.daemon.spawner.dupe();
 
         let tags = vec![

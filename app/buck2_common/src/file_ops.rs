@@ -22,7 +22,9 @@ use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
 use compact_str::CompactString;
+use dashmap::DashMap;
 use derive_more::Display;
+use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
@@ -386,6 +388,42 @@ impl dyn FileOps + '_ {
 impl PartialEq for dyn FileOps {
     fn eq(&self, other: &dyn FileOps) -> bool {
         self.eq_token() == other.eq_token()
+    }
+}
+
+pub struct ReadDirCache(DashMap<CellPath, ReadDirOutput>);
+
+impl ReadDirCache {
+    pub fn get(&self, key: &CellPath) -> Option<ReadDirOutput> {
+        self.0.get(key).map(|entry| entry.clone())
+    }
+}
+
+pub trait HasReadDirCache {
+    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>);
+
+    fn get_read_dir_cache(&self) -> &ReadDirCache;
+
+    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput);
+}
+
+impl HasReadDirCache for UserComputationData {
+    fn set_read_dir_cache(&mut self, cache: DashMap<CellPath, ReadDirOutput>) {
+        self.data.set(ReadDirCache(cache));
+    }
+
+    fn get_read_dir_cache(&self) -> &ReadDirCache {
+        &self
+            .data
+            .get::<ReadDirCache>()
+            .expect("ReadDirCache is expected to be set.")
+    }
+
+    fn update_read_dir_cache(&self, cell_path: CellPath, read_dir_output: &ReadDirOutput) {
+        let updated_cache = self.get_read_dir_cache();
+        updated_cache
+            .0
+            .insert(cell_path.to_owned(), read_dir_output.clone());
     }
 }
 
