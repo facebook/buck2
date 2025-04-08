@@ -157,7 +157,7 @@ fn declare_output_dot() -> buck2_error::Result<()> {
          "#
     );
 
-    let expect = "artifact with an empty filename component";
+    let expect = "expected a normalized path";
     run_ctx_test(content, |ret| match ret {
         Err(e) if e.to_string().contains(expect) => Ok(()),
         _ => panic!(

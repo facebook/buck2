@@ -149,11 +149,9 @@ impl<'v> AnalysisRegistry<'v> {
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
     ) -> buck2_error::Result<DeclaredArtifact> {
-        // We want this artifact to be a file/directory inside the current context, which means
-        // things like `..` and the empty path `.` can be bad ideas. The `::new` method checks for those
-        // things and fails if they are present.
-
-        if filename == "." || filename.is_empty() {
+        // We don't allow declaring `` as an output, although technically there's nothing preventing
+        // that
+        if filename.is_empty() {
             return Err(DeclaredArtifactError::DeclaredEmptyFileName.into());
         }
 
